@@ -12,6 +12,9 @@ from pfs.datamodel import Identity
 from .subtractSky1d import SubtractSky1dTask
 from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
+from .SpectrumContinued import Spectrum
+from .datamodel.interpolate import interpolateFlux, interpolateMask
+from .fitContinuum import FitContinuumTask
 
 
 class WavelengthSamplingConfig(Config):
@@ -39,11 +42,12 @@ class MergeArmsConfig(Config):
                                        doc="Do 1D sky subtraction before merging arms?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT", "BAD_FLAT"],
                      doc="Mask values to reject when combining")
     pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
     if not, the values 0x666 and 0 are used.""")
+    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum to mean normalisation")
 
 
 class MergeArmsRunner(TaskRunner):
@@ -79,18 +83,20 @@ class MergeArmsTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("subtractSky1d")
+        self.makeSubtask("fitContinuum")
 
     def run(self, spectra, pfsConfig, lsfList):
         """Merge all extracted spectra from a single exposure
 
         Parameters
         ----------
-        spectra : iterable of `pfs.datamodel.PsfArm`
-            Extracted spectra from the different arms
+        spectra : iterable of iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra from the different arms, for each spectrograph.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, fiber targets.
-        lsfList : iterable of `pfs.drp.stella.Lsf`
-            Line-spread functions from the different arms
+        lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
+            Line-spread functions from the different arms, for each
+            spectrograph.
 
         Returns
         -------
@@ -114,12 +120,14 @@ class MergeArmsTask(CmdLineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
+        norm = self.normalizeSpectra(sum(spectra, []))
+
         sky1d = None
         if self.config.doSubtractSky1d:
             if self.config.doSubtractSky1dBeforeMerge:
                 sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
 
-        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss, norm) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
@@ -182,7 +190,57 @@ class MergeArmsTask(CmdLineTask):
         results.pfsConfig = pfsConfig
         return results
 
-    def mergeSpectra(self, spectraList):
+    def normalizeSpectra(self, spectra):
+        """Calculate and apply a suitable target normalisation
+
+        We want the merged spectra to have normalisations something close to
+        counts, and to approximate the fluxes from the image (this isn't
+        possible in the dichroic overlap, but is fairly well defined everywhere
+        else). We do this by resampling the input normalisations to a common
+        wavelength scale and taking a straight mean (without strong rejection,
+        so the very different values around the dichroic won't cause problems).
+        That will have some sharp features (due to, e.g., CRs that we've missed,
+        or even real spectral features like absorption bands), but we'll smooth
+        over that by fitting a continuum model. The continuum model will form
+        the basis for our target normalisation: we'll resample back to the
+        original wavelength frames and apply.
+
+        Parameters
+        ----------
+        spectra : iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra from the different arms, for each spectrograph.
+            The spectra will be modified in-place.
+
+        Returns
+        -------
+        norm : `numpy.ndarray` of `float`
+            Adopted normalisation.
+        """
+        wavelength = self.config.wavelength.wavelength
+        resampled = []
+        for ss in spectra:
+            badBitmask = ss.flags.get(*self.config.mask)
+            for ii in range(len(ss)):
+                norm = interpolateFlux(ss.wavelength[ii], ss.norm[ii], wavelength, fill=np.nan)
+                mask = interpolateMask(ss.wavelength[ii], ss.mask[ii], wavelength, fill=badBitmask)
+                ignore = ((mask & badBitmask) != 0) | ~np.isfinite(norm)
+                if np.all(ignore):
+                    continue
+                resampled.append(np.ma.masked_where(ignore, norm))
+
+        mean = np.ma.mean(resampled, axis=0)
+        spectrum = Spectrum(wavelength.size)
+        spectrum.flux = mean.data
+        spectrum.mask.array[0] = np.where(mean.mask, 0xFF, 0)
+        continuum = self.fitContinuum.fitContinuum(spectrum)
+
+        for ss in spectra:
+            norm = interpolateFlux(wavelength, continuum, ss.wavelength)
+            ss /= ss.norm/norm
+
+        return continuum
+
+    def mergeSpectra(self, spectraList, norm):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -192,6 +250,8 @@ class MergeArmsTask(CmdLineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
+        norm : `numpy.ndarray` of `float`
+            Adopted normalisation.
 
         Returns
         -------
@@ -211,7 +271,7 @@ class MergeArmsTask(CmdLineTask):
             self.log.warn("Barycentric correction is not yet implemented.")
 
         return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
-                         combination.sky, combination.covar, flags, archetype.metadata)
+                         combination.sky, norm, combination.covar, flags, archetype.metadata)
 
     def combine(self, spectra, flags):
         """Combine spectra
@@ -223,6 +283,8 @@ class MergeArmsTask(CmdLineTask):
             resampled to a common wavelength representation.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
+        norm : `numpy.ndarray` of `float`
+            Adopted normalisation.
 
         Returns
         -------

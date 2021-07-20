@@ -119,9 +119,11 @@ class SubtractSky1dTask(Task):
         for spectra, lsf in zip(spectraList, lsfList):
             maskVal = spectra.flags.get(*self.config.mask)
             for ii in skyFiberIndexes:
-                values.append(spectra.flux[ii])
-                variances.append(spectra.covar[ii][0] + self.config.sysErr*spectra.flux[ii])
-                masks.append((spectra.mask[ii] & maskVal) > 0)
+                flux = spectra.flux[ii]/spectra.norm[ii]
+                var = spectra.covar[ii][0]/spectra.norm[ii]**2
+                values.append(flux)
+                variances.append(var + self.config.sysErr*flux)
+                masks.append((spectra.mask[ii] & maskVal) != 0)
                 fiberId.append(spectra.fiberId[ii])
 
         return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig)
@@ -141,11 +143,13 @@ class SubtractSky1dTask(Task):
             1D sky model.
         """
         sky = self.fit.apply(sky1d, spectra.wavelength, spectra.fiberId, pfsConfig)
-        spectra.flux -= sky.values
-        spectra.sky += sky.values
+        skyValues = sky.values*spectra.norm
+        skyVariances = sky.variances*spectra.norm**2
+        spectra.flux -= skyValues
+        spectra.sky += skyValues
         bitmask = spectra.flags.add("BAD_SKY")
         spectra.mask[np.array(sky.masks)] |= bitmask
-        spectra.covar[:, 0, :] += sky.variances
+        spectra.covar[:, 0, :] += skyVariances
 
     def subtractSkySpectrum(self, spectrum, lsf, fiberId, pfsConfig, sky1d):
         """Subtract the 1D sky model from the spectrum, in-place

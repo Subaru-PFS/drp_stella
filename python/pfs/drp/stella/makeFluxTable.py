@@ -222,4 +222,7 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     indices = np.argsort(wavelength)
     flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
 
-    return FluxTable(wavelength[indices], flux[indices], np.sqrt(variance[indices]), mask[indices], flags)
+    with np.errstate(invalid="ignore"):
+        stdev = np.sqrt(variance[indices])
+
+    return FluxTable(wavelength[indices], flux[indices], stdev, mask[indices], flags)

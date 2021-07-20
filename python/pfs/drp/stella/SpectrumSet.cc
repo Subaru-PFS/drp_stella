@@ -31,6 +31,7 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("getAllMasks", &Class::getAllMasks);
     cls.def("getAllCovariances", &Class::getAllCovariances);
     cls.def("getAllBackgrounds", &Class::getAllBackgrounds);
+    cls.def("getAllNormalizations", &Class::getAllNormalizations);
 
     // Pythonic APIs
     cls.def("__len__", &Class::size);

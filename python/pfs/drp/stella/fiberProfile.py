@@ -260,5 +260,5 @@ class FiberProfile:
         spectrum : `pfs.drp.stella.Spectrum`
             Extracted spectrum.
         """
-        trace = self.makeFiberTrace(detectorMap, fiberId)
+        trace = self.makeFiberTraceFromDetectorMap(detectorMap, fiberId)
         return trace.extractSpectrum(maskedImage)

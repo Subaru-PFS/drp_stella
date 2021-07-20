@@ -112,6 +112,9 @@ class SpectrumSet {
     /// Return the backgrounds of all spectra in an array [length x nFibers]
     ImageArray getAllBackgrounds() const;
 
+    /// Return the normalisations of all spectra in an array [length x nFibers]
+    ImageArray getAllNormalizations() const;
+
     /// Return the internal representation
     Collection const& getInternal() const { return _spectra; }
 

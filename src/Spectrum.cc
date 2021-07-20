@@ -1,6 +1,8 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include "ndarray.h"
+#include "ndarray/eigen.h"
 #include "lsst/log/Log.h"
 
 #include "pfs/drp/stella/Spectrum.h"
@@ -14,6 +16,7 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
     _flux(ndarray::allocate(length)),
     _mask(length, 1),
     _background(ndarray::allocate(length)),
+    _norm(ndarray::allocate(length)),
     _covariance(ndarray::allocate(3, length)),
     _wavelength(ndarray::allocate(length)),
     _fiberId(fiberId),
@@ -22,6 +25,7 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
     _flux.deep() = 0.;
     _mask.getArray().deep() = 0;
     _background.deep() = 0.;
+    _norm.deep() = 1.0;
     _covariance.deep() = 0.;
     _wavelength.deep() = 0.;
 }
@@ -31,6 +35,7 @@ Spectrum::Spectrum(
     ImageArray const& flux,
     Mask const& mask,
     ImageArray const& background,
+    ImageArray const& norm,
     CovarianceMatrix const& covariance,
     WavelengthArray const& wavelength,
     int fiberId
@@ -38,6 +43,7 @@ Spectrum::Spectrum(
     _flux(flux),
     _mask(mask),
     _background(background),
+    _norm(norm),
     _covariance(covariance),
     _wavelength(wavelength),
     _fiberId(fiberId),
@@ -63,6 +69,12 @@ void Spectrum::setBackground(Spectrum::ImageArray const& background) {
 }
 
 
+void Spectrum::setNorm(Spectrum::ImageArray const& norm) {
+    utils::checkSize(norm.getShape()[0], _length, "Spectrum::setNorm");
+    _norm.deep() = norm;
+}
+
+
 void Spectrum::setVariance(Spectrum::VarianceArray const& variance) {
     utils::checkSize(variance.getShape()[0], _length, "Spectrum::setVariance");
     _covariance[0].deep() = variance;
@@ -82,5 +94,11 @@ void Spectrum::setWavelength(Spectrum::WavelengthArray const& wavelength) {
     _isWavelengthSet = true;
 }
 
+
+Spectrum::ImageArray Spectrum::getNormFlux() const {
+    Spectrum::ImageArray normFlux = ndarray::allocate(_length);
+    ndarray::asEigenArray(normFlux) = ndarray::asEigenArray(_flux)/ndarray::asEigenArray(_norm);
+    return normFlux;
+}
 
 }}} // namespace pfs::drp::stella

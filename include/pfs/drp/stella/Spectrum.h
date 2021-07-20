@@ -37,6 +37,7 @@ class Spectrum {
     /// @param flux  Spectrum values
     /// @param mask  Mask values
     /// @param background  Background values
+    /// @param norm  Normalisation
     /// @param covariance  Covariance matrix
     /// @param wavelength  Wavelength values
     /// @param lines  Line list
@@ -45,6 +46,7 @@ class Spectrum {
         ImageArray const& flux,
         Mask const& mask,
         ImageArray const& background,
+        ImageArray const& norm,
         CovarianceMatrix const& covariance,
         WavelengthArray const& wavelength,
         int fiberId=0
@@ -79,6 +81,15 @@ class Spectrum {
     ImageArray getBackground() { return _background; }
     ConstImageArray getBackground() const { return _background; }
     //@}
+
+    //@{
+    /// Return the normalisation
+    ImageArray getNorm() { return _norm; }
+    ConstImageArray getNorm() const { return _norm; }
+    //@}
+
+    /// Return the normalised flux
+    ImageArray getNormFlux() const;
 
     //@{
     /// Return the variance of this spectrum
@@ -117,22 +128,25 @@ class Spectrum {
         return setFlux(spectrum);
     }
 
-    /// Set the background pointer of this fiber trace to covar (deep copy)
+    /// Set the background array (deep copy)
     void setBackground(ImageArray const& background);
 
-    /// Set the covariance pointer of this fiber trace to covar (deep copy)
+    /// Set the normalisation (deep copy)
+    void setNorm(ImageArray const& norm);
+
+    /// Set the variance (deep copy)
     void setVariance(VarianceArray const& variance);
 
-    /// Set the covariance pointer of this fiber trace to covar (deep copy)
+    /// Set the covariance (deep copy)
     void setCovariance(CovarianceMatrix const& covar);
 
-    /// Set the wavelength vector of this spectrum (deep copy)
+    /// Set the wavelength  (deep copy)
     void setWavelength(WavelengthArray const& wavelength);
 
-    /// Set the mask vector of this spectrum (deep copy)
+    /// Set the mask (deep copy)
     void setMask(Mask const& mask);
 
-    /// Set the fiber identifier of this spectrum
+    /// Set the fiber identifier
     void setFiberId(int fiberId) { _fiberId = fiberId; }
 
     bool isWavelengthSet() const { return _isWavelengthSet; }
@@ -142,6 +156,7 @@ class Spectrum {
     ImageArray _flux;
     Mask _mask;
     ImageArray _background;
+    ImageArray _norm;
     CovarianceMatrix _covariance;
     WavelengthArray _wavelength;
     int _fiberId;

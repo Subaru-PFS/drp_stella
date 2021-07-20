@@ -33,6 +33,7 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
         self.flux = self.rng.uniform(size=shape)
         self.mask = self.rng.uniform(high=2**31, size=shape).astype(np.int32)
         self.sky = self.rng.uniform(size=shape)
+        self.norm = self.rng.uniform(size=shape)
         self.covar = self.rng.uniform(size=(num, 3, self.synthConfig.height))
         self.flags = MaskHelper()
         self.metadata = dict(FOO=12345, BAR=0.9876)  # FITS keywords get capitalised
@@ -40,14 +41,15 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
     def makeSpectra(self):
         """Construct an instance of the spectral class we're testing"""
         kwargs = {name: getattr(self, name) for name in
-                  ("identity", "fiberId", "wavelength", "flux", "mask", "sky", "covar", "flags", "metadata")}
+                  ("identity", "fiberId", "wavelength", "flux", "mask", "sky", "norm",
+                   "covar", "flags", "metadata")}
         return self.SpectraClass(**kwargs)
 
     def assertSpectra(self, spectra):
         """Check that the spectra match what's expected"""
         for name in ("visit", "arm", "spectrograph", "pfsDesignId"):
             self.assertEqual(getattr(spectra.identity, name), getattr(self, name))
-        for name in ("fiberId", "wavelength", "flux", "mask", "sky", "covar"):
+        for name in ("fiberId", "wavelength", "flux", "mask", "sky", "norm", "covar"):
             self.assertFloatsEqual(getattr(spectra, name), getattr(self, name))
         self.assertDictEqual(spectra.flags.flags, self.flags.flags)
         self.assertDictEqual({**self.metadata, **spectra.metadata}, spectra.metadata)
@@ -64,7 +66,7 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
         select = self.fiberId % 2 == 0
         sub = spectra[select]
         self.assertEqual(len(sub), select.sum())
-        for name in ("fiberId", "wavelength", "flux", "mask", "sky", "covar"):
+        for name in ("fiberId", "wavelength", "flux", "mask", "sky", "norm", "covar"):
             setattr(self, name, getattr(self, name)[select])
         self.assertSpectra(spectra)
 

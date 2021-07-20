@@ -127,7 +127,7 @@ class FindLinesTask(Task):
         sigma = self.config.width
         kernel = np.exp(-0.5*xx**2/sigma**2)/sigma/np.sqrt(2.0*np.pi)
 
-        flux = np.convolve(spectrum.spectrum if continuum is None else spectrum.spectrum - continuum,
+        flux = np.convolve(spectrum.normFlux if continuum is None else spectrum.normFlux - continuum,
                            kernel, mode="same")
         covariance = np.zeros_like(spectrum.covariance)
         covariance[0, :] = np.convolve(spectrum.variance, kernel**2, mode="same")
@@ -142,7 +142,8 @@ class FindLinesTask(Task):
         mask.array[0, :halfSize] |= mask.getPlaneBitMask("NO_DATA")
         mask.array[0, len(spectrum) - halfSize:] |= mask.getPlaneBitMask("NO_DATA")
 
-        return Spectrum(flux, mask, background, covariance, spectrum.wavelength, spectrum.fiberId)
+        return Spectrum(flux, mask, background, np.ones_like(flux), covariance, spectrum.wavelength,
+                        spectrum.fiberId)
 
     def findPeaks(self, spectrum):
         """Find positive peaks in the spectrum
@@ -159,7 +160,7 @@ class FindLinesTask(Task):
         indices : `numpy.ndarray` of `int`
             Indices of peaks.
         """
-        flux = spectrum.spectrum
+        flux = spectrum.normFlux
         with np.errstate(invalid='ignore', divide="ignore"):
             stdev = np.sqrt(spectrum.variance)
             diff = flux[1:] - flux[:-1]  # flux[i + 1] - flux[i]

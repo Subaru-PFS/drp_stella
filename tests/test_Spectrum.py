@@ -27,12 +27,13 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
         self.background = self.rng.uniform(size=self.length).astype(float)
+        self.norm = self.rng.uniform(size=self.length).astype(float)
         self.covariance = self.rng.uniform(size=(3, self.length)).astype(float)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
-        return Spectrum(self.image, self.mask, self.background, self.covariance,
+        return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
                         self.wavelengthArray, self.fiberId)
 
     def assertSpectrum(self, spectrum):
@@ -43,6 +44,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertImagesEqual(spectrum.mask, self.mask)
         self.assertFloatsEqual(spectrum.variance, self.covariance[0])
         self.assertFloatsEqual(spectrum.background, self.background)
+        self.assertFloatsEqual(spectrum.norm, self.norm)
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
 
@@ -60,6 +62,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(spectrum.mask.getWidth(), self.length)
         self.assertEqual(spectrum.variance.shape, (self.length,))
         self.assertEqual(spectrum.background.shape, (self.length,))
+        self.assertEqual(spectrum.norm.shape, (self.length,))
         self.assertEqual(spectrum.covariance.shape, (3, self.length))
         self.assertEqual(spectrum.wavelength.shape, (self.length,))
 
@@ -68,6 +71,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum.setSpectrum(self.image)
         spectrum.setMask(self.mask)
         spectrum.setBackground(self.background)
+        spectrum.setNorm(self.norm)
         spectrum.setCovariance(self.covariance)
         spectrum.setWavelength(self.wavelengthArray)
         self.assertSpectrum(spectrum)
@@ -78,6 +82,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum.flux = self.image
         spectrum.mask = self.mask
         spectrum.background = self.background
+        spectrum.norm = self.norm
         spectrum.covariance = self.covariance
         spectrum.wavelength = self.wavelengthArray
         self.assertSpectrum(spectrum)
@@ -87,6 +92,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
         self.background[:] = self.rng.uniform(size=self.length)
+        self.norm[:] = self.rng.uniform(size=self.length)
         self.covariance[:] = self.rng.uniform(size=(3, self.length))
         self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsNotEqual(spectrum.flux, self.image)
@@ -94,6 +100,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsNotEqual(spectrum.mask.array, self.mask.array)
         self.assertFloatsNotEqual(spectrum.variance, self.covariance[0])
         self.assertFloatsNotEqual(spectrum.background, self.background)
+        self.assertFloatsNotEqual(spectrum.norm, self.background)
         self.assertFloatsNotEqual(spectrum.covariance, self.covariance)
         self.assertFloatsNotEqual(spectrum.wavelength, self.wavelengthArray)
 
@@ -113,14 +120,17 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertImagesEqual(spectrum.getMask(), self.mask)
         self.assertFloatsEqual(spectrum.getVariance(), self.covariance[0])
         self.assertFloatsEqual(spectrum.getBackground(), self.background)
+        self.assertFloatsEqual(spectrum.getNorm(), self.norm)
         self.assertFloatsEqual(spectrum.getCovariance(), self.covariance)
         self.assertFloatsEqual(spectrum.getWavelength(), self.wavelengthArray)
+        self.assertFloatsEqual(spectrum.getNormFlux(), self.image/self.norm)
 
         # Change versions in self and ensure the values in spectrum change (pointers)
         self.image[:] = self.rng.uniform(size=self.length)
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**31, self.length).astype(np.int32)
         self.background[:] = self.rng.uniform(size=self.length)
+        self.norm[:] = self.rng.uniform(size=self.length)
         self.covariance[:] = self.rng.uniform(size=(3, self.length))
         self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsEqual(spectrum.flux, self.image)
@@ -130,6 +140,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectrum.background, self.background)
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
+        self.assertFloatsEqual(spectrum.normFlux, self.image/self.norm)
 
         # Set the variance and ensure it changes the covariance
         spectrum.covariance[:] = self.covariance

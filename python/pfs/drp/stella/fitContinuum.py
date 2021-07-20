@@ -101,7 +101,8 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        good = np.isfinite(spectrum.spectrum)
+        flux = spectrum.normFlux
+        good = np.isfinite(flux)
         if self.config.doMaskLines and lines is not None and spectrum.isWavelengthSet():
             good &= self.maskLines(spectrum, lines)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
@@ -110,13 +111,13 @@ class FitContinuumTask(Task):
         keep = np.ones_like(good, dtype=bool)
         for ii in range(self.config.iterations):
             use = good & keep
-            fit = self._fitContinuumImpl(spectrum.spectrum, use)
-            diff = spectrum.spectrum - fit
+            fit = self._fitContinuumImpl(flux, use)
+            diff = flux - fit
             lq, uq = np.percentile(diff[use], [25.0, 75.0])
             stdev = 0.741*(uq - lq)
             with np.errstate(invalid='ignore'):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
-        return self._fitContinuumImpl(spectrum.spectrum, good & keep)
+        return self._fitContinuumImpl(flux, good & keep)
 
     def _fitContinuumImpl(self, values, good):
         """Implementation of the business part of fitting

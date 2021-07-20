@@ -1,3 +1,4 @@
+#include <numeric>
 #include <algorithm>
 
 #include "lsst/afw/math/LeastSquares.h"
@@ -119,6 +120,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         spectrum->getSpectrum().deep() = 0.0;
         spectrum->getMask().getArray().deep() = spectrum->getMask().getPlaneBitMask("NO_DATA");
         spectrum->getCovariance().deep() = 0.0;
+        spectrum->getNorm().deep() = 0.0;
     }
 
     // yData is the position on the image (and therefore the extracted spectrum)
@@ -130,6 +132,16 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto const& box = _traces[ii]->getTrace().getBBox();
             useTrace[ii] = (yActual >= box.getMinY() && yActual <= box.getMaxY());
             maskResult[ii] = noData;
+
+            if (useTrace[ii]) {
+                std::size_t const yy = yData - box.getMinY();
+                auto const& trace = ndarray::asEigenArray(_traces[ii]->getTrace().getImage()->getArray()[yy]);
+                result[ii]->getNorm()[yData] = trace.template cast<double>().sum();
+                if (result[ii]->getNorm()[yData] == 0) {
+                    useTrace[ii] = false;
+                    maskResult[ii] |= badFiberTrace;
+                }
+            }
         }
 
         // Construct least-squares matrix and vector
@@ -155,6 +167,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             std::size_t const ixMax = iTrace.getBBox().getMaxX();
             auto const& iModelImage = *iTrace.getImage();
             auto const& iModelMask = *iTrace.getMask();
+            double const iNorm = result[ii]->getNorm()[yData];
             maskResult[ii] = 0;
             std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), x0);
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
@@ -162,7 +175,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                  ++xModel, ++xData) {
                 if (dataMask(xData, yData) & badBitMask) continue;
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
-                double const modelValue = iModelImage(xModel, iyModel);
+                double const modelValue = iModelImage(xModel, iyModel)/iNorm;
                 if (modelValue == 0.0) continue;  // don't accumulate the mask
                 maskResult[ii] |= dataMask(xData, yData);
                 double const m2 = std::pow(modelValue, 2);
@@ -202,6 +215,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto const& jTrace = _traces[jj]->getTrace();
             auto const& jModelImage = *jTrace.getImage();
             auto const& jModelMask = *jTrace.getMask();
+            double const jNorm = result[jj]->getNorm()[yData];
 
             // Determine overlap
             assert(jTrace.getBBox().getMinX() >= 0 && jTrace.getBBox().getMinY() >= 0);
@@ -224,7 +238,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 if (!(iModelMask(xi, iyModel) & require)) continue;
                 if (!(jModelMask(xj, jyModel) & require)) continue;
                 if (dataMask(xData, yData) & badBitMask) continue;
-                double const mm = double(iModelImage(xi, iyModel))*double(jModelImage(xj, jyModel));
+                double const iModel = iModelImage(xi, iyModel)/iNorm;
+                double const jModel = jModelImage(xj, jyModel)/jNorm;
+                double const mm = iModel*jModel;
                 modelModel += mm;
                 modelModelWeighted += mm/dataVariance(xData, yData);
             }
