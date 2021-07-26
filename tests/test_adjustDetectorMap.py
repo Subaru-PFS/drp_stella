@@ -145,16 +145,14 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         fiberProfiles = BuildFiberProfilesTask(config=profilesConfig).run(exposure, self.base).profiles
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(self.base)
 
-        if display is not None:
-            disp = Display(frame=1, backend=display)
-            disp.mtv(exposure)
-            self.distorted.display(disp, ctype="red", wavelengths=refLines.wavelength)
-
         centroidLines = CentroidLinesTask()
         centroidTraces = CentroidTracesTask()
         centroidLines.config.fwhm = self.synthConfig.fwhm
         centroidTraces.config.fwhm = self.synthConfig.fwhm
-        lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
+        if numLines > 0:
+            lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
+        else:
+            lines = None
         traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
 
         config = AdjustDetectorMapConfig()
@@ -162,7 +160,18 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         task = AdjustDetectorMapTask(config=config)
         task.log.setLevel(task.log.DEBUG)
 
-        adjusted = task.run(self.distorted, lines, traces)
+        if display is not None:
+            disp = Display(frame=1, backend=display)
+            disp.mtv(exposure)
+            self.distorted.display(disp, ctype="red", wavelengths=refLines.wavelength)
+            with disp.Buffering():
+                for ll in lines:
+                    disp.dot("o", ll.x, ll.y, ctype="blue")
+                for ff in traces:
+                    for tt in traces[ff]:
+                        disp.dot("+", tt.peak, tt.row, ctype="blue")
+
+        adjusted = task.run(self.distorted, lines, traces=traces)
         self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
 
         if display is not None:
