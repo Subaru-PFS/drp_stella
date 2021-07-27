@@ -23,6 +23,7 @@ scripts.BasicSConscript.pybind11(
      'DistortedDetectorMap',
      'photometry',
      'centroidImage',
+     'maskLines',
      ],
     addUnderscore=False
 )
