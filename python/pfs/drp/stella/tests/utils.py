@@ -3,6 +3,7 @@ import shutil
 import unittest
 import tempfile
 import functools
+import itertools
 from contextlib import contextmanager
 
 """Decorators for tests
@@ -10,7 +11,7 @@ from contextlib import contextmanager
 These have been added to LSST, but haven't been included in a release yet.
 """
 
-__all__ = ["classParameters", "methodParameters", "runTests", "temporaryDirectory"]
+__all__ = ["classParameters", "methodParameters", "methodParametersProduct", "runTests", "temporaryDirectory"]
 
 
 def classParameters(**settings):
@@ -98,6 +99,39 @@ def methodParameters(**settings):
                     func(self, *args, **kwargs)
         return wrapper
     return decorator
+
+
+def methodParametersProduct(**settings):
+    """Method decorator for unit tests
+
+    This decorator iterates over the cartesian product of the supplied settings,
+    using ``TestCase.subTest`` to communicate the values in the event of a
+    failure.
+
+    Parameters
+    ----------
+    **settings : `dict` (`str`: iterable)
+        The parameter combinations to test. Each should be an iterable.
+
+    Example
+    -------
+
+        @methodParameters(foo=[1, 2], bar=["black", "white"])
+        def testSomething(self, foo, bar):
+            ...
+
+    will run:
+
+        testSomething(foo=1, bar="black")
+        testSomething(foo=1, bar="white")
+        testSomething(foo=2, bar="black")
+        testSomething(foo=2, bar="white")
+    """
+    product = {kk: [] for kk in settings}
+    for values in itertools.product(*settings.values()):
+        for kk, vv in zip(settings.keys(), values):
+            product[kk].append(vv)
+    return methodParameters(**product)
 
 
 @contextmanager

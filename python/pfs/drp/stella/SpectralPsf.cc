@@ -81,6 +81,12 @@ PYBIND11_PLUGIN(SpectralPsf) {
     declareSpectralPsf(mod);
     declareOversampledPsf(mod);
     declareImagingSpectralPsf(mod);
+
+    using PixelT = lsst::afw::detection::Psf::Pixel;
+    mod.def("resampleKernelImage", &resampleKernelImage<PixelT>,
+            "image"_a, "binning"_a, "bbox"_a, "center"_a=lsst::geom::Point2D(0, 0));
+    mod.def("recenterOversampledKernelImage", &recenterOversampledKernelImage<PixelT>,
+            "image"_a, "binning"_a, "center"_a=lsst::geom::Point2D(0, 0));
     return mod.ptr();
 }
 
