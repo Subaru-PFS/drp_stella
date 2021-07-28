@@ -22,6 +22,7 @@ class MeasureFluxCalibrationConfig(Config):
 class MeasureFluxCalibrationTask(Task):
     """Measure the flux calibration"""
     ConfigClass = MeasureFluxCalibrationConfig
+    _DefaultName = "measureFluxCal"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

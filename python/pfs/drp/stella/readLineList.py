@@ -24,7 +24,7 @@ class ReadLineListConfig(Config):
 class ReadLineListTask(Task):
     """Read a linelist"""
     ConfigClass = ReadLineListConfig
-    _DefaultName = "ReadLineListTask"
+    _DefaultName = "readLineList"
 
     def run(self, detectorMap=None, metadata=None):
         """Read a linelist

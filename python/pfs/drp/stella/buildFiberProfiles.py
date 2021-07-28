@@ -48,7 +48,7 @@ class BuildFiberProfilesConfig(Config):
 class BuildFiberProfilesTask(Task):
     """Build a FiberTraceSet from an image"""
     ConfigClass = BuildFiberProfilesConfig
-    _DefaultName = "BuildFiberProfiles"
+    _DefaultName = "buildFiberProfiles"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

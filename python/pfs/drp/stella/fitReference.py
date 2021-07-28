@@ -168,6 +168,7 @@ class FitReferenceTask(Task):
     simulated spectra with a constant flux density (per unit frequency)
     """
     ConfigClass = FitReferenceConfig
+    _DefaultName = "fitReference"
 
     def run(self, spectrum):
         """Fit a physical spectrum to an observed spectrum

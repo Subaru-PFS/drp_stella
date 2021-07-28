@@ -124,6 +124,7 @@ class FitFocalPlaneTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
+        self._DefaultName = "fitFocalPlane"
 
     def run(self, wavelength, vectors, variances, masks, fiberIdList, pfsConfig):
         """Fit a vector function as a function of wavelength over the focal plane

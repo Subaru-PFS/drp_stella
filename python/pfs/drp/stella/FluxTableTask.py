@@ -16,6 +16,7 @@ class FluxTableConfig(Config):
 class FluxTableTask(Task):
     """Build a FluxTable"""
     ConfigClass = FluxTableConfig
+    _DefaultName = "fluxTable"
 
     def run(self, identities, spectra, flags):
         """Create a FluxTable from multiple spectra

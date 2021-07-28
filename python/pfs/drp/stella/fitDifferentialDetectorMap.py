@@ -303,6 +303,7 @@ class FitDifferentialDetectorMapConfig(Config):
 
 class FitDifferentialDetectorMapTask(Task):
     ConfigClass = FitDifferentialDetectorMapConfig
+    _DefaultName = "fitDetectorMap"
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)

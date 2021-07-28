@@ -23,6 +23,7 @@ class MeasurePsfTask(Task):
     This is currently a non-functional placeholder.
     """
     ConfigClass = MeasurePsfConfig
+    _DefaultName = "measurePsf"
 
     def run(self, sensorRefList, exposureList, detectorMapList):
         """Measure the PSF for an exposure over the entire spectrograph
