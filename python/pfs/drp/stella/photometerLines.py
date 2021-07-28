@@ -47,6 +47,7 @@ class PhotometerLinesConfig(Config):
 class PhotometerLinesTask(Task):
     """Centroid lines on an arc"""
     ConfigClass = PhotometerLinesConfig
+    _DefaultName = "photometerLines"
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)

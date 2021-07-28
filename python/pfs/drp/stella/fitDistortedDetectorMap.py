@@ -297,6 +297,7 @@ class FitDistortedDetectorMapConfig(Config):
 
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
+    _DefaultName = "fitDetectorMap"
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)

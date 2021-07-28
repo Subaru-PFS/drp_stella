@@ -193,6 +193,7 @@ class BuildExtendedFiberTracesConfig(BuildFiberTracesConfig):
 
 class BuildExtendedFiberTracesTask(BuildFiberTracesTask):
     ConfigClass = BuildExtendedFiberTracesConfig
+    _DefaultName = "buildExtendedFiberTraces"
 
     def buildFiberTraces(self, maskedImage, detectorMap=None, pfsConfig=None):
         """Build a FiberTraceSet from an image and extend it with an average

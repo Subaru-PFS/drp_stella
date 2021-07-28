@@ -46,6 +46,7 @@ class FitContinuumTask(Task):
     - ``plotBins`` (`int`): number of bins if not ``plotAll`` (default 1000).
     """
     ConfigClass = FitContinuumConfig
+    _DefaultName = "fitContinuum"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

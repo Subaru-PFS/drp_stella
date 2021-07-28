@@ -28,6 +28,7 @@ class MeasureSlitOffsetsConfig(Config):
 class MeasureSlitOffsetsTask(Task):
     """Measure consistent x,y offsets applicable to all fibers"""
     ConfigClass = MeasureSlitOffsetsConfig
+    _DefaultName = "measureSlitOffsets"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
