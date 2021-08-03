@@ -46,13 +46,13 @@ std::shared_ptr<lsst::afw::image::Image<T>> resampleKernelImage(
 /// @param image : image to recenter.
 /// @param binning : binning factor to be applied (important for putting the
 ///     center in the right place
-/// @param center : desired center (in native pixel frame)
+/// @param target : desired center (in native pixel frame)
 /// @return recentered image.
 template<typename T>
 std::shared_ptr<lsst::afw::image::Image<T>> recenterOversampledKernelImage(
     lsst::afw::image::Image<T> const& image,
     int binning=1,
-    lsst::geom::Point2D const& center=lsst::geom::Point2D(0, 0)
+    lsst::geom::Point2D const& target=lsst::geom::Point2D(0, 0)
 );
 
 

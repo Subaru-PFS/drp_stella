@@ -13,6 +13,7 @@
 #include "lsst/afw/geom/SpanSet.h"
 
 #include "pfs/drp/stella/SpectralPsf.h"
+#include "pfs/drp/stella/centroidImage.h"
 
 namespace pfs {
 namespace drp {
@@ -66,43 +67,30 @@ resampleKernelImage(
     return resampled;
 }
 
+
 template<typename T>
 std::shared_ptr<lsst::afw::image::Image<T>>
 recenterOversampledKernelImage(
     lsst::afw::image::Image<T> const& image,
     int binning,
-    lsst::geom::Point2D const& center
+    lsst::geom::Point2D const& target
 ) {
-    std::size_t const width = image.getWidth();
-    std::size_t const height = image.getHeight();
-    auto const& array = image.getArray();
-    double xSum = 0;
-    double ySum = 0;
-    double sum = 0;
-    for (std::size_t y = 0; y < height; ++y) {
-        for (std::size_t x = 0; x < width; ++x) {
-            double const value = array[y][x];
-            xSum += value*x;
-            ySum += value*y;
-            sum += value;
-        }
-    }
-    xSum /= sum;
-    ySum /= sum;
-    xSum += image.getX0();
-    ySum += image.getY0();
+    // Centroid using SdssCentroid: same as for our arc line measurements
+    // This may be slow, as it does an initial first and second moment measurement before running
+    // SdssCentroid. If it turns out to be too slow, we can have this function be provided a guess
+    // PSF sigma.
+    auto centroid = centroidImage(image);
 
     // Binning by an odd factor requires the centroid at the center of a pixel.
     // Binning by an even factor requires the centroid on the edge of a pixel.
     if (binning % 2 == 0) {
-        xSum -= 0.5;
-        ySum -= 0.5;
+        centroid -= lsst::geom::Extent2D(0.5, 0.5);
     }
 
-    auto const xPosition = lsst::afw::image::positionToIndex(center.getX(), true);
-    auto const yPosition = lsst::afw::image::positionToIndex(center.getY(), true);
-    double const xOffset = xPosition.second*binning - xSum;
-    double const yOffset = yPosition.second*binning - ySum;
+    auto const xPosition = lsst::afw::image::positionToIndex(target.getX(), true);
+    auto const yPosition = lsst::afw::image::positionToIndex(target.getY(), true);
+    double const xOffset = xPosition.second*binning - centroid.getX();
+    double const yOffset = yPosition.second*binning - centroid.getY();
 
     std::string const warpAlgorithm = "lanczos5";
     unsigned int const warpBuffer = 5;
