@@ -22,6 +22,7 @@ scripts.BasicSConscript.pybind11(
      'DetectorDistortion',
      'DistortedDetectorMap',
      'photometry',
+     'centroidImage',
      ],
     addUnderscore=False
 )

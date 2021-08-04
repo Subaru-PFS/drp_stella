@@ -154,7 +154,7 @@ class OversampledPsfTestCase(lsst.utils.tests.TestCase):
         moments = calculateSecondMoments(kernel, centroid)
         self.assertFloatsAlmostEqual(moments.xx, self.sigma**2, rtol=2.0e-2)
         self.assertFloatsAlmostEqual(moments.yy, self.sigma**2, rtol=2.0e-2)
-        self.assertFloatsAlmostEqual(moments.xy, 0.0, atol=1.0e-16)
+        self.assertFloatsAlmostEqual(moments.xy, 0.0, atol=2.0e-16)
 
     def testShape(self):
         """Test computeShape"""
