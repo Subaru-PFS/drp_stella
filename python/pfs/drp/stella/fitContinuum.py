@@ -7,6 +7,7 @@ from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
+from pfs.drp.stella.maskLines import maskLines
 
 __all__ = ("FitContinuumConfig", "FitContinuumTask", "FitContinuumError")
 
@@ -105,7 +106,7 @@ class FitContinuumTask(Task):
         flux = spectrum.normFlux
         good = np.isfinite(flux)
         if self.config.doMaskLines and lines is not None and spectrum.isWavelengthSet():
-            good &= self.maskLines(spectrum, lines)
+            good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
         if not np.any(good):
             raise FitContinuumError("No good values when fitting continuum")
@@ -193,39 +194,6 @@ class FitContinuumTask(Task):
         result = Spectrum(len(array), fiberId)
         result.spectrum = array
         return result
-
-    def maskLines(self, spectrum, lines):
-        """Mask reference lines in the spectrum
-
-        Parameters
-        ----------
-        spectrum : `pfs.drp.stella.Spectrum`
-            Spectrum to mask.
-        lines : `pfs.drp.stella.ReferenceLineSet`
-            Reference lines to mask.
-
-        Returns
-        -------
-        good : boolean `numpy.ndarray`
-            Array indiciating which values are good (i.e., do not
-            contain a line).
-        """
-        wavelength = spectrum.wavelength
-        delta = np.diff(wavelength)
-        assert np.all(delta >= 0) or np.all(delta <= 0), "Monotonic"
-        del delta
-        num = len(wavelength)
-        good = np.ones(num, dtype=bool)
-        indices = np.interp(lines.wavelength, wavelength, np.arange(num, dtype=int),
-                            left=np.nan, right=np.nan)
-        for ii in indices:
-            if np.isnan(ii):
-                continue
-            index = int(ii + 0.5)
-            low = max(0, index - self.config.maskLineRadius)
-            high = min(num - 1, index + self.config.maskLineRadius)
-            good[low:high] = False
-        return good
 
     def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
         """Subtract continuum from an image

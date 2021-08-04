@@ -26,6 +26,7 @@ import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, DictField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
+from lsst.afw.display import Display
 from lsst.pipe.tasks.repair import RepairTask
 from pfs.datamodel import FiberStatus
 from .measurePsf import MeasurePsfTask
@@ -449,8 +450,21 @@ class ReduceExposureTask(CmdLineTask):
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
         if self.config.doAdjustDetectorMap:
-            traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces).detectorMap
+            traces = None
+            if not self.adjustDetectorMap.isSufficientGoodLines(lines):
+                traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+            if self.debugInfo.detectorMap:
+                display = Display(frame=1)
+                display.mtv(exposure)
+                detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
+                                    ctype="red", plotTraces=False)
+
+            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
+
+            if self.debugInfo.detectorMap:
+                detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
+                                    ctype="green", plotTraces=False)
+
             sensorRef.put(detectorMap, "detectorMap_used")
             fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
         else:

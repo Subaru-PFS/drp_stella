@@ -156,6 +156,15 @@ ndarray::Array<std::size_t, 1, 1> argsort(ndarray::Array<T, 1, 1> const& array) 
 }
 
 
+/// Return reversed array
+template <typename T>
+ndarray::Array<T, 1, 1> reversed(ndarray::Array<T, 1, 1> const& array) {
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(array.size());
+    std::reverse_copy(array.begin(), array.end(), out.begin());
+    return out;
+}
+
+
 }}}}  // namespace pfs::drp::stella::utils
 
 #endif

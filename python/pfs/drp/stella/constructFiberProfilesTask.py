@@ -12,7 +12,7 @@ from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
-from . import ArcLineSet, FiberProfileSet
+from . import FiberProfileSet
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -145,7 +145,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         if self.config.doAdjustDetectorMap:
             traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
-            detMap = self.adjustDetectorMap.run(detMap, ArcLineSet.empty(), traces).detectorMap
+            detMap = self.adjustDetectorMap.run(detMap, traces=traces).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
         results = self.profiles.run(exposure, detMap, pfsConfig)
