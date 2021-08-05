@@ -212,15 +212,14 @@ class ReferenceLineSet:
                       f"{line.description:7s} {line.status:6d}",
                       file=fd)
 
-    def plot(self, what="wavelength", ls='-', alpha=1, color=None, label=None,
-             labelStatus=True, labelLines=False, wavelength=None, spectrum=None):
+    def plot(self, axes, ls='-', alpha=1, color=None, label=None,
+             labelStatus=True, labelLines=False, pixels=False, wavelength=None, spectrum=None):
         """Plot a set of reference lines using axvline
 
         Parameters
         ----------
-        what : `str`, optional
-            Which field to plot. This should be an element of `ReferenceLine`:
-            usually ``wavelength`` but maybe ``intensity``.
+        axes : `matplotlib.Axes`
+            Plot axes.
         ls : `str`, optional
             Line style for plotting.
         alpha : `float`, optional
@@ -235,82 +234,79 @@ class ReferenceLineSet:
             Label lines? Lines will be labelled at the top of the plot unless a
             ``spectrum`` is provided, in which case the labels will appear near
             the peaks of the lines.
+        pixels : `bool`, optional
+            Plot is in pixels? If so, you need to provide a ``wavelength`` array
+            as well.
         wavelength : array_like, optional
-            Wavelength array for underlying plot.
+            Wavelength array for underlying plot; for setting the horizontal
+            position when the plot is in pixels, and finding the intensity
+            when labeling lines.
         spectrum : array_like, optional
-            Intensity array for underlying plot.
+            Intensity array for underlying plot; for setting the vertical
+            position of labels.
         """
-        import matplotlib.pyplot as plt
-        if label == '':
+        if label == "":
             label = None
+        if pixels:
+            if wavelength is None:
+                raise RuntimeError("No wavelength array provided")
+            from scipy.interpolate import interp1d
+            interpolate = interp1d(wavelength, np.arange(len(wavelength)), bounds_error=False)
 
-        def maybeSetLabel(status):
-            if labelLines:
-                if labelStatus:
-                    lab = "%s %s" % (what, status)  # n.b. label is in caller's scope
-                else:
-                    lab = what
-
-                lab = None if lab in labels else lab
-                labels[lab] = True
-
-                return lab
-            else:
-                return label
-
-        if len(plt.gca().get_lines()) > 0:  # they've plotted something already
-            xlim = plt.xlim()
+        if len(axes.get_lines()) > 0:  # they've plotted something already
+            xlim = axes.get_xlim()
         else:
             xlim = None
 
-        labels = {}                         # labels that we've used if labelLines is True
+        usedLabels = set()  # labels that we've used if labelLines is True
         for rl in self:
-            if (rl.status & rl.Status.NOT_VISIBLE):
+            if (rl.status & ReferenceLineStatus.NOT_VISIBLE):
                 color = 'black'
                 label = "not visible"
-            if (rl.status & rl.Status.BLEND):
+            if (rl.status & ReferenceLineStatus.BLEND):
                 color = 'blue'
                 label = "blended"
-            elif (rl.status & rl.Status.SUSPECT):
+            elif (rl.status & ReferenceLineStatus.SUSPECT):
                 color = 'magenta'
                 label = "suspect"
-            elif (rl.status & rl.Status.REJECTED):
+            elif (rl.status & ReferenceLineStatus.REJECTED):
                 color = 'red'
                 label = "rejected"
-            elif (rl.status & rl.Status.BROAD):
+            elif (rl.status & ReferenceLineStatus.BROAD):
                 color = 'brown'
                 label = "broad"
             else:
                 color = 'green'
                 label = "good"
 
-            label = maybeSetLabel(label)
+            label = label if label not in usedLabels else None
+            usedLabels.add(label)
 
-            x = getattr(rl, what)
+            if pixels:
+                x = interpolate(rl.wavelength)
+            else:
+                x = rl.wavelength
             if not np.isfinite(x):
                 continue
-            plt.axvline(x, ls=ls, color=color, alpha=alpha, label=label)
-            label = None
+
+            axes.axvline(x, ls=ls, color=color, alpha=alpha, label=label)
 
             if labelLines:
                 if xlim is not None and not (xlim[0] < x < xlim[1]):
                     continue
 
-                if spectrum is None:
-                    y = 0.95*plt.ylim()[1]
+                if wavelength is None or spectrum is None:
+                    y = 0.95*axes.get_ylim()[1]
                 else:
-                    if wavelength is None:
-                        ix = x
-                    else:
-                        ix = np.searchsorted(wavelength, x)
+                    ix = np.searchsorted(wavelength, rl.wavelength)
 
-                        if ix == 0 or ix == len(wavelength):
-                            continue
+                    if ix <= 0 or ix >= len(wavelength):
+                        continue
 
                     i0 = max(0, int(ix) - 2)
                     i1 = min(len(spectrum), int(ix) + 2 + 1)
                     y = 1.05*spectrum[i0:i1].max()
 
-                plt.text(x, y, rl.description, ha='center')
+                axes.text(x, y, rl.description, ha='center')
 
-        plt.xlim(xlim)
+        axes.set_xlim(xlim)

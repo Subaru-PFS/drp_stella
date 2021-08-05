@@ -137,8 +137,6 @@ class ReduceArcTask(CmdLineTask):
         - ``display`` (`bool`): Activate displays and plotting (master switch)?
         - ``frame`` (`dict` mapping `int` to `int`): Display frame to use as a
             function of visit.
-        - ``displayIdentifications`` (`bool`): Display image with lines
-            identified?
         - ``displayCalibrations`` (`bool`): Plot calibration results? See the
             ``plotCalibrations`` method for additional debug parameters
             controlling these plots.
@@ -357,6 +355,8 @@ class ReduceArcTask(CmdLineTask):
         import matplotlib.pyplot as plt
 
         for spectrum in spectrumSet:
+            if not spectrum.isWavelengthSet() or np.all(np.isnan(spectrum.spectrum)):
+                continue
             refLines = lines.extractReferenceLines(spectrum.fiberId)
             if self.debugInfo.fiberId and spectrum.fiberId not in self.debugInfo.fiberId:
                 continue
@@ -364,10 +364,8 @@ class ReduceArcTask(CmdLineTask):
                 rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
                 plt.plot(rows, spectrum.spectrum)
                 xlim = plt.xlim()
-                refLines.plotReferenceLines(spectrum.referenceLines, "guessedPosition", alpha=0.1,
-                                            labelLines=True, labelStatus=False)
-                refLines.plotReferenceLines(spectrum.referenceLines, "fitPosition", ls='-', alpha=0.5,
-                                            labelLines=True, labelStatus=True)
+                refLines.plot(plt.gca(), alpha=0.5, ls="-", labelLines=True, labelStatus=True, pixels=True,
+                              wavelength=spectrum.wavelength, spectrum=spectrum.spectrum)
                 plt.xlim(xlim)
                 plt.legend(loc='best')
                 plt.xlabel('row')
@@ -377,9 +375,8 @@ class ReduceArcTask(CmdLineTask):
             if self.debugInfo.plotCalibrationsWavelength:
                 plt.plot(spectrum.wavelength, spectrum.spectrum)
                 xlim = plt.xlim()
-                refLines.plotReferenceLines(spectrum.referenceLines, "wavelength", ls='-', alpha=0.5,
-                                            labelLines=True, wavelength=spectrum.wavelength,
-                                            spectrum=spectrum.spectrum)
+                refLines.plot(plt.gca(), alpha=0.5, ls='-', labelLines=True, labelStatus=True,
+                              wavelength=spectrum.wavelength, spectrum=spectrum.spectrum)
                 plt.xlim(xlim)
                 plt.legend(loc='best')
                 plt.xlabel("Wavelength (vacuum nm)")
