@@ -46,7 +46,10 @@ class CoaddSpectraRunner(TaskRunner):
 
         dataRefs = {dataRefToTuple(ref): ref for ref in parsedCmd.id.refList}
         for ref in parsedCmd.id.refList:
+            if not all(ref.datasetExists(dataset) for dataset in ("pfsArm", "sky1d", "fluxCal")):
+                continue
             pfsConfig = ref.get("pfsConfig")
+            pfsConfig = pfsConfig.select(spectrograph=ref.dataId["spectrograph"])
             for index, fiberStatus in enumerate(pfsConfig.fiberStatus):
                 if fiberStatus != FiberStatus.GOOD:
                     continue
