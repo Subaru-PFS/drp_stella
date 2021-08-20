@@ -9,7 +9,7 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from .datamodel import PfsConfig, PfsArm, PfsMerged
 from pfs.datamodel import Identity, TargetType
-from .fitFocalPlane import FitFocalPlaneTask
+from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
@@ -40,7 +40,7 @@ class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
-    fitSkyModel = ConfigurableField(target=FitFocalPlaneTask,
+    fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
                                     doc="Fit sky model over the focal plane")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT", "BAD_FLAT"],

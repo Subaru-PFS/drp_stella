@@ -165,4 +165,35 @@ class FitFocalPlaneTask(Task):
         plt.show()
 
 
+class FitOversampledSplineConfig(FitFocalPlaneConfig):
+    """Configuration for fitting an `OversampledSpline`"""
+    splineOrder = RangeField(dtype=int, default=3, min=1, doc="Spline order")
+    oversample = RangeField(dtype=float, default=1.1, min=1.0, doc="Oversampling factor")
+    defaultValue = Field(dtype=float, default=0.0, doc="Default value for out-of-range data")
 
+
+class FitOversampledSplineTask(FitFocalPlaneTask):
+    """Fit an `OversampledSpline`
+
+    The `OversampledSpline` isn't a function of position on the focal plane.
+    It's fine for representing spectra that do not vary over the focal plane.
+    """
+    ConfigClass = FitOversampledSplineConfig
+    Function = OversampledSpline
+
+
+class FitBlockedOversampledSplineConfig(FitOversampledSplineConfig):
+    """Configuration for fitting a `BlockedOversampledSpline`"""
+    blockSize = Field(dtype=int, default=5,
+                      doc="Block size. Must be large enough to always get enough source fibers, "
+                          "but small enough to follow changes")
+
+
+class FitBlockedOversampledSplineTask(FitFocalPlaneTask):
+    """Fit a `BlockedOversampledSpline`
+
+    The `BlockedOversampledSpline` deals with variation over the focal plane by
+    grouping fibers into discrete blocks.
+    """
+    ConfigClass = FitBlockedOversampledSplineConfig
+    Function = BlockedOversampledSpline
