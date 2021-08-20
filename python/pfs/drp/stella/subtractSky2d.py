@@ -4,11 +4,13 @@ from collections import defaultdict
 import numpy as np
 import astropy.io.fits
 
-from lsst.pex.config import Config, Field
+from lsst.pex.config import Config, Field, ListField, ChoiceField, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from lsst.afw.image import MaskedImageF
+from lsst.afw.image import MaskedImageF, makeMaskedImage
 
-from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsConfig import PfsConfig, TargetType, FiberStatus
+
+from .fitFocalPlane import FitBlockedOversampledSplineTask
 
 
 class SkyModel(SimpleNamespace):
@@ -276,3 +278,129 @@ class SubtractSky2dTask(Task):
         image = self.makeSkyImage(exposure.getBBox(), psf, fiberTraces, pfsConfig, sky2d)
         exposure.maskedImage -= image
         return image
+
+
+class DummySubtractSky2dConfig(Config):
+    """Configuration for DummySubtractSky2dTask"""
+    fiberStatus = ListField(dtype=str, default=("GOOD",), doc="Fiber status to require")
+    targetType = ListField(dtype=str, default=("SKY", "SUNSS_DIFFUSE", "SUNSS_IMAGING"),
+                           doc="Target types to select")
+    fiberFilter = ChoiceField(dtype=str, default="ALL",
+                              allowed={"ALL": "Use all fibers selected by targetType",
+                                       "ODD": "Use only odd fiberIds after selecting by targetType",
+                                       "EVEN": "Use only even fiberIds after selecting by targetType",
+                                       },
+                              doc="Additional filters to provide to input fiberId list")
+    fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask, doc="1D sky subtraction")
+
+
+class DummySubtractSky2dTask(Task):
+    """Subtract sky from 2D spectra image using 1D sky subtraction methods"""
+    ConfigClass = DummySubtractSky2dConfig
+    _DefaultName = "subtractSky2d"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("fitSkyModel")
+
+    def run(self, exposureList, pfsConfig: PfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
+        """Measure and subtract sky from 2D spectra image
+
+        Parameters
+        ----------
+        exposureList : iterable of `lsst.afw.image.Exposure`
+            Images from which to subtract sky.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for identifying sky fibers.
+        psfList : iterable of PSFs (type TBD)
+            Point-spread functions.
+        fiberTraceList : iterable of `pfs.drp.stella.FiberTraceSet`
+            Fiber traces.
+        detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
+            Mapping of fiber,wavelength to x,y.
+        linesList : iterable of `pfs.drp.stella.ArcLineSet`
+            Measured sky lines.
+
+        Returns
+        -------
+        sky2d : `SkyModel`
+            Dummy sky model, containing no data.
+        imageList : `list` of `lsst.afw.image.MaskedImage`
+            List of images of the sky model.
+        """
+        pfsConfig = pfsConfig.select(fiberStatus=[FiberStatus.fromString(fs) for
+                                                  fs in self.config.fiberStatus])
+        skyFibers = self.selectFibers(pfsConfig)
+        imageList = []
+        for exp, ft, detMap in zip(exposureList, fiberTraceList, detectorMapList):
+            imageList.append(self.runSingle(exp, pfsConfig, skyFibers, ft, detMap))
+        dummySky2d = SkyModel(wavelength=[], flux=[])
+        return Struct(sky2d=dummySky2d, imageList=imageList)
+
+    def runSingle(self, exposure, pfsConfig: PfsConfig, skyFibers, fiberTraces, detectorMap):
+        """Run dummy 2d sky subtraction on a single image
+
+        We don't attempt to combine the information from different detectors.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure of a spectrograph arm.
+        pfsConfig : `PfsConfig`
+            Top-end configuration.
+        skyFibers : iterable of `int`
+            Fiber identifiers to use for sky model.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        skyImage : `lsst.afw.image.Image`
+            Sky flux subtracted from the exposure.
+        """
+        # Extract spectra
+        spectra = fiberTraces.extractSpectra(exposure.maskedImage)
+        for spectrum in spectra:
+            spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
+        dataId = dict(visit=0, arm="x", spectrograph=0)  # We need something...
+
+        # Measure 1D sky model
+        sky1d = self.fitSkyModel.run(spectra.toPfsArm(dataId).select(pfsConfig, fiberId=skyFibers),
+                                     pfsConfig.select(fiberId=skyFibers))
+
+        # Evaluate and subtract 1D sky model for all fibers
+        for spectrum in spectra:
+            sky = sky1d(spectrum.wavelength, pfsConfig.select(fiberId=spectrum.fiberId))
+            spectrum.flux[:] = sky.values
+        skyImage = makeMaskedImage(spectra.makeImage(exposure.getBBox(), fiberTraces))
+        exposure.maskedImage -= skyImage
+
+        return skyImage
+
+    def selectFibers(self, pfsConfig: PfsConfig):
+        """Select fibers to use for sky subtraction
+
+        Parameters
+        ----------
+        pfsConfig : `PfsConfig`
+            Top-end configuration.
+
+        Returns
+        -------
+        fiberId : `numpy.ndarray`
+            Fiber identifiers to use for sky subtraction.
+        """
+        fiberId = set()
+        for tt in self.config.targetType:
+            selection = pfsConfig.getSelection(targetType=TargetType.fromString(tt))
+            fiberId.update(pfsConfig.fiberId[selection])
+        fiberId = np.array(sorted(fiberId), dtype=int)
+
+        if self.config.fiberFilter == "ODD":
+            fiberId = fiberId[fiberId % 2 == 1]
+        elif self.config.fiberFilter == "EVEN":
+            fiberId = fiberId[fiberId % 2 == 0]
+
+        return fiberId
