@@ -7,14 +7,16 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
-from .datamodel import PfsConfig, PfsMerged
-from pfs.datamodel import Identity
-from .subtractSky1d import SubtractSky1dTask
+from .datamodel import PfsConfig, PfsArm, PfsMerged
+from pfs.datamodel import Identity, TargetType
+from .fitFocalPlane import FitBlockedOversampledSplineTask
+from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .datamodel.interpolate import interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
+from .subtractSky1d import subtractSky1d
 
 
 class WavelengthSamplingConfig(Config):
@@ -38,9 +40,8 @@ class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
-    doSubtractSky1dBeforeMerge = Field(dtype=bool, default=False,
-                                       doc="Do 1D sky subtraction before merging arms?")
-    subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
+    fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
+                                    doc="Fit sky model over the focal plane")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT", "BAD_FLAT"],
                      doc="Mask values to reject when combining")
@@ -82,7 +83,7 @@ class MergeArmsTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("subtractSky1d")
+        self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
 
     def run(self, spectra, pfsConfig, lsfList):
@@ -104,6 +105,8 @@ class MergeArmsTask(CmdLineTask):
             Merged spectra.
         lsf : `pfs.drp.stella.Lsf`
             Merged line-spread function.
+        sky1d : `list` of `pfs.drp.stella.FocalPlaneFunction`
+            Sky models for each arm.
         """
         for spec, lsf in zip(spectra, lsfList):
             for armSpec, armLsf in zip(spec, lsf):
@@ -122,23 +125,17 @@ class MergeArmsTask(CmdLineTask):
 
         norm = self.normalizeSpectra(sum(spectra, []))
 
-        sky1d = None
+        sky1d = []
         if self.config.doSubtractSky1d:
-            if self.config.doSubtractSky1dBeforeMerge:
-                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
+            # Do sky subtraction arm by arm for now; alternatives involve changing the run() API
+            for ss in sum(spectra, []):
+                sky1d.append(self.skySubtraction(ss, pfsConfig))
 
         spectrographs = [self.mergeSpectra(ss, norm) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
         mergedLsf = self.combineLsfs(lsfList)
-
-        if self.config.doSubtractSky1d:
-            if sky1d is None:
-                assert not self.config.doSubtractSky1dBeforeMerge
-
-                lsf = [None for _ in range(len(merged))]  # total hack!
-                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
 
         return Struct(spectra=merged, lsf=mergedLsf, sky1d=sky1d)
 
@@ -185,7 +182,8 @@ class MergeArmsTask(CmdLineTask):
         expSpecRefList[0][0].put(results.spectra, "pfsMerged")
         expSpecRefList[0][0].put(results.lsf, "pfsMergedLsf")
         if results.sky1d is not None:
-            expSpecRefList[0][0].put(results.sky1d, "sky1d")
+            for sky1d, ref in zip(results.sky1d, expSpecRefList[0]):
+                ref.put(sky1d, "sky1d")
 
         results.pfsConfig = pfsConfig
         return results
@@ -380,6 +378,28 @@ class MergeArmsTask(CmdLineTask):
         for ll in lsfList:
             lsf.update(ll)
         return lsf
+
+    def skySubtraction(self, spectra: PfsArm, pfsConfig: PfsConfig) -> FocalPlaneFunction:
+        """Fit and subtract sky model
+
+        Parameters
+        ----------
+        spectra : `PfsArm`
+            Spectra to which to fit and subtract a sky model.
+        pfsConfig : `PfsConfig`
+            Top-end configuration.
+
+        Returns
+        -------
+        sky1d : `FocalPlaneFunction`
+            Sky model.
+        """
+        skySpectra = spectra.select(pfsConfig, targetType=TargetType.SKY)
+        skyConfig = pfsConfig.select(fiberId=skySpectra.fiberId)
+
+        sky1d = self.fitSkyModel.run(skySpectra, skyConfig)
+        subtractSky1d(spectra, pfsConfig, sky1d)
+        return sky1d
 
     def _getMetadataName(self):
         return None

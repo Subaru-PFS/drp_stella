@@ -1,21 +1,84 @@
+from typing import Union, Dict
 from collections import defaultdict
+
+import numpy as np
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
+from lsst.daf.persistence import Butler
 
-from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 from pfs.datamodel import MaskHelper, FiberStatus
 
-from .datamodel import PfsSingle
-from .measureFluxCalibration import MeasureFluxCalibrationTask
-from .subtractSky1d import SubtractSky1dTask
+from .focalPlaneFunction import FocalPlaneFunction
+from .datamodel import PfsArm, PfsSingle, PfsMerged, PfsReference, PfsFiberArray, PfsFiberArraySet
+from .fitFocalPlane import FitFocalPlaneTask
+from .subtractSky1d import subtractSky1d
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 
 
+__all__ = ("PfsReferenceSet", "fluxCalibrate", "FluxCalibrateConfig", "FluxCalibrateTask")
+
+PfsReferenceSet = Dict[int, PfsReference]
+
+
+def fluxCalibrate(spectra: Union[PfsFiberArray, PfsFiberArraySet], pfsConfig: PfsConfig,
+                  fluxCal: FocalPlaneFunction) -> None:
+    """Apply flux calibration to spectra
+
+    Parameters
+    ----------
+    spectra : subclass of `PfsFiberArray` or `PfsFiberArraySet`
+        Spectra (or spectrum) to flux-calibrate.
+    pfsConfig : `PfsConfig`
+        Top-end configuration.
+    fluxCal : subclass of `FocalPlaneFunction`
+        Flux calibration model.
+    """
+    cal = fluxCal(spectra.wavelength, pfsConfig.select(fiberId=spectra.fiberId))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        spectra /= cal.values  # includes spectrum.variance /= cal.values**2
+        spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/cal.values**2
+    bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+    spectra.mask[bad] |= spectra.flags.add("BAD_FLUXCAL")
+
+
+def calibratePfsArm(spectra: PfsArm, pfsConfig: PfsConfig, sky1d: FocalPlaneFunction,
+                    fluxCal: FocalPlaneFunction, wavelength=None) -> PfsArm:
+    """Calibrate a PfsArm
+
+    Parameters
+    ----------
+    spectra : `PfsArm`
+        PfsArm spectra, modified.
+    sky1d : `FocalPlaneFunction`
+        1d sky model.
+    fluxCal : `FocalPlaneFunction`
+        Flux calibration model.
+    wavelength : `numpy.ndarray` of `float`, optional
+        Wavelength array for optional resampling.
+
+    Returns
+    -------
+    spectra : `PfsArm`
+        Calibrated PfsArm spectra.
+    """
+    pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
+    subtractSky1d(spectra, pfsConfig, sky1d)
+    fluxCalibrate(spectra, pfsConfig, fluxCal)
+    if wavelength is not None:
+        spectra = spectra.resample(wavelength)
+    return spectra
+
+
 class FluxCalibrateConfig(Config):
     """Configuration for FluxCalibrateTask"""
-    measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Measure flux calibn")
-    subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1D sky subtraction")
+    sysErr = Field(dtype=float, default=1.0e-4,
+                   doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
+                        "loss of variance as covariance when we resample, the result of which is "
+                        "underestimated errors and excess rejection."))
+    fitFluxCal = ConfigurableField(target=FitFocalPlaneTask, doc="Fit flux calibration model")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
 
@@ -27,8 +90,7 @@ class FluxCalibrateTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("measureFluxCalibration")
-        self.makeSubtask("subtractSky1d")
+        self.makeSubtask("fitFluxCal")
         self.makeSubtask("fluxTable")
 
     @classmethod
@@ -48,7 +110,7 @@ class FluxCalibrateTask(CmdLineTask):
 
         Returns
         -------
-        calib : `pfs.drp.stella.FocalPlaneFunction`
+        fluxCal : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
         spectra : `list` of `pfs.datamodel.PfsSingle`
             Calibrated spectra for each fiber.
@@ -58,24 +120,29 @@ class FluxCalibrateTask(CmdLineTask):
         pfsConfig = dataRef.get("pfsConfig")
         butler = dataRef.getButler()
 
-        references = self.readReferences(butler, pfsConfig, merged.fiberId)
-        calib = self.measureFluxCalibration.run(merged, references, pfsConfig)
-        self.measureFluxCalibration.applySpectra(merged, pfsConfig, calib)
+        mergedFluxCal = merged.select(pfsConfig, targetType=TargetType.FLUXSTD)
+        pfsConfigFluxCal = pfsConfig.select(fiberId=mergedFluxCal.fiberId)
+
+        references = self.readReferences(butler, pfsConfigFluxCal)
+        self.calculateCalibrations(mergedFluxCal, references)
+        fluxCal = self.fitFluxCal.run(mergedFluxCal, pfsConfigFluxCal)
+        fluxCalibrate(merged, pfsConfig, fluxCal)
+
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, merged.fiberId)
         fiberId = merged.fiberId[indices]
         spectra = [merged.extractFiber(PfsSingle, pfsConfig, ff) for ff in fiberId]
 
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
-        armList = [ref.get("pfsArm") for ref in armRefList]
-        armLsfList = [ref.get("pfsArmLsf") for ref in armRefList]
-        sky1d = dataRef.get("sky1d")
+        armList = []
         fiberToArm = defaultdict(list)
-        for ii, arm in enumerate(armList):
-            lsf = armLsfList[ii]
-            self.subtractSky1d.subtractSkySpectra(arm, lsf, pfsConfig, sky1d)
-            self.measureFluxCalibration.applySpectra(arm, pfsConfig, calib)
+        for ii, ref in enumerate(armRefList):
+            arm = ref.get("pfsArm")
+            sky1d = ref.get("sky1d")
+            subtractSky1d(arm, pfsConfig, sky1d)
+            fluxCalibrate(arm, pfsConfig, fluxCal)
             for ff in arm.fiberId:
                 fiberToArm[ff].append(ii)
+            armList.append(arm)
 
         # Add the fluxTable
         for ss, ff in zip(spectra, fiberId):
@@ -86,15 +153,15 @@ class FluxCalibrateTask(CmdLineTask):
             ss.metadata = getPfsVersions()
 
         if self.config.doWrite:
-            dataRef.put(calib, "fluxCal")
+            dataRef.put(fluxCal, "fluxCal")
             for ff, spectrum in zip(fiberId, spectra):
                 dataId = spectrum.getIdentity().copy()
                 dataId.update(dataRef.dataId)
                 butler.put(spectrum, "pfsSingle", dataId)
                 butler.put(mergedLsf[ff], "pfsSingleLsf", dataId)
-        return Struct(calib=calib, spectra=spectra)
+        return Struct(fluxCal=fluxCal, spectra=spectra)
 
-    def readReferences(self, butler, pfsConfig, fiberId):
+    def readReferences(self, butler: Butler, pfsConfig: PfsConfig) -> PfsReferenceSet:
         """Read the physical reference fluxes
 
         If you get a read error here, it's likely because you haven't got a
@@ -105,18 +172,33 @@ class FluxCalibrateTask(CmdLineTask):
         butler : `lsst.daf.persistence.Butler`
             Data butler.
         pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration, for identifying flux standards.
-        fiberId : `numpy.ndarray` of `int`
-            Fiber identifiers for spectra.
+            Top-end configuration, for identifying flux standards. This should
+            contain only the fibers of interest.
 
         Returns
         -------
         references : `dict` mapping `int` to `pfs.datamodel.PfsSimpleSpectrum`
             Reference spectra, indexed by fiber identifier.
         """
-        indices = pfsConfig.selectByTargetType(TargetType.FLUXSTD, fiberId)
-        fiberId = fiberId[indices]
-        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)) for ff in fiberId}
+        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)) for ff in pfsConfig.fiberId}
+
+    def calculateCalibrations(self, merged: PfsMerged, references: PfsReferenceSet) -> None:
+        """Calculate the flux calibration vector for each fluxCal fiber
+
+        Parameters
+        ----------
+        merged : `PfsMerged`
+            Merged spectra. Contains only fluxCal fibers. These will be
+            modified.
+        references : `dict` mapping `int` to `PfsReference`
+            Reference spectra, indexed by fiber identifier.
+        """
+        ref = np.zeros_like(merged.flux)
+        for ii, fiberId in enumerate(merged.fiberId):
+            ref[ii] = references[fiberId].flux
+
+        merged.covar[0] += self.config.sysErr*merged.flux  # add systematic error
+        merged /= ref
 
     def _getMetadataName(self):
         return None

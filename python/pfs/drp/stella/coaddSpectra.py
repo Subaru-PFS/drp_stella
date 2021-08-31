@@ -1,28 +1,30 @@
+from typing import Dict, List
+
 import numpy as np
 from collections import defaultdict, Counter
 
 from lsst.pex.config import Config, ConfigurableField, ListField, ConfigField
+from lsst.daf.persistence import Butler
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
-from pfs.datamodel import Target, Observations
+from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
-from .datamodel import PfsObject, PfsFiberArray
-from .subtractSky1d import SubtractSky1dTask
-from .measureFluxCalibration import MeasureFluxCalibrationTask
+from .datamodel import PfsObject, PfsFiberArraySet, PfsFiberArray
+from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
 
+__all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
+
 
 class CoaddSpectraConfig(Config):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
-    subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
-    measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Flux calibration")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_FLUXCAL", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
@@ -85,8 +87,6 @@ class CoaddSpectraTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("subtractSky1d")
-        self.makeSubtask("measureFluxCalibration")
         self.makeSubtask("fluxTable")
 
     def runDataRef(self, dataRefList, targetList):
@@ -104,113 +104,86 @@ class CoaddSpectraTask(CmdLineTask):
             List of target identity structs (with ``catId``, ``tract``,
             ``patch`` and ``objId``).
         """
-        # Split into visits, spectrographs
-        visits = defaultdict(list)
-        for dataRef in dataRefList:
-            ident = (dataRef.dataId["visit"], dataRef.dataId["spectrograph"])
-            visits[ident].append(dataRef)
-
-        data = {vv: self.readVisit(dataRefs) for vv, dataRefs in visits.items()}
-
-        visitsByTarget = defaultdict(list)
-        for vv, dd in data.items():
-            for target in dd.spectra:
-                visitsByTarget[target].append(vv)
+        dataRefDict = {Identity.fromDict(dataRef.dataId): dataRef for dataRef in dataRefList}
+        data = {}
+        targetSources = defaultdict(list)
+        for dataId, dataRef in dataRefDict.items():
+            data[dataId] = self.readArm(dataRef)
+            for target in data[dataId].pfsConfig:
+                targetSources[target].append(dataId)
 
         butler = dataRefList[0].getButler()
         for target in targetList:
-            pfsConfigList = [data[vv].pfsConfig for vv in visitsByTarget[target] for _ in visits[vv]]
-            indices = [pfsConfig.selectTarget(target.catId, target.tract, target.patch, target.objId) for
-                       pfsConfig in pfsConfigList]
-            targetData = self.getTargetData(target, pfsConfigList, indices)
-            identityList = [dataRef.dataId for vv in visitsByTarget[target] for dataRef in visits[vv]]
-            observations = self.getObservations(identityList, pfsConfigList, indices)
-            spectrumList = [data[vv].spectra[target] for vv in visitsByTarget[target]]
-            lsfList = [data[vv].lsfList for vv in visitsByTarget[target]]
-            flags = MaskHelper.fromMerge([ss.flags for specList in spectrumList for ss in specList])
-            combination = self.combine(spectrumList, lsfList, flags)
-            fluxTable = self.fluxTable.run(identityList, sum(spectrumList, []), flags)
-            coadd = PfsObject(targetData, observations, combination.wavelength, combination.flux,
-                              combination.mask, combination.sky, combination.covar, combination.covar2, flags,
-                              getPfsVersions(), fluxTable)
-            butler.put(coadd, "pfsObject", coadd.getIdentity())
-            butler.put(combination.lsf, "pfsObjectLsf", coadd.getIdentity())
+            self.process(butler, target, {dataId: data[dataId] for dataId in targetSources[target]})
 
-    def readVisit(self, dataRefList):
+    def readArm(self, dataRef) -> Struct:
         """Read a single visit+spectrograph
 
-        The input ``pfsArm`` files are read, and the 1D sky subtraction from
-        ``sky1d`` is applied.
+        The input ``pfsArm`` and corresponding calibrations are read.
 
         Parameters
         ----------
-        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
-            Butler data references.
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Butler data reference.
 
         Returns
         -------
-        spectra : `dict` mapping `pfs.datamodel.Target` to `list` of `pfs.datamodel.PfsSingle`
-            List of spectrum for each arm indexed by target
+        dataId : `Identity`
+            Identifier for the arm.
+        pfsArm : `PfsArm`
+            Spectra from the arm.
+        lsf : `pfs.drp.stella.Lsf`
+            Line-spread function for pfsArm.
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         fluxCal : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
-        lsfList : `list` of LSF (type TBD)
-            Line-spread functions for each arm.
         pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration.
+            Top-end configuration, including only the fibers in the pfsArm.
         """
-        visitRef = dataRefList[0]  # Data reference for entire visit
-        pfsConfig = visitRef.get("pfsConfig")
-        sky1d = visitRef.get("sky1d")
-        fluxCal = visitRef.get("fluxCal")
-        spectra = defaultdict(list)
-        lsfList = []
-        for dataRef in dataRefList:
-            pfsArm = dataRef.get("pfsArm")
-            lsf = dataRef.get("pfsArmLsf")
-            self.subtractSky1d.subtractSkySpectra(pfsArm, lsf, pfsConfig, sky1d)
-            self.measureFluxCalibration.applySpectra(pfsArm, pfsConfig, fluxCal)
-            for fiberId in pfsArm.fiberId:
-                spectrum = pfsArm.extractFiber(PfsFiberArray, pfsConfig, fiberId)
-                spectra[spectrum.target].append(spectrum)
-            lsfList.append(lsf)
+        pfsArm = dataRef.get("pfsArm")
+        return Struct(
+            dataId=Identity.fromDict(dataRef.dataId),
+            pfsArm=pfsArm,
+            lsf=dataRef.get("pfsArmLsf"),
+            sky1d=dataRef.get("sky1d"),
+            fluxCal=dataRef.get("fluxCal"),
+            pfsConfig=dataRef.get("pfsConfig").select(fiberId=pfsArm.fiberId),
+        )
 
-        return Struct(spectra=spectra, sky1d=sky1d, fluxCal=fluxCal, lsfList=lsfList, pfsConfig=pfsConfig,)
-
-    def getTargetData(self, target, pfsConfigList, indices):
-        """Generate a ``TargetData`` for this target
+    def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
+        """Generate a fully-populated `Target` for this target
 
         We combine the various declarations about the target in the
-        ``PfsConfig``s.
+        ``PfsConfig``s, ensuring the output `Target` has everything it needs
+        (e.g., ``targetType``, ``fiberFlux``).
 
         Parameters
         ----------
-        target : `types.SimpleNamespace`
-            Struct with target identity (with ``catId``, ``tract``, ``patch``
-            and ``objId``).
-        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
-            List of top-end configurations.
-        indices : `numpy.ndarray` of `int`
-            Indices for the fiber of interest in each of the ``pfsConfigList``.
+        target : `Target`
+            Basic identity of target (including ``catId`` and ``objId``).
+        pfsConfigList : iterable of `PfsConfig`
+            List of top-end configurations. This should include only the target
+            of interest.
 
         Returns
         -------
-        result : `pfs.datamodel.TargetData`
-            ``TargetData`` for this target
+        result : `Target`
+            Fully-populated ``Target``.
         """
-        radec = [SpherePoint(pfsConfig.ra[ii]*degrees, pfsConfig.dec[ii]*degrees) for
-                 pfsConfig, ii in zip(pfsConfigList, indices)]
-        radec = averageSpherePoint(radec)
+        if any(len(cfg) != 1 for cfg in pfsConfigList):
+            raise RuntimeError("Multiple fibers included in pfsConfig")
+        radec = averageSpherePoint([SpherePoint(cfg.ra[0]*degrees, cfg.dec[0]*degrees) for
+                                    cfg in pfsConfigList])
 
-        targetType = Counter([pfsConfig.targetType[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
+        targetType = Counter([cfg.targetType[0] for cfg in pfsConfigList])
         if len(targetType) > 1:
             self.log.warn("Multiple targetType for target %s (%s); using most common" % (target, targetType))
         targetType = targetType.most_common(1)[0][0]
 
         fiberFlux = defaultdict(list)
-        for pfsConfig, ii in zip(pfsConfigList, indices):
-            for ff, flux in zip(pfsConfig.filterNames[ii], pfsConfig.fiberFlux[ii]):
+        for pfsConfig in pfsConfigList:
+            for ff, flux in zip(pfsConfig.filterNames[0], pfsConfig.fiberFlux[0]):
                 fiberFlux[ff].append(flux)
         for ff in fiberFlux:
             flux = set(fiberFlux[ff])
@@ -225,40 +198,89 @@ class CoaddSpectraTask(CmdLineTask):
                       radec.getRa().asDegrees(), radec.getDec().asDegrees(),
                       targetType, dict(**fiberFlux))
 
-    def getObservations(self, identityList, pfsConfigList, indices):
+    def getObservations(self, dataIdList: List[Identity], pfsConfigList: List[PfsConfig]
+                        ) -> Observations:
         """Construct a list of observations of the target
 
         Parameters
         ----------
-        identityList : iterable of `dict`
-            List of sets of keyword-value pairs that identify the observation.
+        dataIdList : iterable of `Identity`
+            List of structs that identify the observation, containing ``visit``,
+            ``arm`` and ``spectrograph``.
         pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
-            List of top-end configurations.
-        indices : `numpy.ndarray` of `int`
-            Indices for the fiber of interest in each of the ``pfsConfigList``.
+            List of top-end configurations. This should include only the target
+            of interest.
 
         Returns
         -------
-        observations : `pfs.datamodel.TargetObservations`
+        observations : `Observations`
             Observations of the target.
         """
-        visit = np.array([ident["visit"] for ident in identityList])
-        arm = [ident["arm"] for ident in identityList]
-        spectrograph = np.array([ident["spectrograph"] for ident in identityList])
+        if any(len(cfg) != 1 for cfg in pfsConfigList):
+            raise RuntimeError("Multiple fibers included in pfsConfig")
+        visit = np.array([dataId.visit for dataId in dataIdList])
+        arm = [dataId.arm for dataId in dataIdList]
+        spectrograph = np.array([dataId.spectrograph for dataId in dataIdList])
         pfsDesignId = np.array([pfsConfig.pfsDesignId for pfsConfig in pfsConfigList])
-        fiberId = np.array([pfsConfig.fiberId[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
-        pfiNominal = np.array([pfsConfig.pfiNominal[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
-        pfiCenter = np.array([pfsConfig.pfiCenter[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
+        fiberId = np.array([pfsConfig.fiberId[0] for pfsConfig in pfsConfigList])
+        pfiNominal = np.array([pfsConfig.pfiNominal[0] for pfsConfig in pfsConfigList])
+        pfiCenter = np.array([pfsConfig.pfiCenter[0] for pfsConfig in pfsConfigList])
         return Observations(visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter)
 
-    def combine(self, spectraList, lsfLists, flags):
+    def getSpectrum(self, target: Target, data: Struct) -> PfsFiberArraySet:
+        """Return a calibrated spectrum for the nominated target
+
+        Parameters
+        ----------
+        target : `Target`
+            Target of interest.
+        data : `Struct`
+            Data for a pfsArm containing the object of interest.
+
+        Returns
+        -------
+        spectrum : `PfsFiberArray`
+            Calibrated spectrum of the target.
+        """
+        spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
+        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
+        return spectrum.extractFiber(PfsFiberArray, data.pfsConfig, spectrum.fiberId[0])
+
+    def process(self, butler: Butler, target: Target, data: Dict[Identity, Struct]):
+        """Generate coadded spectra for a single target
+
+        Parameters
+        ----------
+        target : `Target`
+            Target for which to generate coadded spectra.
+        data : `dict` mapping `Identity` to `Struct`
+            Data from which to generate coadded spectra. These are the results
+            from the ``readData`` method.
+        """
+        pfsConfigList = [dd.pfsConfig.select(catId=target.catId, objId=target.objId) for dd in data.values()]
+        target = self.getTarget(target, pfsConfigList)
+        observations = self.getObservations(data.keys(), pfsConfigList)
+
+        spectra = [self.getSpectrum(target, dd) for dd in data.values()]
+        lsfList = [dd.lsf for dd in data.values()]
+        flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
+        combination = self.combine(spectra, lsfList, flags)
+        fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra, flags)
+
+        coadd = PfsObject(target, observations, combination.wavelength, combination.flux,
+                          combination.mask, combination.sky, combination.covar, combination.covar2, flags,
+                          getPfsVersions(), fluxTable)
+        butler.put(coadd, "pfsObject", coadd.getIdentity())
+        butler.put(combination.lsf, "pfsObjectLsf", coadd.getIdentity())
+
+    def combine(self, spectraList, lsfList, flags):
         """Combine spectra
 
         Parameters
         ----------
-        spectraList : iterable of iterable of `pfs.datamodel.PfsFiberArray`
+        spectraList : iterable of `pfs.datamodel.PfsFiberArray`
             List of spectra to combine for each visit.
-        lsfLists : iterable of iterable of LSF (type TBD)
+        lsfList : iterable of LSF (type TBD)
             List of line-spread functions for each arm for each visit.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
@@ -278,13 +300,10 @@ class CoaddSpectraTask(CmdLineTask):
         wavelength = self.config.wavelength.wavelength
         resampled = []
         resampledLsf = []
-        for data in zip(spectraList, lsfLists):
-            spectra, lsfList = data
-            # Subtract the sky and flux-calibrate without merging
-            for spectrum, lsf in zip(spectra, lsfList):
-                fiberId = spectrum.observations.fiberId[0]
-                resampled.append(spectrum.resample(wavelength))
-                resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
+        for spectrum, lsf in zip(spectraList, lsfList):
+            fiberId = spectrum.observations.fiberId[0]
+            resampled.append(spectrum.resample(wavelength))
+            resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
 
         # Now do a weighted coaddition
         archetype = resampled[0]
