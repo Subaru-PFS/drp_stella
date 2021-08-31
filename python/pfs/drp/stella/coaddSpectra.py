@@ -1,5 +1,4 @@
-from typing import Dict, List, Any
-from dataclasses import dataclass
+from typing import Dict, List
 
 import numpy as np
 from collections import defaultdict, Counter
@@ -9,7 +8,7 @@ from lsst.daf.persistence import Butler
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
-from pfs.datamodel import Target, Observations, PfsConfig
+from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
@@ -21,38 +20,6 @@ from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
-
-
-@dataclass(order=True, frozen=True)
-class DataIdentifier:
-    """Data identifier for a spectrograph arm
-
-    This provides a hashable object that can be used as a dict key.
-
-    """
-    visit: int
-    arm: str
-    spectrograph: int
-
-    @classmethod
-    def fromDict(cls, dataId: Dict[str, Any]):
-        """Construct from an old-fashioned `dict` dataId
-
-        Parameters
-        ----------
-        dataId : `dict`
-            Full data identifier from butler.
-
-        Returns
-        -------
-        self : `DataIdentifier`
-            Constructed instance.
-        """
-        return cls(visit=dataId["visit"], arm=dataId["arm"], spectrograph=dataId["spectrograph"])
-
-    def toDict(self):
-        """Convert to an old-fashioned `dict` dataId"""
-        return {kk: getattr(self, kk) for kk in ("visit", "arm", "spectrograph")}
 
 
 class CoaddSpectraConfig(Config):
@@ -137,7 +104,7 @@ class CoaddSpectraTask(CmdLineTask):
             List of target identity structs (with ``catId``, ``tract``,
             ``patch`` and ``objId``).
         """
-        dataRefDict = {DataIdentifier.fromDict(dataRef.dataId): dataRef for dataRef in dataRefList}
+        dataRefDict = {Identity.fromDict(dataRef.dataId): dataRef for dataRef in dataRefList}
         data = {}
         targetSources = defaultdict(list)
         for dataId, dataRef in dataRefDict.items():
@@ -161,7 +128,7 @@ class CoaddSpectraTask(CmdLineTask):
 
         Returns
         -------
-        dataId : `DataIdentifier`
+        dataId : `Identity`
             Identifier for the arm.
         pfsArm : `PfsArm`
             Spectra from the arm.
@@ -176,7 +143,7 @@ class CoaddSpectraTask(CmdLineTask):
         """
         pfsArm = dataRef.get("pfsArm")
         return Struct(
-            dataId=DataIdentifier.fromDict(dataRef.dataId),
+            dataId=Identity.fromDict(dataRef.dataId),
             pfsArm=pfsArm,
             lsf=dataRef.get("pfsArmLsf"),
             sky1d=dataRef.get("sky1d"),
@@ -231,13 +198,13 @@ class CoaddSpectraTask(CmdLineTask):
                       radec.getRa().asDegrees(), radec.getDec().asDegrees(),
                       targetType, dict(**fiberFlux))
 
-    def getObservations(self, dataIdList: List[DataIdentifier], pfsConfigList: List[PfsConfig]
+    def getObservations(self, dataIdList: List[Identity], pfsConfigList: List[PfsConfig]
                         ) -> Observations:
         """Construct a list of observations of the target
 
         Parameters
         ----------
-        dataIdList : iterable of `DataIdentifier`
+        dataIdList : iterable of `Identity`
             List of structs that identify the observation, containing ``visit``,
             ``arm`` and ``spectrograph``.
         pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
@@ -279,14 +246,14 @@ class CoaddSpectraTask(CmdLineTask):
         spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
         return spectrum.extractFiber(PfsFiberArray, data.pfsConfig, spectrum.fiberId[0])
 
-    def process(self, butler: Butler, target: Target, data: Dict[DataIdentifier, Struct]):
+    def process(self, butler: Butler, target: Target, data: Dict[Identity, Struct]):
         """Generate coadded spectra for a single target
 
         Parameters
         ----------
         target : `Target`
             Target for which to generate coadded spectra.
-        data : `dict` mapping `DataIdentifier` to `Struct`
+        data : `dict` mapping `Identity` to `Struct`
             Data from which to generate coadded spectra. These are the results
             from the ``readData`` method.
         """
@@ -298,7 +265,7 @@ class CoaddSpectraTask(CmdLineTask):
         lsfList = [dd.lsf for dd in data.values()]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
         combination = self.combine(spectra, lsfList, flags)
-        fluxTable = self.fluxTable.run([dd.toDict() for dd in data.keys()], spectra, flags)
+        fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra, flags)
 
         coadd = PfsObject(target, observations, combination.wavelength, combination.flux,
                           combination.mask, combination.sky, combination.covar, combination.covar2, flags,
