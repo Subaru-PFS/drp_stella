@@ -197,7 +197,7 @@ class FluxCalibrateTask(CmdLineTask):
         for ii, fiberId in enumerate(merged.fiberId):
             ref[ii] = references[fiberId].flux
 
-        merged.covar[0] += self.config.sysErr*merged.flux  # add systematic error
+        merged.covar[:, 0] += self.config.sysErr*merged.flux  # add systematic error
         merged /= ref
 
     def _getMetadataName(self):
