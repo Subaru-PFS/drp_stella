@@ -840,6 +840,9 @@ class BlockedOversampledSpline(FocalPlaneFunction):
             values[ii] = thisValue
             masks[ii] = thisMask
             variances[ii] = thisVariance
+        bad = np.isnan(variances)
+        variances[bad] = 0.0
+        masks[bad] = True
         return Struct(values=values, masks=masks, variances=variances)
 
     @classmethod
