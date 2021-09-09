@@ -22,7 +22,7 @@ from .subtractSky1d import subtractSky1d
 class WavelengthSamplingConfig(Config):
     """Configuration for wavelength sampling"""
     minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
-    maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
+    maxWavelength = Field(dtype=float, default=1270, doc="Maximum wavelength (nm)")
     length = Field(dtype=int, default=11376, doc="Length of wavelength array (sets the resolution)")
 
     @property
