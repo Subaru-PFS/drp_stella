@@ -234,7 +234,10 @@ class MergeArmsTask(CmdLineTask):
 
         for ss in spectra:
             norm = interpolateFlux(wavelength, continuum, ss.wavelength)
-            ss /= ss.norm/norm
+            with np.errstate(invalid="ignore", divide="ignore"):
+                nn = norm/ss.norm
+                ss *= nn
+                ss.mask[nn == 0] |= ss.flags["NO_DATA"]
 
         return continuum
 
