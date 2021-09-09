@@ -21,8 +21,7 @@ class FitFocalPlaneConfig(Config):
     mask = ListField(dtype=str, default=["NO_DATA", "SAT", "BAD_FLAT", "CR"],
                      doc="Mask flags to ignore in fitting")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
-    # Deliberately set rejection threshold high to support sky subtraction on real data
-    rejThreshold = Field(dtype=float, default=10.0, doc="Rejection threshold (sigma)")
+    rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")
     sysErr = Field(dtype=float, default=1.0e-4,
                    doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
                         "loss of variance as covariance when we resample, the result of which is "

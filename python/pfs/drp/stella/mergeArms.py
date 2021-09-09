@@ -50,6 +50,12 @@ class MergeArmsConfig(Config):
     if not, the values 0x666 and 0 are used.""")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum to mean normalisation")
 
+    def setDefaults(self):
+        super().setDefaults()
+        # Scale back rejection because otherwise everything gets rejected
+        self.fitSkyModel.rejIterations = 1
+        self.fitSkyModel.rejThreshold = 10.0
+
 
 class MergeArmsRunner(TaskRunner):
     """Runner for MergeArmsTask"""
