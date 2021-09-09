@@ -95,6 +95,14 @@ class FitFocalPlaneTask(Task):
                 resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
                 newRejected = ~rejected & ~mask & ~funcEval.masks & (np.abs(resid) > self.config.rejThreshold)
             good = ~(rejected | newRejected | mask | funcEval.masks)
+            numGood = good.sum()
+            chi2 = np.sum(resid[good]**2)
+            self.log.debug("Fit focal plane function iteration %d: "
+                           "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d",
+                           ii, chi2, (~np.logical_and.reduce(funcEval.masks, axis=0)).sum(), length,
+                           numSamples, numGood, (mask | funcEval.masks).sum(), rejected.sum())
+            if numGood == 0:
+                raise RuntimeError("No good points")
             if self.debugInfo.plot:
                 self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Iteration {ii}",
                           newRejected)
@@ -108,15 +116,20 @@ class FitFocalPlaneTask(Task):
         funcEval = func(spectra.wavelength, pfsConfig)
         with np.errstate(invalid="ignore"):
             resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
-        if self.debugInfo.plot:
-            self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
 
         good = ~(rejected | mask | funcEval.masks)
         chi2 = np.sum(resid[good]**2)
+        numGood = good.sum()
         self.log.info("Fit focal plane function: "
-                      "chi^2=%f length=%d/%d numSamples=%d numGood=%d numRejected=%d",
-                      chi2, (~np.logical_or.reduce(funcEval.masks, axis=0)).sum(), length, numSamples,
-                      good.sum(), rejected.sum())
+                      "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d",
+                      chi2, (~np.logical_and.reduce(funcEval.masks, axis=0)).sum(), length,
+                      numSamples, numGood, (mask | funcEval.masks).sum(), rejected.sum())
+        if numGood == 0:
+            raise RuntimeError("No good points")
+
+        if self.debugInfo.plot:
+            self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
+
         return func
 
     def plot(self, wavelength, values, masks, variances, funcEval, title, rejected=None):
