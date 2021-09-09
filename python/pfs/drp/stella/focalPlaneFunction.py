@@ -67,6 +67,7 @@ class FocalPlaneFunction(ABC):
         values = spectra.flux/spectra.norm
         variance = spectra.variance/spectra.norm**2
         masks = spectra.mask & spectra.flags.get(*maskFlags) != 0
+        masks |= ~np.isfinite(values) | ~np.isfinite(variance)
         if rejected is not None:
             masks |= rejected
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
@@ -141,6 +142,11 @@ class FocalPlaneFunction(ABC):
             wavelengths = np.array([wavelengths]*len(pfsConfig))
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
         result = self.evaluate(wavelengths, pfsConfig.fiberId, positions)
+
+        with np.errstate(invalid="ignore"):
+            bad = ~np.isfinite(result.values) | ~np.isfinite(result.variances) | (result.variances < 0)
+        result.masks[bad] = True
+
         if isSingle:
             result.values = result.values[0]
             result.masks = result.masks[0]
