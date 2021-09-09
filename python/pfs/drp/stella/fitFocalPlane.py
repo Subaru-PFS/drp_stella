@@ -80,8 +80,9 @@ class FitFocalPlaneTask(Task):
         length = spectra.length
 
         wavelength = spectra.wavelength
-        values = spectra.flux/spectra.norm
-        variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = spectra.flux/spectra.norm
+            variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
         mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
 
         # Robust fitting with rejection
@@ -105,7 +106,8 @@ class FitFocalPlaneTask(Task):
         func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=False,
                                  **self.config.getFitParameters())
         funcEval = func(spectra.wavelength, pfsConfig)
-        resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
+        with np.errstate(invalid="ignore"):
+            resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
         if self.debugInfo.plot:
             self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
 

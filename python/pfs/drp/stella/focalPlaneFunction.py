@@ -64,8 +64,9 @@ class FocalPlaneFunction(ABC):
         if np.all(spectra.fiberId != pfsConfig.fiberId):
             raise RuntimeError("fiberId mismatch between spectra and pfsConfig")
 
-        values = spectra.flux/spectra.norm
-        variance = spectra.variance/spectra.norm**2
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = spectra.flux/spectra.norm
+            variance = spectra.variance/spectra.norm**2
         masks = spectra.mask & spectra.flags.get(*maskFlags) != 0
         masks |= ~np.isfinite(values) | ~np.isfinite(variance)
         if rejected is not None:
@@ -317,14 +318,15 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
                                               np.logical_and.reduce(masks, axis=0),
                                               np.median(variances, axis=0))
 
-        weight = 1.0/variances
-        good = ~masks & (variances > 0)
-        weight[~good] = 0.0
+        with np.errstate(invalid="ignore", divide="ignore"):
+            weight = 1.0/variances
+            good = ~masks & (variances > 0)
+            weight[~good] = 0.0
 
-        sumWeights = np.sum(weight, axis=0)
-        coaddValues = np.sum(values*weight, axis=0)/sumWeights
-        coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
-        coaddMask = sumWeights <= 0
+            sumWeights = np.sum(weight, axis=0)
+            coaddValues = np.sum(values*weight, axis=0)/sumWeights
+            coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
+            coaddMask = sumWeights <= 0
         return ConstantFocalPlaneFunction(wavelength[0], coaddValues, coaddMask, coaddVariance)
 
     def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
