@@ -39,8 +39,9 @@ def fluxCalibrate(spectra: Union[PfsFiberArray, PfsFiberArraySet], pfsConfig: Pf
     cal = fluxCal(spectra.wavelength, pfsConfig.select(fiberId=spectra.fiberId))
     with np.errstate(divide="ignore", invalid="ignore"):
         spectra /= cal.values  # includes spectrum.variance /= cal.values**2
-        spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/cal.values**2
-    bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+        spectra.variance[:] += cal.variances*spectra.flux**2/cal.values**2
+    bad = np.array(cal.masks) | (np.array(cal.values) == 0.0)
+    bad |= ~np.isfinite(cal.values) | ~np.isfinite(cal.variances)
     spectra.mask[bad] |= spectra.flags.add("BAD_FLUXCAL")
 
 

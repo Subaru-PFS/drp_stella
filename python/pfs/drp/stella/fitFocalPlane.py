@@ -21,8 +21,7 @@ class FitFocalPlaneConfig(Config):
     mask = ListField(dtype=str, default=["NO_DATA", "SAT", "BAD_FLAT", "CR"],
                      doc="Mask flags to ignore in fitting")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
-    # Deliberately set rejection threshold high to support sky subtraction on real data
-    rejThreshold = Field(dtype=float, default=10.0, doc="Rejection threshold (sigma)")
+    rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")
     sysErr = Field(dtype=float, default=1.0e-4,
                    doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
                         "loss of variance as covariance when we resample, the result of which is "
@@ -80,8 +79,9 @@ class FitFocalPlaneTask(Task):
         length = spectra.length
 
         wavelength = spectra.wavelength
-        values = spectra.flux/spectra.norm
-        variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = spectra.flux/spectra.norm
+            variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
         mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
 
         # Robust fitting with rejection
@@ -94,6 +94,14 @@ class FitFocalPlaneTask(Task):
                 resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
                 newRejected = ~rejected & ~mask & ~funcEval.masks & (np.abs(resid) > self.config.rejThreshold)
             good = ~(rejected | newRejected | mask | funcEval.masks)
+            numGood = good.sum()
+            chi2 = np.sum(resid[good]**2)
+            self.log.debug("Fit focal plane function iteration %d: "
+                           "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d",
+                           ii, chi2, (~np.logical_and.reduce(funcEval.masks, axis=0)).sum(), length,
+                           numSamples, numGood, (mask | funcEval.masks).sum(), rejected.sum())
+            if numGood == 0:
+                raise RuntimeError("No good points")
             if self.debugInfo.plot:
                 self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Iteration {ii}",
                           newRejected)
@@ -105,16 +113,22 @@ class FitFocalPlaneTask(Task):
         func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=False,
                                  **self.config.getFitParameters())
         funcEval = func(spectra.wavelength, pfsConfig)
-        resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
-        if self.debugInfo.plot:
-            self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
+        with np.errstate(invalid="ignore"):
+            resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
 
         good = ~(rejected | mask | funcEval.masks)
         chi2 = np.sum(resid[good]**2)
+        numGood = good.sum()
         self.log.info("Fit focal plane function: "
-                      "chi^2=%f length=%d/%d numSamples=%d numGood=%d numRejected=%d",
-                      chi2, (~np.logical_or.reduce(funcEval.masks, axis=0)).sum(), length, numSamples,
-                      good.sum(), rejected.sum())
+                      "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d",
+                      chi2, (~np.logical_and.reduce(funcEval.masks, axis=0)).sum(), length,
+                      numSamples, numGood, (mask | funcEval.masks).sum(), rejected.sum())
+        if numGood == 0:
+            raise RuntimeError("No good points")
+
+        if self.debugInfo.plot:
+            self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
+
         return func
 
     def plot(self, wavelength, values, masks, variances, funcEval, title, rejected=None):

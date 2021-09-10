@@ -22,7 +22,7 @@ from .subtractSky1d import subtractSky1d
 class WavelengthSamplingConfig(Config):
     """Configuration for wavelength sampling"""
     minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
-    maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
+    maxWavelength = Field(dtype=float, default=1270, doc="Maximum wavelength (nm)")
     length = Field(dtype=int, default=11376, doc="Length of wavelength array (sets the resolution)")
 
     @property
@@ -49,6 +49,12 @@ class MergeArmsConfig(Config):
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
     if not, the values 0x666 and 0 are used.""")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum to mean normalisation")
+
+    def setDefaults(self):
+        super().setDefaults()
+        # Scale back rejection because otherwise everything gets rejected
+        self.fitSkyModel.rejIterations = 1
+        self.fitSkyModel.rejThreshold = 10.0
 
 
 class MergeArmsRunner(TaskRunner):
@@ -234,7 +240,10 @@ class MergeArmsTask(CmdLineTask):
 
         for ss in spectra:
             norm = interpolateFlux(wavelength, continuum, ss.wavelength)
-            ss /= ss.norm/norm
+            with np.errstate(invalid="ignore", divide="ignore"):
+                nn = norm/ss.norm
+                ss *= nn
+                ss.mask[nn == 0] |= ss.flags["NO_DATA"]
 
         return continuum
 

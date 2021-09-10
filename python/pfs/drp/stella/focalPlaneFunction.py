@@ -64,9 +64,11 @@ class FocalPlaneFunction(ABC):
         if np.all(spectra.fiberId != pfsConfig.fiberId):
             raise RuntimeError("fiberId mismatch between spectra and pfsConfig")
 
-        values = spectra.flux/spectra.norm
-        variance = spectra.variance/spectra.norm**2
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = spectra.flux/spectra.norm
+            variance = spectra.variance/spectra.norm**2
         masks = spectra.mask & spectra.flags.get(*maskFlags) != 0
+        masks |= ~np.isfinite(values) | ~np.isfinite(variance)
         if rejected is not None:
             masks |= rejected
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
@@ -141,6 +143,11 @@ class FocalPlaneFunction(ABC):
             wavelengths = np.array([wavelengths]*len(pfsConfig))
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
         result = self.evaluate(wavelengths, pfsConfig.fiberId, positions)
+
+        with np.errstate(invalid="ignore"):
+            bad = ~np.isfinite(result.values) | ~np.isfinite(result.variances) | (result.variances < 0)
+        result.masks[bad] = True
+
         if isSingle:
             result.values = result.values[0]
             result.masks = result.masks[0]
@@ -311,14 +318,15 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
                                               np.logical_and.reduce(masks, axis=0),
                                               np.median(variances, axis=0))
 
-        weight = 1.0/variances
-        good = ~masks & (variances > 0)
-        weight[~good] = 0.0
+        with np.errstate(invalid="ignore", divide="ignore"):
+            weight = 1.0/variances
+            good = ~masks & (variances > 0)
+            weight[~good] = 0.0
 
-        sumWeights = np.sum(weight, axis=0)
-        coaddValues = np.sum(values*weight, axis=0)/sumWeights
-        coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
-        coaddMask = sumWeights <= 0
+            sumWeights = np.sum(weight, axis=0)
+            coaddValues = np.sum(values*weight, axis=0)/sumWeights
+            coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
+            coaddMask = sumWeights <= 0
         return ConstantFocalPlaneFunction(wavelength[0], coaddValues, coaddMask, coaddVariance)
 
     def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
@@ -840,6 +848,9 @@ class BlockedOversampledSpline(FocalPlaneFunction):
             values[ii] = thisValue
             masks[ii] = thisMask
             variances[ii] = thisVariance
+        bad = np.isnan(variances)
+        variances[bad] = 0.0
+        masks[bad] = True
         return Struct(values=values, masks=masks, variances=variances)
 
     @classmethod

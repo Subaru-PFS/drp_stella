@@ -122,15 +122,24 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
             norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength)
+            badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
+            badFlux = badNorm | ~np.isfinite(self.flux[jj])
+            badVariance = badNorm | ~np.isfinite(self.variance[jj])
+            badSky = badNorm | ~np.isfinite(self.sky[jj])
+            bad = badFlux | badVariance | badSky
+            mm = self.mask[jj].copy()
+            mm[bad] |= self.flags["NO_DATA"]
             with np.errstate(invalid="ignore"):
-                flux[ii] = interpolateFlux(self.wavelength[jj], self.flux[jj]/self.norm[jj],
+                ff = self.flux[jj]/self.norm[jj]
+                ss = self.sky[jj]/self.norm[jj]
+                vv = self.covar[jj][0]/self.norm[jj]**2
+                flux[ii] = interpolateFlux(self.wavelength[jj], np.where(badFlux, 0.0, ff),
                                            wavelength)*norm[ii]
-                sky[ii] = interpolateFlux(self.wavelength[jj], self.sky[jj]/self.norm[jj],
-                                          wavelength)*norm[ii]
+                sky[ii] = interpolateFlux(self.wavelength[jj], np.where(badSky, 0.0, ss), wavelength)*norm[ii]
                 # XXX dropping covariance on the floor: just doing the variance for now
-                covar[ii][0] = interpolateFlux(self.wavelength[jj], self.covar[jj][0]/self.norm[jj]**2,
+                covar[ii][0] = interpolateFlux(self.wavelength[jj], np.where(badVariance, 0.0, vv),
                                                wavelength, fill=np.inf)*norm[ii]**2
-            mask[ii] = interpolateMask(self.wavelength[jj], self.mask[jj], wavelength,
+            mask[ii] = interpolateMask(self.wavelength[jj], mm, wavelength,
                                        fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
