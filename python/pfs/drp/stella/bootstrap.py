@@ -11,6 +11,7 @@ from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.ip.isr import IsrTask
 
 from pfs.datamodel import FiberStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
 from .readLineList import ReadLineListTask
@@ -27,6 +28,8 @@ class BootstrapConfig(Config):
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=1.0, doc="Line matching radius (nm)")
+    badLineStatus = ListField(dtype=str, default=["NOT_VISIBLE", "BLEND"],
+                              doc="Reference line status flags indicating that line should be excluded")
     spatialOrder = Field(dtype=int, default=1, doc="Polynomial order in the spatial dimension")
     spectralOrder = Field(dtype=int, default=1, doc="Polynomial order in the spectral dimension")
     rejIterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
@@ -35,8 +38,7 @@ class BootstrapConfig(Config):
     rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
-    fiberStatus = ListField(dtype=int, default=[FiberStatus.GOOD, FiberStatus.BROKENFIBER],
-                            doc="Fiber statuses to allow")
+    fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER"], doc="Fiber statuses to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
 
@@ -171,7 +173,8 @@ class BootstrapTask(CmdLineTask):
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
         traces.sortTracesByXCenter()  # Organised left to right
         self.log.info("Found %d fibers on flat", len(traces))
-        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=self.config.fiberStatus)
+        fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
+        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=fiberStatus)
         numSelected = select.sum()
         if len(traces) != numSelected:
             raise RuntimeError("Insufficient traces (%d) found vs expected number of fibers (%d)" %
@@ -306,6 +309,8 @@ class BootstrapTask(CmdLineTask):
             Reference line (`pfs.drp.stella.ReferenceLine`).
         """
         matches = []
+        badLineStatus = ReferenceLineStatus.fromNames(*self.config.badLineStatus)
+        refLines = ReferenceLineSet([rl for rl in refLines if (rl.status & badLineStatus) == 0])
         for obs in obsLines:
             used = set()
             obs = sorted(obs, key=attrgetter("flux"), reverse=True)  # Brightest first
