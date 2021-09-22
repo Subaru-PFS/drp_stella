@@ -24,6 +24,7 @@ scripts.BasicSConscript.pybind11(
      'photometry',
      'centroidImage',
      'maskLines',
+     'makeFootprint',
      ],
     addUnderscore=False
 )
