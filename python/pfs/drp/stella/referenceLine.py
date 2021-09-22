@@ -174,6 +174,35 @@ class ReferenceLineSet:
 
         return self
 
+    def applyExclusionZone(self, exclusionRadius: float,
+                           status: ReferenceLineStatus = ReferenceLineStatus.BLEND
+                           ):
+        """Apply an exclusion zone around each line
+
+        A line cannot have another brighter line within ``exclusionRadius``.
+
+        The line list is modified in-place.
+
+        Parameters
+        ----------
+        exclusionRadius : `float`
+            Radius in wavelength (nm) to apply around lines.
+        status : `ReferenceLineStatus`
+            Status to apply to lines that fall within the exclusion zone.
+        """
+        if exclusionRadius <= 0:
+            # No exclusion zone to apply
+            return
+        wavelength = self.wavelength
+        intensity = self.intensity
+        reject = np.zeros(len(self), dtype=bool)
+        for rl in self:
+            distance = wavelength - rl.wavelength
+            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0) & (intensity < rl.intensity)
+        for rl, rej in zip(self, reject):
+            if rej:
+                rl.status |= status
+
     def sort(self):
         """Sort the line list, in-place
 
