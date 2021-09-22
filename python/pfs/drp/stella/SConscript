@@ -21,6 +21,8 @@ scripts.BasicSConscript.pybind11(
      'DifferentialDetectorMap',
      'DetectorDistortion',
      'DistortedDetectorMap',
+     'DoubleDistortion',
+     'DoubleDetectorMap',
      'photometry',
      'centroidImage',
      'maskLines',

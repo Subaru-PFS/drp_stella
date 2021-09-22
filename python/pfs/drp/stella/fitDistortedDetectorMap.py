@@ -12,7 +12,7 @@ from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
-from pfs.drp.stella import DetectorMap, DistortedDetectorMap, DetectorDistortion
+from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 
@@ -299,8 +299,8 @@ class FitDistortedDetectorMapConfig(Config):
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
-    DetectorMap = DistortedDetectorMap
-    Distortion = DetectorDistortion
+    DetectorMap = DoubleDetectorMap
+    Distortion = DoubleDistortion
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
