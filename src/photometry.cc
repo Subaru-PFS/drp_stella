@@ -109,10 +109,16 @@ lsst::afw::table::BaseCatalog photometer(
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& wavelength,
     pfs::drp::stella::SpectralPsf const& psf,
-    lsst::afw::image::MaskPixel badBitMask
+    lsst::afw::image::MaskPixel badBitMask,
+    ndarray::Array<double, 2, 1> const& positions_
 ) {
     utils::checkSize(fiberId.size(), wavelength.size(), "fiberId vs wavelength");
     std::size_t const num = fiberId.size();
+
+    ndarray::Array<double, 2, 1> const& positions = positions_.isEmpty() ?
+        psf.getDetectorMap()->findPoint(fiberId, wavelength) : positions_;
+    utils::checkSize(positions.getShape(), ndarray::makeVector<ndarray::Size>(num, 2),
+                     "fiberId vs positions");
 
     // Set up output
     lsst::afw::table::Schema schema;
@@ -127,8 +133,6 @@ lsst::afw::table::BaseCatalog photometer(
         catalog.addNew();
     }
 
-    ndarray::Array<double, 2, 1> const positions = psf.getDetectorMap()->findPoint(fiberId, wavelength);
-
     // Identify blends: PSFs that touch each other
     std::unordered_map<std::size_t, std::vector<std::size_t>> blendComponents;
     {
@@ -137,7 +141,13 @@ lsst::afw::table::BaseCatalog photometer(
         std::unordered_map<std::size_t, std::size_t> blendAliases;
         std::size_t blendIndex = 1;  // 0 in the blendImage means no blend, so start at 1
         for (std::size_t ii = 0; ii < num; ++ii) {
-            lsst::geom::Point2D const point{positions[ii][0], positions[ii][1]};
+            double const xx = positions[ii][0];
+            double const yy = positions[ii][1];
+            if (!std::isfinite(xx) || !std::isfinite(yy)) {
+                // Bad position: not even a blend.
+                continue;
+            }
+            lsst::geom::Point2D const point{xx, yy};
             lsst::geom::Box2D box;
             try {
                 box = lsst::geom::Box2D(psf.computeBBox(point));

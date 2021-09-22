@@ -31,6 +31,8 @@ namespace stella {
  * @param wavelength : Wavelength (nm) of lines to measure.
  * @param psf : Point-spread function.
  * @param badBitMask : Bit mask for pixels to ignore.
+ * @param positions : Positions at which to measure; if empty, use fiberId and
+ *     wavelength from PSF detectorMap.
  * @returns Catalog of flux measurements.
  */
 lsst::afw::table::BaseCatalog photometer(
@@ -38,7 +40,8 @@ lsst::afw::table::BaseCatalog photometer(
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& wavelength,
     pfs::drp::stella::SpectralPsf const& psf,
-    lsst::afw::image::MaskPixel badBitMask=0x0
+    lsst::afw::image::MaskPixel badBitMask=0x0,
+    ndarray::Array<double, 2, 1> const& positions=ndarray::Array<double, 2, 1>()
 );
 
 
