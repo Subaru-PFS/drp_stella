@@ -191,15 +191,13 @@ class PhotometerLinesTask(Task):
             """Return interpolator for an array of values"""
             return interp1d(np.arange(len(array)), array, bounds_error=False, fill_value=np.nan)
 
-        from scipy.signal import medfilt
-
         if isinstance(tracesOrProfiles, FiberTraceSet):
             norm = {ft.fiberId: ft.trace.image.array.sum(axis=1) for ft in tracesOrProfiles}
         elif isinstance(tracesOrProfiles, FiberProfileSet):
             norm = {ff: tracesOrProfiles[ff].norm for ff in tracesOrProfiles}
         else:
             raise RuntimeError(f"Unrecognised traces/profiles object: {tracesOrProfiles}")
-        return {ff: getInterpolator(medfilt(norm[ff], 9)) for ff in norm}
+        return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in norm}
 
     def correctFluxNormalizations(self, lines, tracesOrProfiles):
         """Correct the raw flux measurements for the trace normalization
