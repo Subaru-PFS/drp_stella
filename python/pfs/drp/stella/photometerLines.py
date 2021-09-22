@@ -7,6 +7,7 @@ from lsst.pipe.base import Task
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .fitContinuum import FitContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
@@ -41,6 +42,8 @@ class PhotometerLinesConfig(Config):
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     doForced = Field(dtype=bool, default=True, doc="Use forced positions to measure lines?")
     mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
+    excludeStatus = ListField(dtype=str, default=["BLEND"],
+                              doc="Reference line status flags indicating that line should be excluded")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     doSubtractLines = Field(dtype=bool, default=False, doc="Subtract lines after measurement?")
 
@@ -153,8 +156,9 @@ class PhotometerLinesTask(Task):
                 positions = np.array((lines.x.T, lines.y.T))
 
         badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
-        catalog = photometer(exposure.maskedImage, fiberId, wavelength, psf, badBitMask,
-                             positions if positions is not None else None)
+        select = (lines.status & ReferenceLineStatus.fromNames(*self.config.excludeStatus)) == 0
+        catalog = photometer(exposure.maskedImage, fiberId[select], wavelength[select], psf, badBitMask,
+                             positions[select] if positions is not None else None)
 
         cat = iter(catalog)
         for ii, rl in enumerate(lines):
