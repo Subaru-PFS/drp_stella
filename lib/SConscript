@@ -1,7 +1,6 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
 sources = Glob("#src/*.cc")
-sources += Glob("#src/cmpfit-1.2/*.cc")
 sources += Glob("#src/utils/*.cc")
 sources += Glob("#src/math/*.cc")
 scripts.BasicSConscript.lib(src=sources)
