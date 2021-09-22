@@ -246,7 +246,18 @@ lsst::afw::table::BaseCatalog photometer(
                 errors[ii] = std::sqrt((mm.square()*vv).sum())/modelDotModel;
             }
 
+            // Check for masked pixels in the central area
             lsst::geom::Point2D const iPoint{positions[iIndex][0], positions[iIndex][1]};
+            {
+                lsst::geom::Box2I central(lsst::geom::Point2I(iPoint) - lsst::geom::Extent2I(1, 1),
+                                          lsst::geom::Extent2I(3, 3));
+                central.clip(bbox);
+                auto const spans = lsst::afw::geom::SpanSet(central).intersect(*image.getMask(), badBitMask);
+                if (spans->getArea() > 0) {
+                    row.set(flagKey, true);
+                }
+            }
+
             auto const bounds = lsst::geom::Box2D::makeCenteredBox(iPoint, 2.0*iBox.getDimensions());
             for (std::size_t jj = ii + 1; jj < blendSize; ++jj) {
                 std::size_t const jIndex = indices[jj];
