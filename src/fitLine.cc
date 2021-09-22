@@ -142,6 +142,25 @@ FitLineResult fitLine(
 }
 
 
+std::ostream& operator<<(std::ostream& os, FitLineResult const& result) {
+    os << "FitLineResult(";
+    os << "rms=" << result.rms << ", ";
+    os << "isValid=" << result.isValid << ", ";
+    os << "num=" << result.num << ", ";
+    os << "amplitude=" << result.amplitude << ", ";
+    os << "center=" << result.center << ", ";
+    os << "rmsSize=" << result.rmsSize << ", ";
+    os << "bg0=" << result.bg0 << ", ";
+    os << "bg1=" << result.bg1 << ", ";
+    os << "amplitudeErr=" << result.amplitudeErr << ", ";
+    os << "centerErr=" << result.centerErr << ", ";
+    os << "rmsSizeErr=" << result.rmsSizeErr << ", ";
+    os << "bg0Err=" << result.bg0Err << ", ";
+    os << "bg1Err=" << result.bg1Err << ")";
+    return os;
+}
+
+
 // Explicit instantiation
 #define INSTANTIATE(TYPE) \
 template FitLineResult fitLine<TYPE>( \
