@@ -295,6 +295,8 @@ class FitDistortedDetectorMapConfig(Config):
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
+    minSignalToNoise = Field(dtype=float, default=50.0,
+                             doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -409,6 +411,12 @@ class FitDistortedDetectorMapTask(Task):
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
         self.log.debug("%d good lines after finite positions", good.sum())
+        if self.config.minSignalToNoise > 0:
+            good &= np.isfinite(lines.intensity) & np.isfinite(lines.intensityErr)
+            self.log.debug("%d good lines after finite intensities", good.sum())
+            with np.errstate(invalid="ignore", divide="ignore"):
+                good &= (lines.intensity/lines.intensityErr) > self.config.minSignalToNoise
+            self.log.debug("%d good lines after signal-to-noise", good.sum())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines):

@@ -48,6 +48,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     def setDefaults(self):
         super().setDefaults()
         self.doCameraImage = False  # We don't produce 2D images
+        self.adjustDetectorMap.minSignalToNoise = 0  # We don't measure S/N
 
 
 class ConstructFiberProfilesTask(SpectralCalibTask):

@@ -209,7 +209,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
             wavelength = detectorMap.findWavelength(fiberId, row)
             lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, self.config.traceSpectralError,
-                                  np.nan, np.nan, False, ReferenceLineStatus.GOOD, "Trace") for
+                                  1.0, 0.0, False, ReferenceLineStatus.GOOD, "Trace") for
                           wl, yy, tt in zip(wavelength, row, traces[fiberId])])
         return lines
 
