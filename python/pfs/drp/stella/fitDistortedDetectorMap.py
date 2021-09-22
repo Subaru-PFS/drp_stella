@@ -192,7 +192,7 @@ def robustRms(array):
     return 0.741*(uq - lq)
 
 
-def calculateFitStatistics(distortion, lines, selection, soften=0.0):
+def calculateFitStatistics(distortion, lines, selection, soften=(0.0, 0.0)):
     """Calculate statistics of the distortion fit
 
     Parameters
@@ -204,8 +204,9 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
     selection : `numpy.ndarray` of `bool`
         Flags indicating which of the ``lines`` are to be used in the
         calculation.
-    soften : `float`, optional
-        Systematic error to add in quadrature to measured errors (pixels).
+    soften : `tuple` (`float`, `float`), optional
+        Systematic error in x and y to add in quadrature to measured errors
+        (pixels).
 
     Returns
     -------
@@ -221,8 +222,9 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
         Fit chi^2.
     dof : `float`
         Degrees of freedom.
-    soften : `float`
-        Systematic error that was applied to measured errors (pixels).
+    soften : `tuple` (`float`, `float`), optional
+        Systematic error in x and y that was applied to measured errors
+        (pixels).
     """
     fit = distortion(lines.xBase, lines.yBase)
     xResid = (lines.x - fit[:, 0])
@@ -233,8 +235,8 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
 
     xResid2 = xResid[selection]**2
     yResid2 = yResid[selection]**2
-    xErr2 = lines.xErr[selection]**2 + soften**2
-    yErr2 = lines.yErr[selection]**2 + soften**2
+    xErr2 = lines.xErr[selection]**2 + soften[0]**2
+    yErr2 = lines.yErr[selection]**2 + soften[1]**2
 
     xWeight = 1.0/xErr2
     yWeight = 1.0/yErr2
@@ -338,8 +340,9 @@ class FitDistortedDetectorMapTask(Task):
             Residual RMS in x,y (pixels)
         chi2 : `float`
             Fit chi^2.
-        soften : `float`
-            Systematic error that was applied to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y that was applied to measured errors
+            (pixels).
         used : `numpy.ndarray` of `bool`
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
@@ -477,8 +480,9 @@ class FitDistortedDetectorMapTask(Task):
             Residual RMS in x,y (pixels)
         chi2 : `float`
             Fit chi^2.
-        soften : `float`
-            Systematic error that was applied to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y that was applied to measured errors
+            (pixels).
         used : `numpy.ndarray` of `bool`
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
@@ -528,7 +532,8 @@ class FitDistortedDetectorMapTask(Task):
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       used.sum(), numGood - numReserved)
-        reservedStats = calculateFitStatistics(result.distortion, lines, reserved, self.config.soften)
+        reservedStats = calculateFitStatistics(result.distortion, lines, reserved,
+                                               (self.config.soften, self.config.soften))
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
@@ -559,8 +564,9 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` are to be fit.
         doFitRightCcd : `bool`
             Fit affine transformation for right CCD?
-        soften : `float`, optional
-            Systematic error to add in quadrature to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y to add in quadrature to measured errors
+            (pixels).
 
         Returns
         -------
@@ -578,15 +584,16 @@ class FitDistortedDetectorMapTask(Task):
         numDistortion = DetectorDistortion.getNumDistortion(self.config.order)
 
         if soften is None:
-            soften = self.config.soften
+            soften = (self.config.soften, self.config.soften)
+        xSoften, ySoften = soften
 
         xx = lines.x[select].astype(float)
         yy = lines.y[select].astype(float)
         onRightCcd = lines.xBase[select] > Box2D(bbox).getCenterY()
         xBase = lines.xBase[select]
         yBase = lines.yBase[select]
-        xErr = np.hypot(lines.xErr[select].astype(float), soften)
-        yErr = np.hypot(lines.yErr[select].astype(float), soften)
+        xErr = np.hypot(lines.xErr[select].astype(float), xSoften)
+        yErr = np.hypot(lines.yErr[select].astype(float), ySoften)
 
         # Set up the least-squares equations
         design = DetectorDistortion.calculateDesignMatrix(self.config.order, Box2D(bbox), xBase, yBase)
@@ -681,34 +688,52 @@ class FitDistortedDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        def softenChi2(soften):
-            """Return chi^2/dof (minus 1) with the softening applied
-
-            This allows us to find the softening parameter that results in
-            chi^2/dof = 1 by bisection.
+        def getChi2Calculator(dim):
+            """Return function that calculates chi^2 given a softening parameter
 
             Parameters
             ----------
-            soften : `float`
-                Systematic error to add in quadrature to measured errors
-                (pixels).
+            dim : `str`, ``"x"`` or ``"y"``
+                Dimension for which to calculate chi^2.
 
             Returns
             -------
-            chi2 : `float`
-                chi^2/dof - 1
+            softenChi2 : callable
+                Function that calculates chi^2 given a softening parameter.
             """
-            colChi2 = np.sum(result.xResid[select]**2/(soften**2 + lines.xErr[select]**2))
-            rowChi2 = np.sum(result.yResid[select]**2/(soften**2 + lines.yErr[select]**2))
-            return (colChi2 + rowChi2)/result.dof - 1
+            residuals2 = getattr(result, dim + "Resid")[select]**2
+            errors2 = getattr(lines, dim + "Err")[select]**2
+            dof = result.dof/2  # Assume equipartition of the degrees of freedom between the dimensions
 
-        if softenChi2(0.0) <= 0:
-            self.log.info("No softening necessary")
-            return result
+            def softenChi2(soften):
+                """Return chi^2/dof (minus 1) with the softening applied
 
-        soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
-        self.log.info("Softening errors by %f pixels (%f nm) to yield chi^2/dof=1", soften, soften*dispersion)
+                This allows us to find the softening parameter that results in
+                chi^2/dof = 1 by bisection.
 
+                Parameters
+                ----------
+                soften : `float`
+                    Systematic error to add in quadrature to measured errors
+                    (pixels).
+
+                Returns
+                -------
+                chi2 : `float`
+                    chi^2/dof - 1
+                """
+                return np.sum(residuals2/(soften**2 + errors2))/dof - 1
+            return softenChi2
+
+        xSoftenChi2 = getChi2Calculator("x")
+        ySoftenChi2 = getChi2Calculator("y")
+        xSoften = scipy.optimize.bisect(xSoftenChi2, 0.0, 1.0) if xSoftenChi2(0.0) > 0 else 0.0
+        ySoften = scipy.optimize.bisect(ySoftenChi2, 0.0, 1.0) if ySoftenChi2(0.0) > 0 else 0.0
+
+        self.log.info("Softening errors by x=%f, y=%f pixels (%f nm) to yield chi^2/dof=1",
+                      xSoften, ySoften, ySoften*dispersion)
+
+        soften = (xSoften, ySoften)
         result = self.fitModel(bbox, lines, select, doFitRightCcd, soften)
         self.log.info("Softened fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d lines",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
