@@ -179,7 +179,7 @@ class ReferenceLineSet:
                            ):
         """Apply an exclusion zone around each line
 
-        A line cannot have another brighter line within ``exclusionRadius``.
+        A line cannot have another line within ``exclusionRadius``.
 
         The line list is modified in-place.
 
@@ -194,11 +194,10 @@ class ReferenceLineSet:
             # No exclusion zone to apply
             return
         wavelength = self.wavelength
-        intensity = self.intensity
         reject = np.zeros(len(self), dtype=bool)
         for rl in self:
             distance = wavelength - rl.wavelength
-            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0) & (intensity < rl.intensity)
+            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
         for rl, rej in zip(self, reject):
             if rej:
                 rl.status |= status
