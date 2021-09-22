@@ -389,6 +389,28 @@ class FitDistortedDetectorMapTask(Task):
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
 
+    def getGoodLines(self, lines: ArcLineSet):
+        """Return a boolean array indicating which lines are good.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Line measurements.
+
+        Returns
+        -------
+        good : `numpy.ndarray` of `bool`
+            Boolean array indicating which lines are good.
+        """
+        good = lines.flag == 0
+        self.log.debug("%d good lines after measurement flags", good.sum())
+        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
+        self.log.debug("%d good lines after line status", good.sum())
+        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
+        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        self.log.debug("%d good lines after finite positions", good.sum())
+        return good
+
     def measureSlitOffsets(self, detectorMap, lines):
         """Measure slit offsets for base detectorMap
 
@@ -401,10 +423,7 @@ class FitDistortedDetectorMapTask(Task):
         lines : `ArcLineSet`
             Original line measurements (NOT the residuals).
         """
-        good = lines.flag == 0
-        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
-        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        good = self.getGoodLines(lines)
         sysErr = self.config.soften
         detectorMap.measureSlitOffsets(
             lines.fiberId[good], lines.wavelength[good],
@@ -488,10 +507,7 @@ class FitDistortedDetectorMapTask(Task):
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
         """
-        good = lines.flag == 0
-        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
-        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        good = self.getGoodLines(lines)
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
