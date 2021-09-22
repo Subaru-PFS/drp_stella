@@ -954,7 +954,7 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, distortion, lines, good, reserved):
+    def plotResiduals(self, distortion, lines, used, reserved):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
@@ -965,7 +965,7 @@ class FitDistortedDetectorMapTask(Task):
             Model containing distortion.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        good : `numpy.ndarray` of `bool`
+        used : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
@@ -977,6 +977,7 @@ class FitDistortedDetectorMapTask(Task):
         xy = distortion(lines.xBase, lines.yBase)
         dx = lines.x - xy[:, 0]
         dy = lines.y - xy[:, 1]
+        good = self.getGoodLines(lines)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
@@ -1005,9 +1006,10 @@ class FitDistortedDetectorMapTask(Task):
 
         for ax, select, label in zip(
             axes.T,
-            [(good & ~reserved), reserved, (~good & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
-            ["Used", "Reserved", "Bad"],
+            [(used & ~reserved), reserved, (good & ~used & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
+            ["Used", "Reserved", "Rejected"],
         ):
+            ax[0].set_title(label)
             if not np.any(select):
                 continue
             xNorm = calculateNormalization(dx[select])
@@ -1016,7 +1018,6 @@ class FitDistortedDetectorMapTask(Task):
                           color=cmap(xNorm(dx[select])))
             ax[1].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
                           color=cmap(yNorm(dx[select])))
-            ax[0].set_title(label)
             addColorbar(fig, ax[0], cmap, xNorm, "x residual (pixels)")
             addColorbar(fig, ax[1], cmap, yNorm, "y residual (pixels)")
 
