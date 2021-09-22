@@ -51,7 +51,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         if likeBase:
             distortionOrder = 1
-            numCoeffs = DetectorDistortion.getNumDistortion(distortionOrder)
+            numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
             xDistortion = np.zeros(numCoeffs, dtype=float)
             yDistortion = np.zeros(numCoeffs, dtype=float)
             rightCcd = np.zeros(6, dtype=float)
@@ -64,7 +64,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
             base.setSlitOffsets(slitOffsets, slitOffsets)
         else:
             distortionOrder = 3
-            numCoeffs = DetectorDistortion.getNumDistortion(distortionOrder)
+            numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
 
             # Introduce a random distortion field; will likely get weird values, but good for testing I/O
             rng = np.random.RandomState(12345)
@@ -255,11 +255,10 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         config.order = 1
         config.doSlitOffsets = True
         task = FitDistortedDetectorMapTask(name="fitDistortedDetectorMap", config=config)
+        task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
-        self.assertFloatsEqual(detMap.distortion.getXCoefficients(), 0.0)
-        self.assertFloatsEqual(detMap.distortion.getYCoefficients(), 0.0)
-        self.assertFloatsEqual(detMap.distortion.getRightCcdCoefficients(), 0.0)
+        self.assertFloatsEqual(detMap.distortion.getCoefficients(), 0.0)
         self.assertFloatsEqual(detMap.getSpatialOffsets(), 0.0)
         self.assertFloatsEqual(detMap.getSpectralOffsets(), 0.0)
 

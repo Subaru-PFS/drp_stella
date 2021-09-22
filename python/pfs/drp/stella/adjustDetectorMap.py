@@ -4,7 +4,6 @@ from lsst.pex.config import Field
 from lsst.geom import Box2D
 
 from . import SplinedDetectorMap
-from . import DistortedDetectorMap, DetectorDistortion
 from . import ReferenceLineStatus
 from .arcLine import ArcLine, ArcLineSet
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
@@ -33,7 +32,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         Parameters
         ----------
-        detectorMap : `pfs.drp.stella.DistortedDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         lines : `pfs.drp.stella.ArcLineSet`
             Measured arc lines.
@@ -43,7 +42,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DistortedDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Adjusted detectorMap.
         model : `pfs.drp.stella.GlobalDetectorModel`
             Model that was fit to the data.
@@ -60,8 +59,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
         """
-        base = self.getBaseDetectorMap(detectorMap)  # NB: a DistortedDetectorMap, not SplinedDetectorMap
-        needNumLines = DetectorDistortion.getNumDistortion(self.config.order)
+        base = self.getBaseDetectorMap(detectorMap)  # NB: DistortionBasedDetectorMap not SplinedDetectorMap
+        needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.countGoodLines(lines)
         if numGoodLines < needNumLines:
             if traces is not None:
@@ -70,21 +69,10 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
                 raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         residuals = self.calculateBaseResiduals(base, lines)
         dispersion = base.getDispersion(base.fiberId[len(base)//2])
-        results = self.fitDetectorDistortion(detectorMap.bbox, residuals, False, dispersion,
-                                             seed=detectorMap.visitInfo.getExposureId())
+        results = self.fitDistortion(detectorMap.bbox, residuals, dispersion,
+                                     seed=detectorMap.visitInfo.getExposureId(), fitStatic=False,
+                                     Distortion=type(base.getDistortion()))
         results.detectorMap = self.constructAdjustedDetectorMap(base, results.distortion)
-
-        numCoeff = DetectorDistortion.getNumDistortion(self.config.order)
-        if isinstance(detectorMap, DistortedDetectorMap):
-            xCoeff = detectorMap.distortion.getXCoefficients()
-            yCoeff = detectorMap.distortion.getYCoefficients()
-        else:
-            xCoeff = np.zeros(numCoeff, dtype=float)
-            yCoeff = np.zeros(numCoeff, dtype=float)
-        xDiff = results.detectorMap.distortion.getXCoefficients() - xCoeff
-        yDiff = results.detectorMap.distortion.getYCoefficients() - yCoeff
-        self.log.info("Adjustment in x: %s", xDiff[:numCoeff])
-        self.log.info("Adjustment in y: %s", yDiff[:numCoeff])
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
@@ -96,52 +84,33 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         """Get detectorMap to use as a base
 
         We need to ensure that the detectorMap is indeed a
-        ``DistortedDetectorMap`` with a sufficient polynomial order.
+        ``DistortionBasedDetectorMap`` with a sufficient polynomial order.
         We zero out the low-order coefficients to make it easy to construct the
         adjusted version.
 
         Parameters
         ----------
-        detectorMap : `pfs.drp.stella.DistortedDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
 
         Returns
         -------
-        base : `pfs.drp.stella.DistortedDetectorMap`
+        base : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         """
+        visitInfo = detectorMap.visitInfo
+        metadata = detectorMap.metadata
         if isinstance(detectorMap, SplinedDetectorMap):
-            # Promote SplinedDetectorMap to DistortedDetectorMap
-            numCoeff = DetectorDistortion.getNumDistortion(self.config.order)
+            # Promote SplinedDetectorMap to DistortionBasedDetectorMap
+            numCoeff = self.Distortion.getNumParametersForOrder(self.config.order)
             coeff = np.zeros(numCoeff, dtype=float)
-            rightCcd = np.zeros(6, dtype=float)
-            distortion = DetectorDistortion(self.config.order, Box2D(detectorMap.bbox), coeff, coeff,
-                                            rightCcd)
-            return DistortedDetectorMap(detectorMap, distortion, detectorMap.visitInfo, detectorMap.metadata)
-        if not isinstance(detectorMap, DistortedDetectorMap):
-            raise NotImplementedError(f"Unsupported detectorMap class: {detectorMap.__class__}")
-        distortion = detectorMap.distortion
-        orderHave = distortion.getDistortionOrder()
-        orderWant = self.config.order
-        numHave = distortion.getNumDistortion(orderHave)
-        numWant = distortion.getNumDistortion(orderWant)
-        if numHave > numWant:
-            xCoeff = detectorMap.distortion.getXCoefficients()
-            yCoeff = detectorMap.distortion.getYCoefficients()
-            # Taking advantage of the fact that the coefficients are stored in order of increasing order:
-            # e.g., 1 x y x^2 xy y^2 x^3 x^2y xy^2 y^3
-            xCoeff[:numWant] = 0.0
-            yCoeff[:numWant] = 0.0
+            distortion = self.Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)
+            Class = self.DetectorMap
         else:
-            xCoeff = np.zeros(numWant, dtype=float)
-            yCoeff = np.zeros(numWant, dtype=float)
-            orderHave = orderWant
-            numHave = numWant
-
-        adjDistortion = DetectorDistortion(orderHave, distortion.getRange(), xCoeff, yCoeff,
-                                           distortion.getRightCcdCoefficients())
-        return DistortedDetectorMap(detectorMap.base, adjDistortion, detectorMap.visitInfo,
-                                    detectorMap.metadata)
+            distortion = detectorMap.distortion.removeLowOrder(self.config.order)
+            Class = type(detectorMap)
+            detectorMap = detectorMap.base
+        return Class(detectorMap, distortion, visitInfo, metadata)
 
     def countGoodLines(self, lines):
         """Count the number of good lines
@@ -179,7 +148,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         isSufficient : `bool`
             Do we have enough good lines?
         """
-        needNumLines = DetectorDistortion.getNumDistortion(self.config.order)
+        needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.countGoodLines(lines)
         return numGoodLines > needNumLines
 
@@ -221,28 +190,17 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         Parameters
         ----------
-        base : `pfs.drp.stella.DistortedDetectorMap`
+        base : `pfs.drp.stella.DistortionBasedDetectorMap`
             Mapping from fiberId,wavelength --> x,y with low-order coefficients
             zeroed out.
-        distortion : `pfs.drp.stella.DetectorDistortion`
+        distortion : `pfs.drp.stella.BaseDistortion`
             Low-order distortion to apply.
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DistortedDetectorMap`
+        detectorMap : `pfs.drp.stella.DistortionBasedDetectorMap`
             Mapping from fiberId,wavelength --> x,y with both low- and
             high-order coefficients set.
         """
-        numCoeff = DetectorDistortion.getNumDistortion(self.config.order)
-        xCoeff = base.distortion.getXCoefficients()
-        yCoeff = base.distortion.getYCoefficients()
-
-        # Taking advantage of the fact that the coefficients are stored in order of increasing order:
-        # e.g., 1 x y x^2 xy y^2 x^3 x^2y xy^2 y^3
-        xCoeff[:numCoeff] = distortion.getXCoefficients()
-        yCoeff[:numCoeff] = distortion.getYCoefficients()
-
-        original = base.distortion
-        distortion = DetectorDistortion(original.getDistortionOrder(), original.getRange(), xCoeff, yCoeff,
-                                        original.getRightCcdCoefficients())
-        return DistortedDetectorMap(base.getBase(), distortion, base.visitInfo, base.metadata)
+        return type(base)(base.getBase(), base.getDistortion().merge(distortion),
+                          base.visitInfo, base.metadata)

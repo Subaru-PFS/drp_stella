@@ -65,7 +65,7 @@ class DistortedDetectorMap:
 
         return pfs.datamodel.DistortedDetectorMap(
             identity, pfs.datamodel.Box.fromLsst(self.bbox), base,
-            distortion.getDistortionOrder(), distortion.getXCoefficients(), distortion.getYCoefficients(),
+            distortion.getOrder(), distortion.getXCoefficients(), distortion.getYCoefficients(),
             distortion.getRightCcdCoefficients(), metadata.toDict()
         )
 

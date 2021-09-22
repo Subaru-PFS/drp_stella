@@ -1,6 +1,4 @@
-#include <set>
 #include <numeric>
-#include <algorithm>
 
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -10,10 +8,13 @@
 #include "lsst/afw/table/io/InputArchive.h"
 #include "lsst/afw/table/io/CatalogVector.h"
 #include "lsst/afw/table/io/Persistable.cc"
+#include "lsst/afw/math/LeastSquares.h"
 
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/DetectorDistortion.h"
+#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
 namespace pfs {
@@ -22,26 +23,61 @@ namespace stella {
 
 
 DetectorDistortion::DetectorDistortion(
-    int distortionOrder,
+    int order,
     lsst::geom::Box2D const& range,
-    ndarray::Array<double, 1, 1> const& xDistortion,
-    ndarray::Array<double, 1, 1> const& yDistortion,
-    ndarray::Array<double, 1, 1> const& rightCcd
-) : _distortionOrder(distortionOrder),
-    _range(range),
-    _xDistortion(utils::arrayToVector(xDistortion), range),
-    _yDistortion(utils::arrayToVector(yDistortion), range),
+    DetectorDistortion::Array1D const& xDistortion,
+    DetectorDistortion::Array1D const& yDistortion,
+    DetectorDistortion::Array1D const& rightCcd
+) : BaseDistortion<DetectorDistortion>(order, range,
+                                       joinCoefficients(order, xDistortion, yDistortion, rightCcd)),
+    _xDistortion(xDistortion, range),
+    _yDistortion(yDistortion, range),
     _rightCcd()
 {
-    std::size_t const numDistortion = getNumDistortion(distortionOrder);
-    utils::checkSize(xDistortion.size(), numDistortion, "xDistortion");
-    utils::checkSize(yDistortion.size(), numDistortion, "yDistortion");
-    utils::checkSize(rightCcd.size(), 6UL, "rightCcd");
     _rightCcd.setParameterVector(ndarray::asEigenArray(rightCcd));
 }
 
 
-lsst::geom::Point2D DetectorDistortion::operator()(
+template<>
+std::size_t BaseDistortion<DetectorDistortion>::getNumParametersForOrder(int order) {
+    return 2*DetectorDistortion::getNumDistortionForOrder(order) + 6;
+}
+
+
+std::tuple<DetectorDistortion::Array1D, DetectorDistortion::Array1D, DetectorDistortion::Array1D>
+DetectorDistortion::splitCoefficients(
+    int order,
+    ndarray::Array<double, 1, 1> const& coeff
+) {
+    utils::checkSize(coeff.size(), DetectorDistortion::getNumParametersForOrder(order), "coeff");
+    std::size_t const numDistortion = DetectorDistortion::getNumDistortionForOrder(order);
+    return std::tuple<Array1D, Array1D, Array1D>(
+        ndarray::copy(coeff[ndarray::view(0, numDistortion)]),
+        ndarray::copy(coeff[ndarray::view(numDistortion, 2*numDistortion)]),
+        ndarray::copy(coeff[ndarray::view(2*numDistortion, 2*numDistortion + 6)])
+    );
+}
+
+
+DetectorDistortion::Array1D DetectorDistortion::joinCoefficients(
+    int order,
+    DetectorDistortion::Array1D const& xDistortion,
+    DetectorDistortion::Array1D const& yDistortion,
+    DetectorDistortion::Array1D const& rightCcd
+) {
+    std::size_t const numDistortion = getNumDistortionForOrder(order);
+    utils::checkSize(xDistortion.size(), numDistortion, "xDistortion");
+    utils::checkSize(yDistortion.size(), numDistortion, "yDistortion");
+    utils::checkSize(rightCcd.size(), 6UL, "rightCcd");
+    Array1D coeff = ndarray::allocate(2*numDistortion + 6);
+    coeff[ndarray::view(0, numDistortion)] = xDistortion;
+    coeff[ndarray::view(numDistortion, 2*numDistortion)] = yDistortion;
+    coeff[ndarray::view(2*numDistortion, 2*numDistortion + 6)] = rightCcd;
+    return coeff;
+}
+
+
+lsst::geom::Point2D DetectorDistortion::evaluate(
     lsst::geom::Point2D const& point,
     bool onRightCcd
 ) const {
@@ -64,21 +100,34 @@ lsst::geom::Point2D DetectorDistortion::operator()(
 }
 
 
-ndarray::Array<double, 2, 1> DetectorDistortion::operator()(
-    ndarray::Array<double, 1, 1> const& xx,
-    ndarray::Array<double, 1, 1> const& yy,
-    ndarray::Array<bool, 1, 1> const& onRightCcd
-) const {
-    std::size_t const length = xx.size();
-    utils::checkSize(yy.size(), length, "y");
-    utils::checkSize(onRightCcd.size(), length, "onRightCcd");
-    ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const point = operator()(lsst::geom::Point2D(xx[ii], yy[ii]), onRightCcd[ii]);
-        out[ii][0] = point.getX();
-        out[ii][1] = point.getY();
+DetectorDistortion DetectorDistortion::removeLowOrder(int order) const {
+    Array1D xDistortion = getXCoefficients();
+    Array1D yDistortion = getYCoefficients();
+
+    std::size_t const num = std::max(getNumDistortion(), getNumDistortionForOrder(order));
+    xDistortion[ndarray::view(0, num)] = 0.0;
+    yDistortion[ndarray::view(0, num)] = 0.0;
+    
+    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
+}
+
+
+DetectorDistortion DetectorDistortion::merge(DetectorDistortion const& other) const {
+    if (other.getRange() != getRange()) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
     }
-    return out;
+    if (other.getOrder() >= getOrder()) {
+        return other;
+    }
+
+    Array1D xDistortion = getXCoefficients();
+    Array1D yDistortion = getYCoefficients();
+
+    std::size_t const numOther = other.getNumDistortion();
+    xDistortion[ndarray::view(0, numOther)] = other.getXCoefficients();
+    yDistortion[ndarray::view(0, numOther)] = other.getYCoefficients();
+
+    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
 }
 
 
@@ -127,66 +176,58 @@ std::ostream& operator<<(std::ostream& os, DetectorDistortion const& model) {
 }
 
 
-ndarray::Array<double, 2, 1> DetectorDistortion::calculateDesignMatrix(
+template<>
+DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
-    ndarray::Array<double, 1, 1> const& yy
-) {
-    utils::checkSize(xx.size(), yy.size(), "x vs y");
-    std::size_t const length = xx.size();
-
-    std::size_t const numTerms = DetectorDistortion::getNumDistortion(distortionOrder);
-    ndarray::Array<double, 2, 1> matrix = ndarray::allocate(length, numTerms);
-    Polynomial const poly(distortionOrder, range);
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const terms = poly.getDFuncDParameters(xx[ii], yy[ii]);
-        std::copy(terms.begin(), terms.end(), matrix[ii].begin());
-    }
-    return matrix;
-}
-
-
-std::pair<double, std::size_t> DetectorDistortion::calculateChi2(
-    ndarray::Array<double, 1, 1> const& xOrig,
-    ndarray::Array<double, 1, 1> const& yOrig,
-    ndarray::Array<bool, 1, 1> const& onRightCcd,
+    ndarray::Array<double, 1, 1> const& yy,
     ndarray::Array<double, 1, 1> const& xMeas,
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<bool, 1, 1> const& goodOrig,
-    float sysErr
-) const {
-    std::size_t const length = xOrig.size();
-    utils::checkSize(yOrig.size(), length, "yOrig");
-    utils::checkSize(onRightCcd.size(), length, "onRightCcd");
+    bool fitStatic
+) {
+    std::size_t const length = xx.size();
+    utils::checkSize(yy.size(), length, "y");
     utils::checkSize(xMeas.size(), length, "xMeas");
     utils::checkSize(yMeas.size(), length, "yMeas");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
-    ndarray::Array<bool, 1, 1> good;
-    if (goodOrig.isEmpty()) {
-        good = ndarray::allocate(length);
-        good.deep() = true;
-    } else {
-        good = goodOrig;
-        utils::checkSize(good.size(), length, "good");
-    }
-    double const sysErr2 = std::pow(sysErr, 2);
-    double chi2 = 0.0;
-    std::size_t num = 0;
+
+    std::size_t const numDistortion = DetectorDistortion::getNumDistortionForOrder(distortionOrder);
+    std::size_t const numTerms = numDistortion + (fitStatic ? 3 : 0);
+    ndarray::Array<double, 2, 1> design = ndarray::allocate(length, numTerms);
+    DetectorDistortion::Polynomial const poly(distortionOrder, range);
+    double const xCenter = range.getCenterX();
     for (std::size_t ii = 0; ii < length; ++ii) {
-        if (!good[ii]) continue;
-        double const xErr2 = std::pow(xErr[ii], 2) + sysErr2;
-        double const yErr2 = std::pow(yErr[ii], 2) + sysErr2;
-        lsst::geom::Point2D const fit = operator()(lsst::geom::Point2D(xOrig[ii], yOrig[ii]), onRightCcd[ii]);
-        chi2 += std::pow(xMeas[ii] - fit.getX(), 2)/xErr2 + std::pow(yMeas[ii] - fit.getY(), 2)/yErr2;
-        num += 2;  // one for x, one for y
+        auto const terms = poly.getDFuncDParameters(xx[ii], yy[ii]);
+        assert(terms.size() == numDistortion);
+        std::copy(terms.begin(), terms.end(), design[ii].begin());
+        if (fitStatic) {
+            if (xx[ii] > xCenter) {
+                design[ii][numTerms - 3] = 1.0;
+                design[ii][numTerms - 2] = xx[ii];
+                design[ii][numTerms - 1] = yy[ii];
+            } else {
+                design[ii][ndarray::view(numTerms - 3, numTerms)] = 0.0;
+            }
+        }
     }
-    std::size_t const numFitParams = getNumParameters();
-    std::size_t const dof = num - numFitParams;
-    return std::make_pair(chi2, dof);
+
+    ndarray::Array<double const, 1, 1> xSolution = math::solveLeastSquaresDesign(design, xMeas, xErr);
+    ndarray::Array<double const, 1, 1> ySolution = math::solveLeastSquaresDesign(design, yMeas, yErr);
+    ndarray::Array<double, 1, 1> xCoeff = copy(xSolution[ndarray::view(0, numDistortion)]);
+    ndarray::Array<double, 1, 1> yCoeff = copy(ySolution[ndarray::view(0, numDistortion)]);
+    ndarray::Array<double, 1, 1> rightCcd;
+    if (fitStatic) {
+        rightCcd = DetectorDistortion::makeRightCcdCoefficients(xSolution[numTerms - 3],
+        ySolution[numTerms - 3], xSolution[numTerms - 2], xSolution[numTerms - 1],
+        ySolution[numTerms - 2], ySolution[numTerms - 1]);
+    } else {
+        rightCcd = utils::arrayFilled<double, 1, 1>(6, 0);
+    }
+    return DetectorDistortion(distortionOrder, range, xCoeff, yCoeff, rightCcd);
 }
 
 
@@ -239,7 +280,7 @@ void DetectorDistortion::write(lsst::afw::table::io::OutputArchiveHandle & handl
     DetectorDistortionSchema const &schema = DetectorDistortionSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
-    record->set(schema.distortionOrder, getDistortionOrder());
+    record->set(schema.distortionOrder, getOrder());
     record->set(schema.range, getRange());
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getXCoefficients());
     record->set(schema.xCoefficients, xCoeff);
@@ -281,6 +322,9 @@ DetectorDistortion::Factory registration("DetectorDistortion");
 
 }  // anonymous namespace
 
+
+// Explicit instantiation
+template class BaseDistortion<DetectorDistortion>;
 
 
 }}}  // namespace pfs::drp::stella
