@@ -4,9 +4,6 @@ from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, makeC
 from lsst.pipe.base import Task
 
 from lsst.geom import Point2D, Point2I, Box2I, Extent2I
-from lsst.afw.geom.ellipses import Ellipse, Axes
-from lsst.afw.geom import SpanSet
-from lsst.afw.detection import Footprint
 from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
@@ -17,6 +14,7 @@ from .arcLine import ArcLine, ArcLineSet
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
+from .makeFootprint import makeFootprint
 
 import lsstDebug
 
@@ -36,13 +34,17 @@ class CentroidLinesConfig(Config):
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
+    peakSearch = Field(dtype=float, default=3, doc="Radius of peak search (pixels)")
+    footprintHeight = Field(dtype=int, default=11, doc="Height of footprint (pixels)")
+    footprintWidth = Field(dtype=float, default=3, doc="Width of footprint (pixels)")
     photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
-    footprintSize = Field(dtype=float, default=3, doc="Radius of footprint (pixels)")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     threshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for lines")
 
     def setDefaults(self):
+        super().setDefaults()
+        self.centroider.binmax = 1
         self.photometer.badMaskPlanes = ["BAD", "SAT", "CR", "NO_DATA"]
 
 
@@ -69,7 +71,7 @@ class CentroidLinesTask(Task):
         self.debugInfo = lsstDebug.Info(__name__)
         self.makeSubtask("continuum")
 
-    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None):
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None, seed=0):
         """Centroid lines on an arc
 
         We use the LSST stack's ``SdssCentroid`` measurement at the position
@@ -92,6 +94,8 @@ class CentroidLinesTask(Task):
         fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
             Position and profile of fiber traces. Required only for continuum
             subtraction.
+        seed : `int`
+            Seed for random number generator.
 
         Returns
         -------
@@ -103,10 +107,10 @@ class CentroidLinesTask(Task):
                 raise RuntimeError("No fiberTraces provided for continuum subtraction")
             with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, detectorMap,
                                                    referenceLines):
-                return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
-        return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
+                return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig, seed)
+        return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig, seed)
 
-    def centroidLines(self, exposure, referenceLines, detectorMap, pfsConfig=None):
+    def centroidLines(self, exposure, referenceLines, detectorMap, pfsConfig=None, seed=0):
         """Centroid lines on an arc
 
         We use the LSST stack's ``SdssCentroid`` measurement at the position
@@ -123,6 +127,8 @@ class CentroidLinesTask(Task):
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
             Top-end configuration, for specifying good fibers. If not provided,
             will use all fibers in the detectorMap.
+        seed : `int`
+            Seed for random number generator.
 
         Returns
         -------
@@ -131,8 +137,8 @@ class CentroidLinesTask(Task):
         """
         checkPsf(exposure, fwhm=self.config.fwhm)
         convolved = self.convolveImage(exposure)
-        catalog = self.makeCatalog(referenceLines, detectorMap, convolved, pfsConfig)
-        self.measure(exposure, catalog)
+        catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
+        self.measure(exposure, catalog, seed)
         self.display(exposure, catalog)
         lines = self.translate(catalog)
         self.log.info("Measured %d line centroids", len(lines))
@@ -160,7 +166,7 @@ class CentroidLinesTask(Task):
 
         return convolvedImage
 
-    def makeCatalog(self, referenceLines, detectorMap, convolved, pfsConfig=None):
+    def makeCatalog(self, referenceLines, detectorMap, image, convolved, pfsConfig=None):
         """Make a catalog of arc lines
 
         We plug in the rough position of all the arc lines, from the identified
@@ -173,6 +179,8 @@ class CentroidLinesTask(Task):
             List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
+        image : `lsst.afw.image.Image`
+            Image (not convolved).
         convolved : `lsst.afw.image.MaskedImage`
             PSF-convolved image.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
@@ -200,16 +208,18 @@ class CentroidLinesTask(Task):
                 xx, yy = detectorMap.findPoint(ff, rl.wavelength)
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
-                point = Point2D(xx, yy)
-                spans = SpanSet.fromShape(Ellipse(Axes(self.config.footprintSize, self.config.footprintSize),
-                                                  point))
-                peak = self.findPeak(convolved.image, point)
+                expected = Point2D(xx, yy)
+                peak = self.findPeak(convolved.image, expected)
+                footprint = makeFootprint(image, peak, self.config.footprintHeight,
+                                          self.config.footprintWidth)
+                assert image.getBBox().contains(footprint.getSpans().getBBox())
 
                 source = catalog.addNew()
                 source.set(self.fiberId, ff)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)
+                source.setFootprint(footprint)
 
                 if bbox.contains(peak):
                     sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
@@ -218,12 +228,6 @@ class CentroidLinesTask(Task):
                     ignore = True
 
                 source.set(self.ignore, ignore)
-
-                footprint = Footprint(spans, detectorMap.bbox)
-                fpPeak = footprint.getPeaks().addNew()
-                fpPeak.setFx(peak.getX())
-                fpPeak.setFy(peak.getY())
-                source.setFootprint(footprint)
         return catalog
 
     def findPeak(self, image, center):
@@ -241,16 +245,17 @@ class CentroidLinesTask(Task):
         peak : `lsst.geom.Point2I`
             Coordinates of the peak.
         """
-        x0 = int(center.getX() + 0.5) - self.config.footprintSize
-        y0 = int(center.getY() + 0.5) - self.config.footprintSize
-        size = 2*self.config.footprintSize + 1
+        x0 = int(center.getX() + 0.5) - self.config.peakSearch
+        y0 = int(center.getY() + 0.5) - self.config.peakSearch
+        size = 2*self.config.peakSearch + 1
         box = Box2I(Point2I(x0, y0), Extent2I(size, size))
         box.clip(image.getBBox())
         subImage = image[box]
-        yy, xx = np.unravel_index(np.argmax(subImage.array), subImage.array.shape)
+        yy, xx = np.unravel_index(np.argmax(np.where(np.isfinite(subImage.array), subImage.array, 0.0)),
+                                  subImage.array.shape)
         return Point2I(xx + x0, yy + y0)
 
-    def measure(self, exposure, catalog):
+    def measure(self, exposure, catalog, seed=0):
         """Measure the centroids
 
         Parameters
@@ -259,10 +264,16 @@ class CentroidLinesTask(Task):
             Arc exposure on which to centroid lines.
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog of arc lines; modified with the measured positions.
+        seed : `int`
+            Seed for random number generator.
         """
-        for source in catalog:
-            if not source.get(self.ignore):
+        with DeblendContext(exposure.maskedImage, catalog, seed) as deblend:
+            for source in catalog:
+                if source.get(self.ignore):
+                    continue
+                deblend.insert(source)
                 self.measureLine(exposure, source)
+                deblend.remove(source)
 
     def measureLine(self, exposure, source):
         """Measure a single line
@@ -287,7 +298,7 @@ class CentroidLinesTask(Task):
             except Exception as error:
                 self.log.debug("Exception for source %s at (%f,%f): %s",
                                source.getId(), source.get("centroid_x"), source.get("centroid_y"), error)
-                measurement.fail(source)
+                measurement.fail(source, None)
 
     def translate(self, catalog):
         """Translate the catalog of measured centroids to a simpler format
@@ -359,3 +370,73 @@ class CentroidLinesTask(Task):
                 disp.dot("+", peak.getFx(), peak.getFy(), size=2, ctype="red")
                 ctype = "yellow" if row.get("centroid_flag") else "green"
                 disp.dot("x", row.get("centroid_x"), row.get("centroid_y"), size=5, ctype=ctype)
+
+
+class DeblendContext:
+    """Context manager that removes all sources from the image
+
+    Allows insertion and removal of sources one by one, and puts them all back
+    when done.
+
+    Parameters
+    ----------
+    image : `lsst.afw.image.MaskedImage`
+        Arc image on which to centroid lines.
+    catalog : `lsst.afw.table.SourceCatalog`
+        Catalog of arc lines; modified with the measured positions.
+    seed : `int`, optional
+        Seed for random number generator.
+    """
+    def __init__(self, image, catalog, seed=0):
+        self.image = image
+        self.catalog = catalog
+        self.xy0 = image.getXY0()
+
+        array = image.image.array
+        self.original = array.copy()
+        rng = np.random.RandomState(seed)
+        sigma = np.where(image.variance.array > 0, np.sqrt(image.variance.array), 0.0)
+        self.noise = rng.normal(0.0, sigma, array.shape).astype(array.dtype)
+
+    def __enter__(self):
+        """Start the context management
+
+        We replace the entire image with noise: we don't want to leave any wings
+        outside the source footprints. Individual sources will be added and
+        removed in turn via the ``insert`` and ``remove`` methods.
+
+        Returns
+        -------
+        self : `DeblendContext`
+            Deblender that can ``insert`` and ``remove`` sources from the image.
+        """
+        self.image.image.array[:] = self.noise
+        return self
+
+    def insert(self, source):
+        """Insert a source"""
+        self._apply(source, self.original)
+
+    def remove(self, source):
+        """Remove a source"""
+        self._apply(source, self.noise)
+
+    def _apply(self, source, array):
+        """Put pixels of a source from an array into the image
+
+        Parameters
+        ----------
+        source : `lsst.afw.table.SourceRecord`
+            Source whose pixels will be modified.
+        array : `numpy.ndarray`
+            Array with pixels to put into the image.
+        """
+        spans = source.getFootprint().getSpans()
+        spans.unflatten(self.image.image.array, spans.flatten(array, self.xy0), self.xy0)
+
+    def __exit__(self, *args):
+        """Finish the context management
+
+        We restore the original image completely. No exceptions are suppressed.
+        """
+        self.image.image.array[:] = self.original

@@ -35,6 +35,10 @@ struct FitLineResult {
 };
 
 
+/// Print results to stream
+std::ostream& operator<<(std::ostream& os, FitLineResult const& result);
+
+
 /** Fit a line to an array
  *
  * We fit a Gaussian line plus linear continuum to a nominated portion of the

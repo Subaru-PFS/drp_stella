@@ -30,7 +30,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.darkTime = 12345.6
 
         distortionOrder = 5
-        numCoeffs = DetectorDistortion.getNumDistortion(distortionOrder)
+        numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
         xDistortion = np.zeros(numCoeffs, dtype=float)
         yDistortion = np.zeros(numCoeffs, dtype=float)
         rightCcd = np.zeros(6, dtype=float)
@@ -148,6 +148,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         centroidLines = CentroidLinesTask()
         centroidTraces = CentroidTracesTask()
         centroidLines.config.fwhm = self.synthConfig.fwhm
+        centroidLines.config.doSubtractContinuum = False  # Can bias the measurements if we're off by a lot
         centroidTraces.config.fwhm = self.synthConfig.fwhm
         if numLines > 0:
             lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)

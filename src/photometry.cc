@@ -109,10 +109,16 @@ lsst::afw::table::BaseCatalog photometer(
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& wavelength,
     pfs::drp::stella::SpectralPsf const& psf,
-    lsst::afw::image::MaskPixel badBitMask
+    lsst::afw::image::MaskPixel badBitMask,
+    ndarray::Array<double, 2, 1> const& positions_
 ) {
     utils::checkSize(fiberId.size(), wavelength.size(), "fiberId vs wavelength");
     std::size_t const num = fiberId.size();
+
+    ndarray::Array<double, 2, 1> const& positions = positions_.isEmpty() ?
+        psf.getDetectorMap()->findPoint(fiberId, wavelength) : positions_;
+    utils::checkSize(positions.getShape(), ndarray::makeVector<ndarray::Size>(num, 2),
+                     "fiberId vs positions");
 
     // Set up output
     lsst::afw::table::Schema schema;
@@ -124,10 +130,13 @@ lsst::afw::table::BaseCatalog photometer(
     lsst::afw::table::BaseCatalog catalog{schema};
     catalog.reserve(num);
     for (std::size_t ii = 0; ii < num; ++ii) {
-        catalog.addNew();
+        auto & row = *catalog.addNew();
+        row.set(fiberIdKey, fiberId[ii]);
+        row.set(wavelengthKey, wavelength[ii]);
+        row.set(flagKey, true);
+        row.set(fluxKey, std::numeric_limits<double>::quiet_NaN());
+        row.set(fluxErrKey, std::numeric_limits<double>::quiet_NaN());
     }
-
-    ndarray::Array<double, 2, 1> const positions = psf.getDetectorMap()->findPoint(fiberId, wavelength);
 
     // Identify blends: PSFs that touch each other
     std::unordered_map<std::size_t, std::vector<std::size_t>> blendComponents;
@@ -137,7 +146,13 @@ lsst::afw::table::BaseCatalog photometer(
         std::unordered_map<std::size_t, std::size_t> blendAliases;
         std::size_t blendIndex = 1;  // 0 in the blendImage means no blend, so start at 1
         for (std::size_t ii = 0; ii < num; ++ii) {
-            lsst::geom::Point2D const point{positions[ii][0], positions[ii][1]};
+            double const xx = positions[ii][0];
+            double const yy = positions[ii][1];
+            if (!std::isfinite(xx) || !std::isfinite(yy)) {
+                // Bad position: not even a blend.
+                continue;
+            }
+            lsst::geom::Point2D const point{xx, yy};
             lsst::geom::Box2D box;
             try {
                 box = lsst::geom::Box2D(psf.computeBBox(point));
@@ -207,9 +222,6 @@ lsst::afw::table::BaseCatalog photometer(
         for (std::size_t ii = 0; ii < blendSize; ++ii) {
             std::size_t const iIndex = indices[ii];
             auto & row = catalog[iIndex];
-            row.set(fiberIdKey, fiberId[iIndex]);
-            row.set(wavelengthKey, wavelength[iIndex]);
-            row.set(flagKey, false);
 
             auto const iPsfImage = getPsfImage(psf, fiberId[iIndex], wavelength[iIndex], bbox);
             if (!iPsfImage) {
@@ -218,6 +230,7 @@ lsst::afw::table::BaseCatalog photometer(
                 row.set(flagKey, true);
                 continue;
             }
+            row.set(flagKey, false);
             Image const& iModel = *iPsfImage;
             auto const iBox = iModel.getBBox();
             {
@@ -236,7 +249,18 @@ lsst::afw::table::BaseCatalog photometer(
                 errors[ii] = std::sqrt((mm.square()*vv).sum())/modelDotModel;
             }
 
+            // Check for masked pixels in the central area
             lsst::geom::Point2D const iPoint{positions[iIndex][0], positions[iIndex][1]};
+            {
+                lsst::geom::Box2I central(lsst::geom::Point2I(iPoint) - lsst::geom::Extent2I(1, 1),
+                                          lsst::geom::Extent2I(3, 3));
+                central.clip(bbox);
+                auto const spans = lsst::afw::geom::SpanSet(central).intersect(*image.getMask(), badBitMask);
+                if (spans->getArea() > 0) {
+                    row.set(flagKey, true);
+                }
+            }
+
             auto const bounds = lsst::geom::Box2D::makeCenteredBox(iPoint, 2.0*iBox.getDimensions());
             for (std::size_t jj = ii + 1; jj < blendSize; ++jj) {
                 std::size_t const jIndex = indices[jj];

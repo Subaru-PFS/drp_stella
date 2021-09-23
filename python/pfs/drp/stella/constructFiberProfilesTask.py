@@ -48,6 +48,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     def setDefaults(self):
         super().setDefaults()
         self.doCameraImage = False  # We don't produce 2D images
+        self.adjustDetectorMap.minSignalToNoise = 0  # We don't measure S/N
 
 
 class ConstructFiberProfilesTask(SpectralCalibTask):
@@ -168,7 +169,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage)
         for ss in spectra:
-            profiles[ss.fiberId].norm = ss.flux
+            bitmask = ss.mask.getPlaneBitMask(self.config.mask)
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 

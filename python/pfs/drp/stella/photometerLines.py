@@ -7,6 +7,7 @@ from lsst.pipe.base import Task
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .fitContinuum import FitContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
@@ -39,7 +40,10 @@ class PhotometerLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
+    doForced = Field(dtype=bool, default=True, doc="Use forced positions to measure lines?")
     mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
+    excludeStatus = ListField(dtype=str, default=["BLEND"],
+                              doc="Reference line status flags indicating that line should be excluded")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     doSubtractLines = Field(dtype=bool, default=False, doc="Subtract lines after measurement?")
 
@@ -125,41 +129,49 @@ class PhotometerLinesTask(Task):
             Photometered lines.
         """
         psf = checkPsf(exposure, detectorMap, self.config.fwhm)
-        if isinstance(lines, ArcLineSet):
-            fiberId = lines.fiberId
-            wavelength = lines.wavelength
-        else:
+
+        positions = None
+        if isinstance(lines, ReferenceLineSet):
             fiberId = detectorMap.fiberId
             if pfsConfig is not None:
                 indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, fiberId)
                 fiberId = fiberId[indices]
             fiberId, wavelength = cartesianProduct(fiberId, lines.wavelength)
-
-        badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
-        catalog = photometer(exposure.maskedImage, fiberId, wavelength, psf, badBitMask)
-
-        fiberId = catalog["fiberId"]
-        wavelength = catalog["wavelength"]
-        flag = catalog["flag"]
-        flux = catalog["flux"]
-        fluxErr = catalog["fluxErr"]
-        if isinstance(lines, ArcLineSet):
-            xx, yy = lines.x, lines.y
-            xErr, yErr = lines.xErr, lines.yErr
-            flag = flag.copy()
-            flag |= lines.flag
-            status = lines.status
-            description = lines.description
-        else:
+            if self.config.doForced:
+                self.log.warn("Unable to perform unforced photometry without centroided positions provided; "
+                              "performing forced photometry instead")
             xx, yy = detectorMap.findPoint(fiberId.copy(), wavelength.copy()).T  # copy required for pybind
-            xErr = yErr = itertools.repeat(np.nan)
+            nan = itertools.repeat(np.nan)
+            flags = itertools.repeat(False)
             lookup = {rl.wavelength: rl for rl in lines}
             status = [lookup[wl].status for wl in wavelength]
             description = [lookup[wl].description for wl in wavelength]
+            lines = ArcLineSet([ArcLine(*args) for args in
+                                zip(fiberId, wavelength, xx, yy, nan, nan, nan, nan, flags,
+                                    status, description)])
+        else:
+            fiberId = lines.fiberId
+            wavelength = lines.wavelength
+            if not self.config.doForced:
+                positions = np.array((lines.x.T, lines.y.T))
 
-        return ArcLineSet([ArcLine(*args) for args in
-                           zip(fiberId, wavelength, xx, yy, xErr, yErr, flux, fluxErr, flag,
-                               status, description)])
+        badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
+        select = (lines.status & ReferenceLineStatus.fromNames(*self.config.excludeStatus)) == 0
+        catalog = photometer(exposure.maskedImage, fiberId[select], wavelength[select], psf, badBitMask,
+                             positions[select] if positions is not None else None)
+
+        cat = iter(catalog)
+        for ii, rl in enumerate(lines):
+            if select[ii]:
+                row = next(cat)
+                assert row["fiberId"] == rl.fiberId and row["wavelength"] == rl.wavelength
+                rl.intensity = row["flux"]
+                rl.intensityErr = row["fluxErr"]
+                rl.flag |= row["flag"]
+            else:
+                rl.flag = True
+
+        return lines
 
     def getNormalizations(self, tracesOrProfiles):
         """Get an object that can be used for normalization
@@ -179,15 +191,13 @@ class PhotometerLinesTask(Task):
             """Return interpolator for an array of values"""
             return interp1d(np.arange(len(array)), array, bounds_error=False, fill_value=np.nan)
 
-        from scipy.signal import medfilt
-
         if isinstance(tracesOrProfiles, FiberTraceSet):
             norm = {ft.fiberId: ft.trace.image.array.sum(axis=1) for ft in tracesOrProfiles}
         elif isinstance(tracesOrProfiles, FiberProfileSet):
             norm = {ff: tracesOrProfiles[ff].norm for ff in tracesOrProfiles}
         else:
             raise RuntimeError(f"Unrecognised traces/profiles object: {tracesOrProfiles}")
-        return {ff: getInterpolator(medfilt(norm[ff], 9)) for ff in norm}
+        return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in norm}
 
     def correctFluxNormalizations(self, lines, tracesOrProfiles):
         """Correct the raw flux measurements for the trace normalization

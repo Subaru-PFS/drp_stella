@@ -4,36 +4,36 @@ from lsst.geom import Box2D
 
 import pfs.datamodel.pfsDetectorMap
 
-from .DistortedDetectorMap import DistortedDetectorMap
+from .DoubleDetectorMap import DoubleDetectorMap
 from .DetectorMapContinued import DetectorMap
-from .DetectorDistortion import DetectorDistortion
+from .DoubleDistortion import DoubleDistortion
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
-__all__ = ("DistortedDetectorMap",)
+__all__ = ("DoubleDetectorMap",)
 
 
 @continueClass  # noqa: F811 (redefinition)
-class DistortedDetectorMap:
+class DoubleDetectorMap:
     @classmethod
     def fromDatamodel(cls, detMap):
         """Construct from the pfs.datamodel representation
 
         Parameters
         ----------
-        detMap : `pfs.datamodel.DistortedDetectorMap`
-            datamodel representation of DistortedDetectorMap.
+        detMap : `pfs.datamodel.DoubleDetectorMap`
+            datamodel representation of DoubleDetectorMap.
 
         Returns
         -------
-        self : `pfs.drp.stella.DistortedDetectorMap`
-            drp_stella representation of DistortedDetectorMap.
+        self : `pfs.drp.stella.DoubleDetectorMap`
+            drp_stella representation of DoubleDetectorMap.
         """
-        if not isinstance(detMap, pfs.datamodel.DistortedDetectorMap):
+        if not isinstance(detMap, pfs.datamodel.DoubleDetectorMap):
             raise RuntimeError(f"Wrong type: {detMap}")
         base = SplinedDetectorMap.fromDatamodel(detMap.base)
-        distortion = DetectorDistortion(detMap.order, Box2D(base.bbox), detMap.xCoeff, detMap.yCoeff,
-                                        detMap.rightCcdCoeff)
+        distortion = DoubleDistortion(detMap.order, Box2D(base.bbox), detMap.xLeft, detMap.yLeft,
+                                      detMap.xRight, detMap.yRight)
         metadata = headerToMetadata(detMap.metadata)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
         lsst.afw.image.stripVisitInfoKeywords(metadata)
@@ -53,8 +53,8 @@ class DistortedDetectorMap:
 
         Returns
         -------
-        detMap : `pfs.datamodel.DistortedDetectorMap`
-            Datamodel representation of DistortedDetectorMap.
+        detMap : `pfs.datamodel.DoubleDetectorMap`
+            Datamodel representation of DoubleDetectorMap.
         """
         base = self.getBase().toDatamodel()
         distortion = self.getDistortion()
@@ -63,11 +63,11 @@ class DistortedDetectorMap:
         if self.visitInfo is not None:
             lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
 
-        return pfs.datamodel.DistortedDetectorMap(
+        return pfs.datamodel.DoubleDetectorMap(
             identity, pfs.datamodel.Box.fromLsst(self.bbox), base,
-            distortion.getOrder(), distortion.getXCoefficients(), distortion.getYCoefficients(),
-            distortion.getRightCcdCoefficients(), metadata.toDict()
+            distortion.getOrder(), distortion.getXLeftCoefficients(), distortion.getYLeftCoefficients(),
+            distortion.getXRightCoefficients(), distortion.getYRightCoefficients(), metadata.toDict()
         )
 
 
-DetectorMap.register(DistortedDetectorMap)
+DetectorMap.register(DoubleDetectorMap)

@@ -4,9 +4,13 @@
 #include <memory>
 #include <vector>
 
+#include "ndarray_fwd.h"
+
 #include "lsst/geom/Box.h"
 #include "lsst/geom/Point.h"
 #include "lsst/afw/math/FunctionLibrary.h"
+
+#include "pfs/drp/stella/utils/math.h"
 
 
 namespace pfs {
@@ -34,6 +38,18 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     ) : lsst::afw::math::PolynomialFunction2<T>(order) {
         _initialize(range);
     }
+
+    /// Ctor
+    ///
+    /// @param parameters : Polynomial coefficients
+    /// @param range : Bounds of input coordinates, for normalization
+    explicit NormalizedPolynomial2(
+        ndarray::Array<double, 1, 1> const& parameters,
+        lsst::geom::Box2D const& range=lsst::geom::Box2D(
+            lsst::geom::Point2D(-1.0, -1.0),
+            lsst::geom::Point2D(1.0, 1.0))
+    ) : NormalizedPolynomial2(utils::arrayToVector(parameters), range)
+    {}
 
     /// Ctor
     ///

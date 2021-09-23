@@ -4,6 +4,7 @@
 #include "ndarray/pybind11.h"
 
 #include "lsst/base.h"
+#include "lsst/utils/python.h"
 #include "pfs/drp/stella/fitLine.h"
 
 namespace py = pybind11;
@@ -31,6 +32,8 @@ PYBIND11_PLUGIN(fitLine) {
     cls.def_readonly("rmsSizeErr", &FitLineResult::rmsSizeErr);
     cls.def_readonly("bg0Err", &FitLineResult::bg0Err);
     cls.def_readonly("bg1Err", &FitLineResult::bg1Err);
+    lsst::utils::python::addOutputOp(cls, "__str__");
+    lsst::utils::python::addOutputOp(cls, "__repr__");
 
     mod.def("fitLine",
             py::overload_cast<ndarray::Array<double const, 1, 1> const&,

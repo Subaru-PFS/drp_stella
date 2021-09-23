@@ -11,7 +11,7 @@ from lsst.geom import Point2D, Box2D
 from lsst.pex.exceptions import OutOfRangeError
 
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
-from pfs.drp.stella import DistortedDetectorMap, DetectorDistortion
+from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
 from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
@@ -21,7 +21,7 @@ from pfs.drp.stella.tests.utils import runTests, methodParameters
 display = None
 
 
-class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
+class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct a ``SplinedDetectorMap`` to play with"""
         self.synthConfig = SyntheticConfig()
@@ -31,8 +31,8 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.metadata = 123456
         self.darkTime = 12345.6
 
-    def makeDistortedDetectorMap(self, likeBase):
-        """Construct a `DistortedDetectorMap`
+    def makeDoubleDetectorMap(self, likeBase):
+        """Construct a `DoubleDetectorMap`
 
         Parameters
         ----------
@@ -44,40 +44,44 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         Returns
         -------
-        detMap : `pfs.drp.stella.DistortedDetectorMap`
+        detMap : `pfs.drp.stella.DoubleDetectorMap`
             `DistortedDetectorMap` to be used in tests.
         """
         base = self.base.clone()
 
         if likeBase:
             distortionOrder = 1
-            numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
-            xDistortion = np.zeros(numCoeffs, dtype=float)
-            yDistortion = np.zeros(numCoeffs, dtype=float)
-            rightCcd = np.zeros(6, dtype=float)
+            numCoeffs = DoubleDistortion.getNumDistortionForOrder(distortionOrder)
+            xLeft = np.zeros(numCoeffs, dtype=float)
+            yLeft = np.zeros(numCoeffs, dtype=float)
+            xRight = np.zeros(numCoeffs, dtype=float)
+            yRight = np.zeros(numCoeffs, dtype=float)
 
             # Introduce a non-zero distortion field that replicates the base detectorMap
             offset = 0.5
-            xDistortion[0] = offset
-            yDistortion[0] = offset
+            xLeft[0] = offset
+            yLeft[0] = offset
+            xRight[0] = offset
+            yRight[0] = offset
             slitOffsets = np.full(base.getNumFibers(), -offset, dtype=float)
             base.setSlitOffsets(slitOffsets, slitOffsets)
         else:
             distortionOrder = 3
-            numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
+            numCoeffs = DoubleDistortion.getNumDistortionForOrder(distortionOrder)
 
             # Introduce a random distortion field; will likely get weird values, but good for testing I/O
             rng = np.random.RandomState(12345)
-            xDistortion = rng.uniform(size=numCoeffs)
-            yDistortion = rng.uniform(size=numCoeffs)
-            rightCcd = rng.uniform(size=6)
+            xLeft = rng.uniform(size=numCoeffs)
+            yLeft = rng.uniform(size=numCoeffs)
+            xRight = rng.uniform(size=numCoeffs)
+            yRight = rng.uniform(size=numCoeffs)
 
-        distortion = DetectorDistortion(distortionOrder, Box2D(base.bbox), xDistortion, yDistortion, rightCcd)
+        distortion = DoubleDistortion(distortionOrder, Box2D(base.bbox), xLeft, yLeft, xRight, yRight)
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        return DistortedDetectorMap(base, distortion, visitInfo, metadata)
+        return DoubleDetectorMap(base, distortion, visitInfo, metadata)
 
     def assertPositions(self, detMap):
         """Check that the detectorMap reproduces the results of base"""
@@ -98,8 +102,8 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(detMap.getVisitInfo() is not None)
         self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
 
-    def assertDistortedDetectorMapsEqual(self, lhs, rhs):
-        """Assert that the ``DistortedDetectorMap``s are the same"""
+    def assertDoubleDetectorMapsEqual(self, lhs, rhs):
+        """Assert that the ``DoubleDetectorMap``s are the same"""
         self.assertFloatsEqual(lhs.fiberId, rhs.fiberId)
 
         # Base
@@ -117,10 +121,10 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(lhs.base.getSpectralOffset(ff), rhs.base.getSpectralOffset(ff))
 
         # Distortion
-        self.assertFloatsEqual(lhs.distortion.getXCoefficients(), rhs.distortion.getXCoefficients())
-        self.assertFloatsEqual(lhs.distortion.getYCoefficients(), rhs.distortion.getYCoefficients())
-        self.assertFloatsEqual(lhs.distortion.getRightCcdCoefficients(),
-                               rhs.distortion.getRightCcdCoefficients())
+        self.assertFloatsEqual(lhs.distortion.getXLeftCoefficients(), rhs.distortion.getXLeftCoefficients())
+        self.assertFloatsEqual(lhs.distortion.getYLeftCoefficients(), rhs.distortion.getYLeftCoefficients())
+        self.assertFloatsEqual(lhs.distortion.getXRightCoefficients(), rhs.distortion.getXRightCoefficients())
+        self.assertFloatsEqual(lhs.distortion.getYRightCoefficients(), rhs.distortion.getYRightCoefficients())
 
         # Metadata
         for name in lhs.metadata.names():
@@ -131,7 +135,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testBasic(self):
         """Test basic functionality"""
-        detMap = self.makeDistortedDetectorMap(True)
+        detMap = self.makeDoubleDetectorMap(True)
         self.assertPositions(detMap)
 
         if display is not None:
@@ -144,7 +148,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
     def testSlitOffsets(self):
         """Test different value for one of the slit offsets"""
         self.synthConfig.slope = 0.0  # Straighten the traces to avoid coupling x,y offsets
-        detMap = self.makeDistortedDetectorMap(True)
+        detMap = self.makeDoubleDetectorMap(True)
         middle = len(self.base)//2
 
         spatial = detMap.getSpatialOffsets()
@@ -168,7 +172,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         ``find*`` methods and check that the answers are consistent.
         """
         num = 1000
-        detMap = self.makeDistortedDetectorMap(True)
+        detMap = self.makeDoubleDetectorMap(True)
         indices = np.arange(0, detMap.bbox.getHeight())
         xCenter = np.array([detMap.getXCenter(ff) for ff in detMap.fiberId])
         numFibers = len(detMap)
@@ -198,22 +202,22 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testReadWriteFits(self):
         """Test reading and writing to/from FITS"""
-        detMap = self.makeDistortedDetectorMap(False)
+        detMap = self.makeDoubleDetectorMap(False)
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             detMap.writeFits(filename)
-            copy = DistortedDetectorMap.readFits(filename)
-            self.assertDistortedDetectorMapsEqual(detMap, copy)
+            copy = DoubleDetectorMap.readFits(filename)
+            self.assertDoubleDetectorMapsEqual(detMap, copy)
         # Read with parent class
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             detMap.writeFits(filename)
             copy = DetectorMap.readFits(filename)
-            self.assertDistortedDetectorMapsEqual(detMap, copy)
+            self.assertDoubleDetectorMapsEqual(detMap, copy)
 
     def testPickle(self):
         """Test round-trip pickle"""
-        detMap = self.makeDistortedDetectorMap(False)
+        detMap = self.makeDoubleDetectorMap(False)
         copy = pickle.loads(pickle.dumps(detMap))
-        self.assertDistortedDetectorMapsEqual(detMap, copy)
+        self.assertDoubleDetectorMapsEqual(detMap, copy)
 
     def testPersistable(self):
         """Test behaviour as a Persistable
@@ -222,7 +226,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         """
         size = 21
         sigma = 3
-        detMap = self.makeDistortedDetectorMap(False)
+        detMap = self.makeDoubleDetectorMap(False)
         imagePsf = GaussianPsf(size, size, sigma)
         psf = ImagingSpectralPsf(imagePsf, detMap)
         exposure = ExposureF(size, size)
@@ -231,7 +235,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
             exposure.writeFits(filename)
             copy = ExposureF(filename).getPsf().getDetectorMap()
             copy.metadata.set("METADATA", self.metadata)  # Persistence doesn't preserve the metadata
-            self.assertDistortedDetectorMapsEqual(detMap, copy)
+            self.assertDoubleDetectorMapsEqual(detMap, copy)
 
     @methodParameters(arm=("r", "m"))
     def testFit(self, arm):
@@ -264,7 +268,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testOutOfRange(self):
         """Test that inputs that are out-of-range produce NaNs"""
-        detMap = self.makeDistortedDetectorMap(True)
+        detMap = self.makeDoubleDetectorMap(True)
 
         goodFiberId = (self.synthConfig.fiberId[0], self.synthConfig.fiberId[-1])
         goodWavelength = (self.minWl + 0.1, 0.5*(self.minWl + self.maxWl), self.maxWl - 0.1)
@@ -286,7 +290,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testFindFiberIdOutOfRange(self):
         """Test that findFiberId works with out-of-range input"""
-        detMap = self.makeDistortedDetectorMap(True)
+        detMap = self.makeDoubleDetectorMap(True)
         self.assertRaises(OutOfRangeError, detMap.findFiberId, Point2D(6000, -20000))
 
 

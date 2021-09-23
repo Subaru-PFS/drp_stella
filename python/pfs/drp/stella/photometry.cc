@@ -16,7 +16,8 @@ namespace {
 
 PYBIND11_PLUGIN(photometry) {
     py::module mod("photometry");
-    mod.def("photometer", &photometer, "image"_a, "fiberId"_a, "wavelength"_a, "psf"_a, "badBitMask"_a=0);
+    mod.def("photometer", &photometer, "image"_a, "fiberId"_a, "wavelength"_a, "psf"_a, "badBitMask"_a=0,
+            "positions"_a=nullptr);
     return mod.ptr();
 }
 

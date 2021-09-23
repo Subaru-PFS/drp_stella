@@ -18,11 +18,12 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         """Test centroiding on an arc"""
         description = "Simulated"
         intensity = 123456.789
+        numLines = 300  # Lots of lines, to create a bit of blending
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
         synthConfig.fwhm = fwhm
         rng = np.random.RandomState(12345)
-        arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, fwhm=fwhm, flux=intensity, rng=rng,
-                                                        addNoise=False)
+        arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, numLines=numLines, fwhm=fwhm,
+                                                        flux=intensity, rng=rng, addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
 
         referenceLines = ReferenceLineSet.empty()
@@ -40,6 +41,14 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
         task = CentroidLinesTask(name="centroiding", config=config)
         lines = task.run(exposure, referenceLines, detMap)
+
+        if display is not None:
+            from lsst.afw.display import Display
+            disp = Display(backend=display, frame=1)
+            disp.mtv(exposure)
+            with disp.Buffering():
+                for ll in lines:
+                    disp.dot("o", ll.x, ll.y)
 
         self.assertEqual(len(lines), detMap.getNumFibers()*len(referenceLines))
         xyExpect = np.array([detMap.findPoint(ff, wl) for ff, wl in zip(lines.fiberId, lines.wavelength)])

@@ -11,9 +11,8 @@ from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
-from lsst.afw.math import LeastSquares
 
-from pfs.drp.stella import DetectorMap, DistortedDetectorMap, DetectorDistortion
+from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 
@@ -192,24 +191,25 @@ def robustRms(array):
     return 0.741*(uq - lq)
 
 
-def calculateFitStatistics(distortion, lines, selection, soften=0.0):
+def calculateFitStatistics(distortion, lines, selection, soften=(0.0, 0.0)):
     """Calculate statistics of the distortion fit
 
     Parameters
     ----------
-    distortion : `pfs.drp.stella.DetectorDistortion`
+    distortion : `pfs.drp.stella.BaseDistortion`
         Distortion model that was fit to the data.
     lines : `pfs.drp.stella.ArcLineSet`
         Arc line measurements.
     selection : `numpy.ndarray` of `bool`
         Flags indicating which of the ``lines`` are to be used in the
         calculation.
-    soften : `float`, optional
-        Systematic error to add in quadrature to measured errors (pixels).
+    soften : `tuple` (`float`, `float`), optional
+        Systematic error in x and y to add in quadrature to measured errors
+        (pixels).
 
     Returns
     -------
-    distortion : `pfs.drp.stella.DetectorDistortion`
+    distortion : `pfs.drp.stella.BaseDistortion`
         Distortion model that was fit to the data.
     xResid, yResid : `numpy.ndarray` of `float`
         Fit residual in x,y for each of the ``lines`` (pixels).
@@ -221,8 +221,9 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
         Fit chi^2.
     dof : `float`
         Degrees of freedom.
-    soften : `float`
-        Systematic error that was applied to measured errors (pixels).
+    soften : `tuple` (`float`, `float`), optional
+        Systematic error in x and y that was applied to measured errors
+        (pixels).
     """
     fit = distortion(lines.xBase, lines.yBase)
     xResid = (lines.x - fit[:, 0])
@@ -233,8 +234,8 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
 
     xResid2 = xResid[selection]**2
     yResid2 = yResid[selection]**2
-    xErr2 = lines.xErr[selection]**2 + soften**2
-    yErr2 = lines.yErr[selection]**2 + soften**2
+    xErr2 = lines.xErr[selection]**2 + soften[0]**2
+    yErr2 = lines.yErr[selection]**2 + soften[1]**2
 
     xWeight = 1.0/xErr2
     yWeight = 1.0/yErr2
@@ -242,7 +243,7 @@ def calculateFitStatistics(distortion, lines, selection, soften=0.0):
     yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
 
     chi2 = np.sum(xResid2/xErr2 + yResid2/yErr2)
-    dof = 2*selection.sum() - distortion.getNumParameters(distortion.getDistortionOrder())
+    dof = 2*selection.sum() - distortion.getNumParameters()
     return Struct(distortion=distortion, xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, soften=soften)
 
@@ -285,19 +286,21 @@ class FitDistortedDetectorMapConfig(Config):
     order = Field(dtype=int, default=4, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.01, doc="Systematic error to apply")
-    forceSingleCcd = Field(dtype=bool, default=False,
-                           doc="Force a single CCD? This might be useful for a sparse fiber density")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
     base = Field(dtype=str,
                  doc="Template for base detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
+    minSignalToNoise = Field(dtype=float, default=50.0,
+                             doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
 
 
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
+    DetectorMap = DoubleDetectorMap
+    Distortion = DoubleDistortion
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
@@ -305,7 +308,7 @@ class FitDistortedDetectorMapTask(Task):
 
     def run(self, dataId, bbox, lines, visitInfo, metadata=None,
             spatialOffsets=None, spectralOffsets=None, base=None):
-        """Fit a DistortedDetectorMap to arc line measurements
+        """Fit a DistortionBasedDetectorMap to arc line measurements
 
         Parameters
         ----------
@@ -328,7 +331,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DistortedDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of fiberId,wavelength to x,y.
         model : `pfs.drp.stella.GlobalDetectorModel`
             Model that was fit to the data.
@@ -338,15 +341,14 @@ class FitDistortedDetectorMapTask(Task):
             Residual RMS in x,y (pixels)
         chi2 : `float`
             Fit chi^2.
-        soften : `float`
-            Systematic error that was applied to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y that was applied to measured errors
+            (pixels).
         used : `numpy.ndarray` of `bool`
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
         """
-        arm = dataId["arm"]
-        doFitRightCcd = (arm != "n") and not self.config.forceSingleCcd
         if base is None:
             base = self.getBaseDetectorMap(dataId)
         if self.config.doSlitOffsets:
@@ -355,9 +357,8 @@ class FitDistortedDetectorMapTask(Task):
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         residuals = self.calculateBaseResiduals(base, lines)
         dispersion = base.getDispersion(base.fiberId[len(base)//2])
-        results = self.fitDetectorDistortion(bbox, residuals, doFitRightCcd, dispersion,
-                                             seed=visitInfo.getExposureId())
-        results.detectorMap = DistortedDetectorMap(base, results.distortion, visitInfo, metadata)
+        results = self.fitDistortion(bbox, residuals, dispersion, seed=visitInfo.getExposureId())
+        results.detectorMap = self.DetectorMap(base, results.distortion, visitInfo, metadata)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
@@ -386,6 +387,34 @@ class FitDistortedDetectorMapTask(Task):
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
 
+    def getGoodLines(self, lines: ArcLineSet):
+        """Return a boolean array indicating which lines are good.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Line measurements.
+
+        Returns
+        -------
+        good : `numpy.ndarray` of `bool`
+            Boolean array indicating which lines are good.
+        """
+        good = lines.flag == 0
+        self.log.debug("%d good lines after measurement flags", good.sum())
+        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
+        self.log.debug("%d good lines after line status", good.sum())
+        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
+        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        self.log.debug("%d good lines after finite positions", good.sum())
+        if self.config.minSignalToNoise > 0:
+            good &= np.isfinite(lines.intensity) & np.isfinite(lines.intensityErr)
+            self.log.debug("%d good lines after finite intensities", good.sum())
+            with np.errstate(invalid="ignore", divide="ignore"):
+                good &= (lines.intensity/lines.intensityErr) > self.config.minSignalToNoise
+            self.log.debug("%d good lines after signal-to-noise", good.sum())
+        return good
+
     def measureSlitOffsets(self, detectorMap, lines):
         """Measure slit offsets for base detectorMap
 
@@ -398,10 +427,7 @@ class FitDistortedDetectorMapTask(Task):
         lines : `ArcLineSet`
             Original line measurements (NOT the residuals).
         """
-        good = lines.flag == 0
-        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
-        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        good = self.getGoodLines(lines)
         sysErr = self.config.soften
         detectorMap.measureSlitOffsets(
             lines.fiberId[good], lines.wavelength[good],
@@ -451,8 +477,8 @@ class FitDistortedDetectorMapTask(Task):
                              ll.flag, ll.status, ll.description)
         return residuals
 
-    def fitDetectorDistortion(self, bbox, lines, doFitRightCcd, dispersion, seed=0):
-        """Fit a distortion model to the entire detector
+    def fitDistortion(self, bbox, lines, dispersion, seed=0, fitStatic=True, Distortion=None):
+        """Fit a distortion model
 
         Parameters
         ----------
@@ -460,16 +486,18 @@ class FitDistortedDetectorMapTask(Task):
             Bounding box for detector.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        doFitRightCcd : `bool`
-            Fit an affine transformation for the right CCD?
         dispersion : `float`
             Wavelength dispersion (nm/pixel); for interpreting RMS in logging.
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
+        fitStatic : `bool`, optional
+            Fit static components to the distortion model?
+        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+            Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
         -------
-        distortion : `pfs.drp.stella.DetectorDistortion`
+        distortion : Distortion
             Model that was fit to the data.
         xResid, yResid : `numpy.ndarray` of `float`
             Fit residual in x,y for each of the ``lines`` (pixels).
@@ -477,17 +505,15 @@ class FitDistortedDetectorMapTask(Task):
             Residual RMS in x,y (pixels)
         chi2 : `float`
             Fit chi^2.
-        soften : `float`
-            Systematic error that was applied to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y that was applied to measured errors
+            (pixels).
         used : `numpy.ndarray` of `bool`
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
         """
-        good = lines.flag == 0
-        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
-        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        good = self.getGoodLines(lines)
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
@@ -503,7 +529,7 @@ class FitDistortedDetectorMapTask(Task):
         used = good & ~reserved
         result = None
         for ii in range(self.config.iterations):
-            result = self.fitModel(bbox, lines, used, doFitRightCcd, dispersion)
+            result = self.fitModel(bbox, lines, used, fitStatic=fitStatic, Distortion=Distortion)
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion, used.sum(),
@@ -524,18 +550,20 @@ class FitDistortedDetectorMapTask(Task):
                 break
             used = newUsed
 
-        result = self.fitModel(bbox, lines, used, doFitRightCcd)
+        result = self.fitModel(bbox, lines, used, fitStatic=fitStatic, Distortion=Distortion)
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       used.sum(), numGood - numReserved)
-        reservedStats = calculateFitStatistics(result.distortion, lines, reserved, self.config.soften)
+        reservedStats = calculateFitStatistics(result.distortion, lines, reserved,
+                                               (self.config.soften, self.config.soften))
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reserved.sum(), reserved.sum()/numGood*100)
         self.log.debug("    Final fit model: %s", result.distortion)
 
-        result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitRightCcd, dispersion)
+        result = self.fitSoftenedModel(bbox, lines, used, reserved, result, dispersion,
+                                       fitStatic=fitStatic, Distortion=Distortion)
         result.used = used
         result.reserved = reserved
         if self.debugInfo.plot:
@@ -546,7 +574,7 @@ class FitDistortedDetectorMapTask(Task):
             self.plotResiduals(result.distortion, lines, used, reserved)
         return result
 
-    def fitModel(self, bbox, lines, select, doFitRightCcd, soften=None):
+    def fitModel(self, bbox, lines, select, soften=None, fitStatic=True, Distortion=None):
         """Fit a model to the arc lines
 
         Parameters
@@ -557,10 +585,13 @@ class FitDistortedDetectorMapTask(Task):
             Arc line measurements.
         select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
-        doFitRightCcd : `bool`
-            Fit affine transformation for right CCD?
-        soften : `float`, optional
-            Systematic error to add in quadrature to measured errors (pixels).
+        soften : `tuple` (`float`, `float`), optional
+            Systematic error in x and y to add in quadrature to measured errors
+            (pixels).
+        fitStatic : `bool`, optional
+            Fit static components to the distortion model?
+        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+            Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
         -------
@@ -575,76 +606,25 @@ class FitDistortedDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        numDistortion = DetectorDistortion.getNumDistortion(self.config.order)
-
+        if Distortion is None:
+            Distortion = self.Distortion
         if soften is None:
-            soften = self.config.soften
+            soften = (self.config.soften, self.config.soften)
+        xSoften, ySoften = soften
 
         xx = lines.x[select].astype(float)
         yy = lines.y[select].astype(float)
-        onRightCcd = lines.xBase[select] > Box2D(bbox).getCenterY()
         xBase = lines.xBase[select]
         yBase = lines.yBase[select]
-        xErr = np.hypot(lines.xErr[select].astype(float), soften)
-        yErr = np.hypot(lines.yErr[select].astype(float), soften)
+        xErr = np.hypot(lines.xErr[select].astype(float), xSoften)
+        yErr = np.hypot(lines.yErr[select].astype(float), ySoften)
 
-        # Set up the least-squares equations
-        design = DetectorDistortion.calculateDesignMatrix(self.config.order, Box2D(bbox), xBase, yBase)
-
-        def fitDimension(values, errors):
-            """Fit a distortion polynomial in a single dimension
-
-            Parameters
-            ----------
-            values : `numpy.ndarray` of `float`, shape ``(N,)``
-                Values to fit.
-            errors : `numpy.ndarray` of `float`, shape ``(N,)``
-                Errors in values.
-
-            Returns
-            -------
-            distortion : `numpy.ndarray` of `float`, shape ``(M,)``
-                Coefficients of distortion polynomial.
-            offset : `float`
-                Constant offset for right CCD.
-            xiRot, etaRot : `float`
-                Linear terms in xi and eta for right-fiberId CCD.
-            """
-            numExtra = 3 if doFitRightCcd else 1
-            dm = np.zeros((len(values), numDistortion + numExtra), dtype=float)  # design matrix
-            dm[:, :-numExtra] = design/errors[:, np.newaxis]  # Weighting
-            # Insert additional terms for CCD offset and rotation
-            # We always fit the offset: there's a discontinuity in fiberIds at the center
-            dm[:, -1] = np.where(onRightCcd, 1.0/errors, 0.0)  # CCD offset
-            if doFitRightCcd:
-                dm[:, -3] = np.where(onRightCcd, xBase/errors, 0.0)  # CCD rotation
-                dm[:, -2] = np.where(onRightCcd, yBase/errors, 0.0)  # CCD rotation
-
-            fisher = np.matmul(dm.T, dm)
-            rhs = np.matmul(dm.T, values/errors)
-            equation = LeastSquares.fromNormalEquations(fisher, rhs)
-            solution = equation.getSolution()
-            return Struct(
-                distortion=solution[:-numExtra].copy(),
-                offset=solution[-1],
-                xiRot=solution[-3] if doFitRightCcd else 0.0,
-                etaRot=solution[-2] if doFitRightCcd else 0.0,
-            )
-
-        xParams = fitDimension(xx, xErr)
-        yParams = fitDimension(yy, yErr)
-
-        rightCcd = DetectorDistortion.makeRightCcdCoefficients(
-            xParams.offset, yParams.offset,
-            xParams.xiRot, xParams.etaRot,
-            yParams.xiRot, yParams.etaRot
-        )
-
-        distortion = DetectorDistortion(self.config.order, Box2D(bbox), xParams.distortion,
-                                        yParams.distortion, rightCcd)
+        distortion = Distortion.fit(self.config.order, Box2D(bbox), xBase, yBase,
+                                    xx, yy, xErr, yErr, fitStatic)
         return calculateFitStatistics(distortion, lines, select, soften)
 
-    def fitSoftenedModel(self, bbox, lines, select, reserved, result, doFitRightCcd, dispersion):
+    def fitSoftenedModel(self, bbox, lines, select, reserved, result, dispersion, fitStatic=True,
+                         Distortion=None):
         """Fit with errors adjusted so that chi^2/dof <= 1
 
         This provides a measure of the systematic error.
@@ -663,10 +643,12 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` have been reserved for QA.
         result : `lsst.pipe.base.Struct`
             Results from ``fitModel``.
-        doFitRightCcd : `bool`
-            Fit affine transformation for right CCD?
         dispersion : `float`
             Wavelength dispersion (nm/pixel); for interpreting RMS in logging.
+        fitStatic : `bool`, optional
+            Fit static components to the distortion model?
+        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+            Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
         -------
@@ -681,35 +663,53 @@ class FitDistortedDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        def softenChi2(soften):
-            """Return chi^2/dof (minus 1) with the softening applied
-
-            This allows us to find the softening parameter that results in
-            chi^2/dof = 1 by bisection.
+        def getChi2Calculator(dim):
+            """Return function that calculates chi^2 given a softening parameter
 
             Parameters
             ----------
-            soften : `float`
-                Systematic error to add in quadrature to measured errors
-                (pixels).
+            dim : `str`, ``"x"`` or ``"y"``
+                Dimension for which to calculate chi^2.
 
             Returns
             -------
-            chi2 : `float`
-                chi^2/dof - 1
+            softenChi2 : callable
+                Function that calculates chi^2 given a softening parameter.
             """
-            colChi2 = np.sum(result.xResid[select]**2/(soften**2 + lines.xErr[select]**2))
-            rowChi2 = np.sum(result.yResid[select]**2/(soften**2 + lines.yErr[select]**2))
-            return (colChi2 + rowChi2)/result.dof - 1
+            residuals2 = getattr(result, dim + "Resid")[select]**2
+            errors2 = getattr(lines, dim + "Err")[select]**2
+            dof = result.dof/2  # Assume equipartition of the degrees of freedom between the dimensions
 
-        if softenChi2(0.0) <= 0:
-            self.log.info("No softening necessary")
-            return result
+            def softenChi2(soften):
+                """Return chi^2/dof (minus 1) with the softening applied
 
-        soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
-        self.log.info("Softening errors by %f pixels (%f nm) to yield chi^2/dof=1", soften, soften*dispersion)
+                This allows us to find the softening parameter that results in
+                chi^2/dof = 1 by bisection.
 
-        result = self.fitModel(bbox, lines, select, doFitRightCcd, soften)
+                Parameters
+                ----------
+                soften : `float`
+                    Systematic error to add in quadrature to measured errors
+                    (pixels).
+
+                Returns
+                -------
+                chi2 : `float`
+                    chi^2/dof - 1
+                """
+                return np.sum(residuals2/(soften**2 + errors2))/dof - 1
+            return softenChi2
+
+        xSoftenChi2 = getChi2Calculator("x")
+        ySoftenChi2 = getChi2Calculator("y")
+        xSoften = scipy.optimize.bisect(xSoftenChi2, 0.0, 1.0) if xSoftenChi2(0.0) > 0 else 0.0
+        ySoften = scipy.optimize.bisect(ySoftenChi2, 0.0, 1.0) if ySoftenChi2(0.0) > 0 else 0.0
+
+        self.log.info("Softening errors by x=%f, y=%f pixels (%f nm) to yield chi^2/dof=1",
+                      xSoften, ySoften, ySoften*dispersion)
+
+        soften = (xSoften, ySoften)
+        result = self.fitModel(bbox, lines, select, soften, fitStatic=fitStatic, Distortion=Distortion)
         self.log.info("Softened fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d lines",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       select.sum())
@@ -863,7 +863,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Parameters
         ----------
-        distortion : `pfs.drp.stella.DetectorDistortion`
+        distortion : `pfs.drp.stella.BaseDistortion`
             Distortion model.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
@@ -954,18 +954,18 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, distortion, lines, good, reserved):
+    def plotResiduals(self, distortion, lines, used, reserved):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
 
         Parameters
         ----------
-        model : `pfs.drp.stella.DetectorDistortion`
+        model : `pfs.drp.stella.BaseDistortion`
             Model containing distortion.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        good : `numpy.ndarray` of `bool`
+        used : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
@@ -977,6 +977,7 @@ class FitDistortedDetectorMapTask(Task):
         xy = distortion(lines.xBase, lines.yBase)
         dx = lines.x - xy[:, 0]
         dy = lines.y - xy[:, 1]
+        good = self.getGoodLines(lines)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
@@ -1005,9 +1006,10 @@ class FitDistortedDetectorMapTask(Task):
 
         for ax, select, label in zip(
             axes.T,
-            [(good & ~reserved), reserved, (~good & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
-            ["Used", "Reserved", "Bad"],
+            [(used & ~reserved), reserved, (good & ~used & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
+            ["Used", "Reserved", "Rejected"],
         ):
+            ax[0].set_title(label)
             if not np.any(select):
                 continue
             xNorm = calculateNormalization(dx[select])
@@ -1016,7 +1018,6 @@ class FitDistortedDetectorMapTask(Task):
                           color=cmap(xNorm(dx[select])))
             ax[1].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
                           color=cmap(yNorm(dx[select])))
-            ax[0].set_title(label)
             addColorbar(fig, ax[0], cmap, xNorm, "x residual (pixels)")
             addColorbar(fig, ax[1], cmap, yNorm, "y residual (pixels)")
 
