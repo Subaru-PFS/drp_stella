@@ -130,7 +130,12 @@ lsst::afw::table::BaseCatalog photometer(
     lsst::afw::table::BaseCatalog catalog{schema};
     catalog.reserve(num);
     for (std::size_t ii = 0; ii < num; ++ii) {
-        catalog.addNew();
+        auto & row = *catalog.addNew();
+        row.set(fiberIdKey, fiberId[ii]);
+        row.set(wavelengthKey, wavelength[ii]);
+        row.set(flagKey, true);
+        row.set(fluxKey, std::numeric_limits<double>::quiet_NaN());
+        row.set(fluxErrKey, std::numeric_limits<double>::quiet_NaN());
     }
 
     // Identify blends: PSFs that touch each other
@@ -217,9 +222,6 @@ lsst::afw::table::BaseCatalog photometer(
         for (std::size_t ii = 0; ii < blendSize; ++ii) {
             std::size_t const iIndex = indices[ii];
             auto & row = catalog[iIndex];
-            row.set(fiberIdKey, fiberId[iIndex]);
-            row.set(wavelengthKey, wavelength[iIndex]);
-            row.set(flagKey, false);
 
             auto const iPsfImage = getPsfImage(psf, fiberId[iIndex], wavelength[iIndex], bbox);
             if (!iPsfImage) {
@@ -228,6 +230,7 @@ lsst::afw::table::BaseCatalog photometer(
                 row.set(flagKey, true);
                 continue;
             }
+            row.set(flagKey, false);
             Image const& iModel = *iPsfImage;
             auto const iBox = iModel.getBBox();
             {
