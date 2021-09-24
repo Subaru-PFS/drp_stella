@@ -19,6 +19,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+from datetime import datetime
 from collections import defaultdict
 import numpy as np
 import lsstDebug
@@ -39,6 +40,7 @@ from .centroidLines import CentroidLinesTask
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
+from .constructSpectralCalibs import setCalibHeader
 from pfs.utils.fibers import spectrographFromFiberId
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -464,6 +466,15 @@ class ReduceExposureTask(CmdLineTask):
             if self.debugInfo.detectorMap:
                 detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
                                     ctype="green", plotTraces=False)
+
+            outputId = sensorRef.dataId.copy()
+            outputId["visit0"] = outputId["visit"]
+            outputId["calibDate"] = outputId["dateObs"]
+            outputId["calibTime"] = outputId["taiObs"]
+            setCalibHeader(detectorMap.metadata, "detectorMap", [sensorRef.dataId["visit"]], outputId)
+            date = datetime.now().isoformat()
+            history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
+            detectorMap.metadata.add("HISTORY", history)
 
             sensorRef.put(detectorMap, "detectorMap_used")
             fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
