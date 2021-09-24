@@ -71,7 +71,7 @@ class ReduceExposureConfig(Config):
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
-    doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
+    doWriteCalexp = Field(dtype=bool, default=True, doc="Write corrected frame?")
     doWriteLsf = Field(dtype=bool, default=True, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
