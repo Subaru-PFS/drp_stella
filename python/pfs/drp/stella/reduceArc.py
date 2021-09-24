@@ -1,4 +1,3 @@
-import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -11,6 +10,7 @@ from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from .arcLine import ArcLineSet
 from .utils import addPfsCursor
 from .referenceLine import ReferenceLineStatus
+from .constructSpectralCalibs import setCalibHeader
 
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
@@ -233,14 +233,18 @@ class ReduceArcTask(CmdLineTask):
         self.log.info("Writing output for %s", dataRef.dataId)
         detectorMap.setVisitInfo(visitInfo)
         visit0 = dataRef.dataId["visit"]
-        dateObs = dataRef.dataId["dateObs"]
-        taiObs = dataRef.dataId["taiObs"]
-        calibId = detectorMap.metadata.get("CALIB_ID")
-        calibId = re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId)
-        calibId = re.sub(r"calibDate=\d\d\d\d-\d\d-\d\d", "calibDate=%s" % (dateObs,), calibId)
-        calibId = re.sub(r"calibTime=\S+", "calibTime=%s" % (taiObs,), calibId)
-        detectorMap.metadata.set("CALIB_ID", calibId)
 
+        outputId = dict(
+            visit0=visit0,
+            calibDate=dataRef.dataId["dateObs"],
+            calibTime=dataRef.dataId["taiObs"],
+            arm=dataRef.dataId["arm"],
+            spectrograph=dataRef.dataId["spectrograph"],
+            ccd=dataRef.dataId["ccd"],
+            filter=dataRef.dataId["filter"],
+        )
+
+        setCalibHeader(detectorMap.metadata, "detectorMap", visits, outputId)
         date = datetime.now().isoformat()
         history = f"reduceArc on {date} with visit={','.join(str(vv) for vv in sorted(visits))}"
         detectorMap.metadata.add("HISTORY", history)
