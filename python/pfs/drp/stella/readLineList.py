@@ -16,7 +16,7 @@ class ReadLineListConfig(Config):
     lampList = ListField(dtype=str, doc="list of species in lamps; overrides the header", default=[])
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
-    minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
+    minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
 
 
@@ -80,6 +80,9 @@ class ReadLineListTask(Task):
     def filterByIntensity(self, lines):
         """Filter the line list by intensity level
 
+        No filtering is applied if the configuration parameter
+        ``minIntensity <= 0``.
+
         Parameters
         ----------
         lines : `pfs.drp.stella.ReferenceLineSet`
@@ -90,6 +93,8 @@ class ReadLineListTask(Task):
         filtered : `pfs.drp.stella.ReferenceLineSet`
             Filtered list of reference lines.
         """
+        if self.config.minIntensity <= 0:
+            return lines
         keep = [ll for ll in lines if ll.intensity >= self.config.minIntensity]
         return ReferenceLineSet(keep)
 
