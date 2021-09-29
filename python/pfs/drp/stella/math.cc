@@ -18,13 +18,33 @@ namespace {
 
 
 template <typename T>
-void declareNormalizedPolynomial(py::module & mod, std::string const& suffix) {
+void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
+    using Class = NormalizedPolynomial1<T>;
+    py::class_<Class, std::shared_ptr<Class>, lsst::afw::math::PolynomialFunction1<T>>
+            cls(mod, ("NormalizedPolynomial1" + suffix).c_str());
+
+    cls.def(py::init<unsigned int, double, double>(), "order"_a, "min"_a=-1.0, "max"_a=1.0);
+    cls.def(py::init<ndarray::Array<double, 1, 1> const &, double, double>(),
+            "params"_a, "min"_a=-1.0, "max"_a=1.0);
+
+    cls.def("__call__", &Class::operator(), "x"_a);
+    cls.def("clone", &Class::clone);
+    cls.def("getOrder", &Class::getOrder);
+    cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
+    cls.def("getMin", &Class::getMin);
+    cls.def("getMax", &Class::getMax);
+}
+
+
+template <typename T>
+void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
     using Class = NormalizedPolynomial2<T>;
     py::class_<Class, std::shared_ptr<Class>, lsst::afw::math::BasePolynomialFunction2<T>>
             cls(mod, ("NormalizedPolynomial2" + suffix).c_str());
 
-    cls.def(py::init<unsigned int>(), "order"_a);
-    cls.def(py::init<std::vector<double> const &, lsst::geom::Box2D const&>(),
+    cls.def(py::init<unsigned int, lsst::geom::Box2D const&>(),
+            "order"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
+    cls.def(py::init<ndarray::Array<double, 1, 1> const &, lsst::geom::Box2D const&>(),
             "params"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
 
     cls.def("__call__", &Class::operator(), "x"_a, "y"_a);
@@ -75,7 +95,8 @@ std::pair<ndarray::Array<T, N, C>, ndarray::Array<T, N, N>> evaluateAffineTransf
 
 PYBIND11_PLUGIN(math) {
     py::module mod("math");
-    declareNormalizedPolynomial<double>(mod, "D");
+    declareNormalizedPolynomial1<double>(mod, "D");
+    declareNormalizedPolynomial2<double>(mod, "D");
     mod.def("calculateQuartiles", &calculateQuartiles<double, 1>, "values"_a, "mask"_a);
     mod.def("evaluatePolynomial",
             &evaluateFunction2<lsst::afw::math::Chebyshev1Function2<double>, double, 1, 1>,
