@@ -42,10 +42,7 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
 
     def setUp(self):
         self.estimateRadialVelocity = EstimateRadialVelocityTask(config=EstimateRadialVelocityConfig())
-        # It may be fearsome to use default_rng()
-        # because numpy is planning to change the default RNG again as of 2021-09-15.
-        # We call PCG64 explicitly.
-        self.np_random = np.random.Generator(np.random.PCG64(seed=0x789abcdef0123456))
+        self.np_random = np.random.RandomState(seed=0x0123456)
         self.refSpectrum = self.createRefSpectrum(self.refLsfSigma)
 
     @methodParameters(snr=[25, 50, 100, 200, 400], trueVelocity=[-200, -100, 0, 100, 200])
