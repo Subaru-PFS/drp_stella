@@ -15,6 +15,7 @@ from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
 from .readLineList import ReadLineListTask
+from .constructSpectralCalibs import setCalibHeader
 from . import SplinedDetectorMap
 
 import lsstDebug
@@ -148,7 +149,7 @@ class BootstrapTask(CmdLineTask):
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
                        lineResults.detectorMap, lineResults.refLines, frame=2)
 
-        self.setCalibId(lineResults.detectorMap.metadata, arcRef.dataId)
+        self.setCalibHeader(lineResults.detectorMap.metadata, arcRef.dataId)
         arcRef.put(lineResults.detectorMap, "detectorMap", visit0=arcRef.dataId["visit"])
 
     def traceFibers(self, flatRef, pfsConfig):
@@ -531,22 +532,20 @@ class BootstrapTask(CmdLineTask):
         wavelengths = [rl.wavelength for rl in refLines]
         detectorMap.display(disp, fiberId, wavelengths, plotTraces=False)
 
-    def setCalibId(self, metadata, dataId):
-        """Set the ``CALIB_ID`` header
-
-        The ``CALIB_ID`` is used by the ``ingestCalibs.py`` script to identify
-        the calib.
+    def setCalibHeader(self, metadata, dataId):
+        """Set the header
 
         Parameters
         ----------
         metadata : `lsst.daf.base.PropertyList`
-            FITS header to update with ``CALIB_ID``.
+            FITS header to update.
         dataId : `dict` (`str`: POD)
             Data identifier.
         """
         keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "calibTime", "visit0")
         mapping = dict(visit0="visit", calibDate="dateObs", calibTime="taiObs")
-        metadata.set("CALIB_ID", " ".join("%s=%s" % (key, dataId[mapping.get(key, key)]) for key in keywords))
+        outputId = {key: dataId[mapping.get(key, key)] for key in keywords}
+        setCalibHeader(metadata, "detectorMap", [dataId["visit"]], outputId)
 
         date = datetime.now().isoformat()
         history = f"bootstrap on {date} with arc={dataId['visit']}"

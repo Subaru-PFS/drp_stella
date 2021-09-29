@@ -1,4 +1,9 @@
+import time
+import getpass
+import platform
 import collections
+
+from typing import Iterable, Dict, Any
 
 from lsst.pex.config import Field, ConfigurableField
 import lsst.daf.base as dafBase
@@ -84,10 +89,7 @@ def recordCalibInputs(self, butler, calib, dataIdList, outputId):
     outputId : `dict`
         Data identifier for output.
     """
-    _originalRecordCalibInputs(self, butler, calib, dataIdList, outputId)
-    header = calib.getMetadata()
-    header.set("SPECTROGRAPH", outputId["spectrograph"])
-    header.set("ARM", outputId["arm"])
+    setCalibHeader(calib.getMetadata(), self.calibName, [dataId["visit"] for dataId in dataIdList], outputId)
 
 
 def getFilter(self, butler, dataId):
@@ -147,6 +149,46 @@ lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId = getOutputId
 lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs = recordCalibInputs
 lsst.pipe.drivers.constructCalibs.CalibTask.getFilter = getFilter
 lsst.pipe.drivers.constructCalibs.CalibTask.calculateOutputHeaderFromRaws = calculateOutputHeaderFromRaws
+
+
+def setCalibHeader(header: dafBase.PropertyList, calibName: str, visitList: Iterable[int],
+                   outputId: Dict[str, Any]) -> None:
+    """Set header keys for calibs
+
+    We record the type, the time, the inputs, and the output.
+
+    Parameters
+    ----------
+    header : `lsst.daf.base.PropertyList`
+        Header/metadata for calibration; modified.
+    visitList : iterable of `int`
+        List of visits for data that went into the calib.
+    outputId : `dict` [`str`: POD]
+        Data identifier for output. Should include at least ``spectrograph`` and
+        ``arm``.
+    """
+    header.set("OBSTYPE", calibName)  # Used by ingestCalibs.py
+
+    now = time.localtime()
+    header.set("CALIB_CREATION_DATE", time.strftime("%Y-%m-%d", now))
+    header.set("CALIB_CREATION_TIME", time.strftime("%X %Z", now))
+    try:
+        hostname = platform.node()
+    except Exception:
+        hostname = None
+    header.set("CALIB_CREATION_HOST", hostname if hostname else "unknown host")
+    try:
+        username = getpass.getuser()
+    except Exception:
+        username = None
+    header.set("CALIB_CREATION_USER", username if username else "unknown user")
+
+    for ii, vv in enumerate(sorted(set(visitList))):
+        header.set(f"CALIB_INPUT_{ii}", vv)
+
+    header.set("CALIB_ID", " ".join(f"{key}={value}" for key, value in outputId.items()))
+    header.set("SPECTROGRAPH", outputId["spectrograph"])
+    header.set("ARM", outputId["arm"])
 
 
 class PfsBiasTask(lsst.pipe.drivers.constructCalibs.BiasTask):

@@ -36,7 +36,8 @@ class DummyDataRef:
     def __init__(self, **kwargs):
         self._inputs = kwargs
         self._outputs = {}
-        self.dataId = dict(visit=12345, arm="r", spectrograph=1)
+        self.dataId = dict(visit=12345, arm="r", spectrograph=1, dateObs="2021-09-24",
+                           taiObs="2021-09-24T19:58:59.0123456")
 
     def get(self, name, **kwargs):
         """Get dataset from storage"""
@@ -161,12 +162,20 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = True
         config.doSubtractSky2d = False
         config.doWriteCalexp = True
+        config.readLineList.restrictByLamps = False
+
         task = ReduceExposureTask(config=config)
+        task.log.setLevel(task.log.DEBUG)
 
         raw = lsst.afw.image.makeExposure(self.arc)
         dataRef = DummyDataRef(raw=raw, fiberProfiles=profiles, detectorMap=self.detMap,
                                pfsConfig=self.pfsConfig)
-        results = task.runDataRef([dataRef])
+
+        with lsst.utils.tests.getTempFilePath(".txt") as filename:
+            self.referenceLines.writeLineList(filename)
+            config.readLineList.lineListFiles = [filename]
+            results = task.runDataRef([dataRef])
+
         self.assertEqual(len(results.exposureList), 1)
         self.assertEqual(len(results.originalList), 1)
         self.assertEqual(len(results.spectraList), 1)
