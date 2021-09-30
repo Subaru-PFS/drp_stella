@@ -32,8 +32,8 @@ class ArcLine(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
-                 flag, status, description):
+    def __init__(self, fiberId: int, wavelength: float, x: float, y: float, xErr: float, yErr: float,
+                 intensity: float, intensityErr: float, flag: bool, status: int, description: str):
         return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xErr=xErr, yErr=yErr,
                                 intensity=intensity, intensityErr=intensityErr, flag=flag,
                                 status=status, description=description)
