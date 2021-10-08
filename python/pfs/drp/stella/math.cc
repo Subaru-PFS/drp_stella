@@ -27,7 +27,9 @@ void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
     cls.def(py::init<ndarray::Array<double, 1, 1> const &, double, double>(),
             "params"_a, "min"_a=-1.0, "max"_a=1.0);
 
-    cls.def("__call__", &Class::operator(), "x"_a);
+    cls.def("__call__", py::overload_cast<double>(&Class::operator(), py::const_), "x"_a);
+    cls.def("__call__",
+            py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_), "x"_a);
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
@@ -47,7 +49,11 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
     cls.def(py::init<ndarray::Array<double, 1, 1> const &, lsst::geom::Box2D const&>(),
             "params"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
 
-    cls.def("__call__", &Class::operator(), "x"_a, "y"_a);
+    cls.def("__call__", py::overload_cast<double, double>(&Class::operator(), py::const_), "x"_a, "y"_a);
+    cls.def("__call__",
+            py::overload_cast<ndarray::Array<double, 1, 1> const&,
+                              ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_),
+            "x"_a, "y"_a);
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);

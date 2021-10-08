@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 #include "ndarray_fwd.h"
 
@@ -79,10 +80,18 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
     double getMin() const { return _min; }
     double getMax() const { return _max; }
 
+    //@{
     /// Evaluate at coordinates
     T operator()(double x) const noexcept override {
         return lsst::afw::math::PolynomialFunction1<T>::operator()((x - _offset)*_scale);
     }
+    ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 1> const& x) const noexcept {
+        ndarray::Array<T, 1, 1> result = ndarray::allocate(x.size());
+        std::transform(x.begin(), x.end(), result.begin(),
+                       [this](double value) { return operator()(value); });
+        return result;
+    }
+    //@}
 
     /// Calculate the derivatives of the function w.r.t. the parameters
     ///
@@ -180,6 +189,7 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     /// Return the bounds of input coordinates used for normalization
     lsst::geom::Box2D getXYRange() const { return _range; }
 
+    //@{
     /// Evaluate at coordinates
     T operator()(double x, double y) const noexcept override {
         return lsst::afw::math::PolynomialFunction2<T>::operator()(
@@ -187,6 +197,19 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
             (y - _yOffset)*_yScale
         );
     }
+    ndarray::Array<double, 1, 1> operator()(
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y
+    ) const noexcept {
+        utils::checkSize(x.size(), y.size(), "x vs y");
+        std::size_t const num = x.size();
+        ndarray::Array<double, 1, 1> result = ndarray::allocate(num);
+        for (std::size_t ii = 0; ii < num; ++ii) {
+            result[ii] = operator()(x[ii], y[ii]);
+        }
+        return result;
+    }
+    //@}
 
     /// Calculate the derivatives of the function w.r.t. the parameters
     ///
