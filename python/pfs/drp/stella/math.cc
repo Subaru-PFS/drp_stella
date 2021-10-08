@@ -8,6 +8,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/math/quartiles.h"
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
+#include "pfs/drp/stella/math/solveLeastSquares.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -114,6 +115,7 @@ PYBIND11_PLUGIN(math) {
             &evaluateFunction2<NormalizedPolynomial2<double>, double, 1, 1>,
             "poly"_a, "x"_a, "y"_a);
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
+    mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a, "err"_a);
     return mod.ptr();
 }
 
