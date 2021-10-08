@@ -190,17 +190,8 @@ class ReferenceLineSet:
         status : `ReferenceLineStatus`
             Status to apply to lines that fall within the exclusion zone.
         """
-        if exclusionRadius <= 0:
-            # No exclusion zone to apply
-            return
-        wavelength = self.wavelength
-        reject = np.zeros(len(self), dtype=bool)
-        for rl in self:
-            distance = wavelength - rl.wavelength
-            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
-        for rl, rej in zip(self, reject):
-            if rej:
-                rl.status |= status
+        from .applyExclusionZone import applyExclusionZone
+        return applyExclusionZone(self, exclusionRadius, status)
 
     def sort(self):
         """Sort the line list, in-place

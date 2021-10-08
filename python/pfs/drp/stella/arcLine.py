@@ -206,6 +206,25 @@ class ArcLineSet:
                 refLines.append(description, wavelength, intensity, status)
         return refLines
 
+    def applyExclusionZone(self, exclusionRadius: float,
+                           status: ReferenceLineStatus = ReferenceLineStatus.BLEND
+                           ):
+        """Apply an exclusion zone around each line
+
+        A line cannot have another line within ``exclusionRadius``.
+
+        The line list is modified in-place.
+
+        Parameters
+        ----------
+        exclusionRadius : `float`
+            Radius in wavelength (nm) to apply around lines.
+        status : `ReferenceLineStatus`
+            Status to apply to lines that fall within the exclusion zone.
+        """
+        from .applyExclusionZone import applyExclusionZone
+        return applyExclusionZone(self, exclusionRadius, status)
+
     @classmethod
     def readFits(cls, filename):
         """Read from file
