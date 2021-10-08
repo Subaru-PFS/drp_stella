@@ -15,6 +15,7 @@ from lsst.geom import Box2D
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
+from .utils.math import robustRms
 
 
 __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask")
@@ -170,25 +171,6 @@ def fitStraightLine(xx, yy):
     slope = xySum/xxSum
     intercept = yMean - slope*xMean
     return Struct(slope=slope, intercept=intercept, xMean=xMean, yMean=yMean)
-
-
-def robustRms(array):
-    """Calculate a robust RMS of the array using the inter-quartile range
-
-    Uses the standard conversion of IQR to RMS for a Gaussian.
-
-    Parameters
-    ----------
-    array : `numpy.ndarray`
-        Array for which to calculate RMS.
-
-    Returns
-    -------
-    rms : `float`
-        Robust RMS.
-    """
-    lq, uq = np.percentile(array, (25.0, 75.0))
-    return 0.741*(uq - lq)
 
 
 def calculateFitStatistics(distortion, lines, selection, soften=(0.0, 0.0)):
