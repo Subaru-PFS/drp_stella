@@ -7,6 +7,7 @@ from lsst.pipe.base import Task
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
+from .focalPlaneFunction import PolynomialPerFiber
 
 import lsstDebug
 
@@ -56,7 +57,7 @@ class FitFocalPlaneTask(Task):
         self.debugInfo = lsstDebug.Info(__name__)
         self._DefaultName = "fitFocalPlane"
 
-    def run(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig):
+    def run(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, **kwargs):
         """Fit a vector function as a function of wavelength over the focal plane
 
         Note that this requires that all the input vectors have the same
@@ -69,6 +70,8 @@ class FitFocalPlaneTask(Task):
         pfsConfig : `PfsConfig`
             Top-end configuration. This should contain only the fibers to be
             fit.
+        **kwargs
+            Fitting parameters, overriding any provided in the configuration.
 
         Returns
         -------
@@ -77,6 +80,8 @@ class FitFocalPlaneTask(Task):
         """
         numSamples = len(spectra)
         length = spectra.length
+        fitParams = self.config.getFitParameters()
+        fitParams.update(kwargs)
 
         wavelength = spectra.wavelength
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -88,7 +93,7 @@ class FitFocalPlaneTask(Task):
         rejected = np.zeros((numSamples, length), dtype=bool)
         for ii in range(self.config.rejIterations):
             func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=True,
-                                     **self.config.getFitParameters())
+                                     **fitParams)
             funcEval = func(spectra.wavelength, pfsConfig)
             with np.errstate(invalid="ignore", divide="ignore"):
                 resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
@@ -111,7 +116,7 @@ class FitFocalPlaneTask(Task):
 
         # A final fit with robust=False
         func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=False,
-                                 **self.config.getFitParameters())
+                                 **fitParams)
         funcEval = func(spectra.wavelength, pfsConfig)
         with np.errstate(invalid="ignore"):
             resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
@@ -211,3 +216,27 @@ class FitBlockedOversampledSplineTask(FitFocalPlaneTask):
     """
     ConfigClass = FitBlockedOversampledSplineConfig
     Function = BlockedOversampledSpline
+
+
+class FitPolynomialPerFiberConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `PolynomialPerFiber`
+
+    The ``PolynomialPerFiber.fit`` method also needs ``minWavelength`` and
+    ``maxWavelength`` input parameters, but those can be determined from the
+    data.
+    """
+    order = Field(dtype=int, doc="Polynomial order")
+
+
+class FitPolynomialPerFiberTask(FitFocalPlaneTask):
+    """Fit a `PolynomialPerFiber`
+
+    We fit a polynomial as a function of wavelength for each fiber individually.
+
+    The ``PolynomialPerFiber.fit`` method also needs ``minWavelength`` and
+    ``maxWavelength`` input parameters, but those can be determined from the
+    data. This makes `FitPolynomialPerFiberTask`'s ``run`` method a little
+    different from other flavors of `FitFocalPlaneTask`.
+    """
+    ConfigClass = FitPolynomialPerFiberConfig
+    Function = PolynomialPerFiber

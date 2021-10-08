@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline, InterpolatedUnivariateSpline, BSpline, interp1d
@@ -11,9 +11,11 @@ from lsst.pipe.base import Struct
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from pfs.drp.stella.datamodel.interpolate import interpolateFlux, interpolateMask
+from .math import NormalizedPolynomial1D, solveLeastSquaresDesign
+from .utils.math import robustRms
 
 __all__ = ("FocalPlaneFunction", "ConstantFocalPlaneFunction", "OversampledSpline",
-           "BlockedOversampledSpline")
+           "BlockedOversampledSpline", "PolynomialPerFiber")
 
 
 class FocalPlaneFunction(ABC):
@@ -899,3 +901,173 @@ class BlockedOversampledSpline(FocalPlaneFunction):
              astropy.io.fits.Column("variance", format="PD()", array=variance),
              ], header=header, name="BLOCKSPLINE")
         fits.append(table)
+
+
+class PolynomialPerFiber(FocalPlaneFunction):
+    """A polynomial in wavelength for each fiber independently.
+
+    Parameters
+    ----------
+    coeffs : `dict` [`int`: `numpy.ndarray` of `float`]
+        Polynomial coefficients, indexed by fiberId.
+    rms : `dict` [`int`: `float`]
+        RMS of residuals from fit, indexed by fiberId.
+    minWavelength : `float`
+        Minimum wavelength, for normalising the polynomial inputs.
+    maxWavelength : `float`
+        Maximum wavelength, for normalising the polynomial inputs.
+    """
+    def __init__(self, coeffs: Dict[int, Any], rms: Dict[int, float],
+                 minWavelength: float, maxWavelength: float):
+        assert(set(coeffs.keys()) == set(rms.keys()))
+        self._coeffs = coeffs
+        self._rms = rms
+        self.minWavelength = minWavelength
+        self.maxWavelength = maxWavelength
+
+    @property
+    def fiberId(self):
+        """Fiber identifiers with a corresponding polynomial"""
+        return np.array(sorted(self._coeffs.keys()), dtype=int)
+
+    def __getitem__(self, fiberId: int) -> NormalizedPolynomial1D:
+        """Return the polynomial for a particular fiber"""
+        return NormalizedPolynomial1D(self._coeffs[fiberId], self.minWavelength, self.maxWavelength)
+
+    @classmethod
+    def fitArrays(cls, fiberId, wavelengths, values, masks, variances, positions, *, robust: bool = False,
+                  order: int = 3, minWavelength: float = np.nan, maxWavelength: float = np.nan
+                  ) -> "PolynomialPerFiber":
+        """Fit a spectral function on the focal plane to arrays
+
+        We fit a polynomial in wavelength to each fiber independently.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber identifiers.
+        wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Wavelength array.
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Values to fit.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Boolean array indicating values to ignore from the fit.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variance values to use in fit.
+        positions : `numpy.ndarray` of `float`, shape ``(2, N)``
+            Focal-plane positions of fibers.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        order : `int`
+            Order of polynomials.
+        minWavelength : `float`
+            Minimum wavelength, for normalising the polynomial inputs.
+        maxWavelength : `float`
+            Maximum wavelength, for normalising the polynomial inputs.
+
+        Returns
+        -------
+        fit : `PolynomialPerFiber`
+            Function fit to input arrays.
+        """
+        if not (np.isfinite(minWavelength) and np.isfinite(maxWavelength)):
+            raise RuntimeError("Need to specify minWavelength and maxWavelength")
+        errors = np.sqrt(variances)
+
+        poly = NormalizedPolynomial1D(order, minWavelength, maxWavelength)
+        numParams = poly.getNParameters()
+        select = np.isfinite(values) & np.isfinite(variances) & ~masks
+        coeffs = {}
+        rms = {}
+        for ii, ff in enumerate(fiberId):
+            choose = select[ii]
+            if choose.sum() < numParams:
+                coeffs[ff] = np.full(numParams, np.nan, dtype=float)
+                rms[ff] = np.nan
+                continue
+            design = np.array([poly.getDFuncDParameters(wl) for wl in wavelengths[ii][choose]])
+            coeffs[ff] = solveLeastSquaresDesign(design, values[ii][choose], errors[ii][choose])
+            residuals = design @ coeffs[ff] - values[ii][choose]
+            if robust:
+                rms[ff] = robustRms(residuals)
+            else:
+                weights = 1.0/errors[ii][choose]**2
+                rms[ff] = np.sqrt(np.sum(weights*residuals**2)/np.sum(weights))
+
+        return cls(coeffs, rms, minWavelength, maxWavelength)
+
+    def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
+        """Evaluate the function at the provided positions
+
+        Parameters
+        ----------
+        wavelengths : `numpy.ndarray` of shape ``(N, M)``
+            Wavelength arrays.
+        fiberIds : `numpy.ndarray` of `int` of shape ``(N,)``
+            Fiber identifiers.
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Vector function evaluated at each position.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Indicates whether the value at each position is valid.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variances for each position.
+        """
+        values = np.array([self[ff](wavelengths[ii]) for ii, ff in enumerate(fiberIds)])
+        rms = np.array([np.full_like(wavelengths[ii], self._rms[ff]) for ii, ff in enumerate(fiberIds)])
+        masks = ~np.isfinite(values) | ~np.isfinite(rms)
+        return Struct(values=values, variances=rms**2, masks=masks)
+
+    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
+        """Write to FITS file
+
+        Parameters
+        ----------
+        fits : `astropy.io.fits.HDUList`
+            FITS file to which to write.
+        """
+        fiberId = self.fiberId
+
+        header = astropy.io.fits.Header()
+        header["MIN_WL"] = self.minWavelength
+        header["MAX_WL"] = self.maxWavelength
+        coeffs = [self._coeffs[ff] for ff in fiberId]
+        rms = [self._rms[ff] for ff in fiberId]
+
+        fits.append(
+            astropy.io.fits.BinTableHDU.from_columns(
+                [astropy.io.fits.Column("fiberId", format="J", array=fiberId),
+                 astropy.io.fits.Column("coeffs", format="PD()", array=coeffs),
+                 astropy.io.fits.Column("rms", format="D", array=rms),
+                 ], header=header, name="POLYPERFIBER")
+        )
+
+    @classmethod
+    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "BlockedOversampledSpline":
+        """Construct from FITS file
+
+        Parameters
+        ----------
+        fits : `astropy.io.fits.HDUList`
+            FITS file from which to read.
+
+        Returns
+        -------
+        self : cls
+            Constructed focal plane function.
+        """
+        hdu = fits["POLYPERFIBER"]
+        minWavelength = hdu.header["MIN_WL"]
+        maxWavelength = hdu.header["MAX_WL"]
+        fiberId = hdu.data["fiberId"]
+        coeffs = dict(zip(fiberId, hdu.data["coeffs"]))
+        rms = dict(zip(fiberId, hdu.data["rms"]))
+
+        return cls(coeffs, rms, minWavelength, maxWavelength)
