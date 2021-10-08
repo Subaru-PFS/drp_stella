@@ -39,6 +39,10 @@ class ReferenceLine(SimpleNamespace):
     def __init__(self, description, wavelength, intensity, status):
         super().__init__(description=description, wavelength=wavelength, intensity=intensity, status=status)
 
+    def copy(self):
+        """Return a copy"""
+        return type(self)(**self.__dict__)
+
     def __reduce__(self):
         """Pickling"""
         return type(self), (self.description, self.wavelength, self.intensity, self.status)
@@ -121,6 +125,10 @@ class ReferenceLineSet:
             Bitmask indicating the quality of the line.
         """
         self.lines.append(ReferenceLine(description, wavelength, intensity, status))
+
+    def copy(self):
+        """Return a deep copy"""
+        return type(self)([ll.copy() for ll in self])
 
     @classmethod
     def empty(cls):

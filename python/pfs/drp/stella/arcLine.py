@@ -38,6 +38,10 @@ class ArcLine(SimpleNamespace):
                                 intensity=intensity, intensityErr=intensityErr, flag=flag,
                                 status=status, description=description)
 
+    def copy(self):
+        """Return a copy"""
+        return type(self)(**self.__dict__)
+
     def __reduce__(self):
         """Pickling"""
         return type(self), (self.fiberId, self.wavelength, self.x, self.y, self.xErr, self.yErr,
@@ -142,6 +146,10 @@ class ArcLineSet:
         """In-place addition"""
         self.extend(rhs.lines)
         return self
+
+    def copy(self):
+        """Return a deep copy"""
+        return type(self)([ll.copy() for ll in self])
 
     def append(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
                flag, status, description):
