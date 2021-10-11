@@ -21,23 +21,19 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
     def __imul__(self, rhs):
         """In-place multiplication"""
+        rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
         with np.errstate(invalid="ignore"):
             self.flux *= rhs
             self.sky *= rhs
             self.norm *= rhs
+            rhsSquared = rhs**2
             for ii in range(3):
-                self.covar[:, ii, :] *= np.array(rhs)**2
+                self.covar[:, ii, :] *= rhsSquared
         return self
 
     def __itruediv__(self, rhs):
         """In-place division"""
-        with np.errstate(invalid="ignore", divide="ignore"):
-            self.flux /= rhs
-            self.sky /= rhs
-            self.norm /= rhs
-            for ii in range(3):
-                self.covar[:, ii, :] /= np.array(rhs)**2
-        return self
+        return self.__imul__(1.0/rhs)
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True):
         """Plot the spectra
