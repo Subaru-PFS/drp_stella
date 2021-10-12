@@ -382,6 +382,7 @@ class FitDistortedDetectorMapTask(Task):
         good : `numpy.ndarray` of `bool`
             Boolean array indicating which lines are good.
         """
+        self.log.debug("%d lines in list", len(lines))
         good = lines.flag == 0
         self.log.debug("%d good lines after measurement flags", good.sum())
         good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
