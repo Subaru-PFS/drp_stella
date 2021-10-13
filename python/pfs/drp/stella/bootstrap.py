@@ -27,6 +27,8 @@ class BootstrapConfig(Config):
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Fiber profiles")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
+    mask = ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
+                     doc="Mask pixels to ignore in extracting spectra")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=1.0, doc="Line matching radius (nm)")
     badLineStatus = ListField(dtype=str, default=["NOT_VISIBLE", "BLEND"],
@@ -229,7 +231,8 @@ class BootstrapTask(CmdLineTask):
         detMap = arcRef.get("detectorMap")
         detMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
         refLines = self.readLineList.run(metadata=exposure.getMetadata())
-        spectra = traces.extractSpectra(exposure.maskedImage)
+        badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
+        spectra = traces.extractSpectra(exposure.maskedImage, badBitMask)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
         lines = [[SimpleNamespace(fiberId=spectrum.fiberId, x=xx, y=yy, flux=spectrum.spectrum[int(yy + 0.5)])

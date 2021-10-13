@@ -166,11 +166,10 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
+        bitmask = exposure.mask.getPlaneBitMask(self.config.mask)
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
-        spectra = traces.extractSpectra(exposure.maskedImage)
+        spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
         for ss in spectra:
-            bitmask = ss.mask.getPlaneBitMask(self.config.mask)
-            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 

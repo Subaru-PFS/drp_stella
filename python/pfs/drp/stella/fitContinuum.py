@@ -34,7 +34,7 @@ class FitContinuumConfig(Config):
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
     doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines before fitting?")
     maskLineRadius = Field(dtype=int, default=5, doc="Number of pixels either side of reference line to mask")
-    mask = ListField(dtype=str, default=["BAD", "CR", "NO_DATA"], doc="Mask planes to ignore")
+    mask = ListField(dtype=str, default=["BAD", "CR", "NO_DATA", "BAD_FLAT"], doc="Mask planes to ignore")
 
 
 class FitContinuumTask(Task):
@@ -218,7 +218,8 @@ class FitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
-        spectra = fiberTraces.extractSpectra(maskedImage)
+        badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+        spectra = fiberTraces.extractSpectra(maskedImage, badBitMask)
         if detectorMap is not None:
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))

@@ -302,6 +302,8 @@ class DummySubtractSky2dConfig(Config):
                                        },
                               doc="Additional filters to provide to input fiberId list")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask, doc="1D sky subtraction")
+    mask = ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
+                     doc="Mask pixels to ignore in extracting spectra")
 
 
 class DummySubtractSky2dTask(Task):
@@ -371,7 +373,8 @@ class DummySubtractSky2dTask(Task):
             Sky flux subtracted from the exposure.
         """
         # Extract spectra
-        spectra = fiberTraces.extractSpectra(exposure.maskedImage)
+        badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
+        spectra = fiberTraces.extractSpectra(exposure.maskedImage, badBitMask)
         for spectrum in spectra:
             spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         dataId = dict(visit=0, arm="x", spectrograph=0)  # We need something...
