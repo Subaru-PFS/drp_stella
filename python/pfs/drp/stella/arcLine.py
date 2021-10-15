@@ -3,7 +3,10 @@ from types import SimpleNamespace
 import numpy as np
 import astropy.io.fits
 
-from .referenceLine import ReferenceLineSet
+from pfs.datamodel import Identity
+
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
+from .datamodel.pfsFiberArraySet import PfsFiberArraySet
 
 __all__ = ("ArcLine", "ArcLineSet")
 
@@ -32,11 +35,15 @@ class ArcLine(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
-                 flag, status, description):
+    def __init__(self, fiberId: int, wavelength: float, x: float, y: float, xErr: float, yErr: float,
+                 intensity: float, intensityErr: float, flag: bool, status: int, description: str):
         return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xErr=xErr, yErr=yErr,
                                 intensity=intensity, intensityErr=intensityErr, flag=flag,
                                 status=status, description=description)
+
+    def copy(self):
+        """Return a copy"""
+        return type(self)(**self.__dict__)
 
     def __reduce__(self):
         """Pickling"""
@@ -143,6 +150,10 @@ class ArcLineSet:
         self.extend(rhs.lines)
         return self
 
+    def copy(self):
+        """Return a deep copy"""
+        return type(self)([ll.copy() for ll in self])
+
     def append(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
                flag, status, description):
         """Append to the list of lines
@@ -205,6 +216,25 @@ class ArcLineSet:
                 intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
                 refLines.append(description, wavelength, intensity, status)
         return refLines
+
+    def applyExclusionZone(self, exclusionRadius: float,
+                           status: ReferenceLineStatus = ReferenceLineStatus.BLEND
+                           ):
+        """Apply an exclusion zone around each line
+
+        A line cannot have another line within ``exclusionRadius``.
+
+        The line list is modified in-place.
+
+        Parameters
+        ----------
+        exclusionRadius : `float`
+            Radius in wavelength (nm) to apply around lines.
+        status : `ReferenceLineStatus`
+            Status to apply to lines that fall within the exclusion zone.
+        """
+        from .applyExclusionZone import applyExclusionZone
+        return applyExclusionZone(self, exclusionRadius, status)
 
     @classmethod
     def readFits(cls, filename):
@@ -280,3 +310,45 @@ class ArcLineSet:
         return DataFrame({nn: getattr(self, nn) for nn in ("fiberId", "wavelength", "x", "y", "xErr", "yErr",
                                                            "intensity", "intensityErr", "flag", "status",
                                                            "description")})
+
+    def asPfsFiberArraySet(self, identity: Identity = None):
+        """Represent as a PfsFiberArraySet
+
+        This can be useful when fitting models of line intensities.
+
+        Parameters
+        ----------
+        identity : `Identity`
+            Identity to give the output `PfsFiberArraySet`.
+
+        Returns
+        -------
+        spectra : `PfsFiberArraySet`
+            Lines represented as a `PfsFiberArraySet`.
+        """
+        fiberId = np.array(sorted(set(self.fiberId)), dtype=int)
+        numFibers = fiberId.size
+        wlSet = np.array(sorted(set(self.wavelength)), dtype=float)
+        numWavelength = wlSet.size
+        if identity is None:
+            identity = Identity(-1)
+        flags = ReferenceLineStatus.getMasks()
+        metadata = {}
+
+        wavelength = np.vstack([wlSet]*numFibers)
+        flux = np.full((numFibers, numWavelength), np.nan, dtype=float)
+        mask = np.full((numFibers, numWavelength), flags["REJECTED"], dtype=np.int32)
+        covar = np.full((numFibers, 3, numWavelength), np.nan, dtype=float)
+        variance = covar[:, 0, :]
+        sky = np.zeros_like(flux)
+        norm = np.ones_like(flux)
+
+        wlLookup = {wl: ii for ii, wl in enumerate(wlSet)}
+        fiberLookup = {ff: ii for ii, ff in enumerate(fiberId)}
+        wlIndices = np.array([wlLookup[ll.wavelength] for ii, ll in enumerate(self)])
+        fiberIndices = np.array([fiberLookup[ll.fiberId] for ii, ll in enumerate(self)])
+        flux[fiberIndices, wlIndices] = self.intensity
+        variance[fiberIndices, wlIndices] = self.intensityErr**2
+        mask[fiberIndices, wlIndices] = self.status
+
+        return PfsFiberArraySet(identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags, metadata)

@@ -196,7 +196,7 @@ class ReduceExposureTask(CmdLineTask):
         originalList : `list` of `pfs.drp.stella.SpectrumSet`
             Sets of extracted spectra before continuum subtraction.
             Will be identical to ``spectra`` if continuum subtraction
-            was not performed.
+            was not performed.getSpectral
         fiberTraceList : `list` of `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         detectorMapList : `list` of `pfs.drp.stella.DetectorMap`
@@ -216,6 +216,7 @@ class ReduceExposureTask(CmdLineTask):
         fiberTraceList = []
         detectorMapList = []
         linesList = []
+        apCorrList = []
         psfList = []
         lsfList = []
         skyResults = None
@@ -247,12 +248,14 @@ class ReduceExposureTask(CmdLineTask):
                 detectorMapList.append(calibs.detectorMap)
                 fiberTraceList.append(calibs.fiberTraces)
                 linesList.append(calibs.lines)
+                apCorrList.append(calibs.apCorr)
                 psfList.append(calibs.psf)
                 lsfList.append(calibs.lsf)
 
             if self.config.doSubtractSky2d:
                 skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
-                                                    fiberTraceList, detectorMapList, linesList)
+                                                    fiberTraceList, detectorMapList,
+                                                    linesList, apCorrList)
 
         skyImageList = skyResults.imageList if skyResults is not None else [None]*len(exposureList)
         results = Struct(
@@ -419,6 +422,8 @@ class ReduceExposureTask(CmdLineTask):
             Reference lines.
         lines : `pfs.drp.stella.ArcLineSet`
             Measured lines.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture correction.
         traces : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
             Peaks for each trace, indexed by fiberId.
         psf : `pfs.drp.stella.SpectralPsf`
@@ -489,10 +494,12 @@ class ReduceExposureTask(CmdLineTask):
             lsf = self.defaultLsf(sensorRef.dataId["arm"], fiberTraces.fiberId, detectorMap)
 
         # Update photometry using best detectorMap, PSF
-        lines = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
+        phot = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
+        sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=lines, traces=traces, psf=psf, lsf=lsf)
+                      refLines=refLines, lines=phot.lines, apCorr=phot.apCorr, traces=traces,
+                      psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure

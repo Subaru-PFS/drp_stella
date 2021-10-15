@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 #include "ndarray_fwd.h"
 
@@ -17,6 +18,116 @@ namespace pfs {
 namespace drp {
 namespace stella {
 namespace math {
+
+
+/// 1D ordinary polynomial, with inputs normalized to be in the range [-1,1)
+///
+/// Subclass of lsst::afw::math::PolynomialFunction1 (ordinary polynomial) with
+/// the input normalization copied from lsst::afw::math::Chebyshev1Function1.
+template <typename T>
+class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
+  public:
+    /// Ctor
+    ///
+    /// @param order : Polynomial order (identical for x and y)
+    /// @param min : Minimum input value
+    /// @param max : Maximum input value
+    explicit NormalizedPolynomial1(
+        unsigned int order,
+        double min=-1,
+        double max=1
+    ) : lsst::afw::math::PolynomialFunction1<T>(order) {
+        _initialize(min, max);
+    }
+
+    /// Ctor
+    ///
+    /// @param parameters : Polynomial coefficients
+    /// @param min : Minimum input value
+    /// @param max : Maximum input value
+    explicit NormalizedPolynomial1(
+        ndarray::Array<double, 1, 1> const& parameters,
+        double min=-1,
+        double max=1
+    ) : NormalizedPolynomial1(utils::arrayToVector(parameters), min, max)
+    {}
+
+    /// Ctor
+    ///
+    /// @param parameters : Polynomial coefficients
+    /// @param min : Minimum input value
+    /// @param max : Maximum input value
+    explicit NormalizedPolynomial1(
+        std::vector<double> const& parameters,
+        double min=-1,
+        double max=1
+    ) : lsst::afw::math::PolynomialFunction1<T>(parameters) {
+        _initialize(min, max);
+    }
+
+    NormalizedPolynomial1(NormalizedPolynomial1 const&) = default;
+    NormalizedPolynomial1(NormalizedPolynomial1&&) = default;
+    NormalizedPolynomial1& operator=(NormalizedPolynomial1 const&) = default;
+    NormalizedPolynomial1& operator=(NormalizedPolynomial1&&) = default;
+    ~NormalizedPolynomial1() noexcept override = default;
+
+    /// Polymorphic clone
+    std::shared_ptr<lsst::afw::math::Function1<T>> clone() const override {
+        return std::make_shared<NormalizedPolynomial1<T>>(this->getParameters(), getMin(), getMax());
+    }
+
+    /// Return the bounds of input coordinates used for normalization
+    double getMin() const { return _min; }
+    double getMax() const { return _max; }
+
+    //@{
+    /// Evaluate at coordinates
+    T operator()(double x) const noexcept override {
+        return lsst::afw::math::PolynomialFunction1<T>::operator()((x - _offset)*_scale);
+    }
+    ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 1> const& x) const noexcept {
+        ndarray::Array<T, 1, 1> result = ndarray::allocate(x.size());
+        std::transform(x.begin(), x.end(), result.begin(),
+                       [this](double value) { return operator()(value); });
+        return result;
+    }
+    //@}
+
+    /// Calculate the derivatives of the function w.r.t. the parameters
+    ///
+    /// Useful for constructing the design matrix when fitting.
+    ///
+    /// Strangely, this isn't implemented in the base class for 1D functions,
+    /// so we implement it here.
+    std::vector<double> getDFuncDParameters(double x) const {
+        double const xNorm = (x - _offset)*_scale;
+        int const num = this->getNParameters();
+        std::vector<double> result;
+        assert(num >= 1);
+        result.push_back(1.0);
+        for (int ii = 0; ii < num - 1; ++ii) {
+            result.push_back(result[ii]*xNorm);
+        }
+        return result;
+    }
+
+    /// Not persistable because we haven't written the persistence code
+    bool isPersistable() const noexcept override { return false; }
+
+  private:
+
+    /// Initialize values used for normalization
+    void _initialize(double min, double max) {
+        _min = min;
+        _max = max;
+        _offset = 0.5*(min + max);
+        _scale = 2.0/(max - min);
+    }
+
+    double _min, _max;  ///< Range of input coordinates
+    double _offset;  ///< Offset for normalization
+    double _scale;  ///< Scale for normalization
+};
 
 
 /// 2D ordinary polynomial, with inputs normalized to be in the range [-1,1)
@@ -78,6 +189,7 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     /// Return the bounds of input coordinates used for normalization
     lsst::geom::Box2D getXYRange() const { return _range; }
 
+    //@{
     /// Evaluate at coordinates
     T operator()(double x, double y) const noexcept override {
         return lsst::afw::math::PolynomialFunction2<T>::operator()(
@@ -85,6 +197,19 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
             (y - _yOffset)*_yScale
         );
     }
+    ndarray::Array<double, 1, 1> operator()(
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y
+    ) const noexcept {
+        utils::checkSize(x.size(), y.size(), "x vs y");
+        std::size_t const num = x.size();
+        ndarray::Array<double, 1, 1> result = ndarray::allocate(num);
+        for (std::size_t ii = 0; ii < num; ++ii) {
+            result[ii] = operator()(x[ii], y[ii]);
+        }
+        return result;
+    }
+    //@}
 
     /// Calculate the derivatives of the function w.r.t. the parameters
     ///

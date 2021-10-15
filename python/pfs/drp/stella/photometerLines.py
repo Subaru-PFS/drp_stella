@@ -3,7 +3,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
-from lsst.pipe.base import Task
+from lsst.pipe.base import Task, Struct
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
@@ -12,6 +12,7 @@ from .fitContinuum import FitContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
 from pfs.drp.stella import FiberProfileSet, FiberTraceSet
+from .apertureCorrections import MeasureApertureCorrectionsTask
 
 import lsstDebug
 
@@ -46,6 +47,8 @@ class PhotometerLinesConfig(Config):
                               doc="Reference line status flags indicating that line should be excluded")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     doSubtractLines = Field(dtype=bool, default=False, doc="Subtract lines after measurement?")
+    doApertureCorrection = Field(dtype=bool, default=True, doc="Perform aperture correction?")
+    apertureCorrection = ConfigurableField(target=MeasureApertureCorrectionsTask, doc="Aperture correction")
 
 
 class PhotometerLinesTask(Task):
@@ -57,8 +60,9 @@ class PhotometerLinesTask(Task):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
         self.makeSubtask("continuum")
+        self.makeSubtask("apertureCorrection")
 
-    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None):
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig, fiberTraces=None) -> Struct:
         """Photometer lines on an arc
 
         We perform a simultaneous fit of PSFs to each of the lines.
@@ -75,8 +79,7 @@ class PhotometerLinesTask(Task):
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping between fiberId,wavelength and x,y.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
-            Top-end configuration, for specifying good fibers. If not provided,
-            will use all fibers in the detectorMap.
+            Top-end configuration, for specifying good fibers.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
             Position and profile of fiber traces. Required for continuum
             subtraction and/or flux normalisation.
@@ -85,28 +88,26 @@ class PhotometerLinesTask(Task):
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture correction.
         """
         if self.config.doSubtractContinuum:
             if fiberTraces is None:
                 raise RuntimeError("No fiberTraces provided for continuum subtraction")
             with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, detectorMap,
                                                    referenceLines):
-                lines = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
-                if self.config.doSubtractLines:
-                    self.subtractLines(exposure, lines, detectorMap)
+                phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
         else:
-            lines = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
-            if self.config.doSubtractLines:
-                self.subtractLines(exposure, lines, detectorMap)
+            phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
 
         if fiberTraces is not None:
-            self.correctFluxNormalizations(lines, fiberTraces)
+            self.correctFluxNormalizations(phot.lines, fiberTraces)
         else:
             self.log.warn("Not normalizing measured line fluxes")
-        self.log.info("Photometered %d lines", len(lines))
-        return lines
+        self.log.info("Photometered %d lines", len(phot.lines))
+        return phot
 
-    def photometerLines(self, exposure, lines, detectorMap, pfsConfig=None, fiberTraces=None):
+    def photometerLines(self, exposure, lines, detectorMap, pfsConfig, fiberTraces=None):
         """Photometer lines on an image
 
         We perform a simultaneous fit of PSFs to each of the lines.
@@ -119,23 +120,21 @@ class PhotometerLinesTask(Task):
             List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
-        pfsConfig : `pfs.datamodel.PfsConfig`, optional
-            Top-end configuration, for specifying good fibers. If not provided,
-            will use all fibers in the detectorMap.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for specifying good fibers.
 
         Returns
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Photometered lines.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture correction that was applied, or ``None``.
         """
         psf = checkPsf(exposure, detectorMap, self.config.fwhm)
 
         positions = None
         if isinstance(lines, ReferenceLineSet):
-            fiberId = detectorMap.fiberId
-            if pfsConfig is not None:
-                indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, fiberId)
-                fiberId = fiberId[indices]
+            fiberId = pfsConfig.select(fiberStatus=FiberStatus.GOOD, fiberId=detectorMap.fiberId).fiberId
             fiberId, wavelength = cartesianProduct(fiberId, lines.wavelength)
             if self.config.doForced:
                 self.log.warn("Unable to perform unforced photometry without centroided positions provided; "
@@ -171,7 +170,14 @@ class PhotometerLinesTask(Task):
             else:
                 rl.flag = True
 
-        return lines
+        apCorr = None
+        if self.config.doApertureCorrection:
+            apCorr = self.apertureCorrection.run(exposure, pfsConfig, detectorMap, lines)
+
+        if self.config.doSubtractLines:
+            self.subtractLines(exposure, lines, detectorMap)
+
+        return Struct(lines=lines, apCorr=apCorr)
 
     def getNormalizations(self, tracesOrProfiles):
         """Get an object that can be used for normalization

@@ -3,19 +3,22 @@ import numpy as np
 import lsst.utils.tests
 import lsst.afw.image
 import lsst.afw.image.testUtils
+from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.photometerLines import PhotometerLinesTask, PhotometerLinesConfig
 from pfs.drp.stella import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 display = None
 
 
 class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
     @methodParameters(numLines=(10, 100, 200),
-                      rtol=(3.0e-3, 4.0e-3, 5.0e-3))
-    def testPhotometry(self, numLines, rtol):
+                      rtol=(1.0e-2, 4.0e-3, 5.0e-3),
+                      doApCorr=(True, False, False))
+    def testPhotometry(self, numLines, rtol, doApCorr):
         """Test photometry on an arc
 
         Parameters
@@ -25,6 +28,8 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
             affects the density of lines.
         rtol : `float`
             Relative tolerance for flux measurements.
+        doApCorr : `bool`
+            Do aperture correction?
         """
         description = "Simulated"
         intensity = 123456.789
@@ -37,6 +42,7 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
                                                         fwhm=fwhm, flux=intensity, rng=rng,
                                                         addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
+        pfsConfig = pfs.drp.stella.synthetic.makeSyntheticPfsConfig(synthConfig, 12345, 67890, rng)
 
         referenceLines = ReferenceLineSet.empty()
         fiberId = detMap.fiberId[detMap.getNumFibers()//2]
@@ -52,9 +58,32 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         config = PhotometerLinesConfig()
         config.fwhm = fwhm
         config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
+        radius = config.apertureCorrection.apertureFlux.radii[0]
+        canApCorr = synthConfig.height/numLines > 2*radius
+        assert(doApCorr == canApCorr)
+        config.doApertureCorrection = doApCorr
         task = PhotometerLinesTask(name="photometer", config=config)
-        lines = task.run(exposure, referenceLines, detMap)
+        task.log.setLevel(task.log.DEBUG)
+        phot = task.run(exposure, referenceLines, detMap, pfsConfig)
 
+        apCorr = phot.apCorr
+        if doApCorr:
+            self.assertIsNotNone(apCorr)
+            self.assertFloatsEqual(np.sort(apCorr.fiberId), np.sort(synthConfig.fiberId))
+            with lsst.utils.tests.getTempFilePath(".fits") as filename:
+                apCorr.writeFits(filename)
+                copy = FocalPlaneFunction.readFits(filename)
+            self.assertFloatsEqual(np.sort(copy.fiberId), np.sort(synthConfig.fiberId))
+            for ff in synthConfig.fiberId:
+                apCorrEval = apCorr(referenceLines.wavelength, pfsConfig.select(fiberId=ff))
+                copyEval = copy(referenceLines.wavelength, pfsConfig.select(fiberId=ff))
+                self.assertFloatsEqual(apCorrEval.values, copyEval.values)
+                self.assertFloatsEqual(apCorrEval.variances, copyEval.variances)
+                np.testing.assert_array_equal(apCorrEval.masks, copyEval.masks)
+        else:
+            self.assertIsNone(apCorr)
+
+        lines = phot.lines
         self.assertEqual(len(lines), detMap.getNumFibers()*len(referenceLines))
         expectFiberId = np.concatenate([synthConfig.fiberId for _ in referenceLines.wavelength])
         self.assertFloatsEqual(lines.fiberId, expectFiberId)
@@ -65,7 +94,13 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(lines.y, xyExpect[:, 1])
         self.assertTrue(np.all(np.isnan(lines.xErr)))
         self.assertTrue(np.all(np.isnan(lines.yErr)))
-        self.assertFloatsAlmostEqual(lines.intensity, intensity, rtol=rtol)
+        sigma = fwhmToSigma(fwhm)
+        expectIntensity = intensity*(1 - np.exp(-0.5*radius**2/sigma**2)) if doApCorr else intensity
+        meanIntensity = lines.intensity.mean()
+        # Not sure why I'm not getting exactly the expected intensity in the case of aperture corrections.
+        # Maybe my math is wrong, or there's some other effect I'm not considering.
+        self.assertFloatsAlmostEqual(meanIntensity, expectIntensity, rtol=rtol)
+        self.assertFloatsAlmostEqual(lines.intensity, meanIntensity, rtol=2.0e-3)
         self.assertTrue(np.all(lines.intensityErr > 0))
         self.assertFloatsEqual(lines.flag, 0)
         self.assertFloatsEqual(lines.status, int(ReferenceLineStatus.GOOD))

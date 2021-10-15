@@ -8,6 +8,8 @@ import pfs.drp.stella as drpStella
 
 class ExtractSpectraConfig(pexConfig.Config):
     fiberId = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
+    mask = pexConfig.ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
+                               doc="Mask pixels to ignore in extracting spectra")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -81,7 +83,8 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-        spectra = fiberTraceSet.extractSpectra(maskedImage)
+        badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+        spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask)
         for spectrum in spectra:
             spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         return spectra

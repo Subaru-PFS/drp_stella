@@ -11,6 +11,7 @@ from lsst.afw.image import MaskedImageF, makeMaskedImage
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType, FiberStatus
 
 from .fitFocalPlane import FitBlockedOversampledSplineTask
+from .apertureCorrections import calculateApertureCorrection
 
 
 class SkyModel(SimpleNamespace):
@@ -123,7 +124,7 @@ class SubtractSky2dTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
+    def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList, apCorrList):
         """Measure and subtract sky from 2D spectra image
 
         Parameters
@@ -140,6 +141,8 @@ class SubtractSky2dTask(Task):
             Mapping of fiber,wavelength to x,y.
         linesList : iterable of `pfs.drp.stella.ArcLineSet`
             Measured sky lines.
+        apCorrList : iterable of `pfs.drp.stella.FocalPlaneFunction`
+            Aperture corrections.
 
         Returns
         -------
@@ -150,9 +153,9 @@ class SubtractSky2dTask(Task):
         """
         sky2d = self.measureSky(exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList)
         imageList = []
-        for exposure, psf, fiberTrace, detectorMap in zip(exposureList, psfList,
-                                                          fiberTraceList, detectorMapList):
-            image = self.subtractSky(exposure, psf, fiberTrace, detectorMap, pfsConfig, sky2d)
+        for exposure, psf, fiberTrace, detectorMap, apCorr in zip(exposureList, psfList, fiberTraceList,
+                                                                  detectorMapList, apCorrList):
+            image = self.subtractSky(exposure, psf, fiberTrace, detectorMap, pfsConfig, sky2d, apCorr)
             imageList.append(image)
         return Struct(sky2d=sky2d, imageList=imageList)
 
@@ -213,7 +216,7 @@ class SubtractSky2dTask(Task):
 
         return SkyModel(np.array(list(model.keys())), np.array(list(model.values())))
 
-    def makeSkyImage(self, bbox, psf, fiberTraces, pfsConfig, sky2d):
+    def makeSkyImage(self, bbox, psf, fiberTraces, pfsConfig, sky2d, apCorr):
         """Construct a 2D image of the sky model
 
         Parameters
@@ -228,6 +231,8 @@ class SubtractSky2dTask(Task):
             Top-end configuration, for getting location of fibers.
         sky2d : `pfs.drp.stella.subtractSky2d.SkyModel`
             2D sky subtraction solution.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture correction.
 
         Returns
         -------
@@ -241,18 +246,21 @@ class SubtractSky2dTask(Task):
         centers = pfsConfig.extractCenters(fiberId)
         model = sky2d(centers)
         for ii, ft in enumerate(fiberTraces):
-            for wl, flux in zip(model.wavelength, model.flux[ii]):
+            # Current fluxes are aperture-corrected, but the flux we put down will be a PSF flux,
+            # so we need to remove the aperture correction.
+            psfFlux = calculateApertureCorrection(apCorr, ft.fiberId, model.wavelength, pfsConfig,
+                                                  model.flux[ii], invert=True)
+            for wl, flux in zip(model.wavelength, psfFlux):
                 try:
                     psfImage = computePsfImage(psf, ft, wl, bbox)
                 except Exception as exc:
                     self.log.debug("Unable to subtract line %f on fiber %d: %s", wl, ft.fiberId, exc)
                     continue
-
                 psfImage *= flux
                 result[psfImage.getBBox()] += psfImage
         return result
 
-    def subtractSky(self, exposure, psf, fiberTraces, detectorMap, pfsConfig, sky2d):
+    def subtractSky(self, exposure, psf, fiberTraces, detectorMap, pfsConfig, sky2d, apCorr):
         """Subtract the 2D sky model from the images
 
         Parameters
@@ -269,13 +277,15 @@ class SubtractSky2dTask(Task):
             Top-end configuration, for getting location of fibers.
         sky2d : `pfs.drp.stella.subtractSky2d.SkyModel`
             2D sky subtraction solution.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture correction.
 
         Returns
         -------
         image : `lsst.afw.image.MaskedImage`
             Image of the sky model.
         """
-        image = self.makeSkyImage(exposure.getBBox(), psf, fiberTraces, pfsConfig, sky2d)
+        image = self.makeSkyImage(exposure.getBBox(), psf, fiberTraces, pfsConfig, sky2d, apCorr)
         exposure.maskedImage -= image
         return image
 
@@ -292,6 +302,8 @@ class DummySubtractSky2dConfig(Config):
                                        },
                               doc="Additional filters to provide to input fiberId list")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask, doc="1D sky subtraction")
+    mask = ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
+                     doc="Mask pixels to ignore in extracting spectra")
 
 
 class DummySubtractSky2dTask(Task):
@@ -361,7 +373,8 @@ class DummySubtractSky2dTask(Task):
             Sky flux subtracted from the exposure.
         """
         # Extract spectra
-        spectra = fiberTraces.extractSpectra(exposure.maskedImage)
+        badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
+        spectra = fiberTraces.extractSpectra(exposure.maskedImage, badBitMask)
         for spectrum in spectra:
             spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         dataId = dict(visit=0, arm="x", spectrograph=0)  # We need something...

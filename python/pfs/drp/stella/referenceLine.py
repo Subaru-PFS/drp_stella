@@ -1,11 +1,13 @@
 import os
 import re
 from types import SimpleNamespace
+from math import log2
 
 import numpy as np
 
 from lsst.utils import getPackageDir
 
+from pfs.datamodel import MaskHelper
 from .utils.bitmask import Bitmask
 
 __all__ = ("ReferenceLineStatus", "ReferenceLine", "ReferenceLineSet")
@@ -20,6 +22,26 @@ class ReferenceLineStatus(Bitmask):
     REJECTED = 0x08, "Line has been rejected from use in PFS"
     BROAD = 0x10, "Line is broader than normal"
     BAD = 0xFFFF, "Line is bad for any reason"
+
+    @classmethod
+    def getMasks(cls):
+        """Return the corresponding `MaskHelper`
+
+        for representing the `ReferenceLineStatus` as a bitmask in a
+        `pfs.datamodel.PfsFiberArraySet` or similar.
+        """
+        def findBitSet(bitmask: ReferenceLineStatus) -> int:
+            """Return the position of the only single bit set, or zero
+
+            https://stackoverflow.com/a/51094793/834250
+            """
+            value = bitmask.value
+            if value == 0 or (value & (value - 1)) != 0:
+                return 0
+            return int(log2(value)) + 1
+
+        bits = {name: findBitSet(value) for name, value in cls.__members__.items()}
+        return MaskHelper(**{name: number for name, number in bits.items() if number != 0})
 
 
 class ReferenceLine(SimpleNamespace):
@@ -38,6 +60,10 @@ class ReferenceLine(SimpleNamespace):
     """
     def __init__(self, description, wavelength, intensity, status):
         super().__init__(description=description, wavelength=wavelength, intensity=intensity, status=status)
+
+    def copy(self):
+        """Return a copy"""
+        return type(self)(**self.__dict__)
 
     def __reduce__(self):
         """Pickling"""
@@ -122,6 +148,10 @@ class ReferenceLineSet:
         """
         self.lines.append(ReferenceLine(description, wavelength, intensity, status))
 
+    def copy(self):
+        """Return a deep copy"""
+        return type(self)([ll.copy() for ll in self])
+
     @classmethod
     def empty(cls):
         """Construct an empty `ReferenceLineSet`"""
@@ -190,17 +220,8 @@ class ReferenceLineSet:
         status : `ReferenceLineStatus`
             Status to apply to lines that fall within the exclusion zone.
         """
-        if exclusionRadius <= 0:
-            # No exclusion zone to apply
-            return
-        wavelength = self.wavelength
-        reject = np.zeros(len(self), dtype=bool)
-        for rl in self:
-            distance = wavelength - rl.wavelength
-            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
-        for rl, rej in zip(self, reject):
-            if rej:
-                rl.status |= status
+        from .applyExclusionZone import applyExclusionZone
+        return applyExclusionZone(self, exclusionRadius, status)
 
     def sort(self):
         """Sort the line list, in-place
