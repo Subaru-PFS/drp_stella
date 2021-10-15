@@ -66,19 +66,18 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
 class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
     def __imul__(self, rhs):
         """Flux multiplication, in-place"""
-        PfsSimpleSpectrum.__imul__(self, rhs)
-        self.sky *= rhs
-        for ii in range(3):
-            self.covar[ii] *= rhs**2
+        rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
+        with np.errstate(invalid="ignore"):
+            self.flux *= rhs
+            self.sky *= rhs
+            rhsSquared = rhs**2
+            for ii in range(3):
+                self.covar[:, ii, :]*rhsSquared
         return self
 
     def __itruediv__(self, rhs):
         """Flux division, in-place"""
-        PfsSimpleSpectrum.__itruediv__(self, rhs)
-        self.sky /= rhs
-        for ii in range(3):
-            self.covar[ii] /= rhs**2
-        return self
+        return self.__imul__(1.0/rhs)
 
     def plot(self, plotSky=True, plotErrors=True, ignorePixelMask=0x0, show=True):
         """Plot the object spectrum
