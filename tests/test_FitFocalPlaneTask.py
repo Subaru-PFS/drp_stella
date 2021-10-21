@@ -101,7 +101,8 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.all(np.isfinite(evaluation.values[good])))
         self.assertTrue(np.all(np.isfinite(evaluation.variances[good])))
         self.assertTrue(np.all(evaluation.variances[good] > 0))
-        residual = (evaluation.values - self.actual[np.newaxis, :])/np.sqrt(evaluation.variances)
+        with np.errstate(divide="ignore"):
+            residual = (evaluation.values - self.actual[np.newaxis, :])/np.sqrt(evaluation.variances)
 
         if False:
             import matplotlib.pyplot as plt
