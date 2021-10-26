@@ -11,6 +11,7 @@ from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.ip.isr import IsrTask
 
 from pfs.datamodel import FiberStatus
+from pfs.datamodel.pfsConfig import TargetType
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
@@ -42,6 +43,7 @@ class BootstrapConfig(Config):
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
     fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER"], doc="Fiber statuses to allow")
+    targetType = ListField(dtype=str, default=["SCIENCE"], doc="Target types to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
 
@@ -177,7 +179,9 @@ class BootstrapTask(CmdLineTask):
         traces.sortTracesByXCenter()  # Organised left to right
         self.log.info("Found %d fibers on flat", len(traces))
         fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
-        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=fiberStatus)
+        targetType = [TargetType.fromString(fs) for fs in self.config.targetType]
+        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=fiberStatus,
+                                        targetType=targetType)
         numSelected = select.sum()
         if len(traces) != numSelected:
             raise RuntimeError("Insufficient traces (%d) found vs expected number of fibers (%d)" %
