@@ -29,7 +29,7 @@ from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.afw.display import Display
 from lsst.pipe.tasks.repair import RepairTask
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -435,6 +435,7 @@ class ReduceExposureTask(CmdLineTask):
         fiberProfiles = sensorRef.get("fiberProfiles")
 
         # Check that the calibs have the expected number of fibers
+        pfsConfig = pfsConfig[pfsConfig.targetType == TargetType.SCIENCE]
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
         fiberId = pfsConfig.fiberId[indices]
         select = spectrographFromFiberId(fiberId) == sensorRef.dataId["spectrograph"]
