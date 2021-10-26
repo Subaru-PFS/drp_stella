@@ -46,6 +46,7 @@ class BootstrapConfig(Config):
     targetType = ListField(dtype=str, default=["SCIENCE"], doc="Target types to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
+    badFibers = ListField(dtype=int, default=[], doc="Fibers to ignore (e.g., bad but not recorded as such")
 
     def setDefaults(self):
         super().setDefaults()
@@ -180,7 +181,10 @@ class BootstrapTask(CmdLineTask):
         self.log.info("Found %d fibers on flat", len(traces))
         fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
         targetType = [TargetType.fromString(fs) for fs in self.config.targetType]
-        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=fiberStatus,
+        fiberId = detMap.fiberId
+        if self.config.badFibers:
+            fiberId = np.array(list(set(fiberId) - set(self.config.badFibers)))
+        select = pfsConfig.getSelection(fiberId=fiberId, fiberStatus=fiberStatus,
                                         targetType=targetType)
         numSelected = select.sum()
         if len(traces) != numSelected:
