@@ -24,12 +24,12 @@ from collections import defaultdict
 import numpy as np
 import lsstDebug
 
-from lsst.pex.config import Config, Field, ConfigurableField, DictField
+from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.afw.display import Display
 from lsst.pipe.tasks.repair import RepairTask
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -41,7 +41,6 @@ from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
 from .constructSpectralCalibs import setCalibHeader
-from pfs.utils.fibers import spectrographFromFiberId
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -78,6 +77,8 @@ class ReduceExposureConfig(Config):
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
+    targetType = ListField(dtype=str, default=["SCIENCE", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+                           doc="Target type for which to extract spectra")
 
     def validate(self):
         super().validate()
@@ -435,10 +436,12 @@ class ReduceExposureTask(CmdLineTask):
         fiberProfiles = sensorRef.get("fiberProfiles")
 
         # Check that the calibs have the expected number of fibers
-        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        fiberId = pfsConfig.fiberId[indices]
-        select = spectrographFromFiberId(fiberId) == sensorRef.dataId["spectrograph"]
-        need = set(fiberId[select])
+        select = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD,
+                                        targetType=[TargetType.fromString(tt) for
+                                                    tt in self.config.targetType],
+                                        spectrograph=sensorRef.dataId["spectrograph"])
+        fiberId = pfsConfig.fiberId[select]
+        need = set(fiberId)
         haveDetMap = set(detectorMap.fiberId)
         haveProfiles = set(fiberProfiles.fiberId)
         missingDetMap = need - haveDetMap
