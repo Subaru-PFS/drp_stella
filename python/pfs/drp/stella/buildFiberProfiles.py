@@ -9,7 +9,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
 from lsst.afw.display import Display
 
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, TargetType
 from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
@@ -38,6 +38,9 @@ class BuildFiberProfilesConfig(Config):
     pruneMinFrac = Field(dtype=float, default=0.7, doc="Minimum detection fraction of trace to avoid pruning")
     centroidRadius = Field(dtype=int, default=5, doc="Radius about the peak for centroiding")
     centerFit = ConfigurableField(target=FitPolynomialTask, doc="Fit polynomial to trace centroids")
+    targetType = ListField(dtype=str, default=["SCIENCE", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+                           doc="Target type for which to build profiles")
+    badFibers = ListField(dtype=int, default=[], doc="Fibers to ignore (e.g., bad but not recorded as such")
     profileSwath = Field(dtype=float, default=300, doc="Length of swaths to use for calculating profile")
     profileRadius = Field(dtype=int, default=5, doc="Radius about the peak for profile")
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
@@ -354,10 +357,14 @@ class BuildFiberProfilesTask(Task):
             Peaks for each trace, indexed by fiberId.
         """
         if pfsConfig is not None:
-            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
-            fiberId = detectorMap.fiberId[indices]
+            select = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD, fiberId=detectorMap.fiberId,
+                                            targetType=[TargetType.fromString(tt) for
+                                                        tt in self.config.targetType])
+            fiberId = pfsConfig.fiberId[select]
         else:
             fiberId = detectorMap.fiberId
+        if self.config.badFibers:
+            fiberId = np.array(list(set(fiberId) - set(self.config.badFibers)))
         traces = {}
         for ff in fiberId:
             xCenter = detectorMap.getXCenter(ff)
