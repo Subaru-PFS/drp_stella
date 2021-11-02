@@ -589,6 +589,8 @@ class FitDistortedDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
+        if not np.any(select):
+            raise RuntimeError("No selected lines to fit")
         if Distortion is None:
             Distortion = self.Distortion
         if soften is None:
