@@ -43,7 +43,8 @@ class BootstrapConfig(Config):
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
     fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER"], doc="Fiber statuses to allow")
-    targetType = ListField(dtype=str, default=["SCIENCE"], doc="Target types to allow")
+    targetType = ListField(dtype=str, default=["SCIENCE", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+                           doc="Target types to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
     badFibers = ListField(dtype=int, default=[], doc="Fibers to ignore (e.g., bad but not recorded as such")
