@@ -276,6 +276,7 @@ class FitDistortedDetectorMapConfig(Config):
                  )
     minSignalToNoise = Field(dtype=float, default=50.0,
                              doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
+    minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -591,6 +592,10 @@ class FitDistortedDetectorMapTask(Task):
         """
         if not np.any(select):
             raise RuntimeError("No selected lines to fit")
+        numWavelengths = len(set(lines.wavelength[select]))
+        if numWavelengths < self.config.minNumWavelengths:
+            raise RuntimeError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
+                               f"{self.config.minNumWavelengths} required)")
         if Distortion is None:
             Distortion = self.Distortion
         if soften is None:
