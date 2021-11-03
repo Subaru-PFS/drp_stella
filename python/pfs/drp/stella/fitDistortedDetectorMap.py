@@ -279,7 +279,7 @@ class FitDistortedDetectorMapConfig(Config):
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
-    minSignalToNoise = Field(dtype=float, default=50.0,
+    minSignalToNoise = Field(dtype=float, default=20.0,
                              doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
 
