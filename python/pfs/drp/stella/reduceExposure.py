@@ -40,6 +40,7 @@ from .centroidLines import CentroidLinesTask
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
+from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -52,6 +53,8 @@ class ReduceExposureConfig(Config):
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
+    requireAdjustDetectorMap = Field(dtype=bool, default=False,
+                                     doc="Require detectorMap adjustment to succeed?")
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
@@ -469,7 +472,12 @@ class ReduceExposureTask(CmdLineTask):
                 detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
                                     ctype="red", plotTraces=False)
 
-            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
+            try:
+                detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
+            except FittingError as exc:
+                if self.config.requireAdjustDetectorMap:
+                    raise
+                self.log.warn("DetectorMap adjustment failed: %s", exc)
 
             if self.debugInfo.detectorMap:
                 detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,

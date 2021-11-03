@@ -58,6 +58,11 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
+
+        Raises
+        ------
+        pfs.drp.stella.fitDistortedDetectorMap.FittingError
+            If the data is not of sufficient quality to fit.
         """
         base = self.getBaseDetectorMap(detectorMap)  # NB: DistortionBasedDetectorMap not SplinedDetectorMap
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
