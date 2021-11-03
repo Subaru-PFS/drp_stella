@@ -221,6 +221,10 @@ class PhotometerLinesTask(Task):
         """
         interpolators = self.getNormalizations(tracesOrProfiles)
         for ll in lines:
+            if ll.fiberId not in interpolators:
+                ll.intensity = np.nan
+                ll.intensityErr = np.nan
+                continue
             norm = interpolators[ll.fiberId](ll.y)
             with np.errstate(divide="ignore", invalid="ignore"):
                 ll.intensity /= norm
