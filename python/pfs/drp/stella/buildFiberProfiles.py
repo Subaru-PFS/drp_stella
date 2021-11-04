@@ -38,7 +38,7 @@ class BuildFiberProfilesConfig(Config):
     pruneMinFrac = Field(dtype=float, default=0.7, doc="Minimum detection fraction of trace to avoid pruning")
     centroidRadius = Field(dtype=int, default=5, doc="Radius about the peak for centroiding")
     centerFit = ConfigurableField(target=FitPolynomialTask, doc="Fit polynomial to trace centroids")
-    targetType = ListField(dtype=str, default=["SCIENCE", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
                            doc="Target type for which to build profiles")
     badFibers = ListField(dtype=int, default=[], doc="Fibers to ignore (e.g., bad but not recorded as such")
     profileSwath = Field(dtype=float, default=300, doc="Length of swaths to use for calculating profile")

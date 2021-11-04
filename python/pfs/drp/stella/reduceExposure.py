@@ -80,7 +80,7 @@ class ReduceExposureConfig(Config):
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
-    targetType = ListField(dtype=str, default=["SCIENCE", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
                            doc="Target type for which to extract spectra")
 
     def validate(self):
