@@ -135,7 +135,7 @@ class ExtractSpectraTask(pipeBase.Task):
             Spectra for each of the provided fiberIds.
         """
         specFibers = spectra.getAllFiberIds()
-        if np.all(specFibers == fiberId):
+        if set(specFibers) == set(fiberId):
             return spectra
         length = spectra.getLength()
         new = drpStella.SpectrumSet(len(fiberId), length)

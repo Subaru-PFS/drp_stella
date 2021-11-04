@@ -18,7 +18,7 @@ from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
 
 
-__all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask")
+__all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
 
 
 class ArcLineResiduals(SimpleNamespace):
@@ -260,6 +260,11 @@ def addColorbar(figure, axes, cmap, norm, label=None):
     figure.colorbar(colors, cax=cax, orientation="vertical", label=label)
 
 
+class FittingError(RuntimeError):
+    """Error in fitting distortion model"""
+    pass
+
+
 class FitDistortedDetectorMapConfig(Config):
     """Configuration for FitDistortedDetectorMapTask"""
     lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
@@ -274,8 +279,9 @@ class FitDistortedDetectorMapConfig(Config):
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
-    minSignalToNoise = Field(dtype=float, default=50.0,
+    minSignalToNoise = Field(dtype=float, default=20.0,
                              doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
+    minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -330,6 +336,11 @@ class FitDistortedDetectorMapTask(Task):
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
+
+        Raises
+        ------
+        FittingError
+            If the data is not of sufficient quality to fit.
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
@@ -495,6 +506,11 @@ class FitDistortedDetectorMapTask(Task):
             Array indicating which lines were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
+
+        Raises
+        ------
+        FittingError
+            If the data is not of sufficient quality to fit.
         """
         good = self.getGoodLines(lines)
         numGood = good.sum()
@@ -588,7 +604,18 @@ class FitDistortedDetectorMapTask(Task):
             Fit chi^2.
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
+
+        Raises
+        ------
+        FittingError
+            If the data is not of sufficient quality to fit.
         """
+        if not np.any(select):
+            raise FittingError("No selected lines to fit")
+        numWavelengths = len(set(lines.wavelength[select]))
+        if numWavelengths < self.config.minNumWavelengths:
+            raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
+                               f"{self.config.minNumWavelengths} required)")
         if Distortion is None:
             Distortion = self.Distortion
         if soften is None:
@@ -645,6 +672,11 @@ class FitDistortedDetectorMapTask(Task):
             Fit chi^2.
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
+
+        Raises
+        ------
+        FittingError
+            If the data is not of sufficient quality to fit.
         """
         def getChi2Calculator(dim):
             """Return function that calculates chi^2 given a softening parameter

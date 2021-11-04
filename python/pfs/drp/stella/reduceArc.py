@@ -30,6 +30,7 @@ class ReduceArcConfig(pexConfig.Config):
         self.reduceExposure.doSubtractSky2d = False
         self.reduceExposure.doWriteArm = False  # We'll do this ourselves, after wavelength calibration
         self.reduceExposure.photometerLines.doApertureCorrection = False  # Unnecessary for centroiding
+        self.reduceExposure.readLineList.exclusionRadius = 0.3  # Eliminate confusion
 
 
 class ReduceArcRunner(TaskRunner):

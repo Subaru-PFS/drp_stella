@@ -41,7 +41,7 @@ void ModelBasedDetectorMap::_setSplines() const {
         wavelength.reserve(height);
         xx.reserve(height);
         yy.reserve(height);
-        int fiberId = getFiberId()[ii];
+        int const fiberId = getFiberId()[ii];
 
         lsst::geom::Point2D point;  // Position on detector
 
@@ -80,6 +80,11 @@ void ModelBasedDetectorMap::_setSplines() const {
             }
         }
         std::size_t const length = wavelength.size();
+        if (length < 3) {
+            std::ostringstream msg;
+            msg << "Insufficient good points for fiberId=" << fiberId;
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, msg.str());
+        }
 
         // Sort into monotonic ndarrays
         // With some care we could simply rearrange, but easier to code the sort

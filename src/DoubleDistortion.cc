@@ -130,7 +130,7 @@ DoubleDistortion DoubleDistortion::removeLowOrder(int order) const {
     Array1D xRight = getXRightCoefficients();
     Array1D yRight = getYRightCoefficients();
 
-    std::size_t const num = std::max(getNumDistortion(), getNumDistortionForOrder(order));
+    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
 
     xLeft[ndarray::view(0, num)] = 0.0;
     yLeft[ndarray::view(0, num)] = 0.0;

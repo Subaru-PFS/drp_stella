@@ -104,7 +104,7 @@ DetectorDistortion DetectorDistortion::removeLowOrder(int order) const {
     Array1D xDistortion = getXCoefficients();
     Array1D yDistortion = getYCoefficients();
 
-    std::size_t const num = std::max(getNumDistortion(), getNumDistortionForOrder(order));
+    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
     xDistortion[ndarray::view(0, num)] = 0.0;
     yDistortion[ndarray::view(0, num)] = 0.0;
     
