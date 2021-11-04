@@ -35,6 +35,7 @@ class MeasureApertureCorrectionsConfig(Config):
     exclusionFactor = Field(dtype=float, default=2.0,
                             doc="Exclusion zone to apply, as a multiple of the aperture")
     status = ListField(dtype=str, default=["BAD"], doc="Reference line status flags to reject")
+    minSignalToNoise = Field(dtype=float, default=10.0, doc="Minumum signal-to-noise ratio for aperture flux")
     fit = ConfigurableField(target=FitPolynomialPerFiberTask, doc="Fit polynomial to each fiber")
 
     def setDefaults(self):
@@ -240,7 +241,12 @@ class MeasureApertureCorrectionsTask(Task):
         wavelength = catalog[self.wavelength]
         flag = catalog[self.prefix + "_flag"]
         status = catalog[self.status]
-        status[~np.isfinite(apCorr) | ~np.isfinite(apCorrErr)] = ReferenceLineStatus.REJECTED.value
+
+        reject = ~np.isfinite(apCorr) | ~np.isfinite(apCorrErr)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            reject |= (apFlux/apFluxErr < self.config.minSignalToNoise)
+
+        status[reject] = ReferenceLineStatus.REJECTED.value
         description = [row[self.description] for row in catalog]
 
         lines = ArcLineSet([ArcLine(fiberId[ii], wavelength[ii], np.nan, np.nan, np.nan, np.nan, apCorr[ii],

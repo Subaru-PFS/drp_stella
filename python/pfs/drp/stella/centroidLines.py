@@ -395,7 +395,8 @@ class DeblendContext:
         array = image.image.array
         self.original = array.copy()
         rng = np.random.RandomState(seed)
-        sigma = np.where(image.variance.array > 0, np.sqrt(image.variance.array), 0.0)
+        with np.errstate(invalid="ignore"):
+            sigma = np.where(image.variance.array > 0, np.sqrt(image.variance.array), 0.0)
         self.noise = rng.normal(0.0, sigma, array.shape).astype(array.dtype)
 
     def __enter__(self):

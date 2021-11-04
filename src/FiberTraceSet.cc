@@ -184,7 +184,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 modelData += modelValue*dataImage(xData, yData);
             }
 
-            if (model2 == 0.0) {
+            if (model2 == 0.0 || model2Weighted == 0.0) {
                 useTrace[ii] = false;
                 diagonal[ii] = 1.0;  // to avoid making the matrix singular
                 diagonalWeighted[ii] = 1.0;
@@ -268,7 +268,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto varResult = variance[ii];
             auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
             auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
-            if (!useTrace[ii] || !std::isfinite(value)) {
+            if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult)) {
                 value = 0.0;
                 maskResult[ii] |= noData;
                 varResult = 0.0;

@@ -649,7 +649,8 @@ class OversampledSpline(FocalPlaneFunction):
                                                   bbox=(wlMin, wlMax))
             knots = np.concatenate(([wlMin]*(splineOrder - 1), centers[goodBins], [wlMax]*(splineOrder - 1)))
         else:
-            spline = LSQUnivariateSpline(xx, yy, w=1/var, t=knots, k=splineOrder, bbox=(wlMin, wlMax))
+            with np.errstate(invalid="ignore", divide="ignore"):
+                spline = LSQUnivariateSpline(xx, yy, w=1/var, t=knots, k=splineOrder, bbox=(wlMin, wlMax))
             knots = np.concatenate(([wlMin]*(splineOrder + 1), knots, [wlMax]*(splineOrder + 1)))
 
         coeffs = spline.get_coeffs()

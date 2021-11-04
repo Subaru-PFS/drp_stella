@@ -118,7 +118,7 @@ class FitFocalPlaneTask(Task):
         func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=False,
                                  **fitParams)
         funcEval = func(spectra.wavelength, pfsConfig)
-        with np.errstate(invalid="ignore"):
+        with np.errstate(invalid="ignore", divide="ignore"):
             resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
 
         good = ~(rejected | mask | funcEval.masks)
