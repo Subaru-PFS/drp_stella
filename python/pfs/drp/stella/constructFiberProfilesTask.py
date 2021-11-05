@@ -170,6 +170,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
         for ss in spectra:
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 
