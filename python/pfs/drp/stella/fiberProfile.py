@@ -119,6 +119,9 @@ class FiberProfile:
             swath /= swath.sum(axis=1)[:, np.newaxis]
 
             profileData, profileMask = calculateSwathProfile(swath.data, swath.mask, rejIter, rejThresh)
+            if np.sum(~profileMask) < 3:
+                # Not enough points to form a spline
+                continue
             profile = np.ma.masked_array(profileData, mask=profileMask)
 
             if lsstDebug.Info(__name__).plotSamples:
