@@ -309,7 +309,7 @@ def calculateApertureCorrection(apCorr: FocalPlaneFunction, fiberId: int, wavele
         ``fluxErr`` is not provided.
     """
     result = apCorr(wavelength, pfsConfig.select(fiberId=fiberId))
-    with np.errstate(invalid="ignore", divide="ignore"):
+    with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
         ratio = 10.0**(-0.4*result.values)
         newFlux = flux/ratio if invert else flux*ratio
         if fluxErr is not None:
