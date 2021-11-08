@@ -205,6 +205,10 @@ class ReduceExposureTask(CmdLineTask):
             Fiber traces.
         detectorMapList : `list` of `pfs.drp.stella.DetectorMap`
             Mappings of wl,fiber to detector position.
+        linesList : `list` of `pfs.drp.stella.ArcLineSet`
+            Measured lines.
+        apCorrList : `list` of `pfs.drp.stella.FocalPlaneFunction`
+            Measured aperture corrections.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
         """
@@ -269,6 +273,7 @@ class ReduceExposureTask(CmdLineTask):
             psfList=psfList,
             lsfList=lsfList,
             linesList=linesList,
+            apCorrList=apCorrList,
             pfsConfig=pfsConfig,
             sky2d=skyResults.sky2d if skyResults is not None else None,
             skyImageList=skyImageList,

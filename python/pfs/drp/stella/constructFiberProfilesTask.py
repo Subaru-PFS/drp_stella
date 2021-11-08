@@ -6,7 +6,7 @@ import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
 from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
 
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, TargetType
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
@@ -44,6 +44,8 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
+    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+                           doc="Target type for which to build profiles")
 
     def setDefaults(self):
         super().setDefaults()
@@ -142,6 +144,10 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         detMap = dataRefList[0].get('detectorMap')
         pfsConfig = dataRefList[0].get("pfsConfig")
+        pfsConfig = pfsConfig.select(fiberStatus=FiberStatus.GOOD,
+                                     targetType=[TargetType.fromString(tt) for
+                                                 tt in self.config.targetType],
+                                     fiberId=detMap.fiberId)
         self.config.slitOffsets.apply(detMap, self.log)
 
         if self.config.doAdjustDetectorMap:
@@ -170,6 +176,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
         for ss in spectra:
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 

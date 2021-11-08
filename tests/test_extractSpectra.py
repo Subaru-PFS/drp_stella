@@ -34,6 +34,8 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         config.pruneMinLength = self.synthConfig.height//2
         task = BuildFiberProfilesTask(config=config)
         self.fiberProfiles = task.run(lsst.afw.image.makeExposure(self.image), self.detMap).profiles
+        for fiberId in self.fiberProfiles:
+            self.fiberProfiles[fiberId].norm = np.full(self.synthConfig.height, self.flux, dtype=float)
         self.fiberTraces = self.fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.fiberTraces), self.synthConfig.numFibers)
 
@@ -58,7 +60,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         """
         self.assertEqual(len(spectra), self.synthConfig.numFibers)
         self.assertEqual(spectra.getLength(), self.synthConfig.height)
-        for ss in spectra:
+        for ss, ft in zip(spectra, self.fiberTraces):
             if isinstance(flux, collections.Mapping):
                 expectFlux = flux.get(ss.fiberId, None)
             else:
@@ -73,8 +75,14 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             if expectMask is None:
                 expectMask = 0
 
+            bbox = ft.trace.getBBox()
+            expectNorm = np.zeros(self.synthConfig.height, dtype=float)
+            expectNorm[bbox.getMinY():bbox.getMaxY() + 1] = ft.trace.image.array.sum(axis=1)
+
+            self.assertEqual(ss.fiberId, ft.fiberId)
             self.assertEqual(len(ss), self.synthConfig.height)
             self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
+            self.assertFloatsAlmostEqual(ss.norm, expectNorm, rtol=1.0e-6)
             self.assertFloatsEqual(ss.mask.array[0], expectMask)
             self.assertFloatsEqual(ss.background, 0.0)
             self.assertTrue(np.all(ss.mask.array[0] | (ss.variance > 0)))
