@@ -35,7 +35,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         """In-place division"""
         return self.__imul__(1.0/rhs)
 
-    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True):
+    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
+             figure=None):
         """Plot the spectra
 
         Parameters
@@ -50,6 +51,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             Plot normalised flux?
         show : `bool`, optional
             Show the plot?
+        figure : `matplotlib.Figure` or ``None``
+            The figure to use
 
         Returns
         -------
@@ -70,7 +73,10 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             wavelength = self.wavelength
             xLabel = "Wavelength (nm)"
 
-        figure, axes = plt.subplots()
+        if figure is None:
+            figure, axes = plt.subplots()
+        else:
+            axes = figure.gca()
 
         colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))
         for ff, cc in zip(fiberId, colors):
