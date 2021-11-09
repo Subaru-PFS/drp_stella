@@ -115,7 +115,8 @@ PYBIND11_PLUGIN(math) {
             &evaluateFunction2<NormalizedPolynomial2<double>, double, 1, 1>,
             "poly"_a, "x"_a, "y"_a);
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
-    mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a, "err"_a);
+    mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
+            "err"_a, "threshold"_a=1.0e-6);
     return mod.ptr();
 }
 

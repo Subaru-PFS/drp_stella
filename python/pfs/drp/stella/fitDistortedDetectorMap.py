@@ -273,6 +273,7 @@ class FitDistortedDetectorMapConfig(Config):
     order = Field(dtype=int, default=4, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.01, doc="Systematic error to apply")
+    lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
     base = Field(dtype=str,
                  doc="Template for base detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
@@ -630,7 +631,7 @@ class FitDistortedDetectorMapTask(Task):
         yErr = np.hypot(lines.yErr[select].astype(float), ySoften)
 
         distortion = Distortion.fit(self.config.order, Box2D(bbox), xBase, yBase,
-                                    xx, yy, xErr, yErr, fitStatic)
+                                    xx, yy, xErr, yErr, fitStatic, self.config.lsqThreshold)
         return calculateFitStatistics(distortion, lines, select, soften)
 
     def fitSoftenedModel(self, bbox, lines, select, reserved, result, dispersion, fitStatic=True,
