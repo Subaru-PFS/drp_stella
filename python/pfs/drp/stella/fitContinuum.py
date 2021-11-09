@@ -252,11 +252,12 @@ class FitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
+        original = type(maskedImage)(maskedImage, deep=True)
         results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
         try:
             yield results
         finally:
-            maskedImage += results.continuumImage
+            maskedImage.assign(original)
 
 
 def binData(xx, yy, good, numBins):
