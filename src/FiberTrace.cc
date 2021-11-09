@@ -135,6 +135,12 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
             prevIndex = std::max(0L, nextIndex - 1);
         }
 
+        if (!norm.isEmpty() && !std::isfinite(norm[yy])) {
+            image.getImage()->getArray()[yy] = norm[yy];
+            image.getMask()->getArray()[yy] = 0;
+            continue;
+        }
+
         double const yPrev = rows[prevIndex];
         double const yNext = rows[nextIndex];
         double const prevLow = xLow[prevIndex];
