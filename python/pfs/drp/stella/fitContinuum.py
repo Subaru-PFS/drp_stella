@@ -226,6 +226,8 @@ class FitContinuumTask(Task):
         continua = self.run(spectra, lines)
         continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage
+        bad = ~np.isfinite(continuumImage.array)
+        maskedImage.mask.array[bad] |= maskedImage.mask.getPlaneBitMask("NO_DATA")
         return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
 
     @contextmanager
