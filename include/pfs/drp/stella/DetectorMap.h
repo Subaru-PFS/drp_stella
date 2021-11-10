@@ -97,7 +97,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     double getDispersion(int fiberId) const;
 
     /// Return the fiberId given a position on the detector
-    virtual int findFiberId(lsst::geom::PointD const& point) const = 0;
+    int findFiberId(lsst::geom::PointD const& point) const;
 
     //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
