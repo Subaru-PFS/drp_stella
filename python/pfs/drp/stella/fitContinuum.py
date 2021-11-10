@@ -226,6 +226,8 @@ class FitContinuumTask(Task):
         continua = self.run(spectra, lines)
         continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage
+        bad = ~np.isfinite(continuumImage.array)
+        maskedImage.mask.array[bad] |= maskedImage.mask.getPlaneBitMask("NO_DATA")
         return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
 
     @contextmanager
@@ -252,11 +254,12 @@ class FitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
+        original = type(maskedImage)(maskedImage, deep=True)
         results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
         try:
             yield results
         finally:
-            maskedImage += results.continuumImage
+            maskedImage.assign(original)
 
 
 def binData(xx, yy, good, numBins):
