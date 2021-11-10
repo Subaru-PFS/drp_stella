@@ -8,7 +8,7 @@ import lsst.afw.image.testUtils
 from lsst.afw.detection import GaussianPsf
 from lsst.afw.image import ExposureF
 from lsst.geom import Point2D, Box2D
-from lsst.pex.exceptions import OutOfRangeError
+from lsst.pex.exceptions import DomainError
 
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
@@ -291,7 +291,7 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
     def testFindFiberIdOutOfRange(self):
         """Test that findFiberId works with out-of-range input"""
         detMap = self.makeDoubleDetectorMap(True)
-        self.assertRaises(OutOfRangeError, detMap.findFiberId, Point2D(6000, -20000))
+        self.assertRaises(DomainError, detMap.findFiberId, Point2D(6000, -20000))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

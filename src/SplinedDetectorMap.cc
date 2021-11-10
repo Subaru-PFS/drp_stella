@@ -111,59 +111,6 @@ double SplinedDetectorMap::getXCenterImpl(
 }
 
 
-int SplinedDetectorMap::findFiberId(
-    lsst::geom::PointD const& point
-) const {
-    double const x = point[0], y = point[1];
-    std::size_t const maxIter = 2*getNumFibers();  // maximum number of iterations
-
-    if (!getBBox().contains(lsst::geom::PointI(x, y))) {
-        std::ostringstream os;
-        os << "Point " << point << " does not lie within BBox " << getBBox();
-        throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
-    }
-
-    int fiberId = _xToFiberId[int(x)];    // first guess at the fiberId
-    std::size_t index = getFiberIndex(fiberId);
-    std::size_t iterations = 0;
-    for (bool updatedIndex = true; updatedIndex; ++iterations) {
-        auto const & spline0 = _xCenter[index];
-        double const xCenter0 = spline0(y - getSpectralOffsets()[index]) + getSpatialOffsets()[index];
-
-        updatedIndex = false;
-        if (index > 0) {
-            int const prevFiberId = getFiberId()[index - 1];
-            auto const & splineMinus = getXCenterSpline(prevFiberId);
-            double const xCenterMinus = splineMinus(y - getSpectralOffsets()[index - 1]) +
-                getSpatialOffsets()[index - 1];
-
-            if (std::fabs(x - xCenterMinus) < std::fabs(x - xCenter0)) {
-                --index;
-                updatedIndex = true;
-                continue;
-            }
-        }
-        if (index < _xCenter.size() - 1) {
-            int nextFiberId = getFiberId()[index + 1];
-            auto const & splinePlus = getXCenterSpline(nextFiberId);
-            double const xCenterPlus = splinePlus(y - getSpectralOffsets()[index]) +
-                getSpatialOffsets()[index + 1];
-
-            if (std::fabs(x - xCenterPlus) < std::fabs(x - xCenter0)) {
-                ++index;
-                updatedIndex = true;
-                continue;
-            }
-        }
-    }
-    if (iterations > maxIter) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Exceeded maximum number of iterations");
-    }
-
-    return getFiberId()[index];
-}
-
-
 lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     int fiberId,
     double wavelength

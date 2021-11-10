@@ -253,4 +253,59 @@ ndarray::Array<double, 1, 1> DetectorMap::findWavelength(
 }
 
 
+int DetectorMap::findFiberId(
+    lsst::geom::PointD const& point
+) const {
+    double const xx = point.getX();
+    double const yy = point.getY();
+
+    if (!getBBox().contains(lsst::geom::PointI(xx, yy))) {
+        std::ostringstream os;
+        os << "Point " << point << " does not lie within BBox " << getBBox();
+        throw LSST_EXCEPT(lsst::pex::exceptions::DomainError, os.str());
+    }
+    auto const fiberId = getFiberId();
+    if (getNumFibers() == 1) {
+        return fiberId[0];
+    }
+
+    // We know x as a function of fiberId (given y),
+    // and x is monotonic with fiberId (for fixed y),
+    // so we can find fiberId by bisection.
+    std::size_t lowIndex = 0;
+    std::size_t highIndex = getNumFibers() - 1;
+    double xLow = getXCenterImpl(fiberId[lowIndex], yy);
+    double xHigh = getXCenterImpl(fiberId[highIndex], yy);
+    bool const increasing = xHigh > xLow;  // Does x increase with increasing fiber index?
+    while (highIndex - lowIndex > 1) {
+        std::size_t const newIndex = lowIndex + (highIndex - lowIndex)/2;
+        double const xNew = getXCenterImpl(fiberId[newIndex], yy);
+        if (increasing) {
+            if (xNew < xLow || xNew > xHigh) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
+            }
+            if (xx > xNew) {
+                lowIndex = newIndex;
+                xLow = xNew;
+            } else {
+                highIndex = newIndex;
+                xHigh = xNew;
+            }
+        } else {
+            if (xNew > xLow || xNew < xHigh) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
+            }
+            if (xx < xNew) {
+                lowIndex = newIndex;
+                xLow = xNew;
+            } else {
+                highIndex = newIndex;
+                xHigh = xNew;
+            }
+        }
+    }
+    return std::abs(xx - xLow) < std::abs(xx - xHigh) ? fiberId[lowIndex] : fiberId[highIndex];
+}
+
+
 }}}  // namespace pfs::drp::stella

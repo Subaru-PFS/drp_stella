@@ -121,57 +121,6 @@ double ModelBasedDetectorMap::getXCenterImpl(
 }
 
 
-int ModelBasedDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
-    if (!getBBox().contains(lsst::geom::Point2I(point))) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Point is not on the image");
-    }
-    if (getNumFibers() == 1) {
-        return getFiberId()[0];
-    }
-    SplineCoeffT const xx = point.getX();
-    SplineCoeffT const yy = point.getY();
-
-    _ensureSplinesInitialized();
-
-    // We know x as a function of fiberId (given y),
-    // and x is monotonic with fiberId (for fixed y),
-    // so we can find fiberId by bisection.
-    std::size_t lowIndex = 0;
-    std::size_t highIndex = getNumFibers() - 1;
-    SplineCoeffT xLow = _rowToXCenter[lowIndex](yy);
-    SplineCoeffT xHigh = _rowToXCenter[highIndex](yy);
-    bool const increasing = xHigh > xLow;  // Does x increase with increasing fiber index?
-    while (highIndex - lowIndex > 1) {
-        std::size_t newIndex = lowIndex + (highIndex - lowIndex)/2;
-        SplineCoeffT xNew = _rowToXCenter[newIndex](yy);
-        if (increasing) {
-            if (xNew < xLow || xNew > xHigh) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
-            }
-            if (xx > xNew) {
-                lowIndex = newIndex;
-                xLow = xNew;
-            } else {
-                highIndex = newIndex;
-                xHigh = xNew;
-            }
-        } else {
-            if (xNew > xLow || xNew < xHigh) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
-            }
-            if (xx < xNew) {
-                lowIndex = newIndex;
-                xLow = xNew;
-            } else {
-                highIndex = newIndex;
-                xHigh = xNew;
-            }
-        }
-    }
-    return std::abs(xx - xLow) < std::abs(xx - xHigh) ? getFiberId()[lowIndex] : getFiberId()[highIndex];
-}
-
-
 double ModelBasedDetectorMap::findWavelengthImpl(int fiberId, double row) const {
     _ensureSplinesInitialized();
     Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
