@@ -2,6 +2,7 @@
 
 #include "ndarray/eigen.h"
 
+#include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/spline.h"
@@ -83,6 +84,7 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     ndarray::Array<double, 1, 1> const& centers,
     ndarray::Array<double, 1, 1> const& norm
 ) {
+    std::size_t const width = dims.getX();
     std::size_t const height = dims.getY();
     std::size_t const numSwaths = rows.size();
     std::size_t const profileSize = 2*int((radius + 1)*oversample + 0.5) + 1;
@@ -99,6 +101,9 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     auto const centersMinMax = std::minmax_element(centers.begin(), centers.end());
     int const xMin = std::max(0, int(*centersMinMax.first) - radius);
     int const xMax = std::min(dims.getX() - 1, int(std::ceil(*centersMinMax.second)) + radius);
+    if (xMin > width || xMax < 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Centers extend beyond bounds of the image");
+    }
     lsst::geom::Box2I box{lsst::geom::Point2I(xMin, 0),
                           lsst::geom::Point2I(xMax, height - 1)};
     lsst::afw::image::MaskedImage<double> image{box};
