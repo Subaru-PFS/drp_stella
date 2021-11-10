@@ -76,6 +76,7 @@ class BaseDistortion {
     /// @param xErr : Error in measured x position
     /// @param yErr : Error in measured y position
     /// @param fitStatic : fit static features?
+    /// @param threshold : eigenvalue threshold for matrix solving
     /// @returns design matrix
     static Derived fit(
         int order,
@@ -86,7 +87,8 @@ class BaseDistortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
-        bool fitStatic=true
+        bool fitStatic=true,
+        double threshold=1.0e-6
     );
 
     /// Calculate chi^2 for a particular dataset

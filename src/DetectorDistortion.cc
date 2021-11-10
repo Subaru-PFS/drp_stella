@@ -186,7 +186,8 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    bool fitStatic
+    bool fitStatic,
+    double threshold
 ) {
     std::size_t const length = xx.size();
     utils::checkSize(yy.size(), length, "y");
@@ -215,8 +216,10 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
         }
     }
 
-    ndarray::Array<double const, 1, 1> xSolution = math::solveLeastSquaresDesign(design, xMeas, xErr);
-    ndarray::Array<double const, 1, 1> ySolution = math::solveLeastSquaresDesign(design, yMeas, yErr);
+    ndarray::Array<double const, 1, 1> xSolution = math::solveLeastSquaresDesign(design, xMeas, xErr,
+                                                                                 threshold);
+    ndarray::Array<double const, 1, 1> ySolution = math::solveLeastSquaresDesign(design, yMeas, yErr,
+                                                                                 threshold);
     ndarray::Array<double, 1, 1> xCoeff = copy(xSolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> yCoeff = copy(ySolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> rightCcd;

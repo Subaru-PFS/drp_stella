@@ -26,7 +26,8 @@ namespace math {
 ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     ndarray::Array<double, 2, 1> const& design,
     ndarray::Array<double, 1, 1> const& meas,
-    ndarray::Array<double, 1, 1> const& err
+    ndarray::Array<double, 1, 1> const& err,
+    double threshold = 1.0e-6
 );
 
 

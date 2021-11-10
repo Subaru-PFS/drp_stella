@@ -14,7 +14,8 @@ namespace math {
 ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     ndarray::Array<double, 2, 1> const& design,
     ndarray::Array<double, 1, 1> const& meas,
-    ndarray::Array<double, 1, 1> const& err
+    ndarray::Array<double, 1, 1> const& err,
+    double threshold
 ) {
     std::size_t const numValues = design.getShape()[0];
     std::size_t const numParams = design.getShape()[1];
@@ -34,7 +35,11 @@ ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     ndarray::Array<double, 1, 1> rhs = ndarray::allocate(numParams);
     asEigenMatrix(fisher) = dd.transpose()*dd;
     asEigenMatrix(rhs) = dd.transpose()*asEigenMatrix(measNorm);
-    return copy(lsst::afw::math::LeastSquares::fromNormalEquations(fisher, rhs).getSolution());
+    auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(fisher, rhs);
+    auto const diag = lsq.getDiagnostic(lsst::afw::math::LeastSquares::NORMAL_EIGENSYSTEM);
+    double const sum = asEigenArray(diag).sum();
+    lsq.setThreshold(threshold*sum/diag[0]);
+    return copy(lsq.getSolution());
 }
 
 

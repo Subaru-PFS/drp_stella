@@ -239,11 +239,11 @@ struct FitData {
         yErr[ii] = err.getY();
     }
 
-    std::pair<Array1D, Array1D> getSolution() const {
+    std::pair<Array1D, Array1D> getSolution(double threshold=1.0e-6) const {
         assert(index == length);
         return std::make_pair(
-            math::solveLeastSquaresDesign(design, xMeas, xErr),
-            math::solveLeastSquaresDesign(design, yMeas, yErr)
+            math::solveLeastSquaresDesign(design, xMeas, xErr, threshold),
+            math::solveLeastSquaresDesign(design, yMeas, yErr, threshold)
         );
     }
 
@@ -272,7 +272,8 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    bool fitStatic
+    bool fitStatic,
+    double threshold
 ) {
     using Array1D = DoubleDistortion::Array1D;
     using Array2D = DoubleDistortion::Array2D;
@@ -299,8 +300,8 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
                  lsst::geom::Point2D(xErr[ii], yErr[ii]));
     }
 
-    auto const leftSolution = left.getSolution();
-    auto const rightSolution = right.getSolution();
+    auto const leftSolution = left.getSolution(threshold);
+    auto const rightSolution = right.getSolution(threshold);
     return DoubleDistortion(distortionOrder, range, leftSolution.first, leftSolution.second,
                             rightSolution.first, rightSolution.second);
 }
