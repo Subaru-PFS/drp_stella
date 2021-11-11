@@ -405,6 +405,8 @@ class MergeArmsTask(CmdLineTask):
         """
         skySpectra = spectra.select(pfsConfig, targetType=TargetType.SKY)
         skyConfig = pfsConfig.select(fiberId=skySpectra.fiberId)
+        if len(skySpectra) == 0:
+            raise RuntimeError("No sky spectra to use for sky subtraction")
 
         sky1d = self.fitSkyModel.run(skySpectra, skyConfig)
         subtractSky1d(spectra, pfsConfig, sky1d)

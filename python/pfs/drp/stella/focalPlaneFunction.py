@@ -63,6 +63,8 @@ class FocalPlaneFunction(ABC):
         if len(spectra) != len(pfsConfig):
             raise RuntimeError(
                 f"Length mismatch between spectra ({len(spectra)}) and pfsConfig ({len(pfsConfig)})")
+        if len(spectra) == 0:
+            raise RuntimeError("No input spectra provided")
         if np.all(spectra.fiberId != pfsConfig.fiberId):
             raise RuntimeError("fiberId mismatch between spectra and pfsConfig")
 
