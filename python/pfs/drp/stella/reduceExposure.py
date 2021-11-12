@@ -83,11 +83,18 @@ class ReduceExposureConfig(Config):
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
     targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
                            doc="Target type for which to extract spectra")
+    windowed = Field(dtype=bool, default=False,
+                     doc="Reduction of windowed data, for real-time acquisition? Implies "
+                     "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
 
     def validate(self):
-        super().validate()
         if not self.doExtractSpectra and self.doWriteArm:
             raise ValueError("You may not specify doWriteArm if doExtractSpectra is False")
+        if self.windowed:
+            self.doAdjustDetectorMap = False
+            self.doMeasureLines = False
+            self.isr.overscanFitType = "MEDIAN"
+        super().validate()
 
 
 class ReduceExposureRunner(TaskRunner):
