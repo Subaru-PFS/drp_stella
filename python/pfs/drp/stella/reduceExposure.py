@@ -51,6 +51,7 @@ class ReduceExposureConfig(Config):
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
     requireAdjustDetectorMap = Field(dtype=bool, default=False,
@@ -82,11 +83,18 @@ class ReduceExposureConfig(Config):
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
     targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
                            doc="Target type for which to extract spectra")
+    windowed = Field(dtype=bool, default=False,
+                     doc="Reduction of windowed data, for real-time acquisition? Implies "
+                     "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
 
     def validate(self):
-        super().validate()
         if not self.doExtractSpectra and self.doWriteArm:
             raise ValueError("You may not specify doWriteArm if doExtractSpectra is False")
+        if self.windowed:
+            self.doAdjustDetectorMap = False
+            self.doMeasureLines = False
+            self.isr.overscanFitType = "MEDIAN"
+        super().validate()
 
 
 class ReduceExposureRunner(TaskRunner):
@@ -239,7 +247,8 @@ class ReduceExposureTask(CmdLineTask):
                     fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
-                linesList = [sensorRef.get("arcLines") for sensorRef in sensorRefList]
+                linesList = [sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
+                             for sensorRef in sensorRefList]
             else:
                 self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
 
@@ -370,7 +379,8 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doWriteArm:
             for sensorRef, spectra, lines in zip(sensorRefList, results.spectraList, results.linesList):
                 sensorRef.put(spectra.toPfsArm(sensorRef.dataId), "pfsArm")
-                sensorRef.put(lines, "arcLines")
+                if lines is not None:
+                    sensorRef.put(lines, "arcLines")
 
         return results
 
@@ -465,42 +475,43 @@ class ReduceExposureTask(CmdLineTask):
 
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
-        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
-        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
-        if self.config.doAdjustDetectorMap:
-            traces = None
-            if not self.adjustDetectorMap.isSufficientGoodLines(lines):
-                traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            if self.debugInfo.detectorMap:
-                display = Display(frame=1)
-                display.mtv(exposure)
-                detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
-                                    ctype="red", plotTraces=False)
+        refLines = None
+        lines = None
+        traces = None
+        if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
+            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
+            if self.config.doAdjustDetectorMap:
+                if not self.adjustDetectorMap.isSufficientGoodLines(lines):
+                    traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+                if self.debugInfo.detectorMap:
+                    display = Display(frame=1)
+                    display.mtv(exposure)
+                    detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
+                                        ctype="red", plotTraces=False)
 
-            try:
-                detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
-            except FittingError as exc:
-                if self.config.requireAdjustDetectorMap:
-                    raise
-                self.log.warn("DetectorMap adjustment failed: %s", exc)
+                try:
+                    detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
+                except FittingError as exc:
+                    if self.config.requireAdjustDetectorMap:
+                        raise
+                    self.log.warn("DetectorMap adjustment failed: %s", exc)
 
-            if self.debugInfo.detectorMap:
-                detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
-                                    ctype="green", plotTraces=False)
+                if self.debugInfo.detectorMap:
+                    detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
+                                        ctype="green", plotTraces=False)
 
-            outputId = sensorRef.dataId.copy()
-            outputId["visit0"] = outputId["visit"]
-            outputId["calibDate"] = outputId["dateObs"]
-            outputId["calibTime"] = outputId["taiObs"]
-            setCalibHeader(detectorMap.metadata, "detectorMap", [sensorRef.dataId["visit"]], outputId)
-            date = datetime.now().isoformat()
-            history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
-            detectorMap.metadata.add("HISTORY", history)
+                outputId = sensorRef.dataId.copy()
+                outputId["visit0"] = outputId["visit"]
+                outputId["calibDate"] = outputId["dateObs"]
+                outputId["calibTime"] = outputId["taiObs"]
+                setCalibHeader(detectorMap.metadata, "detectorMap", [sensorRef.dataId["visit"]], outputId)
+                date = datetime.now().isoformat()
+                history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
+                detectorMap.metadata.add("HISTORY", history)
 
-            sensorRef.put(detectorMap, "detectorMap_used")
-            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
-        else:
-            traces = None
+                sensorRef.put(detectorMap, "detectorMap_used")
+                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
 
         if self.config.doMeasurePsf:
             psf = self.measurePsf.runSingle(sensorRef, exposure, detectorMap)
@@ -510,12 +521,16 @@ class ReduceExposureTask(CmdLineTask):
             lsf = self.defaultLsf(sensorRef.dataId["arm"], fiberTraces.fiberId, detectorMap)
 
         # Update photometry using best detectorMap, PSF
-        phot = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
-        if phot.apCorr is not None:
-            sensorRef.put(phot.apCorr, "apCorr")
+        apCorr = None
+        if self.config.doMeasureLines:
+            phot = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
+            lines = phot.lines
+            apCorr = phot.apCorr
+            if apCorr is not None:
+                sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=phot.lines, apCorr=phot.apCorr, traces=traces,
+                      refLines=refLines, lines=lines, apCorr=apCorr, traces=traces,
                       psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
