@@ -24,12 +24,6 @@ auto wrapDetectorMap(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
     cls.def("clone", py::overload_cast<>(&Class::clone, py::const_));
-    cls.def("measureSlitOffsets",
-            py::overload_cast<ndarray::Array<int, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&
-                              >(&Class::measureSlitOffsets),
-            "fiberId"_a, "wavelength"_a, "x"_a, "y"_a, "xErr"_a, "yErr"_a);
     return cls;
 }
 

@@ -1,6 +1,7 @@
 import os
 from types import SimpleNamespace
 from collections import defaultdict
+from deprecated import deprecated
 
 import numpy as np
 import scipy.optimize
@@ -287,6 +288,7 @@ class FitDifferentialDetectorMapTask(Task):
     ConfigClass = FitDifferentialDetectorMapConfig
     _DefaultName = "fitDetectorMap"
 
+    @deprecated(reason="FitDifferentialDetectorMapTask has been replaced by FitDistortedDetectorMapTask")
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
@@ -340,8 +342,8 @@ class FitDifferentialDetectorMapTask(Task):
         if base is None:
             base = self.getBaseDetectorMap(dataId)
         if self.config.doSlitOffsets:
-            self.measureSlitOffsets(base, lines)
-        else:
+            self.log.warn("Not measuring slit offsets: deprecated")
+        elif spatialOffsets is not None and spectralOffsets is not None:
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         residuals = self.calculateBaseResiduals(base, lines)
         minMaxFiberId = (base.fiberId.min(), base.fiberId.max())

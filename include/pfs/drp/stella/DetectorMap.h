@@ -57,21 +57,6 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     void setSlitOffsets(int fiberId, double spatial, double spectral);
     //@}
 
-    /// Measure and apply slit offsets
-    ///
-    /// @param fiberId : Fiber identifiers for reference lines
-    /// @param wavelength : Wavelength of reference lines (nm)
-    /// @param x, y : Position of reference lines (pixels)
-    /// @param xErr, yErr : Error in position of reference lines (pixels)
-    virtual void measureSlitOffsets(
-        ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<double, 1, 1> const& wavelength,
-        ndarray::Array<double, 1, 1> const& x,
-        ndarray::Array<double, 1, 1> const& y,
-        ndarray::Array<double, 1, 1> const& xErr,
-        ndarray::Array<double, 1, 1> const& yErr
-    ) = 0;
-
     //@{
     /// Return the fiber centers
     Array2D getXCenter() const;

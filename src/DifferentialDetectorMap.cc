@@ -47,39 +47,6 @@ lsst::geom::PointD DifferentialDetectorMap::findPointImpl(
 }
 
 
-void DifferentialDetectorMap::measureSlitOffsets(
-    ndarray::Array<int, 1, 1> const& fiberId,
-    ndarray::Array<double, 1, 1> const& wavelength,
-    ndarray::Array<double, 1, 1> const& x,
-    ndarray::Array<double, 1, 1> const& y,
-    ndarray::Array<double, 1, 1> const& xErr,
-    ndarray::Array<double, 1, 1> const& yErr
-) {
-    std::size_t const num = fiberId.size();
-    utils::checkSize(wavelength.size(), num, "wavelength");
-    utils::checkSize(x.size(), num, "x");
-    utils::checkSize(y.size(), num, "y");
-    utils::checkSize(xErr.size(), num, "xErr");
-    utils::checkSize(yErr.size(), num, "yErr");
-
-    // Remove the distortion field
-    ndarray::Array<double, 2, 1> distortion = _model(fiberId, wavelength);
-    ndarray::Array<double, 1, 1> xPrime = ndarray::allocate(num);
-    ndarray::Array<double, 1, 1> yPrime = ndarray::allocate(num);
-    for (std::size_t ii = 0; ii < num; ++ii) {
-        xPrime[ii] = x[ii] - distortion[ii][0];
-        yPrime[ii] = y[ii] - distortion[ii][1];
-    }
-
-    _base->measureSlitOffsets(fiberId, wavelength, xPrime, yPrime, xErr, yErr);
-
-    // Get offsets measured by the base into the main list of offsets
-    for (auto ff : getFiberId()) {
-        setSlitOffsets(ff, _base->getSpatialOffset(ff), _base->getSpectralOffset(ff));
-    }
-}
-
-
 void DifferentialDetectorMap::_resetSlitOffsets() {
     for (auto fiberId : getFiberId()) {
         _base->setSlitOffsets(fiberId, getSpatialOffset(fiberId), getSpectralOffset(fiberId));

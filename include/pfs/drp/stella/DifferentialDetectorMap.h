@@ -49,21 +49,6 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
     std::shared_ptr<SplinedDetectorMap> getBase() const { return _base; }
     GlobalDetectorModel getModel() const { return _model; }
 
-    /// Measure and apply slit offsets
-    ///
-    /// @param fiberId : Fiber identifiers for reference lines
-    /// @param wavelength : Wavelength of reference lines (nm)
-    /// @param x, y : Position of reference lines (pixels)
-    /// @param xErr, yErr : Error in position of reference lines (pixels)
-    virtual void measureSlitOffsets(
-        ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<double, 1, 1> const& wavelength,
-        ndarray::Array<double, 1, 1> const& x,
-        ndarray::Array<double, 1, 1> const& y,
-        ndarray::Array<double, 1, 1> const& xErr,
-        ndarray::Array<double, 1, 1> const& yErr
-    ) override;
-
     bool isPersistable() const noexcept override { return true; }
 
     class Factory;
