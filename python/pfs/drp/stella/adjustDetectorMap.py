@@ -7,6 +7,7 @@ from . import SplinedDetectorMap
 from . import ReferenceLineStatus
 from .arcLine import ArcLine, ArcLineSet
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
+from .centroidTraces import tracesToLines
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
@@ -69,7 +70,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         numGoodLines = self.countGoodLines(lines)
         if numGoodLines < needNumLines:
             if traces is not None:
-                lines = self.generateLines(detectorMap, traces)
+                lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
             else:
                 raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         residuals = self.calculateBaseResiduals(base, lines)

@@ -1,3 +1,5 @@
+from typing import Dict, Iterable
+
 import numpy as np
 
 from lsst.pex.config import Config, Field, ListField
@@ -7,12 +9,15 @@ from lsst.afw.display import Display
 from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.traces import findTracePeaks, centroidTrace
+from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
 from pfs.drp.stella.images import convolveImage
+from .DetectorMapContinued import DetectorMap
+from .arcLine import ArcLine, ArcLineSet
+from .referenceLine import ReferenceLineStatus
 
 import lsstDebug
 
-__all__ = ("CentroidTracesConfig", "CentroidTracesTask")
+__all__ = ("CentroidTracesConfig", "CentroidTracesTask", "tracesToLines")
 
 
 class CentroidTracesConfig(Config):
@@ -132,3 +137,42 @@ class CentroidTracesTask(Task):
             for ff in tracePeaks:
                 plt.plot([pp.peak for pp in tracePeaks[ff]], [pp.row for pp in tracePeaks[ff]], 'k.')
             plt.show()
+
+
+def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak]],
+                  spectralError: float) -> ArcLineSet:
+    """Convert traces to lines
+
+    Well, they're not really lines, but we have measurements on where the
+    traces are in x, so that will allow us to fit some distortion
+    parameters. If there aren't any lines, we won't be able to update the
+    wavelength solution much, but we're probably working with a quartz so
+    that doesn't matter.
+
+    Trace measurements in the line list may be distinguished as having the
+    ``description == "Trace"``.
+
+    Parameters
+    ----------
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
+        Measured peak positions for each row, indexed by (identified)
+        fiberId. These are only used if we don't have lines.
+    spectralError : `float`
+        Error in spectral dimension (pixels) to give lines.
+
+    Returns
+    -------
+    lines : `pfs.drp.stella.ArcLineSet`
+        Line measurements, treating every trace row with a centroid as a
+        line.
+    """
+    lines = ArcLineSet.empty()
+    for fiberId in traces:
+        row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
+        wavelength = detectorMap.findWavelength(fiberId, row)
+        lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
+                              tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
+                      wl, yy, tt in zip(wavelength, row, traces[fiberId])])
+    return lines
