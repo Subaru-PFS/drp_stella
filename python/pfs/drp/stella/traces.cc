@@ -14,12 +14,17 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
+constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+
 void declareTracePeak(py::module &mod) {
     py::class_<TracePeak, std::shared_ptr<TracePeak>> cls(mod, "TracePeak");
-    cls.def(py::init<int, int, float, int>(), "row"_a, "low"_a, "peak"_a, "high"_a);
+    cls.def(py::init<int, int, double, int, double, float, float>(),
+            "row"_a, "low"_a, "peak"_a, "high"_a, "peakErr"_a=NaN, "flux"_a=NaN, "fluxErr"_a=NaN);
     cls.def_readonly("span", &TracePeak::span);
     cls.def_readonly("peak", &TracePeak::peak);
     cls.def_readonly("peakErr", &TracePeak::peakErr);
+    cls.def_readonly("flux", &TracePeak::flux);
+    cls.def_readonly("fluxErr", &TracePeak::fluxErr);
     cls.def_property_readonly("row", [](TracePeak const& self) { return self.span.getY(); });
     cls.def_property_readonly("low", [](TracePeak const& self) { return self.span.getX0(); });
     cls.def_property_readonly("high", [](TracePeak const& self) { return self.span.getX1(); });

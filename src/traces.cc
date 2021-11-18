@@ -7,7 +7,8 @@ namespace stella {
 
 std::ostream& operator<<(std::ostream& os, TracePeak const& tp) {
     os << "TracePeak(" << tp.span.getY() << ", " << tp.span.getX0() << ", ";
-    os << tp.peak << ", " << tp.span.getX1() << ", " << tp.peakErr << ")";
+    os << tp.peak << ", " << tp.span.getX1() << ", " << tp.peakErr << ", ";
+    os << tp.flux << ", " << tp.fluxErr << ")";
     return os;
 }
 
@@ -175,11 +176,13 @@ void centroidTrace(
         int const xMax = std::min(int(pp->peak + radius + 0.5), image.getWidth() - 1);
         double xSum = 0.0;
         double sum = 0.0;
+        double varSum = 0.0;
         auto iter = image.row_begin(pp->span.getY()) + xMin;
         for (int xx = xMin; xx <= xMax; ++xx, ++iter) {
             if (iter.mask() & badBitMask) continue;
             sum += iter.image();
             xSum += xx*iter.image();
+            varSum += iter.variance();
         }
         double const xMean = xSum/sum;
 
@@ -195,6 +198,8 @@ void centroidTrace(
 
         pp->peak = xMean;
         pp->peakErr = xErr;
+        pp->flux = sum;
+        pp->fluxErr = std::sqrt(varSum);
     }
 }
 
