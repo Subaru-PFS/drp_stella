@@ -16,7 +16,7 @@ from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
 from pfs.drp.stella.identifyLines import IdentifyLinesConfig, IdentifyLinesTask
-from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
 
 display = None
@@ -88,10 +88,11 @@ class TasksTestCase(lsst.utils.tests.TestCase):
 
         self.lines = []
         middle = self.detMap.fiberId[self.synthConfig.numFibers//2]
-        self.referenceLines = ReferenceLineSet.empty()
+        refLines = []
         for center in self.arcData.lines:
             wavelength = self.detMap.findWavelength(middle, center)
-            self.referenceLines.append("arc", wavelength, self.flux, ReferenceLineStatus.GOOD)
+            refLines.append(ReferenceLine("arc", wavelength, self.flux, ReferenceLineStatus.GOOD))
+        self.referenceLines = ReferenceLineSet.fromRows(refLines)
 
     def tearDown(self):
         del self.flat

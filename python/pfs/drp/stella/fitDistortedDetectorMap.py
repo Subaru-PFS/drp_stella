@@ -13,7 +13,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
-from .arcLine import ArcLineSet
+from .arcLine import ArcLine, ArcLineSet
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
 
@@ -22,7 +22,7 @@ __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "Fitt
 
 
 @dataclass
-class ArcLineResiduals:
+class ArcLineResiduals(ArcLine):
     """Residuals in arc line positions
 
     Analagous to `ArcLine`, this stores the position measurement of a single
@@ -37,10 +37,6 @@ class ArcLineResiduals:
         Reference line wavelength (nm).
     x, y : `float`
         Differential position relative to an external detectorMap.
-    xOrig, yOrig : `float`
-        Measured position.
-    xBase, yBase : `float`
-        Expected position from base detectorMap.
     xErr, yErr : `float`
         Error in measured position.
     intensity : `float`
@@ -53,22 +49,15 @@ class ArcLineResiduals:
         Flags whether the lines are fitted, clipped or reserved etc.
     description : `str`
         Line description (e.g., ionic species)
+    xOrig, yOrig : `float`
+        Measured position.
+    xBase, yBase : `float`
+        Expected position from base detectorMap.
     """
-    fiberId: int
-    wavelength: float
-    x: float
-    y: float
     xOrig: float
     yOrig: float
     xBase: float
     yBase: float
-    xErr: float
-    yErr: float
-    intensity: float
-    intensityErr: float
-    flag: bool
-    status: int
-    description: str
 
 
 class ArcLineResidualsSet(ArcLineSet):
@@ -80,96 +69,10 @@ class ArcLineResidualsSet(ArcLineSet):
 
     Parameters
     ----------
-    lines : `list` of `ArcLineResiduals`
-        List of lines in the spectra.
+    data : `pandas.DataClass`
+        Table data.
     """
     RowClass = ArcLineResiduals
-    schema = (("fiberId", np.int32),
-              ("wavelength", float),
-              ("x", float),
-              ("y", float),
-              ("xOrig", float),
-              ("yOrig", float),
-              ("xBase", float),
-              ("yBase", float),
-              ("xErr", float),
-              ("yErr", float),
-              ("intensity", float),
-              ("intensityErr", float),
-              ("flag", bool),
-              ("status", np.int32),
-              ("description", str),
-              )
-
-    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xBase, yBase, xErr, yErr,
-               intensity, intensityErr, flag, status, description):
-        """Append to the list of lines
-
-        Parameters
-        ----------
-        fiberId : `int`
-            Fiber identifier.
-        wavelength : `float`
-            Reference line wavelength (nm).
-        x, y : `float`
-            Differential position relative to an external detectorMap.
-        xOrig, yOrig : `float`
-            Measured position.
-        xBase, yBase : `float`
-            Expected position from base detectorMap.
-        xErr, yErr : `float`
-            Error in measured position.
-        intensity : `float`
-            Measured intensity (arbitrary units).
-        intensityErr : `float`
-            Error in measured intensity (arbitrary units).
-        flag : `bool`
-            Measurement flag (``True`` indicates an error in measurement).
-        status : `pfs.drp.stella.ReferenceLine.Status`
-            Flags whether the lines are fitted, clipped or reserved etc.
-        description : `str`
-            Line description (e.g., ionic species)
-        """
-        self.data = self.data.append(dict(fiberId=fiberId, wavelength=wavelength, x=x, y=y,
-                                          xOrig=xOrig, yOrig=yOrig, xBase=xBase, yBase=yBase,
-                                          xErr=xErr, yErr=yErr, intensity=intensity,
-                                          intensityErr=intensityErr, flag=flag, status=status,
-                                          description=description), ignore_index=True)
-
-    @property
-    def xOrig(self):
-        """Array of original x position (`numpy.ndarray` of `float`)"""
-        return self.data["xOrig"].values
-
-    @property
-    def yOrig(self):
-        """Array of original y position (`numpy.ndarray` of `float`)"""
-        return self.data["yOrig"].values
-
-    @property
-    def xBase(self):
-        """Array of expected x position (`numpy.ndarray` of `float`)"""
-        return self.data["xBase"].values
-
-    @property
-    def yBase(self):
-        """Array of expected y position (`numpy.ndarray` of `float`)"""
-        return self.data["yBase"].values
-
-    @classmethod
-    def readFits(cls, filename):
-        """Read from FITS file
-
-        Not implemented, because we don't expect to write this.
-        """
-        raise NotImplementedError("Not implemented")
-
-    def writeFits(self, filename):
-        """Write to FITS file
-
-        Not implemented, because we don't expect to write this.
-        """
-        raise NotImplementedError("Not implemented")
 
 
 def fitStraightLine(xx, yy):
@@ -653,7 +556,7 @@ class FitDistortedDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
-        return ArcLineResidualsSet.fromArrays(
+        return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
             wavelength=lines.wavelength,
             x=lines.x - points[:, 0],

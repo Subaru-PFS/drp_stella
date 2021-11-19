@@ -145,9 +145,9 @@ class PhotometerLinesTask(Task):
             lookup = {rl.wavelength: rl for rl in lines}
             status = [lookup[wl].status for wl in wavelength]
             description = [lookup[wl].description for wl in wavelength]
-            lines = ArcLineSet.fromArrays(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
-                                          xErr=nan, yErr=nan, intensity=nan, intensityErr=nan,
-                                          flag=flags, status=status, description=description)
+            lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
+                                           xErr=nan, yErr=nan, intensity=nan, intensityErr=nan,
+                                           flag=flags, status=status, description=description)
         else:
             fiberId = lines.fiberId
             wavelength = lines.wavelength

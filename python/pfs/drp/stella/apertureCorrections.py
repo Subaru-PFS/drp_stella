@@ -253,9 +253,9 @@ class MeasureApertureCorrectionsTask(Task):
         status[reject] = ReferenceLineStatus.REJECTED.value
         description = [row[self.description] for row in catalog]
 
-        lines = ArcLineSet.fromArrays(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
-                                      xErr=empty, yErr=empty, intensity=apCorr, intensityErr=apCorrErr,
-                                      flag=flag, status=status, description=description)
+        lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
+                                       xErr=empty, yErr=empty, intensity=apCorr, intensityErr=apCorrErr,
+                                       flag=flag, status=status, description=description)
         return lines.asPfsFiberArraySet()
 
     def apply(self, lines: ArcLineSet, apCorr: FocalPlaneFunction, pfsConfig: PfsConfig):

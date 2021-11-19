@@ -175,4 +175,4 @@ def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak
         lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
                               tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
                       wl, yy, tt in zip(wavelength, row, traces[fiberId])])
-    return ArcLineSet.fromArcLines(lines)
+    return ArcLineSet.fromRows(lines)

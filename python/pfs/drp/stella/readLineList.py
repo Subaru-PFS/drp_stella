@@ -1,3 +1,5 @@
+import numpy as np
+
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
 
@@ -71,11 +73,11 @@ class ReadLineListTask(Task):
         filtered : `pfs.drp.stella.ReferenceLineSet`
             Filtered list of reference lines.
         """
-        keep = []
+        select = np.zeros(len(lines), dtype=bool)
         for desc in lamps:
-            keep += [ll for ll in lines if ll.description.startswith(desc)]
+            select |= [ll.description.startswith(desc) for ll in lines]
         self.log.info("Filtered line lists for lamps: %s", ",".join(sorted(lamps)))
-        return ReferenceLineSet(keep)
+        return lines[select]
 
     def filterByIntensity(self, lines):
         """Filter the line list by intensity level
@@ -95,8 +97,8 @@ class ReadLineListTask(Task):
         """
         if self.config.minIntensity <= 0:
             return lines
-        keep = [ll for ll in lines if ll.intensity >= self.config.minIntensity]
-        return ReferenceLineSet(keep)
+        select = lines.intensity >= self.config.minIntensity
+        return lines[select]
 
     def getLamps(self, metadata):
         """Determine which lamps are active
@@ -149,5 +151,5 @@ class ReadLineListTask(Task):
         wavelength = detectorMap.getWavelength()
         minWl = wavelength.min()
         maxWl = wavelength.max()
-        return ReferenceLineSet([rl for rl in lines if rl.wavelength >= minWl and
-                                 rl.wavelength <= maxWl])
+        select = (lines.wavelength >= minWl) & (lines.wavelength <= maxWl)
+        return lines[select]

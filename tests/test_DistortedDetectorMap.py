@@ -251,7 +251,7 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
                              float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake"))
-        lines = ArcLineSet.fromArcLines(lines)
+        lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True

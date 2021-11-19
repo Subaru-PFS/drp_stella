@@ -61,12 +61,12 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
 
     def testBasic(self):
         """Test basic functionality"""
-        lines = ArcLineSet.fromArcLines(self.lines)
+        lines = ArcLineSet.fromRows(self.lines)
         self.assertArcLineSet(lines)
 
     def testExtend(self):
         """Test ArcLineSet.extend"""
-        lines1 = ArcLineSet.fromArcLines(self.lines)
+        lines1 = ArcLineSet.fromRows(self.lines)
         self.assertArcLineSet(lines1)
 
         lines2 = ArcLineSet.empty()
@@ -78,7 +78,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
 
     def testIteration(self):
         """Test iteration over ArcLineSet"""
-        lines = ArcLineSet.fromArcLines(self.lines)
+        lines = ArcLineSet.fromRows(self.lines)
         for ii, ll in enumerate(lines):
             self.assertEqual(ll.fiberId, self.fiberId[ii])
             self.assertEqual(ll.wavelength, self.wavelength[ii])
@@ -94,7 +94,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
 
     def testPersistence(self):
         """Test persistence"""
-        lines = ArcLineSet.fromArcLines(self.lines)
+        lines = ArcLineSet.fromRows(self.lines)
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             lines.writeFits(filename)
             copy = ArcLineSet.readFits(filename)

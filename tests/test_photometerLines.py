@@ -7,7 +7,7 @@ from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.photometerLines import PhotometerLinesTask, PhotometerLinesConfig
-from pfs.drp.stella import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
@@ -44,12 +44,13 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
         pfsConfig = pfs.drp.stella.synthetic.makeSyntheticPfsConfig(synthConfig, 12345, 67890, rng)
 
-        referenceLines = ReferenceLineSet.empty()
+        referenceLines = []
         fiberId = detMap.fiberId[detMap.getNumFibers()//2]
         rng.shuffle(arc.lines)  # Ensure we get some cases of multiple blends
         for yy in arc.lines:
             wavelength = detMap.getWavelength(fiberId, yy)
-            referenceLines.append(description, wavelength, intensity, ReferenceLineStatus.GOOD)
+            referenceLines.append(ReferenceLine(description, wavelength, intensity, ReferenceLineStatus.GOOD))
+        referenceLines = ReferenceLineSet.fromRows(referenceLines)
 
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(arc.image))
         exposure.mask.set(0)

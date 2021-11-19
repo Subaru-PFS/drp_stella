@@ -293,7 +293,7 @@ class FitDifferentialDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
-        return ArcLineResidualsSet.fromArrays(
+        return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
             wavelength=lines.wavelength,
             x=lines.x - points[:, 0],

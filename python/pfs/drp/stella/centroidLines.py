@@ -313,7 +313,7 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             List of arc lines.
         """
-        return ArcLineSet.fromArrays(
+        return ArcLineSet.fromColumns(
             fiberId=catalog[self.fiberId],
             wavelength=catalog[self.wavelength],
             x=catalog[self.centroidName + "_x"],
