@@ -1,5 +1,4 @@
 import os
-from types import SimpleNamespace
 from collections import defaultdict
 from deprecated import deprecated
 
@@ -15,149 +14,12 @@ from lsst.afw.math import LeastSquares
 
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
 from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
-from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
+from .fitDistortedDetectorMap import ArcLineResidualsSet, fitStraightLine
 
 
 __all__ = ("FitDifferentialDetectorMapConfig", "FitDifferentialDetectorMapTask")
-
-
-class ArcLineResiduals(SimpleNamespace):
-    """Residuals in arc line positions
-
-    Analagous to `ArcLine`, this stores the position measurement of a single
-    arc line, but the ``x,y`` positions are relative to a detectorMap. The
-    original ``x,y`` positions are stored as ``xOrig,yOrig``.
-
-    Parameters
-    ----------
-    fiberId : `int`
-        Fiber identifier.
-    wavelength : `float`
-        Reference line wavelength (nm).
-    x, y : `float`
-        Differential position relative to an external detectorMap.
-    xOrig, yOrig : `float`
-        Measured position.
-    xErr, yErr : `float`
-        Error in measured position.
-    intensity : `float`
-        Measured intensity (arbitrary units).
-    intensityErr : `float`
-        Error in measured intensity (arbitrary units).
-    flag : `bool`
-        Measurement flag (``True`` indicates an error in measurement).
-    status : `pfs.drp.stella.ReferenceLine.Status`
-        Flags whether the lines are fitted, clipped or reserved etc.
-    description : `str`
-        Line description (e.g., ionic species)
-    """
-    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
-                 flag, status, description):
-        return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xOrig=xOrig, yOrig=yOrig,
-                                xErr=xErr, yErr=yErr, intensity=intensity, intensityErr=intensityErr,
-                                flag=flag, status=status, description=description)
-
-
-class ArcLineResidualsSet(ArcLineSet):
-    """A list of `ArcLineResiduals`
-
-    Analagous to `ArcLineSet`, this stores the position measurement of a list
-    of arc lines, but the ``x,y`` positions are relative to a detectorMap. The
-    original ``x,y`` positions are stored as ``xOrig,yOrig``.
-
-    Parameters
-    ----------
-    lines : `list` of `ArcLineResiduals`
-        List of lines in the spectra.
-    """
-    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
-               flag, status, description):
-        """Append to the list of lines
-
-        Parameters
-        ----------
-        fiberId : `int`
-            Fiber identifier.
-        wavelength : `float`
-            Reference line wavelength (nm).
-        x, y : `float`
-            Differential position relative to an external detectorMap.
-        xOrig, yOrig : `float`
-            Measured position.
-        xErr, yErr : `float`
-            Error in measured position.
-        intensity : `float`
-            Measured intensity (arbitrary units).
-        intensityErr : `float`
-            Error in measured intensity (arbitrary units).
-        flag : `bool`
-            Measurement flag (``True`` indicates an error in measurement).
-        status : `pfs.drp.stella.ReferenceLine.Status`
-            Flags whether the lines are fitted, clipped or reserved etc.
-        description : `str`
-            Line description (e.g., ionic species)
-        """
-        self.lines.append(ArcLineResiduals(fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr,
-                                           intensity, intensityErr, flag, status, description))
-
-    @property
-    def xOrig(self):
-        """Array of original x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.xOrig for ll in self.lines])
-
-    @property
-    def yOrig(self):
-        """Array of original y position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.yOrig for ll in self.lines])
-
-    @classmethod
-    def readFits(cls, filename):
-        """Read from FITS file
-
-        Not implemented, because we don't expect to write this.
-        """
-        raise NotImplementedError("Not implemented")
-
-    def writeFits(self, filename):
-        """Write to FITS file
-
-        Not implemented, because we don't expect to write this.
-        """
-        raise NotImplementedError("Not implemented")
-
-
-def fitStraightLine(xx, yy):
-    """Fit a straight line, y = slope*x + intercept
-
-    Parameters
-    ----------
-    xx : `numpy.ndarray` of `float`, size ``N``
-        Ordinate.
-    yy : `numpy.ndarray` of `float`, size ``N``
-        Co-ordinate.
-
-    Returns
-    -------
-    slope : `float`
-        Slope of line.
-    intercept : `float`
-        Intercept of line.
-    xMean : `float`
-        Mean of x values.
-    yMean : `float`
-        Mean of y values.
-    """
-    xMean = xx.mean()
-    yMean = yy.mean()
-    dx = xx - xMean
-    dy = yy - yMean
-    xySum = np.sum(dx*dy)
-    xxSum = np.sum(dx**2)
-    slope = xySum/xxSum
-    intercept = yMean - slope*xMean
-    return Struct(slope=slope, intercept=intercept, xMean=xMean, yMean=yMean)
 
 
 def rmsPixelsToVelocity(rms, model):
@@ -431,12 +293,23 @@ class FitDifferentialDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
-        residuals = ArcLineResidualsSet.empty()
-        for ll, pp in zip(lines, points):
-            residuals.append(ll.fiberId, ll.wavelength, ll.x - pp[0], ll.y - pp[1], ll.x, ll.y,
-                             ll.xErr, ll.yErr, ll.intensity, ll.intensityErr,
-                             ll.flag, ll.status, ll.description)
-        return residuals
+        return ArcLineResidualsSet.fromArrays(
+            fiberId=lines.fiberId,
+            wavelength=lines.wavelength,
+            x=lines.x - points[:, 0],
+            y=lines.y - points[:, 1],
+            xOrig=lines.x,
+            yOrig=lines.y,
+            xBase=points[:, 0],
+            yBase=points[:, 1],
+            xErr=lines.xErr,
+            yErr=lines.yErr,
+            intensity=lines.intensity,
+            intensityErr=lines.intensityErr,
+            flag=lines.flag,
+            status=lines.status,
+            description=lines.description,
+        )
 
     def fitScaling(self, bbox, lines, select, minMaxFiberId=None):
         """Determine scaling for GlobalDetectorModel

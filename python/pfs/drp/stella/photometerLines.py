@@ -6,7 +6,7 @@ from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task, Struct
 
 from pfs.datamodel import FiberStatus
-from .arcLine import ArcLine, ArcLineSet
+from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .fitContinuum import FitContinuumTask
 from .photometry import photometer
@@ -140,14 +140,14 @@ class PhotometerLinesTask(Task):
                 self.log.warn("Unable to perform unforced photometry without centroided positions provided; "
                               "performing forced photometry instead")
             xx, yy = detectorMap.findPoint(fiberId.copy(), wavelength.copy()).T  # copy required for pybind
-            nan = itertools.repeat(np.nan)
+            nan = np.full_like(wavelength, np.nan)
             flags = itertools.repeat(False)
             lookup = {rl.wavelength: rl for rl in lines}
             status = [lookup[wl].status for wl in wavelength]
             description = [lookup[wl].description for wl in wavelength]
-            lines = ArcLineSet([ArcLine(*args) for args in
-                                zip(fiberId, wavelength, xx, yy, nan, nan, nan, nan, flags,
-                                    status, description)])
+            lines = ArcLineSet.fromArrays(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
+                                          xErr=nan, yErr=nan, intensity=nan, intensityErr=nan,
+                                          flag=flags, status=status, description=description)
         else:
             fiberId = lines.fiberId
             wavelength = lines.wavelength
@@ -159,16 +159,12 @@ class PhotometerLinesTask(Task):
         catalog = photometer(exposure.maskedImage, fiberId[select], wavelength[select], psf, badBitMask,
                              positions[select] if positions is not None else None)
 
-        cat = iter(catalog)
-        for ii, rl in enumerate(lines):
-            if select[ii]:
-                row = next(cat)
-                assert row["fiberId"] == rl.fiberId and row["wavelength"] == rl.wavelength
-                rl.intensity = row["flux"]
-                rl.intensityErr = row["fluxErr"]
-                rl.flag |= row["flag"]
-            else:
-                rl.flag = True
+        assert np.all(catalog["fiberId"] == lines.fiberId[select])
+        assert np.all(catalog["wavelength"] == lines.wavelength[select])
+        lines.intensity[select] = catalog["flux"]
+        lines.intensityErr[select] = catalog["fluxErr"]
+        lines.flag[~select] = True
+        lines.flag[select] = catalog["flag"]
 
         apCorr = None
         if self.config.doApertureCorrection:
@@ -220,15 +216,11 @@ class PhotometerLinesTask(Task):
             Fiber traces or fiber profiles, which contain the normalization.
         """
         interpolators = self.getNormalizations(tracesOrProfiles)
-        for ll in lines:
-            if ll.fiberId not in interpolators:
-                ll.intensity = np.nan
-                ll.intensityErr = np.nan
-                continue
-            norm = interpolators[ll.fiberId](ll.y)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                ll.intensity /= norm
-                ll.intensityErr /= norm
+        norm = [interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for
+                ll in lines]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            lines.intensity[:] /= norm
+            lines.intensityErr[:] /= norm
 
     def subtractLines(self, exposure, lines, detectorMap):
         """Subtract lines from the image

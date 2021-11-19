@@ -1,6 +1,6 @@
 import os
-from types import SimpleNamespace
 from collections import defaultdict
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.optimize
@@ -21,7 +21,8 @@ from .utils.math import robustRms
 __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
 
 
-class ArcLineResiduals(SimpleNamespace):
+@dataclass
+class ArcLineResiduals:
     """Residuals in arc line positions
 
     Analagous to `ArcLine`, this stores the position measurement of a single
@@ -53,12 +54,21 @@ class ArcLineResiduals(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xBase, yBase, xErr, yErr,
-                 intensity, intensityErr, flag, status, description):
-        return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xOrig=xOrig, yOrig=yOrig,
-                                xBase=xBase, yBase=yBase, xErr=xErr, yErr=yErr,
-                                intensity=intensity, intensityErr=intensityErr,
-                                flag=flag, status=status, description=description)
+    fiberId: int
+    wavelength: float
+    x: float
+    y: float
+    xOrig: float
+    yOrig: float
+    xBase: float
+    yBase: float
+    xErr: float
+    yErr: float
+    intensity: float
+    intensityErr: float
+    flag: bool
+    status: int
+    description: str
 
 
 class ArcLineResidualsSet(ArcLineSet):
@@ -73,6 +83,24 @@ class ArcLineResidualsSet(ArcLineSet):
     lines : `list` of `ArcLineResiduals`
         List of lines in the spectra.
     """
+    RowClass = ArcLineResiduals
+    schema = (("fiberId", np.int32),
+              ("wavelength", float),
+              ("x", float),
+              ("y", float),
+              ("xOrig", float),
+              ("yOrig", float),
+              ("xBase", float),
+              ("yBase", float),
+              ("xErr", float),
+              ("yErr", float),
+              ("intensity", float),
+              ("intensityErr", float),
+              ("flag", bool),
+              ("status", np.int32),
+              ("description", str),
+              )
+
     def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xBase, yBase, xErr, yErr,
                intensity, intensityErr, flag, status, description):
         """Append to the list of lines
@@ -102,28 +130,31 @@ class ArcLineResidualsSet(ArcLineSet):
         description : `str`
             Line description (e.g., ionic species)
         """
-        self.lines.append(ArcLineResiduals(fiberId, wavelength, x, y, xOrig, yOrig, xBase, yBase, xErr, yErr,
-                                           intensity, intensityErr, flag, status, description))
+        self.data = self.data.append(dict(fiberId=fiberId, wavelength=wavelength, x=x, y=y,
+                                          xOrig=xOrig, yOrig=yOrig, xBase=xBase, yBase=yBase,
+                                          xErr=xErr, yErr=yErr, intensity=intensity,
+                                          intensityErr=intensityErr, flag=flag, status=status,
+                                          description=description), ignore_index=True)
 
     @property
     def xOrig(self):
         """Array of original x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.xOrig for ll in self.lines])
+        return self.data["xOrig"].values
 
     @property
     def yOrig(self):
         """Array of original y position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.yOrig for ll in self.lines])
+        return self.data["yOrig"].values
 
     @property
     def xBase(self):
         """Array of expected x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.xBase for ll in self.lines])
+        return self.data["xBase"].values
 
     @property
     def yBase(self):
         """Array of expected y position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.yBase for ll in self.lines])
+        return self.data["yBase"].values
 
     @classmethod
     def readFits(cls, filename):
@@ -622,12 +653,23 @@ class FitDistortedDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
-        residuals = ArcLineResidualsSet.empty()
-        for ll, pp in zip(lines, points):
-            residuals.append(ll.fiberId, ll.wavelength, ll.x - pp[0], ll.y - pp[1], ll.x, ll.y,
-                             pp[0], pp[1], ll.xErr, ll.yErr, ll.intensity, ll.intensityErr,
-                             ll.flag, ll.status, ll.description)
-        return residuals
+        return ArcLineResidualsSet.fromArrays(
+            fiberId=lines.fiberId,
+            wavelength=lines.wavelength,
+            x=lines.x - points[:, 0],
+            y=lines.y - points[:, 1],
+            xOrig=lines.x,
+            yOrig=lines.y,
+            xBase=points[:, 0],
+            yBase=points[:, 1],
+            xErr=lines.xErr,
+            yErr=lines.yErr,
+            intensity=lines.intensity,
+            intensityErr=lines.intensityErr,
+            flag=lines.flag,
+            status=lines.status,
+            description=lines.description,
+        )
 
     def fitDistortion(self, bbox, lines, dispersion, seed=0, fitStatic=True, Distortion=None):
         """Fit a distortion model

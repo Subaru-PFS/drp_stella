@@ -1,6 +1,8 @@
-from types import SimpleNamespace
+from dataclasses import dataclass
+from typing import Iterable
 
 import numpy as np
+from pandas import DataFrame
 import astropy.io.fits
 
 from pfs.datamodel import Identity
@@ -11,7 +13,8 @@ from .datamodel.pfsFiberArraySet import PfsFiberArraySet
 __all__ = ("ArcLine", "ArcLineSet")
 
 
-class ArcLine(SimpleNamespace):
+@dataclass
+class ArcLine:
     """Data for a single reference line
 
     Parameters
@@ -35,20 +38,17 @@ class ArcLine(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId: int, wavelength: float, x: float, y: float, xErr: float, yErr: float,
-                 intensity: float, intensityErr: float, flag: bool, status: int, description: str):
-        return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xErr=xErr, yErr=yErr,
-                                intensity=intensity, intensityErr=intensityErr, flag=flag,
-                                status=status, description=description)
-
-    def copy(self):
-        """Return a copy"""
-        return type(self)(**self.__dict__)
-
-    def __reduce__(self):
-        """Pickling"""
-        return type(self), (self.fiberId, self.wavelength, self.x, self.y, self.xErr, self.yErr,
-                            self.intensity, self.intensityErr, self.flag, self.status, self.description)
+    fiberId: int
+    wavelength: float
+    x: float
+    y: float
+    xErr: float
+    yErr: float
+    intensity: float
+    intensityErr: float
+    flag: bool
+    status: int
+    description: str
 
 
 class ArcLineSet:
@@ -56,138 +56,145 @@ class ArcLineSet:
 
     Parameters
     ----------
-    lines : `list` of `ArcLine`
-        List of lines in the spectra.
+    data : `pandas.DataFrame`
+        Arc line data.
     """
     fitsExtName = "ARCLINES"
+    RowClass = ArcLine
+    schema = (("fiberId", np.int32),
+              ("wavelength", float),
+              ("x", float),
+              ("y", float),
+              ("xErr", float),
+              ("yErr", float),
+              ("intensity", float),
+              ("intensityErr", float),
+              ("flag", bool),
+              ("status", np.int32),
+              ("description", str),
+              )
 
-    def __init__(self, lines):
-        self.lines = lines
+    def __init__(self, data: DataFrame):
+        self.data = data
+
+    @classmethod
+    def fromArcLines(cls, lines: Iterable[ArcLine]):
+        return cls.fromArrays(**{name: np.array([getattr(ll, name) for ll in lines], dtype=dtype) for
+                                 name, dtype in cls.schema})
+
+    @classmethod
+    def fromArrays(cls, **kwargs):
+        return cls(DataFrame({name: np.array(kwargs[name], dtype=dtype) for name, dtype in cls.schema}))
+
+    @property
+    def lines(self):
+        """Return list of `ArcLine`"""
+        return [self.RowClass(**row[1].to_dict()) for row in self.data.iterrows()]
 
     @property
     def fiberId(self):
         """Array of fiber identifiers (`numpy.ndarray` of `int`)"""
-        return np.array([ll.fiberId for ll in self.lines], dtype=np.int32)
+        return self.data["fiberId"].values
 
     @property
     def wavelength(self):
         """Array of reference wavelength, nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.wavelength for ll in self.lines], dtype=float)
+        return self.data["wavelength"].values
 
     @property
     def x(self):
         """Array of x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.x for ll in self.lines], dtype=float)
+        return self.data["x"].values
 
     @property
     def y(self):
         """Array of y position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.y for ll in self.lines], dtype=float)
+        return self.data["y"].values
 
     @property
     def xErr(self):
         """Array of error in x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.xErr for ll in self.lines], dtype=float)
+        return self.data["xErr"].values
 
     @property
     def yErr(self):
         """Array of error in y position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.yErr for ll in self.lines], dtype=float)
+        return self.data["yErr"].values
 
     @property
     def intensity(self):
         """Array of intensity (`numpy.ndarray` of `float`)"""
-        return np.array([ll.intensity for ll in self.lines], dtype=float)
+        return self.data["intensity"].values
 
     @property
     def intensityErr(self):
         """Array of intensity error (`numpy.ndarray` of `float`)"""
-        return np.array([ll.intensityErr for ll in self.lines], dtype=float)
+        return self.data["intensityErr"].values
 
     @property
     def flag(self):
         """Array of measurement status flags (`numpy.ndarray` of `bool`)"""
-        return np.array([ll.flag for ll in self.lines], dtype=bool)
+        return self.data["flag"].values
 
     @property
     def status(self):
         """Array of `ReferenceLine` status flags (`numpy.ndarray` of `int`)"""
-        return np.array([ll.status for ll in self.lines], dtype=np.int32)
+        return self.data["status"].values
 
     @property
     def description(self):
         """Array of description (`numpy.ndarray` of `str`)"""
-        return np.array([ll.description for ll in self.lines])
+        return self.data["description"].values
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Number of lines"""
-        return len(self.lines)
+        return len(self.data)
 
     def __iter__(self):
         """Iterator"""
         return iter(self.lines)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> ArcLine:
         """Retrieve by index"""
-        return self.lines[index]
+        return ArcLine(**self.data.iloc[index].to_dict())
 
-    def extend(self, lines):
+    def extend(self, other: "ArcLineSet"):
         """Extend the list of lines
 
+        This is an inefficient way of populating an `ArcLineSet`.
+
         Parameters
         ----------
-        lines : iterable of `ArcLine`
+        lines : `ArcLineSet`
             List of lines to add.
         """
-        self.lines.extend(lines)
+        self.data = self.data.append(other.data)
 
-    def __add__(self, rhs):
-        """Addition"""
-        return type(self)(self.lines + rhs.lines)
+    def __add__(self, rhs: "ArcLineSet") -> "ArcLineSet":
+        """Addition
 
-    def __iadd__(self, rhs):
-        """In-place addition"""
-        self.extend(rhs.lines)
+        This is an inefficient way of populating an `ArcLineSet`.
+        """
+        return type(self)(self.data.append(rhs.data))
+
+    def __iadd__(self, rhs: "ArcLineSet") -> "ArcLineSet":
+        """In-place addition
+
+        This is an inefficient way of populating an `ArcLineSet`.
+        """
+        self.extend(rhs)
         return self
 
-    def copy(self):
+    def copy(self) -> "ArcLineSet":
         """Return a deep copy"""
-        return type(self)([ll.copy() for ll in self])
-
-    def append(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
-               flag, status, description):
-        """Append to the list of lines
-
-        Parameters
-        ----------
-        fiberId : `int`
-            Fiber identifier.
-        wavelength : `float`
-            Reference line wavelength (nm).
-        x, y : `float`
-            Measured position.
-        xErr, yErr : `float`
-            Error in measured position.
-        intensity : `float`
-            Measured intensity (arbitrary units).
-        intensityErr : `float`
-            Error in measured intensity (arbitrary units).
-        flag : `bool`
-            Measurement flag (``True`` indicates an error in measurement).
-        status : `pfs.drp.stella.ReferenceLine.Status`
-            Flags whether the lines are fitted, clipped or reserved etc.
-        description : `str`
-            Line description (e.g., ionic species)
-        """
-        self.lines.append(ArcLine(fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
-                                  flag, status, description))
+        return type(self)(self.data.copy())
 
     @classmethod
-    def empty(cls):
+    def empty(cls) -> "ArcLineSet":
         """Construct an empty ArcLineSet"""
-        return cls([])
+        return cls.fromArrays(**{name: [] for name, _ in cls.schema})
 
-    def extractReferenceLines(self, fiberId=None):
+    def extractReferenceLines(self, fiberId: int = None) -> ReferenceLineSet:
         """Generate a list of reference lines
 
         Parameters
@@ -237,7 +244,7 @@ class ArcLineSet:
         return applyExclusionZone(self, exclusionRadius, status)
 
     @classmethod
-    def readFits(cls, filename):
+    def readFits(cls, filename: str) -> "ArcLineSet":
         """Read from file
 
         Parameters
@@ -250,28 +257,28 @@ class ArcLineSet:
         self : cls
             Constructed object from reading file.
         """
+        data = {}
         with astropy.io.fits.open(filename) as fits:
             hdu = fits[cls.fitsExtName]
-            fiberId = hdu.data["fiberId"].astype(np.int32)
-            wavelength = hdu.data["wavelength"].astype(float)
-            x = hdu.data["x"].astype(float)
-            y = hdu.data["y"].astype(float)
-            xErr = hdu.data["xErr"].astype(float)
-            yErr = hdu.data["yErr"].astype(float)
+            data["fiberId"] = hdu.data["fiberId"].astype(np.int32)
+            data["wavelength"] = hdu.data["wavelength"].astype(float)
+            data["x"] = hdu.data["x"].astype(float)
+            data["y"] = hdu.data["y"].astype(float)
+            data["xErr"] = hdu.data["xErr"].astype(float)
+            data["yErr"] = hdu.data["yErr"].astype(float)
             if "DAMD_VER" in hdu.header and hdu.header["DAMD_VER"] >= 1:
-                intensity = hdu.data["intensity"].astype(float)
-                intensityErr = hdu.data["intensityErr"].astype(float)
+                data["intensity"] = hdu.data["intensity"].astype(float)
+                data["intensityErr"] = hdu.data["intensityErr"].astype(float)
             else:
-                intensity = np.full(len(fiberId), np.nan, dtype=float)
-                intensityErr = np.full(len(fiberId), np.nan, dtype=float)
-            flag = hdu.data["flag"].astype(np.int32)
-            status = hdu.data["status"].astype(np.int32)
-            description = hdu.data["description"]
+                data["intensity"] = np.full(len(hdu), np.nan, dtype=float)
+                data["intensityErr"] = np.full(len(hdu), np.nan, dtype=float)
+            data["flag"] = hdu.data["flag"].astype(np.int32)
+            data["status"] = hdu.data["status"].astype(np.int32)
+            data["description"] = hdu.data["description"]
 
-        return cls([ArcLine(*args) for args in zip(fiberId, wavelength, x, y, xErr, yErr,
-                                                   intensity, intensityErr, flag, status, description)])
+        return cls(DataFrame(data))
 
-    def writeFits(self, filename):
+    def writeFits(self, filename: str):
         """Write to file
 
         Parameters
@@ -304,14 +311,11 @@ class ArcLineSet:
         with open(filename, "wb") as fd:
             fits.writeto(fd)
 
-    def toDataFrame(self):
+    def toDataFrame(self) -> DataFrame:
         """Convert to a `pandas.DataFrame`"""
-        from pandas import DataFrame
-        return DataFrame({nn: getattr(self, nn) for nn in ("fiberId", "wavelength", "x", "y", "xErr", "yErr",
-                                                           "intensity", "intensityErr", "flag", "status",
-                                                           "description")})
+        return self.data
 
-    def asPfsFiberArraySet(self, identity: Identity = None):
+    def asPfsFiberArraySet(self, identity: Identity = None) -> PfsFiberArraySet:
         """Represent as a PfsFiberArraySet
 
         This can be useful when fitting models of line intensities.

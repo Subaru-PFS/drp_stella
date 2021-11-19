@@ -10,7 +10,7 @@ from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidContr
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 
 from pfs.datamodel import FiberStatus
-from .arcLine import ArcLine, ArcLineSet
+from .arcLine import ArcLineSet
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
@@ -313,14 +313,20 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             List of arc lines.
         """
-        return ArcLineSet([
-            ArcLine(source[self.fiberId], source[self.wavelength], source[self.centroidName + "_x"],
-                    source[self.centroidName + "_y"], source[self.centroidName + "_xErr"],
-                    source[self.centroidName + "_yErr"], source[self.photometryName + "_instFlux"],
-                    source[self.photometryName + "_instFluxErr"],
-                    (source[self.centroidName + "_flag"] | source[self.photometryName + "_flag"] |
-                     source[self.ignore]),
-                    source[self.status], source[self.description]) for source in catalog])
+        return ArcLineSet.fromArrays(
+            fiberId=catalog[self.fiberId],
+            wavelength=catalog[self.wavelength],
+            x=catalog[self.centroidName + "_x"],
+            y=catalog[self.centroidName + "_y"],
+            xErr=catalog[self.centroidName + "_xErr"],
+            yErr=catalog[self.centroidName + "_yErr"],
+            intensity=catalog[self.photometryName + "_instFlux"],
+            intensityErr=catalog[self.photometryName + "_instFluxErr"],
+            flag=(catalog[self.centroidName + "_flag"] | catalog[self.photometryName + "_flag"] |
+                  catalog[self.ignore]),
+            status=catalog[self.status],
+            description=[row[self.description] for row in catalog],
+        )
 
     def display(self, exposure, catalog):
         """Display centroids

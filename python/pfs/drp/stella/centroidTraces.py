@@ -168,11 +168,11 @@ def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak
         Line measurements, treating every trace row with a centroid as a
         line.
     """
-    lines = ArcLineSet.empty()
+    lines = []
     for fiberId in traces:
         row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
         wavelength = detectorMap.findWavelength(fiberId, row)
         lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
                               tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
                       wl, yy, tt in zip(wavelength, row, traces[fiberId])])
-    return lines
+    return ArcLineSet.fromArcLines(lines)
