@@ -10,7 +10,8 @@ __all__ = ("ReadLineListConfig", "ReadLineListTask")
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
     lineListFiles = ListField(dtype=str, doc="list of names of linelist files",
-                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt", "skyLines.txt"])
+                              default=["HgCd.txt", "Ar.txt", "Hg.txt", "Kr.txt",
+                                       "Ne.txt", "Xe.txt", "skyLines.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     lampList = ListField(dtype=str, doc="list of species in lamps; overrides the header", default=[])
