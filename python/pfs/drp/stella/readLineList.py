@@ -14,7 +14,7 @@ class ReadLineListConfig(Config):
                                        "Ne.txt", "Xe.txt", "skyLines.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
-    lampList = ListField(dtype=str, doc="list of species in lamps; overrides the header", default=[])
+    lampElementList = ListField(dtype=str, doc="list of lamp elements; overrides the header", default=[])
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
@@ -50,22 +50,22 @@ class ReadLineListTask(Task):
         for filename in self.config.lineListFiles:
             lines.extend(ReferenceLineSet.fromLineList(filename))
         if self.config.restrictByLamps:
-            lamps = self.getLamps(metadata)
-            lines = self.filterByLamps(lines, lamps)
+            lampElements = self.getLampElements(metadata)
+            lines = self.filterByLampElements(lines, lampElements)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         lines.applyExclusionZone(self.config.exclusionRadius)
         return lines
 
-    def filterByLamps(self, lines, lamps):
-        """Filter the line list by which lamps are active
+    def filterByLampElements(self, lines, lampElements):
+        """Filter the line list by the elements in the active lamps
 
         Parameters
         ----------
         lines : `pfs.drp.stella.ReferenceLineSet`
             List of reference lines.
-        lamps : ``list` of `str`
-            The list of lamps.
+        elements : ``list` of `str`
+            The list of elements in the active lamps.
 
         Returns
         -------
@@ -73,9 +73,9 @@ class ReadLineListTask(Task):
             Filtered list of reference lines.
         """
         keep = []
-        for desc in lamps:
+        for desc in lampElements:
             keep += [ll for ll in lines if ll.description.startswith(desc)]
-        self.log.info("Filtered line lists for lamps: %s", ",".join(sorted(lamps)))
+        self.log.info("Filtered line lists for elements: %s", ",".join(sorted(lampElements)))
         return ReferenceLineSet(keep)
 
     def filterByIntensity(self, lines):
@@ -99,8 +99,8 @@ class ReadLineListTask(Task):
         keep = [ll for ll in lines if ll.intensity >= self.config.minIntensity]
         return ReferenceLineSet(keep)
 
-    def getLamps(self, metadata):
-        """Determine which lamps are active
+    def getLampElements(self, metadata):
+        """Determine which lamps are active and return the lamp elements
 
         Parameters
         ----------
@@ -109,25 +109,25 @@ class ReadLineListTask(Task):
 
         Returns
         -------
-        lamps : `list` of `str`, or `None`
-            The list of lamps, if the ``restrictByLamps`` configuration option
-            is ``True`` or ``lampList`` is set; otherwise, ``None``.
+        elements : `list` of `str`, or `None`
+            The list of lamp elements, if the ``restrictByLamps`` configuration option
+            is ``True`` or ``lampElementList`` is set; otherwise, ``None``.
 
         Raises
         ------
         RuntimeError
             If ``metadata`` is ``None`` and ``restrictByLamps`` is ``True``, and
-            lampList is not set.
+            lampElementList is not set.
         """
-        if len(self.config.lampList) > 0:
-            return self.config.lampList
+        if len(self.config.lampElementList) > 0:
+            return self.config.lampElementList
         if metadata is None:
-            raise RuntimeError("Cannot determine lamps because metadata was not provided")
-        lamps = getLampElements(metadata)
-        if not lamps and self.config.assumeSkyIfNoLamps:
+            raise RuntimeError("Cannot determine lamp elements because metadata was not provided")
+        lampElements = getLampElements(metadata)
+        if not lampElements and self.config.assumeSkyIfNoLamps:
             self.log.info("No lamps on; assuming sky.")
-            lamps = ["OI", "NaI", "OH"]
-        return lamps
+            lampElements = ["OI", "NaI", "OH"]
+        return lampElements
 
     def filterByWavelength(self, lines, detectorMap=None):
         """Filter the line list by wavelength
