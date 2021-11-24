@@ -5,6 +5,7 @@ from lsst.pipe.base import Struct, Task
 
 from lsst.obs.pfs.utils import getLamps, getLampElements
 from .referenceLine import ReferenceLineSet
+import re
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
@@ -28,6 +29,7 @@ class ReadLineListTask(Task):
     """Read a linelist"""
     ConfigClass = ReadLineListConfig
     _DefaultName = "readLineList"
+    _isSpeciesPattern = re.compile(r'^[A-Z][A-Za-z]*[IVX]+')
 
     def run(self, detectorMap=None, metadata=None):
         """Read a linelist
@@ -86,9 +88,17 @@ class ReadLineListTask(Task):
             Filtered list of reference lines.
         """
         keep = []
-        for element in lampElements:
-            keep += [ll for ll in lines if ll.description.startswith(element)]
-        self.log.info("Filtered line lists for element/species: %s", ",".join(sorted(element)))
+        for component in lampElements:
+            if self._isSpeciesPattern.match(component):
+                # Component is a species. Perform a search for lines matching only this
+                keep += [ll for ll in lines if component == ll.description]
+            else:
+                # Component is a general element. Match for all available species
+                elementPattern = re.compile(f'^{component}[IVX]*$')
+                keep += [ll for ll in lines if elementPattern.match(ll.description)]
+        speciesKept = {ll.description for ll in keep}
+        self.log.info(f"Filtered line lists for elements/species: {sorted(lampElements)}, "
+                      f"keeping species {speciesKept}.")
         return ReferenceLineSet(keep)
 
     def filterByIntensity(self, lines):
