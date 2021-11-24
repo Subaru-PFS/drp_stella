@@ -3,6 +3,8 @@ from lsst.pipe.base import Task
 
 from lsst.obs.pfs.utils import getLampElements
 from .referenceLine import ReferenceLineSet
+import re
+
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
@@ -73,9 +75,10 @@ class ReadLineListTask(Task):
             Filtered list of reference lines.
         """
         keep = []
-        for desc in lampElements:
-            keep += [ll for ll in lines if ll.description.startswith(desc)]
-        self.log.info("Filtered line lists for elements: %s", ",".join(sorted(lampElements)))
+        for element in lampElements:
+            keep += [ll for ll in lines if re.match(f'^{element}[IVX]*$', ll.description)]
+        self.log.info(f"Filtered line lists for elements: {sorted(lampElements)}, "
+                      f"keeping species {[ll.description for ll in keep]}.")
         return ReferenceLineSet(keep)
 
     def filterByIntensity(self, lines):

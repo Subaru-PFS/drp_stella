@@ -37,6 +37,8 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
             Line(567.890, 999, "ArI", 0),
             Line(678.901, 1001, "KrI", 0),
             Line(789.012, 100000, "ArI", 1),  # Flagged
+            Line(890.123, 123, 'HgII', 0),
+            Line(901.123, 14, 'HgI', 0),
             Line(1023.456, 1000, "NeI", 0),
         ]
         self.config = ReadLineListTask.ConfigClass()
@@ -69,8 +71,12 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         expect : iterable of `Line`
             Expected lines in the list.
         """
+        def orderLineList(lineList):
+            return sorted(lineList, key=lambda refLine: refLine.wavelength)
+
         self.assertEqual(len(lineList), len(expect))
-        for ll, ex in zip(lineList, expect):
+        for ll, ex in zip(orderLineList(lineList),
+                          orderLineList(expect)):
             self.assertEqual(ll.wavelength, ex.wavelength)
             self.assertEqual(ll.intensity, ex.intensity)
             self.assertEqual(ll.description, ex.description)
@@ -80,7 +86,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         lineList = self.makeLineList()
         self.assertLineList(lineList, self.contents)
 
-    def testLamps(self):
+    def testLampsOne(self):
         """Test that we can select lines by lamp"""
         metadata = PropertyList()
         metadata.set("W_AITNEO", 0)  # Neon
@@ -91,6 +97,48 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         expect = [ll for ll in self.contents if ll.description == "ArI"]
         assert len(expect) == 2  # Two lines are Argon
         self.assertLineList(lineList, expect)
+
+    def testLampsTwo(self):
+        """Test that we can select lines by lamp"""
+        metadata = PropertyList()
+        metadata.set("W_AITNEO", 0)  # Neon
+        metadata.set("W_AITARG", 0)  # Argon
+        metadata.set("W_AITKRY", 0)  # Krypton
+        metadata.set("W_AITHGC", 1)  # Mercury-Cadmium
+        self.config.restrictByLamps = True
+        lineList = self.makeLineList(metadata=metadata)
+        expect = [ll for ll in self.contents if ll.description in ["ArI", "HgI", "HgII"]]
+        assert len(expect) == 4  # Two lines are Mercury, two are Argon
+        self.assertLineList(lineList, expect)
+
+    def testfilterByLampElements(self):
+        """Tests that the correct lines are selected
+        for the given line elements,
+        even when the element names start with the same characters
+        """
+        task = ReadLineListTask()
+        lines = [
+            Line(123.456, 1000, "HI", 0),
+            Line(456.789, 1000, "HII", 0),
+            Line(567.890, 999, "ArI", 0),
+            Line(890.123, 123, 'HgII', 0),
+            Line(901.123, 14, 'HgI', 0),
+        ]
+
+        filteredLines = task.filterByLampElements(lines, ['H'])
+        self.assertLineList(filteredLines, lines[0:2])
+
+        filteredLines = task.filterByLampElements(lines, ['Hg'])
+        self.assertLineList(filteredLines, lines[3:5])
+
+        filteredLines = task.filterByLampElements(lines, ['ArI'])
+        self.assertLineList(filteredLines, lines[2:3])
+
+        filteredLines = task.filterByLampElements(lines, ['HgII'])
+        self.assertLineList(filteredLines, lines[3:4])
+
+        filteredLines = task.filterByLampElements(lines, ['Hg', 'Ar'])
+        self.assertLineList(filteredLines, lines[2:5])
 
     def testMinIntensity(self):
         """Test that we can select lines by applying minIntensity cut"""
