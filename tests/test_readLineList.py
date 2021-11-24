@@ -7,6 +7,9 @@ from pfs.drp.stella.readLineList import ReadLineListTask
 from pfs.drp.stella.tests.utils import runTests
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 
+from collections import Counter
+
+
 display = None
 
 
@@ -110,6 +113,16 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         expect = [ll for ll in self.contents if ll.wavelength > minWl and ll.wavelength < maxWl]
         for ff in synth.fiberId:
             self.assertLineList(lineList, expect)
+
+    def testDuplicates(self):
+        """Tests whether HgAr/HgCd active lamps result in no duplicate lines being retrieved"""
+        for lampKeyword in ['W_AITHGA', 'W_AITHGC', 'W_AITARG']:
+            header = PropertyList()
+            header[lampKeyword] = 1
+            lines = ReadLineListTask(name="readLineList").run(metadata=header)
+            duplicateLines = [wl for wl, count in Counter(lines.wavelength).items() if count > 1]
+            self.assertFalse(duplicateLines, f'For lamp keyword {lampKeyword} '
+                                             f'duplicate lines found: {duplicateLines}')
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
