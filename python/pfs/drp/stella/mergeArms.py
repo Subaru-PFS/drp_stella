@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import Iterable
 import os.path
 import re
 import numpy as np
@@ -39,6 +40,8 @@ class WavelengthSamplingConfig(Config):
 class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
+    selectSkyMin = Field(dtype=float, default=0.03, doc="Lower bound in flux distribution for sky selection")
+    selectSkyMax = Field(dtype=float, default=0.10, doc="Upper bound in flux distribution for sky selection")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
                                     doc="Fit sky model over the focal plane")
@@ -114,6 +117,7 @@ class MergeArmsTask(CmdLineTask):
         sky1d : `list` of `pfs.drp.stella.FocalPlaneFunction`
             Sky models for each arm.
         """
+        allSpectra = sum(spectra, [])
         for spec, lsf in zip(spectra, lsfList):
             for armSpec, armLsf in zip(spec, lsf):
                 if set(armSpec.fiberId) != set(armLsf):
@@ -129,12 +133,13 @@ class MergeArmsTask(CmdLineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
-        norm = self.normalizeSpectra(sum(spectra, []))
+        self.selectSky(allSpectra, pfsConfig)
+        norm = self.normalizeSpectra(allSpectra)
 
         sky1d = []
         if self.config.doSubtractSky1d:
             # Do sky subtraction arm by arm for now; alternatives involve changing the run() API
-            for ss in sum(spectra, []):
+            for ss in allSpectra:
                 sky1d.append(self.skySubtraction(ss, pfsConfig))
 
         spectrographs = [self.mergeSpectra(ss, norm) for ss in spectra]  # Merge in wavelength
@@ -387,6 +392,38 @@ class MergeArmsTask(CmdLineTask):
         for ll in lsfList:
             lsf.update(ll)
         return lsf
+
+    def selectSky(self, spectra: Iterable[PfsArm], pfsConfig: PfsConfig) -> None:
+        """Select sky fibers if none have been selected for us
+
+        This is intended to support SuNSS and early PFI data, where
+        ``targetType=SKY`` hasn't been set in the pfsConfig.
+
+        Parameters
+        ----------
+        spectra : iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra.
+        pfsConfig : `PfsConfig`
+            Top-end configuration.
+        """
+        if np.any(pfsConfig.getSelection(targetType=TargetType.SKY)):
+            # Sky fibers have been selected already
+            return
+        self.log.warn("Selecting sky fibers, since none have been specified in pfsConfig")
+        fluxes = defaultdict(float)  # Flux measurements indexed by fiberId
+        for pfsArm in spectra:
+            bitmask = pfsArm.flags.get(*self.config.mask)
+            for ii in range(len(pfsArm)):
+                select = (pfsArm.mask[ii] & bitmask) == 0
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    fluxes[pfsArm.fiberId[ii]] += (pfsArm.flux[ii]/pfsArm.norm[ii])[select].sum()
+        fiberId = sorted(fluxes.keys(), key=lambda ff: fluxes[ff])
+        numFibers = len(fiberId)
+        low = int(numFibers*self.config.selectSkyMin)
+        high = int(np.ceil(numFibers*self.config.selectSkyMax))
+        select = pfsConfig.getSelection(fiberId=fiberId[low:high])
+        pfsConfig.targetType[select] = TargetType.SKY
+        self.log.info("Selected %d sky fibers from %d available", select.sum(), numFibers)
 
     def skySubtraction(self, spectra: PfsArm, pfsConfig: PfsConfig) -> FocalPlaneFunction:
         """Fit and subtract sky model
