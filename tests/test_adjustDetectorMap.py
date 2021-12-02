@@ -140,7 +140,6 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         profilesConfig = BuildFiberProfilesTask.ConfigClass()
         profilesConfig.pruneMinLength = self.synthConfig.height//2
-        profilesConfig.centroidRadius = 3
         profilesConfig.profileRadius = 3
         profilesConfig.doBlindFind = False
 

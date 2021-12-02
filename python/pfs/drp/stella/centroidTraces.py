@@ -9,11 +9,12 @@ from lsst.afw.display import Display
 from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
+from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.images import convolveImage
 from .DetectorMapContinued import DetectorMap
 from .arcLine import ArcLine, ArcLineSet
 from .referenceLine import ReferenceLineStatus
+from .utils.psf import fwhmToSigma
 
 import lsstDebug
 
@@ -27,7 +28,6 @@ class CentroidTracesConfig(Config):
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
     threshold = Field(dtype=float, default=50.0, doc="Signal-to-noise threshold for trace")
     searchRadius = Field(dtype=float, default=3, doc="Radius about the expected peak to search")
-    centroidRadius = Field(dtype=int, default=3, doc="Radius about the peak for centroiding")
 
 
 class CentroidTracesTask(Task):
@@ -130,8 +130,10 @@ class CentroidTracesTask(Task):
             Peaks for each trace, indexed by fiberId.
         """
         badBitmask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+        psfSigma = fwhmToSigma(self.config.fwhm)
         for ff in tracePeaks:
-            centroidTrace(tracePeaks[ff], maskedImage, self.config.centroidRadius, badBitmask)
+            for pp in tracePeaks[ff]:
+                centroidPeak(pp, maskedImage, psfSigma, badBitmask)
         if self.debugInfo.plotCentroids:
             import matplotlib.pyplot as plt
             for ff in tracePeaks:
