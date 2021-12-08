@@ -29,6 +29,7 @@ from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.afw.display import Display
 from lsst.pipe.tasks.repair import RepairTask
+from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
@@ -38,7 +39,7 @@ from .lsf import ExtractionLsf, GaussianLsf
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .photometerLines import PhotometerLinesTask
-from .centroidTraces import CentroidTracesTask
+from .centroidTraces import CentroidTracesTask, tracesToLines
 from .adjustDetectorMap import AdjustDetectorMapTask
 from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
@@ -61,6 +62,8 @@ class ReduceExposureConfig(Config):
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
+    traceSpectralError = Field(dtype=float, default=1.0,
+                               doc="Error in the spectral dimension to give trace centroids (pixels)")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
@@ -481,9 +484,11 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
             refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
             lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
+            if not lines or "Continuum" in getLampElements(exposure.getMetadata()):
+                traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+                lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+
             if self.config.doAdjustDetectorMap:
-                if not self.adjustDetectorMap.isSufficientGoodLines(lines):
-                    traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
                 if self.debugInfo.detectorMap:
                     display = Display(frame=1)
                     display.mtv(exposure)
@@ -491,7 +496,7 @@ class ReduceExposureTask(CmdLineTask):
                                         ctype="red", plotTraces=False)
 
                 try:
-                    detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces=traces).detectorMap
+                    detectorMap = self.adjustDetectorMap.run(detectorMap, lines).detectorMap
                 except FittingError as exc:
                     if self.config.requireAdjustDetectorMap:
                         raise
@@ -523,15 +528,14 @@ class ReduceExposureTask(CmdLineTask):
         # Update photometry using best detectorMap, PSF
         apCorr = None
         if self.config.doMeasureLines:
-            phot = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
-            lines = phot.lines
+            phot = self.photometerLines.run(exposure, lines[lines.description != "Trace"], detectorMap,
+                                            pfsConfig, fiberTraces)
             apCorr = phot.apCorr
             if apCorr is not None:
                 sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=lines, apCorr=apCorr, traces=traces,
-                      psf=psf, lsf=lsf)
+                      refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure

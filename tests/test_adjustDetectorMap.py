@@ -6,12 +6,13 @@ import lsst.afw.image
 from lsst.afw.display import Display
 
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapConfig, AdjustDetectorMapTask
+from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat
 from pfs.drp.stella.centroidLines import CentroidLinesTask
-from pfs.drp.stella.centroidTraces import CentroidTracesTask
+from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella import DistortedDetectorMap, DetectorDistortion
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
@@ -49,7 +50,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        self.distorted = DistortedDetectorMap(self.base, distortion, visitInfo, metadata)
+        self.distorted = DistortedDetectorMap(self.base.clone(), distortion, visitInfo, metadata)
 
     def assertExpected(self, detMap, checkWavelengths=True):
         """Assert that the ``DistortedDetectorMap``s is as expected
@@ -102,9 +103,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(detMap.distortion.getYCoefficients(), 0.0, atol=5.0e-3)
         self.assertFloatsEqual(detMap.distortion.getRightCcdCoefficients(), 0.0)
 
-    @methodParameters(flatFlux=(10, 1000, 1000),
-                      numLines=(50, 0, 50))
-    def testAdjustment(self, flatFlux=1000, numLines=0, arcFlux=10000):
+    @methodParameters(flatFlux=(10, 200000, 1000),
+                      numLines=(50, 0, 50),
+                      traceTol=(0.3, 0.02, 0.1),
+                      )
+    def testAdjustment(self, flatFlux=1000, numLines=0, arcFlux=10000, traceTol=1.0e-2):
         """Test adjustment of a detectorMap
 
         We construct a synthetic image with both trace and lines, and check that
@@ -151,11 +154,17 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         centroidLines.config.fwhm = self.synthConfig.fwhm
         centroidLines.config.doSubtractContinuum = False  # Can bias the measurements if we're off by a lot
         centroidTraces.config.fwhm = self.synthConfig.fwhm
+        centroidTraces.config.searchRadius = 5  # Our distorted detectorMap can be a bit off
         if numLines > 0:
             lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
         else:
-            lines = None
+            lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
+        for ff in traces:
+            rows = np.array([pp.row for pp in traces[ff]], dtype=float)
+            centers = np.array([pp.peak for pp in traces[ff]])
+            expected = self.base.getXCenter(ff, rows)
+            self.assertFloatsAlmostEqual(centers, expected, atol=traceTol)
 
         config = AdjustDetectorMapConfig()
         config.order = 1
@@ -173,11 +182,13 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                     for tt in traces[ff]:
                         disp.dot("+", tt.peak, tt.row, ctype="blue")
 
-        adjusted = task.run(self.distorted, lines, traces=traces)
-        self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
+        lines += tracesToLines(self.distorted, traces, 10.0)
+        adjusted = task.run(self.distorted, lines)
 
         if display is not None:
-            adjusted.detectorMap.display(disp, ctype="green", wavelengths=lines.wavelength)
+            adjusted.detectorMap.display(disp, ctype="green", wavelengths=refLines.wavelength)
+
+        self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

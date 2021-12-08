@@ -1,22 +1,16 @@
 import numpy as np
 
-from lsst.pex.config import Field
 from lsst.geom import Box2D
 
 from . import SplinedDetectorMap
 from . import ReferenceLineStatus
-from .arcLine import ArcLine, ArcLineSet
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
-from .centroidTraces import tracesToLines
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 
 class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
-    traceSpectralError = Field(dtype=float, default=1.0,
-                               doc="Error in the spectral dimension to give trace centroids")
-
     def setDefaults(self):
         super().setDefaults()
         self.order = 2  # Fit low-order coefficients only
@@ -26,7 +20,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
-    def run(self, detectorMap, lines=None, *, traces=None):
+    def run(self, detectorMap, lines):
         """Adjust a DistortedDetectorMap to fit arc line measurements
 
         We fit only the lowest order terms.
@@ -36,10 +30,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         lines : `pfs.drp.stella.ArcLineSet`
-            Measured arc lines.
-        traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
-            Measured peak positions for each row, indexed by (identified)
-            fiberId. These are only used if we don't have lines.
+            Measured line positions.
 
         Returns
         -------
@@ -69,16 +60,21 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.countGoodLines(lines)
         if numGoodLines < needNumLines:
-            if traces is not None:
-                lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
-            else:
-                raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
-        residuals = self.calculateBaseResiduals(base, lines)
-        dispersion = base.getDispersion(base.fiberId[len(base)//2])
-        results = self.fitDistortion(detectorMap.bbox, residuals, dispersion,
+            raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
+        for ii in range(self.config.traceIterations):
+            self.log.debug("Commencing trace iteration %d", ii)
+            residuals = self.calculateBaseResiduals(base, lines)
+            dispersion = base.getDispersion(base.fiberId[len(base)//2])
+            weights = self.calculateWeights(lines)
+            fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
                                      seed=detectorMap.visitInfo.getExposureId(), fitStatic=False,
                                      Distortion=type(base.getDistortion()))
-        results.detectorMap = self.constructAdjustedDetectorMap(base, results.distortion)
+            detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
+            if not self.updateTraceWavelengths(lines, detectorMap):
+                break
+
+        results = self.measureQuality(lines, detectorMap, fit.selection, fit.numParameters)
+        results.detectorMap = detectorMap
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
@@ -157,36 +153,6 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.countGoodLines(lines)
         return numGoodLines > needNumLines
-
-    def generateLines(self, detectorMap, traces):
-        """Convert traces to lines
-
-        Well, they're not really lines, but we have measurements on where the
-        traces are in x, so that will allow us to fit some distortion
-        parameters. If there aren't any lines, we won't be able to update the
-        wavelength solution much, but we're probably working with a quartz so
-        that doesn't matter.
-
-        Parameters
-        ----------
-        traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
-            Measured peak positions for each row, indexed by (identified)
-            fiberId. These are only used if we don't have lines.
-
-        Returns
-        -------
-        lines : `pfs.drp.stella.ArcLineSet`
-            Line measurements, treating every trace row with a centroid as a
-            line.
-        """
-        lines = ArcLineSet.empty()
-        for fiberId in traces:
-            row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
-            wavelength = detectorMap.findWavelength(fiberId, row)
-            lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, self.config.traceSpectralError,
-                                  tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
-                          wl, yy, tt in zip(wavelength, row, traces[fiberId])])
-        return lines
 
     def constructAdjustedDetectorMap(self, base, distortion):
         """Construct an adjusted detectorMap

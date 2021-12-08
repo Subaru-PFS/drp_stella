@@ -10,7 +10,7 @@ from pfs.datamodel import FiberStatus, TargetType
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
-from pfs.drp.stella.centroidTraces import CentroidTracesTask
+from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import FiberProfileSet
 
@@ -41,6 +41,8 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     doAdjustDetectorMap = Field(dtype=bool, default=True, doc="Adjust detectorMap using trace positions?")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
+    traceSpectralError = Field(dtype=float, default=1.0,
+                               doc="Error in the spectral dimension to give trace centroids (pixels)")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
@@ -152,7 +154,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         if self.config.doAdjustDetectorMap:
             traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
-            detMap = self.adjustDetectorMap.run(detMap, traces=traces).detectorMap
+            lines = tracesToLines(detMap, traces, self.config.traceSpectralError)
+            detMap = self.adjustDetectorMap.run(detMap, lines).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
         results = self.profiles.run(exposure, detMap, pfsConfig)
