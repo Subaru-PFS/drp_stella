@@ -114,8 +114,17 @@ class CentroidTracesTask(Task):
             select = pfsConfig.getSelection(fiberId=detectorMap.fiberId, fiberStatus=FiberStatus.GOOD)
             fiberId = pfsConfig.fiberId[select]
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        return findTracePeaks(maskedImage, detectorMap, self.config.threshold, self.config.searchRadius,
-                              badBitMask, fiberId)
+        tracePeaks = findTracePeaks(maskedImage, detectorMap, self.config.threshold, self.config.searchRadius,
+                                    badBitMask, fiberId)
+        if self.debugInfo.plotPeaks:
+            display = Display(frame=1)
+            display.mtv(maskedImage)
+            for ff in tracePeaks:
+                with display.Buffering():
+                    for pp in tracePeaks[ff]:
+                        display.dot("+", pp.peak, pp.row)
+
+        return tracePeaks
 
     def centroidTraces(self, maskedImage, tracePeaks):
         """Measure the centroids for peaks in each trace
