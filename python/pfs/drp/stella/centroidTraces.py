@@ -27,7 +27,7 @@ class CentroidTracesConfig(Config):
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
     threshold = Field(dtype=float, default=50.0, doc="Signal-to-noise threshold for trace")
-    searchRadius = Field(dtype=float, default=3, doc="Radius about the expected peak to search")
+    searchRadius = Field(dtype=float, default=1, doc="Radius about the expected peak to search")
 
 
 class CentroidTracesTask(Task):
