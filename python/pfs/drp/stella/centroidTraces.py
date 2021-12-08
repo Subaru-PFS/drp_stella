@@ -60,7 +60,8 @@ class CentroidTracesTask(Task):
         if psf is None:
             psf = createPsf(self.config.fwhm)
         convolved = self.convolveImage(exposure, psf)
-        convolved.image.array /= np.sqrt(convolved.variance.array)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            convolved.image.array /= np.sqrt(convolved.variance.array)
         traces = self.findTracePeaks(convolved, detectorMap, pfsConfig)
         self.centroidTraces(exposure.maskedImage, traces)
         self.log.info("Measured %d centroids for %d traces",
