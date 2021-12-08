@@ -75,38 +75,6 @@ class ArcLineResidualsSet(ArcLineSet):
     RowClass = ArcLineResiduals
 
 
-def fitStraightLine(xx, yy):
-    """Fit a straight line, y = slope*x + intercept
-
-    Parameters
-    ----------
-    xx : `numpy.ndarray` of `float`, size ``N``
-        Ordinate.
-    yy : `numpy.ndarray` of `float`, size ``N``
-        Co-ordinate.
-
-    Returns
-    -------
-    slope : `float`
-        Slope of line.
-    intercept : `float`
-        Intercept of line.
-    xMean : `float`
-        Mean of x values.
-    yMean : `float`
-        Mean of y values.
-    """
-    xMean = xx.mean()
-    yMean = yy.mean()
-    dx = xx - xMean
-    dy = yy - yMean
-    xySum = np.sum(dx*dy)
-    xxSum = np.sum(dx**2)
-    slope = xySum/xxSum
-    intercept = yMean - slope*xMean
-    return Struct(slope=slope, intercept=intercept, xMean=xMean, yMean=yMean)
-
-
 def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.0), maxSoften=1.0, **kwargs):
     """Calculate statistics of the distortion fit
 
