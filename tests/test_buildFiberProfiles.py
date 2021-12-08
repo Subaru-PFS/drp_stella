@@ -51,6 +51,8 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.config.pruneMinLength = int(0.9*self.synth.height)
         self.config.profileSwath = 80  # Produces 5 swaths
         self.config.centerFit.order = 2
+        self.config.rowFwhm = self.synth.fwhm
+        self.config.columnFwhm = self.synth.fwhm
         self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
@@ -120,7 +122,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         select = (image.mask.array & badBitMask) == 0
         chi2 = np.sum(image.image.array[select]**2/image.variance.array[select])
         dof = select.sum()  # Minus something from the model, which we'll ignore
-        self.assertLess(chi2/dof, 0.5)  # Value chosen to reflect current state, and is < 1 which is good
+        self.assertLess(chi2/dof, 0.55)  # Value chosen to reflect current state, and is < 1 which is good
         if not doCheckSpectra:
             return
         for ss in spectra:
