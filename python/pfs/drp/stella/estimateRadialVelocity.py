@@ -1,6 +1,6 @@
 from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Struct, Task
-from pfs.drp.stella.datamodel.interpolate import interpolateFlux
+from pfs.drp.stella.interpolate import interpolateFlux
 
 import numpy as np
 from astropy import constants as const
@@ -122,7 +122,7 @@ class EstimateRadialVelocityTask(Task):
         # Make scaledModel[i,:] = modelSpectrum moving at searchVelocity[i]
         scaledWavelength = wavelength.reshape(1, -1) / doppler.reshape(-1, 1)
         scaledModel = interpolateFlux(
-            modelWavelength, modelFlux, scaledWavelength.reshape(-1)
+            modelWavelength, modelFlux, scaledWavelength.reshape(-1), jacobian=False
         ).reshape(len(searchVelocity), -1)
         # We divide the model flux by `dopper`
         # assuming that line spectra contribute to the correlation

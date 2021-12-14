@@ -1,7 +1,7 @@
 import numpy as np
 import pfs.datamodel
 
-from .interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateMask
 
 __all__ = ("FluxTable",)
 

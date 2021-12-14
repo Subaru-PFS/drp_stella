@@ -4,7 +4,30 @@ from scipy.interpolate import interp1d
 __all__ = ["interpolateFlux", "interpolateMask"]
 
 
-def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
+def calculateDispersion(wavelength):
+    """Calculate dispersion (nm/pixel) as a function of wavelength
+
+    This might be the inverse of what you consider "dispersion": this is
+    wavelength increment per pixel, not pixels per unit wavelength.
+
+    Parameters
+    ----------
+    wavelength : array_like of `float`
+        Wavelength value for each pixel.
+
+    Returns
+    -------
+    dispersion : `numpy.ndarray` of `float`
+        Wavelength increment value for each pixel.
+    """
+    dispersion = np.empty_like(wavelength)
+    dispersion[0] = wavelength[1] - wavelength[0]
+    dispersion[-1] = wavelength[-1] - wavelength[-2]
+    dispersion[1:-1] = 0.5*(wavelength[2:] - wavelength[0:-2])
+    return np.abs(dispersion)
+
+
+def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=True, variance=False):
     """Interpolate a flux-like spectrum
 
     Basic linear interpolation, suitable for fluxes and flux-like (e.g., maybe
@@ -20,15 +43,32 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
         Target wavelength array.
     fill : `float`, optional
         Fill value.
+    jacobian : `bool`, optional
+        Correct for the Jacobian of the transformation?
+    variance : `bool`, optional
+        Calculate Jacobian correction values for variance? The usual Jacobian
+        correction values are squared. If ``jacobian=False``, then ``variance``
+        doesn't matter.
 
     Returns
     -------
     toFlux : `numpy.ndarray` of `float`
         Target flux-(like) array.
     """
+    if jacobian:
+        correction = 1.0/calculateDispersion(fromWavelength)
+        if variance:
+            correction *= correction
+        fromFlux = fromFlux*correction
     with np.errstate(invalid="ignore"):
-        return interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
-                        fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
+        toFlux = interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
+                          fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
+    if jacobian:
+        correction = calculateDispersion(toWavelength)
+        if variance:
+            correction *= correction
+        toFlux *= correction
+    return toFlux
 
 
 def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):

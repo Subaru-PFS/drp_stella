@@ -1,7 +1,7 @@
 import numpy as np
 import pfs.datamodel
 
-from .interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateMask
 
 __all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 
@@ -134,8 +134,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength)
         mask = interpolateMask(self.wavelength, mask, wavelength, fill=self.flags.get("NO_DATA"))
         sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength)
-        covar = np.array([interpolateFlux(self.wavelength, np.where(badVariance, 0.0, cc), wavelength) for
-                          cc in self.covar])
+        covar = np.array([interpolateFlux(self.wavelength, np.where(badVariance, 0.0, cc), wavelength,
+                                          variance=True) for cc in self.covar])
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(self.target, self.observations, wavelength, flux, mask, sky, covar, covar2,
                           self.flags, self.fluxTable)

@@ -15,7 +15,7 @@ from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
 from .lsf import warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
-from .datamodel.interpolate import interpolateFlux, interpolateMask
+from .interpolate import interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
 from .subtractSky1d import subtractSky1d
 
