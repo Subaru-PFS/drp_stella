@@ -100,6 +100,9 @@ class MeasureApertureCorrectionsTask(Task):
         apCorr : `FocalPlaneFunction`
             Aperture correction model.
         """
+        if not lines:
+            self.log.warn("Unable to measure aperture correction: no lines")
+            return None
         pfsConfig = pfsConfig.select(fiberStatus=FiberStatus.GOOD, fiberId=list(set(lines.fiberId)))
 
         # Flag lines that are too close; don't even bother measuring them

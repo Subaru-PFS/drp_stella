@@ -1,7 +1,7 @@
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
 
-from lsst.obs.pfs.utils import getLampElements
+from lsst.obs.pfs.utils import getLamps, getLampElements
 from .referenceLine import ReferenceLineSet
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
@@ -122,11 +122,11 @@ class ReadLineListTask(Task):
             return self.config.lampList
         if metadata is None:
             raise RuntimeError("Cannot determine lamps because metadata was not provided")
-        lamps = getLampElements(metadata)
+        lamps = getLamps(metadata)
         if not lamps and self.config.assumeSkyIfNoLamps:
             self.log.info("No lamps on; assuming sky.")
-            lamps = ["OI", "NaI", "OH"]
-        return lamps
+            return ["OI", "NaI", "OH"]
+        return getLampElements(metadata)
 
     def filterByWavelength(self, lines, detectorMap=None):
         """Filter the line list by wavelength
