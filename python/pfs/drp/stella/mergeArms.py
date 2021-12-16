@@ -3,6 +3,8 @@ from typing import Iterable
 import os.path
 import re
 import numpy as np
+
+import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
@@ -58,6 +60,8 @@ class MergeArmsConfig(Config):
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
         self.fitSkyModel.rejThreshold = 10.0
+        self.fitContinuum.numKnots = 100  # Increased number of knots because larger wavelength range
+        self.fitContinuum.iterations = 0  # No rejection: normalisation doesn't need to be exact, just robust
 
 
 class MergeArmsRunner(TaskRunner):
@@ -94,6 +98,7 @@ class MergeArmsTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
+        self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, spectra, pfsConfig, lsfList):
         """Merge all extracted spectra from a single exposure
@@ -134,7 +139,7 @@ class MergeArmsTask(CmdLineTask):
                     self.log.warn(msg)
 
         self.selectSky(allSpectra, pfsConfig)
-        norm = self.normalizeSpectra(allSpectra)
+        self.normalizeSpectra(allSpectra)
 
         sky1d = []
         if self.config.doSubtractSky1d:
@@ -142,7 +147,7 @@ class MergeArmsTask(CmdLineTask):
             for ss in allSpectra:
                 sky1d.append(self.skySubtraction(ss, pfsConfig))
 
-        spectrographs = [self.mergeSpectra(ss, norm) for ss in spectra]  # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
@@ -206,7 +211,7 @@ class MergeArmsTask(CmdLineTask):
         counts, and to approximate the fluxes from the image (this isn't
         possible in the dichroic overlap, but is fairly well defined everywhere
         else). We do this by resampling the input normalisations to a common
-        wavelength scale and taking a straight mean (without strong rejection,
+        wavelength scale and taking a straight sum (without strong rejection,
         so the very different values around the dichroic won't cause problems).
         That will have some sharp features (due to, e.g., CRs that we've missed,
         or even real spectral features like absorption bands), but we'll smooth
@@ -226,33 +231,68 @@ class MergeArmsTask(CmdLineTask):
             Adopted normalisation.
         """
         wavelength = self.config.wavelength.wavelength
-        resampled = []
+        fiberId = spectra[0].fiberId
+        assert all(np.all(ss.fiberId == fiberId) for ss in spectra)  # Consistent fibers
+
+        # Collect normalisations from each arm, interpolated to common wavelength sampling
+        norm = np.zeros((fiberId.size, wavelength.size))
         for ss in spectra:
             badBitmask = ss.flags.get(*self.config.mask)
             for ii in range(len(ss)):
-                norm = interpolateFlux(ss.wavelength[ii], ss.norm[ii], wavelength, fill=np.nan)
+                nn = interpolateFlux(ss.wavelength[ii], ss.norm[ii], wavelength, fill=0.0)
                 mask = interpolateMask(ss.wavelength[ii], ss.mask[ii], wavelength, fill=badBitmask)
-                ignore = ((mask & badBitmask) != 0) | ~np.isfinite(norm)
+                ignore = ((mask & badBitmask) != 0) | ~np.isfinite(nn)
                 if np.all(ignore):
                     continue
-                resampled.append(np.ma.masked_where(ignore, norm))
+                nn[ignore] = 0.0
+                norm[ii] += nn
 
-        mean = np.ma.mean(resampled, axis=0)
-        spectrum = Spectrum(wavelength.size)
-        spectrum.flux = mean.data
-        spectrum.mask.array[0] = np.where(mean.mask, 0xFF, 0)
-        continuum = self.fitContinuum.fitContinuum(spectrum)
+        # Determine normalisation for each fiber
+        specNorms = [np.zeros_like(ss.norm) for ss in spectra]
+        for ii in range(fiberId.size):
+            spectrum = Spectrum(wavelength.size)
+            # Leave bad pixels at zero without masking. Small areas of bad pixels will get interpolated over
+            # in the continuum fit. Large areas of bad pixels (like at the ends) will cause the fit to go to
+            # zero, which is fine (in particular, it will keep the fit from going strongly negative at the
+            # ends).
+            spectrum.flux = norm[ii]
+            spectrum.mask.array[0] = 0
+            continuum = self.fitContinuum.fitContinuum(spectrum)
 
-        for ss in spectra:
-            norm = interpolateFlux(wavelength, continuum, ss.wavelength)
+            if self.debugInfo.plotNorm and ii == (self.debugInfo.fiberIndex or 307):
+                import matplotlib.pyplot as plt
+                plt.plot(spectra[0].wavelength[ii], spectra[0].norm[ii], "b:")
+                plt.plot(spectra[1].wavelength[ii], spectra[1].norm[ii], "r:")
+                plt.plot(spectra[0].wavelength[ii], spectra[0].flux[ii], "b-")
+                plt.plot(spectra[1].wavelength[ii], spectra[1].flux[ii], "r-")
+                plt.plot(wavelength, norm[ii], "k:")
+                plt.plot(wavelength, continuum, "k-")
+                plt.suptitle(f"fiberId={spectra[0].fiberId[ii]}")
+                plt.show()
+
+            norm[ii] = continuum
+            for jj, ss in enumerate(spectra):
+                specNorms[jj][ii] = interpolateFlux(wavelength, continuum, ss.wavelength[ii])
+
+            if self.debugInfo.plotNorm and ii == (self.debugInfo.fiberIndex or 307):
+                import matplotlib.pyplot as plt
+                plt.plot(spectra[0].wavelength[ii], spectra[0].norm[ii], "b:")
+                plt.plot(spectra[1].wavelength[ii], spectra[1].norm[ii], "r:")
+                plt.plot(spectra[0].wavelength[ii], specNorms[0][ii], "b-")
+                plt.plot(spectra[1].wavelength[ii], specNorms[1][ii], "r-")
+                plt.suptitle(f"fiberId={spectra[0].fiberId[ii]}")
+                plt.show()
+
+        # Apply normalisations
+        for ii, ss in enumerate(spectra):
             with np.errstate(invalid="ignore", divide="ignore"):
-                nn = norm/ss.norm
+                nn = specNorms[ii]/ss.norm
                 ss *= nn
                 ss.mask[nn == 0] |= ss.flags["NO_DATA"]
 
-        return continuum
+        return norm
 
-    def mergeSpectra(self, spectraList, norm):
+    def mergeSpectra(self, spectraList):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -262,8 +302,6 @@ class MergeArmsTask(CmdLineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
-        norm : `numpy.ndarray` of `float`
-            Adopted normalisation.
 
         Returns
         -------
@@ -283,7 +321,7 @@ class MergeArmsTask(CmdLineTask):
             self.log.warn("Barycentric correction is not yet implemented.")
 
         return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
-                         combination.sky, norm, combination.covar, flags, archetype.metadata)
+                         combination.sky, combination.norm, combination.covar, flags, archetype.metadata)
 
     def combine(self, spectra, flags):
         """Combine spectra
@@ -295,17 +333,17 @@ class MergeArmsTask(CmdLineTask):
             resampled to a common wavelength representation.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
-        norm : `numpy.ndarray` of `float`
-            Adopted normalisation.
 
         Returns
         -------
         wavelength : `numpy.ndarray` of `float`
             Wavelengths for combined spectrum.
         flux : `numpy.ndarray` of `float`
-            Flux measurements for combined spectrum.
+            Normalised flux measurements for combined spectrum.
         sky : `numpy.ndarray` of `float`
             Sky measurements for combined spectrum.
+        norm : `numpy.ndarray` of `float`
+            Normalisation of combined spectrum.
         covar : `numpy.ndarray` of `float`
             Covariance matrix for combined spectrum.
         mask : `numpy.ndarray` of `int`
@@ -315,6 +353,7 @@ class MergeArmsTask(CmdLineTask):
         mask = np.zeros_like(archetype.mask)
         flux = np.zeros_like(archetype.flux)
         sky = np.zeros_like(archetype.sky)
+        norm = np.zeros_like(archetype.norm)
         covar = np.zeros_like(archetype.covar)
         sumWeights = np.zeros_like(archetype.flux)
 
@@ -324,22 +363,25 @@ class MergeArmsTask(CmdLineTask):
             weight = np.zeros_like(ss.flux)
             weight[good] = 1.0/ss.covar[:, 0][good]
             with np.errstate(invalid="ignore"):
-                flux += ss.flux*weight
-                sky += ss.sky*weight
+                flux[good] += ss.flux[good]*weight[good]/ss.norm[good]
+                sky[good] += ss.sky[good]*weight[good]/ss.norm[good]
+                norm[good] += ss.norm[good]*weight[good]
             mask[good] |= ss.mask[good]
             sumWeights += weight
 
         good = sumWeights > 0
         flux[good] /= sumWeights[good]
         sky[good] /= sumWeights[good]
+        norm[good] /= sumWeights[good]
         covar[:, 0][good] = 1.0/sumWeights[good]
         covar[:, 0][~good] = np.inf
-        covar[:, 1:2] = np.where(good, 0.0, np.inf)[:, np.newaxis]
+        covar[:, 1:] = np.where(good, 0.0, np.inf)[:, np.newaxis]
+
         for ss in spectra:
             mask[~good] |= ss.mask[~good]
         mask[~good] |= flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
+        return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky, norm=norm, covar=covar,
                       mask=mask, covar2=covar2)
 
     def mergeLsfs(self, lsfList, spectraList):
