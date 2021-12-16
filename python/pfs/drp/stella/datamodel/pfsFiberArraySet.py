@@ -79,7 +79,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             lam = wavelength if usePixels else wavelength[index]
             flux = self.flux[index][good]
             if normalized:
-                flux /= self.norm[index][good]
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    flux /= self.norm[index][good]
             axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
 
         axes.set_xlabel(xLabel)
