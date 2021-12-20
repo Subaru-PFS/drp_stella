@@ -112,12 +112,34 @@ DetectorMap::Array1D DetectorMap::getWavelength(
 }
 
 
-double DetectorMap::getDispersion(int fiberId) const {
+double DetectorMap::getDispersionAtCenter(int fiberId) const {
     float const delta = 0.5;
     int const center = 0.5*_bbox.getHeight();
     double const wl0 = findWavelength(fiberId, center - delta);
     double const wl1 = findWavelength(fiberId, center + delta);
     return std::abs(wl1 - wl0)/(2*delta);
+}
+
+
+double DetectorMap::getDispersion(int fiberId, double wavelength, double dWavelength) const {
+    double const y0 = findPoint(fiberId, wavelength - 0.5*dWavelength).getY();
+    double const y1 = findPoint(fiberId, wavelength + 0.5*dWavelength).getY();
+    return dWavelength/(y1 - y0);
+}
+
+
+DetectorMap::Array1D DetectorMap::getDispersion(
+    FiberIds const& fiberId,
+    Array1D const& wavelength,
+    double dWavelength
+) const {
+    std::size_t const num = fiberId.size();
+    utils::checkSize(wavelength.size(), num, "fiberId vs wavelength");
+    Array1D dispersion = ndarray::allocate(num);
+    for (std::size_t ii = 0; ii < num; ++ii) {
+        dispersion[ii] = getDispersion(fiberId[ii], wavelength[ii], dWavelength);
+    }
+    return dispersion;
 }
 
 

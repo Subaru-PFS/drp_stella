@@ -322,9 +322,14 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testDispersion(self):
         detMap = self.makeSplinedDetectorMap()
-        expect = (self.wlMax - self.wlMin)/self.bbox.getHeight()  # nm/pixel
+        height = self.bbox.getHeight()
+        expect = (self.wlMax - self.wlMin)/height  # nm/pixel
         for ff in detMap.fiberId:
-            self.assertFloatsAlmostEqual(detMap.getDispersion(ff), expect, rtol=1.0e-3)
+            self.assertFloatsAlmostEqual(detMap.getDispersionAtCenter(ff), expect, rtol=1.0e-3)
+            # Exclude either end: calculation goes off the detector
+            self.assertFloatsAlmostEqual(detMap.getDispersion(np.full(height - 2, ff, dtype=np.int32),
+                                                              detMap.getWavelength(ff)[1:-1]),
+                                         expect, rtol=1.0e-3)
 
 
 class SplinedDetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):

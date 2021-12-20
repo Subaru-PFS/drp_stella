@@ -69,8 +69,6 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     ) const;
     //@}
 
-    /// Return the wavelength values for each row for all fibers
-
     //@{
     /// Return the wavelength values
     Array2D getWavelength() const;
@@ -78,8 +76,18 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     double getWavelength(int fiberId, double row) const { return findWavelengthImpl(fiberId, row); }
     //@}
 
-    /// Return the dispersion (nm/pixel) at the center
-    double getDispersion(int fiberId) const;
+    /// Return the dispersion (nm/pixel) at the center of a fiber
+    double getDispersionAtCenter(int fiberId) const;
+
+    //@{
+    /// Return the dispersion (nm/pixel) at a particular wavelength
+    ///
+    /// @param fiberId : Fiber identifier.
+    /// @param wavelength : Wavelength of interest (nm).
+    /// @param dWavelength : Change in wavelength to use in calculation (nm).
+    double getDispersion(int fiberId, double wavelength, double dWavelength=0.1) const;
+    Array1D getDispersion(FiberIds const& fiberId, Array1D const& wavelength, double dWavelength=0.1) const;
+    //@}
 
     /// Return the fiberId given a position on the detector
     int findFiberId(lsst::geom::PointD const& point) const;
