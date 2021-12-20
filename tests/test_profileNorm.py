@@ -34,7 +34,6 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
 
         profConfig = BuildFiberProfilesTask.ConfigClass()
         profConfig.pruneMinLength = synthConfig.height//2
-        profConfig.centroidRadius = 3
         profConfig.profileRadius = 3
         profConfig.doBlindFind = False
 

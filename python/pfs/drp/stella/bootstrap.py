@@ -323,7 +323,7 @@ class BootstrapTask(CmdLineTask):
         """
         matches = []
         badLineStatus = ReferenceLineStatus.fromNames(*self.config.badLineStatus)
-        refLines = ReferenceLineSet([rl for rl in refLines if (rl.status & badLineStatus) == 0])
+        refLines = ReferenceLineSet.fromRows([rl for rl in refLines if (rl.status & badLineStatus) == 0])
         for obs in obsLines:
             used = set()
             obs = sorted(obs, key=attrgetter("flux"), reverse=True)  # Brightest first

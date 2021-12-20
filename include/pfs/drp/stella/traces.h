@@ -3,6 +3,7 @@
 
 #include <map>
 #include <vector>
+#include <limits>
 #include "ndarray_fwd.h"
 #include "lsst/afw/geom/SpanSet.h"
 
@@ -18,6 +19,8 @@ struct TracePeak {
     lsst::afw::geom::Span const span;  ///< Span containing the peak
     double peak;  ///< Peak position in the spatial dimension
     double peakErr;  ///< Error in peak position
+    float flux;  ///< Flux measurement
+    float fluxErr;  ///< Error in flux measurement
 
     /// Constructor
     ///
@@ -26,11 +29,17 @@ struct TracePeak {
     /// @param peak_ : Peak position in the spatial dimension
     /// @param high : Column at the high-end of the span containing the peak
     /// @param peakErr_ : Error in peak position
+    /// @param flux_ : Flux measurement
+    /// @param fluxErr_ : Error in flux measurement
     TracePeak(int row, int low, double peak_, int high,
-              double peakErr_=std::numeric_limits<double>::quiet_NaN()) :
+              double peakErr_=std::numeric_limits<double>::quiet_NaN(),
+              float flux_=std::numeric_limits<float>::quiet_NaN(),
+              float fluxErr_=std::numeric_limits<float>::quiet_NaN()) :
       span(row, low, high),
       peak(peak_),
-      peakErr(peakErr_)
+      peakErr(peakErr_),
+      flux(flux_),
+      fluxErr(fluxErr_)
       {}
 
     TracePeak(TracePeak const&) = delete;
@@ -77,19 +86,23 @@ std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 );
 
 
-/// Centroid peaks within a trace
+/// Centroid peak
 ///
 /// We measure the centroid for all peaks, modifying the input
 ///
-/// @param peaks : List of peaks to centroid. Peaks are modified.
+/// @param peak : Peak to centroid; modified
 /// @param image : Image on which to measure centroids
-/// @param radius : Number of pixels on either side of the peak to use in the centroid measurement
+/// @param psfSigma : Gaussian sigma of the PSF in the x dimension
 /// @param badBitMask : Bitmask to apply to identify bad pixels. Bad pixels are ignored in the measurement
-void centroidTrace(
-    std::vector<std::shared_ptr<TracePeak>> & peaks,  // modified
+/// @param extent : Size of convolution kernel, relative to psfSigma
+/// @param ampAst4 : Amplitude of fourth-order correction compared to theory; 4/3 used for SDSS
+void centroidPeak(
+    TracePeak & peak,  // modified
     lsst::afw::image::MaskedImage<float> const& image,
-    int radius,
-    lsst::afw::image::MaskPixel badBitMask=0
+    float psfSigma,
+    lsst::afw::image::MaskPixel badBitMask=0,
+    float extent=3.0,
+    float ampAst4=1.33
 );
 
 

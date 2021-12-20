@@ -6,7 +6,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
-from pfs.drp.stella import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -26,11 +26,12 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
                                                         flux=intensity, rng=rng, addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
 
-        referenceLines = ReferenceLineSet.empty()
+        referenceLines = []
         fiberId = detMap.fiberId[detMap.getNumFibers()//2]
         for yy in arc.lines:
             wavelength = detMap.getWavelength(fiberId, yy)
-            referenceLines.append(description, wavelength, intensity, ReferenceLineStatus.GOOD)
+            referenceLines.append(ReferenceLine(description, wavelength, intensity, ReferenceLineStatus.GOOD))
+        referenceLines = ReferenceLineSet.fromRows(referenceLines)
 
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(arc.image))
         exposure.mask.set(0)

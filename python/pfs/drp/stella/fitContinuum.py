@@ -105,7 +105,7 @@ class FitContinuumTask(Task):
         """
         flux = spectrum.normFlux
         good = np.isfinite(flux)
-        if self.config.doMaskLines and lines is not None and spectrum.isWavelengthSet():
+        if self.config.doMaskLines and lines and spectrum.isWavelengthSet():
             good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
         if not np.any(good):

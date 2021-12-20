@@ -14,7 +14,7 @@ from pfs.datamodel import FiberStatus
 from pfs.drp.stella.fitFocalPlane import FitPolynomialPerFiberTask
 from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 from .referenceLine import ReferenceLineStatus
-from .arcLine import ArcLine, ArcLineSet
+from .arcLine import ArcLineSet
 from .DetectorMapContinued import DetectorMap
 from .datamodel.pfsConfig import PfsConfig
 
@@ -244,6 +244,7 @@ class MeasureApertureCorrectionsTask(Task):
         wavelength = catalog[self.wavelength]
         flag = catalog[self.prefix + "_flag"]
         status = catalog[self.status]
+        empty = np.full_like(wavelength, np.nan)
 
         reject = ~np.isfinite(apCorr) | ~np.isfinite(apCorrErr)
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -252,9 +253,9 @@ class MeasureApertureCorrectionsTask(Task):
         status[reject] = ReferenceLineStatus.REJECTED.value
         description = [row[self.description] for row in catalog]
 
-        lines = ArcLineSet([ArcLine(fiberId[ii], wavelength[ii], np.nan, np.nan, np.nan, np.nan, apCorr[ii],
-                                    apCorrErr[ii], flag[ii], status[ii], description[ii]) for
-                            ii in range(len(catalog))])
+        lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
+                                       xErr=empty, yErr=empty, intensity=apCorr, intensityErr=apCorrErr,
+                                       flag=flag, status=status, description=description)
         return lines.asPfsFiberArraySet()
 
     def apply(self, lines: ArcLineSet, apCorr: FocalPlaneFunction, pfsConfig: PfsConfig):
@@ -278,8 +279,9 @@ class MeasureApertureCorrectionsTask(Task):
             lookup[fiberId] = {wl: (flux, fluxErr) for
                                wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
 
-        for ll in lines:
-            ll.intensity, ll.intensityErr = lookup[ll.fiberId][ll.wavelength]
+        values = np.array([lookup[ll.fiberId][ll.wavelength] for ll in lines])
+        lines.intensity[:] = values[:, 0]
+        lines.intensityErr[:] = values[:, 1]
 
 
 def calculateApertureCorrection(apCorr: FocalPlaneFunction, fiberId: int, wavelength, pfsConfig: PfsConfig,

@@ -10,13 +10,14 @@ from lsst.afw.geom import SpanSet
 from lsst.afw.display import Display
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
+from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.images import convolveImage
 
 import lsstDebug
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 __all__ = ("BuildFiberProfilesConfig", "BuildFiberProfilesTask")
 
@@ -36,7 +37,6 @@ class BuildFiberProfilesConfig(Config):
     associationDepth = Field(dtype=int, default=10, doc="Depth of trace association (rows)")
     pruneMinLength = Field(dtype=int, default=1000, doc="Minimum length of trace to avoid pruning")
     pruneMinFrac = Field(dtype=float, default=0.7, doc="Minimum detection fraction of trace to avoid pruning")
-    centroidRadius = Field(dtype=int, default=5, doc="Radius about the peak for centroiding")
     centerFit = ConfigurableField(target=FitPolynomialTask, doc="Fit polynomial to trace centroids")
     badFibers = ListField(dtype=int, default=[], doc="Fibers to ignore (e.g., bad but not recorded as such")
     profileSwath = Field(dtype=float, default=300, doc="Length of swaths to use for calculating profile")
@@ -380,7 +380,8 @@ class BuildFiberProfilesTask(Task):
             centroids.
         """
         badBitmask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        centroidTrace(peakList, maskedImage, self.config.centroidRadius, badBitmask)
+        for pp in peakList:
+            centroidPeak(pp, maskedImage, fwhmToSigma(self.config.columnFwhm), badBitmask)
         if self.debugInfo.plotCentroids:
             import matplotlib.pyplot as plt
             plt.plot([pp.peak for pp in peakList], [pp.row for pp in peakList], 'k.')

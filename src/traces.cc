@@ -7,7 +7,8 @@ namespace stella {
 
 std::ostream& operator<<(std::ostream& os, TracePeak const& tp) {
     os << "TracePeak(" << tp.span.getY() << ", " << tp.span.getX0() << ", ";
-    os << tp.peak << ", " << tp.span.getX1() << ", " << tp.peakErr << ")";
+    os << tp.peak << ", " << tp.span.getX1() << ", " << tp.peakErr << ", ";
+    os << tp.flux << ", " << tp.fluxErr << ")";
     return os;
 }
 
@@ -162,40 +163,114 @@ std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 }
 
 
-void centroidTrace(
-    std::vector<std::shared_ptr<TracePeak>> & peaks,
-    lsst::afw::image::MaskedImage<float> const& image,
-    int radius,
-    lsst::afw::image::MaskPixel badBitMask
+namespace {
+
+/// Convolve a pixel along the row
+///
+/// Returns convolved image and variance values for the pixel.
+std::pair<double, double> convolvePixelRow(
+    lsst::afw::image::MaskedImage<float> const& image,  ///< Unconvolved image
+    lsst::geom::Point2I pixel,  ///< Pixel at the center of the convolution kernel
+    float psfSigma,  ///< Gaussian sigma of PSF
+    lsst::afw::image::MaskPixel badBitMask,  ///< Bitmask for bad pixels
+    float extent  ///< Extent of convolution kernel, relative to psfSigma
 ) {
-    for (auto & pp : peaks) {
-        // Going with a basic centroid for now, since RHL's book says that's the best for high S/N.
-        // Later, might try a Gaussian fit, or SdssCentroid's Gaussian quartic correction.
-        int const xMin = std::max(int(pp->peak - radius), 0);
-        int const xMax = std::min(int(pp->peak + radius + 0.5), image.getWidth() - 1);
-        double xSum = 0.0;
-        double sum = 0.0;
-        auto iter = image.row_begin(pp->span.getY()) + xMin;
-        for (int xx = xMin; xx <= xMax; ++xx, ++iter) {
-            if (iter.mask() & badBitMask) continue;
-            sum += iter.image();
-            xSum += xx*iter.image();
+    int const xx = pixel.getX();
+    int const yy = pixel.getY();
+    int const size = psfSigma*extent + 0.5;  // truncated
+    int const xMin = std::max(0, xx - size);  // inclusive
+    int const xMax = std::min(image.getWidth() - 1, xx + size);  // inclusive
+    double const invSigma = 1.0/psfSigma;
+    double sumImage = 0.0;
+    double sumVariance = 0.0;
+    double sumKernel = 0.0;
+    auto iter = image.row_begin(yy) + xMin;
+    for (int ii = xMin; ii <= xMax; ++ii, ++iter) {
+        if (iter.mask() & badBitMask) {
+            continue;
         }
-        double const xMean = xSum/sum;
-
-        // Variance in centroid = sum(variance*(x - xMean)^2)/sum(image)^2
-        double dx2Var = 0.0;
-        iter = image.row_begin(pp->span.getY()) + xMin;
-        for (int xx = xMin; xx <= xMax; ++xx, ++iter) {
-            if (iter.mask() & badBitMask) continue;
-            double const dx = xx - xMean;
-            dx2Var += std::pow(dx, 2)*iter.variance();
-        }
-        double const xErr = std::sqrt(dx2Var)/sum;
-
-        pp->peak = xMean;
-        pp->peakErr = xErr;
+        double const kernel = std::exp(-0.5*std::pow((ii - xx)*invSigma, 2));
+        sumImage += iter.image()*kernel;
+        sumVariance += iter.variance()*std::pow(kernel, 2);
+        sumKernel += kernel;
     }
+    return std::make_pair(sumImage/sumKernel, sumVariance/std::pow(sumKernel, 2));
+}
+
+
+}  // anonymous namespace
+
+
+void centroidPeak(
+    TracePeak & peak,
+    lsst::afw::image::MaskedImage<float> const& image,
+    float psfSigma,
+    lsst::afw::image::MaskPixel badBitMask,
+    float extent,
+    float ampAst4
+) {
+    // SdssCentroid-like Gaussian quartic correction
+    // We apply a Gaussian convolution to the central three pixels, and then apply the quartic correction
+    int const x0 = peak.peak + 0.5;  // truncated
+    if (x0 < 1 || x0 > image.getWidth() - 2) {
+        peak.peak = std::numeric_limits<double>::quiet_NaN();
+        peak.peakErr = std::numeric_limits<double>::quiet_NaN();
+        return;
+    }
+    int const row = peak.span.getY();
+    lsst::geom::Point2I const left{x0 - 1, row};
+    lsst::geom::Point2I const middle{x0, row};
+    lsst::geom::Point2I const right{x0 + 1, row};
+    auto const leftConv = convolvePixelRow(image, left, psfSigma, badBitMask, extent);
+    auto const middleConv = convolvePixelRow(image, middle, psfSigma, badBitMask, extent);
+    auto const rightConv = convolvePixelRow(image, right, psfSigma, badBitMask, extent);
+
+    // Calculate quartic correction:
+    // From RHL's photo lite paper:
+    // slope: s = 0.5*(right - left)
+    // deriv: d = 2*middle - left - right
+    // peak flux: A
+    // ampAst4: k
+    // center: x = s/d.(1 + kd/4A.(1 - 4s^2/d^2))
+    double const slope = 0.5*(rightConv.first - leftConv.first);
+    double const deriv = 2*middleConv.first - leftConv.first - rightConv.first;
+    double const aa = middleConv.first;
+    double const slope2 = std::pow(slope, 2);
+    double const invDeriv = 1.0/deriv;
+    double const invDeriv2 = std::pow(invDeriv, 2);
+    double const kOnFourA = ampAst4/(4*aa);
+
+    if (deriv <= 0.0 || middleConv.first <= 0.0) {
+        peak.peak = std::numeric_limits<double>::quiet_NaN();
+        peak.peakErr = std::numeric_limits<double>::quiet_NaN();
+        return;
+    }
+
+    double const corr = slope*invDeriv*(1 + kOnFourA*deriv*(1 - 4*slope2*invDeriv2));
+    double const center = x0 + corr;
+    if (std::abs(corr) > 1) {
+        peak.peak = std::numeric_limits<double>::quiet_NaN();
+        peak.peakErr = std::numeric_limits<double>::quiet_NaN();
+        return;
+    }
+
+    // Calculate errors
+    // From RHL's photo lite paper:
+    // var(x) = var(s)(1/d + k/4A.(1 - 12s^2/d^2))^2 + var(d)(s/d^2 - k/4A.8s^2/d^3)^2
+    double const slopeVar = 0.25*std::hypot(rightConv.second, leftConv.second);
+    double const derivVar = std::sqrt(4*std::pow(middleConv.second, 2) +
+                                        std::pow(leftConv.second, 2) +
+                                        std::pow(rightConv.second, 2));
+    double const slopeTerm = invDeriv + kOnFourA*(1 - 12*slope2*invDeriv2);
+    double const derivTerm = slope*invDeriv2 - kOnFourA*8*slope2*invDeriv*invDeriv2;
+    double const centerVar = slopeVar*std::pow(slopeTerm, 2) + derivVar*std::pow(derivTerm, 2);
+
+    double const aaVar = middleConv.second;
+
+    peak.peak = center;
+    peak.peakErr = std::sqrt(centerVar);
+    peak.flux = aa;
+    peak.fluxErr = std::sqrt(aaVar);
 }
 
 

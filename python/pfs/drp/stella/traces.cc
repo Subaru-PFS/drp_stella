@@ -14,12 +14,17 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
+constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+
 void declareTracePeak(py::module &mod) {
     py::class_<TracePeak, std::shared_ptr<TracePeak>> cls(mod, "TracePeak");
-    cls.def(py::init<int, int, float, int>(), "row"_a, "low"_a, "peak"_a, "high"_a);
+    cls.def(py::init<int, int, double, int, double, float, float>(),
+            "row"_a, "low"_a, "peak"_a, "high"_a, "peakErr"_a=NaN, "flux"_a=NaN, "fluxErr"_a=NaN);
     cls.def_readonly("span", &TracePeak::span);
     cls.def_readonly("peak", &TracePeak::peak);
     cls.def_readonly("peakErr", &TracePeak::peakErr);
+    cls.def_readonly("flux", &TracePeak::flux);
+    cls.def_readonly("fluxErr", &TracePeak::fluxErr);
     cls.def_property_readonly("row", [](TracePeak const& self) { return self.span.getY(); });
     cls.def_property_readonly("low", [](TracePeak const& self) { return self.span.getX0(); });
     cls.def_property_readonly("high", [](TracePeak const& self) { return self.span.getX1(); });
@@ -40,7 +45,8 @@ PYBIND11_PLUGIN(traces) {
                               float, float, lsst::afw::image::MaskPixel,
                               ndarray::Array<int, 1, 1> const&>(&findTracePeaks),
             "image"_a, "detectorMap"_a, "threshold"_a, "radius"_a, "badBitMask"_a=0, "fiberId"_a=nullptr);
-    mod.def("centroidTrace", &centroidTrace, "peaks"_a, "image"_a, "radius"_a, "badBitMask"_a=0);
+    mod.def("centroidPeak", &centroidPeak, "peak"_a, "image"_a, "psfSigma"_a,
+            "badBitMask"_a=0, "extent"_a=3.0, "ampAst4"_a=1.33);
     return mod.ptr();
 }
 

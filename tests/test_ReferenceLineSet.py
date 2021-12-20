@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
-from pfs.drp.stella import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 
 
 class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
@@ -15,9 +15,10 @@ class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
         self.status = ReferenceLineStatus.BROAD
         self.wavelength = 1234.5678
         self.intensity = 543.21
-        self.lines = ReferenceLineSet.empty()
+        lines = []
         for _ in range(self.num):
-            self.lines.append(self.description, self.wavelength, self.intensity, self.status)
+            lines.append(ReferenceLine(self.description, self.wavelength, self.intensity, self.status))
+        self.lines = ReferenceLineSet.fromRows(lines)
 
     def assertReferenceLines(self, lines):
         """Assert that the values are as expected"""

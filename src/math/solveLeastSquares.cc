@@ -1,6 +1,7 @@
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
+#include "lsst/pex/exceptions.h"
 #include "lsst/afw/math/LeastSquares.h"
 
 #include "pfs/drp/stella/math/solveLeastSquares.h"
@@ -35,6 +36,12 @@ ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     ndarray::Array<double, 1, 1> rhs = ndarray::allocate(numParams);
     asEigenMatrix(fisher) = dd.transpose()*dd;
     asEigenMatrix(rhs) = dd.transpose()*asEigenMatrix(measNorm);
+
+    if (asEigenMatrix(fisher).isZero(0.0)) {
+        rhs.deep() = 0.0;
+        return rhs;
+    }
+
     auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(fisher, rhs);
     auto const diag = lsq.getDiagnostic(lsst::afw::math::LeastSquares::NORMAL_EIGENSYSTEM);
     double const sum = asEigenArray(diag).sum();

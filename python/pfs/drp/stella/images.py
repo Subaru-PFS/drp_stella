@@ -2,7 +2,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from lsst.afw.geom import SpanSet
-from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
+from lsst.afw.math import GaussianFunction1D, IntegerDeltaFunction1D
+from lsst.afw.math import SeparableKernel, convolve, ConvolutionControl
 
 from .utils.psf import fwhmToSigma
 
@@ -112,8 +113,10 @@ def convolveImage(maskedImage, colFwhm, rowFwhm=None, growMask=1, kernelSize=4.0
     xSigma = colFwhm if sigmaNotFwhm else fwhmToSigma(colFwhm)
     ySigma = rowFwhm if sigmaNotFwhm else fwhmToSigma(rowFwhm)
 
-    kernel = SeparableKernel(sigmaToSize(xSigma), sigmaToSize(ySigma),
-                             GaussianFunction1D(xSigma), GaussianFunction1D(ySigma))
+    xKernel = GaussianFunction1D(xSigma) if xSigma > 0 else IntegerDeltaFunction1D(0.0)
+    yKernel = GaussianFunction1D(ySigma) if ySigma > 0 else IntegerDeltaFunction1D(0.0)
+
+    kernel = SeparableKernel(sigmaToSize(xSigma), sigmaToSize(ySigma), xKernel, yKernel)
 
     convolvedImage = maskedImage.Factory(maskedImage.getBBox())
     convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())

@@ -13,7 +13,7 @@ from lsst.pex.exceptions import DomainError
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DistortedDetectorMap, DetectorDistortion
 from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
-from pfs.drp.stella.arcLine import ArcLineSet
+from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
@@ -246,11 +246,12 @@ class DistortedDetectorMapTestCase(lsst.utils.tests.TestCase):
         flux = 1000.0
         fluxErr = 1.0
         bbox = self.base.bbox
-        lines = ArcLineSet.empty()
+        lines = []
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
-                lines.append(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy), float(yy),
-                             0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake")
+                lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
+                             float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake"))
+        lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True

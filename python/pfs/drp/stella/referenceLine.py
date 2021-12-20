@@ -1,7 +1,8 @@
 import os
 import re
-from types import SimpleNamespace
+from dataclasses import dataclass
 from math import log2
+from deprecated import deprecated
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from lsst.utils import getPackageDir
 
 from pfs.datamodel import MaskHelper
 from .utils.bitmask import Bitmask
+from .table import TableBase
 
 __all__ = ("ReferenceLineStatus", "ReferenceLine", "ReferenceLineSet")
 
@@ -44,7 +46,8 @@ class ReferenceLineStatus(Bitmask):
         return MaskHelper(**{name: number for name, number in bits.items() if number != 0})
 
 
-class ReferenceLine(SimpleNamespace):
+@dataclass
+class ReferenceLine:
     """A reference arc line
 
     Parameters
@@ -58,104 +61,30 @@ class ReferenceLine(SimpleNamespace):
     status : `int`
         Bitmask indicating the quality of the line.
     """
-    def __init__(self, description, wavelength, intensity, status):
-        super().__init__(description=description, wavelength=wavelength, intensity=intensity, status=status)
-
-    def copy(self):
-        """Return a copy"""
-        return type(self)(**self.__dict__)
-
-    def __reduce__(self):
-        """Pickling"""
-        return type(self), (self.description, self.wavelength, self.intensity, self.status)
+    description: str
+    wavelength: float
+    intensity: float
+    status: np.int32
 
 
-class ReferenceLineSet:
+class ReferenceLineSet(TableBase):
     """A list of `ReferenceLine`s.
 
     Parameters
     ----------
-    lines : iterable of `ReferenceLine`
-        List of reference lines.
+    data : `pandas.DataFrame`
+        Table data.
     """
-    def __init__(self, lines):
-        self.lines = list(lines)
+    RowClass = ReferenceLine
 
     @property
-    def description(self):
-        """Array of line description (`numpy.ndarray` of `str`)"""
-        return np.array([ll.description for ll in self.lines])
+    @deprecated(reason="use the 'rows' attribute instead of 'lines'")
+    def lines(self):
+        """Return array of lines
 
-    @property
-    def wavelength(self):
-        """Array of line wavelength, nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.wavelength for ll in self.lines], dtype=float)
-
-    @property
-    def intensity(self):
-        """Array of line intensity (`numpy.ndarray` of `float`)"""
-        return np.array([ll.intensity for ll in self.lines], dtype=float)
-
-    @property
-    def status(self):
-        """Array of line status (`numpy.ndarray` of `int`)"""
-        return np.array([ll.status for ll in self.lines], dtype=np.int32)
-
-    def __len__(self):
-        """Number of lines"""
-        return len(self.lines)
-
-    def __iter__(self):
-        """Iterator"""
-        return iter(self.lines)
-
-    def __getitem__(self, index):
-        """Retrieve by index"""
-        return self.lines[index]
-
-    def extend(self, lines):
-        """Extend the list of lines
-
-        Parameters
-        ----------
-        lines : iterable of `ArcLine`
-            List of lines to add.
+        Included for backwards compatibility.
         """
-        self.lines.extend(lines)
-
-    def __add__(self, rhs):
-        """Addition"""
-        return type(self)(self.lines + rhs.lines)
-
-    def __iadd__(self, rhs):
-        """In-place addition"""
-        self.extend(rhs.lines)
-        return self
-
-    def append(self, description, wavelength, intensity, status):
-        """Append to the list of lines
-
-        Parameters
-        ----------
-        description : `str`
-            Description of the line; usually the atomic or molecular identification.
-        wavelength : `float`
-            Reference line wavelength (nm).
-        intensity : `float`
-            Estimated intensity (arbitrary units).
-        status : `int`
-            Bitmask indicating the quality of the line.
-        """
-        self.lines.append(ReferenceLine(description, wavelength, intensity, status))
-
-    def copy(self):
-        """Return a deep copy"""
-        return type(self)([ll.copy() for ll in self])
-
-    @classmethod
-    def empty(cls):
-        """Construct an empty `ReferenceLineSet`"""
-        return cls([])
+        return self.rows
 
     @classmethod
     def fromLineList(cls, filename):
@@ -182,7 +111,7 @@ class ReferenceLineSet:
             if os.path.exists(absFilename):
                 filename = absFilename
 
-        self = cls.empty()
+        lines = []
         with open(filename) as fd:
             for ii, line in enumerate(fd):
                 line = re.sub(r"\s*#.*$", "", line).rstrip()  # strip comments
@@ -200,9 +129,10 @@ class ReferenceLineSet:
                 except ValueError:
                     intensity = np.nan
 
-                self.append(description, float(wavelength), intensity, ReferenceLineStatus(int(status)))
+                lines.append(ReferenceLine(description, float(wavelength), intensity,
+                             ReferenceLineStatus(int(status))))
 
-        return self
+        return cls.fromRows(lines)
 
     def applyExclusionZone(self, exclusionRadius: float,
                            status: ReferenceLineStatus = ReferenceLineStatus.BLEND
@@ -228,7 +158,7 @@ class ReferenceLineSet:
 
         Lines are sorted by species and then by wavelength.
         """
-        self.lines = sorted(self.lines, key=lambda ll: (ll.description, ll.wavelength, ll.status))
+        self.data.sort_values(("description", "wavelength", "status"), inplace=True)
 
     def writeLineList(self, filename):
         """Write a line list text file
@@ -256,7 +186,7 @@ class ReferenceLineSet:
                 if flag != ReferenceLineStatus.BAD:
                     print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
             print("#", file=fd)
-            for line in self.lines:
+            for line in self.rows:
                 print(f"{line.wavelength:<12.5f} {line.intensity:12.2f}    "
                       f"{line.description:7s} {line.status:6d}",
                       file=fd)

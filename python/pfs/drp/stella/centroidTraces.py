@@ -1,3 +1,5 @@
+from typing import Dict, Iterable
+
 import numpy as np
 
 from lsst.pex.config import Config, Field, ListField
@@ -7,12 +9,16 @@ from lsst.afw.display import Display
 from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.traces import findTracePeaks, centroidTrace
+from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.images import convolveImage
+from .DetectorMapContinued import DetectorMap
+from .arcLine import ArcLine, ArcLineSet
+from .referenceLine import ReferenceLineStatus
+from .utils.psf import fwhmToSigma
 
 import lsstDebug
 
-__all__ = ("CentroidTracesConfig", "CentroidTracesTask")
+__all__ = ("CentroidTracesConfig", "CentroidTracesTask", "tracesToLines")
 
 
 class CentroidTracesConfig(Config):
@@ -21,8 +27,7 @@ class CentroidTracesConfig(Config):
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
     threshold = Field(dtype=float, default=50.0, doc="Signal-to-noise threshold for trace")
-    searchRadius = Field(dtype=float, default=3, doc="Radius about the expected peak to search")
-    centroidRadius = Field(dtype=int, default=3, doc="Radius about the peak for centroiding")
+    searchRadius = Field(dtype=float, default=1, doc="Radius about the expected peak to search")
 
 
 class CentroidTracesTask(Task):
@@ -55,7 +60,8 @@ class CentroidTracesTask(Task):
         if psf is None:
             psf = createPsf(self.config.fwhm)
         convolved = self.convolveImage(exposure, psf)
-        convolved.image.array /= np.sqrt(convolved.variance.array)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            convolved.image.array /= np.sqrt(convolved.variance.array)
         traces = self.findTracePeaks(convolved, detectorMap, pfsConfig)
         self.centroidTraces(exposure.maskedImage, traces)
         self.log.info("Measured %d centroids for %d traces",
@@ -81,7 +87,7 @@ class CentroidTracesTask(Task):
             Convolved image.
         """
         sigma = psf.computeShape().getTraceRadius()
-        convolvedImage = convolveImage(exposure.maskedImage, sigma, sigma, sigmaNotFwhm=True)
+        convolvedImage = convolveImage(exposure.maskedImage, sigma, 0.0, sigmaNotFwhm=True)
         if self.debugInfo.displayConvolved:
             Display(frame=1).mtv(convolvedImage)
 
@@ -109,8 +115,17 @@ class CentroidTracesTask(Task):
             select = pfsConfig.getSelection(fiberId=detectorMap.fiberId, fiberStatus=FiberStatus.GOOD)
             fiberId = pfsConfig.fiberId[select]
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        return findTracePeaks(maskedImage, detectorMap, self.config.threshold, self.config.searchRadius,
-                              badBitMask, fiberId)
+        tracePeaks = findTracePeaks(maskedImage, detectorMap, self.config.threshold, self.config.searchRadius,
+                                    badBitMask, fiberId)
+        if self.debugInfo.plotPeaks:
+            display = Display(frame=1)
+            display.mtv(maskedImage)
+            for ff in tracePeaks:
+                with display.Buffering():
+                    for pp in tracePeaks[ff]:
+                        display.dot("+", pp.peak, pp.row)
+
+        return tracePeaks
 
     def centroidTraces(self, maskedImage, tracePeaks):
         """Measure the centroids for peaks in each trace
@@ -125,10 +140,51 @@ class CentroidTracesTask(Task):
             Peaks for each trace, indexed by fiberId.
         """
         badBitmask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+        psfSigma = fwhmToSigma(self.config.fwhm)
         for ff in tracePeaks:
-            centroidTrace(tracePeaks[ff], maskedImage, self.config.centroidRadius, badBitmask)
+            for pp in tracePeaks[ff]:
+                centroidPeak(pp, maskedImage, psfSigma, badBitmask)
         if self.debugInfo.plotCentroids:
             import matplotlib.pyplot as plt
             for ff in tracePeaks:
                 plt.plot([pp.peak for pp in tracePeaks[ff]], [pp.row for pp in tracePeaks[ff]], 'k.')
             plt.show()
+
+
+def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak]],
+                  spectralError: float) -> ArcLineSet:
+    """Convert traces to lines
+
+    Well, they're not really lines, but we have measurements on where the
+    traces are in x, so that will allow us to fit some distortion
+    parameters. If there aren't any lines, we won't be able to update the
+    wavelength solution much, but we're probably working with a quartz so
+    that doesn't matter.
+
+    Trace measurements in the line list may be distinguished as having the
+    ``description == "Trace"``.
+
+    Parameters
+    ----------
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
+        Measured peak positions for each row, indexed by (identified)
+        fiberId. These are only used if we don't have lines.
+    spectralError : `float`
+        Error in spectral dimension (pixels) to give lines.
+
+    Returns
+    -------
+    lines : `pfs.drp.stella.ArcLineSet`
+        Line measurements, treating every trace row with a centroid as a
+        line.
+    """
+    lines = []
+    for fiberId in traces:
+        row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
+        wavelength = detectorMap.findWavelength(fiberId, row)
+        lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
+                              tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
+                      wl, yy, tt in zip(wavelength, row, traces[fiberId])])
+    return ArcLineSet.fromRows(lines)
