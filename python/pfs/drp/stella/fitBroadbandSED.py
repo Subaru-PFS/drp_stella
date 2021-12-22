@@ -17,8 +17,6 @@ class FitBroadbandSEDConfig(Config):
 
     fluxLibraryPath = Field(
         dtype=str,
-        default=os.path.join(getPackageDir("drp_pfs_data"), "fluxCalibration",
-                             "syntheticFlux_withInterp_ps_HSCPS1GaiaSDSS.fits"),
         doc="Synthetic photometry table"
     )
 
@@ -30,6 +28,22 @@ class FitBroadbandSEDConfig(Config):
         },
         doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`"
     )
+
+    def setDefaults(self):
+        super().setDefaults()
+
+        try:
+            dataDir = getPackageDir("fluxmodeldata")
+        except LookupError:
+            # We don't make this an exception because this method is called
+            # even when `fluxLibraryPath` is specified in a call to the
+            # constructor.
+            dataDir = None
+
+        if dataDir is not None:
+            self.fluxLibraryPath = os.path.join(
+                dataDir, "broadband", "photometries.fits"
+            )
 
 
 class FitBroadbandSEDTask(Task):

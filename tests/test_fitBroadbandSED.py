@@ -1,12 +1,21 @@
 import lsst.utils.tests
 
+import lsst.utils
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDConfig, FitBroadbandSEDTask
 from pfs.drp.stella.tests import runTests
 from pfs.datamodel.pfsConfig import FiberStatus, PfsConfig, TargetType
 
 import numpy
 
+import unittest
 
+try:
+    dataDir = lsst.utils.getPackageDir("fluxmodeldata")
+except LookupError:
+    dataDir = None
+
+
+@unittest.skipIf(dataDir is None, "fluxmodeldata not setup")
 class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.fitBroadbandSED = FitBroadbandSEDTask(config=FitBroadbandSEDConfig())
