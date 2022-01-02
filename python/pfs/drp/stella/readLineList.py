@@ -13,10 +13,8 @@ __all__ = ("ReadLineListConfig", "ReadLineListTask")
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
     lineListFiles = ListField(dtype=str,
-                              doc="list of names of linelist files (overrides the header)",
+                              doc="list of names of linelist files (overrides the OBS_PFS linelists)",
                               default=[])
-    restrictByLamps = Field(dtype=bool, default=True,
-                            doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     lampElementList = ListField(dtype=str,
                                 doc="list of lamp elements or species to filter by", default=[])
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
@@ -51,29 +49,39 @@ class ReadLineListTask(Task):
         lines : `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist.
         """
-        lines = ReferenceLineSet.empty()
-        if self.config.lineListFiles:
-            for filename in self.config.lineListFiles:
-                lines.extend(ReferenceLineSet.fromLineList(filename))
-        if self.config.restrictByLamps:
+        lineListFiles = []
+        lampElementList = []
+        lampInfo = None
+
+        if metadata:
             lampInfo = self.getLampInfo(metadata)
-            lamps = lampInfo.lamps
-            lampElementList = lampInfo.lampElementList
-            if lamps:
-                if not self.config.lineListFiles:
-                    for lamp in lamps:
-                        lines.extend(ReferenceLineSet.fromLineList(f'{lamp}.txt'))
-                if self.config.lampElementList:
-                    lines = self.filterByLampElements(lines, self.config.lampElementList)
-                else:
-                    lines = self.filterByLampElements(lines, lampElementList)
+
+        if self.config.lampElementList:
+            lampElementList = self.config.lampElementList
+        else:
+            if lampInfo:
+                lampElementList = lampInfo.lampElementList
+
+        if self.config.lineListFiles:
+            lineListFiles = self.config.lineListFiles
+        else:
+            if lampInfo:
+                lamps = lampInfo.lamps
+                if lamps:
+                    lineListFiles = [f'{lamp}.txt' for lamp in lamps]
+
+        lines = ReferenceLineSet.empty()
+        for filename in lineListFiles:
+            lines.extend(ReferenceLineSet.fromLineList(filename))
+
+        lines = self.filterByLampElements(lines, lampElementList)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         lines.applyExclusionZone(self.config.exclusionRadius)
         return lines
 
     def filterByLampElements(self, lines, lampElements):
-        """Filter the line list by the elements or specices in the active lamps
+        """Filter the line list by the elements or species in the active lamps
 
         Parameters
         ----------
@@ -85,8 +93,10 @@ class ReadLineListTask(Task):
         Returns
         -------
         filtered : `pfs.drp.stella.ReferenceLineSet`
-            Filtered list of reference lines.
+            Filtered list of reference lines, or input lines if ``elements`` is Falsey.
         """
+        if not lampElements:
+            return lines
         keep = []
         for component in lampElements:
             if self._isSpeciesPattern.match(component):

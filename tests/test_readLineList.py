@@ -45,7 +45,6 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
             Line(1023.456, 1000, "NeI", 0),
         ]
         self.config = ReadLineListTask.ConfigClass()
-        self.config.restrictByLamps = False
 
     def makeLineList(self, **kwargs):
         """Generate a lineList from the defined contents
@@ -95,7 +94,6 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         metadata.set("W_AITNEO", 0)  # Neon
         metadata.set("W_AITARG", 1)  # Argon
         metadata.set("W_AITKRY", 0)  # Krypton
-        self.config.restrictByLamps = True
         lineList = self.makeLineList(metadata=metadata)
         expect = [ll for ll in self.contents if ll.description == "ArI"]
         assert len(expect) == 2  # Two lines are Argon
@@ -108,7 +106,6 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         metadata.set("W_AITARG", 0)  # Argon
         metadata.set("W_AITKRY", 0)  # Krypton
         metadata.set("W_AITHGC", 1)  # Mercury-Cadmium
-        self.config.restrictByLamps = True
         lineList = self.makeLineList(metadata=metadata)
         expect = [ll for ll in self.contents if ll.description in ["ArI", "HgI", "HgII"]]
         assert len(expect) == 4  # Two lines are Mercury, two are Argon

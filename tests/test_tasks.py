@@ -163,7 +163,6 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = True
         config.doSubtractSky2d = False
         config.doWriteCalexp = True
-        config.readLineList.restrictByLamps = False
 
         task = ReduceExposureTask(config=config)
         task.log.setLevel(task.log.DEBUG)
