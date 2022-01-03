@@ -1,26 +1,63 @@
-import numpy as np
-
-from lsst.pex.config import Config, Field, ListField
+from lsst.pex.config import Config, Field, ListField, DictField, FieldValidationError
 from lsst.pipe.base import Struct, Task
 
 from lsst.obs.pfs.utils import getLamps, getLampElements
-from .referenceLine import ReferenceLineSet
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 import re
+from collections import Counter
+import numpy as np
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
-    lineListFiles = ListField(dtype=str,
-                              doc="list of names of linelist files (overrides the OBS_PFS linelists)",
-                              default=[])
-    lampElementList = ListField(dtype=str,
-                                doc="list of lamp elements or species to filter by", default=[])
+    lightSources = ListField(dtype=str,
+                             doc=("list of unique light sources that provide "
+                                  "the emission lines (overrides header). "
+                                  "These must be keys in the lightSourceMap. "),
+                             default=[])
+    lampElements = ListField(dtype=str,
+                             doc=("list of unique lamp elements or species to filter by. "),
+                             default=[])
+    lightSourceMap = DictField(keytype=str, itemtype=str,
+                               doc=("Mapping of lamp or other light source to linelist file."
+                                    "A value of ``None`` means no line list file "
+                                    "is available for that source. "
+                                    "If the value is not an absolute path, "
+                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``."),
+                               default={'Ar': 'Ar.txt',
+                                        'Ne': 'Ne.txt',
+                                        'Kr': 'Kr.txt',
+                                        'HgAr': 'HgAr.txt',
+                                        'HgCd': 'HgCd.txt',
+                                        'Quartz': None,
+                                        'sky': 'skyLines.txt'})
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
+
+    def validate(self):
+        """Validate input config parameters"""
+
+        def getDuplicateItems(l):
+            """Return a list of duplicates"""
+            return [k for k, v in Counter(l).items() if v > 1]
+
+        super().validate()
+        duplicateLightSources = getDuplicateItems(self.lightSources)
+        if duplicateLightSources:
+            raise RuntimeError(f'There are duplicate light sources {duplicateLightSources}')
+
+        lightSourcesSet = set(self.lightSources)
+        invalidSources = lightSourcesSet - lightSourcesSet.intersection(self.lightSourceMap.keys())
+        if invalidSources:
+            raise RuntimeError('The following light sources '
+                               f'are not in the lightSourceMap: {invalidSources}')
+        duplicateLampElements = getDuplicateItems(self.lampElements)
+        if duplicateLampElements:
+            raise RuntimeError(f'There are duplicate lamp elements {duplicateLampElements}')
 
 
 class ReadLineListTask(Task):
@@ -49,36 +86,52 @@ class ReadLineListTask(Task):
         lines : `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist.
         """
-        lineListFiles = []
-        lampElementList = []
-        lampInfo = None
+        lightSources = {}
+        lampElements = {}
+        lampInfoFromMetaData = None
 
-        if metadata:
-            lampInfo = self.getLampInfo(metadata)
-
-        if self.config.lampElementList:
-            lampElementList = self.config.lampElementList
+        if len(self.config.lightSources) > 0:
+            lightSources = set(self.config.lightSources)
         else:
-            if lampInfo:
-                lampElementList = lampInfo.lampElementList
+            lampInfoFromMetaData = self.getLampInfo(metadata)
+            lightSources = lampInfoFromMetaData.lamps
 
-        if self.config.lineListFiles:
-            lineListFiles = self.config.lineListFiles
+        if len(self.config.lampElements) > 0:
+            lampElements = set(self.config.lampElements)
         else:
-            if lampInfo:
-                lamps = lampInfo.lamps
-                if lamps:
-                    lineListFiles = [f'{lamp}.txt' for lamp in lamps]
+            if lampInfoFromMetaData:
+                lampElements = lampInfoFromMetaData.lampElements
 
         lines = ReferenceLineSet.empty()
-        for filename in lineListFiles:
-            lines.extend(ReferenceLineSet.fromLineList(filename))
+        for ll in lightSources:
+            filename = self.config.lightSourceMap[ll]
+            if filename is not None:
+                lines.extend(ReferenceLineSet.fromLineList(filename))
 
-        lines = self.filterByLampElements(lines, lampElementList)
+        lines = self.filterByLampElements(lines, lampElements)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
+        self.filterDuplicates(lines)
         lines.applyExclusionZone(self.config.exclusionRadius)
         return lines
+
+    def filterDuplicates(self, lines: ReferenceLineSet) -> None:
+        """Reject duplicate lines by wavelength from the line list.
+
+        This is performed in-place.
+
+        This may occur if multiple input sources may share
+        lines with the same wavelength.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        """
+        _, indices = np.unique(lines.wavelength, return_index=True)
+        reject = np.full(len(lines), True, dtype=bool)
+        reject[indices] = False
+        lines.status[reject] |= ReferenceLineStatus.BLEND
 
     def filterByLampElements(self, lines, lampElements):
         """Filter the line list by the elements or species in the active lamps
@@ -87,15 +140,16 @@ class ReadLineListTask(Task):
         ----------
         lines : `pfs.drp.stella.ReferenceLineSet`
             List of reference lines.
-        elements : ``list` of `str`
-            The list of elements or species in the active lamps.
+        lampElements : `set` of `str`
+            The set of elements or species in the active lamps.
 
         Returns
         -------
         filtered : `pfs.drp.stella.ReferenceLineSet`
-            Filtered list of reference lines, or input lines if ``elements`` is Falsey.
+            Filtered list of reference lines, or input lines if ``lampElements``
+            is either ``None`` or empty.
         """
-        if not lampElements:
+        if lampElements is None or len(lampElements) == 0:
             return lines
         keep = []
         for component in lampElements:
@@ -107,9 +161,8 @@ class ReadLineListTask(Task):
                 elementPattern = re.compile(f'^{component}[IVX]*$')
                 keep += [ll for ll in lines if elementPattern.match(ll.description)]
         speciesKept = {ll.description for ll in keep}
-        self.log.info(f"Filtered line lists for elements/species: {sorted(lampElements)}, "
-                      f"keeping species {speciesKept}.")
-        return ReferenceLineSet(keep)
+        self.log.info("Filtered line lists, keeping species %s.", speciesKept)
+        return ReferenceLineSet.fromRows(keep)
 
     def filterByIntensity(self, lines):
         """Filter the line list by intensity level
@@ -133,7 +186,7 @@ class ReadLineListTask(Task):
         return lines[select]
 
     def getLampInfo(self, metadata):
-        """Determine which lamps are active and return the lamp names
+        """Determine from the metadata which lamps are active and return the lamp names
 
         Parameters
         ----------
@@ -142,14 +195,18 @@ class ReadLineListTask(Task):
 
         Returns
         -------
+
         lampInfo : `lsst.pipe.base.Struct`
-           Resultant struct with components:
-            lamps : `list` of `str`, or `None`
-                The list of active lamps from the metadata.
+           Lamp information as a struct with components:
+
+           ``lamps``
+                List of active lamps from the metadata (`set` of `str`]).
+
                 If no active lamps can be retrieved from the metadata, and ``assumeSkyIfNoLamps`` is set,
-                then ``[skyLines]`` is returned, otherwise, ``None``.
-            lampElementList:
-                The list of lamp elements across all active lamps.
+                then ``[sky]`` is returned, otherwise, ``None``.
+
+            ``lampElements``
+                Set of active lamp elements across all active lamps (`set` of `str`).
 
         Raises
         ------
@@ -159,15 +216,15 @@ class ReadLineListTask(Task):
         if metadata is None:
             raise RuntimeError("Cannot determine lamp information because metadata was not provided")
         lamps = getLamps(metadata)
-        lampElementList = getLampElements(metadata)
+        lampElements = getLampElements(metadata)
         if not lamps:
             if self.config.assumeSkyIfNoLamps:
                 self.log.info("No lamps on; assuming sky.")
-                lamps = ["skyLines"]
-                lampElementList = ["OI", "NaI", "OH"]
+                lamps = {"sky"}
+                lampElements = {"OI", "NaI", "OH"}
             else:
                 self.log.warning('No lamp information can be found in the metadata')
-        return Struct(lamps=lamps, lampElementList=lampElementList)
+        return Struct(lamps=lamps, lampElements=lampElements)
 
     def filterByWavelength(self, lines, detectorMap=None):
         """Filter the line list by wavelength
