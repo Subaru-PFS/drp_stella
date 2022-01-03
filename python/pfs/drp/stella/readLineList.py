@@ -160,10 +160,13 @@ class ReadLineListTask(Task):
             raise RuntimeError("Cannot determine lamp information because metadata was not provided")
         lamps = getLamps(metadata)
         lampElementList = getLampElements(metadata)
-        if not lamps and self.config.assumeSkyIfNoLamps:
-            self.log.info("No lamps on; assuming sky.")
-            lamps = ["skyLines"]
-            lampElementList = ["OI", "NaI", "OH"]
+        if not lamps:
+            if self.config.assumeSkyIfNoLamps:
+                self.log.info("No lamps on; assuming sky.")
+                lamps = ["skyLines"]
+                lampElementList = ["OI", "NaI", "OH"]
+            else:
+                self.log.warning('No lamp information can be found in the metadata')
         return Struct(lamps=lamps, lampElementList=lampElementList)
 
     def filterByWavelength(self, lines, detectorMap=None):
