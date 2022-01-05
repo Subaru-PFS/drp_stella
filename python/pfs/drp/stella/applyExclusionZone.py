@@ -33,6 +33,4 @@ def applyExclusionZone(lines: Union[ReferenceLineSet, ArcLineSet], exclusionRadi
     for ll in lines:
         distance = wavelength - ll.wavelength
         reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
-    for ll, rej in zip(lines, reject):
-        if rej:
-            ll.status |= status
+    lines.status[reject] |= status
