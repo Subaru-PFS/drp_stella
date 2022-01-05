@@ -1,24 +1,18 @@
 from pfs.datamodel.pfsConfig import TargetType
 
-from lsst.pex.config import Config, Field, DictField
+from lsst.pex.config import Config, DictField
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
 
+from .fluxModelSet import FluxModelSet
+
 import numpy
 import numpy.lib.recfunctions
-import astropy.io.fits
-
-import os
 
 
 class FitBroadbandSEDConfig(Config):
     """Configuration for FitBroadbandSEDTask
     """
-
-    fluxLibraryPath = Field(
-        dtype=str,
-        doc="Synthetic photometry table"
-    )
 
     filterMappings = DictField(
         keytype=str, itemtype=str,
@@ -29,22 +23,6 @@ class FitBroadbandSEDConfig(Config):
         doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`"
     )
 
-    def setDefaults(self):
-        super().setDefaults()
-
-        try:
-            dataDir = getPackageDir("fluxmodeldata")
-        except LookupError:
-            # We don't make this an exception because this method is called
-            # even when `fluxLibraryPath` is specified in a call to the
-            # constructor.
-            dataDir = None
-
-        if dataDir is not None:
-            self.fluxLibraryPath = os.path.join(
-                dataDir, "broadband", "photometries.fits"
-            )
-
 
 class FitBroadbandSEDTask(Task):
     """Fit an observed SED with synthetic model SEDs
@@ -52,6 +30,10 @@ class FitBroadbandSEDTask(Task):
 
     ConfigClass = FitBroadbandSEDConfig
     _DefaultName = "fitBroadbandSED"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
 
     def runDataRef(self, dataRef):
         """For each spectrum,
@@ -160,21 +142,3 @@ class FitBroadbandSEDTask(Task):
         prob_norm = prob / numpy.sum(prob)
 
         return prob_norm
-
-    @property
-    def fluxLibrary(self):
-        """Table of the synthetic model SEDs
-
-        Returns
-        -------
-        fluxLibrary : `numpy.array`
-            A structured array,
-            whose columns are SED parameters and various fluxes.
-        """
-        table = getattr(self, "_fluxLibrary", None)
-        if table is None:
-            # We convert FITS_rec back to numpy's structured array
-            # because FITS_rec cannot be indexed with multiple column names.
-            with astropy.io.fits.open(self.config.fluxLibraryPath) as fits:
-                table = self._fluxLibrary = numpy.asarray(fits[1].data)
-        return table
