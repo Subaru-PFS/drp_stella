@@ -107,7 +107,7 @@ class MeasureApertureCorrectionsTask(Task):
 
         # Flag lines that are too close; don't even bother measuring them
         linesCopy = lines.copy()
-        dispersion = np.array([detectorMap.getDispersion(ff) for ff in pfsConfig.fiberId])
+        dispersion = np.array([detectorMap.getDispersionAtCenter(ff) for ff in pfsConfig.fiberId])
         exclusionRadius = self.config.exclusionFactor*self.config.apertureFlux.radii[0]*np.median(dispersion)
         linesCopy.applyExclusionZone(exclusionRadius)
 

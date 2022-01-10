@@ -575,7 +575,7 @@ class ReduceExposureTask(CmdLineTask):
         """
         length = detectorMap.bbox.getHeight()
         sigma = self.config.gaussianLsfWidth[arm]
-        return {ff: GaussianLsf(length, sigma/detectorMap.getDispersion(ff)) for ff in fiberId}
+        return {ff: GaussianLsf(length, sigma/detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
 
     def plotSpectra(self, spectraList):
         """Plot spectra

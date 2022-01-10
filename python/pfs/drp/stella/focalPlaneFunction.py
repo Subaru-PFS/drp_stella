@@ -10,7 +10,7 @@ from lsst.pipe.base import Struct
 
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
-from pfs.drp.stella.datamodel.interpolate import interpolateFlux, interpolateMask
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
 from .math import NormalizedPolynomial1D, solveLeastSquaresDesign
 from .utils.math import robustRms
 
@@ -369,8 +369,8 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
                   wl, resamp in zip(wavelengths, doResample)]
         masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask for
                  wl, resamp in zip(wavelengths, doResample)]
-        variances = [interpolateFlux(self.wavelength, self.variance, wl) if resamp else self.variance for
-                     wl, resamp in zip(wavelengths, doResample)]
+        variances = [interpolateFlux(self.wavelength, self.variance, wl, variance=True) if resamp else
+                     self.variance for wl, resamp in zip(wavelengths, doResample)]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
 
     @classmethod

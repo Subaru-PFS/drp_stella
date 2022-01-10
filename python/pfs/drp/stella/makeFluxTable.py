@@ -5,7 +5,8 @@ from collections import defaultdict
 import numpy as np
 
 from pfs.datamodel import MaskHelper
-from .datamodel import FluxTable, interpolateFlux
+from .datamodel import FluxTable
+from pfs.drp.stella.interpolate import interpolateFlux
 
 __all__ = ["makeFluxTable"]
 

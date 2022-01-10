@@ -337,7 +337,7 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
-            dispersion = base.getDispersion(base.fiberId[len(base)//2])
+            dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             results = self.fitDistortion(bbox, residuals, weights, dispersion, seed=visitInfo.getExposureId())
             reserved = results.reserved
             detectorMap = self.DetectorMap(base, results.distortion, visitInfo, metadata)

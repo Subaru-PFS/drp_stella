@@ -3,7 +3,7 @@ import pfs.datamodel
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from .interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateMask
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -79,7 +79,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             lam = wavelength if usePixels else wavelength[index]
             flux = self.flux[index][good]
             if normalized:
-                flux /= self.norm[index][good]
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    flux /= self.norm[index][good]
             axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
 
         axes.set_xlabel(xLabel)
@@ -117,7 +118,12 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength)
+            # We want the 'flux' array to remain in units close to counts on the detector. Calibrated fluxes
+            # are measured relative to the 'norm': flux/norm. That means that when interpolating, we should
+            # only apply the Jacobian correction to the 'norm', and not to the fluxes. This way, the 'flux'
+            # remains in units of counts, and in the calculation of 'flux/norm', the Jacobian is applied
+            # exactly once.
+            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength, jacobian=True)
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badFlux = badNorm | ~np.isfinite(self.flux[jj])
             badVariance = badNorm | ~np.isfinite(self.variance[jj])
@@ -130,11 +136,12 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 ss = self.sky[jj]/self.norm[jj]
                 vv = self.covar[jj][0]/self.norm[jj]**2
                 flux[ii] = interpolateFlux(self.wavelength[jj], np.where(badFlux, 0.0, ff),
-                                           wavelength)*norm[ii]
-                sky[ii] = interpolateFlux(self.wavelength[jj], np.where(badSky, 0.0, ss), wavelength)*norm[ii]
+                                           wavelength, jacobian=False)*norm[ii]
+                sky[ii] = interpolateFlux(self.wavelength[jj], np.where(badSky, 0.0, ss), wavelength,
+                                          jacobian=False)*norm[ii]
                 # XXX dropping covariance on the floor: just doing the variance for now
                 covar[ii][0] = interpolateFlux(self.wavelength[jj], np.where(badVariance, 0.0, vv),
-                                               wavelength, fill=np.inf)*norm[ii]**2
+                                               wavelength, fill=np.inf, jacobian=False)*norm[ii]**2
             mask[ii] = interpolateMask(self.wavelength[jj], mm, wavelength,
                                        fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 
