@@ -896,7 +896,7 @@ class FitDistortedDetectorMapTask(Task):
 
         for descr in set(lines.description):
             choose = selection & (lines.description == descr)
-            stats = calculateFitStatistics(fitPosition, lines, choose, numParameters, soften)
+            stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
             self.log.info("Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
                           descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
                           stats.xSoften, stats.ySoften, stats.selection.sum())
@@ -904,12 +904,23 @@ class FitDistortedDetectorMapTask(Task):
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
         for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
             choose = selection & (lines.fiberId == ff)
-            stats = calculateFitStatistics(fitPosition, lines, choose, numParameters, soften)
+            stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
             self.log.info("Stats for fiberId=%d: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
                           "from %d lines (%s)",
                           ff, stats.chi2, stats.dof, stats.xRms, stats.yRms,
                           stats.xSoften, stats.ySoften, stats.selection.sum(),
                           ", ".join(f"{cc[1]} {cc[0]}" for cc in Counter(lines.description[choose]).items()))
+
+        if self.log.isEnabledFor(self.log.DEBUG):
+            good = self.getGoodLines(lines) & (lines.description != "Trace")
+            for wl in sorted(set(lines.wavelength[good].tolist())):
+                choose = good & (lines.wavelength == wl)
+                description = ", ".join(set(lines.description[choose]))
+                stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
+                self.log.info("Stats for wavelength=%f (%s): chi2=%f dof=%d xRMS=%f yRMS=%f "
+                              "xSoften=%f ySoften=%f from %d fibers",
+                              wl, description, stats.chi2, stats.dof, stats.xRms, stats.yRms,
+                              stats.xSoften, stats.ySoften, stats.selection.sum())
 
         return results
 
