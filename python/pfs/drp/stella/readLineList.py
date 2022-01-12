@@ -57,7 +57,7 @@ class ReadLineListConfig(Config):
                                f'are not in the lightSourceMap: {invalidSources}')
         duplicateLampElements = getDuplicateItems(self.lampElements)
         if duplicateLampElements:
-            raise RuntimeError(f'There are duplicate lamp elements {duplicateLampElements}')
+            raise FieldValidationError(f'There are duplicate lamp elements {duplicateLightSources}')
 
 
 class ReadLineListTask(Task):

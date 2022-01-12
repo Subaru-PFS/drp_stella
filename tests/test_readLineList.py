@@ -9,7 +9,6 @@ from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, Refere
 from pfs.drp.stella.tests.utils import runTests
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 
-
 display = None
 
 
