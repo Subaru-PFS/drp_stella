@@ -240,7 +240,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         alpha = 0.5 if showAll else 1.0
         ls = '-'
         if fid in pfsConfig.fiberId:
-            ind = pfsConfig.selectFiber(fid)[0]
+            ind = pfsConfig.selectFiber(fid)
             imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
             if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
                 ls = ':'
