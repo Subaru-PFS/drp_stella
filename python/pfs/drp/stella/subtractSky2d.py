@@ -250,7 +250,7 @@ class SubtractSky2dTask(Task):
             # so we need to remove the aperture correction.
             psfFlux = calculateApertureCorrection(apCorr, ft.fiberId, model.wavelength, pfsConfig,
                                                   model.flux[ii], invert=True)
-            for wl, flux in zip(model.wavelength, psfFlux):
+            for wl, flux in zip(model.wavelength, psfFlux.flux):
                 try:
                     psfImage = computePsfImage(psf, ft, wl, bbox)
                 except Exception as exc:
