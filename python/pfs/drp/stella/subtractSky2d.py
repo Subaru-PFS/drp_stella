@@ -181,9 +181,15 @@ class SubtractSky2dTask(Task):
         -------
         sky2d : pfs.drp.stella.fitFocalPlane.FocalPlaneFunction`
             2D sky subtraction solution.
+
+        Raises
+        ------
+        RuntimeError
+            If there are no sky fibers found.
         """
         skyFibers = set(pfsConfig.fiberId[pfsConfig.targetType == int(TargetType.SKY)])
-
+        if skyFibers is None or len(skyFibers) == 0:
+            raise RuntimeError('No sky fibers found.')
         intensities = defaultdict(list)  # List of flux for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
@@ -250,7 +256,7 @@ class SubtractSky2dTask(Task):
             # so we need to remove the aperture correction.
             psfFlux = calculateApertureCorrection(apCorr, ft.fiberId, model.wavelength, pfsConfig,
                                                   model.flux[ii], invert=True)
-            for wl, flux in zip(model.wavelength, psfFlux):
+            for wl, flux in zip(model.wavelength, psfFlux.flux):
                 try:
                     psfImage = computePsfImage(psf, ft, wl, bbox)
                 except Exception as exc:
