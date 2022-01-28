@@ -1,31 +1,70 @@
-import numpy as np
-
-from lsst.pex.config import Config, Field, ListField
-from lsst.pipe.base import Task
+from lsst.pex.config import Config, Field, ListField, DictField, FieldValidationError
+from lsst.pipe.base import Struct, Task
 
 from lsst.obs.pfs.utils import getLamps, getLampElements
-from .referenceLine import ReferenceLineSet
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
+import re
+from collections import Counter
+import numpy as np
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
-    lineListFiles = ListField(dtype=str, doc="list of names of linelist files",
-                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt", "skyLines.txt"])
-    restrictByLamps = Field(dtype=bool, default=True,
-                            doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
-    lampList = ListField(dtype=str, doc="list of species in lamps; overrides the header", default=[])
+    lightSources = ListField(dtype=str,
+                             doc=("list of unique light sources that provide "
+                                  "the emission lines (overrides header). "
+                                  "These must be keys in the lightSourceMap. "),
+                             default=[])
+    lampElements = ListField(dtype=str,
+                             doc=("list of unique lamp elements or species to filter by. "),
+                             default=[])
+    lightSourceMap = DictField(keytype=str, itemtype=str,
+                               doc=("Mapping of lamp or other light source to linelist file."
+                                    "A value of ``None`` means no line list file "
+                                    "is available for that source. "
+                                    "If the value is not an absolute path, "
+                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``."),
+                               default={'Ar': 'Ar.txt',
+                                        'Ne': 'Ne.txt',
+                                        'Kr': 'Kr.txt',
+                                        'HgAr': 'HgAr.txt',
+                                        'HgCd': 'HgCd.txt',
+                                        'Quartz': None,
+                                        'sky': 'skyLines.txt'})
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
+
+    def validate(self):
+        """Validate input config parameters"""
+
+        def getDuplicateItems(l):
+            """Return a list of duplicates"""
+            return [k for k, v in Counter(l).items() if v > 1]
+
+        super().validate()
+        duplicateLightSources = getDuplicateItems(self.lightSources)
+        if duplicateLightSources:
+            raise RuntimeError(f'There are duplicate light sources {duplicateLightSources}')
+
+        lightSourcesSet = set(self.lightSources)
+        invalidSources = lightSourcesSet - lightSourcesSet.intersection(self.lightSourceMap.keys())
+        if invalidSources:
+            raise RuntimeError('The following light sources '
+                               f'are not in the lightSourceMap: {invalidSources}')
+        duplicateLampElements = getDuplicateItems(self.lampElements)
+        if duplicateLampElements:
+            raise FieldValidationError(f'There are duplicate lamp elements {duplicateLightSources}')
 
 
 class ReadLineListTask(Task):
     """Read a linelist"""
     ConfigClass = ReadLineListConfig
     _DefaultName = "readLineList"
+    _isSpeciesPattern = re.compile(r'^[A-Z][A-Za-z]*[IVX]+')
 
     def run(self, detectorMap=None, metadata=None):
         """Read a linelist
@@ -47,37 +86,83 @@ class ReadLineListTask(Task):
         lines : `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist.
         """
+        lightSources = {}
+        lampElements = {}
+        lampInfoFromMetaData = None
+
+        if len(self.config.lightSources) > 0:
+            lightSources = set(self.config.lightSources)
+        else:
+            lampInfoFromMetaData = self.getLampInfo(metadata)
+            lightSources = lampInfoFromMetaData.lamps
+
+        if len(self.config.lampElements) > 0:
+            lampElements = set(self.config.lampElements)
+        else:
+            if lampInfoFromMetaData:
+                lampElements = lampInfoFromMetaData.lampElements
+
         lines = ReferenceLineSet.empty()
-        for filename in self.config.lineListFiles:
-            lines.extend(ReferenceLineSet.fromLineList(filename))
-        if self.config.restrictByLamps:
-            lamps = self.getLamps(metadata)
-            lines = self.filterByLamps(lines, lamps)
+        for ll in lightSources:
+            filename = self.config.lightSourceMap[ll]
+            if filename is not None:
+                lines.extend(ReferenceLineSet.fromLineList(filename))
+
+        lines = self.filterByLampElements(lines, lampElements)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
+        self.filterDuplicates(lines)
         lines.applyExclusionZone(self.config.exclusionRadius)
         return lines
 
-    def filterByLamps(self, lines, lamps):
-        """Filter the line list by which lamps are active
+    def filterDuplicates(self, lines: ReferenceLineSet) -> None:
+        """Reject duplicate lines by wavelength from the line list.
+
+        This is performed in-place.
+
+        This may occur if multiple input sources may share
+        lines with the same wavelength.
 
         Parameters
         ----------
         lines : `pfs.drp.stella.ReferenceLineSet`
             List of reference lines.
-        lamps : ``list` of `str`
-            The list of lamps.
+        """
+        _, indices = np.unique(lines.wavelength, return_index=True)
+        reject = np.full(len(lines), True, dtype=bool)
+        reject[indices] = False
+        lines.status[reject] |= ReferenceLineStatus.BLEND
+
+    def filterByLampElements(self, lines, lampElements):
+        """Filter the line list by the elements or species in the active lamps
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        lampElements : `set` of `str`
+            The set of elements or species in the active lamps.
 
         Returns
         -------
         filtered : `pfs.drp.stella.ReferenceLineSet`
-            Filtered list of reference lines.
+            Filtered list of reference lines, or input lines if ``lampElements``
+            is either ``None`` or empty.
         """
-        select = np.zeros(len(lines), dtype=bool)
-        for desc in lamps:
-            select |= [ll.description.startswith(desc) for ll in lines]
-        self.log.info("Filtered line lists for lamps: %s", ",".join(sorted(lamps)))
-        return lines[select]
+        if lampElements is None or len(lampElements) == 0:
+            return lines
+        keep = []
+        for component in lampElements:
+            if self._isSpeciesPattern.match(component):
+                # Component is a species. Perform a search for lines matching only this
+                keep += [ll for ll in lines if component == ll.description]
+            else:
+                # Component is a general element. Match for all available species
+                elementPattern = re.compile(f'^{component}[IVX]*$')
+                keep += [ll for ll in lines if elementPattern.match(ll.description)]
+        speciesKept = {ll.description for ll in keep}
+        self.log.info("Filtered line lists, keeping species %s.", speciesKept)
+        return ReferenceLineSet.fromRows(keep)
 
     def filterByIntensity(self, lines):
         """Filter the line list by intensity level
@@ -100,8 +185,8 @@ class ReadLineListTask(Task):
         select = lines.intensity >= self.config.minIntensity
         return lines[select]
 
-    def getLamps(self, metadata):
-        """Determine which lamps are active
+    def getLampInfo(self, metadata):
+        """Determine from the metadata which lamps are active and return the lamp names
 
         Parameters
         ----------
@@ -110,25 +195,36 @@ class ReadLineListTask(Task):
 
         Returns
         -------
-        lamps : `list` of `str`, or `None`
-            The list of lamps, if the ``restrictByLamps`` configuration option
-            is ``True`` or ``lampList`` is set; otherwise, ``None``.
+
+        lampInfo : `lsst.pipe.base.Struct`
+           Lamp information as a struct with components:
+
+           ``lamps``
+                List of active lamps from the metadata (`set` of `str`]).
+
+                If no active lamps can be retrieved from the metadata, and ``assumeSkyIfNoLamps`` is set,
+                then ``[sky]`` is returned, otherwise, ``None``.
+
+            ``lampElements``
+                Set of active lamp elements across all active lamps (`set` of `str`).
 
         Raises
         ------
         RuntimeError
-            If ``metadata`` is ``None`` and ``restrictByLamps`` is ``True``, and
-            lampList is not set.
+            If ``metadata`` is ``None``.
         """
-        if len(self.config.lampList) > 0:
-            return self.config.lampList
         if metadata is None:
-            raise RuntimeError("Cannot determine lamps because metadata was not provided")
+            raise RuntimeError("Cannot determine lamp information because metadata was not provided")
         lamps = getLamps(metadata)
-        if not lamps and self.config.assumeSkyIfNoLamps:
-            self.log.info("No lamps on; assuming sky.")
-            return ["OI", "NaI", "OH"]
-        return getLampElements(metadata)
+        lampElements = getLampElements(metadata)
+        if not lamps:
+            if self.config.assumeSkyIfNoLamps:
+                self.log.info("No lamps on; assuming sky.")
+                lamps = {"sky"}
+                lampElements = {"OI", "NaI", "OH"}
+            else:
+                self.log.warning('No lamp information can be found in the metadata')
+        return Struct(lamps=lamps, lampElements=lampElements)
 
     def filterByWavelength(self, lines, detectorMap=None):
         """Filter the line list by wavelength

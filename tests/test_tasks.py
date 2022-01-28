@@ -163,7 +163,6 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = True
         config.doSubtractSky2d = False
         config.doWriteCalexp = True
-        config.readLineList.restrictByLamps = False
 
         task = ReduceExposureTask(config=config)
         task.log.setLevel(task.log.DEBUG)
@@ -174,7 +173,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
 
         with lsst.utils.tests.getTempFilePath(".txt") as filename:
             self.referenceLines.writeLineList(filename)
-            config.readLineList.lineListFiles = [filename]
+            config.readLineList.lightSourceMap = {'fake': filename}
+            config.readLineList.lightSources = ['fake']
             results = task.runDataRef([dataRef])
 
         self.assertEqual(len(results.exposureList), 1)
