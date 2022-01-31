@@ -42,6 +42,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
             Line(890.123, 123, 'HgII', 0),
             Line(901.123, 14, 'HgI', 0),
             Line(1023.456, 1000, "NeI", 0),
+            Line(1050.456, 100, "XeI", 0),
         ]
         self.config = ReadLineListTask.ConfigClass()
 
@@ -99,6 +100,20 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         lineList = self.makeLineList(lightSource='Ar', metadata=metadata)
         expect = [ll for ll in self.contents if ll.description in species]
         assert len(expect) == 2  # Two lines are Argon
+        self.assertLineList(lineList, expect)
+
+    def testLampsXenon(self):
+        """Test that we can select Argon-I lines by lamp"""
+        metadata = PropertyList()
+        metadata.set("W_AITNEO", 0)  # Neon
+        metadata.set("W_AITARG", 0)  # Argon
+        metadata.set("W_AITKRY", 0)  # Krypton
+        metadata.set("W_AITXEN", 1)  # Xenon
+        species = ['XeI']
+        self.config.lampElements = species
+        lineList = self.makeLineList(lightSource='Xe', metadata=metadata)
+        expect = [ll for ll in self.contents if ll.description in species]
+        self.assertEqual(1, len(expect))
         self.assertLineList(lineList, expect)
 
     def testLampsHgCd(self):

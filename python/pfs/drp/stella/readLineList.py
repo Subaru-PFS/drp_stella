@@ -29,6 +29,7 @@ class ReadLineListConfig(Config):
                                default={'Ar': 'Ar.txt',
                                         'Ne': 'Ne.txt',
                                         'Kr': 'Kr.txt',
+                                        'Xe': 'Xe.txt',
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
