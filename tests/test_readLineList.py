@@ -102,6 +102,19 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         assert len(expect) == 2  # Two lines are Argon
         self.assertLineList(lineList, expect)
 
+    def testLampsKrypton(self):
+        """Test that we can select Argon-I lines by lamp"""
+        metadata = PropertyList()
+        metadata.set("W_AITNEO", 0)  # Neon
+        metadata.set("W_AITARG", 0)  # Argon
+        metadata.set("W_AITKRY", 1)  # Krypton
+        species = ['KrI']
+        self.config.lampElements = species
+        lineList = self.makeLineList(lightSource='Kr', metadata=metadata)
+        expect = [ll for ll in self.contents if ll.description in species]
+        self.assertEqual(1, len(expect))
+        self.assertLineList(lineList, expect)
+
     def testLampsXenon(self):
         """Test that we can select Argon-I lines by lamp"""
         metadata = PropertyList()
@@ -158,6 +171,12 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(lampInfo.lamps, expectedSource)
         expectedLampElements = {"OI", "NaI", "OH"}
         self.assertEqual(lampInfo.lampElements, expectedLampElements)
+
+    def testDefaultLightSources(self):
+        """Test expected light sources are listed in default configuration"""
+        config = ReadLineListConfig()
+        config.lightSources = ["Ne", "Xe", "HgAr", "Kr", "Ar", "HgCd", "Quartz"]
+        config.validate()
 
     def testInvalidLightSource(self):
         """Test that a light source that is not listed in lightSourceMap is trapped"""
