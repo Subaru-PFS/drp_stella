@@ -103,9 +103,9 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         figure, axes = super().plot(ignorePixelMask=ignorePixelMask, show=False)
         good = (self.mask & ignorePixelMask) == 0
         if plotSky:
-            axes.plot(self.wavelength[good], self.sky[good], 'r-', label="Sky")
+            axes.plot(self.wavelength[good], self.sky[good], 'b-', label="Sky")
         if plotErrors:
-            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'b-', label="Flux errors")
+            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'r-', label="Flux errors")
         if show:
             figure.show()
         return figure, axes
