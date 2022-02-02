@@ -381,8 +381,9 @@ class MergeArmsTask(CmdLineTask):
             mask[~good] |= ss.mask[~good]
         mask[~good] |= flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky, norm=norm, covar=covar,
-                      mask=mask, covar2=covar2)
+        with np.errstate(invalid="ignore"):
+            return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky*norm, norm=norm,
+                          covar=covar*norm[:, np.newaxis, :]**2, mask=mask, covar2=covar2)
 
     def mergeLsfs(self, lsfList, spectraList):
         """Merge LSFs for different arms within a spectrograph
