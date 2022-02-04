@@ -657,8 +657,12 @@ class OversampledSpline(FocalPlaneFunction):
 
         coeffs = spline.get_coeffs()
 
-        # Taking the mean variance: this is not formal error propagation, but estimating the noise in the fit
-        variance = binned_statistic(xx, var, statistic='mean', bins=bins)[0]
+        # Measure the noise in the fit
+        residual = yy - spline(xx)
+        variance = binned_statistic(xx, residual, statistic='std', bins=bins)[0]**2
+        # Remove noise originating from the input data
+        variance -= binned_statistic(xx, var, statistic='mean', bins=bins)[0]
+        variance = np.clip(variance, 0.0, None)
 
         return cls(knots, coeffs, splineOrder, centers, variance, defaultValue)
 
