@@ -81,6 +81,21 @@ class TransmissionCurve:
         return scipy.integrate.quad(function, self.wavelength[0], self.wavelength[-1],
                                     epsabs=0.0, epsrel=2.0e-3, limit=100)[0]
 
+    def photometer(self, spectrum):
+        """Measure flux with this filter.
+
+        Parameters
+        ----------
+        spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            Spectrum to integrate.
+
+        Returns
+        -------
+        flux : `float`
+            Integrated flux.
+        """
+        return self.integrate(spectrum) / self.integrate()
+
 
 class FilterCurve(TransmissionCurve):
     """A filter transmission curve
@@ -94,7 +109,26 @@ class FilterCurve(TransmissionCurve):
         Name of the filter. Must be one that is known.
     """
     filenames = {
-        "i": "wHSC-i2.txt"
+        "g": "HSC/hsc_g_v2018.dat",
+        "r": "HSC/hsc_r_v2018.dat",
+        "r2": "HSC/hsc_r2_v2018.dat",
+        "i": "HSC/hsc_i_v2018.dat",
+        "i2": "HSC/hsc_i2_v2018.dat",
+        "z": "HSC/hsc_z_v2018.dat",
+        "y": "HSC/hsc_y_v2018.dat",
+        "PS1g": "PS1/PS1_g.dat",
+        "PS1r": "PS1/PS1_r.dat",
+        "PS1i": "PS1/PS1_i.dat",
+        "PS1z": "PS1/PS1_z.dat",
+        "PS1y": "PS1/PS1_y.dat",
+        "GaiaBp": "Gaia/Gaia_Bp.txt",
+        "GaiaRp": "Gaia/Gaia_Rp.txt",
+        "GaiaG": "Gaia/Gaia_G.txt",
+        "SDSSu": "SDSS/u_all_tel_atm13.dat",
+        "SDSSg": "SDSS/g_all_tel_atm13.dat",
+        "SDSSr": "SDSS/r_all_tel_atm13.dat",
+        "SDSSi": "SDSS/i_all_tel_atm13.dat",
+        "SDSSz": "SDSS/z_all_tel_atm13.dat",
     }
     """Mapping of filter name to filename"""
 
