@@ -365,12 +365,12 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         doResample = [wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for
                       wl in wavelengths]
 
-        values = [interpolateFlux(self.wavelength, self.value, wl) if resamp else self.value for
-                  wl, resamp in zip(wavelengths, doResample)]
+        values = [interpolateFlux(self.wavelength, self.value, wl, jacobian=False) if resamp else self.value
+                  for wl, resamp in zip(wavelengths, doResample)]
         masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask for
                  wl, resamp in zip(wavelengths, doResample)]
-        variances = [interpolateFlux(self.wavelength, self.variance, wl, variance=True) if resamp else
-                     self.variance for wl, resamp in zip(wavelengths, doResample)]
+        variances = [interpolateFlux(self.wavelength, self.variance, wl, variance=True, jacobian=False) if
+                     resamp else self.variance for wl, resamp in zip(wavelengths, doResample)]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
 
     @classmethod

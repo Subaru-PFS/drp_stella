@@ -71,7 +71,7 @@ def calibratePfsArm(spectra: PfsArm, pfsConfig: PfsConfig, sky1d: FocalPlaneFunc
     subtractSky1d(spectra, pfsConfig, sky1d)
     fluxCalibrate(spectra, pfsConfig, fluxCal)
     if wavelength is not None:
-        spectra = spectra.resample(wavelength)
+        spectra = spectra.resample(wavelength, jacobian=True)  # sampling of pfsArm related to the flux values
     return spectra
 
 

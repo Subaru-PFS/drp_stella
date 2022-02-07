@@ -302,7 +302,7 @@ class CoaddSpectraTask(CmdLineTask):
         resampledLsf = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
-            resampled.append(spectrum.resample(wavelength))
+            resampled.append(spectrum.resample(wavelength, jacobian=False))  # Flux-calibrated --> no jacobian
             resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
 
         # Now do a weighted coaddition
