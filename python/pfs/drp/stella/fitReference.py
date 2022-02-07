@@ -76,7 +76,7 @@ class TransmissionCurve:
             ss = (np.interp(wavelength, spectrum.wavelength, spectrum.flux, 0.0, 0.0) if spectrum is not None
                   else 1.0)
             ff = self.interpolate(wavelength)
-            return ss*ff*wavelength
+            return ss*ff/wavelength
 
         return scipy.integrate.quad(function, self.wavelength[0], self.wavelength[-1],
                                     epsabs=0.0, epsrel=2.0e-3, limit=100)[0]
