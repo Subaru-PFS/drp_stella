@@ -251,6 +251,8 @@ class CoaddSpectraTask(CmdLineTask):
 
         Parameters
         ----------
+        butler : `Butler`
+            Data butler.
         target : `Target`
             Target for which to generate coadded spectra.
         data : `dict` mapping `Identity` to `Struct`
