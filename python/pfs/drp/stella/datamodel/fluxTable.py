@@ -1,7 +1,7 @@
 import numpy as np
 import pfs.datamodel
 
-from ..interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
 
 __all__ = ("FluxTable",)
 
@@ -55,7 +55,7 @@ class FluxTable(pfs.datamodel.FluxTable):
         flags.add("NO_DATA")
 
         flux = interpolateFlux(self.wavelength, self.flux, wavelength)
-        error = interpolateFlux(self.wavelength, self.error, wavelength)
+        error = np.sqrt(interpolateVariance(self.wavelength, self.error**2, wavelength))
         mask = interpolateMask(self.wavelength, self.mask, wavelength,
                                fill=flags["NO_DATA"]).astype(self.mask.dtype)
         return type(self)(wavelength, flux, error, mask, flags)

@@ -100,9 +100,10 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         good = ~evaluation.masks
         self.assertTrue(np.all(np.isfinite(evaluation.values[good])))
         self.assertTrue(np.all(np.isfinite(evaluation.variances[good])))
-        self.assertTrue(np.all(evaluation.variances[good] > 0))
+        self.assertTrue(np.all(evaluation.variances[good] >= 0))
+        variance = self.spectra.variance + evaluation.variances
         with np.errstate(divide="ignore"):
-            residual = (evaluation.values - self.actual[np.newaxis, :])/np.sqrt(evaluation.variances)
+            residual = (evaluation.values - self.actual[np.newaxis, :])/np.sqrt(variance)
 
         if False:
             import matplotlib.pyplot as plt
@@ -112,12 +113,12 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
                 if np.any(evaluation.masks[ii]):
                     plt.plot(self.spectra.wavelength[ii][evaluation.masks[ii]],
                              evaluation.values[ii][evaluation.masks[ii]], "bx")
-                select = good[ii] & (np.abs(residual[ii]) > nSigma*self.noise)
+                select = good[ii] & (np.abs(residual[ii]) > nSigma)
                 if np.any(select):
                     plt.plot(self.spectra.wavelength[ii][select], self.spectra.flux[ii][select], "ro")
             plt.show()
 
-        self.assertTrue(np.all(np.abs(residual[good]) < nSigma*self.noise))
+        self.assertTrue(np.all(np.abs(residual[good]) < nSigma))
 
     def testEvaluation(self):
         """Test that the function can be fit and evaluated"""

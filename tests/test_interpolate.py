@@ -3,7 +3,7 @@ import numpy as np
 import lsst.utils.tests
 from lsst.pipe.base import Struct
 
-from pfs.drp.stella.interpolate import calculateDispersion, interpolateFlux
+from pfs.drp.stella.interpolate import calculateDispersion, interpolateFlux, interpolateVariance
 from pfs.drp.stella.tests import runTests, methodParameters, methodParametersProduct
 
 display = None
@@ -94,6 +94,57 @@ class InterpolateTestCase(lsst.utils.tests.TestCase):
         outSpectrum = interpolateFlux(inSpectrum.wavelength, inSpectrum.flux, expected.wavelength,
                                       jacobian=False)
         self.assertFloatsAlmostEqual(outSpectrum, expected.flux, atol=1.0e-12)
+
+    @methodParameters(inDispersion=(3.0, 5.0, 10.0),
+                      outDispersion=(1.23, 4.321, 7.654)
+                      )
+    def testVarianceWithoutJacobian(self, inDispersion, outDispersion):
+        """Test interpolateVariance without Jacobian"""
+        flux = 10000.0
+        noise = 30.0
+        inSpectrum = self.makeSpectrum(inDispersion, flux)
+        expected = self.makeSpectrum(outDispersion, flux)
+        rng = np.random.RandomState(12345)
+        inSpectrum.flux += rng.normal(scale=noise, size=inSpectrum.flux.shape)
+        inVariance = np.full_like(inSpectrum.flux, noise**2)
+
+        outFlux = interpolateFlux(inSpectrum.wavelength, inSpectrum.flux, expected.wavelength,
+                                  jacobian=False)
+        outVariance = interpolateVariance(inSpectrum.wavelength, inVariance, expected.wavelength,
+                                          jacobian=False)
+
+        mean = np.average(outFlux)
+        stdev = np.std(outFlux)
+        stdChi = np.std((outFlux - flux*inDispersion)/np.sqrt(outVariance))
+        self.assertFloatsAlmostEqual(mean, flux*inDispersion, rtol=1.0e-4)
+        self.assertFloatsAlmostEqual(stdChi, 1.0, rtol=0.15)
+        self.assertFloatsAlmostEqual(stdev, np.sqrt(np.median(outVariance)), rtol=0.15)
+
+    @methodParameters(inDispersion=(0.3, 0.5, 0.7),
+                      outDispersion=(0.123, 0.4321, 0.654)
+                      )
+    def testVarianceWithJacobian(self, inDispersion, outDispersion):
+        """Test interpolateVariance with Jacobian"""
+        flux = 10000.0
+        noise = 30.0
+        inSpectrum = self.makeSpectrum(inDispersion, flux)
+        expected = self.makeSpectrum(outDispersion, flux)
+        rng = np.random.RandomState(12345)
+        inSpectrum.flux += rng.normal(scale=noise, size=inSpectrum.flux.shape)
+        inVariance = np.full_like(inSpectrum.flux, noise**2)
+
+        outFlux = interpolateFlux(inSpectrum.wavelength, inSpectrum.flux, expected.wavelength,
+                                  jacobian=True)
+        outVariance = interpolateVariance(inSpectrum.wavelength, inVariance, expected.wavelength,
+                                          jacobian=True)
+
+        mean = np.average(outFlux)
+        stdev = np.std(outFlux)
+        stdChi = np.std((outFlux - flux*outDispersion)/np.sqrt(outVariance))
+        print(np.average(expected.flux), mean, stdev, stdChi, flux*outDispersion)
+        self.assertFloatsAlmostEqual(mean, flux*outDispersion, rtol=5.0e-4)
+        self.assertFloatsAlmostEqual(stdChi, 1.0, rtol=0.15)
+        self.assertFloatsAlmostEqual(stdev, np.sqrt(np.median(outVariance)), rtol=0.15)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

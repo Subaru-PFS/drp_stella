@@ -3,7 +3,7 @@ import pfs.datamodel
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -142,8 +142,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 sky[ii] = interpolateFlux(self.wavelength[jj], np.where(badSky, 0.0, ss), wavelength,
                                           jacobian=False)*norm[ii]
                 # XXX dropping covariance on the floor: just doing the variance for now
-                covar[ii][0] = interpolateFlux(self.wavelength[jj], np.where(badVariance, 0.0, vv),
-                                               wavelength, fill=np.inf, jacobian=False)*norm[ii]**2
+                covar[ii][0] = interpolateVariance(self.wavelength[jj], np.where(badVariance, 0.0, vv),
+                                                   wavelength, fill=np.inf, jacobian=False)*norm[ii]**2
             mask[ii] = interpolateMask(self.wavelength[jj], mm, wavelength,
                                        fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 
