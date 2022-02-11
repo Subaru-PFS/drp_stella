@@ -81,7 +81,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
         # Sum coadded dithers to fill in the gaps
         sumFlat = None  # Sum of flat-fields
-        sumExpect = None  # Sum of what we expect
+        sumWeight = None  # Sum of weights
         for dd in dithers:
             image = self.combination.run(dithers[dd])
             self.log.info("Combined %d images for dither %s", len(dithers[dd]), dd)
@@ -115,33 +115,43 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             self.interpolateNans(expect)
 
             with np.errstate(invalid="ignore"):
-                bad = (expect.array <= 0.0) | ((image.mask.array & maskVal) > 0)
+                snr = image.image.array/np.sqrt(image.variance.array)
+                bad = (expect.array <= 0.0) | ((image.mask.array & maskVal) > 0) | (snr < self.config.minSNR)
+
             image.image.array[bad] = 0.0
             image.variance.array[bad] = 0.0
-            expect.array[bad] = 0.0
+            expect.array[bad] = 1.0
             image.mask.array &= ~maskVal  # Remove planes we are masking so they don't leak through
+
+            image /= expect
+
+            weight = image.variance.clone()
+            weight.array[:] = 1.0/weight.array
+            weight.array[bad] = 0.0
+
+            image *= weight
 
             if sumFlat is None:
                 sumFlat = image
-                sumExpect = expect
+                sumWeight = weight
             else:
                 sumFlat += image
-                sumExpect += expect
+                sumWeight += weight
 
         if sumFlat is None:
             raise RuntimeError("Unable to find any valid flats")
-        if np.all(sumExpect.array == 0.0):
+        if np.all(sumWeight.array == 0.0):
             raise RuntimeError("No good pixels")
 
         # Avoid NANs when dividing
-        empty = sumExpect.array == 0
+        empty = sumWeight.array == 0
         sumFlat.image.array[empty] = 1.0
-        sumFlat.variance.array[empty] = 1.0
-        sumExpect.array[empty] = 1.0
+        sumFlat.variance.array[empty] = 0.0
+        sumWeight.array[empty] = 1.0
         sumFlat.mask.addMaskPlane("BAD_FLAT")
         badFlat = sumFlat.mask.getPlaneBitMask("BAD_FLAT")
 
-        sumFlat /= sumExpect
+        sumFlat /= sumWeight
         sumFlat.mask.array[empty] |= badFlat
 
         # Mask bad pixels
