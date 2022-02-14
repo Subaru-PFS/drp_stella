@@ -415,7 +415,7 @@ class MergeArmsTask(CmdLineTask):
 
             warpedLsfList.append(warpedLsf)
 
-        return {ff: coaddLsf([ww[ff] for ww in warpedLsfList]) for ff in fiberId}
+        return {ff: coaddLsf([ww.get(ff, None) for ww in warpedLsfList]) for ff in fiberId}
 
     def combineLsfs(self, lsfList):
         """Combine LSFs for different spectrographs
