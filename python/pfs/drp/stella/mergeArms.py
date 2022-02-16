@@ -314,7 +314,7 @@ class MergeArmsTask(CmdLineTask):
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
         wavelength = self.config.wavelength.wavelength
-        resampled = [ss.resample(wavelength) for ss in spectraList]
+        resampled = [ss.resample(wavelength, jacobian=True) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
         if self.config.doBarycentricCorr:
@@ -358,10 +358,12 @@ class MergeArmsTask(CmdLineTask):
         sumWeights = np.zeros_like(archetype.flux)
 
         for ss in spectra:
-            with np.errstate(invalid="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                variance = ss.variance/ss.norm**2
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (variance > 0)
+
             weight = np.zeros_like(ss.flux)
-            weight[good] = 1.0/ss.covar[:, 0][good]
+            weight[good] = 1.0/variance[good]
             with np.errstate(invalid="ignore"):
                 flux[good] += ss.flux[good]*weight[good]/ss.norm[good]
                 sky[good] += ss.sky[good]*weight[good]/ss.norm[good]
@@ -381,8 +383,9 @@ class MergeArmsTask(CmdLineTask):
             mask[~good] |= ss.mask[~good]
         mask[~good] |= flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky, norm=norm, covar=covar,
-                      mask=mask, covar2=covar2)
+        with np.errstate(invalid="ignore"):
+            return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky*norm, norm=norm,
+                          covar=covar*norm[:, np.newaxis, :]**2, mask=mask, covar2=covar2)
 
     def mergeLsfs(self, lsfList, spectraList):
         """Merge LSFs for different arms within a spectrograph

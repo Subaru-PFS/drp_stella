@@ -1,7 +1,7 @@
 import numpy as np
 import pfs.datamodel
 
-from ..interpolate import interpolateFlux, interpolateMask
+from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
 
 __all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 
@@ -45,20 +45,22 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength):
+    def resample(self, wavelength, jacobian=False):
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
+        jacobian : `bool`
+            Apply Jacobian, so that flux density is preserved?
 
         Returns
         -------
         resampled : `PfsSimpleSpectrum`
             Resampled spectrum.
         """
-        flux = interpolateFlux(self.wavelength, self.flux, wavelength)
+        flux = interpolateFlux(self.wavelength, self.flux, wavelength, jacobian=jacobian)
         mask = interpolateMask(self.wavelength, self.mask, wavelength)
         return type(self)(self.target, wavelength, flux, mask, self.flags)
 
@@ -103,20 +105,22 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         figure, axes = super().plot(ignorePixelMask=ignorePixelMask, show=False)
         good = (self.mask & ignorePixelMask) == 0
         if plotSky:
-            axes.plot(self.wavelength[good], self.sky[good], 'r-', label="Sky")
+            axes.plot(self.wavelength[good], self.sky[good], 'b-', label="Sky")
         if plotErrors:
-            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'b-', label="Flux errors")
+            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'r-', label="Flux errors")
         if show:
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength):
+    def resample(self, wavelength, jacobian=False):
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
+        jacobian : `bool`
+            Apply Jacobian, so that flux density is preserved?
 
         Returns
         -------
@@ -131,11 +135,12 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         mask = self.mask.copy()
         mask[bad] |= self.flags.get("NO_DATA")
 
-        flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength)
+        flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength,
+                               jacobian=jacobian)
         mask = interpolateMask(self.wavelength, mask, wavelength, fill=self.flags.get("NO_DATA"))
-        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength)
-        covar = np.array([interpolateFlux(self.wavelength, np.where(badVariance, 0.0, cc), wavelength,
-                                          variance=True) for cc in self.covar])
+        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, jacobian=jacobian)
+        covar = np.array([interpolateVariance(self.wavelength, np.where(badVariance, 0.0, cc), wavelength,
+                                              jacobian=jacobian) for cc in self.covar])
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(self.target, self.observations, wavelength, flux, mask, sky, covar, covar2,
                           self.flags, self.fluxTable)

@@ -10,7 +10,7 @@ from lsst.pipe.base import Struct
 
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateVariance, interpolateMask
 from .math import NormalizedPolynomial1D, solveLeastSquaresDesign
 from .utils.math import robustRms
 
@@ -365,12 +365,12 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         doResample = [wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for
                       wl in wavelengths]
 
-        values = [interpolateFlux(self.wavelength, self.value, wl) if resamp else self.value for
-                  wl, resamp in zip(wavelengths, doResample)]
+        values = [interpolateFlux(self.wavelength, self.value, wl, jacobian=False) if resamp else self.value
+                  for wl, resamp in zip(wavelengths, doResample)]
         masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask for
                  wl, resamp in zip(wavelengths, doResample)]
-        variances = [interpolateFlux(self.wavelength, self.variance, wl, variance=True) if resamp else
-                     self.variance for wl, resamp in zip(wavelengths, doResample)]
+        variances = [interpolateVariance(self.wavelength, self.variance, wl, jacobian=False) if
+                     resamp else self.variance for wl, resamp in zip(wavelengths, doResample)]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
 
     @classmethod
@@ -657,8 +657,12 @@ class OversampledSpline(FocalPlaneFunction):
 
         coeffs = spline.get_coeffs()
 
-        # Taking the mean variance: this is not formal error propagation, but estimating the noise in the fit
-        variance = binned_statistic(xx, var, statistic='mean', bins=bins)[0]
+        # Measure the noise in the fit
+        residual = yy - spline(xx)
+        variance = binned_statistic(xx, residual, statistic='std', bins=bins)[0]**2
+        # Remove noise originating from the input data
+        variance -= binned_statistic(xx, var, statistic='mean', bins=bins)[0]
+        variance = np.clip(variance, 0.0, None)
 
         return cls(knots, coeffs, splineOrder, centers, variance, defaultValue)
 

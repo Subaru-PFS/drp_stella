@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-__all__ = ["interpolateFlux", "interpolateMask"]
+__all__ = ["calculateDispersion", "interpolateFlux", "interpolateVariance", "interpolateMask"]
 
 
 def calculateDispersion(wavelength):
@@ -27,7 +27,7 @@ def calculateDispersion(wavelength):
     return np.abs(dispersion)
 
 
-def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=True, variance=False):
+def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=True):
     """Interpolate a flux-like spectrum
 
     Basic linear interpolation, suitable for fluxes and flux-like (e.g., maybe
@@ -45,10 +45,6 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=T
         Fill value.
     jacobian : `bool`, optional
         Correct for the Jacobian of the transformation?
-    variance : `bool`, optional
-        Calculate Jacobian correction values for variance? The usual Jacobian
-        correction values are squared. If ``jacobian=False``, then ``variance``
-        doesn't matter.
 
     Returns
     -------
@@ -56,19 +52,58 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=T
         Target flux-(like) array.
     """
     if jacobian:
-        correction = 1.0/calculateDispersion(fromWavelength)
-        if variance:
-            correction *= correction
-        fromFlux = fromFlux*correction
+        fromFlux = fromFlux/calculateDispersion(fromWavelength)
     with np.errstate(invalid="ignore"):
         toFlux = interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
                           fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
     if jacobian:
-        correction = calculateDispersion(toWavelength)
-        if variance:
-            correction *= correction
-        toFlux *= correction
+        toFlux *= calculateDispersion(toWavelength)
     return toFlux
+
+
+def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0, jacobian=True):
+    """Interpolate a variance-like spectrum
+
+    Like ``interpolateFlux``, except we square all the coefficients that get
+    applied.
+
+    Parameters
+    ----------
+    fromWavelength : array-like of `float`
+        Source wavelength array.
+    fromVariance : array-like of `float`
+        Source variance array.
+    toWavelength : array-like of `float`
+        Target wavelength array.
+    fill : `float`, optional
+        Fill value.
+    jacobian : `bool`, optional
+        Correct for the Jacobian of the transformation?
+
+    Returns
+    -------
+    toVariance : `numpy.ndarray` of `float`
+        Target variance array.
+    """
+    if jacobian:
+        fromVariance = fromVariance/calculateDispersion(fromWavelength)**2
+    with np.errstate(invalid="ignore", divide="ignore"):
+        indices = np.arange(len(fromWavelength), dtype=int)
+        nextIndex = interp1d(fromWavelength, indices, kind="next",
+                             fill_value="extrapolate")(toWavelength).astype(int)
+        prevIndex = interp1d(fromWavelength, indices, kind="previous",
+                             fill_value="extrapolate")(toWavelength).astype(int)
+        minWl = fromWavelength.min()
+        maxWl = fromWavelength.max()
+        extrapolate = (toWavelength < minWl) | (toWavelength > maxWl)
+        delta = fromWavelength[nextIndex] - fromWavelength[prevIndex]
+        nextWeight = np.where(delta == 0, 0.5, (toWavelength - fromWavelength[prevIndex])/delta)
+        prevWeight = 1.0 - nextWeight
+        toVariance = fromVariance[prevIndex]*prevWeight**2 + fromVariance[nextIndex]*nextWeight**2
+        toVariance[extrapolate] = fill
+    if jacobian:
+        toVariance *= calculateDispersion(toWavelength)**2
+    return toVariance
 
 
 def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):

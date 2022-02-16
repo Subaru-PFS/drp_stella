@@ -25,7 +25,7 @@ __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 class CoaddSpectraConfig(Config):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_FLUXCAL", "INTRP", "SAT"],
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_SKY", "BAD_FLUXCAL", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
 
@@ -251,6 +251,8 @@ class CoaddSpectraTask(CmdLineTask):
 
         Parameters
         ----------
+        butler : `Butler`
+            Data butler.
         target : `Target`
             Target for which to generate coadded spectra.
         data : `dict` mapping `Identity` to `Struct`
@@ -302,7 +304,7 @@ class CoaddSpectraTask(CmdLineTask):
         resampledLsf = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
-            resampled.append(spectrum.resample(wavelength))
+            resampled.append(spectrum.resample(wavelength, jacobian=False))  # Flux-calibrated --> no jacobian
             resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
 
         # Now do a weighted coaddition
