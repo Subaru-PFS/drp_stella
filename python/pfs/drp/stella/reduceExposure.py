@@ -531,6 +531,7 @@ class ReduceExposureTask(CmdLineTask):
             phot = self.photometerLines.run(exposure, lines[lines.description != "Trace"], detectorMap,
                                             pfsConfig, fiberTraces)
             apCorr = phot.apCorr
+            lines = phot.lines
             if apCorr is not None:
                 sensorRef.put(phot.apCorr, "apCorr")
 
