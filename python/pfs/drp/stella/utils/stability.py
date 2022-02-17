@@ -97,9 +97,9 @@ def plotArcResiduals(als,
         if detectorMap is None:
             raise RuntimeError("You must provide a DetectorMap if usePixels is True")
 
-        dispersion = detectorMap.getDispersion(fiberId=als.fiberId[len(als.fiberId)//2], wavelength=700.0)
+        dispersion = detectorMap.getDispersion(fiberId=als.fiberId[len(als.fiberId)//2], wavelength=800.0)
 
-    ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
+    ll = np.logical_and(als.flag == False, als.status == 0)   # centroider succeeded and lines are good
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "invalid value encountered in less")
         ll = np.logical_and(ll, als.lamErr < lamErrMax)
@@ -190,16 +190,16 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
     """
     arrowSize: characteristic arrow length in pixels
     """
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(fiberId=als.fiberId[len(als.fiberId)//2], wavelength=700.0)
+    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(fiberId=als.fiberId[len(als.fiberId)//2], wavelength=800.0)
     dx = als.tracePos - als.x
 
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "invalid value encountered in less")
-        ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
+        ll = np.logical_and(als.flag == False, als.status == 0)   # centroider succeeded and lines are good
         ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < maxCentroidErr)
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
 
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2], wavelength=700)
+    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2], wavelength=800)
     dx = als.tracePos - als.x
 
     for dz in [dx, dy]:
@@ -212,7 +212,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
         Q = plt.quiver(als.x[ll], als.y[ll], dx[ll], dy[ll], alpha=0.5,
                        angles='xy', scale_units='xy', scale=arrowSize*100/detectorMap.getBBox().getHeight())
-        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize} pixels")
+        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize} pixels", color='red')
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -372,13 +372,13 @@ class PlotArcLines:
             return f"{'%(visit)d %(arm)s%(spectrograph)d' % dataId}   " \
                 f"{md['DATE-OBS']}T{md['UT'][:-4]}   {fitName}"
 
-        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2], wavelength=700.0)
+        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2], wavelength=800.0)
         dx = als.tracePos - als.x
 
         for i in range(2):
             with np.testing.suppress_warnings() as suppress:
                 suppress.filter(RuntimeWarning, "invalid value encountered in less")
-                ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
+                ll = np.logical_and(als.flag == False, als.status == 0)   # centroider succeeded and lines are good
                 ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < self.maxCentroidErr)
 
         for dz in [dx, dy]:
@@ -404,7 +404,7 @@ class PlotArcLines:
                               scale=self.arrowSize*100/detectorMap.getBBox().getHeight())
                 self._pobj = [Q]
 
-                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize} pixels")
+                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize} pixels", color='red')
 
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")
