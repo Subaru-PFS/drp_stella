@@ -413,6 +413,10 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         stride = len(pfsConfig)//25 + 1 if fiberIds is None else 1
 
         for ll in lines:
+            ctype = getCtypeFromReferenceLine(ll)
+            if ctype == "IGNORE":
+                continue
+
             if fiberIds is None:
                 fiberIds = pfsConfig.fiberId
 
@@ -422,10 +426,6 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
                     continue
 
                 xc, yc = detMap.findPoint(fid, ll.wavelength)
-
-                ctype = getCtypeFromReferenceLine(ll)
-                if ctype == "IGNORE":
-                    continue
 
                 if len(fiberIds) == 1:
                     display.dot('o', xc, yc, ctype=ctype)
