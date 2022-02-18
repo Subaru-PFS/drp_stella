@@ -158,7 +158,7 @@ class ReferenceLineSet(TableBase):
 
         Lines are sorted by species and then by wavelength.
         """
-        self.data.sort_values(("description", "wavelength", "status"), inplace=True)
+        self.data.sort_values(by=["description", "wavelength", "status"], inplace=True)
 
     def writeLineList(self, filename):
         """Write a line list text file
