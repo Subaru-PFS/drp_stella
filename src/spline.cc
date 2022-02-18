@@ -276,9 +276,8 @@ class SplinePersistenceHelper {
       : schema(),
         x(schema.addField<Array>("x", "positions of knots", "pixel", 0)),
         y(schema.addField<Array>("y", "values at knots", "count", 0)),
-        interpolationType(schema.addField<int>("interpolationType", "type of spline interpolation", "")) {
-            schema.getCitizen().markPersistent();
-    }
+        interpolationType(schema.addField<int>("interpolationType", "type of spline interpolation", ""))
+        {}
 };
 
 }  // anonymous namespace
@@ -288,7 +287,7 @@ template <typename T>
 void Spline<T>::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     SplinePersistenceHelper<T> const &schema = SplinePersistenceHelper<T>::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     Array const xx = ndarray::copy(_x);
     Array const yy = ndarray::copy(_y);
     record->set(schema.x, xx);

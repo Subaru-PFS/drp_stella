@@ -17,7 +17,7 @@ __all__ = ["SpectrumSet"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class SpectrumSet:
+class SpectrumSet:  # noqa: F811 (redefinition)
     """Collection of `Spectrum`s
 
     Persistence is via the `pfs.datamodel.PfsArm` class, and we provide

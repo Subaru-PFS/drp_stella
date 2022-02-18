@@ -6,10 +6,10 @@ import unittest
 import matplotlib
 matplotlib.use("Agg")  # noqa
 
-import numpy as np
+import numpy as np  # noqa E402: import after code
 
-import lsst.utils.tests
-from pfs.drp.stella import Spectrum, SpectrumSet
+import lsst.utils.tests  # noqa E402: import after code
+from pfs.drp.stella import Spectrum, SpectrumSet  # noqa E402: import after code
 
 display = None
 

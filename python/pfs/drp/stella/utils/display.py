@@ -137,10 +137,10 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         plt.yticks(ticks=[], labels=[])
 
         colors = {}
-        for l in lines:
-            lam = l.wavelength
+        for ll in lines:
+            lam = ll.wavelength
             if lam0 < lam < lam1:
-                lab = l.description
+                lab = ll.description
                 color = colors.get(lab, f"C{len(colors)}" if labelLines else 'black')
                 plt.axvline(lam, color=color, label=None if lab in colors else lab, alpha=1)
                 colors[lab] = color
@@ -266,7 +266,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
     if lines:
         stride = 10
 
-        for l in lines:
+        for ll in lines:
             if fiberIds is None:
                 fiberIds = pfsConfig.fiberId
 
@@ -275,8 +275,8 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
                 if i%stride != 0 and i != len(pfsConfig) - 1:
                     continue
 
-                xc, yc = detMap.findPoint(fid, l.wavelength)
-                ctype = {0: 'GREEN', 1: 'BLACK', 2: 'RED'}.get(l.status, 'BLUE')
+                xc, yc = detMap.findPoint(fid, ll.wavelength)
+                ctype = {0: 'GREEN', 1: 'BLACK', 2: 'RED'}.get(ll.status, 'BLUE')
 
                 if len(fiberIds) == 1:
                     display.dot('o', xc, yc, ctype=ctype)

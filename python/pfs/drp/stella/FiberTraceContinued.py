@@ -7,7 +7,7 @@ __all__ = ["FiberTrace"]
 
 
 @continueClass  # noqa: F811 redefinition
-class FiberTrace:
+class FiberTrace:  # noqa: F811 (redefinition)
     def applyToMask(self, mask):
         """Apply the trace mask to the provided mask
 

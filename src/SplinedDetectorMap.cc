@@ -229,9 +229,8 @@ class SplinedDetectorMapSchema {
         wavelength(schema.addField<IntArray>("wavelength", "wavelength spline references", "", 0)),
         spatialOffset(schema.addField<DoubleArray>("spatialOffset", "slit offsets in x", "micron", 0)),
         spectralOffset(schema.addField<DoubleArray>("spectralOffset", "slit offsets in y", "micron", 0)),
-        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
-            schema.getCitizen().markPersistent();
-    }
+        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", ""))
+        {}
 };
 
 }  // anonymous namespace
@@ -240,7 +239,7 @@ class SplinedDetectorMapSchema {
 void SplinedDetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     SplinedDetectorMapSchema const &schema = SplinedDetectorMapSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.bbox, getBBox());
     ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(getFiberId());
     record->set(schema.fiberId, fiberId);

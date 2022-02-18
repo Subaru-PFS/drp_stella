@@ -1,3 +1,5 @@
+#include "ndarray.h"
+
 #include "pfs/drp/stella/profile.h"
 
 #include "pfs/drp/stella/math/quartiles.h"

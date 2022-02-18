@@ -1,6 +1,7 @@
 #if !defined(PFS_DRP_STELLA_DETECTORMAP_H)
 #define PFS_DRP_STELLA_DETECTORMAP_H
 
+#include <map>
 #include <utility>
 #include "ndarray_fwd.h"
 

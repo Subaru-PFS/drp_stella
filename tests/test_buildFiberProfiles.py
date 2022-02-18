@@ -1,18 +1,18 @@
 import matplotlib
 matplotlib.use("Agg")  # noqa E402: disable showing plots
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa E402: import after code
 
-import numpy as np
+import numpy as np  # noqa E402: import after code
 
-import lsst.utils.tests
-import lsst.afw.image
-import lsst.afw.image.testUtils
+import lsst.utils.tests  # noqa E402: import after code
+import lsst.afw.image  # noqa E402: import after code
+import lsst.afw.image.testUtils  # noqa E402: import after code
 
-from pfs.drp.stella.synthetic import (makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap,
-                                      makeSyntheticPfsConfig)
-from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
-from pfs.drp.stella.images import getIndices
-from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig  # noqa E402: import after code
+from pfs.drp.stella.synthetic import makeSyntheticDetectorMap, makeSyntheticPfsConfig  # noqa E402
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask  # noqa E402: import after code
+from pfs.drp.stella.images import getIndices  # noqa E402: import after code
+from pfs.drp.stella.tests.utils import runTests, methodParameters  # noqa E402: import after code
 
 display = None
 

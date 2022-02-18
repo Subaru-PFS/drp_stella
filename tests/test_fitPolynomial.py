@@ -1,15 +1,15 @@
 import matplotlib
 matplotlib.use("Agg")  # noqa E402: disable showing plots
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa E402: import after code
 
-from types import SimpleNamespace
-import numpy as np
+from types import SimpleNamespace  # noqa E402: import after code
+import numpy as np  # noqa E402: import after code
 
-import lsst.utils.tests
-import lsst.afw.image.testUtils
+import lsst.utils.tests  # noqa E402: import after code
+import lsst.afw.image.testUtils  # noqa E402: import after code
 
-from pfs.drp.stella.fitPolynomial import FitPolynomialTask
-from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.fitPolynomial import FitPolynomialTask  # noqa E402: import after code
+from pfs.drp.stella.tests.utils import runTests, methodParameters  # noqa E402: import after code
 
 display = None
 

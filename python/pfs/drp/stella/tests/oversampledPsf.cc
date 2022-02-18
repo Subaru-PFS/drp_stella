@@ -37,9 +37,8 @@ class GaussianOversampledPsfPersistenceHelper {
         sigma(schema.addField<float>("sigma", "Gaussian sigma")),
         oversampleFactor(schema.addField<int>("oversampleFactor", "factor by which the PSF is oversampled")),
         targetSize(lsst::afw::table::PointKey<int>::addFields(schema, "targetSize", "size of PSF image",
-                                                              "pixel")) {
-            schema.getCitizen().markPersistent();
-    }
+                                                              "pixel"))
+        {}
 };
 
 }  // anonymous namespace
@@ -88,7 +87,7 @@ class GaussianOversampledPsf :
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override {
         GaussianOversampledPsfPersistenceHelper const &keys = GaussianOversampledPsfPersistenceHelper::get();
         lsst::afw::table::BaseCatalog cat = handle.makeCatalog(keys.schema);
-        PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+        std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
         record->set(keys.sigma, _sigma);
         record->set(keys.oversampleFactor, getOversampleFactor());
         record->set(keys.targetSize, lsst::geom::Point2I(getTargetSize()));

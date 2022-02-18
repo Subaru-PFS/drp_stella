@@ -132,7 +132,7 @@ class FitFocalPlaneTask(Task):
             raise RuntimeError("No good points")
 
         if self.debugInfo.plot:
-            self.plot(wavelength, values, mask | rejected, variance, funcEval, f"Final")
+            self.plot(wavelength, values, mask | rejected, variance, funcEval, "Final")
 
         return func
 

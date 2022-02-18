@@ -14,7 +14,7 @@ __all__ = ("DistortedDetectorMap",)
 
 
 @continueClass  # noqa: F811 (redefinition)
-class DistortedDetectorMap:
+class DistortedDetectorMap:  # noqa: F811 (redefinition)
     @classmethod
     def fromDatamodel(cls, detMap):
         """Construct from the pfs.datamodel representation

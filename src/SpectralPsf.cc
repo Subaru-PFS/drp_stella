@@ -259,9 +259,8 @@ private:
     ImagingSpectralPsfPersistenceHelper()
             : schema(),
               base(schema.addField<int>("base", "base imaging PSF", "")),
-              detectorMap(schema.addField<int>("detectorMap", "detectorMap", "")) {
-        schema.getCitizen().markPersistent();
-    }
+              detectorMap(schema.addField<int>("detectorMap", "detectorMap", ""))
+              {}
 };
 
 
