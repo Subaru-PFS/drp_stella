@@ -43,6 +43,17 @@ class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
             new = ReferenceLineSet.fromLineList(filename)
             self.assertReferenceLines(new)
 
+    def testSort(self):
+        """Test we can sort the data correctly"""
+        lines=[]
+        lines.append(ReferenceLine('OH', 3456.0, 1.234, 0))
+        lines.append(ReferenceLine('NaI', 1234.0, 3.0, 0))
+        lineSet = ReferenceLineSet.fromRows(lines)
+        self.assertEqual('OH', lineSet[0].description)
+        self.assertEqual('NaI', lineSet[1].description)
+        lineSet.sort()
+        self.assertEqual('NaI', lineSet[0].description)
+        self.assertEqual('OH', lineSet[1].description)
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
