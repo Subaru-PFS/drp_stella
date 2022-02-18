@@ -15,14 +15,14 @@ namespace {
 
 void declareSpectrumSet(py::module &mod) {
     using Class = SpectrumSet;
-    py::class_<Class, PTR(Class)> cls(mod, "SpectrumSet");
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "SpectrumSet");
 
     cls.def(py::init<std::size_t>(), "length"_a);
     cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a, "length"_a);
 
     cls.def("size", &Class::size);
     cls.def("reserve", &Class::reserve);
-    cls.def("add", py::overload_cast<PTR(Spectrum)>(&Class::add), "spectrum"_a);
+    cls.def("add", py::overload_cast<std::shared_ptr<Spectrum>>(&Class::add), "spectrum"_a);
     cls.def("getLength", &Class::getLength);
 
     cls.def("getAllFiberIds", &Class::getAllFiberIds);
@@ -40,7 +40,7 @@ void declareSpectrumSet(py::module &mod) {
             return self.get(i);
         });
     cls.def("__setitem__",
-            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.set(i, spectrum); });
+            [](Class& self, std::size_t i, std::shared_ptr<Spectrum> spectrum) { self.set(i, spectrum); });
 
     cls.def(py::pickle(
         [](Class const& self) { return py::make_tuple(self.getInternal()); },

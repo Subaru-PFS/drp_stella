@@ -5,13 +5,13 @@ import pickle
 import matplotlib
 matplotlib.use("Agg")  # noqa
 
-import numpy as np
+import numpy as np  # noqa E402: import after code
 
-import lsst.utils.tests
-import lsst.afw.image
-import lsst.afw.image.testUtils
+import lsst.utils.tests  # noqa E402: import after code
+import lsst.afw.image  # noqa E402: import after code
+import lsst.afw.image.testUtils  # noqa E402: import after code
 
-from pfs.drp.stella import Spectrum
+from pfs.drp.stella import Spectrum  # noqa E402: import after code
 
 display = None
 

@@ -47,7 +47,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         self.image.mask.array[:] = 0xFFFF
         self.image.variance.array[:] = np.nan
         self.subimage = self.image[self.bbox, lsst.afw.image.PARENT]  # Image overlapping trace
-        self.subimage <<= self.trace
+        self.subimage[:] = self.trace
         self.subimage.mask.array[:] = 0
 
         self.nonOptimalVariance = self.width*self.variance  # Expected variance for non-optimal extraction

@@ -9,7 +9,7 @@ from .NevenPsf import NevenPsf
 
 
 @continueClass  # noqa: F811 (redefinition)
-class NevenPsf:
+class NevenPsf:  # noqa: F811 (redefinition)
     @classmethod
     def build(cls, detMap, version=None, oversampleFactor=None, targetSize=None, directory=None):
         """Generate a `NevenPsf` using the standard data
@@ -43,8 +43,10 @@ class NevenPsf:
             targetSize = 23
 
         # positions_of_simulation_00_from_<version>.npy contains: fiberId,x, y, wavelength
-        positions = np.load(os.path.join(directory, f"positions_of_simulation_00_from_{version}.npy"))
-        images = np.load(os.path.join(directory, f"array_of_simulation_00_from_{version}.npy"))
+        positions = np.load(os.path.join(directory, f"positions_of_simulation_00_from_{version}.npy"),
+                            allow_pickle=True)
+        images = np.load(os.path.join(directory, f"array_of_simulation_00_from_{version}.npy"),
+                         allow_pickle=True)
 
         return cls(detMap, positions[:, 0].astype(np.int32), positions[:, 3].astype(float), images,
                    oversampleFactor, Extent2I(targetSize, targetSize))

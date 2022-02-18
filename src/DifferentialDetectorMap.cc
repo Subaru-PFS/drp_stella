@@ -75,9 +75,8 @@ class DifferentialDetectorMapSchema {
       : schema(),
         base(schema.addField<int>("base", "reference to base", "")),
         model(schema.addField<int>("model", "reference to model", "")),
-        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
-            schema.getCitizen().markPersistent();
-    }
+        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", ""))
+        {}
 };
 
 }  // anonymous namespace
@@ -86,7 +85,7 @@ class DifferentialDetectorMapSchema {
 void DifferentialDetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     DifferentialDetectorMapSchema const &schema = DifferentialDetectorMapSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.base, handle.put(_base));
     record->set(schema.model, handle.put(_model));
     record->set(schema.visitInfo, handle.put(getVisitInfo()));

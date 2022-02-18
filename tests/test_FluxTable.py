@@ -4,12 +4,12 @@ import unittest
 import matplotlib
 matplotlib.use("Agg")  # noqa
 
-import numpy as np
+import numpy as np  # noqa E402: import after code
 
-import lsst.utils.tests
+import lsst.utils.tests  # noqa E402: import after code
 
-from pfs.datamodel import MaskHelper
-from pfs.drp.stella import FluxTable
+from pfs.datamodel import MaskHelper  # noqa E402: import after code
+from pfs.drp.stella import FluxTable  # noqa E402: import after code
 
 display = None
 

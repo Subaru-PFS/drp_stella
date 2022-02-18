@@ -16,7 +16,7 @@ __all__ = ["DetectorMap", "DisplayDetectorMapTask", "DisplayDetectorMapConfig"]
 
 
 @continueClass  # noqa F811: redefinition
-class DetectorMap:
+class DetectorMap:  # noqa F811: redefinition
     """A pseudo-class, containing factory methods and derived methods
 
     This class cannot be instantiated. It exists to provide factory classes the

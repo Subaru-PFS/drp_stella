@@ -211,9 +211,8 @@ class PsfImages : public lsst::afw::table::io::Persistable {
           : schema(),
             width(schema.addField<int>("width", "PSF image width", "pixel")),
             height(schema.addField<int>("height", "PSF image height", "pixel")),
-            images(schema.addField<FloatArray>("images", "PSF images", "count", 0)) {
-                schema.getCitizen().markPersistent();
-            }
+            images(schema.addField<FloatArray>("images", "PSF images", "count", 0))
+            {}
     };
 
     class Factory : public lsst::afw::table::io::PersistableFactory {
@@ -252,7 +251,7 @@ class PsfImages : public lsst::afw::table::io::Persistable {
         static auto const& schema = PsfImagesSchema::get();
         lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
         for (std::size_t ii = 0; ii < _images.size(); ++ii) {
-            PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+            std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
             record->set(schema.width, _images[ii].getShape()[0]);
             record->set(schema.height, _images[ii].getShape()[1]);
             ndarray::Array<float const, 2, 2> const img = lsst::afw::fits::makeContiguousArray(_images[ii]);
@@ -300,9 +299,8 @@ class NevenPsfSchema {
         imagesRef(schema.addField<int>("images", "reference to images", "")),
         oversampleFactor(schema.addField<int>("oversampleFactor", "factor by which the PSF is oversampled")),
         targetSize(lsst::afw::table::PointKey<int>::addFields(schema, "targetSize", "size of PSF image",
-                                                              "pixel")) {
-            schema.getCitizen().markPersistent();
-        }
+                                                              "pixel"))
+        {}
 };
 
 }  // anonymous namespace
@@ -311,7 +309,7 @@ class NevenPsfSchema {
 void NevenPsf::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     NevenPsfSchema const &schema = NevenPsfSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.detMap, handle.put(getDetectorMap()));
     record->set(schema.fiberId, getFiberId());
     record->set(schema.wavelength, getWavelength());

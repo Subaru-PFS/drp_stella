@@ -159,9 +159,10 @@ lsst::afw::table::BaseCatalog photometer(
                 continue;
             }
             box.shift(lsst::geom::Extent2D(point));  // put the center on the point
-            box.grow(1);  // for good measure
-            box.clip(lsst::geom::Box2D(blendImage.getBBox()));
-            lsst::afw::image::Image<std::size_t> subImage{blendImage, lsst::geom::Box2I(box)};
+            lsst::geom::Box2I subBox{box};
+            subBox.grow(1);  // for good measure
+            subBox.clip(blendImage.getBBox());
+            lsst::afw::image::Image<std::size_t> subImage{blendImage, subBox};
             std::set<std::size_t> blends{subImage.begin(), subImage.end()};
             blends.erase(0);
             switch (blends.size()) {

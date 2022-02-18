@@ -271,9 +271,8 @@ class DetectorDistortionSchema {
         range(lsst::afw::table::Box2DKey::addFields(schema, "range", "range of input values", "pixel")),
         xCoefficients(schema.addField<DoubleArray>("xCoefficients", "x distortion coefficients", "", 0)),
         yCoefficients(schema.addField<DoubleArray>("yCoefficients", "y distortion coefficients", "", 0)),
-        rightCcd(schema.addField<DoubleArray>("rightCcd", "affine transform for right Ccd", "", 0)) {
-            schema.getCitizen().markPersistent();
-    }
+        rightCcd(schema.addField<DoubleArray>("rightCcd", "affine transform for right Ccd", "", 0))
+        {}
 };
 
 }  // anonymous namespace
@@ -282,7 +281,7 @@ class DetectorDistortionSchema {
 void DetectorDistortion::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     DetectorDistortionSchema const &schema = DetectorDistortionSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.distortionOrder, getOrder());
     record->set(schema.range, getRange());
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getXCoefficients());

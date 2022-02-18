@@ -9,7 +9,7 @@ __all__ = ["ImagingSpectralPsf"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class ImagingSpectralPsf:
+class ImagingSpectralPsf:  # noqa: F811 (redefinition)
     @classmethod
     def _fromPickle(cls, psfData, detectorMap):
         """Construct from pickle
