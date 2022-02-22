@@ -86,7 +86,7 @@ class CentroidTracesTask(Task):
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        sigma = psf.computeShape().getTraceRadius()
+        sigma = psf.computeShape(psf.getAveragePosition()).getTraceRadius()
         convolvedImage = convolveImage(exposure.maskedImage, sigma, 0.0, sigmaNotFwhm=True)
         if self.debugInfo.displayConvolved:
             Display(frame=1).mtv(convolvedImage)

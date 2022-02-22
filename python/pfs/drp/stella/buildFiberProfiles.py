@@ -456,7 +456,7 @@ class BuildFiberProfilesTask(Task):
             Mapping of ``centers`` index to fiberId.
         """
         if len(centers) == 0:
-            self.log.warn("Unable to identify fibers: no traces found")
+            self.log.warning("Unable to identify fibers: no traces found")
             return centers
         middle = 0.5*(detectorMap.bbox.getMinY() + detectorMap.bbox.getMaxY())
         expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])

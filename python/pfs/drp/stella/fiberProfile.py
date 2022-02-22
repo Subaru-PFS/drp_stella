@@ -106,7 +106,7 @@ class FiberProfile:
             xCenter = centerFunc(rows)
 
             xx, yy = np.meshgrid(columns, rows)
-            xFrom = xx + np.floor(xCenter + 0.5).astype(np.int)[:, np.newaxis]
+            xFrom = xx + np.floor(xCenter + 0.5).astype(np.int32)[:, np.newaxis]
             select = (xFrom >= 0) & (xFrom < width)
             values = maskedImage.image.array[yy[select], xFrom[select]]
             bad = (maskedImage.mask.array[yy[select], xFrom[select]] & badBitmask) != 0
