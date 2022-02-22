@@ -17,7 +17,7 @@ class ApplyExclusionZoneTestCase(lsst.utils.tests.TestCase):
         self.wlMin = 600.0  # nm
         self.wlMax = 900.0  # nm
         self.spacing = (self.wlMax - self.wlMin)/(self.num - 1)
-        self.wavelength = np.linspace(self.wlMin, self.wlMax, self.num, dtype=np.float)
+        self.wavelength = np.linspace(self.wlMin, self.wlMax, self.num, dtype=float)
         self.lines = ReferenceLineSet.fromColumns(wavelength=self.wavelength, intensity=1.0,
                                                   status=ReferenceLineStatus.GOOD, description="Fake")
 

@@ -158,7 +158,7 @@ class CentroidLinesTask(Task):
             Convolved image.
         """
         psf = exposure.getPsf()
-        sigma = psf.computeShape().getTraceRadius()
+        sigma = psf.computeShape(psf.getAveragePosition()).getTraceRadius()
         convolvedImage = convolveImage(exposure.maskedImage, sigma, sigma, sigmaNotFwhm=True)
         if self.debugInfo.displayConvolved:
             from lsst.afw.display import Display

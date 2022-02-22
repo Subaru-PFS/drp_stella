@@ -579,7 +579,7 @@ class FitDistortedDetectorMapTask(Task):
             Spatial and spectral offsets to use.
         """
         if spatialOffsets is None or spectralOffsets is None:
-            self.log.warn("No slit offsets provided")
+            self.log.warning("No slit offsets provided")
             return
         if (np.all(spatialOffsets == 0) or np.all(spectralOffsets == 0)) and not self.config.doSlitOffsets:
             self.log.warn("All provided slit offsets are zero; consider using doSlitOffsets=True")

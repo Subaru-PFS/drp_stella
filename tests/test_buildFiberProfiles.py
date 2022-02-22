@@ -275,7 +275,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
 
     def testBadColumn(self):
         """Test that we can deal with a bad column"""
-        for xx in self.synth.traceCenters.astype(np.int) - 2:
+        for xx in self.synth.traceCenters.astype(int) - 2:
             self.image.image.array[:, xx] = -123.45
             self.image.mask.array[:, xx] = self.image.mask.getPlaneBitMask("BAD")
         result = self.task.run(self.exposure, self.detMap)

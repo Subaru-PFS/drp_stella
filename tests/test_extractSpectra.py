@@ -1,4 +1,4 @@
-import collections
+from collections.abc import Mapping
 import numpy as np
 
 import lsst.utils.tests
@@ -61,14 +61,14 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(spectra), self.synthConfig.numFibers)
         self.assertEqual(spectra.getLength(), self.synthConfig.height)
         for ss, ft in zip(spectra, self.fiberTraces):
-            if isinstance(flux, collections.Mapping):
+            if isinstance(flux, Mapping):
                 expectFlux = flux.get(ss.fiberId, None)
             else:
                 expectFlux = flux
             if expectFlux is None:
                 expectFlux = self.flux
 
-            if isinstance(mask, collections.Mapping):
+            if isinstance(mask, Mapping):
                 expectMask = mask.get(ss.fiberId, None)
             else:
                 expectMask = mask

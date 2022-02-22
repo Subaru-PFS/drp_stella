@@ -33,7 +33,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
     def __itruediv__(self, rhs):
         """In-place division"""
-        return self.__imul__(1.0/rhs)
+        with np.errstate(divide="ignore"):
+            return self.__imul__(1.0/rhs)
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True):
         """Plot the spectra

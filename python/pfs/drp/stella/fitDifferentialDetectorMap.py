@@ -236,7 +236,7 @@ class FitDifferentialDetectorMapTask(Task):
         if base is None:
             base = self.getBaseDetectorMap(dataId)
         if self.config.doSlitOffsets:
-            self.log.warn("Not measuring slit offsets: deprecated")
+            self.log.warning("Not measuring slit offsets: deprecated")
         elif spatialOffsets is not None and spectralOffsets is not None:
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         residuals = self.calculateBaseResiduals(base, lines)
