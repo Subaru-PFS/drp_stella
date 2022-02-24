@@ -23,7 +23,10 @@ class ReferenceLineStatus(Bitmask):
     SUSPECT = 0x04, "Line is of suspect quality"
     REJECTED = 0x08, "Line has been rejected from use in PFS"
     BROAD = 0x10, "Line is broader than normal"
-    BAD = 0xFFFF, "Line is bad for any reason"
+    DETECTORMAP_USED = 0x20, "Used for fitting detectorMap"
+    DETECTORMAP_RESERVED = 0x40, "Reserved during fitting detectorMap"
+    SKYSUB_USED = 0x80, "Used for 2d sky subtraction"
+    BAD = 0x01F, "Line is bad for any reason"
 
     @classmethod
     def getMasks(cls):
