@@ -4,14 +4,15 @@ from collections import defaultdict
 import numpy as np
 import astropy.io.fits
 
-from lsst.pex.config import Config, Field, ListField, ChoiceField, ConfigurableField
+from lsst.pex.config import Config, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.image import MaskedImageF, makeMaskedImage
 
-from pfs.datamodel.pfsConfig import PfsConfig, TargetType, FiberStatus
+from pfs.datamodel.pfsConfig import PfsConfig
 
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .apertureCorrections import calculateApertureCorrection
+from .selectFibers import SelectFibersTask
 
 
 class SkyModel(SimpleNamespace):
@@ -113,7 +114,11 @@ def computePsfImage(psf, fiberTrace, wavelength, bbox):
 
 class SubtractSky2dConfig(Config):
     """Configuration for SubtractSky2dTask"""
-    useAllFibers = Field(dtype=bool, default=False, doc="Use all fibers to measure sky?")
+    selectFibers = ConfigurableField(target=SelectFibersTask, doc="Select sky fibers")
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.selectFibers.targetType = ("SKY", "SUNSS_DIFFUSE", "SUNSS_IMAGING")
 
 
 class SubtractSky2dTask(Task):
@@ -123,6 +128,7 @@ class SubtractSky2dTask(Task):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("selectFibers")
 
     def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList, apCorrList):
         """Measure and subtract sky from 2D spectra image
@@ -187,7 +193,7 @@ class SubtractSky2dTask(Task):
         RuntimeError
             If there are no sky fibers found.
         """
-        skyFibers = set(pfsConfig.fiberId[pfsConfig.targetType == int(TargetType.SKY)])
+        skyFibers = self.selectFibers.run(pfsConfig).fiberId
         if skyFibers is None or len(skyFibers) == 0:
             raise RuntimeError('No sky fibers found.')
         intensities = defaultdict(list)  # List of flux for each line, by wavelength
@@ -198,12 +204,7 @@ class SubtractSky2dTask(Task):
             if psf is None:
                 raise RuntimeError("Unable to measure 2D sky model: PSF is None")
             exp.setPsf(psf)
-            if self.config.useAllFibers:
-                select = np.ones(len(lines), dtype=bool)
-            else:
-                select = np.zeros(len(lines), dtype=bool)
-                for ff in skyFibers:
-                    select |= lines.fiberId == ff
+            select = np.isin(lines.fiberId, skyFibers)
 
             for wl in set(lines.wavelength[select]):
                 choose = select & (lines.wavelength == wl) & ~lines.flag
@@ -298,18 +299,14 @@ class SubtractSky2dTask(Task):
 
 class DummySubtractSky2dConfig(Config):
     """Configuration for DummySubtractSky2dTask"""
-    fiberStatus = ListField(dtype=str, default=("GOOD",), doc="Fiber status to require")
-    targetType = ListField(dtype=str, default=("SKY", "SUNSS_DIFFUSE", "SUNSS_IMAGING"),
-                           doc="Target types to select")
-    fiberFilter = ChoiceField(dtype=str, default="ALL",
-                              allowed={"ALL": "Use all fibers selected by targetType",
-                                       "ODD": "Use only odd fiberIds after selecting by targetType",
-                                       "EVEN": "Use only even fiberIds after selecting by targetType",
-                                       },
-                              doc="Additional filters to provide to input fiberId list")
+    selectFibers = ConfigurableField(target=SelectFibersTask, doc="Select fibers")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask, doc="1D sky subtraction")
     mask = ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
                      doc="Mask pixels to ignore in extracting spectra")
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.selectFibers.targetType = ("SKY", "SUNSS_DIFFUSE", "SUNSS_IMAGING")
 
 
 class DummySubtractSky2dTask(Task):
@@ -319,6 +316,7 @@ class DummySubtractSky2dTask(Task):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("selectFibers")
         self.makeSubtask("fitSkyModel")
 
     def run(self, exposureList, pfsConfig: PfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
@@ -346,9 +344,7 @@ class DummySubtractSky2dTask(Task):
         imageList : `list` of `lsst.afw.image.MaskedImage`
             List of images of the sky model.
         """
-        pfsConfig = pfsConfig.select(fiberStatus=[FiberStatus.fromString(fs) for
-                                                  fs in self.config.fiberStatus])
-        skyFibers = self.selectFibers(pfsConfig)
+        skyFibers = self.selectFibers.run(pfsConfig).fiberId
         imageList = []
         for exp, ft, detMap in zip(exposureList, fiberTraceList, detectorMapList):
             imageList.append(self.runSingle(exp, pfsConfig, skyFibers, ft, detMap))
@@ -397,29 +393,3 @@ class DummySubtractSky2dTask(Task):
         exposure.maskedImage -= skyImage
 
         return skyImage
-
-    def selectFibers(self, pfsConfig: PfsConfig):
-        """Select fibers to use for sky subtraction
-
-        Parameters
-        ----------
-        pfsConfig : `PfsConfig`
-            Top-end configuration.
-
-        Returns
-        -------
-        fiberId : `numpy.ndarray`
-            Fiber identifiers to use for sky subtraction.
-        """
-        fiberId = set()
-        for tt in self.config.targetType:
-            selection = pfsConfig.getSelection(targetType=TargetType.fromString(tt))
-            fiberId.update(pfsConfig.fiberId[selection])
-        fiberId = np.array(sorted(fiberId), dtype=int)
-
-        if self.config.fiberFilter == "ODD":
-            fiberId = fiberId[fiberId % 2 == 1]
-        elif self.config.fiberFilter == "EVEN":
-            fiberId = fiberId[fiberId % 2 == 0]
-
-        return fiberId
