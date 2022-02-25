@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Iterable
 import os.path
 import re
 import numpy as np
@@ -10,8 +9,9 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
+from pfs.drp.stella.selectFibers import SelectFibersTask
 from .datamodel import PfsConfig, PfsArm, PfsMerged
-from pfs.datamodel import Identity, TargetType
+from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
@@ -42,9 +42,8 @@ class WavelengthSamplingConfig(Config):
 class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
-    selectSkyMin = Field(dtype=float, default=0.03, doc="Lower bound in flux distribution for sky selection")
-    selectSkyMax = Field(dtype=float, default=0.10, doc="Upper bound in flux distribution for sky selection")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
+    selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
                                     doc="Fit sky model over the focal plane")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
@@ -57,6 +56,7 @@ class MergeArmsConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
+        self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE")
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
         self.fitSkyModel.rejThreshold = 10.0
@@ -96,6 +96,7 @@ class MergeArmsTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
         self.debugInfo = lsstDebug.Info(__name__)
@@ -138,7 +139,6 @@ class MergeArmsTask(CmdLineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
-        self.selectSky(allSpectra, pfsConfig)
         self.normalizeSpectra(allSpectra)
 
         sky1d = []
@@ -438,38 +438,6 @@ class MergeArmsTask(CmdLineTask):
             lsf.update(ll)
         return lsf
 
-    def selectSky(self, spectra: Iterable[PfsArm], pfsConfig: PfsConfig) -> None:
-        """Select sky fibers if none have been selected for us
-
-        This is intended to support SuNSS and early PFI data, where
-        ``targetType=SKY`` hasn't been set in the pfsConfig.
-
-        Parameters
-        ----------
-        spectra : iterable of `pfs.datamodel.PsfArm`
-            Extracted spectra.
-        pfsConfig : `PfsConfig`
-            Top-end configuration.
-        """
-        if np.any(pfsConfig.getSelection(targetType=TargetType.SKY)):
-            # Sky fibers have been selected already
-            return
-        self.log.warn("Selecting sky fibers, since none have been specified in pfsConfig")
-        fluxes = defaultdict(float)  # Flux measurements indexed by fiberId
-        for pfsArm in spectra:
-            bitmask = pfsArm.flags.get(*self.config.mask)
-            for ii in range(len(pfsArm)):
-                select = (pfsArm.mask[ii] & bitmask) == 0
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    fluxes[pfsArm.fiberId[ii]] += (pfsArm.flux[ii]/pfsArm.norm[ii])[select].sum()
-        fiberId = sorted(fluxes.keys(), key=lambda ff: fluxes[ff])
-        numFibers = len(fiberId)
-        low = int(numFibers*self.config.selectSkyMin)
-        high = int(np.ceil(numFibers*self.config.selectSkyMax))
-        select = pfsConfig.getSelection(fiberId=fiberId[low:high])
-        pfsConfig.targetType[select] = TargetType.SKY
-        self.log.info("Selected %d sky fibers from %d available", select.sum(), numFibers)
-
     def skySubtraction(self, spectra: PfsArm, pfsConfig: PfsConfig) -> FocalPlaneFunction:
         """Fit and subtract sky model
 
@@ -485,8 +453,8 @@ class MergeArmsTask(CmdLineTask):
         sky1d : `FocalPlaneFunction`
             Sky model.
         """
-        skySpectra = spectra.select(pfsConfig, targetType=TargetType.SKY)
-        skyConfig = pfsConfig.select(fiberId=skySpectra.fiberId)
+        skyConfig = self.selectSky.run(pfsConfig)
+        skySpectra = spectra.select(pfsConfig, fiberId=skyConfig.fiberId)
         if len(skySpectra) == 0:
             raise RuntimeError("No sky spectra to use for sky subtraction")
 
