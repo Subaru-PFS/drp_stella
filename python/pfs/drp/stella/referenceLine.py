@@ -46,7 +46,7 @@ class ReferenceLineStatus(Bitmask):
             return int(log2(value)) + 1
 
         bits = {name: findBitSet(value) for name, value in cls.__members__.items()}
-        return MaskHelper(**{name: number for name, number in bits.items() if number != 0})
+        return MaskHelper(**{name: number - 1 for name, number in bits.items() if number != 0})
 
 
 @dataclass
