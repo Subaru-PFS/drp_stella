@@ -41,7 +41,7 @@ class MeasureApertureCorrectionsConfig(Config):
     def setDefaults(self):
         super().setDefaults()
         self.apertureFlux.radii = [3.0]
-        self.fit.mask = ReferenceLineStatus.getMasks().flags.keys()
+        self.fit.mask = ["NOT_VISIBLE", "BLEND", "SUSPECT", "REJECTED", "BROAD"]
         self.fit.order = 3
 
     def validate(self):

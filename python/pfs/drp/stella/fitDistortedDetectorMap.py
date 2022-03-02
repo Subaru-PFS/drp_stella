@@ -285,7 +285,8 @@ class FitDistortedDetectorMapTask(Task):
         bbox : `lsst.geom.Box2I`
             Bounding box for detector.
         lines : `pfs.drp.stella.ArcLineSet`
-            Arc line measurements.
+            Arc line measurements. The ``status`` member will be updated to
+            indicate which lines were used and reserved.
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for exposure.
         metadata : `lsst.daf.base.PropertyList`, optional
@@ -351,6 +352,9 @@ class FitDistortedDetectorMapTask(Task):
         results = self.measureQuality(lines, detectorMap, results.selection, numParameters)
         results.detectorMap = detectorMap
         results.reserved = reserved
+
+        lines.status[results.selection] |= ReferenceLineStatus.DETECTORMAP_USED
+        lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
             self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved,

@@ -9,6 +9,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.afw.image import MaskedImageF, makeMaskedImage
 
 from pfs.datamodel.pfsConfig import PfsConfig
+from pfs.drp.stella.referenceLine import ReferenceLineStatus
 
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .apertureCorrections import calculateApertureCorrection
@@ -146,7 +147,8 @@ class SubtractSky2dTask(Task):
         detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
             Mapping of fiber,wavelength to x,y.
         linesList : iterable of `pfs.drp.stella.ArcLineSet`
-            Measured sky lines.
+            Measured sky lines. The ``status`` members will be updated to
+            indicate which lines were used.
         apCorrList : iterable of `pfs.drp.stella.FocalPlaneFunction`
             Aperture corrections.
 
@@ -181,7 +183,8 @@ class SubtractSky2dTask(Task):
         detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
             Mapping of fiber,wavelength to x,y.
         linesList : iterable of `pfs.drp.stella.ArcLineSet`
-            Measured sky lines.
+            Measured sky lines. The ``status`` members will be updated to
+            indicate which lines were used.
 
         Returns
         -------
@@ -208,6 +211,7 @@ class SubtractSky2dTask(Task):
 
             for wl in set(lines.wavelength[select]):
                 choose = select & (lines.wavelength == wl) & ~lines.flag
+                lines.status[choose] |= ReferenceLineStatus.SKYSUB_USED
                 inten = lines.intensity[choose]
                 if np.isfinite(inten).any():
                     intensities[wl] = inten

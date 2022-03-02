@@ -30,7 +30,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         lines : `pfs.drp.stella.ArcLineSet`
-            Measured line positions.
+            Measured line positions. The ``status`` member will be updated to
+            indicate which lines were used and reserved.
 
         Returns
         -------
@@ -76,10 +77,13 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         results = self.measureQuality(lines, detectorMap, fit.selection, fit.numParameters)
         results.detectorMap = detectorMap
 
+        lines.status[fit.selection] |= ReferenceLineStatus.DETECTORMAP_USED
+        lines.status[fit.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
+
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
-            self.plotWavelengthResiduals(results.detectorMap, lines, results.used, results.reserved)
+            self.plotWavelengthResiduals(results.detectorMap, lines, fit.selection, fit.reserved)
         return results
 
     def getBaseDetectorMap(self, detectorMap):
