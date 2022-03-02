@@ -453,7 +453,7 @@ class MergeArmsTask(CmdLineTask):
         sky1d : `FocalPlaneFunction`
             Sky model.
         """
-        skyConfig = self.selectSky.run(pfsConfig)
+        skyConfig = self.selectSky.run(pfsConfig.select(fiberId=spectra.fiberId))
         skySpectra = spectra.select(pfsConfig, fiberId=skyConfig.fiberId)
         if len(skySpectra) == 0:
             raise RuntimeError("No sky spectra to use for sky subtraction")
