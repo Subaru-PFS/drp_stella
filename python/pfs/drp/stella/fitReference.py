@@ -139,7 +139,7 @@ class FilterCurve(TransmissionCurve):
         filename = os.path.join(os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "bandpass",
                                 self.filenames[filterName])
         data = np.genfromtxt(filename, dtype=[('wavelength', 'f4'), ('flux', 'f4')])
-        wavelength = data["wavelength"]*0.1  # nm
+        wavelength = data["wavelength"]
         transmission = data["flux"]  # Relative transmission
         super().__init__(wavelength, transmission)
 
