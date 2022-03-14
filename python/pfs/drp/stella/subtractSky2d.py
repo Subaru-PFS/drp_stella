@@ -253,10 +253,25 @@ class SubtractSky2dTask(Task):
         if psf is None:
             raise RuntimeError("Unable to construct sky image: PSF is None")
         result = MaskedImageF(bbox)
-        fiberId = np.array([ft.fiberId for ft in fiberTraces])
-        centers = pfsConfig.extractCenters(fiberId)
+
+        # Compute essentially the intersection of fiberIds and traces from the 3 input sources:
+        # 1. the pfsConfig
+        # 2. the aperture correction object
+        # 3. the input fiberTraceSet.
+        fiberIdsFromConfigApCorr = set(pfsConfig.fiberId).intersection(apCorr.fiberId)
+        fiberTracesMatched = [ft for ft in fiberTraces if ft.fiberId in fiberIdsFromConfigApCorr]
+        fiberIdMatched = np.array([ft.fiberId for ft in fiberTracesMatched])
+
+        excludedFiberIds = list(set(pfsConfig.fiberId) - set(fiberIdMatched))
+        self.log.debugf('pfsConfig fiberIds {}, with corresponding fiberStatus {} '
+                        'are excluded from sky model image generation.',
+                        excludedFiberIds,
+                        pfsConfig.fiberStatus[np.isin(pfsConfig.fiberId, excludedFiberIds)].tolist())
+
+        centers = pfsConfig.extractCenters(fiberIdMatched)
         model = sky2d(centers)
-        for ii, ft in enumerate(fiberTraces):
+        for ii, ft in enumerate(fiberTracesMatched):
+
             # Current fluxes are aperture-corrected, but the flux we put down will be a PSF flux,
             # so we need to remove the aperture correction.
             psfFlux = calculateApertureCorrection(apCorr, ft.fiberId, model.wavelength, pfsConfig,
