@@ -1,6 +1,7 @@
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
+from pfs.datamodel.wavelengthArray import WavelengthArray
 
 import numpy as np
 from numpy.lib import recfunctions
@@ -124,9 +125,10 @@ class FluxModelSet:
         """
         with astropy.io.fits.open(path) as hdus:
             header = hdus[0].header
+            start = header["CRVAL1"] + header["CDELT1"] * (1 - header["CRPIX1"])
+            stop = header["CRVAL1"] + header["CDELT1"] * (header["NAXIS1"] - header["CRPIX1"])
+            wavelength = WavelengthArray(start, stop, header["NAXIS1"], dtype=float)
 
-            iota = np.arange(1, header["NAXIS1"] + 1)
-            wavelength = (iota - header["CRPIX1"]) * header["CDELT1"] + header["CRVAL1"]
             flux = hdus[0].data.astype(float)
 
             target = Target(0, 0, "0,0", 0)
