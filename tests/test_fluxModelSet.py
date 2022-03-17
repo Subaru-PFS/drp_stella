@@ -1,6 +1,7 @@
 import lsst.utils
 import lsst.utils.tests
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
+from pfs.datamodel.wavelengthArray import WavelengthArray
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.tests import runTests
 
@@ -26,6 +27,7 @@ class FluxModelSetTestCase(lsst.utils.tests.TestCase):
             teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"],
         )
         self.assertIsInstance(spectrum, PfsSimpleSpectrum)
+        self.assertIsInstance(spectrum.wavelength, WavelengthArray)
 
 
 def setup_module(module):
