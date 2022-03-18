@@ -8,6 +8,7 @@ setupRequired(datamodel)
 setupRequired(sconsUtils)
 setupRequired(pybind11)
 setupRequired(ip_isr)
+setupOptional(dustmaps_cachedata)
 setupOptional(fluxmodeldata)
 
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
