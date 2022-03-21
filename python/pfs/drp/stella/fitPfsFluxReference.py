@@ -8,8 +8,6 @@ from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 from pfs.datamodel.pfsFiberArray import PfsFiberArray
 from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
-from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
-from pfs.datamodel.target import Target
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
@@ -24,7 +22,6 @@ from pfs.drp.stella.utils.psf import fwhmToSigma
 
 from astropy import constants as const
 import numpy as np
-import scipy.integrate
 
 import copy
 
