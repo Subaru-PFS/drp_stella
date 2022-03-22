@@ -43,7 +43,7 @@ class PhotometerLinesConfig(Config):
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     doForced = Field(dtype=bool, default=True, doc="Use forced positions to measure lines?")
     mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
-    excludeStatus = ListField(dtype=str, default=["BLEND"],
+    excludeStatus = ListField(dtype=str, default=[],
                               doc="Reference line status flags indicating that line should be excluded")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     doSubtractLines = Field(dtype=bool, default=False, doc="Subtract lines after measurement?")
