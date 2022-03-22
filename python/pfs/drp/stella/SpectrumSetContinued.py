@@ -207,9 +207,11 @@ class SpectrumSet:
         image = afwImage.ImageF(box)
         image.set(0.0)
 
-        fiberIds = list(self.getAllFiberIds())
+        specDict = {fiberId: spec for fiberId, spec in zip(self.getAllFiberIds(), self)}
         for ft in fiberTraces:
-            spec = self[fiberIds.index(ft.fiberId)]
+            spec = specDict.get(ft.fiberId, None)
+            if spec is None:
+                continue
             fiberImage = ft.constructImage(spec)
             image[fiberImage.getBBox(), afwImage.PARENT] += fiberImage
 
