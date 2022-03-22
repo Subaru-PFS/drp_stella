@@ -12,7 +12,7 @@ from .fitContinuum import FitContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
 from pfs.drp.stella import FiberProfileSet, FiberTraceSet
-from .apertureCorrections import MeasureApertureCorrectionsTask
+from .apertureCorrections import MeasureApertureCorrectionsTask, calculateApertureCorrection
 
 import lsstDebug
 
@@ -171,7 +171,7 @@ class PhotometerLinesTask(Task):
             apCorr = self.apertureCorrection.run(exposure, pfsConfig, detectorMap, lines)
 
         if self.config.doSubtractLines:
-            self.subtractLines(exposure, lines, detectorMap)
+            self.subtractLines(exposure, lines, apCorr, pfsConfig)
 
         return Struct(lines=lines, apCorr=apCorr)
 
@@ -222,7 +222,7 @@ class PhotometerLinesTask(Task):
             lines.intensity[:] /= norm
             lines.intensityErr[:] /= norm
 
-    def subtractLines(self, exposure, lines, detectorMap):
+    def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image
 
         This can be used as a check of the quality of the measurement.
@@ -233,12 +233,25 @@ class PhotometerLinesTask(Task):
             Exposure containing the lines to subtract; modified.
         lines : `pfs.drp.stella.ArcLineSet`
             Measured lines.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping from fiberId,wavelength to x,y.
+        apCorr : `pfs.drp.stella.FocalPlaneFunction`
+            Aperture corrections.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying fiber positions.
         """
+        if apCorr is not None:
+            psfFlux = np.full_like(lines.intensity, np.nan, dtype=float)
+            for fiberId in set(lines.fiberId):
+                select = lines.fiberId == fiberId
+                wavelength = lines.wavelength[select]
+                psfFlux[select] = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
+                                                              lines.intensity[select], invert=True).flux
+        imageBox = exposure.getBBox()
         psf = exposure.getPsf()
-        for ll in lines:
+        for ii, ll in enumerate(lines):
             if ll.flag:
                 continue
             psfImage = psf.computeImage(ll.fiberId, ll.wavelength)
-            exposure.image[psfImage.getBBox()].scaledMinus(ll.intensity, psfImage.convertF())
+            psfBox = psfImage.getBBox()
+            psfBox.clip(imageBox)
+            exposure.image[psfBox].scaledMinus(ll.intensity if apCorr is None else psfFlux[ii],
+                                               psfImage[psfBox].convertF())
