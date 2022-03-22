@@ -160,7 +160,7 @@ lsst::afw::table::BaseCatalog photometer(
                 // Bad PSF: not even a blend.
                 continue;
             }
-            box.shift(lsst::geom::Extent2D(point) - 0.5*box.getDimensions());  // put the center on the point
+            box.shift(lsst::geom::Extent2D(point));  // put the center on the point
             box.grow(1);  // for good measure
             box.clip(lsst::geom::Box2D(blendImage.getBBox()));
             lsst::afw::image::Image<std::size_t> subImage{blendImage, lsst::geom::Box2I(box)};
