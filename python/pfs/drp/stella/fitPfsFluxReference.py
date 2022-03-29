@@ -236,11 +236,13 @@ class FitPfsFluxReferenceTask(Task):
             ("logg", np.float32),
             ("m", np.float32),
             ("alpha", np.float32),
+            ("radial_velocity", np.float32),
+            ("radial_velocity_err", np.float32),
         ])
 
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
 
-        for fiberId, bestModel in zip(pfsConfig.fiberId, bestModels):
+        for fiberId, bestModel, velocity in zip(pfsConfig.fiberId, bestModels, radialVelocities):
             if fitFlag.get(fiberId, 0) == 0:
                 index = fiberIdToIndex[fiberId]
                 flux[index, :] = bestModel.spectrum.flux
@@ -248,6 +250,8 @@ class FitPfsFluxReferenceTask(Task):
                 fitParams["logg"][index] = bestModel.param[1]
                 fitParams["m"][index] = bestModel.param[2]
                 fitParams["alpha"][index] = bestModel.param[3]
+                fitParams["radial_velocity"][index] = velocity.velocity
+                fitParams["radial_velocity_err"][index] = velocity.error
 
         fitFlagArray = np.zeros(shape=(len(originalFiberId),), dtype=np.int32)
 
