@@ -11,7 +11,9 @@ from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
+from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
+from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
@@ -108,6 +110,7 @@ class FitPfsFluxReferenceTask(Task):
 
         self.fluxModelSet = FluxModelSet(getPackageDir("fluxmodeldata"))
         self.modelInterpolator = FluxModelInterpolator.fromFluxModelData(getPackageDir("fluxmodeldata"))
+        self.extinctionMap = DustMap()
 
         if "EDGE" not in self.config.badMask:
             self.config.badMask.append("EDGE")
@@ -715,7 +718,10 @@ class FitPfsFluxReferenceTask(Task):
             if model.spectrum is None:
                 continue
 
-            # TODO: apply galactic extinction here.
+            ebv = self.extinctionMap(fiberConfig.ra[0], fiberConfig.dec[0])
+            extinction = F99ExtinctionCurve(self.config.Rv)
+            model.spectrum.flux *= extinction.attenuation(model.spectrum.wavelength, ebv)
+
             model.spectrum = adjustAbsoluteScale(model.spectrum, fiberConfig)
 
         return bestModels
@@ -737,29 +743,34 @@ class FitPfsFluxReferenceTask(Task):
             Configuration of the PFS top-end.
             This is the same instance as the argument.
         """
-        # TODO: remove the effect of galactic extinction here.
+        # F0 star
+        f0Model = self.fluxModelSet.getSpectrum(teff=7500, logg=4.5, m=0.0, alpha=0.0)
+
+        ebvs = self.extinctionMap(pfsConfig.ra, pfsConfig.dec)
+        extinction = F99ExtinctionCurve(self.config.Rv)
+
+        for i, ebv in enumerate(ebvs):
+            attenuatedF0Model = copy.copy(f0Model)
+            attenuatedF0Model.flux = f0Model.flux * extinction.attenuation(f0Model.wavelength, ebvs[i])
+
+            filterNames = pfsConfig.filterNames[i]
+            unattenuatedFlux = np.empty(len(filterNames), dtype=float)
+            attenuatedFlux = np.empty(len(filterNames), dtype=float)
+
+            for iFilter, filterName in enumerate(filterNames):
+                unattenuatedFlux[iFilter] = FilterCurve(filterName).photometer(f0Model)
+                attenuatedFlux[iFilter] = FilterCurve(filterName).photometer(attenuatedF0Model)
+
+            fractionalExtinction = attenuatedFlux / unattenuatedFlux
+
+            pfsConfig.fiberFlux[i] /= fractionalExtinction
+            pfsConfig.fiberFluxErr[i] /= fractionalExtinction
+            pfsConfig.psfFlux[i] /= fractionalExtinction
+            pfsConfig.psfFluxErr[i] /= fractionalExtinction
+            pfsConfig.totalFlux[i] /= fractionalExtinction
+            pfsConfig.totalFluxErr[i] /= fractionalExtinction
+
         return pfsConfig
-
-
-def reddenSpectrum(spectrum, fiberConfig, Rv):
-    """Get the spectrum affected by extinction.
-
-    Parameters
-    ----------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
-        Spectrum.
-    fiberConfig : `pfs.datamodel.pfsConfig.PfsConfig`
-        PfsConfig that contains only a single fiber.
-    Rv : `float`
-        Av/E(B-V), typically 3.1
-
-    Returns
-    -------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
-        Reddended spectrum.
-    """
-    # TODO: must actually redden the spectrum
-    return spectrum
 
 
 def convolveLsf(spectrum):
