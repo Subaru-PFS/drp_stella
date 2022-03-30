@@ -313,6 +313,8 @@ def calculateApertureCorrection(apCorr: FocalPlaneFunction, fiberId: int, wavele
         Errors in aperture-corrected flux measurements, or ``None`` if
         ``fluxErr`` is not provided.
     """
+    if not np.issubdtype(fiberId, np.integer):
+        raise RuntimeError("fiberId must be an integer")
     result = apCorr(wavelength, pfsConfig.select(fiberId=fiberId))
     with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
         ratio = 10.0**(-0.4*result.values)

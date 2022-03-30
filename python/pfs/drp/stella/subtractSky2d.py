@@ -119,7 +119,7 @@ class SubtractSky2dConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
-        self.selectFibers.targetType = ("SKY", "SUNSS_DIFFUSE", "SUNSS_IMAGING")
+        self.selectFibers.targetType = ("SKY", "SUNSS_DIFFUSE")
 
 
 class SubtractSky2dTask(Task):

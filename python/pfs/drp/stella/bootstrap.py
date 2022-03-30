@@ -51,7 +51,6 @@ class BootstrapConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
-        self.readLineList.restrictByLamps = True
         self.profiles.doBlindFind = True  # We can't trust the detectorMap
 
 

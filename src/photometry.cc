@@ -21,19 +21,17 @@ namespace {
 /// Return an image of the PSF for the nominated emission line
 //
 /// @param psf : The point-spread function model
-/// @param fiberId : Fiber identifier
-/// @param wavelength : Wavelength (nm) of the line
+/// @param point : The point at which to evaluate the PSF model
 /// @param bbox : Bounding box of the exposure
 /// @returns PSF image
 std::shared_ptr<lsst::afw::detection::Psf::Image> getPsfImage(
     pfs::drp::stella::SpectralPsf const& psf,
-    int fiberId,
-    double wavelength,
+    lsst::geom::Point2D const& point,
     lsst::geom::Box2I const& bbox
 ) {
     std::shared_ptr<pfs::drp::stella::SpectralPsf::Image> psfImage;
     try {
-        psfImage = psf.computeImage(fiberId, wavelength);
+        psfImage = psf.computeImage(point);
     } catch (lsst::pex::exceptions::Exception const&) {
         return nullptr;
     }
@@ -160,7 +158,7 @@ lsst::afw::table::BaseCatalog photometer(
                 // Bad PSF: not even a blend.
                 continue;
             }
-            box.shift(lsst::geom::Extent2D(point) - 0.5*box.getDimensions());  // put the center on the point
+            box.shift(lsst::geom::Extent2D(point));  // put the center on the point
             box.grow(1);  // for good measure
             box.clip(lsst::geom::Box2D(blendImage.getBBox()));
             lsst::afw::image::Image<std::size_t> subImage{blendImage, lsst::geom::Box2I(box)};
@@ -221,9 +219,9 @@ lsst::afw::table::BaseCatalog photometer(
         auto const bbox = image.getBBox();
         for (std::size_t ii = 0; ii < blendSize; ++ii) {
             std::size_t const iIndex = indices[ii];
+            lsst::geom::Point2D const iPoint{positions[iIndex][0], positions[iIndex][1]};
             auto & row = catalog[iIndex];
-
-            auto const iPsfImage = getPsfImage(psf, fiberId[iIndex], wavelength[iIndex], bbox);
+            auto const iPsfImage = getPsfImage(psf, iPoint, bbox);
             if (!iPsfImage) {
                 matrix.add(ii, ii, 1.0);  // avoid matrix singularity
                 errors[ii] = std::numeric_limits<double>::quiet_NaN();
@@ -250,7 +248,6 @@ lsst::afw::table::BaseCatalog photometer(
             }
 
             // Check for masked pixels in the central area
-            lsst::geom::Point2D const iPoint{positions[iIndex][0], positions[iIndex][1]};
             {
                 lsst::geom::Box2I central(lsst::geom::Point2I(iPoint) - lsst::geom::Extent2I(1, 1),
                                           lsst::geom::Extent2I(3, 3));
@@ -268,7 +265,7 @@ lsst::afw::table::BaseCatalog photometer(
                 if (!bounds.contains(jPoint)) {
                     continue;
                 }
-                auto const jPsfImage = getPsfImage(psf, fiberId[jIndex], wavelength[jIndex], bbox);
+                auto const jPsfImage = getPsfImage(psf, jPoint, bbox);
                 if (!jPsfImage) {
                     continue;
                 }

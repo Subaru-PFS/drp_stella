@@ -31,7 +31,7 @@ PhotometryConfig = makeConfigClass(PsfFluxControl)
 
 class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
-    doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
+    doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum before centroiding lines?")
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     peakSearch = Field(dtype=float, default=3, doc="Radius of peak search (pixels)")
