@@ -307,12 +307,12 @@ class ReduceExposureTask(CmdLineTask):
                     spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                     # Set sky flux from continuum
                     for ss, cc in zip(spectra, continua):
-                        ss.background += cc.spectrum
+                        ss.background += cc.spectrum/cc.norm*ss.norm
 
                 if skyImage is not None:
                     skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
                     for spec, skySpec in zip(spectra, skySpectra):
-                        spec.background += skySpec.spectrum
+                        spec.background += skySpec.spectrum/skySpec.norm*spec.norm
 
                 spectraList.append(spectra)
 
