@@ -145,9 +145,14 @@ class PhotometerLinesTask(Task):
             lookup = {rl.wavelength: rl for rl in lines}
             status = [lookup[wl].status for wl in wavelength]
             description = [lookup[wl].description for wl in wavelength]
+            transition = [lookup[wl].transition for wl in wavelength]
+            source = [lookup[wl].status for wl in wavelength]
+
             lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
                                            xErr=nan, yErr=nan, flux=nan, fluxErr=nan,
-                                           flag=flags, status=status, description=description)
+                                           flag=flags, status=status, description=description,
+                                           transition=transition,
+                                           source=source)
         else:
             fiberId = lines.fiberId
             wavelength = lines.wavelength

@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
-from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus, ReferenceLineSource
 
 
 class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
@@ -15,9 +15,12 @@ class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
         self.status = ReferenceLineStatus.BROAD
         self.wavelength = 1234.5678
         self.intensity = 543.21
+        self.transition = "UNKNOWN"
+        self.source = ReferenceLineSource.NONE
         lines = []
         for _ in range(self.num):
-            lines.append(ReferenceLine(self.description, self.wavelength, self.intensity, self.status))
+            lines.append(ReferenceLine(self.description, self.wavelength, self.intensity, self.status,
+                                       self.transition, self.source))
         self.lines = ReferenceLineSet.fromRows(lines)
 
     def assertReferenceLines(self, lines):
@@ -46,8 +49,8 @@ class ReferenceLineSetTestCase(lsst.utils.tests.TestCase):
     def testSort(self):
         """Test we can sort the data correctly"""
         lines = []
-        lines.append(ReferenceLine('OH', 3456.0, 1.234, 0))
-        lines.append(ReferenceLine('NaI', 1234.0, 3.0, 0))
+        lines.append(ReferenceLine('OH', 3456.0, 1.234, 0, "UNKNOWN", ReferenceLineSource.NONE))
+        lines.append(ReferenceLine('NaI', 1234.0, 3.0, 0, "UNKNOWN", ReferenceLineSource.NONE))
         lineSet = ReferenceLineSet.fromRows(lines)
         self.assertEqual('OH', lineSet[0].description)
         self.assertEqual('NaI', lineSet[1].description)

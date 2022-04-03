@@ -4,7 +4,7 @@ import lsst.utils.tests
 import lsst.afw.geom
 
 from pfs.drp.stella.applyExclusionZone import applyExclusionZone
-from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus, ReferenceLineSource
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -19,7 +19,8 @@ class ApplyExclusionZoneTestCase(lsst.utils.tests.TestCase):
         self.spacing = (self.wlMax - self.wlMin)/(self.num - 1)
         self.wavelength = np.linspace(self.wlMin, self.wlMax, self.num, dtype=float)
         self.lines = ReferenceLineSet.fromColumns(wavelength=self.wavelength, intensity=1.0,
-                                                  status=ReferenceLineStatus.GOOD, description="Fake")
+                                                  status=ReferenceLineStatus.GOOD, description="Fake",
+                                                  transition=None, source=ReferenceLineSource.NONE)
 
     def testBasic(self):
         """Test basic functionality"""

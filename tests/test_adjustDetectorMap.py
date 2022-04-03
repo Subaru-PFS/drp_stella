@@ -9,6 +9,7 @@ from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapConfig, AdjustDete
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat
 from pfs.drp.stella.centroidLines import CentroidLinesTask
@@ -138,7 +139,9 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         fiberId = self.synthConfig.fiberId[self.synthConfig.numFibers//2]
         for yy in arc.lines:
             refLines.append(ReferenceLine("Fake", self.base.findWavelength(fiberId, yy), arcFlux,
-                            ReferenceLineStatus.GOOD))
+                                          ReferenceLineStatus.GOOD,
+                                          "UNKNOWN",
+                                          ReferenceLineSource.NONE))
         refLines = ReferenceLineSet.fromRows(refLines)
 
         profilesConfig = BuildFiberProfilesTask.ConfigClass()

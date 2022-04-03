@@ -8,6 +8,7 @@ from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.photometerLines import PhotometerLinesTask, PhotometerLinesConfig
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLineSource
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
@@ -55,6 +56,8 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
                     wavelength=wavelength,
                     intensity=flux,
                     status=ReferenceLineStatus.GOOD,
+                    transition="UNKNOWN",
+                    source=ReferenceLineSource.NONE,
                 )
             )
         referenceLines = ReferenceLineSet.fromRows(referenceLines)
