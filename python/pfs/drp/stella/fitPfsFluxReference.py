@@ -1,5 +1,5 @@
 from lsst.pex.config import Config, ConfigurableField, Field, ListField
-from lsst.pipe.base import Struct, Task
+from lsst.pipe.base import ArgumentParser, CmdLineTask, Struct
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
@@ -94,12 +94,12 @@ class FitPfsFluxReferenceConfig(Config):
         self.fitModelContinuum.maskLineRadius = 25
 
 
-class FitPfsFluxReferenceTask(Task):
+class FitPfsFluxReferenceTask(CmdLineTask):
     """Construct reference for flux calibration.
     """
 
     ConfigClass = FitPfsFluxReferenceConfig
-    _DefaultName = "FitPfsFluxReference"
+    _DefaultName = "fitPfsFluxReference"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -112,12 +112,32 @@ class FitPfsFluxReferenceTask(Task):
         self.modelInterpolator = FluxModelInterpolator.fromFluxModelData(getPackageDir("fluxmodeldata"))
         self.extinctionMap = DustMap()
 
-        if "EDGE" not in self.config.badMask:
-            self.config.badMask.append("EDGE")
-        if "ATMOSPHERE" not in self.config.badMask:
-            self.config.badMask.append("ATMOSPHERE")
-
         self.fitFlagNames = MaskHelper()
+
+    @classmethod
+    def _makeArgumentParser(cls):
+        """Make ArgumentParser"""
+        parser = ArgumentParser(name=cls._DefaultName)
+        parser.add_id_argument(name="--id", datasetType="pfsMerged",
+                               help="data IDs, e.g. --id exp=12345")
+        return parser
+
+    def _getMetadataName(self):
+        return None
+
+    def runDataRef(self, dataRef):
+        """Run on an exposure
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for exposure.
+        """
+        merged = dataRef.get("pfsMerged")
+        pfsConfig = dataRef.get("pfsConfig")
+
+        reference = self.run(pfsConfig, merged)
+        dataRef.put(reference, "pfsFluxReference")
 
     def run(self, pfsConfig, pfsMerged):
         """Create flux reference from ``pfsMerged``
@@ -449,7 +469,7 @@ class FitPfsFluxReferenceTask(Task):
                 # Therefore, we have to convolve the LSF in every loop.
                 convolvedModel = convolveLsf(whitenedModel)
                 chisqs[iFiber][iModel] = calculateSpecChiSquare(
-                    obsSpectrum, convolvedModel, velocity.velocity, self.config.badMask
+                    obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
 
         pdfs = []
@@ -771,6 +791,21 @@ class FitPfsFluxReferenceTask(Task):
             pfsConfig.totalFluxErr[i] /= fractionalExtinction
 
         return pfsConfig
+
+    def getBadMask(self):
+        """Get the list of bad masks.
+
+        The bad masks are those specified by the task configuration,
+        plus some additional masks used by this task.
+
+        Returns
+        -------
+        mask : `list` of `str`
+            Mask names.
+        """
+        badMask = set(self.config.badMask)
+        badMask.update(["EDGE", "ATMOSPHERE"])
+        return list(badMask)
 
 
 def convolveLsf(spectrum):
