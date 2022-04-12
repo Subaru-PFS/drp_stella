@@ -133,9 +133,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for exposure.
         """
+        self.log.info("Processing %s", str(dataRef.dataId))
+
         merged = dataRef.get("pfsMerged")
         pfsConfig = dataRef.get("pfsConfig")
-
         reference = self.run(pfsConfig, merged)
         dataRef.put(reference, "pfsFluxReference")
 
@@ -159,6 +160,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         pfsConfig = pfsConfig.select(targetType=TargetType.FLUXSTD)
         originalFiberId = np.copy(pfsConfig.fiberId)
         fitFlag = {}  # mapping fiberId -> flag indicating fit status
+
+        self.log.info("Number of FLUXSTD: %d", len(pfsConfig))
 
         def selectPfsConfig(pfsConfig, flagName, isGood):
             """Select fibers in pfsConfig for which ``isGood`` is ``True``.
@@ -184,7 +187,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             isGood = np.asarray(isGood, dtype=bool)
             flag = self.fitFlagNames.add(flagName)
             fitFlag.update((fiberId, flag) for fiberId in pfsConfig.fiberId[~isGood])
-            return pfsConfig[isGood]
+            goodConfig = pfsConfig[isGood]
+            self.log.info("Number of FLUXSTD that are not %s: %d", flagName, len(goodConfig))
+            return goodConfig
 
         pfsConfig = selectPfsConfig(
             pfsConfig, "BAD_FIBER",
@@ -216,6 +221,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         fiberIdSet = set(pfsConfig.fiberId)
         index = [(fiberId in fiberIdSet) for fiberId in pfsMerged.fiberId]
         pfsMerged = pfsMerged[np.array(index, dtype=bool)]
+        self.log.info("Number of observed FLUXSTD: %d", len(pfsMerged))
 
         pfsMerged = self.whitenSpectrum(pfsMerged, mode="observed")
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, bbPdfs)
@@ -226,6 +232,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 fitFlag[fiberId] = flag
 
         # Likelihoods from spectral fitting, where line spectra matter.
+        self.log.info("Fitting models to spectra (takes some time)...")
         likelihoods = self.fitModelsToSpectra(pfsConfig, pfsMerged, radialVelocities, bbPdfs)
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
@@ -244,6 +251,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 pdf *= 1.0 / np.sum(pdf)
                 pdfs.append(pdf)
 
+        self.log.info("Making reference spectra by interpolation")
         bestModels = self.makeReferenceSpectra(pfsConfig, pdfs)
 
         flag = self.fitFlagNames.add("MAKEREFERENCESPECTRA_FAILED")
