@@ -14,7 +14,7 @@ from pfs.drp.stella.fitPfsFluxReference import FitPfsFluxReferenceTask, FitPfsFl
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
-from pfs.drp.stella.lsf import GaussianKernel1D
+from pfs.drp.stella.lsf import GaussianLsf, warpLsf
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
 import numpy as np
@@ -49,10 +49,10 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         """Test run() method
         """
         nFluxStd = 1
-        parameters, pfsConfig, pfsMerged = self.inventPfsMerged(
+        parameters, pfsConfig, pfsMerged, pfsMergedLsf = self.inventPfsMerged(
             nFluxStd=nFluxStd, nFibers=10, nSamples=1000, snr=10, bbSnr=100
         )
-        fluxReference = self.task.run(pfsConfig, pfsMerged)
+        fluxReference = self.task.run(pfsConfig, pfsMerged, pfsMergedLsf)
 
         self.assertEqual(len(fluxReference.fiberId), nFluxStd)
 
@@ -84,6 +84,8 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             Configuration of the PFS top-end.
         pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
             Observed spectra.
+        pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
         """
         parameters = self.modelSet.parameters[
             self.np_random.choice(len(self.modelSet.parameters), size=nFibers, replace=False)
@@ -97,17 +99,16 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         wavelength = np.empty(shape=(nFibers, nSamples), dtype=float)
         wavelength[...] = np.linspace(400, 1200, num=nSamples, dtype=float).reshape(1, -1)
         flux = np.empty(shape=wavelength.shape, dtype=float)
+        pfsMergedLsf = {}
 
         for i, (m, ebv) in enumerate(zip(parameters, ebvs)):
             spectrum = self.modelSet.getSpectrum(
                 m["teff"], m["logg"], m["m"], m["alpha"],
             )
             spectrum.flux *= self.extinctionCurve.attenuation(spectrum.wavelength, ebv)
-            flux[i] = interpolateFlux(
-                spectrum.wavelength,
-                convolveLsf(spectrum.wavelength, spectrum.flux),
-                wavelength[i]
-            )
+            convolvedFlux, lsf = convolveLsf(spectrum.wavelength, spectrum.flux)
+            flux[i] = interpolateFlux(spectrum.wavelength, convolvedFlux, wavelength[i])
+            pfsMergedLsf[fiberId[i]] = warpLsf(lsf, spectrum.wavelength, wavelength[i])
 
         mask = np.zeros(shape=wavelength.shape, dtype=int)
         sky = np.zeros(shape=wavelength.shape, dtype=float)
@@ -129,7 +130,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         )
         pfsConfig = self.inventPfsConfig(pfsMerged, radecs[:, 0], radecs[:, 1], nFluxStd, bbSnr)
 
-        return parameters, pfsConfig, pfsMerged
+        return parameters, pfsConfig, pfsMerged, pfsMergedLsf
 
     def inventPfsConfig(self, pfsMerged, ra, dec, nFluxStd, bbSnr):
         """Invent a ``PfsConfig`` object.
@@ -259,8 +260,8 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         return np.degrees(lonlat).reshape(size + (2,))
 
 
-def convolveLsf(wavelength, flux):
-    """Convolve a typical LSF to ``flux``
+def convolveLsf(wavelength, flux, fwhm=0.2):
+    """Convolve a Gaussian LSF to ``flux``
 
     Parameters
     ----------
@@ -268,17 +269,22 @@ def convolveLsf(wavelength, flux):
         Wavelength in nm.
     flux : `numpy.array` of `float`
         Flux.
+    fwhm : `float`
+        LSF's FWHM in nm.
 
     Returns
     -------
     convolvedFlux : `numpy.array` of `float`
-        Flux with the typical LSF convolved to it.
+        Flux with the LSF convolved to it.
+    lsf : `pfs.drp.stella.Lsf`
+        Used LSF.
     """
-    fwhm = 0.2  # typical FWHM, in nm, of LSF.
     n = len(wavelength)
     dlambda = wavelength[n//2 + 1] - wavelength[n//2]
     sigma = fwhmToSigma(fwhm)
-    return GaussianKernel1D(width=sigma / dlambda).convolve(flux)
+    lsf = GaussianLsf(length=n, width=sigma / dlambda)
+    convolvedFlux = lsf.computeKernel((n - 1) / 2.0).convolve(flux)
+    return convolvedFlux, lsf
 
 
 def makePfsSimpleSpectrum(wavelength, flux):
