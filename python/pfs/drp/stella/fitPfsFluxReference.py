@@ -367,6 +367,11 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         if mode == "model":
             fitContinuum = self.fitModelContinuum
 
+        if hasattr(spectra, "norm"):
+            # We want the flux normalized.
+            spectra /= spectra.norm
+            spectra.norm[...] = 1.0
+
         # If `spectra` is actually a single spectrum,
         # we put it into PfsFiberArraySet
         if len(spectra.flux.shape) == 1:
