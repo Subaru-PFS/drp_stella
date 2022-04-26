@@ -6,11 +6,11 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.observations import Observations
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 from pfs.datamodel.pfsFiberArray import PfsFiberArray
-from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
+from pfs.drp.stella.datamodel import PfsFiberArraySet
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
@@ -149,7 +149,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end,
             in which information of broad band fluxes count.
-        pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        pfsMerged : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             Typically an instance of `PfsMerged`.
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
@@ -312,7 +312,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         ----------
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end.
-        pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        pfsMerged : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             Typically an instance of PfsMerged.
             It must have been whitened.
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
@@ -367,6 +367,11 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         if mode == "model":
             fitContinuum = self.fitModelContinuum
 
+        if hasattr(spectra, "norm"):
+            # We want the flux normalized.
+            spectra /= spectra.norm
+            spectra.norm[...] = 1.0
+
         # If `spectra` is actually a single spectrum,
         # we put it into PfsFiberArraySet
         if len(spectra.flux.shape) == 1:
@@ -388,20 +393,24 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD),
         ])
 
+        fiberIdToIndex = {fiberId: index for index, fiberId in enumerate(spectra.fiberId)}
+
         # Get the continuum for each fiber
-        continua = {
-            continuum.fiberId: continuum for continuum
-            in fitContinuum.run(specset, lines=lines)
-        }
+        continuumList = fitContinuum.run(specset, lines=lines)
+
+        continua = np.ones_like(spectra.flux)
+        for continuum in continuumList:
+            continua[fiberIdToIndex[continuum.fiberId], :] = continuum.flux
+
+        absentIndex = np.array([
+            fiberIdToIndex[fiberId] for fiberId in
+            set(spectra.fiberId) - set(continuum.fiberId for continuum in continuumList)
+        ], dtype=int)
 
         # Whiten spectra
-        for index, fiberId in enumerate(spectra.fiberId):
-            continuum = continua.get(fiberId)
-            if continuum is not None:
-                spectra.flux[index, :] /= continuum.flux
-                spectra.covar[index, 0, :] /= np.square(continuum.flux)
-            else:
-                spectra.mask[index, :] |= spectra.flags.add("BAD")
+        spectra /= continua
+        spectra.norm[...] = 1.0
+        spectra.mask[absentIndex, :] |= spectra.flags.add("BAD")
 
         if original_spectrum is not None:
             original_spectrum.flux[...] = spectra.flux[0, ...]
@@ -692,12 +701,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         Parameters
         ----------
-        spectra : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        spectra : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             A set of spectra.
 
         Returns
         -------
-        spectra : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        spectra : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             The same instance as the argument.
         """
         # Mask atmospheric absorption lines etc.
@@ -897,7 +906,7 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
 
     Parameters
     ----------
-    obsSpectrum : `pfs.datamodel.pfsFiberArraySet.PfsFiberArray`
+    obsSpectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
         Observed spectrum.
     model : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
         Model spectrum.
@@ -951,7 +960,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum, snr):
 
     Returns
     -------
-    fiberArraySet : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+    fiberArraySet : `pfs.drp.stella.datamodel.PfsFiberArraySet`
         `PfsFiberArraySet` that contains only the input fiber.
     """
     observations = Observations(
@@ -995,7 +1004,7 @@ def promoteFiberArrayToFiberArraySet(spectrum, fiberId):
         .
     Returns
     -------
-    fiberArraySet : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+    fiberArraySet : `pfs.drp.stella.datamodel.PfsFiberArraySet`
         `PfsFiberArraySet` that contains only the input fiber.
     """
     return PfsFiberArraySet(
@@ -1005,7 +1014,7 @@ def promoteFiberArrayToFiberArraySet(spectrum, fiberId):
         flux=spectrum.flux.reshape(1, -1),
         mask=spectrum.mask.reshape(1, -1),
         sky=spectrum.sky.reshape(1, -1),
-        norm=np.ones(1, dtype=float),
+        norm=np.ones_like(spectrum.flux).reshape(1, -1),
         covar=spectrum.covar.reshape((1,) + spectrum.covar.shape),
         flags=spectrum.flags,
         metadata=spectrum.metadata,
@@ -1021,7 +1030,7 @@ def fibers(pfsConfig, fiberArraySet):
     ----------
     pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
         Configuration of the PFS top-end.
-    fiberArraySet : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+    fiberArraySet : `pfs.drp.stella.datamodel.PfsFiberArraySet`
         Set of spectra observed with a set of fibers
 
     Yields

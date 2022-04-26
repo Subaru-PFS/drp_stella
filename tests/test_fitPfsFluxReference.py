@@ -5,9 +5,9 @@ from pfs.drp.stella.tests import runTests
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import FiberStatus, PfsConfig, TargetType
-from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
+from pfs.drp.stella.datamodel import PfsFiberArraySet
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitPfsFluxReference import FitPfsFluxReferenceTask, FitPfsFluxReferenceConfig
@@ -82,7 +82,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             Structured array indicating input parameters.
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end.
-        pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        pfsMerged : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             Observed spectra.
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
@@ -137,7 +137,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
 
         Parameters
         ----------
-        pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
+        pfsMerged : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             Observed spectra. Broadband fluxes will be computed from these spectra.
         ra : `numpy.array` of `float`
             R.A. in degrees.
