@@ -19,8 +19,7 @@ from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
-from pfs.drp.stella.lsf import GaussianKernel1D
-from pfs.drp.stella.utils.psf import fwhmToSigma
+from pfs.drp.stella.lsf import warpLsf
 
 from astropy import constants as const
 import numpy as np
@@ -136,11 +135,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         self.log.info("Processing %s", str(dataRef.dataId))
 
         merged = dataRef.get("pfsMerged")
+        mergedLsf = dataRef.get("pfsMergedLsf")
         pfsConfig = dataRef.get("pfsConfig")
-        reference = self.run(pfsConfig, merged)
+        reference = self.run(pfsConfig, merged, mergedLsf)
         dataRef.put(reference, "pfsFluxReference")
 
-    def run(self, pfsConfig, pfsMerged):
+    def run(self, pfsConfig, pfsMerged, pfsMergedLsf):
         """Create flux reference from ``pfsMerged``
         and corresponding ``pfsConfig``.
 
@@ -151,6 +151,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             in which information of broad band fluxes count.
         pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
             Typically an instance of `PfsMerged`.
+        pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
 
         Returns
         -------
@@ -224,7 +226,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         self.log.info("Number of observed FLUXSTD: %d", len(pfsMerged))
 
         pfsMerged = self.whitenSpectrum(pfsMerged, mode="observed")
-        radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, bbPdfs)
+        radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
         for fiberId, velocity in zip(pfsConfig.fiberId, radialVelocities):
@@ -233,7 +235,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         # Likelihoods from spectral fitting, where line spectra matter.
         self.log.info("Fitting models to spectra (takes some time)...")
-        likelihoods = self.fitModelsToSpectra(pfsConfig, pfsMerged, radialVelocities, bbPdfs)
+        likelihoods = self.fitModelsToSpectra(
+            pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs
+        )
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
         for fiberId, likelihood in zip(pfsConfig.fiberId, likelihoods):
@@ -301,7 +305,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             fitParams=fitParams,
         )
 
-    def getRadialVelocities(self, pfsConfig, pfsMerged, bbPdfs):
+    def getRadialVelocities(self, pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs):
         """Estimate the radial velocity for each fiber in ``pfsMerged``.
 
         Parameters
@@ -311,6 +315,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
             Typically an instance of PfsMerged.
             It must have been whitened.
+        pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
         bbPdfs : `List[Optional[numpy.array]]`
             `bbPdfs[i]`, if not None, is the probability distribution
             of `pfsConfig.fiberId[i]` being of each model type,
@@ -328,11 +334,13 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         bestModels = self.findRoughlyBestModel(bbPdfs)
 
         radialVelocities = []
-        for spectrum, model in zip(fibers(pfsConfig, pfsMerged), bestModels):
+        for iFiber, (spectrum, model) in enumerate(zip(fibers(pfsConfig, pfsMerged), bestModels)):
             if model.spectrum is None:
                 radialVelocities.append(None)
                 continue
-            modelSpectrum = convolveLsf(model.spectrum)
+            modelSpectrum = convolveLsf(
+                model.spectrum, pfsMergedLsf[pfsConfig.fiberId[iFiber]], spectrum.wavelength
+            )
             modelSpectrum = self.whitenSpectrum(modelSpectrum, mode="model")
             radialVelocities.append(self.estimateRadialVelocity.run(spectrum, modelSpectrum))
 
@@ -404,7 +412,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return spectra
 
-    def fitModelsToSpectra(self, pfsConfig, obsSpectra, radialVelocities, priorPdfs):
+    def fitModelsToSpectra(self, pfsConfig, obsSpectra, pfsMergedLsf, radialVelocities, priorPdfs):
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -414,6 +422,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             Configuration of the PFS top-end.
         obsSpectra : `PfsFiberArraySet`
             Continuum-subtracted observed spectra
+        pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
         radialVelocities : `list` of `Optional[lsst.pipe.base.Struct]`
             Radial velocity for each fiber.
             Each element, if not None, has `velocity` and `error`
@@ -472,10 +482,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                     continue
                 if whitenedModel is None:
                     whitenedModel = self.whitenSpectrum(model, mode="model")
-                # Though it is not expressed in the current code,
-                # each fiber has its own LSF different from any other fiber's.
-                # Therefore, we have to convolve the LSF in every loop.
-                convolvedModel = convolveLsf(whitenedModel)
+                convolvedModel = convolveLsf(
+                    whitenedModel, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
+                )
                 chisqs[iFiber][iModel] = calculateSpecChiSquare(
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
@@ -816,30 +825,30 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         return list(badMask)
 
 
-def convolveLsf(spectrum):
+def convolveLsf(spectrum, lsf, lsfWavelength):
     """Convolve LSF to spectrum.
 
-    This is a placeholder.
-
-    When observation's inherent LSF is available,
-    we must rewrite this function.
+    This function assumes that ``spectrum`` (synthetic spectrum) is sampled
+    more finely than ``lsf`` (LSF of an observed spectrum) is.
 
     Parameters
     ----------
     spectrum : `pfs.datamodel.PfsSimpleSpectrum`
         Spectrum.
+    lsf : `pfs.drp.stella.Lsf`
+        Lsf.
+    lsfWavelength : `numpy.array` of `float`
+        Wavelength array of the spectrum in which ``lsf`` was measured.
 
     Returns
     -------
     spectrum : `pfs.datamodel.PfsSimpleSpectrum`
-        The same instance as the argument.
+        New instance of spectrum,
+        with the same sampling points as the input spectrum's.
     """
-    fwhm = 0.2  # typical FWHM, in nm, of LSF.
-    n = len(spectrum.wavelength)
-    dlambda = spectrum.wavelength[n//2 + 1] - spectrum.wavelength[n//2]
-    sigma = fwhmToSigma(fwhm)
-    spectrum.flux[:] = GaussianKernel1D(width=sigma / dlambda).convolve(spectrum.flux)
-
+    spectrum = copy.deepcopy(spectrum)
+    lsf = warpLsf(lsf, lsfWavelength, spectrum.wavelength)
+    spectrum.flux = lsf.computeKernel((len(spectrum) - 1) / 2.0).convolve(spectrum.flux)
     return spectrum
 
 
