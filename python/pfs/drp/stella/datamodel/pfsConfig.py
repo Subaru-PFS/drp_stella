@@ -1,7 +1,5 @@
 import os
-import re
 
-from lsst.pipe.base import Struct
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 import pfs.datamodel.pfsConfig
 
@@ -31,42 +29,7 @@ class PfsConfig(pfs.datamodel.PfsConfig):
         """Return fiber hole number"""
         return fiberHoleFromFiberId(self.fiberId)
 
-    @classmethod
-    def _parsePath(cls, path, hdu=None, flags=None):
-        """Parse path from the data butler
-
-        We need to determine the ``pfsConfigId`` to pass to the
-        `pfs.datamodel.PfsConfig` I/O methods.
-
-        Parameters
-        ----------
-        path : `str`
-            Path name from the LSST data butler. Besides the usual directory and
-            filename with extension, this may include a suffix with additional
-            characters added by the butler.
-        hdu : `int`
-            Part of the ``FitsCatalogStorage`` API, but not utilised.
-        flags : `int`
-            Part of the ``FitsCatalogStorage`` API, but not utilised.
-
-        Raises
-        ------
-        NotImplementedError
-            If ``hdu`` or ``flags`` arguments are provided.
-        """
-        if hdu is not None:
-            raise NotImplementedError("%s read/write doesn't use the 'hdu' argument" % (cls.__name__,))
-        if flags is not None:
-            raise NotImplementedError("%s read/write doesn't use the 'flags' argument" % (cls.__name__,))
-        dirName, fileName = os.path.split(path)
-        matches = re.search(cls.fileNameRegex, fileName)
-        if not matches:
-            raise RuntimeError("Unable to parse filename: %s" % (fileName,))
-        pfsDesignId = int(matches.group(1), 16)
-        visit = int(matches.group(2))
-        return Struct(dirName=dirName, fileName=fileName, pfsDesignId=pfsDesignId, visit=visit)
-
-    def writeFits(self, *args, **kwargs):
+    def writeFits(self, path: str):
         """Write as FITS
 
         This is the output API for the ``FitsCatalogStorage`` storage type used
@@ -75,22 +38,13 @@ class PfsConfig(pfs.datamodel.PfsConfig):
         Parameters
         ----------
         path : `str`
-            Path name from the LSST data butler. Besides the usual directory and
-            filename with extension, this may include a suffix with additional
-            characters added by the butler.
-        flags : `int`
-            Part of the ``FitsCatalogStorage`` API, but not utilised.
-
-        Raises
-        ------
-        NotImplementedError
-            If ``hdu`` or ``flags`` arguments are provided.
+            Path name from the LSST data butler.
         """
-        parsed = self._parsePath(*args, **kwargs)
-        self.write(parsed.dirName, parsed.fileName)
+        dirName, fileName = os.path.split(path)
+        self.write(dirName, fileName)
 
     @classmethod
-    def readFits(cls, *args, **kwargs):
+    def readFits(cls, path):
         """Read from FITS
 
         This is the input API for the ``FitsCatalogStorage`` storage type used
@@ -102,10 +56,6 @@ class PfsConfig(pfs.datamodel.PfsConfig):
             Path name from the LSST data butler. Besides the usual directory and
             filename with extension, this may include a suffix with additional
             characters added by the butler.
-        hdu : `int`
-            Part of the ``FitsCatalogStorage`` API, but not utilised.
-        flags : `int`
-            Part of the ``FitsCatalogStorage`` API, but not utilised.
 
         Returns
         -------
@@ -117,5 +67,10 @@ class PfsConfig(pfs.datamodel.PfsConfig):
         NotImplementedError
             If ``hdu`` or ``flags`` arguments are provided.
         """
-        parsed = cls._parsePath(*args, **kwargs)
-        return cls.read(parsed.pfsDesignId, parsed.visit, dirName=parsed.dirName)
+        try:
+            # Read file that contains the pfsDesignId and visit in the headers
+            return cls._readImpl(path)
+        except Exception:
+            # Need to get the pfsDesignId and visit from the filename
+            parsed = pfs.datamodel.pfsConfig.parsePfsConfigFilename(path)
+            return cls._readImpl(path, pfsDesignId=parsed.pfsDesignId, visit0=parsed.visit)
