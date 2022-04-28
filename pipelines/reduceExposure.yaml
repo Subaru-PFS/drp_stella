@@ -1,0 +1,14 @@
+description: Reduce an exposure
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+  measureDetectorMap:
+    class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
+  measurePhotometry:
+    class: pfs.drp.stella.pipelines.MeasurePhotometryTask
+  fitSky2d:
+    class: pfs.drp.stella.pipelines.FitSky2dTask
+  extractSpectra:
+    class: pfs.drp.stella.pipelines.ExtractSpectraTask
+  mergeArms:
+    class: pfs.drp.stella.mergeArms.MergeArmsTask

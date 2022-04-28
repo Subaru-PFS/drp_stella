@@ -1,0 +1,17 @@
+description: Build fiber profiles
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      connections.outputExposure: fiberProfilesProc
+  measureDetectorMap:
+    class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
+    config:
+      connections.exposure: fiberProfilesProc
+  measure:
+    class: pfs.drp.stella.pipelines.MeasureFiberProfilesTask
+    config:
+      connections.inputExpHandles: fiberProfilesProc
+      calibrationType: fiberProfiles
+  merge:
+    class: pfs.drp.stella.pipelines.MergeFiberProfilesTask
