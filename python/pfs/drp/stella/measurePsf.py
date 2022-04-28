@@ -25,7 +25,7 @@ class MeasurePsfTask(Task):
     ConfigClass = MeasurePsfConfig
     _DefaultName = "measurePsf"
 
-    def run(self, sensorRefList, exposureList, detectorMapList):
+    def run(self, exposureList, detectorMapList):
         """Measure the PSF for an exposure over the entire spectrograph
 
         We operate on the entire spectrograph in case there are parameters
@@ -35,8 +35,6 @@ class MeasurePsfTask(Task):
 
         Parameters
         ----------
-        sensorRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
-            List of data references for each sensor in an exposure.
         exposureList : iterable of `lsst.afw.image.Exposure`
             List of images of each sensor in an exposure.
         detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
@@ -47,18 +45,16 @@ class MeasurePsfTask(Task):
         psfList : `list` of `pfs.drp.stella.SpectralPsf`
             List of point-spread functions.
         """
-        return [self.runSingle(sensorRef, exposure, detectorMap) for
-                sensorRef, exposure, detectorMap in zip(sensorRefList, exposureList, detectorMapList)]
+        return [self.runSingle(exposure, detectorMap) for
+                exposure, detectorMap in zip(exposureList, detectorMapList)]
 
-    def runSingle(self, sensorRef, exposure, detectorMap):
+    def runSingle(self, exposure, detectorMap):
         """Measure the PSF for a single spectrograph
 
         This is currently a non-functional placeholder.
 
         Parameters
         ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for individual sensor.
         exposure : `lsst.afw.image.Exposure`
             Image of sensor.
         detectorMap : `pfs.drp.stella.DetectorMap`
