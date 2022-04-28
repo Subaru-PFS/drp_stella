@@ -41,6 +41,12 @@ class FitPfsFluxReferenceConfig(Config):
                                           doc="Fit a model to model spectrum's continuum")
     estimateRadialVelocity = ConfigurableField(target=EstimateRadialVelocityTask,
                                                doc="Estimate radial velocity.")
+    minBroadbandFluxes = Field(
+        dtype=int,
+        default=2,
+        doc="min.number of required broadband fluxes"
+            " for an observed flux standard to be fitted to.",
+    )
     minWavelength = Field(
         dtype=float,
         default=600.0,
@@ -199,7 +205,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         )
         pfsConfig = selectPfsConfig(
             pfsConfig, "DEFICIENT_BBFLUXES",
-            [len(filterNames) >= 2 for filterNames in pfsConfig.filterNames]
+            [len(filterNames) >= self.config.minBroadbandFluxes for filterNames in pfsConfig.filterNames]
         )
 
         # Apply the Galactic extinction correction to observed broad-band fluxes in pfsConfig
@@ -223,7 +229,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         fiberIdSet = set(pfsConfig.fiberId)
         index = [(fiberId in fiberIdSet) for fiberId in pfsMerged.fiberId]
         pfsMerged = pfsMerged[np.array(index, dtype=bool)]
-        self.log.info("Number of observed FLUXSTD: %d", len(pfsMerged))
+        self.log.info("Number of observed FLUXSTD to be fitted to: %d", len(pfsMerged))
+
+        if len(pfsMerged) == 0:
+            raise RuntimeError("No observed FLUXSTD can be fitted a model to.")
 
         pfsMerged = self.whitenSpectrum(pfsMerged, mode="observed")
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
@@ -532,12 +541,21 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
         """
+        onePlusEpsilon = float(np.nextafter(np.float32(1), np.float32(2)))
         models = []
         for pdf in pdfs:
             if pdf is None:
                 models.append(Struct(spectrum=None, param=None))
                 continue
-            param = self.fluxModelSet.parameters[np.argmax(pdf)]
+            if np.max(pdf) <= np.min(pdf) * onePlusEpsilon:
+                # If the PDF is uniform, we ourselves choose a parameter set
+                # because this one is better than
+                #     `self.fluxModelSet.parameters[np.argmax(pdf)]`
+                # which is always `self.fluxModelSet.parameters[0]`.
+                param = {"teff": 7500, "logg": 4.5, "m": 0.0, "alpha": 0.0}
+                self.log.warn("findRoughlyBestModel: Probability distribution is uniform.")
+            else:
+                param = self.fluxModelSet.parameters[np.argmax(pdf)]
             model = self.fluxModelSet.getSpectrum(
                 teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
             )
