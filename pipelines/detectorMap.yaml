@@ -1,0 +1,12 @@
+description: Measure detectorMap
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+  measureCentroids:
+    class: pfs.drp.stella.pipelines.MeasureCentroidsTask
+  fitDetectorMap:
+    class: pfs.drp.stella.pipelines.FitDetectorMapTask
+
+contracts:
+  # Use the same detectorMap
+  - measureCentroids.useBootstrapDetectorMap == fitDetectorMap.useBootstrapDetectorMap

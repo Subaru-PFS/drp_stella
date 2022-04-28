@@ -371,7 +371,7 @@ def readDatasetRefs(
     refLists = [DatasetRefList.fromList(getattr(inputRefs, key)) for key in names]
     for key in names:
         delattr(inputRefs, key)
-    dataLists: Dict[List[Any]] = {key: [] for key in names}
+    dataLists: Dict[str, List[Any]] = {key: [] for key in names}
     for refs in zipDatasetRefs(*refLists, allowMissing=allowMissing):
         for key, rr in zip(names, refs):
             dataLists[key].append(butler.get(rr) if rr is not None else None)
