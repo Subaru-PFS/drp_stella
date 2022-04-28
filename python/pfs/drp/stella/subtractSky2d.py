@@ -159,7 +159,7 @@ class SubtractSky2dTask(Task):
         imageList : `list` of `lsst.afw.image.MaskedImage`
             List of images of the sky model.
         """
-        sky2d = self.measureSky(exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList)
+        sky2d = self.measureSky(pfsConfig, linesList)
         imageList = []
         for exposure, psf, fiberTrace, detectorMap, apCorr in zip(exposureList, psfList, fiberTraceList,
                                                                   detectorMapList, apCorrList):
@@ -167,21 +167,13 @@ class SubtractSky2dTask(Task):
             imageList.append(image)
         return Struct(sky2d=sky2d, imageList=imageList)
 
-    def measureSky(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
+    def measureSky(self, pfsConfig, linesList):
         """Measure the 2D sky model
 
         Parameters
         ----------
-        exposureList : iterable of `lsst.afw.image.Exposure`
-            Images from which to subtract sky.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, for identifying sky fibers.
-        psfList : iterable of PSFs (type TBD)
-            Point-spread functions.
-        fiberTraceList : iterable of `pfs.drp.stella.FiberTraceSet`
-            Fiber traces.
-        detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
-            Mapping of fiber,wavelength to x,y.
         linesList : iterable of `pfs.drp.stella.ArcLineSet`
             Measured sky lines. The ``status`` members will be updated to
             indicate which lines were used.
@@ -202,11 +194,7 @@ class SubtractSky2dTask(Task):
         intensities = defaultdict(list)  # List of flux for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
-        for exp, psf, fiberTraces, detMap, lines in zip(exposureList, psfList, fiberTraceList,
-                                                        detectorMapList, linesList):
-            if psf is None:
-                raise RuntimeError("Unable to measure 2D sky model: PSF is None")
-            exp.setPsf(psf)
+        for lines in linesList:
             select = np.isin(lines.fiberId, skyFibers)
 
             for wl in set(lines.wavelength[select]):
