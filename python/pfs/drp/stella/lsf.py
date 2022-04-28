@@ -15,7 +15,7 @@ from lsst.afw.geom.ellipses import Quadrupole
 from .FiberTraceSetContinued import FiberTraceSet
 
 __all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf", "ExtractionLsf",
-           "warpLsf", "coaddLsf")
+           "warpLsf", "coaddLsf", "LsfDict")
 
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
@@ -895,3 +895,15 @@ def coaddLsf(lsfList, weights=None):
         avgWidth = np.average(widths, weights=realWeights)
 
         return GaussianLsf(length, avgWidth)
+
+
+class LsfDict(dict):
+    """A mapping from some index to Lsf
+
+    Depending upon the dataset type, the index might be fiberId or spectral
+    target.
+
+    This exists just so that we can have a specific python class that will hold
+    the appropriate data.
+    """
+    pass
