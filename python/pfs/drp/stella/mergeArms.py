@@ -7,15 +7,23 @@ import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
+from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
+from pfs.drp.stella.gen3 import DatasetRefList, zipDatasetRefs
 from pfs.drp.stella.selectFibers import SelectFibersTask
 from .datamodel import PfsConfig, PfsArm, PfsMerged
 from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
-from .lsf import warpLsf, coaddLsf
+from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
@@ -39,7 +47,51 @@ class WavelengthSamplingConfig(Config):
         return WavelengthArray(self.minWavelength, self.maxWavelength, self.length)
 
 
-class MergeArmsConfig(Config):
+class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+    """Connections for MergeArmsTask"""
+    pfsArm = InputConnection(
+        name="pfsArm",
+        doc="Extracted spectra from arm",
+        storageClass="PfsArm",
+        dimensions=("instrument", "exposure", "detector"),
+        multiple=True,
+    )
+    pfsConfig = PrerequisiteConnection(
+        name="pfsConfig",
+        doc="Top-end fiber configuration",
+        storageClass="PfsConfig",
+        dimensions=("instrument", "exposure"),
+    )
+    lsf = InputConnection(
+        name="pfsArmLsf",
+        doc="1D line-spread function",
+        storageClass="LsfDict",
+        dimensions=("instrument", "exposure", "detector"),
+        multiple=True,
+    )
+
+    pfsMerged = OutputConnection(
+        name="pfsMerged",
+        doc="Merged spectra from an exposure",
+        storageClass="PfsMerged",
+        dimensions=("instrument", "exposure"),
+    )
+    pfsMergedLsf = OutputConnection(
+        name="pfsMergedLsf",
+        doc="Line-spread function of merged spectra from an exposure",
+        storageClass="LsfDict",
+        dimensions=("instrument", "exposure"),
+    )
+    sky1d = OutputConnection(
+        name="sky1d",
+        doc="1d sky model",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "exposure", "detector"),
+        multiple=True,
+    )
+
+
+class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
@@ -80,7 +132,7 @@ class MergeArmsRunner(TaskRunner):
         return [(list(specs.values()), kwargs) for specs in exposures.values()]
 
 
-class MergeArmsTask(CmdLineTask):
+class MergeArmsTask(CmdLineTask, PipelineTask):
     """Merge all extracted spectra from a single exposure"""
     _DefaultName = "mergeArms"
     ConfigClass = MergeArmsConfig
@@ -153,7 +205,48 @@ class MergeArmsTask(CmdLineTask):
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
         mergedLsf = self.combineLsfs(lsfList)
 
-        return Struct(spectra=merged, lsf=mergedLsf, sky1d=sky1d)
+        return Struct(pfsMerged=merged, pfsMergedLsf=mergedLsf, sky1d=sky1d)
+
+    def runQuantum(
+        self,
+        butler: ButlerQuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with butler I/O
+
+        Parameters
+        ----------
+        butler : `ButlerQuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        pfsArmList = defaultdict(list)
+        lsfList = defaultdict(list)
+        sky1dRefs = defaultdict(list)
+        for pfsArm, lsf, sky1d in zipDatasetRefs(
+            DatasetRefList.fromList(inputRefs.pfsArm),
+            DatasetRefList.fromList(inputRefs.lsf),
+            DatasetRefList.fromList(outputRefs.sky1d),
+        ):
+            dataId = pfsArm.dataId
+            spectrograph = dataId["spectrograph"]
+            pfsArmList[spectrograph].append(butler.get(pfsArm))
+            lsfList[spectrograph].append(butler.get(lsf))
+            sky1dRefs[spectrograph].append(sky1d)
+
+        pfsConfig = butler.get(inputRefs.pfsConfig)
+        outputs = self.run(list(pfsArmList.values()), pfsConfig, list(lsfList.values()))
+
+        butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
+        butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)
+        for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
+            butler.put(sky1d, ref)
 
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
@@ -195,8 +288,8 @@ class MergeArmsTask(CmdLineTask):
 
         results = self.run(spectra, pfsConfig, lsfList)
 
-        expSpecRefList[0][0].put(results.spectra, "pfsMerged")
-        expSpecRefList[0][0].put(results.lsf, "pfsMergedLsf")
+        expSpecRefList[0][0].put(results.pfsMerged, "pfsMerged")
+        expSpecRefList[0][0].put(results.pfsMergedLsf, "pfsMergedLsf")
         if results.sky1d is not None:
             for sky1d, ref in zip(results.sky1d, expSpecRefList[0]):
                 ref.put(sky1d, "sky1d")
@@ -433,7 +526,7 @@ class MergeArmsTask(CmdLineTask):
         lsf : ``dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
         """
-        lsf = {}
+        lsf = LsfDict()
         for ll in lsfList:
             lsf.update(ll)
         return lsf
