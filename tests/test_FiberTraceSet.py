@@ -254,8 +254,8 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         task.config.pruneMinLength = 200
         task.config.findThreshold = 10
         task.config.profileOversample = 25
-        evenProfiles = task.run(evenExposure, detMap).profiles
-        oddProfiles = task.run(oddExposure, detMap).profiles
+        evenProfiles = task.run(evenExposure, detectorMap=detMap).profiles
+        oddProfiles = task.run(oddExposure, detectorMap=detMap).profiles
         evenTraces = evenProfiles.makeFiberTracesFromDetectorMap(detMap)
         oddTraces = oddProfiles.makeFiberTracesFromDetectorMap(detMap)
 

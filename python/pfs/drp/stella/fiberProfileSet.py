@@ -18,22 +18,27 @@ class FiberProfileSet:
     ----------
     fiberProfiles : `dict` mapping `int` to `pfs.drp.stella.FiberProfile`
         The fiber profiles, indexed by fiber identifier.
+    identity : `pfs.datamodel.CalibIdentity`
+        Identifying information for the calibration.
     visitInfo : `lsst.afw.image.VisitInfo`, optional
         Parameters characterising the visit.
     metadata : `lsst.daf.base.PropertyList`
         Keyword-value metadata, used for the header.
     """
-    def __init__(self, fiberProfiles, visitInfo=None, metadata=None):
+    def __init__(self, fiberProfiles, identity, visitInfo=None, metadata=None):
         self.fiberProfiles = fiberProfiles
+        self.identity = identity
         self.visitInfo = visitInfo
         self.metadata = metadata
 
     @classmethod
-    def makeEmpty(cls, visitInfo=None, metadata=None):
+    def makeEmpty(cls, identity, visitInfo=None, metadata=None):
         """Construct an empty `FiberProfileSet`
 
         Parameters
         ----------
+        identity : `pfs.datamodel.CalibIdentity`
+            Identifying information for the calibration.
         visitInfo : `lsst.afw.image.VisitInfo`, optional
             Parameters characterising the visit.
         metadata : `lsst.daf.base.PropertyList`
@@ -44,11 +49,14 @@ class FiberProfileSet:
         self : `FiberProfileSet`
             Empty set of fiber profiles.
         """
-        return cls({}, visitInfo, metadata)
+        return cls({}, identity, visitInfo, metadata)
 
     @classmethod
     def fromCombination(cls, *profiles):
         """Combine multiple `FiberProfileSet`s into a new one
+
+        The ``identity``, ``visitInfo`` and ``metadata`` from the first of
+        the input profiles will be used for the combination.
 
         Parameters
         ----------
@@ -57,7 +65,7 @@ class FiberProfileSet:
         """
         if len(profiles) == 0:
             raise RuntimeError("No profiles provided")
-        self = cls.makeEmpty(profiles[0].visitInfo, profiles[0].metadata)
+        self = cls.makeEmpty(profiles[0].identity, profiles[0].visitInfo, profiles[0].metadata)
         for ii, pp in enumerate(profiles):
             have = set(self.fiberId)
             new = set(pp.fiberId)
@@ -209,18 +217,13 @@ class FiberProfileSet:
         visitInfo = VisitInfo(metadata)
         stripVisitInfoKeywords(metadata)
 
-        return cls(profiles, visitInfo, metadata)
+        return cls(profiles, pfsFiberProfiles.identity, visitInfo, metadata)
 
-    def toPfsFiberProfiles(self, identity):
+    def toPfsFiberProfiles(self):
         """Convert to a `pfs.datamodel.PfsFiberProfiles`
 
         Essentially, this involves reformatting the `dict` of
         `pfs.drp.stella.FiberProfile` objects to a list of profile arrays.
-
-        Parameters
-        ----------
-        identity : `pfs.datamodel.CalibIdentity`
-            Identity of the calib data.
 
         Returns
         -------
@@ -236,7 +239,7 @@ class FiberProfileSet:
         metadata = self.metadata.deepCopy()
         setVisitInfoMetadata(metadata, self.visitInfo)
 
-        return PfsFiberProfiles(identity, self.fiberId, radius, oversample, rows, profiles, norm,
+        return PfsFiberProfiles(self.identity, self.fiberId, radius, oversample, rows, profiles, norm,
                                 metadata.toDict())
 
     @classmethod
@@ -264,6 +267,4 @@ class FiberProfileSet:
         filename : `str`
             Name of FITS file.
         """
-        identity = PfsFiberProfiles.parseFilename(filename)
-        profiles = self.toPfsFiberProfiles(identity)
-        profiles.writeFits(filename)
+        self.toPfsFiberProfiles().writeFits(filename)
