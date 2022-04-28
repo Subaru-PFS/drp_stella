@@ -146,7 +146,8 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         profilesConfig.profileRadius = 3
         profilesConfig.doBlindFind = False
 
-        fiberProfiles = BuildFiberProfilesTask(config=profilesConfig).run(exposure, self.base).profiles
+        buildFiberProfiles = BuildFiberProfilesTask(config=profilesConfig)
+        fiberProfiles = buildFiberProfiles.run(exposure, detectorMap=self.base).profiles
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(self.base)
 
         centroidLines = CentroidLinesTask()

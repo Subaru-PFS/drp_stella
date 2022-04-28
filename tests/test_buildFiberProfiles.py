@@ -170,7 +170,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         * Subtraction residuals are reasonable
         * Extracted spectra are as expected
         """
-        results = self.task.run(self.exposure, self.detMap)
+        results = self.task.run(self.exposure, detectorMap=self.detMap)
         self.assertFiberProfiles(results.profiles)
         self.assertCenters(results.centers)
 
@@ -181,7 +181,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         Making it too small results in bad subtractions.
         """
         self.config.profileOversample = oversample
-        results = self.task.run(self.makeExposure(self.image), self.detMap)
+        results = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap)
         self.assertFiberProfiles(results.profiles)
         self.assertCenters(results.centers)
 
@@ -190,7 +190,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         rng = np.random.RandomState(12345)
         pfsConfig = makeSyntheticPfsConfig(self.synth, 123456789, 54321, rng, fracSky=0.0, fracFluxStd=0.0)
         self.config.doBlindFind = False
-        result = self.task.run(self.makeExposure(self.image), self.detMap, pfsConfig)
+        result = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap, pfsConfig=pfsConfig)
         self.assertFiberProfiles(result.profiles)
         self.assertCenters(result.centers)
 
@@ -208,12 +208,12 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         image = self.image.clone()
         image.image.array[yy, xx] += cosmicValue
         image.mask.array[yy, xx] |= image.mask.getPlaneBitMask("CR")
-        result = self.task.run(self.makeExposure(image), self.detMap)
+        result = self.task.run(self.makeExposure(image), detectorMap=self.detMap)
         self.assertFiberProfiles(result.profiles, image, image.mask.getPlaneBitMask("CR"))
 
         # Repeat without masking the CR pixels
         image.mask.array[yy, xx] &= ~image.mask.getPlaneBitMask("CR")
-        result = self.task.run(self.makeExposure(image), self.detMap)
+        result = self.task.run(self.makeExposure(image), detectorMap=self.detMap)
         image.mask.array[yy, xx] |= image.mask.getPlaneBitMask("CR")  # Reinstate mask for performance measure
         self.assertFiberProfiles(result.profiles, image, image.mask.getPlaneBitMask("CR"))
 
@@ -242,7 +242,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         image = self.image.clone()
         image.image.array[cosmics] += cosmicValue
 
-        result = self.task.run(self.makeExposure(image), self.detMap)
+        result = self.task.run(self.makeExposure(image), detectorMap=self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
@@ -255,12 +255,12 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.image.image.array[stop:, :] = rng.normal(0.0, self.synth.readnoise,
                                                       (self.synth.height - stop, self.synth.width))
         # Expect that all traces are too short, hence pruned
-        result = self.task.run(self.makeExposure(self.image), self.detMap)
+        result = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap)
         self.assertNumTraces(result, 0)
 
         # Set pruneMinLength to something smaller than the trace length, and they should all be there again
         self.config.pruneMinLength = int(0.9*(stop - start))
-        result = self.task.run(self.makeExposure(self.image), self.detMap)
+        result = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap)
         self.assertNumTraces(result)
 
     def testBadRows(self):
@@ -269,7 +269,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         stop = 123
         self.image.image.array[start:stop] = np.nan
         self.image.mask.array[start:stop] = self.image.mask.getPlaneBitMask("BAD")
-        result = self.task.run(self.exposure, self.detMap)
+        result = self.task.run(self.exposure, detectorMap=self.detMap)
         self.assertFiberProfiles(result.profiles, self.image, self.image.mask.getPlaneBitMask("BAD"),
                                  doCheckSpectra=False)
 
@@ -278,7 +278,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         for xx in self.synth.traceCenters.astype(int) - 2:
             self.image.image.array[:, xx] = -123.45
             self.image.mask.array[:, xx] = self.image.mask.getPlaneBitMask("BAD")
-        result = self.task.run(self.exposure, self.detMap)
+        result = self.task.run(self.exposure, detectorMap=self.detMap)
         # We're not going to have good profiles out of this, so not using self.assertFiberProfiles
         self.assertNumTraces(result)
 
@@ -309,7 +309,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
 
         self.config.pruneMaxWidth = 1000  # Make sure the CR peaks are included
         self.config.pruneMinLength = self.synth.height - crMaxRow - 5  # Because we've stolen some image
-        result = self.task.run(self.makeExposure(image), self.detMap)
+        result = self.task.run(self.makeExposure(image), detectorMap=self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
@@ -333,7 +333,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.image.mask.array[select] |= self.image.mask.getPlaneBitMask("CR")
 
         self.config.pruneMinLength = self.synth.height//3  # So a half a trace counts as a trace
-        result = self.task.run(self.makeExposure(self.image), self.detMap)
+        result = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
@@ -374,7 +374,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
             self.image.mask.array[rowSlice, ss] |= self.image.mask.getPlaneBitMask("CR")
 
         self.config.pruneMinLength = self.synth.height//3  # So a half a trace counts as a trace
-        result = self.task.run(self.makeExposure(self.image), self.detMap)
+        result = self.task.run(self.makeExposure(self.image), detectorMap=self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 

@@ -48,7 +48,7 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
             Display(backend=display, frame=1).mtv(image, title="Synthetic image")
 
         task = BuildFiberProfilesTask(config=profConfig)
-        fiberProfiles = task.run(lsst.afw.image.makeExposure(image), detMap).profiles
+        fiberProfiles = task.run(lsst.afw.image.makeExposure(image), detectorMap=detMap).profiles
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap)
 
         spectra = fiberTraces.extractSpectra(image)

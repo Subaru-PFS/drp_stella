@@ -56,7 +56,7 @@ class BuildFiberProfilesTask(Task):
         self.makeSubtask("centerFit")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, exposure, detectorMap=None, pfsConfig=None):
+    def run(self, exposure, *, identity=None, detectorMap=None, pfsConfig=None):
         """Build a FiberProfileSet from an image
 
         We find traces on the image, centroid those traces, measure the fiber
@@ -66,6 +66,8 @@ class BuildFiberProfilesTask(Task):
         ----------
         exposure : `lsst.afw.image.Exposure`
             Exposure from which to build FiberTraces.
+        identity : `pfs.datamodel.CalibIdentity`, optional
+            Identifying information for the calibration.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
@@ -125,7 +127,9 @@ class BuildFiberProfilesTask(Task):
 
             centers = {ff: partial(centerFunc, ff) for ff in traces}
 
-        profiles = FiberProfileSet.makeEmpty(exposure.getInfo().getVisitInfo(), exposure.getMetadata())
+        profiles = FiberProfileSet.makeEmpty(
+            identity, exposure.getInfo().getVisitInfo(), exposure.getMetadata()
+        )
         for ff in centers:
             profiles[ff] = self.calculateProfile(exposure.maskedImage, centers[ff])
 
