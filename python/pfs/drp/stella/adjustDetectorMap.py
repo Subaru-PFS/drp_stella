@@ -68,7 +68,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
-                                     seed=detectorMap.visitInfo.getExposureId(), fitStatic=False,
+                                     seed=detectorMap.visitInfo.id, fitStatic=False,
                                      Distortion=type(base.getDistortion()))
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
             if not self.updateTraceWavelengths(lines, detectorMap):
