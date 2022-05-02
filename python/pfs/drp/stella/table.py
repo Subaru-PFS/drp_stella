@@ -2,7 +2,7 @@ from dataclasses import is_dataclass
 from typing import Iterable, Tuple, Type, TypeVar, Dict, List, Iterator, Union, Any
 
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, concat
 import astropy.io.fits
 
 
@@ -137,14 +137,14 @@ class TableBase:
         other : `TableBase`
             Table to use to extend this table.
         """
-        self.data = self.data.append(other.data)
+        self.data = concat((self.data, other.data))
 
     def __add__(self, rhs: Table) -> Table:
         """Addition
 
         This is an inefficient way of populating a table.
         """
-        return type(self)(self.data.append(rhs.data))
+        return type(self)(concat((self.data, rhs.data)))
 
     def __iadd__(self, rhs: Table) -> Table:
         """In-place addition
