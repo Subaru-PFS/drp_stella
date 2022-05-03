@@ -36,9 +36,10 @@ PYBIND11_PLUGIN(fitLine) {
     lsst::utils::python::addOutputOp(cls, "__repr__");
 
     mod.def("fitLine",
-            py::overload_cast<ndarray::Array<double const, 1, 1> const&,
+            py::overload_cast<ndarray::Array<Spectrum::ImageT const, 1, 1> const&,
                               ndarray::Array<lsst::afw::image::MaskPixel const, 1, 1> const&,
-                              float, float, lsst::afw::image::MaskPixel, std::size_t>(&fitLine<double>),
+                              float, float, lsst::afw::image::MaskPixel,
+                              std::size_t>(&fitLine<Spectrum::ImageT>),
             "flux"_a, "mask"_a, "peakPosition"_a, "rmsSize"_a, "badBitMask"_a,
             "fittingHalfSize"_a=0);
 

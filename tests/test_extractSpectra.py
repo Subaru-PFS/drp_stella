@@ -37,7 +37,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             lsst.afw.image.makeExposure(self.image), detectorMap=self.detMap
         ).profiles
         for fiberId in self.fiberProfiles:
-            self.fiberProfiles[fiberId].norm = np.full(self.synthConfig.height, self.flux, dtype=float)
+            self.fiberProfiles[fiberId].norm = np.full(self.synthConfig.height, self.flux, dtype=np.float32)
         self.fiberTraces = self.fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.fiberTraces), self.synthConfig.numFibers)
 
@@ -78,7 +78,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
                 expectMask = 0
 
             bbox = ft.trace.getBBox()
-            expectNorm = np.zeros(self.synthConfig.height, dtype=float)
+            expectNorm = np.zeros(self.synthConfig.height, dtype=np.float32)
             expectNorm[bbox.getMinY():bbox.getMaxY() + 1] = ft.trace.image.array.sum(axis=1)
 
             self.assertEqual(ss.fiberId, ft.fiberId)
@@ -126,7 +126,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         newTrace = type(trace)(trace.trace.Factory(trace.trace, newBox), trace.fiberId)
         self.fiberTraces[index] = newTrace
         spectra = self.fiberTraces.extractSpectra(self.image)
-        expectFlux = np.zeros(self.synthConfig.height, dtype=float)
+        expectFlux = np.zeros(self.synthConfig.height, dtype=np.float32)
         expectFlux[middle:] = self.flux
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
         expectMask[:middle] = trace.trace.mask.getPlaneBitMask("NO_DATA")
@@ -137,7 +137,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         newTrace = type(trace)(trace.trace.Factory(trace.trace, newBox), trace.fiberId)
         self.fiberTraces[index] = newTrace
         spectra = self.fiberTraces.extractSpectra(self.image)
-        expectFlux = np.zeros(self.synthConfig.height, dtype=float)
+        expectFlux = np.zeros(self.synthConfig.height, dtype=np.float32)
         expectFlux[:middle] = self.flux
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
         expectMask[middle:] = trace.trace.mask.getPlaneBitMask("NO_DATA")
@@ -154,7 +154,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         index = self.synthConfig.numFibers//2
         row = self.synthConfig.height//2
         fiberId = self.synthConfig.fiberId[index]
-        expectFlux = np.full(self.synthConfig.height, self.flux, dtype=float)
+        expectFlux = np.full(self.synthConfig.height, self.flux, dtype=np.float32)
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
         expectFlux[row] = 0.0
         expectMask[row] = self.image.mask.getPlaneBitMask(["BAD_FIBERTRACE", "NO_DATA"])
