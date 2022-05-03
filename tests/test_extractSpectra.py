@@ -104,6 +104,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         # With mask supplied to extractSpectra
         spectra = self.fiberTraces.extractSpectra(self.image, bitMask)
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
+        expectMask[self.badRow] = bitMask
         self.assertSpectra(spectra, mask=expectMask)
 
         # No mask supplied to extractSpectra
@@ -165,6 +166,45 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.fiberTraces[index].trace.mask.array[row, :] = 0
         spectra = self.fiberTraces.extractSpectra(self.image)
         self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+
+    def testMinFracMask(self):
+        """Test behavior of the minFracMask parameter
+
+        minFracMask is the minimum fractional contribution of a pixel for the
+        mask to be accumulated.
+        """
+        index = self.synthConfig.numFibers//2
+        row = self.synthConfig.height//2
+        col = int(self.synthConfig.traceCenters[index] + self.synthConfig.traceOffset[index])
+
+        bad = self.image.mask.getPlaneBitMask("BAD")
+        self.image.mask.array[row][col] = bad
+
+        masked = np.zeros(self.synthConfig.height, dtype=np.int32)
+        masked[row] = bad
+
+        fiberTrace = self.fiberTraces[index]
+        x0 = fiberTrace.trace.getX0()
+        ft = self.fiberTraces[index].trace.image.array[row]
+        ft[col - x0] = 0.0
+        norm = ft.sum()
+
+        # With bad pixel at fraction=0 and minFracMask=0 --> unmasked
+        spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.0)
+        self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+
+        # With bad pixel at fraction=0 and minFracMask=0.5 --> unmasked
+        spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.0)
+        self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+
+        # With bad pixel at fraction=0.5 and minFracMask=0.3 --> masked
+        ft[col - x0] = norm
+        spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.3)
+        self.assertFloatsEqual(spectra[index].mask.array[0], masked)
+
+        # With bad pixel at fraction=0.5 and minFracMask = 0.7 --> unmasked
+        spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.7)
+        self.assertFloatsEqual(spectra[index].mask.array[0], 0)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

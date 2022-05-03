@@ -10,6 +10,8 @@ class ExtractSpectraConfig(pexConfig.Config):
     fiberId = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
     mask = pexConfig.ListField(dtype=str, default=["NO_DATA", "BAD", "SAT", "CR", "BAD_FLAT"],
                                doc="Mask pixels to ignore in extracting spectra")
+    minFracMask = pexConfig.Field(dtype=float, default=0.0,
+                                  doc="Minimum fractional contribution of pixel for mask to be accumulated")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -84,7 +86,7 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask)
+        spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
         for spectrum in spectra:
             spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         return spectra

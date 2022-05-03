@@ -77,7 +77,8 @@ void FiberTraceSet<ImageT, MaskT, VarianceT >::sortTracesByXCenter()
 template<typename ImageT, typename MaskT, typename VarianceT>
 SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
-    MaskT badBitMask
+    MaskT badBitMask,
+    float minFracMask
 ) {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
@@ -173,11 +174,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
                  xModel < std::size_t(iTrace.getWidth()) && xData < width;
                  ++xModel, ++xData) {
-                if (dataMask(xData, yData) & badBitMask) continue;
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
                 double const modelValue = iModelImage(xModel, iyModel)/iNorm;
-                if (modelValue == 0.0) continue;  // don't accumulate the mask
-                maskResult[ii] |= dataMask(xData, yData);
+                if (modelValue > minFracMask) {
+                    maskResult[ii] |= dataMask(xData, yData);
+                }
+                if (dataMask(xData, yData) & badBitMask) continue;
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
                 model2Weighted += m2/dataVariance(xData, yData);

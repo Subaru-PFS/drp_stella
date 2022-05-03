@@ -288,7 +288,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
                 self.assertTrue(np.all(ss.covariance != 0))
 
         # Ditto, with a row entirely bad
-        # Flux should be zero in the bad row, and it should be masked NO_DATA|BAD_FIBERTRACE
+        # Flux should be zero in the bad row, and it should be masked BAD|NO_DATA|BAD_FIBERTRACE
         bad = mask.getPlaneBitMask("BAD")
         noData = mask.getPlaneBitMask(["NO_DATA", "BAD_FIBERTRACE"])
         badRow = 123
@@ -300,7 +300,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(ss.spectrum, np.where(np.arange(config.height) == badRow, 0.0, flux),
                                          rtol=rtol)
             self.assertFloatsEqual(ss.mask.array[0],
-                                   np.where(np.arange(config.height) == badRow, noData, 0))
+                                   np.where(np.arange(config.height) == badRow, bad | noData, 0))
             self.assertTrue(np.all(ss.variance[isGood] > 0))
             if ii == 0:
                 self.assertTrue(np.all(ss.covariance[-1][isGood] == 0))
@@ -315,6 +315,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
 
         # Bad column on every trace
         # Flux should still be reasonable, the masked pixels will be ignored
+        # but the mask will be accumulated so every mask pixel will be BAD.
         mask.array[:] = 0
         for col in config.traceCenters:
             mask.array[:, int(col)] = bad
@@ -324,7 +325,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(spectra), config.numFibers)
         for ii, ss in enumerate(spectra):
             self.assertFloatsAlmostEqual(ss.spectrum, flux, rtol=2*rtol)
-            self.assertFloatsEqual(ss.mask.array, 0)
+            self.assertFloatsEqual(ss.mask.array[0], bad)
             self.assertTrue(np.all(ss.variance > 0))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
             self.assertTrue(np.all(np.isfinite(ss.covariance)))

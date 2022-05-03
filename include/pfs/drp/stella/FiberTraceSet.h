@@ -127,9 +127,10 @@ class FiberTraceSet {
      *
      * @param image : Image containing the spectra
      * @param badBitMask : ignore pixels where (value & badBitMask) != 0
+     * @param minFracMask : minimum fractional contribution of pixel for mask to be accumulated
      * @return extracted spectra.
      */
-    SpectrumSet extractSpectra(MaskedImageT const& image, MaskT badBitMask=0);
+    SpectrumSet extractSpectra(MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.0);
 
   private:
     Collection _traces; // traces for each aperture
