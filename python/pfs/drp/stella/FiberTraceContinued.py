@@ -19,7 +19,7 @@ class FiberTrace:
         traceMask = self.getTrace().mask
         mask.Factory(mask, traceMask.getBBox(), PARENT)[:] |= traceMask
 
-    def extractSpectrum(self, maskedImage, badBitmask):
+    def extractSpectrum(self, maskedImage, badBitmask, minFracMask=0.0):
         """Extract a spectrum using the trace
 
         Parameters
@@ -28,6 +28,8 @@ class FiberTrace:
             Image from which to extract spectrum.
         badBitmask : `lsst.afw.image.MaskPixel`
             Bitmask for bad pixels.
+        minFracMask : `float`
+            Minimum fractional contribution of pixel for mask to be accumulated.
 
         Returns
         -------
@@ -37,5 +39,5 @@ class FiberTrace:
         from .FiberTraceSetContinued import FiberTraceSet
         traces = FiberTraceSet(1)
         traces.add(self)
-        spectra = traces.extractSpectra(maskedImage, badBitmask)
+        spectra = traces.extractSpectra(maskedImage, badBitmask, minFracMask)
         return spectra[0]
