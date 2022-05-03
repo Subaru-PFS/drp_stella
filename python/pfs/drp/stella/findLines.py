@@ -125,7 +125,7 @@ class FindLinesTask(Task):
         size = 2*halfSize + 1
         xx = np.arange(size, dtype=float) - halfSize
         sigma = self.config.width
-        kernel = np.exp(-0.5*xx**2/sigma**2)/sigma/np.sqrt(2.0*np.pi)
+        kernel = (np.exp(-0.5*xx**2/sigma**2)/sigma/np.sqrt(2.0*np.pi)).astype(spectrum.flux.dtype)
 
         flux = np.convolve(spectrum.normFlux if continuum is None else spectrum.normFlux - continuum,
                            kernel, mode="same")

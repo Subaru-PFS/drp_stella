@@ -82,7 +82,7 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     ndarray::Array<double, 2, 1> const& profiles,
     ndarray::Array<bool, 2, 1> const& good,
     ndarray::Array<double, 1, 1> const& centers,
-    ndarray::Array<double, 1, 1> const& norm
+    ndarray::Array<Spectrum::ImageT, 1, 1> const& norm
 ) {
     int const width = dims.getX();
     std::size_t const height = dims.getY();
