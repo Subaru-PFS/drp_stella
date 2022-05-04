@@ -9,7 +9,7 @@ __all__ = ["Spectrum"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class Spectrum:  # noqa: F811 (redefinition)
+class Spectrum:  # type: ignore [no-redef] # noqa: F811 (redefinition)
     """Flux as a function of wavelength"""
     def plot(self, numRows=3, doBackground=False, filename=None):
         """Plot spectrum

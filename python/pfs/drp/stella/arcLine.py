@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from deprecated import deprecated
+from typing import Any, Dict, List
 
 import numpy as np
 
 from pfs.datamodel import Identity
 
 from .table import TableBase
-from .referenceLine import ReferenceLineSet, ReferenceLineStatus
+from .referenceLine import ReferenceLineSet, ReferenceLine, ReferenceLineStatus
 from .datamodel.pfsFiberArraySet import PfsFiberArraySet
 
 __all__ = ("ArcLine", "ArcLineSet")
@@ -55,7 +56,21 @@ class ArcLineSet(TableBase):
     RowClass = ArcLine
     damdver = 1
 
-    @property
+    # Column types.
+    # The columns are set up by TableBase.__init_subclass__.
+    fiberId: np.ndarray
+    wavelength: np.ndarray
+    x: np.ndarray
+    y: np.ndarray
+    xErr: np.ndarray
+    yErr: np.ndarray
+    intensity: np.ndarray
+    intensityErr: np.ndarray
+    flag: np.ndarray
+    status: np.ndarray
+    description: np.ndarray
+
+    @property  # type: ignore [misc]
     @deprecated(reason="use the 'rows' attribute instead of 'lines'")
     def lines(self):
         """Return array of lines
@@ -78,21 +93,23 @@ class ArcLineSet(TableBase):
         refLines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines.
         """
-        refLines = ReferenceLineSet.empty()
         if fiberId is not None:
             select = self.fiberId == fiberId
-            for args in zip(self.description[select], self.wavelength[select], self.intensity[select],
-                            self.status[select]):
-                refLines.append(*args)
-        else:
-            unique = set(zip(self.wavelength, self.description, self.status))
-            for wavelength, description, status in sorted(unique):
-                select = ((self.description == description) & (self.wavelength == wavelength) &
-                          (self.status == status) & np.isfinite(self.intensity))
+            return ReferenceLineSet.fromColumns(
+                description=self.description[select],
+                wavelength=self.wavelength[select],
+                intensity=self.intensity[select],
+                status=self.status[select],
+            )
+        rows: List[ReferenceLine] = []
+        unique = set(zip(self.wavelength, self.description, self.status))
+        for wavelength, description, status in sorted(unique):
+            select = ((self.description == description) & (self.wavelength == wavelength) &
+                      (self.status == status) & np.isfinite(self.intensity))
 
-                intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
-                refLines.append(description, wavelength, intensity, status)
-        return refLines
+            intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
+            rows.append(ReferenceLine(description, wavelength, intensity, status))
+        return ReferenceLineSet.fromRows(rows)
 
     def applyExclusionZone(self, exclusionRadius: float,
                            status: ReferenceLineStatus = ReferenceLineStatus.BLEND
@@ -135,7 +152,7 @@ class ArcLineSet(TableBase):
         if identity is None:
             identity = Identity(-1)
         flags = ReferenceLineStatus.getMasks()
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         wavelength = np.vstack([wlSet]*numFibers)
         flux = np.full((numFibers, numWavelength), np.nan, dtype=float)

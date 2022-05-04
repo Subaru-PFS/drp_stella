@@ -9,7 +9,7 @@ from .NevenPsf import NevenPsf
 
 
 @continueClass  # noqa: F811 (redefinition)
-class NevenPsf:  # noqa: F811 (redefinition)
+class NevenPsf:  # type: ignore [no-redef] # noqa: F811 (redefinition)
     @classmethod
     def build(cls, detMap, version=None, oversampleFactor=None, targetSize=None, directory=None):
         """Generate a `NevenPsf` using the standard data

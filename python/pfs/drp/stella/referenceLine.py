@@ -80,7 +80,14 @@ class ReferenceLineSet(TableBase):
     """
     RowClass = ReferenceLine
 
-    @property
+    # Column types.
+    # The columns are set up by TableBase.__init_subclass__.
+    description: np.ndarray
+    wavelength: np.ndarray
+    intensity: np.ndarray
+    status: np.ndarray
+
+    @property  # type: ignore [misc]
     @deprecated(reason="use the 'rows' attribute instead of 'lines'")
     def lines(self):
         """Return array of lines

@@ -1,24 +1,22 @@
 from dataclasses import is_dataclass
-from typing import Iterable, Tuple, Type, TypeVar, Dict, List, Iterator, Union, Any
+from typing import Iterable, Tuple, Type, TypeVar, Dict, List, Iterator, Union, Any, Protocol
 
 import numpy as np
+from numpy.typing import ArrayLike
 from pandas import DataFrame, concat
+
 import astropy.io.fits
 
 
-try:
-    from typing import Protocol  # requires python 3.8
+class Row(Protocol):
+    """How to identify a dataclass that serves as a row of the table
 
-    class Dataclass(Protocol):
-        """How to identify a dataclass
+    This exists solely for the sake of type hints.
 
-        TableBase only works if the ``RowClass`` is a dataclass.
-        """
-        __dataclass_fields__: Dict
+    TableBase only works if the ``RowClass`` is a dataclass.
+    """
+    __dataclass_fields__: Dict[str, Any]
 
-    Row = Dataclass
-except ImportError:
-    Row = Any  # Can't do any better with python < 3.8, and can't assume we have typing_extensions module
 
 Table = TypeVar("Table", bound="TableBase")
 
@@ -43,7 +41,7 @@ class TableBase:
     data : `pandas.DataFrame`
         Data for table.
     """
-    RowClass: Row
+    RowClass: Type[Row]
     fitsExtName: str
     damdver: int = 1
     _schema: Iterable[Tuple[str, type]]
@@ -60,7 +58,7 @@ class TableBase:
         Sets the ``_schema`` class variable, so all the inherited methods know
         what they're working with, and sets up the properties.
         """
-        def getSchema(cls: Type) -> Dict[str, type]:
+        def getSchema(cls: Type[Row]) -> Dict[str, type]:
             schema = {}
             for bb in reversed(cls.__bases__):
                 schema.update(getSchema(bb))
@@ -71,7 +69,11 @@ class TableBase:
         schema = getSchema(cls.RowClass)
         setattr(cls, "_schema", tuple(schema.items()))
         for name in schema:
-            setattr(cls, name, property(lambda self, name=name: self.data[name].values))
+            def func(self, name: str = name) -> ArrayLike:
+                """Return column array"""
+                return self.data[name].values
+
+            setattr(cls, name, property(func))
 
     @classmethod
     def fromRows(cls: Type[Table], rows: Iterable[Row]) -> Table:
@@ -103,7 +105,7 @@ class TableBase:
         return self.data
 
     @property
-    def rows(self) -> List[Row]:
+    def rows(self) -> List[Any]:
         """Return list of rows"""
         return [self.RowClass(**row[1].to_dict()) for row in self.data.iterrows()]
 
@@ -115,11 +117,11 @@ class TableBase:
         """Is non-empty?"""
         return len(self) != 0
 
-    def __iter__(self) -> Iterator[Row]:
+    def __iter__(self) -> Iterator[Any]:
         """Iterator"""
         return iter(self.rows)
 
-    def __getitem__(self, index: Union[int, slice, np.ndarray]) -> Union[Row, Table]:
+    def __getitem__(self: Table, index: Union[int, slice, np.ndarray]) -> Union[Any, Table]:
         """Retrieve row(s)"""
         if isinstance(index, int):
             return self.RowClass(**self.data.iloc[index].to_dict())
@@ -139,14 +141,14 @@ class TableBase:
         """
         self.data = concat((self.data, other.data))
 
-    def __add__(self, rhs: Table) -> Table:
+    def __add__(self: Table, rhs: Table) -> Table:
         """Addition
 
         This is an inefficient way of populating a table.
         """
         return type(self)(concat((self.data, rhs.data)))
 
-    def __iadd__(self, rhs: Table) -> Table:
+    def __iadd__(self: Table, rhs: Table) -> Table:
         """In-place addition
 
         This is an inefficient way of populating a table.
@@ -154,17 +156,17 @@ class TableBase:
         self.extend(rhs)
         return self
 
-    def copy(self) -> Table:
+    def copy(self: Table) -> Table:
         """Return a deep copy"""
         return type(self)(self.data.copy())
 
     @classmethod
-    def empty(cls) -> Table:
+    def empty(cls: Type[Table]) -> Table:
         """Construct an empty table"""
         return cls.fromColumns(**{name: [] for name, _ in cls._schema})
 
     @classmethod
-    def readFits(cls, filename: str) -> Table:
+    def readFits(cls: Type[Table], filename: str) -> Table:
         """Read from file
 
         Parameters

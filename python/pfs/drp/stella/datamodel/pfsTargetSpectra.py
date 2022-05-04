@@ -167,7 +167,7 @@ class PfsTargetSpectra(Mapping):
 
         numFluxes = sum(len(target.fiberFlux) for target in self)
         targetFluxIndex = np.empty(numFluxes, dtype=np.int16)
-        filterName: list[str] = []
+        filterName: List[str] = []
         fiberFlux = np.empty(numFluxes, dtype=np.float32)
         start = 0
         for tt, target in zip(targetId, self):
@@ -192,7 +192,7 @@ class PfsTargetSpectra(Mapping):
         numObservations = sum(len(ss.observations) for ss in self.values())
         observationsIndex = np.empty(numObservations, dtype=np.int16)
         visit = np.empty(numObservations, dtype=np.int32)
-        arm: list(str) = []
+        arm: List[str] = []
         spectrograph = np.empty(numObservations, dtype=np.int16)
         pfsDesignId = np.empty(numObservations, dtype=np.int64)
         fiberId = np.empty(numObservations, dtype=np.int32)
@@ -241,7 +241,7 @@ class PfsTargetSpectra(Mapping):
             fits.append(ImageHDU(data=[spectrum.covar2 for spectrum in self.values()], name="COVAR2"))
 
         # Metadata table
-        metadata: list[str] = []
+        metadata: List[str] = []
         for spectrum in self.values():
             md = spectrum.metadata.copy()
             md.update(spectrum.flags.toFitsHeader())

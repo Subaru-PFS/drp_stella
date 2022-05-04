@@ -13,7 +13,7 @@ __all__ = ["SplinedDetectorMap"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class SplinedDetectorMap:  # noqa: F811 (redefinition)
+class SplinedDetectorMap:  # type: ignore [no-redef] # noqa: F811 (redefinition)
     @classmethod
     def fromDatamodel(cls, detMap):
         """Construct from the pfs.datamodel representation

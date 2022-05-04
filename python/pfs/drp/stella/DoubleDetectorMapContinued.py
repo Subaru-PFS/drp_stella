@@ -14,7 +14,7 @@ __all__ = ("DoubleDetectorMap",)
 
 
 @continueClass  # noqa: F811 (redefinition)
-class DoubleDetectorMap:  # noqa: F811 (redefinition)
+class DoubleDetectorMap:  # type: ignore [no-redef] # noqa: F811 (redefinition)
     @classmethod
     def fromDatamodel(cls, detMap):
         """Construct from the pfs.datamodel representation

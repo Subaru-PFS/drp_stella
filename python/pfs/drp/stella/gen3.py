@@ -3,10 +3,10 @@
 import functools
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Sequence, KeysView
 from glob import glob
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, overload
 
 from lsst.daf.butler import (
     Butler,
@@ -134,21 +134,29 @@ class DatasetRefList(Sequence):
         self._byIndex.append(dataRef)
         self._byCoordinate[dataId] = dataRef
 
-    def __getitem__(self, indexOrCoord: Union[int, DataCoordinate]) -> DatasetRef:
-        """Get by integer index or dataId"""
-        if isinstance(indexOrCoord, DataCoordinate):
-            return self._byCoordinate[indexOrCoord]
-        return self._byIndex[indexOrCoord]
+    @overload
+    def __getitem__(self, index: int) -> DatasetRef:
+        """Get by integer index"""
+        pass  # Overload
+
+    @overload
+    def __getitem__(self, indices: slice) -> Sequence[DatasetRef]:
+        """Get by slice"""
+        pass  # Overload
+
+    def __getitem__(self, index: Union[slice, int]) -> Union[Sequence[DatasetRef], DatasetRef]:
+        """Get by integer index or slice"""
+        return self._byIndex[index]
 
     def __len__(self) -> int:
         """Length"""
         return len(self._byIndex)
 
-    def __iter__(self) -> Iterator["DatasetRefList"]:
+    def __iter__(self) -> Iterator[List[DatasetRef]]:
         """Iterator over the list"""
         return iter(self._byIndex)
 
-    def __contains__(self, dataId: Union[DatasetRef, DataCoordinate]) -> bool:
+    def __contains__(self, dataId: object) -> bool:
         """Is this dataId in the container?"""
         if isinstance(dataId, DatasetRef):
             dataId = dataId.dataId
@@ -158,7 +166,15 @@ class DatasetRefList(Sequence):
         """Retrieve by integer index, as a list"""
         return self._byIndex[index]
 
-    def byCoordinate(self, dataId: DataCoordinate, allowMissing: bool = False) -> DatasetRef:
+    @overload
+    def byCoordinate(self, dataId: DataCoordinate) -> DatasetRef:
+        ...  # Overload
+
+    @overload
+    def byCoordinate(self, dataId: DataCoordinate, allowMissing: bool = False) -> Optional[DatasetRef]:
+        ...  # Overload
+
+    def byCoordinate(self, dataId: DataCoordinate, allowMissing: bool = False) -> Optional[DatasetRef]:
         """Retrieve by dataId, as a dict
 
         Parameters
@@ -185,7 +201,19 @@ class DatasetRefList(Sequence):
             return self._byCoordinate.get(dataId, None)
         return self._byCoordinate[dataId]
 
-    def byExtendedCoordinate(self, dataId: DataCoordinate, allowMissing: bool = False) -> DatasetRef:
+    @overload
+    def byExtendedCoordinate(self, dataId: DataCoordinate) -> DatasetRef:
+        pass  # Overload
+
+    @overload
+    def byExtendedCoordinate(
+        self, dataId: DataCoordinate, allowMissing: bool = False
+    ) -> Optional[DatasetRef]:
+        pass  # Overload
+
+    def byExtendedCoordinate(
+        self, dataId: DataCoordinate, allowMissing: bool = False
+    ) -> Optional[DatasetRef]:
         """Retrieve by dataId, as a dict, where the dataId may cover more
         dimensions
 
@@ -214,7 +242,7 @@ class DatasetRefList(Sequence):
         """
         return self.byCoordinate(dataId.subset(self.dimensions), allowMissing=allowMissing)
 
-    def keys(self) -> List[DataCoordinate]:
+    def keys(self) -> KeysView[DataCoordinate]:
         """Return the list of data coordinates in the container"""
         return self._byCoordinate.keys()
 

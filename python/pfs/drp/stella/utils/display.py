@@ -155,7 +155,7 @@ except ImportError:
     DisplayImpl = None
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
-    def addPfsCursor(disp, detectorMap=None):
+    def addPfsCursor(display, detectorMap=None):
         """Add PFS specific information to an afwDisplay.Display
 
         Requires that the detectorMap be provided, and must be
@@ -164,9 +164,9 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         Assumes matplotlib.  N.b. this will be easier in the next
         release of display_matplotlib
         """
-        disp._impl._detMap = detectorMap
+        display._impl._detMap = detectorMap
 
-        axes = disp._impl.display.frame.axes
+        axes = display._impl.display.frame.axes
         if len(axes) < 1:
             print("addPfsCursor must be called after display.mtv()")
             return
@@ -176,12 +176,12 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         if ax.format_coord is None or \
            ax.format_coord.__doc__ is None or "PFS" not in ax.format_coord.__doc__:
 
-            def pfs_format_coord(x, y, disp_impl=disp._impl,
+            def pfs_format_coord(x, y, disp_impl=display._impl,
                                  old_format_coord=ax.format_coord):
                 "PFS addition to display_matplotlib's cursor display"
                 msg = ""
 
-                detMap = disp._impl._detMap
+                detMap = display._impl._detMap
                 if detMap is not None:
                     fid = detMap.findFiberId(geom.PointD(x, y))
                     msg += f"FiberId {fid:3}    {detMap.findWavelength(fid, y):8.3f}nm" + " "

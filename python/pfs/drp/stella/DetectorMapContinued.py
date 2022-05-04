@@ -1,4 +1,5 @@
 import io
+from typing import Dict, Type
 import numpy as np
 import astropy.io.fits
 
@@ -16,7 +17,7 @@ __all__ = ["DetectorMap", "DisplayDetectorMapTask", "DisplayDetectorMapConfig"]
 
 
 @continueClass  # noqa F811: redefinition
-class DetectorMap:  # noqa F811: redefinition
+class DetectorMap:  # type: ignore [no-redef] # noqa: F811 (redefinition)
     """A pseudo-class, containing factory methods and derived methods
 
     This class cannot be instantiated. It exists to provide factory classes the
@@ -29,7 +30,7 @@ class DetectorMap:  # noqa F811: redefinition
     and ``toDatamodel`` methods to convert to/from the representation in
     pfs.datamodel, and be registered via ``DetectorMap.register``.
     """
-    _subclasses = {}  # Registered subclasses (mapping name to class)
+    _subclasses: Dict[str, Type["DetectorMap"]] = {}  # Registered subclasses (mapping name to class)
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("This is a pure-virtual base class")

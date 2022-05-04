@@ -28,7 +28,7 @@ class FluxModelSet:
     def __init__(self, dirname):
         self.dirname = dirname
 
-    @property
+    @property  # type: ignore [misc]
     @functools.lru_cache()
     def parameters(self):
         """List of available parameters.

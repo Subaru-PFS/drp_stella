@@ -37,7 +37,7 @@ from lsst.meas.algorithms.subtractBackground import SubtractBackgroundTask
 from lsst.ip.isr.crosstalk import extractAmp, writeCrosstalkCoeffs
 from lsst.ip.isr.isrTask import IsrTask
 
-from .buildFiberTraces import BuildFiberTracesTask
+from .buildFiberProfiles import BuildFiberProfilesTask
 
 from lsst.afw.image import MaskX
 
@@ -46,7 +46,7 @@ class MeasureCrosstalkConfig(Config):
     """Configuration for MeasureCrosstalkTask"""
     isr = ConfigurableField(target=IsrTask, doc="Instrument signature removal")
     subtractBackground = ConfigurableField(target=SubtractBackgroundTask, doc="Subtract background")
-    buildFiberTraces = ConfigurableField(target=BuildFiberTracesTask, doc="Build fiber traces")
+    buildFiberProfiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
     traceRadius = Field(dtype=float, default=30.0, doc="Half-width of trace to exclude from target")
     doRerunIsr = Field(dtype=bool, default=True, doc="Rerun the ISR, even if postISRCCD files are available")
     badMask = ListField(dtype=str, default=["SAT", "BAD", "INTRP"], doc="Mask planes to ignore")
@@ -80,7 +80,7 @@ class MeasureCrosstalkConfig(Config):
         self.subtractBackground.useApprox = False
         MaskX.addMaskPlane("FIBERTRACE")
         self.subtractBackground.ignoredPixelMask.append("FIBERTRACE")
-        self.buildFiberTraces.doBlindFind = True  # Traces shift around in a dithered flat sequence
+        self.buildFiberProfiles.doBlindFind = True  # Traces shift around in a dithered flat sequence
 
 
 class MeasureCrosstalkRunner(TaskRunner):
@@ -115,7 +115,7 @@ class MeasureCrosstalkTask(CmdLineTask):
         CmdLineTask.__init__(self, *args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("subtractBackground")
-        self.makeSubtask("buildFiberTraces")
+        self.makeSubtask("buildFiberProfiles")
 
     @classmethod
     def _makeArgumentParser(cls):
@@ -205,26 +205,26 @@ class MeasureCrosstalkTask(CmdLineTask):
         ratios : `list` of `list` of `numpy.ndarray`
             A matrix of pixel arrays.
         """
-        traces = self.buildFiberTraces.buildFiberTraces(exposure.maskedImage)
-        self.maskFiberTraces(exposure.mask, traces)
+        profiles = self.buildFiberProfiles.buildFiberProfiles(exposure.maskedImage)
+        self.maskFiberTraces(exposure.mask, profiles)
         self.subtractBackground.run(exposure)
         return self.buildEquation(exposure)
 
-    def maskFiberTraces(self, mask, traces):
+    def maskFiberTraces(self, mask, profiles):
         """Mask fiber traces as ``FIBERTRACE``
 
         Parameters
         ----------
         mask : `lsst.afw.image.Mask`
             Mask image.
-        traces : `lsst.pipe.base.Struct`
-            Output of `pfs.drp.stella.BuildFiberTracesTask`.
+        profiles : `lsst.pipe.base.Struct`
+            Output of `pfs.drp.stella.BuildFiberProfilesTask`.
         """
         select = np.zeros_like(mask.array, dtype=bool)
         columns = np.arange(mask.getWidth(), dtype=int)
         rows = np.arange(mask.getHeight(), dtype=int)
         xx, yy = np.meshgrid(columns, rows)
-        for cen in traces.centers:
+        for cen in profiles.centers:
             distance = xx - cen(rows)[:, np.newaxis]
             select[yy, xx] |= np.abs(distance) < self.config.traceRadius
 
