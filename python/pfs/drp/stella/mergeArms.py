@@ -138,6 +138,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
     ConfigClass = MergeArmsConfig
     RunnerClass = MergeArmsRunner
 
+    selectSky: SelectFibersTask
+    fitSkyModel: FitBlockedOversampledSplineTask
+    fitContinuum: FitContinuumTask
+
     @classmethod
     def _makeArgumentParser(cls):
         """Make an ArgumentParser"""
