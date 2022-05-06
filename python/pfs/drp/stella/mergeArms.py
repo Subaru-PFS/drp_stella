@@ -25,7 +25,7 @@ from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
 from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
-from .interpolate import interpolateFlux, interpolateMask
+from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
 from .subtractSky1d import subtractSky1d
 
@@ -336,7 +336,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         for ss in spectra:
             badBitmask = ss.flags.get(*self.config.mask)
             for ii in range(len(ss)):
-                nn = interpolateFlux(ss.wavelength[ii], ss.norm[ii], wavelength, fill=0.0)
+                dispersion = calculateDispersion(ss.wavelength[ii])
+                nn = interpolateFlux(ss.wavelength[ii], ss.norm[ii]/dispersion, wavelength, fill=0.0)
                 mask = interpolateMask(ss.wavelength[ii], ss.mask[ii], wavelength, fill=badBitmask)
                 ignore = ((mask & badBitmask) != 0) | ~np.isfinite(nn)
                 if np.all(ignore):
@@ -380,7 +381,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                 plt.suptitle(f"fiberId={spectra[0].fiberId[ii]}")
                 plt.show()
 
-        # Apply normalisations
+        # Apply normalisation
+        # The new normalisation is in units of electrons/nm, so the renormalised fluxes are too.
         for ii, ss in enumerate(spectra):
             with np.errstate(invalid="ignore", divide="ignore"):
                 nn = specNorms[ii]/ss.norm
