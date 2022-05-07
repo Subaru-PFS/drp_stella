@@ -21,9 +21,9 @@ def calculateDispersion(wavelength):
         Wavelength increment value for each pixel.
     """
     dispersion = np.empty_like(wavelength)
-    dispersion[0] = wavelength[1] - wavelength[0]
-    dispersion[-1] = wavelength[-1] - wavelength[-2]
-    dispersion[1:-1] = 0.5*(wavelength[2:] - wavelength[0:-2])
+    dispersion[..., 0] = wavelength[..., 1] - wavelength[..., 0]
+    dispersion[..., -1] = wavelength[..., -1] - wavelength[..., -2]
+    dispersion[..., 1:-1] = 0.5*(wavelength[..., 2:] - wavelength[..., 0:-2])
     return np.abs(dispersion)
 
 
