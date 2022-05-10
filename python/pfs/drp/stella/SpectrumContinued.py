@@ -153,3 +153,26 @@ class Spectrum:  # type: ignore  # noqa: F811 (redefinition)
             Corresponding wavelength value(s).
         """
         return interpolate.interp1d(np.arange(len(self)), self.wavelength, assume_sorted=True)(pixels)
+
+    def toPfsFiberArray(self) -> PfsFiberArray:
+        """Convert to a `pfs.datamodel.PfsFiberArray`
+
+        Returns
+        -------
+        spectrum : ``pfs.datamodel.PfsFiberArray``
+            Spectrum as a `PfsFiberArray`
+        """
+        empty1d = np.array([])
+        empty2d = np.array([[], []]).T
+        return PfsFiberArray(
+            None,
+            Observations(empty1d, [], empty1d, empty1d, empty1d, empty2d, empty2d),
+            self.wavelength,
+            self.flux/self.norm,
+            self.mask.array[0],
+            self.background/self.norm,
+            self.covariance/self.norm**2,
+            np.array([[]]),
+            MaskHelper(**self.mask.getMaskPlaneDict()),
+            None,
+        )
