@@ -314,11 +314,11 @@ class ReduceExposureTask(CmdLineTask):
 
                 if self.config.doSubtractContinuum:
                     continua = self.fitContinuum.run(spectra)
-                    maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
+                    maskedImage -= fiberTraces.makeImage(exposure.getBBox(), continua)
                     spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                     # Set sky flux from continuum
-                    for ss, cc in zip(spectra, continua):
-                        ss.background += cc.spectrum/cc.norm*ss.norm
+                    for ss in spectra:
+                        ss.background += continua[ss.fiberId]*ss.norm
 
                 if skyImage is not None:
                     skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
