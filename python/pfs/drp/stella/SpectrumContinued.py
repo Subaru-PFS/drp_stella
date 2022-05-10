@@ -1,17 +1,44 @@
+from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy import interpolate
 
 from lsst.utils import continueClass
+from lsst.afw.image import Mask
+
+from pfs.datamodel import PfsFiberArray, MaskHelper, Observations
 
 from .Spectrum import Spectrum
+
+
+if TYPE_CHECKING:
+    from matplotlib.pyplot import Figure, Axes
 
 __all__ = ["Spectrum"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class Spectrum:  # noqa: F811 (redefinition)
+class Spectrum:  # type: ignore  # noqa: F811 (redefinition)
     """Flux as a function of wavelength"""
-    def plot(self, numRows=3, doBackground=False, filename=None):
+
+    # Types for interfaces defined in C++ pybind layer; useful for typing in this file
+    # Better types provided in stub file.
+    flux: np.ndarray
+    background: np.ndarray
+    norm: np.ndarray
+    variance: np.ndarray
+    covariance: np.ndarray
+    wavelength: np.ndarray
+    mask: Mask
+    normFlux: np.ndarray
+    fiberId: int
+    getNumPixels: Callable[["Spectrum"], int]
+    __len__: Callable[["Spectrum"], int]
+    isWavelengthSet: Callable[["Spectrum"], bool]
+
+    def plot(
+        self, numRows: int = 3, doBackground: bool = False, filename: str = None
+    ) -> Tuple["Figure", "Axes"]:
         """Plot spectrum
 
         Parameters
@@ -42,7 +69,14 @@ class Spectrum:  # noqa: F811 (redefinition)
             plt.close(figure)
         return figure, axes
 
-    def plotDivided(self, axes, division, doBackground=False, fluxStyle=None, backgroundStyle=None):
+    def plotDivided(
+        self,
+        axes: "Axes",
+        division: np.ndarray,
+        doBackground: bool = False,
+        fluxStyle: Dict[str, Any] = None,
+        backgroundStyle: Dict[str, Any] = None,
+    ):
         """Plot spectrum that has been divided into parts
 
         This is intended as the implementation of the guts of the ``plot``
@@ -77,20 +111,20 @@ class Spectrum:  # noqa: F811 (redefinition)
         if backgroundStyle is None:
             backgroundStyle = dict(ls="solid", color="blue")
 
-        useWavelength = self.getWavelength()
+        useWavelength = self.wavelength
         if np.all(useWavelength == 0.0):
             useWavelength = np.arange(len(self), dtype=float)
         wavelength = np.split(useWavelength, division)
-        flux = np.split(self.getSpectrum(), division)
+        flux = np.split(self.flux, division)
         if doBackground:
-            background = np.split(self.getBackground(), division)
+            background = np.split(self.background, division)
 
         for ii, ax in enumerate(axes):
             ax.plot(wavelength[ii], flux[ii], **fluxStyle)
             if doBackground:
                 ax.plot(wavelength[ii], background[ii], **backgroundStyle)
 
-    def wavelengthToPixels(self, wavelength):
+    def wavelengthToPixels(self, wavelength: ArrayLike) -> ArrayLike:
         """Convert wavelength to pixels
 
         Parameters
@@ -105,7 +139,7 @@ class Spectrum:  # noqa: F811 (redefinition)
         """
         return interpolate.interp1d(self.wavelength, np.arange(len(self)))(wavelength)
 
-    def pixelsToWavelength(self, pixels):
+    def pixelsToWavelength(self, pixels: ArrayLike) -> ArrayLike:
         """Convert pixels to wavelength
 
         Parameters

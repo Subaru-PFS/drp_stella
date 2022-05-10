@@ -1,10 +1,12 @@
 import os
 import re
+from typing import Callable, Dict, Iterator, Optional, Tuple, Union, TYPE_CHECKING
+from types import SimpleNamespace
 import numpy as np
 
 from lsst.utils import continueClass
-from lsst.pipe.base import Struct
-import lsst.afw.image as afwImage
+from lsst.geom import Box2I
+from lsst.afw.image import ImageF, PARENT
 
 from .datamodel import PfsArm
 from pfs.datamodel.masks import MaskHelper
@@ -13,11 +15,16 @@ from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet
 from .utils import getPfsVersions
 
+if TYPE_CHECKING:
+    from matplotlib.pyplot import Axes, Figure
+    from .FiberTraceSetContinued import FiberTraceSet
+
+
 __all__ = ["SpectrumSet"]
 
 
 @continueClass  # noqa: F811 (redefinition)
-class SpectrumSet:  # noqa: F811 (redefinition)
+class SpectrumSet:  # type: ignore  # noqa: F811 (redefinition)
     """Collection of `Spectrum`s
 
     Persistence is via the `pfs.datamodel.PfsArm` class, and we provide
@@ -31,7 +38,26 @@ class SpectrumSet:  # noqa: F811 (redefinition)
     """
     fileNameRegex = r"^pfsArm-(\d{6})-([brnm])(\d)\.fits.*$"
 
-    def toPfsArm(self, dataId):
+    # Types for interfaces defined in C++ pybind layer; useful for typing in this file
+    # Better types provided in stub file.
+    __init__: Callable[["SpectrumSet", int, Optional[int]], None]  # type: ignore
+    size: Callable[["SpectrumSet"], int]
+    reserve: Callable[["SpectrumSet", int], None]
+    add: Callable[["SpectrumSet", "Spectrum"], None]
+    getLength: Callable[["SpectrumSet"], int]
+    getAllFiberIds: Callable[["SpectrumSet"], np.ndarray]
+    getAllFluxes: Callable[["SpectrumSet"], np.ndarray]
+    getAllWavelengths: Callable[["SpectrumSet"], np.ndarray]
+    getAllMasks: Callable[["SpectrumSet"], np.ndarray]
+    getAllCovariances: Callable[["SpectrumSet"], np.ndarray]
+    getAllBackgrounds: Callable[["SpectrumSet"], np.ndarray]
+    getAllNormalizations: Callable[["SpectrumSet"], np.ndarray]
+    __len__: Callable[["SpectrumSet"], int]
+    __getitem__: Callable[["SpectrumSet", int], "Spectrum"]
+    __setitem__: Callable[["SpectrumSet", int, "Spectrum"], None]
+    __iter__: Callable[["SpectrumSet"], Iterator["SpectrumSet"]]
+
+    def toPfsArm(self, dataId: Dict[str, Union[str, int, float]]) -> PfsArm:
         """Convert to a `pfs.datamodel.PfsArm`
 
         Parameters
@@ -62,7 +88,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
                       self.getAllBackgrounds(), self.getAllNormalizations(), covar, flags, metadata)
 
     @classmethod
-    def fromPfsArm(cls, pfsArm):
+    def fromPfsArm(cls, pfsArm: PfsArm) -> "SpectrumSet":
         """Generate from a `pfs.datamodel.PfsArm`
 
         Parameters
@@ -95,7 +121,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         return self
 
     @classmethod
-    def _parsePath(cls, path, hdu=None, flags=None):
+    def _parsePath(cls, path: str, hdu: Optional[int] = None, flags: Optional[int] = None) -> SimpleNamespace:
         """Parse path from the data butler
 
         We need to determine the ``visit``, ``spectrograph`` and ``arm`` to pass
@@ -129,10 +155,11 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         visit = int(visit)
         spectrograph = int(spectrograph)
         dataId = dict(visit=visit, spectrograph=spectrograph, arm=arm)
-        return Struct(dirName=dirName, fileName=fileName, visit=visit, arm=arm, spectrograph=spectrograph,
-                      dataId=dataId)
+        return SimpleNamespace(
+            dirName=dirName, fileName=fileName, visit=visit, arm=arm, spectrograph=spectrograph, dataId=dataId
+        )
 
-    def writeFits(self, filename):
+    def writeFits(self, filename: str):
         """Write as FITS
 
         This is the output API for the ``FitsCatalogStorage`` storage type used
@@ -157,7 +184,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         pfsArm.writeFits(filename)
 
     @classmethod
-    def readFits(cls, *args, **kwargs):
+    def readFits(cls, *args, **kwargs) -> "SpectrumSet":
         """Read from FITS
 
         This is the input API for the ``FitsCatalogStorage`` storage type used
@@ -189,7 +216,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         pfsArm = PfsArm.read(identity, dirName=parsed.dirName)
         return cls.fromPfsArm(pfsArm)
 
-    def makeImage(self, box, fiberTraces):
+    def makeImage(self, box: Box2I, fiberTraces: "FiberTraceSet") -> ImageF:
         """Make a 2D image of the spectra
 
         Parameters
@@ -204,7 +231,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         image : `lsst.afw.image.Image`
             2D image of the spectra.
         """
-        image = afwImage.ImageF(box)
+        image = ImageF(box)
         image.set(0.0)
 
         specDict = {fiberId: spec for fiberId, spec in zip(self.getAllFiberIds(), self)}
@@ -213,11 +240,11 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             if spec is None:
                 continue
             fiberImage = ft.constructImage(spec)
-            image[fiberImage.getBBox(), afwImage.PARENT] += fiberImage
+            image[fiberImage.getBBox(), PARENT] += fiberImage
 
         return image
 
-    def plot(self, numRows=3, filename=None):
+    def plot(self, numRows: int = 3, filename: str = None) -> Tuple["Figure", "Axes"]:
         """Plot the spectra
 
         Parameters
