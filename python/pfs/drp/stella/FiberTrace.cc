@@ -38,6 +38,18 @@ void declareFiberTrace(py::module &mod)
     cls.def("constructImage",
             py::overload_cast<typename Class::Image &, Spectrum const&>(&Class::constructImage, py::const_),
             "image"_a, "spectrum"_a);
+    cls.def("constructImage",
+            py::overload_cast<lsst::geom::Box2I const&,
+                              Spectrum::ConstImageArray const&,
+                              Spectrum::ConstImageArray const&>(&Class::constructImage, py::const_),
+            "bbox"_a, "flux"_a=nullptr, "background"_a=nullptr);
+    cls.def("constructImage",
+            py::overload_cast<typename Class::Image &,
+                              Spectrum::ConstImageArray const&,
+                              Spectrum::ConstImageArray const&>(&Class::constructImage, py::const_),
+            "image"_a, "flux"_a=nullptr, "background"_a=nullptr);
+
+    cls.def("calculateNorm", &Class::calculateNorm);
 
     cls.def_static("fromProfile", &Class::fromProfile, "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
                    "rows"_a, "profiles"_a, "good"_a, "centers"_a, "norm"_a=nullptr);

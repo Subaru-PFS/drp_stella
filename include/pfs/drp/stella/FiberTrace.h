@@ -70,7 +70,9 @@ class FiberTrace {
     std::shared_ptr<Image> constructImage(
         Spectrum const& spectrum,
         lsst::geom::Box2I const & bbox
-    ) const;
+    ) const {
+        return constructImage(bbox, spectrum.getFlux(), spectrum.getBackground());
+    }
 
     /**
      * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
@@ -90,6 +92,34 @@ class FiberTrace {
     void constructImage(
         lsst::afw::image::Image<ImageT> & image,
         Spectrum const& spectrum
+    ) const {
+        return constructImage(image, spectrum.getFlux(), spectrum.getBackground());
+    }
+
+    /**
+     * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param bbox : bounding box of image
+     * @param flux : Flux as a function of row
+     * @param background : Background as a function of row
+     */
+    std::shared_ptr<Image> constructImage(
+        lsst::geom::Box2I const & bbox,
+        Spectrum::ConstImageArray const& flux=ndarray::Array<ImageT, 1, 1>(),
+        Spectrum::ConstImageArray const& background=ndarray::Array<ImageT, 1, 1>()
+    ) const;
+
+    /**
+     * @brief Create an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param image : image into which to reconstruct trace
+     * @param flux : Flux as a function of row
+     * @param background : Background as a function of row
+     */
+    void constructImage(
+        lsst::afw::image::Image<ImageT> & image,
+        Spectrum::ConstImageArray const& flux=ndarray::Array<ImageT, 1, 1>(),
+        Spectrum::ConstImageArray const& background=ndarray::Array<ImageT, 1, 1>()
     ) const;
 
     /**
@@ -102,6 +132,13 @@ class FiberTrace {
      * @brief Return ID of this FiberTrace
      */
     std::size_t getFiberId() const { return _fiberId; }
+
+    /**
+     * @brief Return the normalisation
+     *
+     * @return Trace normalisation as a function of row.
+     */
+    ndarray::Array<ImageT, 1, 1> calculateNorm() const;
 
     /**
      * @brief Construct from a fiber profile

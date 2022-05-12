@@ -35,12 +35,14 @@ FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
 template<typename ImageT, typename MaskT, typename VarianceT>
 std::shared_ptr<afwImage::Image<ImageT>>
 FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
-    Spectrum const& spectrum,
-    lsst::geom::Box2I const& bbox
+    lsst::geom::Box2I const& bbox,
+    Spectrum::ConstImageArray const& flux,
+    Spectrum::ConstImageArray const& background
+
 ) const {
     auto out = std::make_shared<afwImage::Image<ImageT>>(bbox);
     *out = 0.0;
-    constructImage(*out, spectrum);
+    constructImage(*out, flux, background);
     return out;
 }
 
@@ -48,27 +50,46 @@ FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     afwImage::Image<ImageT> & image,
-    Spectrum const& spectrum
+    Spectrum::ConstImageArray const& flux,
+    Spectrum::ConstImageArray const& background
 ) const {
+    if (!flux.isEmpty() && flux.size() < std::size_t(image.getHeight())) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Flux array too short for image");
+    }
+    if (!background.isEmpty() && background.size() < std::size_t(image.getHeight())) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Background array too short for image");
+    }
+
     auto box = image.getBBox(lsst::afw::image::PARENT);
     box.clip(_trace.getBBox(lsst::afw::image::PARENT));
 
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
-    auto spec = spectrum.getSpectrum().begin() + box.getMinY();
-    auto bg = spectrum.getBackground().begin() + box.getMinY();
-    for (std::ptrdiff_t y = box.getMinY(); y <= box.getMaxY(); ++y, ++spec, ++bg) {
+    for (std::ptrdiff_t y = box.getMinY(); y <= box.getMaxY(); ++y) {
         auto profileIter = _trace.getImage()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();
         auto maskIter = _trace.getMask()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();;
         auto imageIter = image.row_begin(y - image.getY0()) + box.getMinX() - image.getX0();;
-        float const bgValue = *bg;
-        float const specValue = *spec;
+        float const bgValue = background.isEmpty() ? 0.0 : background[y];
+        float const fluxValue = flux.isEmpty() ? 1.0 : flux[y];
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
              ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *imageIter += bgValue + specValue*(*profileIter);
+                *imageIter += bgValue + fluxValue*(*profileIter);
             }
         }
     }
+}
+
+
+template<typename ImageT, typename MaskT, typename VarianceT>
+ndarray::Array<ImageT, 1, 1> FiberTrace<ImageT, MaskT, VarianceT>::calculateNorm() const {
+    ndarray::Array<ImageT, 1, 1> norm = ndarray::allocate(_trace.getBBox().getMaxY() + 1);
+    norm.deep() = 0.0;
+    for (std::size_t ii = _trace.getBBox().getMinY(), yy = 0;
+         yy < std::size_t(_trace.getHeight());
+         ++ii, ++yy) {
+        norm[ii] = std::accumulate(_trace.getImage()->row_begin(yy), _trace.getImage()->row_end(yy), 0.0);
+    }
+    return norm;
 }
 
 
