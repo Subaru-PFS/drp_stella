@@ -1,10 +1,14 @@
 import os
 import re
+from typing import Dict, Optional
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from lsst.utils import continueClass
 from lsst.pipe.base import Struct
+from lsst.afw.image import ImageF
+from lsst.geom import Box2I
 
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 
@@ -241,3 +245,32 @@ class FiberTraceSet:  # noqa: F811 (redefinition)
             assert len(fiberTraces) == 1, f"Multiple fiberTraces with fiberId={fiberId}"
             return fiberTraces.pop()
         return [self.getByFiberId(ii) for ii in fiberId]
+
+    def makeImage(self, box: Box2I, flux: Optional[Dict[int, ArrayLike]] = None) -> ImageF:
+        """Make a 2D image of the traces
+
+        Parameters
+        ----------
+        box : `lsst.geom.Box2I`
+            Bounding box for image.
+        flux : `dict` mapping `int` to array_like, optional
+            Flux for each fiber, indexed by fiberId. If this is not present,
+            the normalisation of the traces will be used. If this is provided
+            but an individual fiberId is not present, then we will assume that
+            the flux of that fiber is zero.
+
+        Returns
+        -------
+        image : `lsst.afw.image.Image`
+            2D image of the spectra.
+        """
+        image = ImageF(box)
+        image.set(0.0)
+
+        for ft in self:
+            if flux is not None and ft.fiberId not in flux:
+                # Flux must be zero
+                continue
+            ft.constructImage(image, flux[ft.fiberId]/ft.calculateNorm() if flux is not None else None)
+
+        return image
