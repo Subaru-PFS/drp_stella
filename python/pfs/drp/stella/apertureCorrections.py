@@ -254,7 +254,7 @@ class MeasureApertureCorrectionsTask(Task):
         with np.errstate(invalid="ignore", divide="ignore"):
             reject |= (apFlux/apFluxErr < self.config.minSignalToNoise)
 
-        status[reject] = ReferenceLineStatus.REJECTED.value
+        status[reject] |= ReferenceLineStatus.REJECTED.value
         description = [row[self.description] for row in catalog]
         transition = [row[self.transition] for row in catalog]
         source = [row[self.source] for row in catalog]
