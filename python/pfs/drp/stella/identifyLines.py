@@ -41,7 +41,7 @@ class IdentifyLinesTask(Task):
             self.debugInfo_display = None
 
         self.debug_fiberIds = self.debugInfo.fiberIds  # don't load it in an inner loop
-        # N.b. "fiberIds not in (False, None)" fails with ndarray
+        # N.b. "not fiberIds" and "fiberIds not in (False, None)" fail with ndarray
         if self.debugInfo.fiberIds is False:
             self.debug_fiberIds = None
 
