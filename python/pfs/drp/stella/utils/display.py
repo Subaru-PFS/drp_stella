@@ -97,14 +97,25 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
 
     axs = []
     if lines:
-        gs = fig.add_gridspec(2, 1, height_ratios=[1, 10], hspace=0.025)
+        # 3 columns: image; colorbar; space for line labels
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 10], width_ratios=[15, 1], hspace=0.025, wspace=0.02)
         axs.append(fig.add_subplot(gs[0, 0]))
         axs.append(fig.add_subplot(gs[1, 0], sharex=axs[0]))
+        axs.append(fig.add_subplot(gs[1, 1], sharey=axs[0]))  # for colorbar
 
-        plt.axes(axs[1])
+        mainAx = axs[1]
+        cax = axs[2]                    # steal colorbar from here
+
+        cax.set_visible(False)
+
+        plt.sca(axs[1])
     else:
         gs = fig.add_gridspec(1, 1)
         axs.append(fig.add_subplot(gs[0, 0]))
+        axs += [None, None]
+
+        mainAx = axs[0]
+        cax = None
 
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
@@ -120,10 +131,13 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         mask = mask[fiberIndex]
         wavelength = wavelength[fiberIndex]
 
-    imshown = plt.imshow(flux, aspect='auto', origin='lower',
+    imshown = plt.imshow(flux, aspect='auto', origin='lower', interpolation='none',
                          extent=(lam0, lam1, -0.5, flux.shape[0] - 1 + 0.5), **kwargs)
 
-    plt.colorbar(imshown)
+    if cax:
+        plt.colorbar(imshown, ax=cax, fraction=1)
+    else:
+        plt.colorbar(imshown)
 
     def format_coord(x, y):
         col = int(len(spec.wavelength[len(spec)//2])*(x - lam0)/(lam1 - lam0) + 0.5)
@@ -148,12 +162,11 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
     else:
         xlabel = f"approximate wavelength for fiber {spec.fiberId[ibar]} (INDEX {ibar}) (nm)"
 
-    axs[-1].set_xlabel(xlabel)
+    mainAx.set_xlabel(xlabel)
     plt.ylabel("fiber INDEX")
 
     if lines:
-        plt.axes(axs[0])
-        plt.colorbar().remove()  # resize window to match image by adding an invisible colorbar
+        plt.sca(axs[0])
         plt.yticks(ticks=[], labels=[])
 
         colors = dict(ArI="cyan", HgI="blue", KrI="peachpuff", NeI="red", XeI="silver",
@@ -170,7 +183,6 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
 
         if labelLines:
             plt.legend(fontsize=8, loc=(1.01, 0.0), ncol=2)
-
 
 try:
     from lsst.display.matplotlib import DisplayImpl
