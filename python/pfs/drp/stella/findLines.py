@@ -4,7 +4,7 @@ from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
 
-from .fitContinuum import FitContinuumTask
+from .fitContinuum import FitSplineContinuumTask
 from .fitLine import fitLine
 from . import Spectrum
 from .utils.psf import sigmaToFwhm
@@ -32,7 +32,7 @@ class FindLinesConfig(Config):
                                 "as a multiple of 'width'")
     maskRadius = Field(dtype=float, default=1.0, doc="Mask grow radius, as a multiple of 'width'")
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before finding peaks?")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
+    fitContinuum = ConfigurableField(target=FitSplineContinuumTask, doc="Fit continuum")
 
 
 class FindLinesTask(Task):
@@ -60,7 +60,7 @@ class FindLinesTask(Task):
         continuum : `numpy.ndarray`
             Array continuum fit.
         """
-        continuum = self.fitContinuum.fitContinuum(spectrum) if self.config.doSubtractContinuum else None
+        continuum = self.fitContinuum.runSingle(spectrum) if self.config.doSubtractContinuum else None
         convolved = self.convolve(spectrum, continuum=continuum)
         peaks = self.findPeaks(convolved)
         lines = self.fitLines(spectrum, peaks)

@@ -26,7 +26,7 @@ from .utils import getPfsVersions
 from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
-from .fitContinuum import FitContinuumTask
+from .fitContinuum import FitSplineContinuumTask
 from .subtractSky1d import subtractSky1d
 
 
@@ -104,7 +104,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
     if not, the values 0x666 and 0 are used.""")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum to mean normalisation")
+    fitContinuum = ConfigurableField(target=FitSplineContinuumTask, doc="Fit continuum to mean normalisation")
 
     def setDefaults(self):
         super().setDefaults()

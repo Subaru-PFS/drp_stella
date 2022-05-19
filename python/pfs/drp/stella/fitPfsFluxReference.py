@@ -18,7 +18,7 @@ from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
-from pfs.drp.stella.fitContinuum import FitContinuumTask
+from pfs.drp.stella.fitContinuum import FitSplineContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
@@ -51,10 +51,10 @@ class FitPfsFluxReferenceConfig(Config):
         target=FitBroadbandSEDTask, doc="Get probabilities of SEDs from broadband photometries."
     )
     fitObsContinuum = ConfigurableField(
-        target=FitContinuumTask, doc="Fit a model to observed spectrum's continuum"
+        target=FitSplineContinuumTask, doc="Fit a model to observed spectrum's continuum"
     )
     fitModelContinuum = ConfigurableField(
-        target=FitContinuumTask, doc="Fit a model to model spectrum's continuum"
+        target=FitSplineContinuumTask, doc="Fit a model to model spectrum's continuum"
     )
     estimateRadialVelocity = ConfigurableField(
         target=EstimateRadialVelocityTask, doc="Estimate radial velocity."

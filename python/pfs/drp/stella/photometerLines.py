@@ -8,7 +8,7 @@ from lsst.pipe.base import Task, Struct
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
-from .fitContinuum import FitContinuumTask
+from .fitContinuum import FitSplineContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
 from pfs.drp.stella import FiberProfileSet, FiberTraceSet
@@ -40,7 +40,7 @@ def cartesianProduct(array1, array2):
 class PhotometerLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
-    continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
+    continuum = ConfigurableField(target=FitSplineContinuumTask, doc="Continuum subtraction")
     doForced = Field(dtype=bool, default=True, doc="Use forced positions to measure lines?")
     mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
     excludeStatus = ListField(dtype=str, default=[],

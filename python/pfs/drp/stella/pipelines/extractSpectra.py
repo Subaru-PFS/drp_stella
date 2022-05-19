@@ -14,7 +14,7 @@ from pfs.datamodel import Identity, PfsConfig
 from ..DetectorMapContinued import DetectorMap
 from ..extractSpectraTask import ExtractSpectraTask as ExtractionTask
 from ..fiberProfileSet import FiberProfileSet
-from ..fitContinuum import FitContinuumTask
+from ..fitContinuum import FitSplineContinuumTask
 from ..focalPlaneFunction import FocalPlaneFunction
 from ..NevenPsfContinued import NevenPsf
 from ..readLineList import ReadLineListTask
@@ -103,7 +103,7 @@ class ExtractSpectraConfig(PipelineTaskConfig, pipelineConnections=ExtractSpectr
     doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
+    fitContinuum = ConfigurableField(target=FitSplineContinuumTask, doc="Fit continuum for subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = ConfigurableField(target=ExtractionTask, doc="Extract spectra from exposure")
 

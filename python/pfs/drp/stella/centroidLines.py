@@ -12,7 +12,7 @@ from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet
 from .images import convolveImage
-from .fitContinuum import FitContinuumTask
+from .fitContinuum import FitSplineContinuumTask
 from .utils.psf import checkPsf
 from .makeFootprint import makeFootprint
 from .traces import medianFilterColumns
@@ -34,7 +34,7 @@ PhotometryConfig = makeConfigClass(PsfFluxControl)
 class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum before centroiding lines?")
-    continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
+    continuum = ConfigurableField(target=FitSplineContinuumTask, doc="Continuum subtraction")
     doSubtractTraces = Field(dtype=bool, default=True, doc="Subtract traces before centroiding lines?")
     halfHeight = Field(dtype=int, default=35, doc="Half-height for column trace determination")
     mask = ListField(
