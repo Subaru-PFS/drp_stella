@@ -1,6 +1,7 @@
 #include "ndarray.h"
 #include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs {
 namespace drp {
@@ -36,11 +37,10 @@ ndarray::Array<T, 1, 1> solveSymmetricTridiagonal(
     SymmetricTridiagonalWorkspace<T> & workspace
 ) {
     std::size_t const num = diagonal.getNumElements();  // number of elements
+    utils::checkSize(offDiag.getNumElements(), num - 1, "diagonal vs offDiag");
+    utils::checkSize(answer.getNumElements(), num, "diagonal vs answer");
     std::size_t const last = num - 1;  // index of last element
     std::size_t const penultimate = num - 2;  // index of penultimate element
-
-    assert(offDiag.getNumElements() == num - 1);
-    assert(answer.getNumElements() == num);
 
     workspace.reset(num);
     auto & cPrime = workspace.shortArray;
