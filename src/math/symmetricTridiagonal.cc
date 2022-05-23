@@ -1,3 +1,4 @@
+#include "unordered_set"
 #include "ndarray.h"
 #include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
@@ -56,19 +57,40 @@ ndarray::Array<T, 1, 1> solveSymmetricTridiagonal(
         return solution;
     }
 
+    std::unordered_set<std::size_t> singular;
     cPrime[0] = offDiag[0]/diagonal[0];
     dPrime[0] = answer[0]/diagonal[0];
     for (std::size_t ii = 1, jj = 0; ii < last; ++ii, ++jj) {  // jj = ii - 1
-        T const denominator = diagonal[ii] - offDiag[jj]*cPrime[jj];
+        double const denominator = diagonal[ii] - offDiag[jj]*cPrime[jj];
+        if (denominator == 0.0) {
+            // Singularity detected. Excise this element so that it won't affect everything else.
+            // Pretend that diagonal[ii] = 1, offDiag[jj] = 0, answer[ii] = 0.
+            cPrime[ii] = 0.0;
+            dPrime[ii] = 0.0;
+            singular.insert(ii);
+            continue;
+        }
         cPrime[ii] = offDiag[ii]/denominator;
         dPrime[ii] = (answer[ii] - offDiag[jj]*dPrime[jj])/denominator;
     }
-    T const denominator = diagonal[last] - offDiag[penultimate]*cPrime[penultimate];
-    dPrime[last] = (answer[last] - offDiag[penultimate]*dPrime[penultimate])/denominator;
+    double const denominator = diagonal[last] - offDiag[penultimate]*cPrime[penultimate];
+    if (denominator == 0.0) {
+        // Singularity detected. Excise this element so that it won't affect everything else.
+        // Pretend that diagonal[last] = 1, offDiag[penultimate] = 0, answer[last] = 0.
+        dPrime[last] = 0.0;
+        singular.insert(last);
+    } else {
+        dPrime[last] = (answer[last] - offDiag[penultimate]*dPrime[penultimate])/denominator;
+    }
 
     solution[last] = dPrime[last];
     for (std::ptrdiff_t ii = penultimate, jj = last; ii >= 0; --ii, --jj) {  // jj = ii + 1
-        solution[ii] = (dPrime[ii] - cPrime[ii]*solution[jj]);
+        solution[ii] = dPrime[ii] - cPrime[ii]*solution[jj];
+    }
+
+    constexpr double nan = std::numeric_limits<T>::quiet_NaN();
+    for (auto const ii: singular) {
+        solution[ii] = nan;
     }
 
     return solution;
