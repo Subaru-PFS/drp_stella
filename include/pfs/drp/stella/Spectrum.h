@@ -13,8 +13,8 @@ namespace pfs { namespace drp { namespace stella {
  */
 class Spectrum {
   public:
-    using ImageT = double;
-    using VarianceT = double;
+    using ImageT = float;
+    using VarianceT = float;
     using Mask = lsst::afw::image::Mask<lsst::afw::image::MaskPixel>;
     using ImageArray = ndarray::Array<ImageT, 1, 1>;
     using ConstImageArray = ndarray::Array<const ImageT, 1, 1>;

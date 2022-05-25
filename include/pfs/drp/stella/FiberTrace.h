@@ -127,7 +127,7 @@ class FiberTrace {
         ndarray::Array<double, 2, 1> const& profiles,
         ndarray::Array<bool, 2, 1> const& good,
         ndarray::Array<double, 1, 1> const& centers,
-        ndarray::Array<double, 1, 1> const& norm=ndarray::Array<double, 1, 1>()
+        ndarray::Array<Spectrum::ImageT, 1, 1> const& norm=ndarray::Array<Spectrum::ImageT, 1, 1>()
     );
 
   private:
