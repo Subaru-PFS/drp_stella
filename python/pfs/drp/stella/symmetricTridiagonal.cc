@@ -16,8 +16,13 @@ namespace {
 
 template <typename T>
 void declareSymmetricTridiagonal(py::module &mod, std::string const& suffix) {
-    py::class_<SymmetricTridiagonalWorkspace<T>> Workspace(
+    py::class_<SymmetricTridiagonalWorkspace<T>> cls(
         mod, ("SymmetricTridiagonalWorkspace" + suffix).c_str());
+    cls.def(py::init<>());
+    cls.def("reset", &SymmetricTridiagonalWorkspace<T>::reset, "num"_a);
+    cls.def_readonly("longArray1", &SymmetricTridiagonalWorkspace<T>::longArray1);
+    cls.def_readonly("longArray2", &SymmetricTridiagonalWorkspace<T>::longArray2);
+    cls.def_readonly("shortArray", &SymmetricTridiagonalWorkspace<T>::shortArray);
 
     mod.def(("solveSymmetricTridiagonal" + suffix).c_str(), &solveSymmetricTridiagonal<T>,
             "diagonal"_a, "offDiag"_a, "answer"_a, "workspace"_a=SymmetricTridiagonalWorkspace<T>());
