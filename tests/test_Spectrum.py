@@ -23,12 +23,12 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         # Spectrum
         self.length = 123
         self.fiberId = 456
-        self.image = self.rng.uniform(size=self.length).astype(float)
+        self.image = self.rng.uniform(size=self.length).astype(np.float32)
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background = self.rng.uniform(size=self.length).astype(float)
-        self.norm = self.rng.uniform(size=self.length).astype(float)
-        self.covariance = self.rng.uniform(size=(3, self.length)).astype(float)
+        self.background = self.rng.uniform(size=self.length).astype(np.float32)
+        self.norm = self.rng.uniform(size=self.length).astype(np.float32)
+        self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
 
     def makeSpectrum(self):
@@ -145,7 +145,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         # Set the variance and ensure it changes the covariance
         spectrum.covariance[:] = self.covariance
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
-        variance = self.rng.uniform(size=self.length)
+        variance = self.rng.uniform(size=self.length).astype(np.float32)
         spectrum.variance = variance
         self.covariance[0] = variance
         self.assertFloatsEqual(spectrum.covariance, self.covariance)

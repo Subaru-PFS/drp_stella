@@ -328,7 +328,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         assert all(np.all(ss.fiberId == fiberId) for ss in spectra)  # Consistent fibers
 
         # Collect normalisations from each arm, interpolated to common wavelength sampling
-        norm = np.zeros((fiberId.size, wavelength.size))
+        norm = np.zeros((fiberId.size, wavelength.size), dtype=np.float32)
         for ss in spectra:
             badBitmask = ss.flags.get(*self.config.mask)
             for ii in range(len(ss)):

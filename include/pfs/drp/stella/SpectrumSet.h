@@ -20,8 +20,8 @@ class SpectrumSet {
     using SpectrumPtr = std::shared_ptr<Spectrum>;
     using ConstSpectrumPtr = std::shared_ptr<Spectrum const>;
     using Collection = std::vector<SpectrumPtr>;
-    using ImageArray = ndarray::Array<double, 2, 1>;
-    using CovarianceArray = ndarray::Array<double, 3, 1>;
+    using ImageArray = ndarray::Array<Spectrum::ImageT, 2, 1>;
+    using CovarianceArray = ndarray::Array<Spectrum::ImageT, 3, 1>;
     using MaskArray = ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>;
     using WavelengthArray = ndarray::Array<double, 2, 1>;
     using iterator = Collection::iterator;
