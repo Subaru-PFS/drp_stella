@@ -15,7 +15,7 @@ __all__ = ["FiberTraceSet"]
 
 
 @continueClass  # noqa: F811 redefinition
-class FiberTraceSet:
+class FiberTraceSet:  # noqa: F811 (redefinition)
     """Collection of FiberTrace
 
     Persistence is via the `pfs.datamodel.PfsFiberTrace` class, and we provide

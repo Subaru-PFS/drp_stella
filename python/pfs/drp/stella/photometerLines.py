@@ -103,7 +103,7 @@ class PhotometerLinesTask(Task):
         if fiberTraces is not None:
             self.correctFluxNormalizations(phot.lines, fiberTraces)
         else:
-            self.log.warn("Not normalizing measured line fluxes")
+            self.log.warning("Not normalizing measured line fluxes")
         self.log.info("Photometered %d lines", len(phot.lines))
         return phot
 
@@ -137,8 +137,8 @@ class PhotometerLinesTask(Task):
             fiberId = pfsConfig.select(fiberStatus=FiberStatus.GOOD, fiberId=detectorMap.fiberId).fiberId
             fiberId, wavelength = cartesianProduct(fiberId, lines.wavelength)
             if self.config.doForced:
-                self.log.warn("Unable to perform unforced photometry without centroided positions provided; "
-                              "performing forced photometry instead")
+                self.log.warning("Unable to perform unforced photometry without centroided positions "
+                                 "provided; performing forced photometry instead")
             xx, yy = detectorMap.findPoint(fiberId.copy(), wavelength.copy()).T  # copy required for pybind
             nan = np.full_like(wavelength, np.nan)
             flags = itertools.repeat(False)

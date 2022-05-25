@@ -291,7 +291,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         uniqueWavelengths, counts = np.unique(goodLines.wavelength,
                                               return_counts=True)
         duplicateLines = uniqueWavelengths[counts > 1]
-        self.assertFalse(duplicateLines, f'Duplicate lines found: {duplicateLines}')
+        self.assertTrue(len(duplicateLines) == 0, f'Duplicate lines found: {duplicateLines}')
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

@@ -340,9 +340,8 @@ class DoubleDistortionSchema {
       : schema(),
         distortionOrder(schema.addField<int>("distortionOrder", "polynomial order for distortion", "")),
         range(lsst::afw::table::Box2DKey::addFields(schema, "range", "range of input values", "pixel")),
-        coefficients(schema.addField<DoubleArray>("coefficients", "distortion coefficients", "", 0)) {
-            schema.getCitizen().markPersistent();
-    }
+        coefficients(schema.addField<DoubleArray>("coefficients", "distortion coefficients", "", 0))
+        {}
 };
 
 }  // anonymous namespace
@@ -351,7 +350,7 @@ class DoubleDistortionSchema {
 void DoubleDistortion::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     DoubleDistortionSchema const &schema = DoubleDistortionSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.distortionOrder, getOrder());
     record->set(schema.range, getRange());
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getCoefficients());

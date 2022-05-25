@@ -4,7 +4,6 @@
 #include <utility>
 
 #include "ndarray_fwd.h"
-#include "lsst/afw/image.h"
 
 namespace pfs {
 namespace drp {

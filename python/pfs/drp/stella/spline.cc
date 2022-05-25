@@ -17,7 +17,7 @@ namespace {
 template <typename T>
 void declareSpline(py::module &mod, std::string const& suffix) {
     using Class = Spline<T>;
-    py::class_<Class, PTR(Class)> cls(mod, ("Spline" + suffix).c_str());
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("Spline" + suffix).c_str());
 
     py::enum_<typename Class::InterpolationTypes> type(cls, "InterpolationTypes");
     type.value("NOTAKNOT", Class::InterpolationTypes::CUBIC_NOTAKNOT);

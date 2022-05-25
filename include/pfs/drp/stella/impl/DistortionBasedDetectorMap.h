@@ -101,9 +101,8 @@ class DistortionBasedDetectorMapSchema {
       : schema(),
         base(schema.addField<int>("base", "reference to base", "")),
         distortion(schema.addField<int>("distortion", "reference to distortion", "")),
-        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
-            schema.getCitizen().markPersistent();
-    }
+        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", ""))
+        {}
 };
 
 }  // anonymous namespace
@@ -115,7 +114,7 @@ void DistortionBasedDetectorMap<DistortionT>::write(
 ) const {
     DistortionBasedDetectorMapSchema const &schema = DistortionBasedDetectorMapSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.base, handle.put(getBase()));
     record->set(schema.distortion, handle.put(getDistortion()));
     record->set(schema.visitInfo, handle.put(getVisitInfo()));

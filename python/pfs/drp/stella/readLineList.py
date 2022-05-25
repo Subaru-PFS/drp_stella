@@ -42,9 +42,9 @@ class ReadLineListConfig(Config):
     def validate(self):
         """Validate input config parameters"""
 
-        def getDuplicateItems(l):
+        def getDuplicateItems(iterable):
             """Return a list of duplicates"""
-            return [k for k, v in Counter(l).items() if v > 1]
+            return [k for k, v in Counter(iterable).items() if v > 1]
 
         super().validate()
         duplicateLightSources = getDuplicateItems(self.lightSources)

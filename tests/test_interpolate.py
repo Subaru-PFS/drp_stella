@@ -31,7 +31,7 @@ class InterpolateTestCase(lsst.utils.tests.TestCase):
         flux : `numpy.ndarray` of `float`
             Array of flux (densities).
         """
-        num = (self.max - self.min)/dispersion
+        num = int((self.max - self.min)/dispersion)
         wavelength = np.linspace(self.min, self.max, num + 1, dtype=float)
         fluxArray = np.full_like(wavelength, flux*dispersion)
         return Struct(wavelength=wavelength, flux=fluxArray)

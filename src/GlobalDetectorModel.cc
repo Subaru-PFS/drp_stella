@@ -312,9 +312,8 @@ class GlobalDetectorModelSchema {
         maxFiberId(schema.addField<int>("maxFiberId", "maximum fiberId", "")),
         xCoefficients(schema.addField<DoubleArray>("xCoefficients", "x distortion coefficients", "", 0)),
         yCoefficients(schema.addField<DoubleArray>("yCoefficients", "y distortion coefficients", "", 0)),
-        highCcd(schema.addField<DoubleArray>("highCcd", "affine transform for high-fiberId Ccd", "", 0)) {
-            schema.getCitizen().markPersistent();
-    }
+        highCcd(schema.addField<DoubleArray>("highCcd", "affine transform for high-fiberId Ccd", "", 0))
+        {}
 };
 
 }  // anonymous namespace
@@ -323,7 +322,7 @@ class GlobalDetectorModelSchema {
 void GlobalDetectorModel::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
     GlobalDetectorModelSchema const &schema = GlobalDetectorModelSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
-    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.distortionOrder, getDistortionOrder());
     record->set(schema.fiberPitch, getFiberPitch());
     record->set(schema.dispersion, getDispersion());
