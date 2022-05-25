@@ -1,7 +1,7 @@
 import itertools
 import os
 from contextlib import contextmanager
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import astropy.io.fits
 import lsstDebug
@@ -17,6 +17,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import least_squares
 
 from .interpolate import interpolateFlux
+from .lsf import Lsf, LsfDict
 from .maskLines import maskLines
 from .math import NormalizedPolynomial1D
 from .referenceLine import ReferenceLineSet
@@ -56,9 +57,6 @@ class BaseFitContinuumTask(Task):
 
     Debug settings:
     - ``plot`` (`bool`): activate plotting
-    - ``plotAll`` (`bool`): plot all data (even rejected)? Otherwise plot
-        binned data.
-    - ``plotBins`` (`int`): number of bins if not ``plotAll`` (default 1000).
     """
 
     ConfigClass = BaseFitContinuumConfig
@@ -69,6 +67,7 @@ class BaseFitContinuumTask(Task):
         spectra: Union[SpectrumSet, PfsFiberArraySet],
         refLines: Optional[ReferenceLineSet] = None,
         visitInfo: Optional[VisitInfo] = None,
+        lsf: Optional[LsfDict] = None,
     ) -> Dict[int, np.ndarray]:
         """Fit spectrum continua
 
@@ -82,6 +81,8 @@ class BaseFitContinuumTask(Task):
             Reference lines to mask.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
+        lsf : `LsfDict`, optional
+            Line-spread functions, indexed by fiberId.
 
         Returns
         -------
@@ -95,25 +96,32 @@ class BaseFitContinuumTask(Task):
             fiberId = spectra.fiberId
 
         assert isinstance(spectra, PfsFiberArraySet)
-        parameters = self.extractParameters(spectra, visitInfo)
-        continuum: Dict[int, np.ndarray] = {}
+
         empty1d = np.array([])
         empty2d = np.array([[], []]).T
+        spectrumList: List[PfsFiberArray] = []
         for ii in range(spectra.numSpectra):
             norm = spectra.norm[ii]
-            spectrum = PfsFiberArray(
-                None,
-                Observations(empty1d, [], empty1d, empty1d, empty1d, empty2d, empty2d),
-                spectra.wavelength[ii],
-                spectra.flux[ii] / norm,
-                spectra.mask[ii],
-                spectra.sky[ii] / norm,
-                spectra.covar[ii] / norm**2,
-                np.array([[]]),
-                spectra.flags,
+            spectrumList.append(
+                PfsFiberArray(
+                    None,
+                    Observations(empty1d, [], empty1d, empty1d, empty1d, empty2d, empty2d),
+                    spectra.wavelength[ii],
+                    spectra.flux[ii] / norm,
+                    spectra.mask[ii],
+                    spectra.sky[ii] / norm,
+                    spectra.covar[ii] / norm**2,
+                    np.array([[]]),
+                    spectra.flags,
+                )
             )
+
+        lsfList = [lsf[ff] for ff in fiberId] if lsf is not None else [None]*len(fiberId)
+        parameters = self.extractParameters(spectrumList, visitInfo)
+        continuum: Dict[int, np.ndarray] = {}
+        for spectrum, params, lsf in zip(spectrumList, parameters, lsfList):
             try:
-                continuum[fiberId[ii]] = self.fitContinuum(spectrum, refLines, parameters) * norm
+                continuum[fiberId[ii]] = self.fitContinuum(spectrum, refLines, params, lsf) * norm
             except FitContinuumError:
                 continue
         return continuum
@@ -123,6 +131,7 @@ class BaseFitContinuumTask(Task):
         spectrum: Union[Spectrum, PfsFiberArray],
         refLines: Optional[ReferenceLineSet] = None,
         visitInfo: Optional[VisitInfo] = None,
+        lsf: Optional[Lsf] = None,
     ) -> np.ndarray:
         """Fit spectrum continua
 
@@ -136,6 +145,8 @@ class BaseFitContinuumTask(Task):
             Reference lines to mask.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Returns
         -------
@@ -144,37 +155,39 @@ class BaseFitContinuumTask(Task):
         """
         if isinstance(spectrum, Spectrum):
             spectrum = spectrum.toPfsFiberArray()
-        parameters = self.extractParameters(spectrum, visitInfo)
-        return self.fitContinuum(spectrum, refLines, parameters)
+        parameters = self.extractParameters([spectrum], visitInfo)
+        assert len(parameters) == 1
+        return self.fitContinuum(spectrum, refLines, parameters[0], lsf)
 
     def extractParameters(
         self,
-        spectra: Union[PfsFiberArraySet, PfsFiberArray],
+        spectra: List[PfsFiberArray],
         visitInfo: Optional[VisitInfo] = None,
-    ) -> Optional[Struct]:
+    ) -> List[Struct]:
         """Extract parameters in preparation for fitting
 
         These parameters are specific to the algorithm adopted by subclasses.
 
         Parameters
         ----------
-        spectra : `PfsFiberArraySet` or `PfsFiberArray`
-            Spectra (or spectrum) to be fit.
+        spectra : `list` of `PfsFiberArray`
+            Spectra to be fit.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
 
         Returns
         -------
-        parameters : `Struct` or `None`
-            Parameters used in fitting.
+        parameters : `list` of `Struct`
+            Parameters used in fitting for each spectrum.
         """
-        return None
+        return [Struct() for _ in spectra]
 
     def fitContinuum(
         self,
         spectrum: PfsFiberArray,
         refLines: Optional[ReferenceLineSet] = None,
         parameters: Optional[Struct] = None,
+        lsf: Optional[List[Lsf]] = None,
     ) -> np.ndarray:
         """Fit continuum to a single spectrum
 
@@ -263,6 +276,7 @@ class BaseFitContinuumTask(Task):
         spectrum: PfsFiberArray,
         good: np.ndarray,
         parameters: Optional[Struct],
+        lsf: Optional[Lsf] = None,
     ) -> np.ndarray:
         """Implementation of the business part of fitting
 
@@ -274,6 +288,8 @@ class BaseFitContinuumTask(Task):
             Boolean array indicating which points are good.
         parameters : `Struct` or `None`
             Parameters used in fitting. Some subclasses require them.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Raises
         ------
@@ -374,9 +390,6 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
 
     Debug settings:
     - ``plot`` (`bool`): activate plotting
-    - ``plotAll`` (`bool`): plot all data (even rejected)? Otherwise plot
-        binned data.
-    - ``plotBins`` (`int`): number of bins if not ``plotAll`` (default 1000).
     """
 
     ConfigClass = FitSplineContinuumConfig
@@ -387,9 +400,9 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
 
     def extractParameters(
         self,
-        spectra: Union[PfsFiberArraySet, PfsFiberArray],
+        spectra: List[PfsFiberArray],
         visitInfo: Optional[VisitInfo] = None,
-    ) -> Optional[Struct]:
+    ) -> List[Struct]:
         """Extract parameters in preparation for fitting
 
         We calculate bin boundaries in wavelength space, to ensure all fibers
@@ -399,28 +412,33 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
 
         Parameters
         ----------
-        spectra : `PfsFiberArraySet` or `PfsFiberArray`
-            Spectra (or spectrum) to be fit.
+        spectra : `list` of `PfsFiberArray`
+            Spectra to be fit.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
 
         Returns
         -------
-        parameters : `Struct` or `None`
-            Parameters used in fitting.
+        parameters : `list` of `Struct`
+            Parameters used in fitting for each spectrum.
         """
-        edges = None
-        if np.all(np.isfinite(spectra.wavelength) & (spectra.wavelength != 0.0)):
-            minWavelength = spectra.wavelength.min()
-            maxWavelength = spectra.wavelength.max()
+        minWavelength = spectra[0].wavelength.min()
+        maxWavelength = spectra[0].wavelength.max()
+        if np.isfinite(minWavelength) and minWavelength != 0.0:
+            for ss in spectra[1:]:
+                minWavelength = min(minWavelength, ss.wavelength.min())
+                maxWavelength = max(maxWavelength, ss.wavelength.max())
             edges = np.linspace(minWavelength, maxWavelength, self.config.numKnots + 1, True, dtype=float)
-        return Struct(edges=edges)
+        else:
+            edges = None
+        return [Struct(edges=edges) for _ in spectra]
 
     def _fitContinuumImpl(
         self,
         spectrum: PfsFiberArray,
         good: np.ndarray,
         parameters: Optional[Struct],
+        lsf: Optional[Lsf],
     ) -> np.ndarray:
         """Implementation of the business part of fitting
 
@@ -432,6 +450,8 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
             Boolean array indicating which points are good.
         parameters : `Struct` or `None`
             Parameters used in fitting. Some subclasses require them.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Raises
         ------
@@ -458,71 +478,6 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
         interp = makeInterpolate(centers[use], binned[use], self.fitType)
         indices = np.arange(length, dtype=spectrum.flux.dtype)
         return np.array(interp.interpolate(indices)).astype(spectrum.flux.dtype)
-
-    def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
-        """Subtract continuum from an image
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image containing 2D spectra.
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Location and profile of the 2D spectra.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
-            Mapping of fiberId,wavelength to x,y.
-        lines : `pfs.drp.stella.ReferenceLineSet`, optional
-            Reference lines to mask.
-
-        Returns
-        -------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        continua : `pfs.drp.stella.SpectrumSet`
-            Continuum fit for each input spectrum.
-        continuumImage : `lsst.afw.image.Image`
-            Image containing continua.
-        """
-        badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraces.extractSpectra(maskedImage, badBitMask)
-        if detectorMap is not None:
-            for ss in spectra:
-                ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
-        continua = self.run(spectra, lines)
-        continuumImage = fiberTraces.makeImage(maskedImage.getBBox(), continua)
-        maskedImage -= continuumImage
-        bad = ~np.isfinite(continuumImage.array)
-        maskedImage.mask.array[bad] |= maskedImage.mask.getPlaneBitMask("NO_DATA")
-        return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
-
-    @contextmanager
-    def subtractionContext(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
-        """Context manager for temporarily subtracting continuum
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image containing 2D spectra.
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Location and profile of the 2D spectra.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
-            Mapping of fiberId,wavelength to x,y.
-        lines : `pfs.drp.stella.ReferenceLineSet`, optional
-            Reference lines to mask.
-
-        Yields
-        ------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        continua : `pfs.drp.stella.SpectrumSet`
-            Continuum fit for each input spectrum.
-        continuumImage : `lsst.afw.image.Image`
-            Image containing continua.
-        """
-        results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
-        try:
-            yield results
-        finally:
-            maskedImage += results.continuumImage
 
 
 def binData(values: np.ndarray, good: np.ndarray, edges: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -553,7 +508,7 @@ def binData(values: np.ndarray, good: np.ndarray, edges: np.ndarray) -> Tuple[np
     for ii, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
         select = good[low:high]
         binned[ii] = np.median(values[low:high][select]) if np.any(select) else np.nan
-    return centers, binned.astype(yy.dtype)
+    return centers, binned.astype(values.dtype)
 
 
 class AtmosphericTransmissionInterpolator:
@@ -668,7 +623,9 @@ class AtmosphericTransmission:
             transmission={(zz, pp): tt for zz, pp, tt in zip(zd, pwv, transmission)},
         )
 
-    def makeInterpolator(self, zd: float, wavelength: ArrayLike) -> AtmosphericTransmissionInterpolator:
+    def makeInterpolator(
+        self, zd: float, wavelength: ArrayLike, lsf: Lsf
+    ) -> AtmosphericTransmissionInterpolator:
         """Construct an interpolator
 
         When fitting an atmospheric model to data, we know the zenith distance
@@ -685,6 +642,8 @@ class AtmosphericTransmission:
             Zenith distance (degrees) at which to interpolate.
         wavelength : array_like
             Wavelength array for interpolation.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Returns
         -------
@@ -692,6 +651,7 @@ class AtmosphericTransmission:
             Object that will perform interpolation in PWV.
         """
         wavelength = np.asarray(wavelength)
+        kernel = lsf.computeKernel(0.5*len(wavelength))
         index = min(int(np.searchsorted(self.zd, zd)), self.zd.size - 2)
         zdLow = self.zd[index]
         zdHigh = self.zd[index + 1]
@@ -701,13 +661,13 @@ class AtmosphericTransmission:
         for ii, pwv in enumerate(self.pwv):
             low = self.transmission[zdLow, pwv]
             high = self.transmission[zdHigh, pwv]
-            pwvTransmission = low * lowWeight + high * highWeight
+            pwvTransmission = kernel.convolve(low * lowWeight + high * highWeight)
             transmission[ii] = interpolateFlux(
                 self.wavelength, pwvTransmission, wavelength, fill=np.nan, jacobian=False
             )
         return AtmosphericTransmissionInterpolator(self.pwv, transmission)
 
-    def __call__(self, zd: float, pwv: float, wavelength: ArrayLike) -> np.ndarray:
+    def __call__(self, zd: float, pwv: float, wavelength: ArrayLike, lsf: Lsf) -> np.ndarray:
         """Evaluate the atmospheric transmission
 
         This method provides a full-featured interpolation of the model. For
@@ -729,7 +689,7 @@ class AtmosphericTransmission:
         result : `np.ndarray` of `float`
             Transmission for the provided wavelengths.
         """
-        return self.makeInterpolator(zd, wavelength)(pwv)
+        return self.makeInterpolator(zd, wavelength, lsf)(pwv)
 
 
 class FitModelContinuumConfig(BaseFitContinuumConfig):
@@ -763,6 +723,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         self,
         spectra: Union[PfsFiberArraySet, PfsFiberArray],
         visitInfo: Optional[VisitInfo] = None,
+        lsf: Optional[Lsf] = None,
     ) -> Optional[Struct]:
         """Extract parameters in preparation for fitting
 
@@ -777,6 +738,8 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             Spectra (or spectrum) to be fit.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Returns
         -------
@@ -785,7 +748,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         """
         if visitInfo is None:
             raise RuntimeError("visitInfo is required for FitModelContinuumTask")
-        return Struct(zd=visitInfo.getBoresightAzAlt().getLatitude())
+        return Struct(zd=visitInfo.getBoresightAzAlt().getLatitude(), lsf=lsf)
 
     def _fitContinuumImpl(
         self,
