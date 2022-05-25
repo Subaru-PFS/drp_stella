@@ -519,7 +519,7 @@ class ReduceExposureTask(CmdLineTask):
                 fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
 
         if self.config.doMeasurePsf:
-            psf = self.measurePsf.runSingle(sensorRef, exposure, detectorMap)
+            psf = self.measurePsf.runSingle(exposure, detectorMap)
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
         else:
             psf = None

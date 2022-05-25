@@ -10,6 +10,9 @@ setupRequired(ip_isr)
 setupOptional(dustmaps_cachedata)
 setupOptional(fluxmodeldata)
 
+setupOptional(ctrl_mpexec)
+setupOptional(cp_pipe)
+
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
 
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

@@ -136,7 +136,7 @@ class PhotometerLinesTask(Task):
         if isinstance(lines, ReferenceLineSet):
             fiberId = pfsConfig.select(fiberStatus=FiberStatus.GOOD, fiberId=detectorMap.fiberId).fiberId
             fiberId, wavelength = cartesianProduct(fiberId, lines.wavelength)
-            if self.config.doForced:
+            if not self.config.doForced:
                 self.log.warning("Unable to perform unforced photometry without centroided positions "
                                  "provided; performing forced photometry instead")
             xx, yy = detectorMap.findPoint(fiberId.copy(), wavelength.copy()).T  # copy required for pybind

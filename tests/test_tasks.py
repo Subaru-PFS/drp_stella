@@ -105,7 +105,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config = BuildFiberProfilesTask.ConfigClass()
         config.pruneMinLength = self.synthConfig.height//2
         task = BuildFiberProfilesTask(config=config)
-        return task.run(lsst.afw.image.makeExposure(self.flat), self.detMap).profiles
+        return task.run(lsst.afw.image.makeExposure(self.flat), detectorMap=self.detMap).profiles
 
     def assertSpectra(self, spectra, hasContinuum=True):
         """Assert that the extracted arc spectra are as expected"""

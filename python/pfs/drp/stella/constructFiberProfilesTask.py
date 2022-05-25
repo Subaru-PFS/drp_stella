@@ -6,7 +6,7 @@ import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
 from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
 
-from pfs.datamodel import FiberStatus, TargetType
+from pfs.datamodel import FiberStatus, TargetType, CalibIdentity
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
@@ -158,7 +158,13 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             detMap = self.adjustDetectorMap.run(detMap, lines).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
-        results = self.profiles.run(exposure, detMap, pfsConfig)
+        identity = CalibIdentity(
+            obsDate=visitInfo.getDate().toPython().isoformat(),
+            spectrograph=dataRefList[0].dataId["spectrograph"],
+            arm=dataRefList[0].dataId["arm"],
+            visit0=dataRefList[0].dataId["visit"],
+        )
+        results = self.profiles.run(exposure, identity=identity, detectorMap=detMap, pfsConfig=pfsConfig)
         profiles = results.profiles
         self.log.info('%d fiber profiles found on combined flat', len(profiles))
 

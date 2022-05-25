@@ -1,0 +1,19 @@
+description: Fiber flat construction
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      connections.ccdExposure: raw
+      connections.outputExposure: flatProc
+      doWrite: True
+      doBrighterFatter: False
+      doFlat: False
+      doFringe: False
+  ditherCombine:
+    class: pfs.drp.stella.pipelines.FlatDitherCombineTask
+    config:
+      connections.inputExpHandles: flatProc
+  flatCombine:
+    class: pfs.drp.stella.pipelines.FlatCombineTask
+contracts:
+  - isr.doFlat == False

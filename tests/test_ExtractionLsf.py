@@ -42,7 +42,7 @@ class ExtractionLsfTestCase(lsst.utils.tests.TestCase):
         task = BuildFiberProfilesTask()
         task.config.pruneMinLength = 100
         task.config.findThreshold = 10
-        profiles = task.run(lsst.afw.image.makeExposure(self.flat), self.detMap).profiles
+        profiles = task.run(lsst.afw.image.makeExposure(self.flat), detectorMap=self.detMap).profiles
         self.traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.traces), self.config.numFibers)
 

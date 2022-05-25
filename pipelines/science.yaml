@@ -1,0 +1,10 @@
+description: Full 2D-DRP science pipeline
+imports:
+  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
+tasks:
+  calculateReferenceFlux:
+    class: pfs.drp.stella.calculateReferenceFlux.CalculateReferenceFluxTask
+  fluxCalibrate:
+    class: pfs.drp.stella.fluxCalibrate.FluxCalibrateTask
+  coaddSpectra:
+    class: pfs.drp.stella.coaddSpectra.CoaddSpectraTask

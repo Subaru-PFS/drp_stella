@@ -1,0 +1,33 @@
+description: PFS dark construction
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      connections.ccdExposure: raw
+      connections.outputExposure: darkProc
+      doWrite: True
+      doDark: False
+      doBrighterFatter: False
+      doFlat: False
+      doFringe: False
+      doRepair: False  # We'll do that in the next stage
+  dark:
+    class: lsst.cp.pipe.cpDarkTask.CpDarkTask
+    config:
+      connections.inputExp: darkProc
+      connections.outputExp: darkScaled
+      crGrow: 2
+      repair.interp.modelPsf.defaultFwhm: 3
+      repair.cosmicray.nCrPixelMax: 5000000
+  darkCombine:
+    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    config:
+      connections.inputExpHandles: darkScaled
+      connections.outputData: dark
+      calibrationType: dark
+      exposureScaling: DarkTime
+      python: config.mask.append("CR")
+contracts:
+  - isr.doDark == False
+  - darkCombine.calibrationType == "dark"
+  - darkCombine.exposureScaling == "DarkTime"

@@ -33,7 +33,9 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         config = BuildFiberProfilesTask.ConfigClass()
         config.pruneMinLength = self.synthConfig.height//2
         task = BuildFiberProfilesTask(config=config)
-        self.fiberProfiles = task.run(lsst.afw.image.makeExposure(self.image), self.detMap).profiles
+        self.fiberProfiles = task.run(
+            lsst.afw.image.makeExposure(self.image), detectorMap=self.detMap
+        ).profiles
         for fiberId in self.fiberProfiles:
             self.fiberProfiles[fiberId].norm = np.full(self.synthConfig.height, self.flux, dtype=float)
         self.fiberTraces = self.fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)

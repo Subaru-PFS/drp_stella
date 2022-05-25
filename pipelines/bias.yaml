@@ -1,0 +1,24 @@
+description: PFS bias construction
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      connections.ccdExposure: raw
+      connections.outputExposure: biasProc
+      doWrite: True
+      doBias: False
+      doDark: False
+      doBrighterFatter: False
+      doFlat: False
+      doFringe: False
+  cpBiasCombine:
+    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    config:
+      connections.inputExpHandles: biasProc
+      connections.outputData: bias
+      calibrationType: bias
+      exposureScaling: Unity
+contracts:
+  - isr.doBias == False
+  - cpBiasCombine.calibrationType == "bias"
+  - cpBiasCombine.exposureScaling == "Unity"
