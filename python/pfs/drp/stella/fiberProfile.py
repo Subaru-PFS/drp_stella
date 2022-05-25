@@ -27,7 +27,7 @@ class FiberProfile:
     profiles : array_like of `float`, shape ``(N, M)``
         Profiles for each swath, each of width
         ``M = 2*(radius + 1)*oversample + 1``.
-    norm : array_like of `float`, optional
+    norm : array_like of `np.float32`, optional
         Normalisation for each spectral pixel.
     """
     def __init__(self, radius, oversample, rows, profiles, norm=None):
@@ -220,7 +220,8 @@ class FiberProfile:
         """
         return FiberTrace.fromProfile(fiberId, detectorMap.bbox.getDimensions(), self.radius,
                                       self.oversample, self.rows, self.profiles, ~self.profiles.mask,
-                                      detectorMap.getXCenter(fiberId), self.norm)
+                                      detectorMap.getXCenter(fiberId),
+                                      self.norm.astype(np.float32) if self.norm is not None else None)
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
         """Make a FiberTrace object
@@ -244,7 +245,8 @@ class FiberProfile:
         """
         rows = np.arange(dimensions.getY(), dtype=float)
         return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
-                                      self.profiles, ~self.profiles.mask, centerFunc(rows), self.norm)
+                                      self.profiles, ~self.profiles.mask, centerFunc(rows),
+                                      self.norm.astype(np.float32) if self.norm is not None else None)
 
     def extractSpectrum(self, maskedImage, detectorMap, fiberId):
         """Extract a single spectrum from an image

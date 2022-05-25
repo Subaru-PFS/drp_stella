@@ -61,7 +61,7 @@ def makeSpectrum(length, center, amplitude, rmsSize, bgConst=0.0, bgSlope=0.0):
     return spectrum
 
 
-class FindLinesTestCase(lsst.utils.tests.TestCase):
+class FitLinesTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.length = 256
         self.center = 123.45

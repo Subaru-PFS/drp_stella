@@ -30,11 +30,11 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
         self.identity = Identity(self.visit, self.arm, self.spectrograph, self.pfsDesignId)
         self.fiberId = self.synthConfig.fiberId
         self.wavelength = np.vstack([np.linspace(600, 900, self.synthConfig.height)]*num)
-        self.flux = self.rng.uniform(size=shape)
-        self.mask = self.rng.uniform(high=2**31, size=shape).astype(np.int32)
-        self.sky = self.rng.uniform(size=shape)
-        self.norm = self.rng.uniform(size=shape)
-        self.covar = self.rng.uniform(size=(num, 3, self.synthConfig.height))
+        self.flux = self.rng.uniform(size=shape).astype(np.float32)
+        self.mask = self.rng.uniform(high=2**31, size=shape).astype(np.uint32)
+        self.sky = self.rng.uniform(size=shape).astype(np.float32)
+        self.norm = self.rng.uniform(size=shape).astype(np.float32)
+        self.covar = self.rng.uniform(size=(num, 3, self.synthConfig.height)).astype(np.float32)
         self.flags = MaskHelper()
         self.metadata = dict(FOO=12345, BAR=0.9876)  # FITS keywords get capitalised
 
@@ -48,9 +48,9 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
     def assertSpectra(self, spectra):
         """Check that the spectra match what's expected"""
         for name in ("visit", "arm", "spectrograph", "pfsDesignId"):
-            self.assertEqual(getattr(spectra.identity, name), getattr(self, name))
+            self.assertEqual(getattr(spectra.identity, name), getattr(self, name), msg=name)
         for name in ("fiberId", "wavelength", "flux", "mask", "sky", "norm", "covar"):
-            self.assertFloatsEqual(getattr(spectra, name), getattr(self, name))
+            self.assertFloatsEqual(getattr(spectra, name), getattr(self, name), msg=name)
         self.assertDictEqual(spectra.flags.flags, self.flags.flags)
         self.assertDictEqual({**self.metadata, **spectra.metadata}, spectra.metadata)
 

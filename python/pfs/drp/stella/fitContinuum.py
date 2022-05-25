@@ -141,13 +141,13 @@ class FitContinuumTask(Task):
         fit : `numpy.ndarray`, floating-point
             Fit array.
         """
-        indices = np.arange(len(values), dtype=float)
+        indices = np.arange(len(values), dtype=values.dtype)
         knots, binned = binData(indices, values, good, self.config.numKnots)
         use = np.isfinite(knots) & np.isfinite(binned)
         if not np.any(use):
             raise FitContinuumError("No finite knots when fitting continuum")
         interp = makeInterpolate(knots[use], binned[use], self.fitType)
-        fit = np.array(interp.interpolate(indices))
+        fit = np.array(interp.interpolate(indices)).astype(values.dtype)
 
         if lsstDebug.Info(__name__).plot:
             import matplotlib.pyplot as plt
@@ -285,4 +285,4 @@ def binData(xx, yy, good, numBins):
         select = good[low:high]
         xBinned[ii] = np.median(xx[low:high][select]) if np.any(select) else np.nan
         yBinned[ii] = np.median(yy[low:high][select]) if np.any(select) else np.nan
-    return xBinned, yBinned
+    return xBinned.astype(xx.dtype), yBinned.astype(yy.dtype)
