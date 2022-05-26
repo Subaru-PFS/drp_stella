@@ -64,6 +64,7 @@ class ReduceExposureConfig(Config):
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     traceSpectralError = Field(dtype=float, default=1.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
+    doForceTraces = Field(dtype=bool, default=False, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
@@ -486,7 +487,11 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
             refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
             lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
-            if not lines or "Continuum" in getLampElements(exposure.getMetadata()):
+            if (
+                self.config.doForceTraces
+                or not lines
+                or "Continuum" in getLampElements(exposure.getMetadata())
+            ):
                 traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
                 lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
