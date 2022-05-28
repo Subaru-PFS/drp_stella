@@ -1,9 +1,7 @@
-import itertools
 import os
 from contextlib import contextmanager
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-import astropy.io.fits
 import lsstDebug
 import numpy as np
 from lsst.afw.image import VisitInfo
@@ -11,11 +9,12 @@ from lsst.afw.math import makeInterpolate, stringToInterpStyle
 from lsst.pex.config import ChoiceField, Config, Field, ListField
 from lsst.pipe.base import Struct, Task
 from lsst.utils import getPackageDir
-from numpy.typing import ArrayLike
-from pfs.datamodel import Observations, PfsFiberArray, PfsFiberArraySet
+from pfs.datamodel import Observations
 from scipy.interpolate import interp1d
 from scipy.optimize import least_squares
 
+from .atmosphere import AtmosphericTransmission
+from .datamodel import PfsFiberArray, PfsFiberArraySet, PfsSimpleSpectrum
 from .interpolate import interpolateFlux
 from .lsf import Lsf, LsfDict
 from .maskLines import maskLines
@@ -30,7 +29,6 @@ __all__ = (
     "BaseFitContinuumTask",
     "FitSplineContinuumConfig",
     "FitSplineContinuumTask",
-    "AtmosphericTransmission",
     "FitModelContinuumConfig",
     "FitModelContinuumTask",
 )
@@ -187,7 +185,7 @@ class BaseFitContinuumTask(Task):
         spectrum: PfsFiberArray,
         refLines: Optional[ReferenceLineSet] = None,
         parameters: Optional[Struct] = None,
-        lsf: Optional[List[Lsf]] = None,
+        lsf: Optional[Lsf] = None,
     ) -> np.ndarray:
         """Fit continuum to a single spectrum
 
@@ -222,17 +220,25 @@ class BaseFitContinuumTask(Task):
         keep = np.ones_like(good, dtype=bool)
         for ii in range(self.config.iterations):
             use = good & keep
-            fit = self._fitContinuumImpl(spectrum, use, parameters)
-            if lsstDebug.Info(__name__).plot:
+            fit = self._fitContinuumImpl(spectrum, use, parameters, lsf)
+            use &= np.isfinite(fit)
+            if True or lsstDebug.Info(__name__).plot:
                 self.plotFit(spectrum, use, fit)
+
+
+            # XXXXX use variance
+
+            # XXX have _fitContinuumImpl return a Struct with fit and parameters
+            # Return Struct with fit, parameters, goodness of fit and boolean array
+
 
             diff = spectrum.flux - fit
             lq, uq = np.percentile(diff[use], [25.0, 75.0])
             stdev = 0.741 * (uq - lq)
             with np.errstate(invalid="ignore"):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
-        fit = self._fitContinuumImpl(spectrum, good & keep, parameters)
-        if lsstDebug.Info(__name__).plot:
+        fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
+        if True or lsstDebug.Info(__name__).plot:
             self.plotFit(spectrum, use, fit)
         return fit
 
@@ -511,187 +517,6 @@ def binData(values: np.ndarray, good: np.ndarray, edges: np.ndarray) -> Tuple[np
     return centers, binned.astype(values.dtype)
 
 
-class AtmosphericTransmissionInterpolator:
-    """Object for interpolating the atmospheric transmission in PWV
-
-    When fitting a spectrum, we know the zenith distance and wavelength
-    sampling, and we're fitting for the precipitable water vapor (PWV). This
-    object provides an efficient interpolation of the atmospheric model for
-    a requested PWV.
-
-    Parameters
-    ----------
-    pwv : `np.ndarray`
-        Precipitable water vapor (mm) values.
-    transmission: `np.ndarray`
-        Corresponding transmission (as a function of wavelength) values. Any
-        interpolation in wavelength should already have been done.
-    """
-
-    def __init__(self, pwv: np.ndarray, transmission: np.ndarray):
-        if transmission.shape[0] != pwv.size:
-            raise RuntimeError(
-                f"Size mismatch between pwv ({pwv.size}) and transmission ({transmission.shape[0]})"
-            )
-        indices = np.argsort(pwv)
-        self.pwv: np.ndarray = pwv[indices]
-        self.transmission: np.ndarray = transmission[indices]
-
-    def __call__(self, pwv: float) -> np.ndarray:
-        """Interpolate the transmission spectra for the PWV value
-
-        Parameters
-        ----------
-        pwv : `float`
-            Precipitable water vapor (mm) value at which to interpolate.
-
-        Returns
-        -------
-        transmission : `np.ndarray`
-            Transmission spectrum for the input PWV.
-        """
-        if pwv <= 0:
-            return np.zeros_like(self.transmission[0])
-        index = min(int(np.searchsorted(self.pwv, pwv)), self.pwv.size - 2)
-        pwvLow: float = self.pwv[index]
-        pwvHigh: float = self.pwv[index + 1]
-        highWeight = (pwv - pwvLow) / (pwvHigh - pwvLow)
-        lowWeight = 1.0 - highWeight
-        return lowWeight * self.transmission[index] + highWeight * self.transmission[index + 1]
-
-
-class AtmosphericTransmission:
-    """Model of atmospheric transmission
-
-    The model includes both zenith distance (ZD) and precipitable water vapor
-    (PWV).
-
-    Parameters
-    ----------
-    wavelength : `np.ndarray` of `float`, shape ``(W,)``
-        Wavelength sampling.
-    zd : `np.ndarray` of `float`, shape ``(Z,)``
-        Zenith distance values; repeated values allowed.
-    pwv : `np.ndarray` of `float`, shape ``(P,)``
-        Precipitable water vapor (mm) values; repeated values allowed.
-    transmission : `dict` mapping (`float`,`float`) to `np.ndarray`
-        Transmission spectra, indexed by a tuple of zenith distance value and
-        PWV value. Each transmission spectrum should have the same length as
-        the ``wavelength`` array.
-    """
-
-    def __init__(
-        self,
-        wavelength: np.ndarray,
-        zd: Iterable[float],
-        pwv: Iterable[float],
-        transmission: Dict[Tuple[float, float], np.ndarray],
-    ):
-        self.wavelength = wavelength
-        self.zd = np.array(sorted(set(zd)))
-        self.pwv = np.array(sorted(set(pwv)))
-        self.transmission = transmission
-        for key in itertools.product(self.zd, self.pwv):
-            if key not in self.transmission:
-                raise RuntimeError(f"Grid point ZD,PWV={key} not present in data")
-            if self.transmission[key].shape != self.wavelength.shape:
-                raise RuntimeError(f"Shape of transmission for ZD,PWV={key} doesn't match")
-
-    @classmethod
-    def fromFits(cls, filename: str) -> "AtmosphericTransmission":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        filename : `str`
-            Filename of atmospheric model FITS file.
-
-        Returns
-        -------
-        self : `AtmosphericTransmission`
-            Model constructed from FITS file.
-        """
-        with astropy.io.fits.open(filename) as fits:
-            wavelength = fits["WAVELENGTH"].data
-            zd = fits["TRANSMISSION"].data["zd"]
-            pwv = fits["TRANSMISSION"].data["pwv"]
-            transmission = fits["TRANSMISSION"].data["transmission"]
-        return cls(
-            wavelength=wavelength,
-            zd=zd,
-            pwv=pwv,
-            transmission={(zz, pp): tt for zz, pp, tt in zip(zd, pwv, transmission)},
-        )
-
-    def makeInterpolator(
-        self, zd: float, wavelength: ArrayLike, lsf: Lsf
-    ) -> AtmosphericTransmissionInterpolator:
-        """Construct an interpolator
-
-        When fitting an atmospheric model to data, we know the zenith distance
-        at which the data was obtained and the wavelength sampling, and we're
-        fitting for the precipitable water vapor (PWV). The fitting process will
-        evaluate the model for many different PWV values, so that needs to be as
-        efficient as possible. This method does the interpolation in zenith
-        distance and wavelength up front, and provides an interpolator that
-        operates solely on the PWV value.
-
-        Parameters
-        ----------
-        zd : `float`
-            Zenith distance (degrees) at which to interpolate.
-        wavelength : array_like
-            Wavelength array for interpolation.
-        lsf : `Lsf`, optional
-            Line-spread function.
-
-        Returns
-        -------
-        interpolator : `AtmosphericTransmissionInterpolator`
-            Object that will perform interpolation in PWV.
-        """
-        wavelength = np.asarray(wavelength)
-        kernel = lsf.computeKernel(0.5*len(wavelength))
-        index = min(int(np.searchsorted(self.zd, zd)), self.zd.size - 2)
-        zdLow = self.zd[index]
-        zdHigh = self.zd[index + 1]
-        highWeight = (zd - zdLow) / (zdHigh - zdLow)
-        lowWeight = 1.0 - highWeight
-        transmission = np.full((self.pwv.size, wavelength.size), np.nan, dtype=float)
-        for ii, pwv in enumerate(self.pwv):
-            low = self.transmission[zdLow, pwv]
-            high = self.transmission[zdHigh, pwv]
-            pwvTransmission = kernel.convolve(low * lowWeight + high * highWeight)
-            transmission[ii] = interpolateFlux(
-                self.wavelength, pwvTransmission, wavelength, fill=np.nan, jacobian=False
-            )
-        return AtmosphericTransmissionInterpolator(self.pwv, transmission)
-
-    def __call__(self, zd: float, pwv: float, wavelength: ArrayLike, lsf: Lsf) -> np.ndarray:
-        """Evaluate the atmospheric transmission
-
-        This method provides a full-featured interpolation of the model. For
-        faster individual interpolations when varying only PWV (e.g., when
-        fitting a spectrum of known zenith distance and wavelength sampling),
-        use the interpolator provided by the ``makeInterpolator`` method.
-
-        Parameters
-        ----------
-        zd: `float`
-            Zenith distance, in degrees.
-        pwv : `float`
-            Precipitable water vapour, in mm.
-        wavelength : array_like
-            Wavelength array for which to provide corresponding transmission.
-
-        Returns
-        -------
-        result : `np.ndarray` of `float`
-            Transmission for the provided wavelengths.
-        """
-        return self.makeInterpolator(zd, wavelength, lsf)(pwv)
-
-
 class FitModelContinuumConfig(BaseFitContinuumConfig):
     model = Field(dtype=str, doc="Filename of model, in PfsFiberArray FITS format")  # Note: no default
     transmission = Field(
@@ -716,15 +541,14 @@ class FitModelContinuumTask(BaseFitContinuumTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model = PfsFiberArray.readFits(self.config.model)
-        self.transmission = AtmosphericTransmission(self.config.transmission)
+        self.model = PfsSimpleSpectrum.readFits(self.config.model)
+        self.transmission = AtmosphericTransmission.fromFits(self.config.transmission)
 
     def extractParameters(
         self,
-        spectra: Union[PfsFiberArraySet, PfsFiberArray],
+        spectra: List[PfsFiberArray],
         visitInfo: Optional[VisitInfo] = None,
-        lsf: Optional[Lsf] = None,
-    ) -> Optional[Struct]:
+    ) -> List[Struct]:
         """Extract parameters in preparation for fitting
 
         We calculate bin boundaries in wavelength space, to ensure all fibers
@@ -734,27 +558,27 @@ class FitModelContinuumTask(BaseFitContinuumTask):
 
         Parameters
         ----------
-        spectra : `PfsFiberArraySet` or `PfsFiberArray`
-            Spectra (or spectrum) to be fit.
+        spectra : `list` of `PfsFiberArray`
+            Spectra to be fit.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
-        lsf : `Lsf`, optional
-            Line-spread function.
 
         Returns
         -------
-        parameters : `Struct` or `None`
-            Parameters used in fitting.
+        parameters : `list` of `Struct`
+            Parameters used in fitting for each spectrum.
         """
         if visitInfo is None:
             raise RuntimeError("visitInfo is required for FitModelContinuumTask")
-        return Struct(zd=visitInfo.getBoresightAzAlt().getLatitude(), lsf=lsf)
+        zd = 90 - visitInfo.getBoresightAzAlt().getLatitude().asDegrees()
+        return [Struct(zd=zd)]*len(spectra)
 
     def _fitContinuumImpl(
         self,
         spectrum: PfsFiberArray,
         good: np.ndarray,
         parameters: Optional[Struct],
+        lsf: Optional[Lsf],
     ) -> np.ndarray:
         """Implementation of the business part of fitting
 
@@ -766,11 +590,13 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             Boolean array indicating which points are good.
         parameters : `Struct` or `None`
             Parameters used in fitting. Some subclasses require them.
+        lsf : `Lsf`, optional
+            Line-spread function.
 
         Raises
         ------
         FitContinuumError
-            If we had no good knots.
+            If we failed to fit.
 
         Returns
         -------
@@ -778,7 +604,9 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             Fit array.
         """
         assert parameters is not None
-        transmission = self.transmission.makeInterpolator(parameters.zd, spectrum.wavelength)
+        if lsf is None:
+            raise RuntimeError("lsf is required for FitModelContinuumTask")
+        transmission = self.transmission.makeInterpolator(parameters.zd, spectrum.wavelength, lsf=lsf)
         numTransmission = 1
         numPoly = self.config.order + 1
         numParams = numPoly + numTransmission
@@ -791,10 +619,15 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         model = interpolateFlux(self.model.wavelength, self.model.flux, spectrum.wavelength, fill=np.nan)
         select = good & np.isfinite(model)
 
+        if not np.any(select):
+            raise FitContinuumError("No good points")
+
         # Get initial guess
         guess = np.zeros(numParams, dtype=float)
         guess[-2] = np.median((model / flux)[select])  # Constant term
-        guess[-1] = self.config.guessPwv
+        guess[-1] = self.config.guessPwv  # PWV
+        scale = np.full_like(guess, 0.1)
+        scale[-1] = 0.5  # PWV
 
         # Define model
         def function(params: np.ndarray) -> np.ndarray:
@@ -812,6 +645,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             """
             poly = NormalizedPolynomial1D(params[:-1], 0.0, length)
             pwv = params[-1]
+            print(pwv)
             return model * poly(indices) * transmission(pwv)
 
         def residuals(params: np.ndarray) -> np.ndarray:
@@ -830,7 +664,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             return ((flux - function(params)) * invError)[select]
 
         # Non-linear least-squares fit
-        result = least_squares(residuals, guess, method="lm")
+        result = least_squares(residuals, guess, x_scale=scale, method="lm")
         if not result.success:
-            raise RuntimeError(f"Failed to fit continuum: {result.message}")
-        return model(result.x)
+            raise FitContinuumError(f"Failed to fit continuum: {result.message}")
+        return function(result.x)
