@@ -164,7 +164,7 @@ class PhotometerLinesTask(Task):
         lines.intensity[select] = catalog["flux"]
         lines.intensityErr[select] = catalog["fluxErr"]
         lines.flag[~select] = True
-        lines.flag[select] = catalog["flag"]
+        lines.flag[select] = catalog["flag"] & np.isfinite(catalog["flux"]) & np.isfinite(catalog["fluxErr"])
 
         apCorr = None
         if self.config.doApertureCorrection:
