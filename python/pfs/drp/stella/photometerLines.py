@@ -250,8 +250,11 @@ class PhotometerLinesTask(Task):
         for ii, ll in enumerate(lines):
             if ll.flag:
                 continue
+            flux = ll.intensity if apCorr is None else psfFlux[ii]
+            if not np.isfinite(flux):
+                continue
+
             psfImage = psf.computeImage(ll.fiberId, ll.wavelength)
             psfBox = psfImage.getBBox()
             psfBox.clip(imageBox)
-            exposure.image[psfBox].scaledMinus(ll.intensity if apCorr is None else psfFlux[ii],
-                                               psfImage[psfBox].convertF())
+            exposure.image[psfBox].scaledMinus(flux, psfImage[psfBox].convertF())
