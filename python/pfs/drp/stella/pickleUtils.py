@@ -7,7 +7,7 @@ from lsst.afw.coord import Observatory, Weather
 def pickleVisitInfo(info):
     return (VisitInfo,
             tuple(getattr(info, "get" + prop)() for
-                  prop in ("ExposureId", "ExposureTime", "DarkTime", "Date", "Ut1", "Era", "BoresightRaDec",
+                  prop in ("Id", "ExposureTime", "DarkTime", "Date", "Ut1", "Era", "BoresightRaDec",
                            "BoresightAzAlt", "BoresightAirmass", "BoresightRotAngle", "RotType",
                            "Observatory", "Weather")))
 

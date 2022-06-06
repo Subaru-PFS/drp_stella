@@ -242,7 +242,7 @@ class FitDifferentialDetectorMapTask(Task):
         residuals = self.calculateBaseResiduals(base, lines)
         minMaxFiberId = (base.fiberId.min(), base.fiberId.max())
         results = self.fitGlobalDetectorModel(bbox, residuals, doFitHighCcd, fiberCenter,
-                                              seed=visitInfo.getExposureId(), minMaxFiberId=minMaxFiberId)
+                                              seed=visitInfo.id, minMaxFiberId=minMaxFiberId)
         results.detectorMap = DifferentialDetectorMap(base, results.model, visitInfo, metadata)
 
         if self.debugInfo.lineQa:
