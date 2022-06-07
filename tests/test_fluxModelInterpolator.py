@@ -17,7 +17,7 @@ class FluxModelInterpolatorTestCase(lsst.utils.tests.TestCase):
             self.skipTest("makeFluxModelInterpolator.py has not been run")
 
         model = FluxModelInterpolator.fromFluxModelData(dataDir)
-        spectrum = model.interpolate(teff=7777, logg=3.333, metal=0.555, alpha=0.222)
+        spectrum = model.interpolate(teff=7777, logg=3.333, m=0.555, alpha=0.222)
         self.assertIsInstance(spectrum.wavelength, WavelengthArray)
 
 
