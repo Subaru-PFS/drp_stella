@@ -53,7 +53,7 @@ ndarray::Array<bool, 1, 1> maskLinesImpl(
     for (; wlIndex < numWl && linesIndex < numLines; ++linesIndex) {
         double const wlLine = lines[linesIndex];
         // Bracket the line
-        for (; wavelength[wlIndex] < wlLine && wlIndex < numWl; ++wlIndex);  // increment only
+        for (; wlIndex < numWl && wavelength[wlIndex] < wlLine; ++wlIndex);  // increment only
         if (wlIndex >= numWl) {
             // We're at the end; no need to keep checking for all lines
             break;
