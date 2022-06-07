@@ -210,10 +210,18 @@ std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model) {
 
 namespace {
 
+// Structure to aid in fitting a polynomial distortion
+//
+// We calculate the design matrix one point at a time and then solve.
 struct FitData {
     using Array1D = ndarray::Array<double, 1, 1>;
     using Array2D = ndarray::Array<double, 2, 1>;
 
+    // Ctor
+    //
+    // @param range : Box enclosing all x,y coordinates.
+    // @param order : Polynomial order.
+    // @param length : Number of points that will be added.
     FitData(lsst::geom::Box2D const& range, int order, std::size_t length_) :
         poly(order, range),
         length(length_),
@@ -225,6 +233,11 @@ struct FitData {
         index(0)
         {}
 
+    // Add a point to the design matrix
+    //
+    // @param xy : Point at which to evaluate the polynomial
+    // @param meas : Measured value
+    // @param err : Error in measured value
     void add(lsst::geom::Point2D const& xy, lsst::geom::Point2D const& meas, lsst::geom::Point2D const& err) {
         std::size_t const ii = index++;
         assert(ii < length);
@@ -239,6 +252,10 @@ struct FitData {
         yErr[ii] = err.getY();
     }
 
+    // Solve the least-squares problem
+    //
+    // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
+    // @return Solutions in x and y.
     std::pair<Array1D, Array1D> getSolution(double threshold=1.0e-6) const {
         assert(index == length);
         return std::make_pair(
@@ -247,14 +264,14 @@ struct FitData {
         );
     }
 
-    DoubleDistortion::Polynomial poly;
-    std::size_t length;
-    Array1D xMeas;
-    Array1D yMeas;
-    Array1D xErr;
-    Array1D yErr;
-    Array2D design;
-    std::size_t index;
+    DoubleDistortion::Polynomial poly;  // Polynomial used for calculating design
+    std::size_t length;  // Number of measurements
+    Array1D xMeas;  // Measurements in x
+    Array1D yMeas;  // Measurements in y
+    Array1D xErr;  // Error in x measurement
+    Array1D yErr;  // Error in y measurement
+    Array2D design;  // Design matrix
+    std::size_t index;  // Next index to add
 };
 
 
