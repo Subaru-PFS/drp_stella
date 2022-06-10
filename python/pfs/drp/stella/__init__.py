@@ -1,3 +1,4 @@
+import pfs.drp.stella.astropyFix  # noqa: monkey-patch astropy's lazyproperty to avoid deadlocks
 import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
 from .datamodel import *
 from .SpectrumContinued import *
