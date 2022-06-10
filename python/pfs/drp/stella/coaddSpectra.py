@@ -1,4 +1,4 @@
-from typing import Dict, List, Mapping
+from typing import Dict, Iterable, List, Mapping
 
 import numpy as np
 from collections import defaultdict, Counter
@@ -113,6 +113,8 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
     ConfigClass = CoaddSpectraConfig
     RunnerClass = CoaddSpectraRunner
 
+    fluxTable: FluxTableTask
+
     @classmethod
     def _makeArgumentParser(cls):
         parser = ArgumentParser(name=cls._DefaultName)
@@ -177,32 +179,33 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             Container with attributes that are data references for the various
             output connections.
         """
+        assert butler.quantum.dataId is not None
         tract = butler.quantum.dataId["tract"]
         patch = butler.quantum.dataId["patch"]
 
         data: Dict[Identity, Struct] = {}
-        for pfsConfig, pfsArm, pfsArmLsf, sky1d, fluxCal in zipDatasetRefs(
+        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsConfig),
             DatasetRefList.fromList(inputRefs.pfsArm),
             DatasetRefList.fromList(inputRefs.pfsArmLsf),
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
-            dataId = pfsArm.dataId.full
+            dataId = pfsArmRef.dataId.full
             identity = Identity(
                 visit=dataId["exposure"],
                 arm=dataId["arm"],
                 spectrograph=dataId["spectrograph"],
                 pfsDesignId=dataId["pfs_design_id"]
             )
-            pfsConfig: PfsConfig = butler.get(pfsConfig)
-            pfsArm: PfsArm = butler.get(pfsArm).select(pfsConfig, tract=tract, patch=patch)
+            pfsConfig: PfsConfig = butler.get(pfsConfigRef)
+            pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, tract=tract, patch=patch)
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
-                pfsArmLsf=butler.get(pfsArmLsf),
-                sky1d=butler.get(sky1d),
-                fluxCal=butler.get(fluxCal),
+                pfsArmLsf=butler.get(pfsArmLsfRef),
+                sky1d=butler.get(sky1dRef),
+                fluxCal=butler.get(fluxCalRef),
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),
             )
 
@@ -290,7 +293,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
                       radec.getRa().asDegrees(), radec.getDec().asDegrees(),
                       targetType, dict(**fiberFlux))
 
-    def getObservations(self, dataIdList: List[Identity], pfsConfigList: List[PfsConfig]
+    def getObservations(self, dataIdList: Iterable[Identity], pfsConfigList: Iterable[PfsConfig]
                         ) -> Observations:
         """Construct a list of observations of the target
 

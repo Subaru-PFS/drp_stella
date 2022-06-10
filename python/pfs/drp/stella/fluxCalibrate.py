@@ -1,4 +1,4 @@
-from typing import Iterable, Union, Dict
+from typing import Iterable, List, Union, Dict
 from collections import defaultdict
 
 import numpy as np
@@ -164,6 +164,9 @@ class FluxCalibrateTask(CmdLineTask, PipelineTask):
     ConfigClass = FluxCalibrateConfig
     _DefaultName = "fluxCalibrate"
 
+    fitFluxCal: FitFocalPlaneTask
+    fluxTable: FluxTableTask
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitFluxCal")
@@ -175,7 +178,7 @@ class FluxCalibrateTask(CmdLineTask, PipelineTask):
         pfsMergedLsf: LsfDict,
         references: Dict[int, PfsReference],
         pfsConfig: PfsConfig,
-        pfsArmList: Iterable[PfsArm],
+        pfsArmList: List[PfsArm],
         sky1dList: Iterable[FocalPlaneFunction],
     ) -> Struct:
         """Measure and apply the flux calibration
