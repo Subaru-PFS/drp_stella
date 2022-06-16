@@ -184,6 +184,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         if labelLines:
             plt.legend(fontsize=8, loc=(1.01, 0.0), ncol=2)
 
+
 try:
     from lsst.display.matplotlib import DisplayImpl
 except ImportError:
