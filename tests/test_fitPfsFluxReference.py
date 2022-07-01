@@ -110,7 +110,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             flux[i] = interpolateFlux(spectrum.wavelength, convolvedFlux, wavelength[i])
             pfsMergedLsf[fiberId[i]] = warpLsf(lsf, spectrum.wavelength, wavelength[i])
 
-        mask = np.zeros(shape=wavelength.shape, dtype=int)
+        mask = np.zeros(shape=wavelength.shape, dtype=np.uint32)
         sky = np.zeros(shape=wavelength.shape, dtype=float)
         norm = np.ones(shape=wavelength.shape, dtype=float)
 
@@ -124,7 +124,8 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             np.isfinite(flux) & (flux > 0),
             0,
             flags.add("BAD"),
-        )
+        ).astype(mask.dtype)
+
         pfsMerged = PfsFiberArraySet(
             identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags, metadata
         )
@@ -303,7 +304,7 @@ def makePfsSimpleSpectrum(wavelength, flux):
         Constructed ``PfsSimpleSpectrum`` object.
     """
     target = Target(0, 0, "0,0", 0)
-    mask = np.zeros(shape=wavelength.shape, dtype=int)
+    mask = np.zeros(shape=wavelength.shape, dtype=np.uint32)
     flags = MaskHelper()
     return PfsSimpleSpectrum(target, wavelength, flux, mask, flags)
 

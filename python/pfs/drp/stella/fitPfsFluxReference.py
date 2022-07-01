@@ -736,7 +736,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 (low < wavelength) & (wavelength < high),
                 badMask,
                 0
-            )
+            ).astype(spectra.mask.dtype)
 
         # Mask edge regions.
         spectra.mask[...] |= np.where(
@@ -744,7 +744,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             (spectra.wavelength < self.config.maxWavelength),
             0,
             spectra.flags.add("EDGE")
-        )
+        ).astype(spectra.mask.dtype)
 
         return spectra
 
