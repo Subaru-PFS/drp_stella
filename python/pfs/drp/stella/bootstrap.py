@@ -175,7 +175,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(flatRef).exposure
         detMap = flatRef.get("detectorMap")
-        result = self.profiles.run(exposure, detMap, pfsConfig)
+        result = self.profiles.run(exposure, detectorMap=detMap, pfsConfig=pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
         traces.sortTracesByXCenter()  # Organised left to right
         self.log.info("Found %d fibers on flat", len(traces))
