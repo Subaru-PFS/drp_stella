@@ -858,7 +858,7 @@ class BlockedOversampledSpline(FocalPlaneFunction):
                 above = self.splines[self.fiberId[iAbove]].evaluate([wavelengths[ii]], [ff], [positions[ii]])
                 thisValue = below.values[0]*weightBelow + above.values[0]*weightAbove
                 thisMask = below.masks[0] | above.masks[0]
-                thisVariance = below.variances[0]*weightBelow + above.variances[0]*weightAbove
+                thisVariance = below.variances[0]*weightBelow**2 + above.variances[0]*weightAbove**2
             values[ii] = thisValue
             masks[ii] = thisMask
             variances[ii] = thisVariance
