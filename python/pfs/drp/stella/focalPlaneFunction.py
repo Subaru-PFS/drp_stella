@@ -11,7 +11,7 @@ from lsst.pipe.base import Struct
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from pfs.drp.stella.interpolate import interpolateFlux, interpolateVariance, interpolateMask
-from .math import NormalizedPolynomial1D, solveLeastSquaresDesign
+from .math import NormalizedPolynomial1D, solveLeastSquaresDesign, calculateMedian
 from .utils.math import robustRms
 
 __all__ = ("FocalPlaneFunction", "ConstantFocalPlaneFunction", "OversampledSpline",
@@ -318,9 +318,14 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             raise RuntimeError("Wavelength arrays not identical")
 
         if robust:
-            return ConstantFocalPlaneFunction(wavelength[0], np.median(values, axis=0),
-                                              np.logical_and.reduce(masks, axis=0),
-                                              np.median(variances, axis=0))
+            # This is the equivalent of "np.median(array, axis=0)" with masks applied
+            # (which numpy's MaskedArray can't handle).
+            medianValues = np.array([calculateMedian(vv, mm) for vv, mm in zip(values.T, masks.T)])
+            medianVariances = np.array([calculateMedian(vv, mm) for vv, mm in zip(variances.T, masks.T)])
+
+            return ConstantFocalPlaneFunction(
+                wavelength[0], medianValues, np.logical_and.reduce(masks, axis=0), medianVariances
+            )
 
         with np.errstate(invalid="ignore", divide="ignore"):
             weight = 1.0/variances
@@ -328,7 +333,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             weight[~good] = 0.0
 
             sumWeights = np.sum(weight, axis=0)
-            coaddValues = np.sum(values*weight, axis=0)/sumWeights
+            coaddValues = np.sum(np.where(good, values, 0.0)*weight, axis=0)/sumWeights
             coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
             coaddMask = sumWeights <= 0
         return ConstantFocalPlaneFunction(wavelength[0], coaddValues, coaddMask, coaddVariance)
@@ -853,7 +858,7 @@ class BlockedOversampledSpline(FocalPlaneFunction):
                 above = self.splines[self.fiberId[iAbove]].evaluate([wavelengths[ii]], [ff], [positions[ii]])
                 thisValue = below.values[0]*weightBelow + above.values[0]*weightAbove
                 thisMask = below.masks[0] | above.masks[0]
-                thisVariance = below.variances[0]*weightBelow + above.variances[0]*weightAbove
+                thisVariance = below.variances[0]*weightBelow**2 + above.variances[0]*weightAbove**2
             values[ii] = thisValue
             masks[ii] = thisMask
             variances[ii] = thisVariance

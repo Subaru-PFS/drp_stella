@@ -58,7 +58,72 @@ struct MaskedArrayIndexCompare {
     ndarray::ArrayRef<bool, 1, C> const masks;  ///< Mask
 };
 
+//@{
+/// Calculate median of a masked array
+///
+/// @param values : Numbers for which to calculate median
+/// @param masks : Whether the numbers are to be considered as masked (true means bad value)
+/// @return Median
+template <typename T, int C>
+T calculateMedian(
+    ndarray::ArrayRef<T, 1, C> const values,
+    ndarray::ArrayRef<bool, 1, C> const masks
+) {
+    utils::checkSize(masks.getShape(), values.getShape(), "masks");
+    std::size_t const total = values.getNumElements();
+    std::size_t const numMasked = std::count_if(
+        masks.begin(),
+        masks.end(),
+        [](bool mm) { return mm; }
+    );
+    std::size_t const num = total - numMasked;
+    if (num == 0) {
+        return NaN;
+    }
+    if (num == 1) {
+        auto unmasked = std::find_if(masks.begin(), masks.end(), [](bool mm) { return mm; });
+        std::ptrdiff_t index = unmasked - masks.begin();
+        return values[index];
+    }
 
+    double const idx50 = 0.50 * (num - 1);
+
+    ndarray::Array<std::size_t, 1, 1> indices = ndarray::allocate(total);
+    for (std::size_t ii = 0; ii < total; ++ii) {
+        indices[ii] = ii;
+    }
+    MaskedArrayIndexCompare<T, C> compare{values, masks};
+
+    std::size_t const q50a = static_cast<std::size_t>(idx50);
+    std::size_t const q50b = q50a + 1;
+
+    auto mid50a = indices.begin() + q50a;
+    auto mid50b = indices.begin() + q50b;
+
+    // get the 50th percentile
+    std::nth_element(indices.begin(), mid50a, indices.end(), compare);
+    std::nth_element(mid50a, mid50b, indices.end(), compare);
+
+    // interpolate linearly between the adjacent values
+    double const val50a = static_cast<double>(values[*mid50a]);
+    double const val50b = static_cast<double>(values[*mid50b]);
+    double const w50a = (static_cast<double>(q50b) - idx50);
+    double const w50b = (idx50 - static_cast<double>(q50a));
+    double const median = w50a * val50a + w50b * val50b;
+
+    return T(median);
+}
+template <typename T, int C>
+T calculateMedian(
+    ndarray::Array<T, 1, C> const& values,
+    ndarray::Array<bool, 1, C> const& masks
+) {
+    return calculateMedian(values.deep(), masks.deep());
+}
+//@}
+
+
+//@{
 /// Calculate quartiles of a masked array
 ///
 /// @param values : Numbers for which to calculate quartiles
@@ -143,7 +208,15 @@ calculateQuartiles(
 
     return std::make_tuple(T(q1), T(median), T(q3));
 }
-
+template <typename T, int C>
+std::tuple<T, T, T>
+calculateQuartiles(
+    ndarray::Array<T, 1, C> const& values,
+    ndarray::Array<bool, 1, C> const& masks
+) {
+    return calculateQuartiles(values.deep(), masks.deep());
+}
+//@}
 
 }}}}  // namespace pfs::drp::stella::math
 
