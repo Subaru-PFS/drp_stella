@@ -1,4 +1,5 @@
 import itertools
+from functools import lru_cache
 from typing import Dict, Iterable, Tuple
 
 import astropy.io.fits
@@ -37,6 +38,7 @@ class AtmosphericTransmissionInterpolator:
         self.pwv: np.ndarray = pwv[indices]
         self.transmission: np.ndarray = transmission[indices]
 
+    @lru_cache
     def __call__(self, pwv: float) -> np.ndarray:
         """Interpolate the transmission spectra for the PWV value
 
@@ -50,9 +52,11 @@ class AtmosphericTransmissionInterpolator:
         transmission : `np.ndarray`
             Transmission spectrum for the input PWV.
         """
-        if pwv <= 0:
-            return np.zeros_like(self.transmission[0])
+        if pwv < 0:
+            return np.full_like(self.transmission[0], np.nan)
         index = min(int(np.searchsorted(self.pwv, pwv)), self.pwv.size - 2)
+        if self.pwv[index] == pwv:
+            return self.transmission[index]
         pwvLow: float = self.pwv[index]
         pwvHigh: float = self.pwv[index + 1]
         highWeight = (pwv - pwvLow) / (pwvHigh - pwvLow)
