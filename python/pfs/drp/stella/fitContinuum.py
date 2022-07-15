@@ -46,7 +46,7 @@ class BaseFitContinuumConfig(Config):
     iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
     doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines before fitting?")
-    maskLineRadius = Field(dtype=int, default=5, doc="Number of pixels either side of reference line to mask")
+    maskLineRadius = Field(dtype=int, default=2, doc="Number of pixels either side of reference line to mask")
     mask = ListField(dtype=str, default=["BAD", "CR", "NO_DATA", "BAD_FLAT"], doc="Mask planes to ignore")
 
 
@@ -79,7 +79,7 @@ class BaseFitContinuumTask(Task):
             Reference lines to mask.
         visitInfo : `VisitInfo`, optional
             Structured visit metadata.
-        lsf : `LsfDict`, optional
+        lsfDict : `LsfDict`, optional
             Line-spread functions, indexed by fiberId.
 
         Returns
@@ -99,27 +99,31 @@ class BaseFitContinuumTask(Task):
         empty2d = np.array([[], []]).T
         spectrumList: List[PfsFiberArray] = []
         for ii in range(spectra.numSpectra):
-            norm = spectra.norm[ii]
             spectrumList.append(
+                # Deliberately ignoring the normalisation: we want to subtract the flux
                 PfsFiberArray(
                     None,
                     Observations(empty1d, [], empty1d, empty1d, empty1d, empty2d, empty2d),
                     spectra.wavelength[ii],
-                    spectra.flux[ii] / norm,
+                    spectra.flux[ii],
                     spectra.mask[ii],
-                    spectra.sky[ii] / norm,
-                    spectra.covar[ii] / norm**2,
+                    spectra.sky[ii],
+                    spectra.covar[ii],
                     np.array([[]]),
                     spectra.flags,
                 )
             )
 
-        lsfList = [lsf[ff] for ff in fiberId] if lsf is not None else [None]*len(fiberId)
         parameters = self.extractParameters(spectrumList, visitInfo)
         continuum: Dict[int, np.ndarray] = {}
-        for spectrum, params, lsf in zip(spectrumList, parameters, lsfList):
+        for ff, spectrum, params in zip(fiberId, spectrumList, parameters):
             try:
-                continuum[fiberId[ii]] = self.fitContinuum(spectrum, refLines, params, lsf) * norm
+                continuum[ff] = self.fitContinuum(
+                    spectrum,
+                    refLines,
+                    params,
+                    lsf.get(ff, None) if lsf is not None else None,
+                )
             except FitContinuumError:
                 continue
         return continuum
@@ -222,23 +226,17 @@ class BaseFitContinuumTask(Task):
             use = good & keep
             fit = self._fitContinuumImpl(spectrum, use, parameters, lsf)
             use &= np.isfinite(fit)
-            if True or lsstDebug.Info(__name__).plot:
+            if lsstDebug.Info(__name__).plot:
                 self.plotFit(spectrum, use, fit)
-
-
-            # XXXXX use variance
-
-            # XXX have _fitContinuumImpl return a Struct with fit and parameters
-            # Return Struct with fit, parameters, goodness of fit and boolean array
-
-
-            diff = spectrum.flux - fit
-            lq, uq = np.percentile(diff[use], [25.0, 75.0])
+            resid = spectrum.flux - fit
+            lq, uq = np.percentile(resid[use], [25.0, 75.0])
             stdev = 0.741 * (uq - lq)
             with np.errstate(invalid="ignore"):
+                diff = resid/np.sqrt(spectrum.variance + stdev**2)
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
+
         fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
-        if True or lsstDebug.Info(__name__).plot:
+        if lsstDebug.Info(__name__).plot:
             self.plotFit(spectrum, use, fit)
         return fit
 
@@ -444,7 +442,7 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
         spectrum: PfsFiberArray,
         good: np.ndarray,
         parameters: Optional[Struct],
-        lsf: Optional[Lsf],
+        lsf: Optional[Lsf] = None,
     ) -> np.ndarray:
         """Implementation of the business part of fitting
 
@@ -578,7 +576,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         spectrum: PfsFiberArray,
         good: np.ndarray,
         parameters: Optional[Struct],
-        lsf: Optional[Lsf],
+        lsf: Optional[Lsf] = None,
     ) -> np.ndarray:
         """Implementation of the business part of fitting
 
