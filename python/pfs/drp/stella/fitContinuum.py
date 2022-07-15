@@ -18,10 +18,10 @@ from .datamodel import PfsFiberArray, PfsFiberArraySet, PfsSimpleSpectrum
 from .interpolate import interpolateFlux
 from .lsf import Lsf, LsfDict
 from .maskLines import maskLines
-from .math import NormalizedPolynomial1D
 from .referenceLine import ReferenceLineSet
 from .SpectrumContinued import Spectrum
 from .SpectrumSetContinued import SpectrumSet
+from .spline import SplineD
 
 __all__ = (
     "FitContinuumError",
@@ -524,7 +524,7 @@ class FitModelContinuumConfig(BaseFitContinuumConfig):
         default=os.path.join(getPackageDir("drp_pfs_data"), "atmosphere", "pfs_atmosphere.fits"),
         doc="Filename of atmospheric transmission model",
     )
-    order = Field(dtype=int, default=10, doc="Order of the multiplicative scaling polynomial in wavelength")
+    numKnots = Field(dtype=int, default=30, doc="Number of knots for multiplicative spline")
     guessPwv = Field(dtype=float, default=1.5, doc="Starting guess for PWV (mm)")
 
 
@@ -608,12 +608,13 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             raise RuntimeError("lsf is required for FitModelContinuumTask")
         transmission = self.transmission.makeInterpolator(parameters.zd, spectrum.wavelength, lsf=lsf)
         numTransmission = 1
-        numPoly = self.config.order + 1
-        numParams = numPoly + numTransmission
+        numParams = self.config.numKnots + numTransmission
         length = spectrum.length
+        knots = np.linspace(0.0, length, self.config.numKnots)
         indices = np.arange(length, dtype=float)
         flux = spectrum.flux
-        invError = 1.0 / np.sqrt(spectrum.variance)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            invError = 1.0 / np.sqrt(spectrum.variance)
 
         # Interpolate model to match spectrum wavelength sampling
         model = interpolateFlux(self.model.wavelength, self.model.flux, spectrum.wavelength, fill=np.nan)
@@ -623,11 +624,13 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             raise FitContinuumError("No good points")
 
         # Get initial guess
+        pwvIndex = -1  # Index of PWV
         guess = np.zeros(numParams, dtype=float)
-        guess[-2] = np.median((model / flux)[select])  # Constant term
-        guess[-1] = self.config.guessPwv  # PWV
-        scale = np.full_like(guess, 0.1)
-        scale[-1] = 0.5  # PWV
+        guess[:pwvIndex] = np.median((flux / model / transmission(self.config.guessPwv))[select])
+        guess[pwvIndex] = self.config.guessPwv  # PWV
+        scale = np.full_like(guess, 1.0)
+        scale[:pwvIndex] = 0.1*guess[:pwvIndex]
+        scale[pwvIndex] = 0.1
 
         # Define model
         def function(params: np.ndarray) -> np.ndarray:
@@ -643,10 +646,10 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             flux : `np.ndarray`
                 Flux from the model.
             """
-            poly = NormalizedPolynomial1D(params[:-1], 0.0, length)
+            values = params[:-1]
             pwv = params[-1]
-            print(pwv)
-            return model * poly(indices) * transmission(pwv)
+            spline = SplineD(knots, values, SplineD.NATURAL)
+            return model * spline(indices) * transmission(pwv)
 
         def residuals(params: np.ndarray) -> np.ndarray:
             """Calculate the error-normalised residuals
