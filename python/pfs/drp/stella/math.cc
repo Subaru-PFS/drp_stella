@@ -25,9 +25,9 @@ void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
     py::class_<Class, std::shared_ptr<Class>, lsst::afw::math::PolynomialFunction1<T>>
             cls(mod, ("NormalizedPolynomial1" + suffix).c_str());
 
-    cls.def(py::init<unsigned int, double, double>(), "order"_a, "min"_a=-1.0, "max"_a=1.0);
     cls.def(py::init<ndarray::Array<double, 1, 1> const &, double, double>(),
             "params"_a, "min"_a=-1.0, "max"_a=1.0);
+    cls.def(py::init<unsigned int, double, double>(), "order"_a, "min"_a=-1.0, "max"_a=1.0);
 
     cls.def("__call__", py::overload_cast<double>(&Class::operator(), py::const_), "x"_a);
     cls.def("__call__",

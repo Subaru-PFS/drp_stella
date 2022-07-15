@@ -29,7 +29,7 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
   public:
     /// Ctor
     ///
-    /// @param order : Polynomial order (identical for x and y)
+    /// @param order : Polynomial order
     /// @param min : Minimum input value
     /// @param max : Maximum input value
     explicit NormalizedPolynomial1(
