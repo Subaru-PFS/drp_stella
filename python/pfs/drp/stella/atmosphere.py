@@ -52,16 +52,16 @@ class AtmosphericTransmissionInterpolator:
         transmission : `np.ndarray`
             Transmission spectrum for the input PWV.
         """
-        if pwv < 0:
+        if pwv < self.pwv[0]:
             return np.full_like(self.transmission[0], np.nan)
         index = min(int(np.searchsorted(self.pwv, pwv)), self.pwv.size - 2)
         if self.pwv[index] == pwv:
             return self.transmission[index]
-        pwvLow: float = self.pwv[index]
-        pwvHigh: float = self.pwv[index + 1]
+        pwvHigh: float = self.pwv[index]
+        pwvLow: float = self.pwv[index - 1]
         highWeight = (pwv - pwvLow) / (pwvHigh - pwvLow)
         lowWeight = 1.0 - highWeight
-        return lowWeight * self.transmission[index] + highWeight * self.transmission[index + 1]
+        return lowWeight * self.transmission[index - 1] + highWeight * self.transmission[index]
 
 
 class AtmosphericTransmission:
@@ -154,11 +154,17 @@ class AtmosphericTransmission:
         interpolator : `AtmosphericTransmissionInterpolator`
             Object that will perform interpolation in PWV.
         """
+        if zd < self.zd[0]:
+            raise RuntimeError(
+                f"Zenith distance {zd} doesn't fall in range spanned by model: {self.zd[0]} to {self.zd[-1]}"
+            )
         wavelength = np.asarray(wavelength)
         kernel = lsf.computeKernel(0.5 * len(wavelength))
         index = min(int(np.searchsorted(self.zd, zd)), self.zd.size - 2)
-        zdLow = self.zd[index]
-        zdHigh = self.zd[index + 1]
+        if self.zd[index] == zd:
+            return AtmosphericTransmissionInterpolator(self.pwv, self.transmission[index, :])
+        zdLow = self.zd[index - 1]
+        zdHigh = self.zd[index]
         highWeight = (zd - zdLow) / (zdHigh - zdLow)
         lowWeight = 1.0 - highWeight
         transmission = np.full((self.pwv.size, wavelength.size), np.nan, dtype=float)

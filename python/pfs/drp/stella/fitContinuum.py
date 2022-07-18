@@ -626,7 +626,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
 
         # Interpolate model to match spectrum wavelength sampling
         model = interpolateFlux(self.model.wavelength, self.model.flux, spectrum.wavelength, fill=np.nan)
-        select = good & np.isfinite(model)
+        select = good & np.isfinite(model) & (model != 0)
 
         if not np.any(select):
             raise FitContinuumError("No good points")
@@ -634,10 +634,11 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         # Get initial guess
         pwvIndex = -1  # Index of PWV
         guess = np.zeros(numParams, dtype=float)
-        guess[:pwvIndex] = np.median((flux / model / transmission(self.config.guessPwv))[select])
+        with np.errstate(divide="ignore", invalid="ignore"):  # Model can be zero; we catch it after the math
+            guess[:pwvIndex] = np.median((flux / model / transmission(self.config.guessPwv))[select])
         guess[pwvIndex] = self.config.guessPwv  # PWV
         scale = np.full_like(guess, 1.0)
-        scale[:pwvIndex] = 0.1*guess[:pwvIndex]
+        scale[:pwvIndex] = 0.1*np.abs(guess[:pwvIndex])
         scale[pwvIndex] = 0.1
 
         # Define model
@@ -672,7 +673,8 @@ class FitModelContinuumTask(BaseFitContinuumTask):
             residuals : `np.ndarray`
                 Residuals from the fit, normalised by the errors.
             """
-            return ((flux - function(params)) * invError)[select]
+            with np.errstate(invalid="ignore"):
+                return ((flux - function(params)) * invError)[select]
 
         # Non-linear least-squares fit
         result = least_squares(residuals, guess, x_scale=scale, method="lm")

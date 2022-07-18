@@ -271,6 +271,9 @@ class FiberTraceSet:  # noqa: F811 (redefinition)
             if flux is not None and ft.fiberId not in flux:
                 # Flux must be zero
                 continue
-            ft.constructImage(image, flux[ft.fiberId]/ft.calculateNorm() if flux is not None else None)
+            ft.constructImage(
+                image,
+                (flux[ft.fiberId]/ft.calculateNorm()).astype(image.array.dtype) if flux is not None else None,
+            )
 
         return image
