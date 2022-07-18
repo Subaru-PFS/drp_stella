@@ -307,7 +307,8 @@ class BaseFitContinuumTask(Task):
         """
         raise NotImplementedError("Subclasses must implement")
 
-    def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
+    def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None, visitInfo=None,
+                          lsf=None):
         """Subtract continuum from an image
 
         Parameters
@@ -320,6 +321,10 @@ class BaseFitContinuumTask(Task):
             Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
+        visitInfo : `lsst.afw.image.VisitInfo`, optional
+            Structured visit metadata.
+        lsf : `pfs.drp.stella.Lsf`, optional
+            Line-spread function.
 
         Returns
         -------
@@ -335,7 +340,7 @@ class BaseFitContinuumTask(Task):
         if detectorMap is not None:
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
-        continua = self.run(spectra, lines)
+        continua = self.run(spectra, lines, visitInfo, lsf)
         continuumImage = fiberTraces.makeImage(maskedImage.getBBox(), continua)
         maskedImage -= continuumImage
         bad = ~np.isfinite(continuumImage.array)
@@ -343,7 +348,8 @@ class BaseFitContinuumTask(Task):
         return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
 
     @contextmanager
-    def subtractionContext(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
+    def subtractionContext(self, maskedImage, fiberTraces, detectorMap=None, lines=None, visitInfo=None,
+                           lsf=None):
         """Context manager for temporarily subtracting continuum
 
         Parameters
@@ -356,6 +362,10 @@ class BaseFitContinuumTask(Task):
             Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
+        visitInfo : `lsst.afw.image.VisitInfo`, optional
+            Structured visit metadata.
+        lsf : `pfs.drp.stella.Lsf`, optional
+            Line-spread function.
 
         Yields
         ------
@@ -366,7 +376,7 @@ class BaseFitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
-        results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
+        results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines, visitInfo, lsf)
         try:
             yield results
         finally:

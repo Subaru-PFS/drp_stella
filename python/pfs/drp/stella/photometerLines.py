@@ -62,7 +62,7 @@ class PhotometerLinesTask(Task):
         self.makeSubtask("continuum")
         self.makeSubtask("apertureCorrection")
 
-    def run(self, exposure, referenceLines, detectorMap, pfsConfig, fiberTraces=None) -> Struct:
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig, fiberTraces=None, lsf=None) -> Struct:
         """Photometer lines on an arc
 
         We perform a simultaneous fit of PSFs to each of the lines.
@@ -83,6 +83,8 @@ class PhotometerLinesTask(Task):
         fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
             Position and profile of fiber traces. Required for continuum
             subtraction and/or flux normalisation.
+        lsf : `pfs.drp.stella.LsfDict`, optional
+            Line-spread functions, used for some continuum subtraction schemes.
 
         Returns
         -------
@@ -95,7 +97,7 @@ class PhotometerLinesTask(Task):
             if fiberTraces is None:
                 raise RuntimeError("No fiberTraces provided for continuum subtraction")
             with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, detectorMap,
-                                                   referenceLines):
+                                                   referenceLines, exposure.visitInfo, lsf):
                 phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
         else:
             phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)

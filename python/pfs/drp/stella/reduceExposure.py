@@ -303,17 +303,15 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doExtractSpectra:
             originalList = []
             spectraList = []
-            for exposure, fiberTraces, detectorMap, skyImage, sensorRef in zip(exposureList, fiberTraceList,
-                                                                               detectorMapList, skyImageList,
-                                                                               sensorRefList):
-                self.log.info("Extracting spectra from %(visit)d %(arm)s%(spectrograph)d" % sensorRef.dataId)
+            for data in zip(exposureList, fiberTraceList, detectorMapList, skyImageList, lsfList):
+                exposure, fiberTraces, detectorMap, skyImage, lsf = data
                 maskedImage = exposure.maskedImage
                 fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
                 spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                 originalList.append(spectra)
 
                 if self.config.doSubtractContinuum:
-                    continua = self.fitContinuum.run(spectra)
+                    continua = self.fitContinuum.run(spectra, visitInfo=exposure.visitInfo, lsf=lsf)
                     maskedImage -= fiberTraces.makeImage(exposure.getBBox(), continua)
                     spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                     # Set sky flux from continuum
@@ -549,7 +547,9 @@ class ReduceExposureTask(CmdLineTask):
         apCorr = None
         if self.config.doMeasureLines:
             notTrace = lines.description != "Trace"
-            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+            phot = self.photometerLines.run(
+                exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces, lsf
+            )
             apCorr = phot.apCorr
 
             # Copy results to the one list of lines that we return
