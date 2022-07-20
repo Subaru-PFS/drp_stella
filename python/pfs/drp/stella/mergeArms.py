@@ -26,7 +26,7 @@ from .utils import getPfsVersions
 from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
-from .fitContinuum import FitSplineContinuumTask
+from .fitContinuum import BaseFitContinuumTask, FitSplineContinuumTask
 from .subtractSky1d import subtractSky1d
 
 
@@ -140,7 +140,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
-    fitContinuum: FitContinuumTask
+    fitContinuum: BaseFitContinuumTask
 
     @classmethod
     def _makeArgumentParser(cls):
@@ -356,7 +356,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             # ends).
             spectrum.flux = norm[ii]
             spectrum.mask.array[0] = 0
-            continuum = self.fitContinuum.fitContinuum(spectrum)
+            continuum = self.fitContinuum.runSingle(spectrum)
 
             if self.debugInfo.plotNorm and ii == (self.debugInfo.fiberIndex or 307):
                 import matplotlib.pyplot as plt
