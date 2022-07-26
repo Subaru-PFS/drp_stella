@@ -1,6 +1,5 @@
 import os
 from collections import defaultdict, Counter
-from dataclasses import dataclass
 
 import numpy as np
 import scipy.optimize
@@ -12,55 +11,56 @@ from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
+from pfs.datamodel.pfsTable import PfsTable
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
-from .arcLine import ArcLine, ArcLineSet
+from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
+from .table import Table
 
 
 __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
 
 
-@dataclass
-class ArcLineResiduals(ArcLine):
-    """Residuals in arc line positions
-
-    Analagous to `ArcLine`, this stores the position measurement of a single
-    arc line, but the ``x,y`` positions are relative to a detectorMap. The
-    original ``x,y`` positions are stored as ``xOrig,yOrig``.
+class LineResiduals(PfsTable):
+    """Table of residuals of line measurements
 
     Parameters
     ----------
-    fiberId : `int`
-        Fiber identifier.
-    wavelength : `float`
-        Reference line wavelength (nm).
-    x, y : `float`
-        Differential position relative to an external detectorMap.
-    xErr, yErr : `float`
-        Error in measured position.
-    intensity : `float`
-        Measured intensity (arbitrary units).
-    intensityErr : `float`
-        Error in measured intensity (arbitrary units).
-    flag : `bool`
-        Measurement flag (``True`` indicates an error in measurement).
-    status : `pfs.drp.stella.ReferenceLine.Status`
+    fiberId : `np.array` of `int`
+        Fiber identifiers.
+    wavelength : `np.array` of `float`
+        Reference line wavelengths (nm).
+    x, y : `np.array` of `float`
+        Differential positions relative to an external detectorMap.
+    xErr, yErr : `np.array` of `float`
+        Errors in measured positions.
+    flux : `np.array` of `float`
+        Measured fluxes (arbitrary units).
+    fluxErr : `np.array` of `float`
+        Errors in measured fluxes (arbitrary units).
+    flag : `np.array` of `bool`
+        Measurement flags (``True`` indicates an error in measurement).
+    status : `np.array` of `int`
         Flags whether the lines are fitted, clipped or reserved etc.
-    description : `str`
-        Line description (e.g., ionic species)
-    xOrig, yOrig : `float`
-        Measured position.
-    xBase, yBase : `float`
+    description : `np.array` of `str`
+        Line descriptions (e.g., ionic species)
+    xOrig, yOrig : `np.array` of `float`
+        Original measured positions (pixels).
+    xBase, yBase : `np.array` of `float`
         Expected position from base detectorMap.
     """
-    xOrig: float
-    yOrig: float
-    xBase: float
-    yBase: float
+    schema = dict(
+        **ArcLineSet.DamdClass.schema,
+        xOrig=np.float64,
+        yOrig=np.float64,
+        xBase=np.float64,
+        yBase=np.float64,
+    )
+    fitsExtName = "RESID"
 
 
-class ArcLineResidualsSet(ArcLineSet):
+class ArcLineResidualsSet(Table):
     """A list of `ArcLineResiduals`
 
     Analagous to `ArcLineSet`, this stores the position measurement of a list
@@ -72,7 +72,7 @@ class ArcLineResidualsSet(ArcLineSet):
     data : `pandas.DataClass`
         Table data.
     """
-    RowClass = ArcLineResiduals
+    DamdClass = LineResiduals
 
 
 def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.0), maxSoften=1.0, **kwargs):
@@ -256,7 +256,7 @@ class FitDistortedDetectorMapConfig(Config):
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
     minSignalToNoise = Field(dtype=float, default=20.0,
-                             doc="Minimum (intensity) signal-to-noise ratio of lines to fit")
+                             doc="Minimum (flux) signal-to-noise ratio of lines to fit")
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
@@ -409,10 +409,10 @@ class FitDistortedDetectorMapTask(Task):
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
         self.log.debug("%d good lines after finite positions", good.sum())
         if self.config.minSignalToNoise > 0:
-            good &= np.isfinite(lines.intensity) & np.isfinite(lines.intensityErr)
+            good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities", good.sum())
             with np.errstate(invalid="ignore", divide="ignore"):
-                good &= (lines.intensity/lines.intensityErr) > self.config.minSignalToNoise
+                good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
             self.log.debug("%d good lines after signal-to-noise", good.sum())
         return good
 
@@ -612,8 +612,8 @@ class FitDistortedDetectorMapTask(Task):
             yBase=points[:, 1],
             xErr=lines.xErr,
             yErr=lines.yErr,
-            intensity=lines.intensity,
-            intensityErr=lines.intensityErr,
+            flux=lines.flux,
+            fluxErr=lines.fluxErr,
             flag=lines.flag,
             status=lines.status,
             description=lines.description,

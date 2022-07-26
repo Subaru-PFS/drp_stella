@@ -32,14 +32,14 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
             Do aperture correction?
         """
         description = "Simulated"
-        intensity = 123456.789
+        flux = 123456.789
         fwhm = 3.21
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
         synthConfig.fwhm = fwhm
         synthConfig.height = 432
         rng = np.random.RandomState(12345)
         arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, numLines=numLines,
-                                                        fwhm=fwhm, flux=intensity, rng=rng,
+                                                        fwhm=fwhm, flux=flux, rng=rng,
                                                         addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
         pfsConfig = pfs.drp.stella.synthetic.makeSyntheticPfsConfig(synthConfig, 12345, 67890, rng)
@@ -49,7 +49,14 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         rng.shuffle(arc.lines)  # Ensure we get some cases of multiple blends
         for yy in arc.lines:
             wavelength = detMap.getWavelength(fiberId, yy)
-            referenceLines.append(ReferenceLine(description, wavelength, intensity, ReferenceLineStatus.GOOD))
+            referenceLines.append(
+                ReferenceLine(
+                    description=description,
+                    wavelength=wavelength,
+                    intensity=flux,
+                    status=ReferenceLineStatus.GOOD,
+                )
+            )
         referenceLines = ReferenceLineSet.fromRows(referenceLines)
 
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(arc.image))
@@ -96,13 +103,13 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.all(np.isnan(lines.xErr)))
         self.assertTrue(np.all(np.isnan(lines.yErr)))
         sigma = fwhmToSigma(fwhm)
-        expectIntensity = intensity*(1 - np.exp(-0.5*radius**2/sigma**2)) if doApCorr else intensity
-        meanIntensity = lines.intensity.mean()
-        # Not sure why I'm not getting exactly the expected intensity in the case of aperture corrections.
+        expectFlux = flux*(1 - np.exp(-0.5*radius**2/sigma**2)) if doApCorr else flux
+        meanFlux = lines.flux.mean()
+        # Not sure why I'm not getting exactly the expected flux in the case of aperture corrections.
         # Maybe my math is wrong, or there's some other effect I'm not considering.
-        self.assertFloatsAlmostEqual(meanIntensity, expectIntensity, rtol=rtol)
-        self.assertFloatsAlmostEqual(lines.intensity, meanIntensity, rtol=2.0e-3)
-        self.assertTrue(np.all(lines.intensityErr > 0))
+        self.assertFloatsAlmostEqual(meanFlux, expectFlux, rtol=rtol)
+        self.assertFloatsAlmostEqual(lines.flux, meanFlux, rtol=2.0e-3)
+        self.assertTrue(np.all(lines.fluxErr > 0))
         self.assertFloatsEqual(lines.flag, 0)
         self.assertFloatsEqual(lines.status, int(ReferenceLineStatus.GOOD))
         self.assertListEqual(lines.description.tolist(), [description]*len(lines))

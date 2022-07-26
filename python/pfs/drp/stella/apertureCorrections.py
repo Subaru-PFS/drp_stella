@@ -169,8 +169,8 @@ class MeasureApertureCorrectionsTask(Task):
             source.set(self.description, ll.description)
             source.set(self.status, ll.status)
             source.set(self.center, Point2D(xx, yy))
-            source.set(self.psfFlux, ll.intensity)
-            source.set(self.psfFluxErr, ll.intensityErr)
+            source.set(self.psfFlux, ll.flux)
+            source.set(self.psfFluxErr, ll.fluxErr)
 
         return catalog
 
@@ -254,7 +254,7 @@ class MeasureApertureCorrectionsTask(Task):
         description = [row[self.description] for row in catalog]
 
         lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
-                                       xErr=empty, yErr=empty, intensity=apCorr, intensityErr=apCorrErr,
+                                       xErr=empty, yErr=empty, flux=apCorr, fluxErr=apCorrErr,
                                        flag=flag, status=status, description=description)
         return lines.asPfsFiberArraySet()
 
@@ -275,13 +275,13 @@ class MeasureApertureCorrectionsTask(Task):
             select = lines.fiberId == fiberId
             wavelength = lines.wavelength[select]
             result = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
-                                                 lines.intensity[select], lines.intensityErr[select])
+                                                 lines.flux[select], lines.fluxErr[select])
             lookup[fiberId] = {wl: (flux, fluxErr) for
                                wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
 
         values = np.array([lookup[ll.fiberId][ll.wavelength] for ll in lines])
-        lines.intensity[:] = values[:, 0]
-        lines.intensityErr[:] = values[:, 1]
+        lines.flux[:] = values[:, 0]
+        lines.fluxErr[:] = values[:, 1]
 
 
 def calculateApertureCorrection(apCorr: FocalPlaneFunction, fiberId: int, wavelength, pfsConfig: PfsConfig,

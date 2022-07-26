@@ -191,7 +191,7 @@ class SubtractSky2dTask(Task):
         skyFibers = self.selectFibers.run(pfsConfig).fiberId
         if skyFibers is None or len(skyFibers) == 0:
             raise RuntimeError('No sky fibers found.')
-        intensities = defaultdict(list)  # List of flux for each line, by wavelength
+        fluxes = defaultdict(list)  # List of flux for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
         for lines in linesList:
@@ -200,16 +200,16 @@ class SubtractSky2dTask(Task):
             for wl in set(lines.wavelength[select]):
                 choose = select & (lines.wavelength == wl) & ~lines.flag
                 lines.status[choose] |= ReferenceLineStatus.SKYSUB_USED
-                inten = lines.intensity[choose]
-                if np.isfinite(inten).any():
-                    intensities[wl] = inten
+                ff = lines.flux[choose]
+                if np.isfinite(ff).any():
+                    fluxes[wl] = ff
 
-        self.log.debug("Line flux intensities: %s", intensities)
+        self.log.debug("Line fluxes: %s", fluxes)
 
-        # Combine the line intensities into a model
+        # Combine the line fluxes into a model
         model = {}
-        for wl, inten in intensities.items():
-            model[wl] = np.nanmean(inten)  # Ignore flux errors to avoid bias
+        for wl, ff in fluxes.items():
+            model[wl] = np.nanmean(ff)  # Ignore flux errors to avoid bias
 
         self.log.debug("Line flux model: %s", model)
 

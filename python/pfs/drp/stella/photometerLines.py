@@ -146,7 +146,7 @@ class PhotometerLinesTask(Task):
             status = [lookup[wl].status for wl in wavelength]
             description = [lookup[wl].description for wl in wavelength]
             lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
-                                           xErr=nan, yErr=nan, intensity=nan, intensityErr=nan,
+                                           xErr=nan, yErr=nan, flux=nan, fluxErr=nan,
                                            flag=flags, status=status, description=description)
         else:
             fiberId = lines.fiberId
@@ -161,8 +161,8 @@ class PhotometerLinesTask(Task):
 
         assert np.all(catalog["fiberId"] == lines.fiberId[select])
         assert np.all(catalog["wavelength"] == lines.wavelength[select])
-        lines.intensity[select] = catalog["flux"]
-        lines.intensityErr[select] = catalog["fluxErr"]
+        lines.flux[select] = catalog["flux"]
+        lines.fluxErr[select] = catalog["fluxErr"]
         lines.flag[~select] = True
         lines.flag[select] = catalog["flag"] & np.isfinite(catalog["flux"]) & np.isfinite(catalog["fluxErr"])
 
@@ -219,8 +219,8 @@ class PhotometerLinesTask(Task):
         norm = [interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for
                 ll in lines]
         with np.errstate(divide="ignore", invalid="ignore"):
-            lines.intensity[:] /= norm
-            lines.intensityErr[:] /= norm
+            lines.flux[:] /= norm
+            lines.fluxErr[:] /= norm
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image
@@ -239,18 +239,18 @@ class PhotometerLinesTask(Task):
             Top-end configuration, for specifying fiber positions.
         """
         if apCorr is not None:
-            psfFlux = np.full_like(lines.intensity, np.nan, dtype=float)
+            psfFlux = np.full_like(lines.flux, np.nan, dtype=float)
             for fiberId in set(lines.fiberId):
                 select = lines.fiberId == fiberId
                 wavelength = lines.wavelength[select]
                 psfFlux[select] = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
-                                                              lines.intensity[select], invert=True).flux
+                                                              lines.flux[select], invert=True).flux
         imageBox = exposure.getBBox()
         psf = exposure.getPsf()
         for ii, ll in enumerate(lines):
             if ll.flag:
                 continue
-            flux = ll.intensity if apCorr is None else psfFlux[ii]
+            flux = ll.flux if apCorr is None else psfFlux[ii]
             if not np.isfinite(flux):
                 continue
 

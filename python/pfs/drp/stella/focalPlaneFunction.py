@@ -904,7 +904,7 @@ class BlockedOversampledSpline(FocalPlaneFunction):
         wavelength = [sp.wavelength for sp in self.splines.values()]
         variance = [sp.variance for sp in self.splines.values()]
         table = astropy.io.fits.BinTableHDU.from_columns(
-            [astropy.io.fits.Column("fiberId", format="D", array=fiberId),
+            [astropy.io.fits.Column("fiberId", format="F", array=fiberId),
              astropy.io.fits.Column("splineOrder", format="J", array=splineOrder),
              astropy.io.fits.Column("defaultValue", format="D", array=defaultValue),
              astropy.io.fits.Column("knots", format="PD()", array=knots),
