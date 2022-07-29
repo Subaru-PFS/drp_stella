@@ -320,8 +320,8 @@ class CentroidLinesTask(Task):
             y=catalog[self.centroidName + "_y"],
             xErr=catalog[self.centroidName + "_xErr"],
             yErr=catalog[self.centroidName + "_yErr"],
-            intensity=catalog[self.photometryName + "_instFlux"],
-            intensityErr=catalog[self.photometryName + "_instFluxErr"],
+            flux=catalog[self.photometryName + "_instFlux"],
+            fluxErr=catalog[self.photometryName + "_instFluxErr"],
             flag=(catalog[self.centroidName + "_flag"] | catalog[self.photometryName + "_flag"] |
                   catalog[self.ignore]),
             status=catalog[self.status],

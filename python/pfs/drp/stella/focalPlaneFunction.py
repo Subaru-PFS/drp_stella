@@ -1,21 +1,32 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional, Type
 
 import numpy as np
-from scipy.interpolate import LSQUnivariateSpline, InterpolatedUnivariateSpline, BSpline, interp1d
-from scipy.stats import binned_statistic
-import astropy.io.fits
-
-from lsst.pipe.base import Struct
-
-from pfs.datamodel import PfsConfig
+from pfs.datamodel import (
+    PfsBlockedOversampledSpline,
+    PfsConfig,
+    PfsConstantFocalPlaneFunction,
+    PfsFocalPlaneFunction,
+    PfsOversampledSpline,
+    PfsPolynomialPerFiber,
+)
+from pfs.datamodel.utils import subclasses
 from pfs.drp.stella.datamodel import PfsFiberArraySet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateVariance, interpolateMask
-from .math import NormalizedPolynomial1D, solveLeastSquaresDesign, calculateMedian
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask, interpolateVariance
+from scipy.interpolate import BSpline, InterpolatedUnivariateSpline, LSQUnivariateSpline, interp1d
+from scipy.stats import binned_statistic
+
+from .math import NormalizedPolynomial1D, calculateMedian, solveLeastSquaresDesign
+from .struct import Struct
 from .utils.math import robustRms
 
-__all__ = ("FocalPlaneFunction", "ConstantFocalPlaneFunction", "OversampledSpline",
-           "BlockedOversampledSpline", "PolynomialPerFiber")
+__all__ = (
+    "FocalPlaneFunction",
+    "ConstantFocalPlaneFunction",
+    "OversampledSpline",
+    "BlockedOversampledSpline",
+    "PolynomialPerFiber",
+)
 
 
 class FocalPlaneFunction(ABC):
@@ -24,14 +35,44 @@ class FocalPlaneFunction(ABC):
     A model of some spectrum as a function of position on the focal plane.
 
     This is an abstract base class. Subclasses need to override:
+    * ``DamdClass`` class variable: subclass of
+      `pfs.datamodel.PfsFocalPlaneFunction` that performs the I/O.
     * ``fitArrays`` class method: fit the function
     * ``evaluate`` method: evaluate the spectrum at a position.
-    * ``toFits`` method: write to a FITS file.
-    * ``fromFits`` class method: construct from a FITS file.
     """
+
+    DamdClass: Type[PfsFocalPlaneFunction]
+
+    def __init__(self, *args, datamodel: Optional[PfsFocalPlaneFunction] = None, **kwargs):
+        if datamodel is None:
+            datamodel = self.DamdClass(*args, **kwargs)
+        else:
+            assert not args and not kwargs, "Provide only args,kwargs or datamodel; not both"
+        super().__setattr__("_damdObj", datamodel)
+
+    def __getattr__(self, name: str) -> Any:
+        """Get attribute
+
+        This forwards attribute lookups to the datamodel representation. The
+        datamodel representation is holding the data that we care about, so this
+        allows us to access it.
+        """
+        damdObj = self._damdObj
+        if hasattr(damdObj, name):
+            return getattr(damdObj, name)
+        return super().__getattribute__(name)
+
     @classmethod
-    def fit(cls, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, maskFlags: List[str],
-            *, rejected=None, robust: bool = False, **kwargs) -> "FocalPlaneFunction":
+    def fit(
+        cls,
+        spectra: PfsFiberArraySet,
+        pfsConfig: PfsConfig,
+        maskFlags: List[str],
+        *,
+        rejected: bool = None,
+        robust: bool = False,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
         """Fit a spectral function on the focal plane to spectra
 
         This method is intended as a convenience for users.
@@ -62,27 +103,38 @@ class FocalPlaneFunction(ABC):
         """
         if len(spectra) != len(pfsConfig):
             raise RuntimeError(
-                f"Length mismatch between spectra ({len(spectra)}) and pfsConfig ({len(pfsConfig)})")
+                f"Length mismatch between spectra ({len(spectra)}) and pfsConfig ({len(pfsConfig)})"
+            )
         if len(spectra) == 0:
             raise RuntimeError("No input spectra provided")
         if np.all(spectra.fiberId != pfsConfig.fiberId):
             raise RuntimeError("fiberId mismatch between spectra and pfsConfig")
 
         with np.errstate(invalid="ignore", divide="ignore"):
-            values = spectra.flux/spectra.norm
-            variance = spectra.variance/spectra.norm**2
+            values = spectra.flux / spectra.norm
+            variance = spectra.variance / spectra.norm**2
         masks = spectra.mask & spectra.flags.get(*maskFlags) != 0
         masks |= ~np.isfinite(values) | ~np.isfinite(variance)
         if rejected is not None:
             masks |= rejected
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
-        return cls.fitArrays(spectra.fiberId, spectra.wavelength, values, masks, variance,
-                             positions, robust=robust, **kwargs)
+        return cls.fitArrays(
+            spectra.fiberId, spectra.wavelength, values, masks, variance, positions, robust=robust, **kwargs
+        )
 
     @classmethod
     @abstractmethod
-    def fitArrays(cls, fiberId, wavelengths, values, masks, variances, positions, robust: bool = False,
-                  **kwargs) -> "FocalPlaneFunction":
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
         """Fit a spectral function on the focal plane to arrays
 
         This method is intended as a convenience for developers.
@@ -116,7 +168,7 @@ class FocalPlaneFunction(ABC):
         """
         raise NotImplementedError("Subclasses must override")
 
-    def __call__(self, wavelengths, pfsConfig: PfsConfig):
+    def __call__(self, wavelengths: np.ndarray, pfsConfig: PfsConfig) -> Struct:
         """Evaluate the function for the provided fiberIds
 
         This method is intended as a convenience for users.
@@ -126,8 +178,8 @@ class FocalPlaneFunction(ABC):
 
         Parameters
         ----------
-        wavelengths : iterable (length ``N``) of `numpy.ndarray` of shape ``(M,)``
-            Wavelength arrays.
+        wavelengths : `numpy.ndarray` of shape ``(M,)`` or ``(N, M)``
+            Wavelength array.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration. This should contain only the fibers of
             interest.
@@ -144,7 +196,7 @@ class FocalPlaneFunction(ABC):
         isSingle = False  # Only a single fiber?
         if len(wavelengths.shape) == 1:
             isSingle = True
-            wavelengths = np.array([wavelengths]*len(pfsConfig))
+            wavelengths = np.array([wavelengths] * len(pfsConfig))
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
         result = self.evaluate(wavelengths, pfsConfig.fiberId, positions)
 
@@ -156,10 +208,11 @@ class FocalPlaneFunction(ABC):
             result.values = result.values[0]
             result.masks = result.masks[0]
             result.variances = result.variances[0]
+
         return result
 
     @abstractmethod
-    def evaluate(self, wavelengths, fiberIds, positions):
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
         This method is intended as a convenience for developers.
@@ -200,14 +253,11 @@ class FocalPlaneFunction(ABC):
         self : subclass of `FocalPlaneFunction`
             Function read from FITS file.
         """
-        subclasses = {ss.__name__: ss for ss in cls.__subclasses__()}  # ignores sub-sub-classes
-        with astropy.io.fits.open(filename) as fits:
-            name = fits[0].header["pfs_focalPlaneFunction_class"]
-            if name not in subclasses:
-                raise RuntimeError(f"Unrecognised pfs_focalPlaneFunction_class value: {name}")
-            return subclasses[name].fromFits(fits)
+        subs = {ss.DamdClass: ss for ss in subclasses(cls)}
+        func = PfsFocalPlaneFunction.readFits(filename)
+        return subs[type(func)](datamodel=func)
 
-    def writeFits(self, filename: str) -> None:
+    def writeFits(self, filename: str):
         """Write to FITS file
 
         Parameters
@@ -215,42 +265,7 @@ class FocalPlaneFunction(ABC):
         filename : `str`
             Name of file to which to write.
         """
-        header = astropy.io.fits.Header()
-        header["HIERARCH pfs_focalPlaneFunction_class"] = type(self).__name__
-        fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(header=header)])
-        self.toFits(fits)
-        with open(filename, "wb") as fd:
-            fits.writeto(fd)
-
-    @classmethod
-    @abstractmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "FocalPlaneFunction":
-        """Construct from FITS file
-
-        This abstract class method must be overridden by subclasses.
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file from which to read.
-
-        Returns
-        -------
-        self : cls
-            Constructed focal plane function.
-        """
-        raise NotImplementedError("Subclasses must override")
-
-    @abstractmethod
-    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
-        """Write to FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file to which to write.
-        """
-        raise NotImplementedError("Subclasses must override")
+        self._damdObj.writeFits(filename)
 
 
 class ConstantFocalPlaneFunction(FocalPlaneFunction):
@@ -271,15 +286,21 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
     variance : `numpy.ndarray` of `float`, shape ``(N,)``
         Variance in value at each wavelength.
     """
-    def __init__(self, wavelength, value, mask, variance):
-        self.wavelength = wavelength
-        self.value = value
-        self.mask = mask
-        self.variance = variance
+
+    DamdClass = PfsConstantFocalPlaneFunction
 
     @classmethod
-    def fitArrays(cls, fiberId, wavelength, values, masks, variances, positions, robust: bool = False,
-                  **kwargs) -> "ConstantFocalPlaneFunction":
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        **kwargs,
+    ) -> "ConstantFocalPlaneFunction":
         """Fit a spectral function on the focal plane to arrays
 
         This implementation is something of a placeholder, as no attention is
@@ -314,7 +335,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         fit : `FocalPlaneFunction`
             Function fit to input arrays.
         """
-        if not np.all(np.equal.reduce(wavelength, axis=0)):
+        if not np.all(np.equal.reduce(wavelengths, axis=0)):
             raise RuntimeError("Wavelength arrays not identical")
 
         if robust:
@@ -324,21 +345,21 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             medianVariances = np.array([calculateMedian(vv, mm) for vv, mm in zip(variances.T, masks.T)])
 
             return ConstantFocalPlaneFunction(
-                wavelength[0], medianValues, np.logical_and.reduce(masks, axis=0), medianVariances
+                wavelengths[0], medianValues, np.logical_and.reduce(masks, axis=0), medianVariances
             )
 
         with np.errstate(invalid="ignore", divide="ignore"):
-            weight = 1.0/variances
+            weight = 1.0 / variances
             good = ~masks & (variances > 0)
             weight[~good] = 0.0
 
             sumWeights = np.sum(weight, axis=0)
-            coaddValues = np.sum(np.where(good, values, 0.0)*weight, axis=0)/sumWeights
-            coaddVariance = np.where(sumWeights > 0, 1.0/sumWeights, np.inf)
+            coaddValues = np.sum(np.where(good, values, 0.0) * weight, axis=0) / sumWeights
+            coaddVariance = np.where(sumWeights > 0, 1.0 / sumWeights, np.inf)
             coaddMask = sumWeights <= 0
-        return ConstantFocalPlaneFunction(wavelength[0], coaddValues, coaddMask, coaddVariance)
+        return ConstantFocalPlaneFunction(wavelengths[0], coaddValues, coaddMask, coaddVariance)
 
-    def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
         We interpolate the variance without doing any of the usual error
@@ -367,49 +388,25 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         """
         assert len(wavelengths) == len(positions)
 
-        doResample = [wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for
-                      wl in wavelengths]
+        doResample = [
+            wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for wl in wavelengths
+        ]
 
-        values = [interpolateFlux(self.wavelength, self.value, wl, jacobian=False) if resamp else self.value
-                  for wl, resamp in zip(wavelengths, doResample)]
-        masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask for
-                 wl, resamp in zip(wavelengths, doResample)]
-        variances = [interpolateVariance(self.wavelength, self.variance, wl, jacobian=False) if
-                     resamp else self.variance for wl, resamp in zip(wavelengths, doResample)]
+        values = [
+            interpolateFlux(self.wavelength, self.value, wl, jacobian=False) if resamp else self.value
+            for wl, resamp in zip(wavelengths, doResample)
+        ]
+        masks = [
+            interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask
+            for wl, resamp in zip(wavelengths, doResample)
+        ]
+        variances = [
+            interpolateVariance(self.wavelength, self.variance, wl, jacobian=False)
+            if resamp
+            else self.variance
+            for wl, resamp in zip(wavelengths, doResample)
+        ]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
-
-    @classmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "ConstantFocalPlaneFunction":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file from which to read.
-
-        Returns
-        -------
-        self : cls
-            Constructed focal plane function.
-        """
-        wavelength = fits["WAVELENGTH"].data
-        value = fits["VALUE"].data
-        mask = fits["MASK"].data.astype(bool)
-        variance = fits["VARIANCE"].data
-        return cls(wavelength, value, mask, variance)
-
-    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
-        """Write to FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file to which to write.
-        """
-        fits.append(astropy.io.fits.ImageHDU(self.wavelength, name="WAVELENGTH"))
-        fits.append(astropy.io.fits.ImageHDU(self.value, name="VALUE"))
-        fits.append(astropy.io.fits.ImageHDU(self.mask.astype(np.uint8), name="MASK"))
-        fits.append(astropy.io.fits.ImageHDU(self.variance, name="VARIANCE"))
 
 
 class OversampledSpline(FocalPlaneFunction):
@@ -428,20 +425,27 @@ class OversampledSpline(FocalPlaneFunction):
         Wavelength array for variance estimation.
     variance : `numpy.ndarray` of `float`, shape ``(N,)``
         Variance array.
+    defaultValue : `float`
+        Default value.
     """
-    def __init__(self, knots, coeffs, splineOrder: int, wavelength, variance, defaultValue: float):
-        self.knots = knots
-        self.coeffs = coeffs
-        self.splineOrder = splineOrder
-        self.wavelength = wavelength
-        self.variance = variance
-        self.defaultValue = defaultValue
-        self._values = BSpline(knots, coeffs, splineOrder, extrapolate=False)
-        self._variance = interp1d(wavelength, variance, kind="linear", bounds_error=False,
-                                  fill_value=np.nan, copy=True, assume_sorted=True)
+
+    DamdClass = PfsOversampledSpline
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._values = BSpline(self.knots, self.coeffs, self.splineOrder, extrapolate=False)
+        self._variance = interp1d(
+            self.wavelength,
+            self.variance,
+            kind="linear",
+            bounds_error=False,
+            fill_value=np.nan,
+            copy=True,
+            assume_sorted=True,
+        )
 
     @classmethod
-    def getKnots(cls, data, numKnots, order=3):
+    def getKnots(cls, data: np.ndarray, numKnots: int, order: int = 3) -> np.ndarray:
         """Generate a suitable set of interior knots
 
         Choosing a suitable set of interior knots seems to be something of an
@@ -483,7 +487,7 @@ class OversampledSpline(FocalPlaneFunction):
         # trim the knots with no empty points nearby, since they aren't really
         # contributing anything, and can only cause trouble.
         bins = np.zeros(interior.size + 1, dtype=float)
-        bins[1:-1] = 0.5*(interior[:-1] + interior[1:])
+        bins[1:-1] = 0.5 * (interior[:-1] + interior[1:])
         bins[0] = first - np.finfo(float).eps
         bins[-1] = last + np.finfo(float).eps
         counts = np.histogram(data, bins)[0]
@@ -495,15 +499,15 @@ class OversampledSpline(FocalPlaneFunction):
         # It's not an exact encoding of the Schoenberg-Whitney condition as used
         # in ``fpchec``, but when things are well-behaved this seems to satisfy
         # that condition.
-        knots = np.concatenate(([first]*(order + 1), interior, [last]*(order + 1)))
+        knots = np.concatenate(([first] * (order + 1), interior, [last] * (order + 1)))
         counts = np.histogram(data, knots)[0]
         cumsum = np.cumsum(counts)
-        kCount = cumsum[order + 1:] - cumsum[:-(order + 1)]
+        kCount = cumsum[order + 1 :] - cumsum[: -(order + 1)]
         select = kCount >= order
-        return knots[order + 1:-(order + 2)][select[:-(order + 1)]]
+        return knots[order + 1 : -(order + 2)][select[: -(order + 1)]]
 
     @staticmethod
-    def _fpchec(knots, data, order):
+    def _fpchec(knots: np.ndarray, data: np.ndarray, order: int) -> bool:
         """Check that we can fit a least-squares spline
 
         This is a python implementation of the ``fpchec`` function from
@@ -547,7 +551,7 @@ class OversampledSpline(FocalPlaneFunction):
             Result from running scipy's ``fpchec``, translated into a boolean
             indicating whether the inputs pass the gauntlet of conditions.
         """
-        knots = np.concatenate(([data[0]]*(order + 1), knots, [data[-1]]*(order + 1)))
+        knots = np.concatenate(([data[0]] * (order + 1), knots, [data[-1]] * (order + 1)))
 
         numKnots = knots.size
         numData = data.size
@@ -557,8 +561,8 @@ class OversampledSpline(FocalPlaneFunction):
         if order + 1 > nk1 or nk1 > numData:
             print("Condition 1 fails: k+1 <= n-k-1 <= m")
         # Condition 2: the exterior knots are increasing or constant
-        lowKnots = knots[:order + 1]  # Low exterior knots
-        highKnots = knots[-order - 1:]  # High exterior knots
+        lowKnots = knots[: order + 1]  # Low exterior knots
+        highKnots = knots[-order - 1 :]  # High exterior knots
         if np.any(lowKnots[:-1] > lowKnots[1:]) or np.any(highKnots[:-1] > highKnots[1:]):
             print("Condition 2 fails: t(1) <= t(2) <= ... <= t(k+1); t(n-k) <= t(n-k+1) <= ... <= t(n)")
         # Condition 3: the interior knots are strictly increasing
@@ -587,12 +591,24 @@ class OversampledSpline(FocalPlaneFunction):
                     break
 
         from scipy.interpolate.dfitpack import fpchec
+
         return fpchec(data, knots, order) == 0
 
     @classmethod
-    def fitArrays(cls, fiberId, wavelengths, values, masks, variances, positions, robust: bool = False,
-                  oversample: float = 3.0, splineOrder: int = 3, defaultValue: float = 0.0
-                  ) -> "OversampledSpline":
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        oversample: float = 3.0,
+        splineOrder: int = 3,
+        defaultValue: float = 0.0,
+        **kwargs,
+    ) -> "OversampledSpline":
         """Fit a spectral function on the focal plane to arrays
 
         We currently throw everything into a single block, and don't respect
@@ -629,6 +645,8 @@ class OversampledSpline(FocalPlaneFunction):
         fit : `OversampledSpline`
             Function fit to input arrays.
         """
+        if kwargs:
+            raise RuntimeError(f"Unrecognised parameters: {kwargs}")
         use = ~masks
         floatEpsilon = np.finfo(float).eps
         length = wavelengths.shape[1]
@@ -641,37 +659,40 @@ class OversampledSpline(FocalPlaneFunction):
         yy = values[use][indices]
         var = variances[use][indices]
 
-        dx = (wlMax - wlMin)/length/oversample
+        dx = (wlMax - wlMin) / length / oversample
         knotMin = xx[1]
         knotMax = xx[-2]
-        numKnots = int((knotMax - knotMin)/dx)
+        numKnots = int((knotMax - knotMin) / dx)
         knots = cls.getKnots(xx, numKnots, splineOrder)
         bins = np.concatenate(([wlMin], knots, [wlMax]))
-        centers = 0.5*(bins[:-1] + bins[1:])
+        centers = 0.5 * (bins[:-1] + bins[1:])
 
         if robust:
             yMedian = binned_statistic(xx, yy, statistic="median", bins=bins)[0]
             goodBins = np.isfinite(yMedian)
-            spline = InterpolatedUnivariateSpline(centers[goodBins], yMedian[goodBins], k=splineOrder,
-                                                  bbox=(wlMin, wlMax))
-            knots = np.concatenate(([wlMin]*(splineOrder - 1), centers[goodBins], [wlMax]*(splineOrder - 1)))
+            spline = InterpolatedUnivariateSpline(
+                centers[goodBins], yMedian[goodBins], k=splineOrder, bbox=(wlMin, wlMax)
+            )
+            knots = np.concatenate(
+                ([wlMin] * (splineOrder - 1), centers[goodBins], [wlMax] * (splineOrder - 1))
+            )
         else:
             with np.errstate(invalid="ignore", divide="ignore"):
-                spline = LSQUnivariateSpline(xx, yy, w=1/var, t=knots, k=splineOrder, bbox=(wlMin, wlMax))
-            knots = np.concatenate(([wlMin]*(splineOrder + 1), knots, [wlMax]*(splineOrder + 1)))
+                spline = LSQUnivariateSpline(xx, yy, w=1 / var, t=knots, k=splineOrder, bbox=(wlMin, wlMax))
+            knots = np.concatenate(([wlMin] * (splineOrder + 1), knots, [wlMax] * (splineOrder + 1)))
 
         coeffs = spline.get_coeffs()
 
         # Measure the noise in the fit
         residual = yy - spline(xx)
-        variance = binned_statistic(xx, residual, statistic='std', bins=bins)[0]**2
+        variance = binned_statistic(xx, residual, statistic="std", bins=bins)[0] ** 2
         # Remove noise originating from the input data
-        variance -= binned_statistic(xx, var, statistic='mean', bins=bins)[0]
+        variance -= binned_statistic(xx, var, statistic="mean", bins=bins)[0]
         variance = np.clip(variance, 0.0, None)
 
         return cls(knots, coeffs, splineOrder, centers, variance, defaultValue)
 
-    def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
         We interpolate the variance without doing any of the usual error
@@ -706,51 +727,6 @@ class OversampledSpline(FocalPlaneFunction):
         masks |= outOfRange
         return Struct(values=values, masks=masks, variances=variance)
 
-    @classmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "OversampledSpline":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file from which to read.
-
-        Returns
-        -------
-        self : cls
-            Constructed focal plane function.
-        """
-        hdu = fits["SPLINE"]
-        splineOrder = hdu.header["ORDER"]
-        defaultValue = float(hdu.header["DEFAULT"])
-        knots = hdu.data["knots"][0]
-        coeffs = hdu.data["coeffs"][0]
-        wavelength = hdu.data["wavelength"][0]
-        variance = hdu.data["variance"][0]
-        return cls(knots, coeffs, splineOrder, wavelength, variance, defaultValue)
-
-    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
-        """Write to FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file to which to write.
-        """
-        header = astropy.io.fits.Header()
-        header["ORDER"] = self.splineOrder
-        header["DEFAULT"] = self.defaultValue if np.isfinite(self.defaultValue) else str(self.defaultValue)
-        numKnots = len(self.knots)
-        numCoeffs = len(self.coeffs)
-        numVar = len(self.variance)
-        table = astropy.io.fits.BinTableHDU.from_columns(
-            [astropy.io.fits.Column("knots", format=f"{numKnots}D", array=[self.knots]),
-             astropy.io.fits.Column("coeffs", format=f"{numCoeffs}D", array=[self.coeffs]),
-             astropy.io.fits.Column("wavelength", format=f"{numVar}D", array=[self.wavelength]),
-             astropy.io.fits.Column("variance", format=f"{numVar}D", array=[self.variance]),
-             ], header=header, name="SPLINE")
-        fits.append(table)
-
 
 class BlockedOversampledSpline(FocalPlaneFunction):
     """Oversampled splines defined in blocks of fiberId
@@ -760,13 +736,26 @@ class BlockedOversampledSpline(FocalPlaneFunction):
     splines : `dict` [`float`: `OversampledSpline`]
         Splines for each block index.
     """
-    def __init__(self, splines: Dict[float, OversampledSpline]):
-        self.splines = splines
-        self.fiberId = np.sort(np.array(list(splines.keys())))
+
+    DamdClass = PfsBlockedOversampledSpline
+
+    def __init__(self, *args, datamodel: Optional[PfsFocalPlaneFunction] = None, **kwargs):
+        super().__init__(*args, datamodel=datamodel, **kwargs)
+        self._splines = {ff: OversampledSpline(datamodel=func) for ff, func in self._damdObj.splines.items()}
 
     @classmethod
-    def fitArrays(cls, fiberId, wavelengths, values, masks, variances, positions, *, robust: bool = False,
-                  blockSize: int = 5, **kwargs) -> "BlockedOversampledSpline":
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        blockSize: int = 5,
+        **kwargs,
+    ) -> FocalPlaneFunction:
         """Fit a spectral function on the focal plane to arrays
 
         We use fiberId as the sole variable that correlates with changes in the
@@ -804,19 +793,26 @@ class BlockedOversampledSpline(FocalPlaneFunction):
             Function fit to input arrays.
         """
         numFibers = len(fiberId)
-        numBlocks = int(np.ceil(numFibers/blockSize))
-        blocks = (np.arange(numFibers, dtype=float)*numBlocks/numFibers).astype(int)
+        numBlocks = int(np.ceil(numFibers / blockSize))
+        blocks = (np.arange(numFibers, dtype=float) * numBlocks / numFibers).astype(int)
 
-        splines = {}
+        splines: Dict[float, OversampledSpline] = {}
         for bb in range(numBlocks):
             select = blocks == bb
             ff = fiberId[select].mean()
-            splines[ff] = OversampledSpline.fitArrays(fiberId[select], wavelengths[select], values[select],
-                                                      masks[select], variances[select], positions[select],
-                                                      robust=robust, **kwargs)
+            splines[ff] = OversampledSpline.fitArrays(
+                fiberId[select],
+                wavelengths[select],
+                values[select],
+                masks[select],
+                variances[select],
+                positions[select],
+                robust=robust,
+                **kwargs,
+            )
         return cls(splines)
 
-    def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
         We interpolate the solution using the two nearest splines.
@@ -843,8 +839,13 @@ class BlockedOversampledSpline(FocalPlaneFunction):
         variances = np.empty_like(wavelengths, dtype=float)
         masks = np.empty_like(wavelengths, dtype=bool)
         for ii, ff in enumerate(fiberIds):
+            wavelengthArray = np.array([wavelengths[ii]])
+            fiberIdArray = np.array([ff])
+            positionsArray = np.array([positions[ii]])
             if len(self.fiberId) == 1:
-                result = next(iter(self.splines.values())).evaluate([wavelengths[ii]], [ff], [positions[ii]])
+                result = next(iter(self._splines.values())).evaluate(
+                    wavelengthArray, fiberIdArray, positionsArray
+                )
                 thisValue = result.values[0]
                 thisMask = result.masks[0]
                 thisVariance = result.variances[0]
@@ -852,13 +853,17 @@ class BlockedOversampledSpline(FocalPlaneFunction):
                 index = np.searchsorted(self.fiberId, ff)
                 iAbove = max(1, min(index, len(self.fiberId) - 1))
                 iBelow = iAbove - 1
-                weightBelow = (self.fiberId[iAbove] - ff)/(self.fiberId[iAbove] - self.fiberId[iBelow])
+                weightBelow = (self.fiberId[iAbove] - ff) / (self.fiberId[iAbove] - self.fiberId[iBelow])
                 weightAbove = 1 - weightBelow
-                below = self.splines[self.fiberId[iBelow]].evaluate([wavelengths[ii]], [ff], [positions[ii]])
-                above = self.splines[self.fiberId[iAbove]].evaluate([wavelengths[ii]], [ff], [positions[ii]])
-                thisValue = below.values[0]*weightBelow + above.values[0]*weightAbove
+                below = self._splines[self.fiberId[iBelow]].evaluate(
+                    wavelengthArray, fiberIdArray, positionsArray
+                )
+                above = self._splines[self.fiberId[iAbove]].evaluate(
+                    wavelengthArray, fiberIdArray, positionsArray
+                )
+                thisValue = below.values[0] * weightBelow + above.values[0] * weightAbove
                 thisMask = below.masks[0] | above.masks[0]
-                thisVariance = below.variances[0]*weightBelow**2 + above.variances[0]*weightAbove**2
+                thisVariance = below.variances[0] * weightBelow**2 + above.variances[0] * weightAbove**2
             values[ii] = thisValue
             masks[ii] = thisMask
             variances[ii] = thisVariance
@@ -866,53 +871,6 @@ class BlockedOversampledSpline(FocalPlaneFunction):
         variances[bad] = 0.0
         masks[bad] = True
         return Struct(values=values, masks=masks, variances=variances)
-
-    @classmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "BlockedOversampledSpline":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file from which to read.
-
-        Returns
-        -------
-        self : cls
-            Constructed focal plane function.
-        """
-        hdu = fits["BLOCKSPLINE"]
-        splines = {row["fiberId"]: OversampledSpline(row["knots"], row["coeffs"], row["splineOrder"],
-                                                     row["wavelength"], row["variance"],
-                                                     row["defaultValue"]) for row in hdu.data}
-        return cls(splines)
-
-    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
-        """Write to FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file to which to write.
-        """
-        header = astropy.io.fits.Header()
-        fiberId = list(self.splines.keys())
-        splineOrder = [sp.splineOrder for sp in self.splines.values()]
-        defaultValue = [sp.defaultValue for sp in self.splines.values()]
-        knots = [sp.knots for sp in self.splines.values()]
-        coeffs = [sp.coeffs for sp in self.splines.values()]
-        wavelength = [sp.wavelength for sp in self.splines.values()]
-        variance = [sp.variance for sp in self.splines.values()]
-        table = astropy.io.fits.BinTableHDU.from_columns(
-            [astropy.io.fits.Column("fiberId", format="D", array=fiberId),
-             astropy.io.fits.Column("splineOrder", format="J", array=splineOrder),
-             astropy.io.fits.Column("defaultValue", format="D", array=defaultValue),
-             astropy.io.fits.Column("knots", format="PD()", array=knots),
-             astropy.io.fits.Column("coeffs", format="PD()", array=coeffs),
-             astropy.io.fits.Column("wavelength", format="PD()", array=wavelength),
-             astropy.io.fits.Column("variance", format="PD()", array=variance),
-             ], header=header, name="BLOCKSPLINE")
-        fits.append(table)
 
 
 class PolynomialPerFiber(FocalPlaneFunction):
@@ -929,27 +887,28 @@ class PolynomialPerFiber(FocalPlaneFunction):
     maxWavelength : `float`
         Maximum wavelength, for normalising the polynomial inputs.
     """
-    def __init__(self, coeffs: Dict[int, Any], rms: Dict[int, float],
-                 minWavelength: float, maxWavelength: float):
-        assert(set(coeffs.keys()) == set(rms.keys()))
-        self._coeffs = coeffs
-        self._rms = rms
-        self.minWavelength = minWavelength
-        self.maxWavelength = maxWavelength
 
-    @property
-    def fiberId(self):
-        """Fiber identifiers with a corresponding polynomial"""
-        return np.array(sorted(self._coeffs.keys()), dtype=int)
+    DamdClass = PfsPolynomialPerFiber
 
     def __getitem__(self, fiberId: int) -> NormalizedPolynomial1D:
         """Return the polynomial for a particular fiber"""
-        return NormalizedPolynomial1D(self._coeffs[fiberId], self.minWavelength, self.maxWavelength)
+        return NormalizedPolynomial1D(self.coeffs[fiberId], self.minWavelength, self.maxWavelength)
 
     @classmethod
-    def fitArrays(cls, fiberId, wavelengths, values, masks, variances, positions, *, robust: bool = False,
-                  order: int = 3, minWavelength: float = np.nan, maxWavelength: float = np.nan
-                  ) -> "PolynomialPerFiber":
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        order: int = 3,
+        minWavelength: float = np.nan,
+        maxWavelength: float = np.nan,
+        **kwargs,
+    ) -> FocalPlaneFunction:
         """Fit a spectral function on the focal plane to arrays
 
         We fit a polynomial in wavelength to each fiber independently.
@@ -985,6 +944,8 @@ class PolynomialPerFiber(FocalPlaneFunction):
         fit : `PolynomialPerFiber`
             Function fit to input arrays.
         """
+        if kwargs:
+            raise RuntimeError(f"Unrecognised parameters: {kwargs}")
         if not (np.isfinite(minWavelength) and np.isfinite(maxWavelength)):
             raise RuntimeError("Need to specify minWavelength and maxWavelength")
         errors = np.sqrt(variances)
@@ -1006,12 +967,12 @@ class PolynomialPerFiber(FocalPlaneFunction):
             if robust:
                 rms[ff] = robustRms(residuals)
             else:
-                weights = 1.0/errors[ii][choose]**2
-                rms[ff] = np.sqrt(np.sum(weights*residuals**2)/np.sum(weights))
+                weights = 1.0 / errors[ii][choose] ** 2
+                rms[ff] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
 
         return cls(coeffs, rms, minWavelength, maxWavelength)
 
-    def evaluate(self, wavelengths, fiberIds, positions) -> Struct:
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
         Parameters
@@ -1033,53 +994,6 @@ class PolynomialPerFiber(FocalPlaneFunction):
             Variances for each position.
         """
         values = np.array([self[ff](wavelengths[ii]) for ii, ff in enumerate(fiberIds)])
-        rms = np.array([np.full_like(wavelengths[ii], self._rms[ff]) for ii, ff in enumerate(fiberIds)])
+        rms = np.array([np.full_like(wavelengths[ii], self.rms[ff]) for ii, ff in enumerate(fiberIds)])
         masks = ~np.isfinite(values) | ~np.isfinite(rms)
         return Struct(values=values, variances=rms**2, masks=masks)
-
-    def toFits(self, fits: astropy.io.fits.HDUList) -> None:
-        """Write to FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file to which to write.
-        """
-        fiberId = self.fiberId
-
-        header = astropy.io.fits.Header()
-        header["MIN_WL"] = self.minWavelength
-        header["MAX_WL"] = self.maxWavelength
-        coeffs = [self._coeffs[ff] for ff in fiberId]
-        rms = [self._rms[ff] for ff in fiberId]
-
-        fits.append(
-            astropy.io.fits.BinTableHDU.from_columns(
-                [astropy.io.fits.Column("fiberId", format="J", array=fiberId),
-                 astropy.io.fits.Column("coeffs", format="PD()", array=coeffs),
-                 astropy.io.fits.Column("rms", format="D", array=rms),
-                 ], header=header, name="POLYPERFIBER")
-        )
-
-    @classmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "BlockedOversampledSpline":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file from which to read.
-
-        Returns
-        -------
-        self : cls
-            Constructed focal plane function.
-        """
-        hdu = fits["POLYPERFIBER"]
-        minWavelength = hdu.header["MIN_WL"]
-        maxWavelength = hdu.header["MAX_WL"]
-        fiberId = hdu.data["fiberId"]
-        coeffs = dict(zip(fiberId, hdu.data["coeffs"]))
-        rms = dict(zip(fiberId, hdu.data["rms"]))
-
-        return cls(coeffs, rms, minWavelength, maxWavelength)

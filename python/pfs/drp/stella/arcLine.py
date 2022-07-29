@@ -1,68 +1,19 @@
-from dataclasses import dataclass
 from deprecated import deprecated
-
+from typing import Any, Dict
 import numpy as np
 
 from pfs.datamodel import Identity
+from pfs.datamodel.drp import LineMeasurements
 
-from .table import TableBase
-from .referenceLine import ReferenceLineSet, ReferenceLineStatus
+from .table import Table
+from .referenceLine import ReferenceLineSet, ReferenceLine, ReferenceLineStatus
 from .datamodel.pfsFiberArraySet import PfsFiberArraySet
 
 __all__ = ("ArcLine", "ArcLineSet")
 
 
-@dataclass
-class ArcLine:
-    """Data for a single reference line
-
-    Parameters
-    ----------
-    fiberId : `int`
-        Fiber identifier.
-    wavelength : `float`
-        Reference line wavelength (nm).
-    x, y : `float`
-        Measured position.
-    xErr, yErr : `float`
-        Error in measured position.
-    intensity : `float`
-        Measured intensity (arbitrary units).
-    intensityErr : `float`
-        Error in measured intensity (arbitrary units).
-    flag : `bool`
-        Measurement flag (``True`` indicates an error in measurement).
-    status : `int`
-        Bitmask indicating the quality of the reference line.
-    description : `str`
-        Line description (e.g., ionic species)
-    """
-    fiberId: np.int32
-    wavelength: float
-    x: float
-    y: float
-    xErr: float
-    yErr: float
-    intensity: float
-    intensityErr: float
-    flag: bool
-    status: np.int32
-    description: str
-
-
-class ArcLineSet(TableBase):
-    fitsExtName = "ARCLINES"
-    RowClass = ArcLine
-    damdver = 1
-
-    @property
-    @deprecated(reason="use the 'rows' attribute instead of 'lines'")
-    def lines(self):
-        """Return array of lines
-
-        Included for backwards compatibility.
-        """
-        return self.rows
+class ArcLineSet(Table):
+    DamdClass = LineMeasurements
 
     def extractReferenceLines(self, fiberId: int = None) -> ReferenceLineSet:
         """Generate a list of reference lines
@@ -81,17 +32,24 @@ class ArcLineSet(TableBase):
         refLines = ReferenceLineSet.empty()
         if fiberId is not None:
             select = self.fiberId == fiberId
-            for args in zip(self.description[select], self.wavelength[select], self.intensity[select],
+            for args in zip(self.description[select], self.wavelength[select], self.flux[select],
                             self.status[select]):
                 refLines.append(*args)
         else:
             unique = set(zip(self.wavelength, self.description, self.status))
             for wavelength, description, status in sorted(unique):
                 select = ((self.description == description) & (self.wavelength == wavelength) &
-                          (self.status == status) & np.isfinite(self.intensity))
+                          (self.status == status) & np.isfinite(self.flux))
 
-                intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
-                refLines.append(description, wavelength, intensity, status)
+                intensity = np.average(self.flux[select]) if np.any(select) else np.nan
+                refLines.append(
+                    ReferenceLine(
+                        description=description,
+                        wavelength=wavelength,
+                        intensity=intensity,
+                        status=status,
+                    )
+                )
         return refLines
 
     def applyExclusionZone(self, exclusionRadius: float,
@@ -135,7 +93,7 @@ class ArcLineSet(TableBase):
         if identity is None:
             identity = Identity(-1)
         flags = ReferenceLineStatus.getMasks()
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         wavelength = np.vstack([wlSet]*numFibers)
         flux = np.full((numFibers, numWavelength), np.nan, dtype=float)
@@ -149,8 +107,21 @@ class ArcLineSet(TableBase):
         fiberLookup = {ff: ii for ii, ff in enumerate(fiberId)}
         wlIndices = np.array([wlLookup[ll.wavelength] for ii, ll in enumerate(self)])
         fiberIndices = np.array([fiberLookup[ll.fiberId] for ii, ll in enumerate(self)])
-        flux[fiberIndices, wlIndices] = self.intensity
-        variance[fiberIndices, wlIndices] = self.intensityErr**2
+        flux[fiberIndices, wlIndices] = self.flux
+        variance[fiberIndices, wlIndices] = self.flux**2
         mask[fiberIndices, wlIndices] = self.status
 
         return PfsFiberArraySet(identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags, metadata)
+
+    @property  # type: ignore
+    @deprecated(reason="The 'intensity' attribute has been replaced by 'flux'")
+    def intensity(self):
+        return self.flux
+
+    @property  # type: ignore
+    @deprecated(reason="The 'intensityErr' attribute has been replaced by 'fluxErr'")
+    def intensityErr(self):
+        return self.fluxErr
+
+
+ArcLine = ArcLineSet.RowClass

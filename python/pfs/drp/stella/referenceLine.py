@@ -1,16 +1,15 @@
 import os
 import re
-from dataclasses import dataclass
 from math import log2
-from deprecated import deprecated
 
 import numpy as np
 
 from lsst.utils import getPackageDir
 
 from pfs.datamodel import MaskHelper
+from pfs.datamodel.pfsTable import PfsTable
 from .utils.bitmask import Bitmask
-from .table import TableBase
+from .table import Table
 
 __all__ = ("ReferenceLineStatus", "ReferenceLine", "ReferenceLineSet")
 
@@ -49,28 +48,33 @@ class ReferenceLineStatus(Bitmask):
         return MaskHelper(**{name: number - 1 for name, number in bits.items() if number != 0})
 
 
-@dataclass
-class ReferenceLine:
-    """A reference arc line
+class ReferenceLineTable(PfsTable):
+    """Table of reference lines
+
+    These are usually arc or sky line catalogs.
 
     Parameters
     ----------
-    description : `str`
-        Description of the line; usually the atomic or molecular identification.
-    wavelength : `float`
-        Reference line wavelength (nm).
-    intensity : `float`
-        Estimated intensity (arbitrary units).
-    status : `int`
-        Bitmask indicating the quality of the line.
+    description : `numpy.ndarray` of `str`
+        Description of each line; usually the atomic or molecular
+        identification.
+    wavelength : `numpy.ndarray` of `float`
+        Reference line wavelengths (nm).
+    intensity : `numpy.ndarray` of `float`
+        Estimated intensities (arbitrary units).
+    status : `numpy.ndarray` of `int`
+        Bitmask indicating the quality of each line.
     """
-    description: str
-    wavelength: float
-    intensity: float
-    status: np.int32
+    schema = dict(
+        description=str,
+        wavelength=float,
+        intensity=float,
+        status=np.int32,
+    )
+    fitsExtName = "REFLINES"
 
 
-class ReferenceLineSet(TableBase):
+class ReferenceLineSet(Table):
     """A list of `ReferenceLine`s.
 
     Parameters
@@ -78,16 +82,7 @@ class ReferenceLineSet(TableBase):
     data : `pandas.DataFrame`
         Table data.
     """
-    RowClass = ReferenceLine
-
-    @property
-    @deprecated(reason="use the 'rows' attribute instead of 'lines'")
-    def lines(self):
-        """Return array of lines
-
-        Included for backwards compatibility.
-        """
-        return self.rows
+    DamdClass = ReferenceLineTable
 
     @classmethod
     def fromLineList(cls, filename):
@@ -132,8 +127,14 @@ class ReferenceLineSet(TableBase):
                 except ValueError:
                     intensity = np.nan
 
-                lines.append(ReferenceLine(description, float(wavelength), intensity,
-                             ReferenceLineStatus(int(status))))
+                lines.append(
+                    ReferenceLine(
+                        description=description,
+                        wavelength=float(wavelength),
+                        intensity=intensity,
+                        status=ReferenceLineStatus(int(status)),
+                    )
+                )
 
         return cls.fromRows(lines)
 
@@ -292,3 +293,6 @@ class ReferenceLineSet(TableBase):
                 axes.text(x, y, rl.description, ha='center')
 
         axes.set_xlim(xlim)
+
+
+ReferenceLine = ReferenceLineSet.RowClass

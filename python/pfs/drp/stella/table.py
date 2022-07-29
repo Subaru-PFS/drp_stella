@@ -1,80 +1,95 @@
-from dataclasses import is_dataclass
-from typing import Iterable, Tuple, Type, TypeVar, Dict, List, Iterator, Union, Any
+from dataclasses import dataclass
+from typing import ClassVar, Dict, Iterable, Iterator, List, Protocol, Type, TypeVar, Union, overload
 
 import numpy as np
 from pandas import DataFrame, concat
-import astropy.io.fits
+from pfs.datamodel import PfsTable
+
+__all__ = ("Table",)
+
+# Plain Old Data
+POD = Union[str, bool, int, float, np.uint8, np.int16, np.int32, np.int64, np.float32, np.float64]
 
 
-try:
-    from typing import Protocol  # requires python 3.8
+class Row(Protocol):
+    """Description of what table `Row` objects can do
 
-    class Dataclass(Protocol):
-        """How to identify a dataclass
+    These are essentially structs, holding and providing data.
+    """
 
-        TableBase only works if the ``RowClass`` is a dataclass.
-        """
-        __dataclass_fields__: Dict
+    def __init__(self, **kwargs: POD):
+        pass
 
-    Row = Dataclass
-except ImportError:
-    Row = Any  # Can't do any better with python < 3.8, and can't assume we have typing_extensions module
-
-Table = TypeVar("Table", bound="TableBase")
+    def __getattr__(self, name: str) -> POD:
+        pass
 
 
-class TableBase:
+SubTable = TypeVar("SubTable", bound="Table")
+"""A generic sub-class of Table"""
+
+
+class Table:
     """Base class for tables
 
-    Subclasses should define the class variables:
-    * ``RowClass`` (`type`): a `dataclass` that will serve as the container for
-      a single row. This defines the schema of the table.
-    * ``fitsExtName`` (`str`): FITS extension name.
-    * ``damdver`` (`int`; optional): Datamodel version, written to ``DAMD_VER``
-      in the FITS header.
+    This is a more useful representation (backed by a `pandas.DataFrame`) for
+    manipulation of tables than the datamodel representation (base class
+    `pfs.datamodel.PfsTable`, backed by `numpy.ndarray`) which is used solely
+    for I/O.
 
-    The ``_schema`` class variable is set automatically.
+    Subclasses should define the class variable ``DamdClass`` (`type`): a
+    subclass of `pfs.datamodel.PfsTable` that contains the ``schema`` and
+    implements the I/O.
 
     Subclasses will have properties (returning arrays) defined for each of the
-    dataclass fields in the ``RowClass``.
+    fields in the schema.
 
     Parameters
     ----------
     data : `pandas.DataFrame`
         Data for table.
     """
-    RowClass: Row
-    fitsExtName: str
-    damdver: int = 1
-    _schema: Iterable[Tuple[str, type]]
+
+    DamdClass: ClassVar[PfsTable]
+    """Sub-class of `PfsTable` that defines the schema and implements the I/O"""
+
+    RowClass: ClassVar[Type[Row]]
+    """Class used for representing rows
+
+    This is created dynamically from the ``DamdClass``'s schema.
+    """
+
+    _schema: ClassVar[Dict[str, type]]
+    """Copy of the ``DamdClass``'s ``schema``"""
 
     def __init__(self, data: DataFrame):
         self.data = data
 
-    def __init_subclass__(cls: Type[Table]):
+    def __init_subclass__(cls: Type["Table"]):
         """Initialise sub-class
 
-        This is where the magic happens! This is called when you subclass from
-        ``TableBase``.
-
-        Sets the ``_schema`` class variable, so all the inherited methods know
-        what they're working with, and sets up the properties.
+        Sets up the properties based on the schema.
         """
-        def getSchema(cls: Type) -> Dict[str, type]:
-            schema = {}
-            for bb in reversed(cls.__bases__):
-                schema.update(getSchema(bb))
-            if is_dataclass(cls):
-                schema.update({ff.name: ff.type for ff in cls.__dataclass_fields__.values()})
-            return schema
+        cls._schema = cls.DamdClass.schema
+        cls.RowClass = dataclass(type(cls.__name__ + "Row", (object,), dict(__annotations__=cls._schema)))
+        for name in cls.DamdClass.schema:
 
-        schema = getSchema(cls.RowClass)
-        setattr(cls, "_schema", tuple(schema.items()))
-        for name in schema:
-            setattr(cls, name, property(lambda self, name=name: self.data[name].values))
+            def getter(self, name: str = name) -> np.ndarray:
+                return self.data[name].values
+
+            setattr(cls, name, property(getter))
+
+    def __getattr__(self, name: str) -> np.ndarray:
+        """Get column
+
+        This method mostly exists for the benefit of type checkers, as it sets
+        the type for the columns.
+        """
+        if name in self.DamdClass.schema:
+            return self.data[name].values
+        raise AttributeError(f"Unknown attribute: {name}")
 
     @classmethod
-    def fromRows(cls: Type[Table], rows: Iterable[Row]) -> Table:
+    def fromRows(cls: Type[SubTable], rows: Iterable[Row]) -> SubTable:
         """Construct from a list of rows
 
         Parameters
@@ -83,11 +98,15 @@ class TableBase:
             Rows of table. Each row must contain at least the attributes in the
             ``schema``.
         """
-        return cls.fromColumns(**{name: np.array([getattr(ll, name) for ll in rows], dtype=dtype) for
-                                  name, dtype in cls._schema})
+        return cls.fromColumns(
+            **{
+                name: np.array([getattr(ll, name) for ll in rows], dtype=dtype)
+                for name, dtype in cls._schema.items()
+            }
+        )
 
     @classmethod
-    def fromColumns(cls: Type[Table], **columns) -> Table:
+    def fromColumns(cls: Type[SubTable], **columns) -> SubTable:
         """Construct from columns
 
         Parameters
@@ -96,7 +115,9 @@ class TableBase:
             Columns of table. Must include at least the names in the ``schema``,
             and each column must be ``array_like``.
         """
-        return cls(DataFrame({name: np.array(columns[name], dtype=dtype) for name, dtype in cls._schema}))
+        return cls(
+            DataFrame({name: np.array(columns[name], dtype=dtype) for name, dtype in cls._schema.items()})
+        )
 
     def toDataFrame(self) -> DataFrame:
         """Convert to a `pandas.DataFrame`"""
@@ -119,7 +140,15 @@ class TableBase:
         """Iterator"""
         return iter(self.rows)
 
-    def __getitem__(self, index: Union[int, slice, np.ndarray]) -> Union[Row, Table]:
+    @overload
+    def __getitem__(self, index: int) -> Row:
+        ...
+
+    @overload
+    def __getitem__(self, index: Union[slice, np.ndarray]) -> "Table":
+        ...
+
+    def __getitem__(self, index: Union[int, slice, np.ndarray]) -> Union[Row, "Table"]:
         """Retrieve row(s)"""
         if isinstance(index, int):
             return self.RowClass(**self.data.iloc[index].to_dict())
@@ -127,26 +156,26 @@ class TableBase:
             return type(self)(self.data.iloc[index])
         raise RuntimeError(f"Cannot interpret index: {index}")
 
-    def extend(self, other: Table):
+    def extend(self, other: "Table"):
         """Extend the table
 
         This is an inefficient way of populating a table.
 
         Parameters
         ----------
-        other : `TableBase`
+        other : `Table`
             Table to use to extend this table.
         """
         self.data = concat((self.data, other.data))
 
-    def __add__(self, rhs: Table) -> Table:
+    def __add__(self, rhs: "Table") -> "Table":
         """Addition
 
         This is an inefficient way of populating a table.
         """
         return type(self)(concat((self.data, rhs.data)))
 
-    def __iadd__(self, rhs: Table) -> Table:
+    def __iadd__(self, rhs: "Table") -> "Table":
         """In-place addition
 
         This is an inefficient way of populating a table.
@@ -154,17 +183,43 @@ class TableBase:
         self.extend(rhs)
         return self
 
-    def copy(self) -> Table:
+    def copy(self) -> "Table":
         """Return a deep copy"""
         return type(self)(self.data.copy())
 
     @classmethod
-    def empty(cls) -> Table:
+    def empty(cls: Type[SubTable]) -> SubTable:
         """Construct an empty table"""
-        return cls.fromColumns(**{name: [] for name, _ in cls._schema})
+        return cls.fromColumns(**{name: [] for name, _ in cls._schema.items()})
 
     @classmethod
-    def readFits(cls, filename: str) -> Table:
+    def fromPfsTable(cls: Type[SubTable], table: PfsTable) -> SubTable:
+        """Construct from `PfsTable`
+
+        Parameters
+        ----------
+        table : `PfsTable`
+            Datamodel representation of table.
+
+        Returns
+        -------
+        self : cls
+            Constructed table.
+        """
+        return cls.fromColumns(**table.columns)
+
+    def toPfsTable(self) -> PfsTable:
+        """Convert to `PfsTable`
+
+        Returns
+        -------
+        table : `PfsTable`
+            Datamodel representation of table.
+        """
+        return self.DamdClass(**{name: getattr(self, name) for name in self._schema})
+
+    @classmethod
+    def readFits(cls: Type[SubTable], filename: str) -> SubTable:
         """Read from file
 
         Parameters
@@ -177,11 +232,7 @@ class TableBase:
         self : cls
             Constructed object from reading file.
         """
-        data = {}
-        with astropy.io.fits.open(filename) as fits:
-            hdu = fits[cls.fitsExtName]
-            data = {name: hdu.data[name].astype(dtype) for name, dtype in cls._schema}
-        return cls(DataFrame(data))
+        return cls.fromPfsTable(cls.DamdClass.readFits(filename))
 
     def writeFits(self, filename: str):
         """Write to file
@@ -191,41 +242,4 @@ class TableBase:
         filename : `str`
             Name of file to which to write.
         """
-        # NOTE: When making any changes to this method that modify the output
-        # format, increment the DAMD_VER header value.
-        format = {int: "K", float: "D", np.int32: "J", np.float32: "E", bool: "L", np.uint8: "B",
-                  np.int16: "I", np.int64: "K", np.float64: "D"}
-
-        def getFormat(name, dtype):
-            """Determine suitable FITS column format
-
-            This is a simple mapping except for string types.
-
-            Parameters
-            ----------
-            name : `str`
-                Column name, so we can get the data if we need to inspect it.
-            dtype : `type`
-                Data type.
-
-            Returns
-            -------
-            format : `str`
-                FITS column format string.
-            """
-            if issubclass(dtype, str):
-                length = max(len(ss) for ss in getattr(self, name)) if len(self) > 0 else 0
-                length = max(1, length)  # Minimum length of 1 makes astropy happy
-                return f"{length}A"
-            return format[dtype]
-
-        columns = [astropy.io.fits.Column(name=name, format=getFormat(name, dtype), array=getattr(self, name))
-                   for name, dtype in self._schema]
-        hdu = astropy.io.fits.BinTableHDU.from_columns(columns, name=self.fitsExtName)
-
-        hdu.header["INHERIT"] = True
-        hdu.header["DAMD_VER"] = (self.damdver, f"{self.__class__.__name__} datamodel version")
-
-        fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(), hdu])
-        with open(filename, "wb") as fd:
-            fits.writeto(fd)
+        self.toPfsTable().writeFits(filename)
