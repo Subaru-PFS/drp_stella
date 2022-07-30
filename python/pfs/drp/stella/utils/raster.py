@@ -3,6 +3,7 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+import unicodedata
 
 import astropy.units
 import astropy.coordinates
@@ -10,13 +11,13 @@ import astropy.coordinates
 import lsst.afw.image as afwImage
 from pfs.datamodel import PfsDesign
 
-from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 from pfs.datamodel import PfsDesign
 from pfs.utils.coordinates.CoordTransp import CoordinateTransform
 
 __all__ = ["raDecStrToDeg", "makeDither", "makeCobraImages", "makeSkyImageFromCobras",
            "plotSkyImageOneCobra", "plotSkyImageFromCobras", "calculateOffsets", "offsetsAsQuiver",
-           "getWindowedSpectralRange", "getWindowedFluxes", ]
+           "getWindowedSpectralRange", "getWindowedFluxes", "showDesignPhotometry", ]
 
 
 def raDecStrToDeg(ra, dec):
@@ -205,12 +206,14 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
     fluxes[np.isnan(pfsConfig.pfiNominal.T[0])] = np.NaN
 
     ra, dec = raDecStrToDeg(md['RA_CMD'], md['DEC_CMD'])
+    #ra, dec = raDecStrToDeg(md['RA'], md['DEC'])
     
     return Dither(dataId["visit"], ra, dec, fluxes, pfsConfig, md)
 
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
-                    usePFImm=False, subtractBkgd=True, setUnimagedPixelsToNaN=False):
+                    usePFImm=False, subtractBkgd=True, setUnimagedPixelsToNaN=False,
+                    icrosstalk=None):
     """
     dithers: a list of (visit, ra, dec, fluxes, pfsConfig, md)
              where (ra, dec) are the boresight pointing, fluxes are the fluxes in the fibres,
@@ -227,11 +230,51 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
        extent_CI: (x0, x1, y0, y1) giving the corners of images[n] (as passed to plt.imshow)
     """
 
+    if len(dithers) == 0:
+        raise RuntimeError("dithers array is empty")
+
     if fiberIds is not None:
         try:
             fiberIds[0]
         except TypeError:
             fiberIds = [fiberIds]
+
+    if side <= 0:
+        if not usePFImm:
+            raise RuntimeError("Code to calculate size only works in mm; sumimasen")
+
+        for i, d in enumerate(dithers):
+            ra = d.ra
+            dec = d.dec
+            md = d.md
+            pfsConfig = d.pfsConfig
+
+            cosDec = np.cos(np.deg2rad(dec))
+            boresight = [[ra], [dec]]
+
+            altitude = md['ALTITUDE']
+            pa = md['INST-PA']
+            utc = f"{md['DATE-OBS']} {md['UT']}"
+
+            try:
+                x, y = CoordinateTransform(np.stack(([pfsConfig.ra], [pfsConfig.dec])),
+                                           mode="sky_pfi", za=90.0 - altitude,
+                                           pa=pa, cent=boresight, time=utc)[0:2]
+            except ValueError:          # not on sky; no valid boresight
+                x, y = np.zeros_like(ra), np.zeros_like(dec)
+
+            if i == 0:
+                x0, y0 = x, y
+
+            dx, dy = 1e3*(x - x0), 1e3*(y - y0)   # microns
+
+            xmin = np.nanmin(dx - R/pixelScale)
+            xmax = np.nanmax(dx + R/pixelScale)
+            ymin = np.nanmin(dy - R/pixelScale)
+            ymax = np.nanmax(dy + R/pixelScale)
+
+            print(xmin, xmax, ymin, ymax)                
+        
 
     R_micron = R                        # R in microns, before mapping to arcsec on PFI
     size = None
@@ -246,20 +289,46 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             bkgd = np.nanpercentile(fluxes, [5])[0]
             fluxes = fluxes - bkgd
 
+        if icrosstalk is not None:
+            fluxes = icrosstalk@np.where(np.isfinite(fluxes), fluxes, 0)
+
+        fluxes[d.pfsConfig.fiberStatus != FiberStatus.GOOD] = np.NaN
+
         cosDec = np.cos(np.deg2rad(dec))
-        boresight = [[pfsConfig.raBoresight], [pfsConfig.decBoresight]]
+        boresight = [[ra], [dec]]
 
         altitude = md['ALTITUDE']
-        insrot = None # md['INSROT']      # Not used with mode="sky_pfi"
+        #insrot = None # md['INSROT']      # Not used with mode="sky_pfi"
         pa = md['INST-PA']
         utc = f"{md['DATE-OBS']} {md['UT']}"
 
+        hexapod_sx, hexapod_sy = md["W_M2OFF1"], md["W_M2OFF2"]
+        hexapod_sx0, hexapod_sy0 = -1.6, -2.5  # as per Yuki Moritani
+
+        hexapod_sx -= hexapod_sx0
+        hexapod_sy -= hexapod_sy0
+
+        if True:
+            pa *= -1
+            #hexapod_sy *= -1
+
+        if False:
+            print(f"{d.visit} ({3600*(d.ra - dithers[0].ra):5.1f}, {3600*(d.dec - dithers[0].dec):5.1f})  {pa}, {hexapod_sx}, {hexapod_sy}")
+
+        if False and np.abs(hexapod_sx) + np.abs(hexapod_sy) > 1e-3:
+            print(f"Skipping {d.visit} (hexapod: ({hexapod_sx}, {hexapod_sy})")
+            continue
+
         if usePFImm:
             try:
-                x, y = CoordinateTransform(np.stack(([ra], [dec])), mode="sky_pfi", za=90.0 - altitude,
-                                           inr=insrot, pa=pa, cent=boresight, time=utc)[0:2]
+                x, y = CoordinateTransform(np.stack(([pfsConfig.ra], [pfsConfig.dec])),
+                                           mode="sky_pfi", za=90.0 - altitude,
+                                           pa=pa, cent=boresight, time=utc)[0:2]
             except ValueError:          # not on sky; no valid boresight
                 x, y = np.zeros_like(ra), np.zeros_like(dec)
+
+            x +=  hexapod_sx
+            y +=  hexapod_sy
 
             R = np.full(len(pfsConfig), R_micron)
         else:
@@ -271,16 +340,18 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             R_asec = 0.5  # approximate radius in arcsec; the actual value doesn't matter
             x, y = CoordinateTransform(np.stack(([pfsConfig.ra], [pfsConfig.dec])),
                                        mode="sky_pfi", za=90.0 - altitude,
-                                       inr=insrot, pa=pa, cent=boresight, time=utc)[0:2]
+                                       pa=pa, cent=boresight, time=utc)[0:2]
             x2, y2 = CoordinateTransform(np.stack(([pfsConfig.ra], [pfsConfig.dec + R_asec/3600])),
                                          mode="sky_pfi", pa=pa, za=90.0 - altitude,
-                                         inr=insrot, cent=boresight, time=utc)[0:2]
+                                         cent=boresight, time=utc)[0:2]
             R = np.hypot(x - x2, y - y2)*1e3  # microns corresponding to R_asec
             R = R_asec*R_micron/R   # asec
 
             x, y = ra, dec
 
         if size is None:
+            x0, y0 = x, y               # offset relative to first dither
+            
             size = int(side/pixelScale + 1)
             if size%2 == 0:
                 size += 1
@@ -294,19 +365,17 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             images = np.zeros((nCobra, size, size))
             weights = np.zeros_like(images)
 
-            x0, y0 = x, y               # offset relative to first dither
-
         if usePFImm:
             dx, dy = 1e3*(x - x0), 1e3*(y - y0)   # microns
         else:
-            dx, dy = 3600*(x - x0)*cosDec, 3600*(y - y0)
+            dx, dy = 3600*(x - x0)*cosDec, 3600*(y - y0) # arcsec
 
         xc, yc = hsize + dx/pixelScale, hsize + dy/pixelScale
 
         for i, (R, fid) in enumerate(zip(R, pfsConfig.fiberId)):
             if fiberIds and fid not in fiberIds:
                 continue
-            illum = np.where(np.hypot(I - yc, J - xc) < R/pixelScale, 1.0, 0.0)
+            illum = np.where(np.hypot(I - yc[i], J - xc[i]) < R/pixelScale, 1.0, 0.0)
             images[i, I, J] += illum*fluxes[i]
             weights[i, I, J] += illum
 
@@ -325,6 +394,12 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
     if usePFImm:
         cosDec = 1.0
         x, y = pfsConfig.pfiNominal.T
+
+        if False:
+            theta, x0, y0 = np.deg2rad(-0.75485499),   77.09909634, -138.58455485
+            ct, st = np.cos(theta), np.sin(theta)
+            _x, _y = x.copy(), y.copy()
+            x, y = x0 + ct*(_x - x0) - st*(_y - y0), y0 + st*(_x - x0) + ct*(_y - y0)
     else:
         cosDec = np.cos(np.deg2rad(np.nanmean(pfsConfig.dec)))
         x, y = pfsConfig.ra, pfsConfig.dec
@@ -357,13 +432,26 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
     stampOffset = np.empty((nCobra, 2))  # offset of stamp from its true position due to zc = int(z + 0.5)
                                          # noqa: E114, E116     rounding to snap to grid (pass for flake8)
 
-    for i in range(nCobra):
-        xx, yy = np.array(((x[i] - xmin)*cosDec, y[i] - ymin))*scale
+    for _i in range(nCobra):
+        swaps = [[586, 589]] if True else []
+
+        i = _i
+        for swap in swaps:
+            if pfsConfig.fiberId[_i] in swap:
+                print(f"Switching fiberId {pfsConfig.fiberId[_i]}, cobraId {_i}")
+                if pfsConfig.fiberId[_i] == swap[0]:
+                    i = pfsConfig.selectFiber(swap[1])
+                else:
+                    i = pfsConfig.selectFiber(swap[0])
+
+                break
+
+        xx, yy = np.array(((x[_i] - xmin)*cosDec, y[_i] - ymin))*scale # XXX _i
         if not np.isfinite(xx + yy):
-            if pfsConfig.targetType[i] not in (TargetType.ENGINEERING, TargetType.UNASSIGNED):
+            if pfsConfig.targetType[_i] not in (TargetType.ENGINEERING, TargetType.UNASSIGNED):
                 print(f"pfsConfig 0x{pfsConfig.pfsDesignId:x}"
                       f" coordinates for fiberId {pfsConfig.fiberId[i]} are NaN: ({xx}, {yy})."
-                      f" ObjectType is {str(TargetType(pfsConfig.targetType[i]))};"
+                      f" ObjectType is {str(TargetType(pfsConfig.targetType[_i]))};"
                 )
             continue
         xc = int(xx + 0.5)
@@ -393,12 +481,15 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
     return pfiIm, extent, stampOffset
 
 
-def plotSkyImageOneCobra(fiberId, pfsConfig, images, extent_CI, usePFImm=False, vmin=None, vmax=None):
+def plotSkyImageOneCobra(fiberId, pfsConfig, images, extent_CI, usePFImm=False, vmin=None, vmax=None,
+                         gfm=None):
     """Plot the synthesised image of the sky from dithered spectra
     fiberId: desired cobra
     pfsConfig: PFI configuration
     images: sky image for each cobra in pfsConfig,  ndarray `(len(pfsConfig, n, n)`
     extent_CI: (x0, x1, y0, y1) giving the corners of images[n] (as passed to plt.imshow)
+    vmin, vmax: limits for scaling image
+    gfm: `pfs.utils.fiberids.FiberIds` the Grand Fiber Map for looking up the cobraId
 
     images, extent_CI are as returned by makeCobraImages
     """
@@ -406,10 +497,10 @@ def plotSkyImageOneCobra(fiberId, pfsConfig, images, extent_CI, usePFImm=False, 
     cmap.set_bad(color='black')
 
     ims = plt.imshow(images[pfsConfig.selectFiber(fiberId)], origin='lower', interpolation='none',
-               extent=extent_CI, vmin=vmin, vmax=vmax)
+                     extent=extent_CI, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.gca().set_aspect(1)
 
-    plt.plot(0, 0, '+', color='red')
+    plt.plot(0, 0, '+', color='white')
 
     if usePFImm:
         plt.xlabel(r"$\Delta x$ ($\mu m$)")
@@ -418,7 +509,11 @@ def plotSkyImageOneCobra(fiberId, pfsConfig, images, extent_CI, usePFImm=False, 
         plt.xlabel(r"$\Delta\alpha$ (arcsec)")
         plt.ylabel(r"$\Delta\delta$ (arcsec)")
 
-    plt.title(f"fiberId = {fiberId}")
+    title = f"fiberId={fiberId}"
+    if gfm:
+        title += f" cobraId = {gfm.cobraId[gfm.fiberId == fiberId][0]}"
+
+    plt.title(title)
 
     return ims
 
@@ -469,14 +564,24 @@ def calculateOffsets(images, extent_CI):
     y = np.concatenate(len(images)*[y]).reshape((len(images), xs, ys))
 
     weights = np.where(np.isfinite(images), images, 0)
-    xoff, yoff = np.average(x, axis=(1, 2), weights=weights), np.average(y, axis=(1, 2), weights=weights)
+    image_weight = np.nansum(weights, axis=(1, 2))
+    xoff = np.full(len(images), np.NaN)
+    yoff = np.full_like(xoff, np.NaN)
 
-    return xoff, yoff
+    good = image_weight > 0
+    xoff[good] = np.average(x[good], axis=(1, 2), weights=weights[good])
+    yoff[good] = np.average(y[good], axis=(1, 2), weights=weights[good])
+
+    return xoff, yoff, image_weight
 
 
-def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, quiverLen=None, quiverLabel=None):
+def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
+                    quiverLen=None, quiverLabel=None):
     """Plot the offsets (as calculated by calculateOffsets) as a quiver
     """
+    if select is None:
+        select = np.ones_like(xoff, dtype=bool)
+
     if usePFImm:
         cosDec = 1
         x, y = pfsConfig.pfiNominal.T
@@ -491,13 +596,13 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, quiverLen=None, quive
             quiverLen = 0.5
         if quiverLabel is None:
             quiverLabel = "arcsec"
-    xoff -= 0.1; yoff -= 0.1
-    Q = plt.quiver(x, y, xoff, yoff)
+    #xoff -= 0.1; yoff -= 0.1
+    Q = plt.quiver(x[select], y[select], xoff[select], yoff[select])
 
     plt.quiverkey(Q, 0.1, 0.9, quiverLen, f"{quiverLen}{quiverLabel}", coordinates='axes',
                   color='red', labelcolor='red')
 
-    plt.gca().set_aspect(1/cosDec)
+    plt.gca().set_aspect(1 if usePFImm else 1/cosDec)
 
     if usePFImm:
         plt.xlabel(r"x (mm)")
@@ -510,23 +615,29 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, quiverLen=None, quive
 class ShowCobra:
     """Show a cobraId and possibly fiberId on right-click"""
 
-    def __init__(self, ax, pfi, gfm=None):
+    def __init__(self, ax, pfi, gfm=None, pfsConfig=None):
         self.ax = ax
         self.pfi = pfi
         self.gfm = gfm
+        self.pfsConfig = pfsConfig
         self.text = ax.text(0, 0, "", va="bottom", ha="left", color='white', transform=ax.transAxes)
         self.circle = None
+        #
+        self.__alpha = unicodedata.lookup("GREEK SMALL LETTER alpha")  # used in cursor display string
+        self.__delta = unicodedata.lookup("GREEK SMALL LETTER delta")  # used in cursor display string
         #
         # Save the values
         #
         self.cobraId = -1
         self.fiberId = -1
+        self.ra = np.NaN
+        self.dec = np.NaN
         #
         # For debugging
         #
         self.event = None
         self.exception = None
-        self.message = ""
+        self.msg = ""
 
     def __call__(self, event):
         self.event = event
@@ -538,14 +649,37 @@ class ShowCobra:
         try:
             if event.button in [3]:
                 x, y = event.xdata, event.ydata
-                self.cobraId = np.argmin(np.abs(self.pfi.centers - (x + 1j*y))) + 1
+
+                self.fiberId = None
+                cobraColor = 'white' 
+                if self.gfm and self.pfsConfig:
+                    xnom, ynom = self.pfsConfig.pfiNominal.T
+                    i = np.nanargmin(np.hypot(xnom - x, ynom - y))
+                    self.fiberId = self.pfsConfig.fiberId[i]
+                    self.cobraId = self.gfm.cobraId[self.gfm.fiberId == self.fiberId][0]
+                    x, y = self.pfsConfig.pfiNominal[i]
+                    cobraColor = 'red'
+                else:                   # find nearest cobra
+                    self.cobraId = np.argmin(np.abs(self.pfi.centers - (x + 1j*y))) + 1
+                    if False:  # just a guess, so probably worse than useless
+                        xy = self.pfi.centers[self.cobraId - 1]
+                        x, y = xy.real, xy.imag
+                        cobraColor = 'white' 
+
                 self.msg += f"cobraId {self.cobraId:4}"
 
                 if self.gfm:
-                    self.fiberId = self.gfm.fiberId[self.gfm.cobraId == self.cobraId][0]
+                    if self.fiberId is None:
+                        self.fiberId = self.gfm.fiberId[self.gfm.cobraId == self.cobraId][0]
+
                     self.msg += f"  fiberId {self.fiberId:4}"
 
-                self.circle = Circle((x, y), 2, facecolor=None, edgecolor='red', fill=False, alpha=1)
+                    if self.pfsConfig:
+                        l = self.pfsConfig.fiberId == self.fiberId
+                        self.ra, self.dec = self.pfsConfig.ra[l][0], self.pfsConfig.dec[l][0]
+                        self.msg += f" ({self.__alpha},{self.__delta})=({self.ra:7.4f}, {self.dec:7.4f})"
+
+                self.circle = Circle((x, y), 2, facecolor=None, edgecolor=cobraColor, fill=False, alpha=1)
                 self.ax.add_patch(self.circle)
                     
         except Exception as e:
@@ -555,10 +689,140 @@ class ShowCobra:
 
         self.text.set_text(self.msg)
 
-def addCobraIdCallback(fig, pfi, gfm=None):
+def addCobraIdCallback(fig, pfi, gfm=None, pfsConfig=None):
     """Add a callback to """
 
-    onclick = ShowCobra(fig.gca(), pfi, gfm)
+    onclick = ShowCobra(fig.gca(), pfi, gfm, pfsConfig)
     fig.canvas.mpl_connect('button_press_event', onclick)
     
     return onclick
+
+
+def showDesignPhotometry(pfsConfig=None, butler=None, dataId=None, showDesign=None, showGaia=True,
+                         useAB=True, band=2, maglim=None, marker='+', cmap="viridis", preserveLimits=True):
+    if dataId is None:
+        assert pfsConfig is not None
+        if showDesign is None:
+            showDesign = True
+    else:
+        assert butler is not None
+
+        pfsConfig = butler.get("pfsConfig", dataId)
+        md = butler.get("raw_md", dataId)
+
+        altitude = md['ALTITUDE']
+        pa = md['INST-PA']
+        utc = f"{md['DATE-OBS']} {md['UT']}"
+
+        if False:
+            boresight =  raDecStrToDeg(md["RA_CMD"], md["DEC_CMD"])
+            boresight = [[boresight[0]], [boresight[1]]]
+        else:
+            boresight = [[pfsConfig.raBoresight], [pfsConfig.decBoresight]]
+        
+        if showDesign is None:
+            showDesign = False
+
+    pfsConfig = pfsConfig[np.logical_and(pfsConfig.spectrograph == 1, pfsConfig.targetType != TargetType.ENGINEERING)]
+        
+    muJy = 1e-3*np.array(pfsConfig.psfFlux).T[band]
+    if useAB:
+        brightness = 23.9 - 2.5*np.log10(muJy)
+        try:
+            plt.matplotlib.cm.get_cmap(cmap + "_r")
+            cmap += "_r"
+        except ValueError:
+            pass
+
+    vmin=int(np.nanmin(brightness)) if useAB else None
+    if maglim is not None:
+        vmax = maglim
+    else:
+        vmax=int(np.nanmax(brightness)) + 1 if useAB else None
+
+    cmap = plt.matplotlib.cm.get_cmap(cmap)
+    norm = plt.matplotlib.colors.Normalize(vmin, vmax)
+
+    if maglim is None:
+        maglim = 100
+    if not showDesign and maglim < 100:
+        vmax = maglim
+
+    S = None
+    if showDesign:
+        for t in set(pfsConfig.targetType):
+            l = pfsConfig.targetType == t
+            x, y, = pfsConfig.pfiNominal.T
+
+            l = np.logical_and(l, np.isfinite(x + y))
+
+            if sum(l) == 0:
+                continue
+
+            x, y = x[l], y[l]
+
+            if True:
+                edgecolor = cmap(norm(brightness[l])) # seems to be needed to get coloured empty symbols
+
+                _marker = {TargetType.SCIENCE:'o', TargetType.FLUXSTD:'*'}[t]
+                S = plt.scatter(x, y, c=brightness[l], label=TargetType(t),
+                                marker=_marker, edgecolor=edgecolor, cmap=cmap, norm=norm)
+                S.set_facecolor("none") # empty the symbols; facecolor='none' keeps them filled
+
+            else:
+                plt.plot(x, y, '.', label=TargetType(t))
+
+        plt.legend(loc='upper left')
+
+    xlim = plt.xlim()
+    ylim = plt.ylim()
+    if len(plt.gca().get_lines()) + len(plt.gca().collections) == 0:  # n.b. ax.has_data() doesn't work
+        xlim = None, None
+        ylim = xlim
+
+    if showGaia and dataId is not None:
+        plateName = pfsConfig.designName
+        if plateName == 'raster_ngc6633_2':
+            plateName = "ngc6633_astrometryFalse"
+
+        import pandas as pd             # a heavy-weight dependency just to read a csv.  Probably OK
+        gaia = pd.read_csv(f"gaia_{plateName}.csv")
+
+        if False:
+            "gaia_raster11.csv"
+            "gaia_ngc6828.csv"
+
+        xmm, ymm = CoordinateTransform(np.stack((gaia.ra, gaia.dec)), mode="sky_pfi", za=90.0 - altitude,
+                                       pa=pa, cent=boresight, time=utc)[0:2]
+        gaiaMag = [gaia.phot_g_mean_mag, gaia.phot_bp_mean_mag, gaia.phot_rp_mean_mag][band]
+        l = gaiaMag < maglim
+
+        if marker in ['+']:
+            edgecolor = None
+        else:
+            edgecolor = cmap(norm(gaia.phot_rp_mean_mag[l])) # seems to be needed to get coloured empty symbols
+            
+
+        S = plt.scatter(xmm[l], ymm[l], c=gaia.phot_rp_mean_mag[l], marker=marker,
+                        edgecolor=edgecolor, cmap=cmap, norm=norm)
+        if edgecolor is not None:
+            S.set_facecolor("none") # empty the symbols; facecolor='none' keeps them filled
+
+        if False:
+            xmm, ymm = CoordinateTransform(np.stack((pfsConfig.ra, pfsConfig.dec)), mode="sky_pfi",
+                                           za=90.0 - altitude, pa=pa, cent=boresight, time=utc)[0:2]
+
+            plt.plot(xmm, ymm, 'x', color='red')
+            
+    if S is not None:
+        plt.colorbar(S, label="AB", shrink=0.8)
+
+    if preserveLimits:
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+
+    plt.xlabel("x (mm)")
+    plt.ylabel("y (mm)")
+    plt.title(f"0x{pfsConfig.pfsDesignId:x}  {pfsConfig.designName}     {pfsConfig.filterNames[1][band]}")
+
+    plt.gca().set_aspect(1)
