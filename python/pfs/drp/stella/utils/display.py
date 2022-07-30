@@ -381,7 +381,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     for fid in detMap.fiberId:
         ls = '-'
         if fid in pfsConfig.fiberId:
-            ind = pfsConfig.selectFiber(fid)
+            ind = pfsConfig.selectFiber([fid])
             imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
             if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
                 ls = ':'
@@ -392,7 +392,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             if SuNSS:
                 continue
 
-        ind = pfsConfig.selectFiber(fid)
+        ind = pfsConfig.selectFiber([fid])
         imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
         if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
             ls = ':'
