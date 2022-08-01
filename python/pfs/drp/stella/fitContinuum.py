@@ -579,6 +579,8 @@ class FitModelContinuumTask(BaseFitContinuumTask):
         if visitInfo is None:
             raise RuntimeError("visitInfo is required for FitModelContinuumTask")
         zd = 90 - visitInfo.getBoresightAzAlt().getLatitude().asDegrees()
+        if not np.isfinite(zd):
+            raise RuntimeError("Zenith distance is non-finite.")
         return [Struct(zd=zd)]*len(spectra)
 
     def _fitContinuumImpl(
