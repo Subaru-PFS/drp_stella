@@ -345,7 +345,9 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
         for i, (R, fid) in enumerate(zip(R, pfsConfig.fiberId)):
             if fiberIds and fid not in fiberIds:
                 continue
-            illum = np.where(np.hypot(I - yc[i], J - xc[i]) < R/pixelScale, 1.0, 0.0)
+            r = np.hypot(I - yc[i], J - xc[i])
+            r = np.where(np.isfinite(r), r, 10*R/pixelScale)  # avoid annoying numpy warning on <
+            illum = np.where(r < R/pixelScale, 1.0, 0.0)
             images[i, I, J] += illum*fluxes[i]
             weights[i, I, J] += illum
 
