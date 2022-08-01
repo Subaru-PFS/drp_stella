@@ -87,12 +87,13 @@ def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0, ja
     """
     if jacobian:
         fromVariance = fromVariance/calculateDispersion(fromWavelength)**2
+    length = len(fromWavelength)
+    indices = np.arange(length, dtype=int)
     with np.errstate(invalid="ignore", divide="ignore"):
-        indices = np.arange(len(fromWavelength), dtype=int)
-        nextIndex = interp1d(fromWavelength, indices, kind="next",
-                             fill_value="extrapolate")(toWavelength).astype(int)
-        prevIndex = interp1d(fromWavelength, indices, kind="previous",
-                             fill_value="extrapolate")(toWavelength).astype(int)
+        nextIndex = interp1d(fromWavelength, indices, kind="next", bounds_error=False,
+                             fill_value=(1, length - 1))(toWavelength).astype(int)
+        prevIndex = interp1d(fromWavelength, indices, kind="previous", bounds_error=False,
+                             fill_value=(0, length - 2))(toWavelength).astype(int)
         minWl = fromWavelength.min()
         maxWl = fromWavelength.max()
         extrapolate = (toWavelength < minWl) | (toWavelength > maxWl)
