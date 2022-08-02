@@ -18,3 +18,4 @@ sphinx/_build/
 .cache
 .coverage
 .pytest_cache
+.nfs*
