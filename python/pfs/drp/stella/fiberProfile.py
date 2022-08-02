@@ -199,6 +199,14 @@ class FiberProfile:
             plt.show()
         return fig, axes
 
+    def __makeFiberTrace(self, dimensions, xCenter, fiberId):
+        """Make a FiberTrace object
+
+        Helper function for makeFiberTrace/makeFiberTraceFromDetectorMap to get the numpy types right
+        """
+        return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
+                                      self.profiles.data, ~self.profiles.mask, xCenter, self.norm)
+
     def makeFiberTraceFromDetectorMap(self, detectorMap, fiberId):
         """Make a FiberTrace object
 
@@ -218,10 +226,10 @@ class FiberProfile:
         fiberTrace : `pfs.drp.stella.FiberTrace`
             A pixellated version of the profile, at a fixed trace position.
         """
-        return FiberTrace.fromProfile(fiberId, detectorMap.bbox.getDimensions(), self.radius,
-                                      self.oversample, self.rows, self.profiles, ~self.profiles.mask,
-                                      detectorMap.getXCenter(fiberId),
-                                      self.norm.astype(np.float32) if self.norm is not None else None)
+        dimensions = detectorMap.bbox.getDimensions()
+        xCenter = detectorMap.getXCenter(fiberId)
+
+        return self.__makeFiberTrace(dimensions, xCenter, fiberId)
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
         """Make a FiberTrace object
@@ -244,9 +252,8 @@ class FiberProfile:
             A pixellated version of the profile, at a fixed trace position.
         """
         rows = np.arange(dimensions.getY(), dtype=float)
-        return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
-                                      self.profiles, ~self.profiles.mask, centerFunc(rows),
-                                      self.norm.astype(np.float32) if self.norm is not None else None)
+        xCenter = centerFunc(rows)
+        return self.__makeFiberTrace(dimensions, xCenter, fiberId)
 
     def extractSpectrum(self, maskedImage, detectorMap, fiberId):
         """Extract a single spectrum from an image
