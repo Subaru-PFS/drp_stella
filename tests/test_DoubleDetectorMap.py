@@ -16,6 +16,7 @@ from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.referenceLine import ReferenceLineSource
 
 
 display = None
@@ -254,7 +255,8 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
-                             float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake"))
+                             float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake",
+                             None, ReferenceLineSource.NONE))
         lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
         config.order = 1

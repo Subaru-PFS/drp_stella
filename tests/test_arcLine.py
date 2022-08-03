@@ -6,6 +6,7 @@ import lsst.afw.geom
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.tests import runTests
 from pfs.drp.stella.referenceLine import ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSource
 
 display = None
 
@@ -30,11 +31,14 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.flag = np.random.choice((True, False), size=self.fiberId.shape)
         self.status = np.full_like(self.fiberId, int(ReferenceLineStatus.GOOD), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
+        self.transition = np.full_like(self.fiberId, "", dtype=str)
+        self.source = np.full_like(self.fiberId, int(ReferenceLineSource.NONE), dtype=int)
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
                                                      self.x, self.y, self.xErr, self.yErr,
                                                      self.flux, self.fluxErr,
-                                                     self.flag, self.status, self.description)]
+                                                     self.flag, self.status, self.description,
+                                                     self.transition, self.source)]
 
     def assertArcLineSet(self, lines, atol=0.0):
         """Check that the ArcLineSet is what we expect

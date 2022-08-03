@@ -17,6 +17,7 @@ from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
 from pfs.drp.stella.identifyLines import IdentifyLinesConfig, IdentifyLinesTask
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella import SpectrumSet
 
 display = None
@@ -91,7 +92,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         refLines = []
         for center in self.arcData.lines:
             wavelength = self.detMap.findWavelength(middle, center)
-            refLines.append(ReferenceLine("arc", wavelength, self.flux, ReferenceLineStatus.GOOD))
+            refLines.append(ReferenceLine("arc", wavelength, self.flux, ReferenceLineStatus.GOOD,
+                                          "UNKNOWN", ReferenceLineSource.NONE))
         self.referenceLines = ReferenceLineSet.fromRows(refLines)
 
     def tearDown(self):

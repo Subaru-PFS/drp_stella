@@ -65,6 +65,8 @@ class MeasureApertureCorrectionsTask(Task):
         self.wavelength = self.schema.addField("wavelength", type=float, doc="Line wavelength")
         self.description = self.schema.addField("description", type=str, size=128, doc="Line description")
         self.status = self.schema.addField("status", type=np.int32, doc="Line status flags")
+        self.transition = self.schema.addField("transition", type=str, size=128, doc="Line transition")
+        self.source = self.schema.addField("source", type=np.int32, doc="Line source information")
         self.center = Point2DKey.addFields(self.schema, self.centerName, "forced center from detectorMap",
                                            "pixel")
         self.schema.getAliasMap().set("slot_Centroid", self.centerName)
@@ -171,6 +173,8 @@ class MeasureApertureCorrectionsTask(Task):
             source.set(self.center, Point2D(xx, yy))
             source.set(self.psfFlux, ll.flux)
             source.set(self.psfFluxErr, ll.fluxErr)
+            source.set(self.transition, ll.transition)
+            source.set(self.source, ll.source)
 
         return catalog
 
@@ -252,10 +256,13 @@ class MeasureApertureCorrectionsTask(Task):
 
         status[reject] = ReferenceLineStatus.REJECTED.value
         description = [row[self.description] for row in catalog]
+        transition = [row[self.transition] for row in catalog]
+        source = [row[self.source] for row in catalog]
 
         lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
                                        xErr=empty, yErr=empty, flux=apCorr, fluxErr=apCorrErr,
-                                       flag=flag, status=status, description=description)
+                                       flag=flag, status=status, description=description,
+                                       transition=transition, source=source)
         return lines.asPfsFiberArraySet()
 
     def apply(self, lines: ArcLineSet, apCorr: FocalPlaneFunction, pfsConfig: PfsConfig):

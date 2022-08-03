@@ -33,11 +33,14 @@ class ArcLineSet(Table):
         if fiberId is not None:
             select = self.fiberId == fiberId
             for args in zip(self.description[select], self.wavelength[select], self.flux[select],
-                            self.status[select]):
+                            self.status[select],
+                            self.transition[select],
+                            self.source[select]):
                 refLines.append(*args)
         else:
-            unique = set(zip(self.wavelength, self.description, self.status))
-            for wavelength, description, status in sorted(unique):
+            unique = set(zip(self.wavelength, self.description, self.status,
+                             self.transition, self.source))
+            for wavelength, description, status, transition, source in sorted(unique):
                 select = ((self.description == description) & (self.wavelength == wavelength) &
                           (self.status == status) & np.isfinite(self.flux))
 
@@ -48,6 +51,8 @@ class ArcLineSet(Table):
                         wavelength=wavelength,
                         intensity=intensity,
                         status=status,
+                        transition=transition,
+                        source=source
                     )
                 )
         return refLines

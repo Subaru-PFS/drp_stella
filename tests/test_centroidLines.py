@@ -7,6 +7,7 @@ import lsst.afw.image.testUtils
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLineSource
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -36,6 +37,8 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
                     wavelength=wavelength,
                     intensity=flux,
                     status=ReferenceLineStatus.GOOD,
+                    transition="UNKNOWN",
+                    source=ReferenceLineSource.NONE,
                 )
             )
         referenceLines = ReferenceLineSet.fromRows(referenceLines)

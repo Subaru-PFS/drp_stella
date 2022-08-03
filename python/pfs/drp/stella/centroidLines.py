@@ -63,6 +63,8 @@ class CentroidLinesTask(Task):
         self.description = self.schema.addField("description", type=str, size=128, doc="Line description")
         self.ignore = self.schema.addField("ignore", type="Flag", doc="Ignore line?")
         self.status = self.schema.addField("status", type=np.int32, doc="Line status flags")
+        self.transition = self.schema.addField("transition", type=str, size=128, doc="Line transition")
+        self.source = self.schema.addField("source", type=np.int32, doc="Source of line information")
         self.centroider = SdssCentroidAlgorithm(self.config.centroider.makeControl(), self.centroidName,
                                                 self.schema)
         self.schema.getAliasMap().set("slot_Centroid", self.centroidName)
@@ -219,6 +221,8 @@ class CentroidLinesTask(Task):
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)
+                source.set(self.transition, rl.transition)
+                source.set(self.source, rl.source)
                 source.setFootprint(footprint)
 
                 if bbox.contains(peak):
@@ -326,6 +330,8 @@ class CentroidLinesTask(Task):
                   catalog[self.ignore]),
             status=catalog[self.status],
             description=[row[self.description] for row in catalog],
+            transition=[row[self.transition] for row in catalog],
+            source=[row[self.source] for row in catalog],
         )
 
     def display(self, exposure, catalog):

@@ -6,6 +6,7 @@ from lsst.daf.base import PropertyList
 
 from pfs.drp.stella.readLineList import ReadLineListTask, ReadLineListConfig
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.tests.utils import runTests
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 
@@ -26,8 +27,10 @@ class Line(SimpleNamespace):
     flag : `int`
         If non-zero, indicates the line should not be used for some reason.
     """
-    def __init__(self, wavelength, intensity, description, flag):
-        super().__init__(wavelength=wavelength, intensity=intensity, description=description, flag=flag)
+    def __init__(self, wavelength, intensity, description, flag, transition="UNKNOWN",
+                 status=ReferenceLineSource.NONE):
+        super().__init__(wavelength=wavelength, intensity=intensity, description=description, flag=flag,
+                         transition=transition, status=status)
 
 
 class ReadLineListTestCase(lsst.utils.tests.TestCase):
@@ -200,15 +203,24 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         """
         task = ReadLineListTask()
         refLines = [
-            ReferenceLine('HI', 123.456, 1000, ReferenceLineStatus.GOOD),
-            ReferenceLine('HII', 456.789, 1000, ReferenceLineStatus.GOOD),
-            ReferenceLine('ArI', 567.890, 999, ReferenceLineStatus.GOOD),
-            ReferenceLine('HgII', 890.123, 123, ReferenceLineStatus.GOOD),
-            ReferenceLine('HgI', 901.123, 14, ReferenceLineStatus.GOOD),
-            ReferenceLine('OH', 921.123, 14, ReferenceLineStatus.GOOD),
-            ReferenceLine('OI', 931.123, 14, ReferenceLineStatus.GOOD),
-            ReferenceLine('Na', 941.123, 14, ReferenceLineStatus.GOOD),
-            ReferenceLine('NI', 951.123, 14, ReferenceLineStatus.GOOD),
+            ReferenceLine('HI', 123.456, 1000, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('HII', 456.789, 1000, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('ArI', 567.890, 999, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('HgII', 890.123, 123, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('HgI', 901.123, 14, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('OH', 921.123, 14, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('OI', 931.123, 14, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('Na', 941.123, 14, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
+            ReferenceLine('NI', 951.123, 14, ReferenceLineStatus.GOOD,
+                          "UNKNOWN", ReferenceLineSource.NONE),
         ]
 
         lines = ReferenceLineSet.fromRows(refLines)

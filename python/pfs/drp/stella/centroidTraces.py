@@ -13,7 +13,7 @@ from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.images import convolveImage
 from .DetectorMapContinued import DetectorMap
 from .arcLine import ArcLine, ArcLineSet
-from .referenceLine import ReferenceLineStatus
+from .referenceLine import ReferenceLineSource, ReferenceLineStatus
 from .utils.psf import fwhmToSigma
 
 import lsstDebug
@@ -185,6 +185,7 @@ def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak
         row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
         wavelength = detectorMap.findWavelength(fiberId, row)
         lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
-                              tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace") for
+                              tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace",
+                              "UNKNOWN", ReferenceLineSource.NONE) for
                       wl, yy, tt in zip(wavelength, row, traces[fiberId])])
     return ArcLineSet.fromRows(lines)

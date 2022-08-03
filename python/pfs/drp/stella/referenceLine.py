@@ -11,7 +11,7 @@ from pfs.datamodel.pfsTable import PfsTable
 from .utils.bitmask import Bitmask
 from .table import Table
 
-__all__ = ("ReferenceLineStatus", "ReferenceLine", "ReferenceLineSet")
+__all__ = ("ReferenceLineStatus", "ReferenceLine", "ReferenceLineSet", "ReferenceLineSource")
 
 
 class ReferenceLineStatus(Bitmask):
@@ -25,6 +25,8 @@ class ReferenceLineStatus(Bitmask):
     DETECTORMAP_USED = 0x20, "Used for fitting detectorMap"
     DETECTORMAP_RESERVED = 0x40, "Reserved during fitting detectorMap"
     SKYSUB_USED = 0x80, "Used for 2d sky subtraction"
+    MERGED = 0x100, "Line has been merged into another"
+    COMBINED = 0x200, "Line created from MERGED lines"
     BAD = 0x01F, "Line is bad for any reason"
 
     @classmethod
@@ -64,14 +66,30 @@ class ReferenceLineTable(PfsTable):
         Estimated intensities (arbitrary units).
     status : `numpy.ndarray` of `int`
         Bitmask indicating the quality of each line.
+    transition: `str`
+        Line transitions, or UNKNOWN if not known
+    source: `numpy.ndarray` of `int`
+        Bitmask indicating the reference source information.
     """
     schema = dict(
         description=str,
         wavelength=float,
         intensity=float,
         status=np.int32,
+        transition=str,
+        source=np.int32
     )
     fitsExtName = "REFLINES"
+
+
+class ReferenceLineSource(Bitmask):
+    """Source information for reference line"""
+    NONE = 0x00, 'No source information available'
+    MANUAL = 0x01, 'Lines added or modified by hand'
+    NIST = 0x02, 'Lines taken from NIST'
+    OSTERBROCK97 = 0x04, 'Osterbrock+1996 (1996PASP..108..277O) and Osterbrock+1997 (1997PASP..109..614O)'
+    ROUSSELOT2000 = 0x08, 'Rousselot+2000 (2000A&A...354.1134R)'
+    SDSS = 0x10, 'Lines taken from SDSS (https://www.sdss.org/dr14/spectro/spectro_basics)'
 
 
 class ReferenceLineSet(Table):
@@ -118,7 +136,13 @@ class ReferenceLineSet(Table):
 
                 fields = line.split()
                 try:
-                    wavelength, intensity, description, status = fields
+                    # Support linelists that do not have transition or source information
+                    if len(fields) == 4:
+                        wavelength, intensity, description, status = fields
+                        transition = "UNKNOWN"
+                        source = ReferenceLineSource.NONE
+                    else:
+                        wavelength, intensity, description, status, transition, source = fields
                 except Exception as ex:
                     raise RuntimeError(f"Unable to parse line {ii} of {filename}: {ex}")
 
@@ -133,6 +157,8 @@ class ReferenceLineSet(Table):
                         wavelength=float(wavelength),
                         intensity=intensity,
                         status=ReferenceLineStatus(int(status)),
+                        transition=transition,
+                        source=source,
                     )
                 )
 
@@ -184,15 +210,22 @@ class ReferenceLineSet(Table):
             print("# 2: intensity (arbitrary units)", file=fd)
             print("# 3: description (ionic species)", file=fd)
             print("# 4: status (bitmask)", file=fd)
+            print("# 5: transition", file=fd)
+            print("# 6: source reference", file=fd)
             print("#", file=fd)
             print("# Status bitmask elements:", file=fd)
             for flag in ReferenceLineStatus:
                 if flag != ReferenceLineStatus.BAD:
                     print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
             print("#", file=fd)
+            print("# Source bitmask elements:", file=fd)
+            for flag in ReferenceLineSource:
+                print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
+            print("#", file=fd)
             for line in self.rows:
                 print(f"{line.wavelength:<12.5f} {line.intensity:12.2f}    "
                       f"{line.description:7s} {line.status:6d}",
+                      f"{line.transition:7s} {line.source:3d}",
                       file=fd)
 
     def plot(self, axes, ls='-', alpha=1, color=None, label=None,

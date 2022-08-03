@@ -341,6 +341,8 @@ class FitDifferentialDetectorMapTask(Task):
             flag=lines.flag,
             status=lines.status,
             description=lines.description,
+            transition=lines.transition,
+            source=lines.source,
         )
 
     def fitScaling(self, bbox, lines, select, minMaxFiberId=None):

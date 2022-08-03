@@ -617,6 +617,8 @@ class FitDistortedDetectorMapTask(Task):
             flag=lines.flag,
             status=lines.status,
             description=lines.description,
+            transition=lines.transition,
+            source=lines.source,
         )
 
     def calculateWeights(self, lines: ArcLineSet):
