@@ -97,7 +97,8 @@ def plotArcResiduals(als,
         if detectorMap is None:
             raise RuntimeError("You must provide a DetectorMap if usePixels is True")
 
-        dispersion = detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2])
+        indices = len(als.fiberId)//2
+        dispersion = detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
 
     ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
     with np.testing.suppress_warnings() as suppress:
@@ -190,7 +191,9 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
     """
     arrowSize: characteristic arrow length in pixels
     """
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2])
+    indices = len(als.fiberId)//2
+    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices],
+                                                              als.wavelength[indices])
     dx = als.tracePos - als.x
 
     with np.testing.suppress_warnings() as suppress:
@@ -199,7 +202,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < maxCentroidErr)
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
 
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2])
+    indices = len(als.fiberId)//2
+    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
     dx = als.tracePos - als.x
 
     for dz in [dx, dy]:
@@ -372,7 +376,9 @@ class PlotArcLines:
             return f"{'%(visit)d %(arm)s%(spectrograph)d' % dataId}   " \
                 f"{md['DATE-OBS']}T{md['UT'][:-4]}   {fitName}"
 
-        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[len(als.fiberId)//2])
+        indices = len(als.fiberId)//2
+        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices],
+                                                                  als.wavelength[indices])
         dx = als.tracePos - als.x
 
         for i in range(2):
