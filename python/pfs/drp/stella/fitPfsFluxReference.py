@@ -945,7 +945,8 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
 
     modelFlux = interpolateFlux(
         model.wavelength[good], model.flux[good],
-        obsSpectrum.wavelength * invDoppler
+        obsSpectrum.wavelength * invDoppler,
+        jacobian=False
     )
 
     bad = (0 != (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags))))
