@@ -1,7 +1,7 @@
 from pfs.datamodel.masks import MaskHelper
-from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
 from pfs.datamodel.wavelengthArray import WavelengthArray
+from pfs.drp.stella.datamodel.pfsFiberArray import PfsSimpleSpectrum
 
 import numpy as np
 from numpy.lib import recfunctions
@@ -104,7 +104,7 @@ class FluxModelSet:
 
         Returns
         -------
-        spectrum : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+        spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
             The spectrum.
         """
         path = self.getFileName(teff=teff, logg=logg, m=m, alpha=alpha)
@@ -120,7 +120,7 @@ class FluxModelSet:
 
         Returns
         -------
-        spectrum : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+        spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
             The spectrum.
         """
         with astropy.io.fits.open(path) as hdus:

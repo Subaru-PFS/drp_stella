@@ -536,7 +536,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -584,7 +584,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -771,7 +771,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -860,7 +860,7 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Spectrum.
     lsf : `pfs.drp.stella.Lsf`
         Lsf.
@@ -869,7 +869,7 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
 
     Returns
     -------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         New instance of spectrum,
         with the same sampling points as the input spectrum's.
     """
@@ -889,14 +889,14 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Spectrum.
     fiberConfig : `pfs.datamodel.pfsConfig.PfsConfig`
         PfsConfig that contains only a single fiber.
 
     Returns
     -------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         The same instance as the argument.
     """
     fiberFlux = fiberConfig.fiberFlux[0]
@@ -926,7 +926,7 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
     ----------
     obsSpectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
         Observed spectrum.
-    model : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+    model : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Model spectrum.
     radialVelocity : `float`
         Radial velocity in km/s.
@@ -970,7 +970,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum, snr):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         A simple spectrum without additional information such as ``covar``.
     snr : `float`
         Signal to noise ratio from which to invent ``covar`` array.
