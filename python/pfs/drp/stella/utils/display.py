@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplColors
 
@@ -191,6 +192,10 @@ except ImportError:
     DisplayImpl = None
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
+    warnings.warn("addPfsCursor: Using an old version of display_matplotlib. "
+                  "Ideally need one that has the method DisplayImpl.set_format_coord. "
+                  "Using workaround.")
+
     def addPfsCursor(disp, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
         """Add PFS specific information to an afwDisplay.Display
 
@@ -211,6 +216,28 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         Assumes matplotlib.  N.b. this will be easier in the next
         release of display_matplotlib
         """
+        if disp is None:
+            if pfsConfig:
+                fiberIds = fiberids.FiberIds()
+
+            def pfs_format_coord(x, y, detectorMap=detectorMap):
+                """PFS addition to display_matplotlib's cursor display
+                """
+                if detectorMap is None:
+                    return ""
+                else:
+                    fid = detectorMap.findFiberId(geom.PointD(x, y))
+                    fidStr = f"{fid:3}"
+                    if pfsConfig:
+                        try:
+                            mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
+                            fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
+                        except RuntimeError:
+                            pass            # fiber isn't in pfsConfig
+
+                    return f"FiberId {fidStr}    {detectorMap.findWavelength(fid, y):8.3f}nm"
+            return pfs_format_coord
+
         disp._impl._detMap = detectorMap
 
         axes = disp._impl._figure.axes
