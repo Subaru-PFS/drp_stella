@@ -398,8 +398,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         specset = SpectrumSet.fromPfsArm(spectra)
 
         lines = ReferenceLineSet.fromRows([
-            ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD),
-            ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD),
+            ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
+            ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
         ])
 
         fiberIdToIndex = {fiberId: index for index, fiberId in enumerate(spectra.fiberId)}
