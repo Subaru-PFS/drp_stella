@@ -1016,10 +1016,7 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
     invVar = 1.0 / obsSpectrum.covar[0, :]
     invVar[bad] = 0.0
 
-    numer = np.sum((flux * modelFlux) * invVar)
-    denom = np.sum(np.square(modelFlux) * invVar)
-    ampli = numer / denom
-    chisq = np.sum(np.square(flux - ampli * modelFlux) * invVar)
+    chisq = np.sum(np.square(flux - modelFlux) * invVar)
 
     return chisq
 
