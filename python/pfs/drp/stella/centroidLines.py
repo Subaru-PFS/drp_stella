@@ -369,7 +369,8 @@ class CentroidLinesTask(Task):
             disp.mtv(exposure)
 
         with disp.Buffering():
-            if self.debugInfo.fiberIds:
+            # N.b. "not fiberIds" and "fiberIds not in (False, None)" fail with ndarray
+            if self.debugInfo.fiberIds is not False and self.debugInfo.fiberIds is not None:
                 showPeak = np.zeros(len(catalog), dtype=bool)
                 fiberId = catalog["fiberId"]
                 for fid in self.debugInfo.fiberIds:

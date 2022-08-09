@@ -10,7 +10,7 @@ __all__ = ["findSuNSSId", "plotSuNSSFluxes", "Bphoton"]
 
 def findSuNSSId(pfsDesign, fiberId):
     """Return the SuNSS ferrule fiber ID given a pfsDesign and fiberId"""
-    x0, y0 = pfsDesign.pfiNominal[pfsDesign.selectFiber(fiberId)][0]
+    x0, y0 = pfsDesign.pfiNominal[pfsDesign.selectFiber(fiberId)]
 
     x = np.empty(127)
     y = np.empty_like(x)
@@ -87,7 +87,7 @@ def plotFerrule():
 
 
 def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
-                    fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False):
+                    fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False, fig=None):
     """Plot images of the SuNSS ferrule based on fluxes in extracted spectra
     pfsConfig : `pfsConfig`
     pfsSpec: pfsArm or pfsMerged
@@ -96,7 +96,15 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
     "brightest" or "brightest+6" use the brightest fibre and its neighbours,
     usually 6.
     """
-    fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
+
+    if fig is None:
+        fig = plt.figure()
+
+    gs = fig.add_gridspec(1, 2, wspace=0)
+    axs = []
+    axs.append(fig.add_subplot(gs[0, 0]))
+    axs.append(fig.add_subplot(gs[0, 1], sharey=axs[0]))
+    axs[1].tick_params(axis='y', which='both', left=False, labelleft=False)
 
     if showConnectors:
         lookupConnector = makeMappingToConnector(pfsConfig)
@@ -128,11 +136,20 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
             suppress.filter(RuntimeWarning, "invalid value encountered in less_equal")
             suppress.filter(RuntimeWarning, "invalid value encountered in greater_equal")
+            sky = {}
             if subtractSky:
                 pfsFlux = pfsSpec.flux.copy()
-                pfsFlux -= np.nanmedian(np.where(pfsSpec.mask == 0, pfsFlux, np.NaN), axis=0)
             else:
                 pfsFlux = pfsSpec.flux
+
+            for DI in [TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]:
+                if subtractSky:
+                    ll = pfsConfig.selectByTargetType(DI)
+                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[ll] == 0, pfsFlux[ll], np.NaN), axis=0)
+                    pfsFlux[ll] -= sky[DI]  # median per spectral element
+                    sky[DI] = np.nanmean(sky[DI])
+                else:
+                    sky[DI] = 0
 
             windowed = np.where(np.logical_and(pfsSpec.wavelength >= lam0, pfsSpec.wavelength <= lam1),
                                 pfsFlux, np.NaN)
@@ -162,7 +179,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             if tt != DI:
                 continue
 
-            ind = pfsConfig.selectFiber(fid)[0]
+            ind = pfsConfig.selectFiber(fid)
 
             if showConnectors:
                 color = colors[lookupConnector[fid]]
@@ -187,7 +204,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
                     print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3}"
-                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
+                          f" {findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
 
             broken_color = color
             textcolor = 'black'
@@ -215,12 +232,13 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             plt.suptitle("Mapping to tower connectors", y=0.83)
         else:
             if i == 0:
-                title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
+                title = f"{visit} {'?brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
             else:
                 title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
 
-            plt.text(0.03, 0.03, f"fluxMax = {fluxMax:.2f}", transform=ax.transAxes)
+            plt.text(0.03, 0.03, f"sky = {sky[DI]:.3f}  fluxMax = sky + {fluxMax:.3f}",
+                     transform=ax.transAxes)
 
         if md:
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
