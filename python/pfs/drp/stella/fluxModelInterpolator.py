@@ -1,7 +1,7 @@
 from pfs.datamodel.masks import MaskHelper
-from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
 from pfs.datamodel.wavelengthArray import WavelengthArray
+from pfs.drp.stella.datamodel.pfsFiberArray import PfsSimpleSpectrum
 
 import astropy.io.fits
 import numpy as np
@@ -128,7 +128,7 @@ class FluxModelInterpolator:
 
         Returns
         -------
-        spectrum : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+        spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
             Interpolated spectrum.
         """
         x = np.empty(shape=(1, 4), dtype=float)

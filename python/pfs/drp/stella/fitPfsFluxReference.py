@@ -19,12 +19,13 @@ from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
-from pfs.drp.stella.lsf import warpLsf
+from pfs.drp.stella.lsf import GaussianLsf, warpLsf
 
 from astropy import constants as const
 import numpy as np
 
 import copy
+import dataclasses
 
 __all__ = ["FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
 
@@ -234,7 +235,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         if len(pfsMerged) == 0:
             raise RuntimeError("No observed FLUXSTD can be fitted a model to.")
 
-        pfsMerged = self.whitenSpectrum(pfsMerged, mode="observed")
+        pfsMerged /= pfsMerged.norm
+        pfsMerged.norm[...] = 1.0
+
+        pfsMerged = self.computeContinuum(pfsMerged, mode="observed").whiten(pfsMerged)
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
@@ -350,12 +354,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             modelSpectrum = convolveLsf(
                 model.spectrum, pfsMergedLsf[pfsConfig.fiberId[iFiber]], spectrum.wavelength
             )
-            modelSpectrum = self.whitenSpectrum(modelSpectrum, mode="model")
+            modelSpectrum = self.computeContinuum(modelSpectrum, mode="model").whiten(modelSpectrum)
             radialVelocities.append(self.estimateRadialVelocity.run(spectrum, modelSpectrum))
 
         return radialVelocities
 
-    def whitenSpectrum(self, spectra, *, mode):
+    def computeContinuum(self, spectra, *, mode):
         """Whiten one or more spectra.
 
         Parameters
@@ -368,29 +372,21 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         Returns
         -------
-        spectra : `PfsSimpleSpectrum` or `PfsFiberArraySet`
-            The same instance as the argument.
+        continuum : `Continuum`
+            Fitted continuum.
         """
         if mode == "observed":
             fitContinuum = self.fitObsContinuum
         if mode == "model":
             fitContinuum = self.fitModelContinuum
 
-        if hasattr(spectra, "norm"):
-            # We want the flux normalized.
-            spectra /= spectra.norm
-            spectra.norm[...] = 1.0
-
         # If `spectra` is actually a single spectrum,
         # we put it into PfsFiberArraySet
         if len(spectra.flux.shape) == 1:
-            original_spectrum = spectra
             if not hasattr(spectra, "covar"):
                 spectra = promoteSimpleSpectrumToFiberArray(spectra, snr=self.config.modelSNR)
             # This is temporary object, so any fiberId will do.
             spectra = promoteFiberArrayToFiberArraySet(spectra, fiberId=1)
-        else:
-            original_spectrum = None
 
         # This function actually works with `PfsFiberArraySet`
         # nonetheless for its name.
@@ -398,8 +394,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         specset = SpectrumSet.fromPfsArm(spectra)
 
         lines = ReferenceLineSet.fromRows([
-            ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD),
-            ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD),
+            ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
+            ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
         ])
 
         fiberIdToIndex = {fiberId: index for index, fiberId in enumerate(spectra.fiberId)}
@@ -416,19 +412,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             set(spectra.fiberId) - set(continuum.fiberId for continuum in continuumList)
         ], dtype=int)
 
-        # Whiten spectra
-        spectra /= continua
-        spectra.norm[...] = 1.0
-        spectra.mask[absentIndex, :] |= spectra.flags.add("BAD")
-
-        if original_spectrum is not None:
-            original_spectrum.flux[...] = spectra.flux[0, ...]
-            if hasattr(original_spectrum, "covar"):
-                original_spectrum.covar[...] = spectra.covar[0, ...]
-            original_spectrum.mask[...] = spectra.mask[0, ...]
-            spectra = original_spectrum
-
-        return spectra
+        return Continuum(continua, absentIndex)
 
     def fitModelsToSpectra(self, pfsConfig, obsSpectra, pfsMergedLsf, radialVelocities, priorPdfs):
         """For each observed spectrum,
@@ -485,12 +469,14 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 )
             )
 
+        averageLsf = getAverageLsf([pfsMergedLsf[fiberId] for fiberId in pfsConfig.fiberId])
+
         for iModel, (param, priorPdf) in enumerate(zip(self.fluxModelSet.parameters, relativePriors)):
             model = self.fluxModelSet.getSpectrum(
                 teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
             )
             # This one will be created afterward when it is actually required.
-            whitenedModel = None
+            modelContinuum = None
 
             for iFiber, (obsSpectrum, velocity, prior) in enumerate(
                     zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)):
@@ -498,11 +484,16 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                     continue
                 if not (prior > 1e-8):
                     continue
-                if whitenedModel is None:
-                    whitenedModel = self.whitenSpectrum(model, mode="model")
+                if modelContinuum is None:
+                    convolvedModel = convolveLsf(
+                        model, averageLsf, obsSpectrum.wavelength
+                    )
+                    modelContinuum = self.computeContinuum(convolvedModel, mode="model")
+
                 convolvedModel = convolveLsf(
-                    whitenedModel, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
+                    model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
                 )
+                convolvedModel = modelContinuum.whiten(convolvedModel)
                 chisqs[iFiber][iModel] = calculateSpecChiSquare(
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
@@ -536,7 +527,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -584,7 +575,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -771,7 +762,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         models : `list` of `Optional[lsst.pipe.base.Struct]`
             The members of each element are:
 
-            spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
@@ -852,6 +843,54 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         return list(badMask)
 
 
+@dataclasses.dataclass
+class Continuum:
+    """Continuous spectra.
+
+    This class is the return type of
+    ``FitPfsFluxReferenceTask.computeContinuum()``
+
+    Parameters
+    ----------
+    flux : `numpy.array`
+        Continuum. Shape (M, N).
+        M is the number of spectra and N is the number of samples.
+    invalidIndices : `numpy.array`
+        List of indices in [0, M).
+        ``flux[i]`` (``i`` in  ``invalidIndices``) is invalid.
+    """
+
+    flux: np.array
+    invalidIndices: np.array
+
+    def whiten(self, spectra):
+        """Divide ``spectra`` by ``self`` to whiten them.
+
+        Parameters
+        ----------
+        spectra : `PfsSimpleSpectrum` or `PfsFiberArraySet`
+            spectra to whiten.
+
+        Returns
+        -------
+        spectra : `PfsSimpleSpectrum` or `PfsFiberArraySet`
+            The same instance as the argument.
+        """
+        if len(spectra.flux.shape) == 1:
+            assert(len(self.flux) == 1)
+            spectra /= self.flux[0, :]
+            if 0 in self.invalidIndices:
+                spectra.mask[:] |= spectra.flags.add("BAD")
+        else:
+            spectra /= self.flux
+            spectra.mask[self.invalidIndices, :] |= spectra.flags.add("BAD")
+
+        if hasattr(spectra, "norm"):
+            spectra.norm[...] = 1.0
+
+        return spectra
+
+
 def convolveLsf(spectrum, lsf, lsfWavelength):
     """Convolve LSF to spectrum.
 
@@ -860,7 +899,7 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Spectrum.
     lsf : `pfs.drp.stella.Lsf`
         Lsf.
@@ -869,7 +908,7 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
 
     Returns
     -------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         New instance of spectrum,
         with the same sampling points as the input spectrum's.
     """
@@ -877,6 +916,23 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
     lsf = warpLsf(lsf, lsfWavelength, spectrum.wavelength)
     spectrum.flux = lsf.computeKernel((len(spectrum) - 1) / 2.0).convolve(spectrum.flux)
     return spectrum
+
+
+def getAverageLsf(lsfs):
+    """Get the average LSF.
+
+    Parameters
+    ----------
+    lsfs : `list` of `pfs.drp.stella.Lsf`
+        List of LSFs to average.
+
+    Returns
+    -------
+    lsf : `pfs.drp.stella.Lsf`
+        Average LSF.
+    """
+    sigma = np.sqrt(sum(lsf.computeShape().getIxx() for lsf in lsfs) / len(lsfs))
+    return GaussianLsf(lsfs[0].length, sigma)
 
 
 def adjustAbsoluteScale(spectrum, fiberConfig):
@@ -889,14 +945,14 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Spectrum.
     fiberConfig : `pfs.datamodel.pfsConfig.PfsConfig`
         PfsConfig that contains only a single fiber.
 
     Returns
     -------
-    spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         The same instance as the argument.
     """
     fiberFlux = fiberConfig.fiberFlux[0]
@@ -926,7 +982,7 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
     ----------
     obsSpectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
         Observed spectrum.
-    model : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+    model : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         Model spectrum.
     radialVelocity : `float`
         Radial velocity in km/s.
@@ -945,21 +1001,22 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
 
     modelFlux = interpolateFlux(
         model.wavelength[good], model.flux[good],
-        obsSpectrum.wavelength * invDoppler
+        obsSpectrum.wavelength * invDoppler,
+        jacobian=False
     )
 
     bad = (0 != (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags))))
 
     flux = np.copy(obsSpectrum.flux)
-    flux[bad] = 0.0
+    # If not(any(isnan(flux))), we don't have to do this
+    # (because invVar will be set to 0 for bad pixels.)
+    # We set flux[bad] to a finite value to make sure we won't encounter nan.
+    flux[bad] = 1.0
 
     invVar = 1.0 / obsSpectrum.covar[0, :]
     invVar[bad] = 0.0
 
-    numer = np.sum((flux * modelFlux) * invVar)
-    denom = np.sum(np.square(modelFlux) * invVar)
-    ampli = numer / denom
-    chisq = np.sum(np.square(flux - ampli * modelFlux) * invVar)
+    chisq = np.sum(np.square(flux - modelFlux) * invVar)
 
     return chisq
 
@@ -969,7 +1026,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum, snr):
 
     Parameters
     ----------
-    spectrum : `pfs.datamodel.pfsSimpleSpectrum.PfsSimpleSpectrum`
+    spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         A simple spectrum without additional information such as ``covar``.
     snr : `float`
         Signal to noise ratio from which to invent ``covar`` array.
