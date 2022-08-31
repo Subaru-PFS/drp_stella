@@ -15,7 +15,7 @@ from lsst.pipe.base import Struct
 from lsst.ctrl.pool.pool import NODE
 import lsst.pipe.drivers.constructCalibs
 from lsst.pipe.drivers.utils import getDataRef
-from lsst.pipe.tasks.repair import RepairTask
+from .repair import PfsRepairTask
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
@@ -239,7 +239,7 @@ class SpectralCalibConfig(lsst.pipe.drivers.constructCalibs.CalibConfig):
         doc="Repair PSF size (pixels)"
     )
     repair = ConfigurableField(
-        target=RepairTask,
+        target=PfsRepairTask,
         doc="Task to repair artifacts"
     )
 

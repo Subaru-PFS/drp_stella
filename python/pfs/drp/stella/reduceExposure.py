@@ -28,7 +28,6 @@ from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListFie
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.afw.display import Display
-from lsst.pipe.tasks.repair import RepairTask
 from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
@@ -43,6 +42,7 @@ from .centroidTraces import CentroidTracesTask, tracesToLines
 from .adjustDetectorMap import AdjustDetectorMapTask
 from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
+from .repair import PfsRepairTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -51,7 +51,7 @@ class ReduceExposureConfig(Config):
     """Config for ReduceExposure"""
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
-    repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
     doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
