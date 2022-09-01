@@ -192,9 +192,6 @@ except ImportError:
     DisplayImpl = None
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
-    warnings.warn("addPfsCursor: Using an old version of display_matplotlib. "
-                  "Ideally need one that has the method DisplayImpl.set_format_coord. "
-                  "Using workaround.")
 
     def addPfsCursor(disp, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
         """Add PFS specific information to an afwDisplay.Display
@@ -216,6 +213,10 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         Assumes matplotlib.  N.b. this will be easier in the next
         release of display_matplotlib
         """
+        warnings.warn("addPfsCursor: Using an old version of display_matplotlib. "
+                      "Ideally need one that has the method DisplayImpl.set_format_coord. "
+                      "Using workaround.")
+
         if disp is None:
             if pfsConfig:
                 fiberIds = fiberids.FiberIds()
