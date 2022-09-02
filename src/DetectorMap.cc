@@ -302,10 +302,10 @@ int DetectorMap::findFiberId(
     while (highIndex - lowIndex > 1) {
         std::size_t const newIndex = lowIndex + (highIndex - lowIndex)/2;
         double const xNew = getXCenterImpl(fiberId[newIndex], yy);
+        if (!std::isfinite(xNew)) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Non-finite xCenter");
+        }
         if (increasing) {
-            if (xNew < xLow || xNew > xHigh) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
-            }
             if (xx > xNew) {
                 lowIndex = newIndex;
                 xLow = xNew;
@@ -313,16 +313,19 @@ int DetectorMap::findFiberId(
                 highIndex = newIndex;
                 xHigh = xNew;
             }
-        } else {
-            if (xNew > xLow || xNew < xHigh) {
+            if (xNew < xLow || xNew > xHigh) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
             }
+        } else {
             if (xx < xNew) {
                 lowIndex = newIndex;
                 xLow = xNew;
             } else {
                 highIndex = newIndex;
                 xHigh = xNew;
+            }
+            if (xNew > xLow || xNew < xHigh) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
             }
         }
     }
