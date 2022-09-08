@@ -83,6 +83,13 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines.status[fit.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[fit.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
+
+        # from .utils.math import robustRms
+        # for fiberId in sorted(set(lines.fiberId)):
+        #     select = (lines.fiberId == fiberId) & np.isfinite(fit.xResid)
+        #     print(fiberId, select.sum(), np.median(fit.xResid[select]), robustRms(fit.xResid[select]))
+
+
         if self.debugInfo.finalResiduals:
             self.plotResiduals(residuals, fit.xResid, fit.yResid, fit.selection, fit.reserved, dispersion)
         if self.debugInfo.lineQa:

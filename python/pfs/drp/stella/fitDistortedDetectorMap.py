@@ -1071,6 +1071,12 @@ class FitDistortedDetectorMapTask(Task):
 
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
         for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
+
+
+            if ff == 3:
+                ff = 6
+
+
             choose = selection & (lines.fiberId == ff)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
             self.log.info("Stats for fiberId=%d: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "

@@ -241,6 +241,7 @@ class ReduceExposureTask(CmdLineTask):
         apCorrList = []
         psfList = []
         lsfList = []
+        refLinesList = []
         skyResults = None
         if self.config.useCalexp:
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
@@ -251,6 +252,7 @@ class ReduceExposureTask(CmdLineTask):
                               ref, exp in zip(sensorRefList, exposureList)]
                     detectorMapList = [cal.detectorMap for cal in calibs]
                     fiberTraceList = [cal.fiberTraces for cal in calibs]
+                    refLinesList = [cal.refLines for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
                 linesList = [sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
@@ -280,6 +282,7 @@ class ReduceExposureTask(CmdLineTask):
                 apCorrList.append(calibs.apCorr)
                 psfList.append(calibs.psf)
                 lsfList.append(calibs.lsf)
+                refLinesList.append(calibs.refLines)
 
             if self.config.doSubtractSky2d:
                 skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
@@ -303,20 +306,26 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doExtractSpectra:
             originalList = []
             spectraList = []
-            for data in zip(exposureList, fiberTraceList, detectorMapList, skyImageList, lsfList):
-                exposure, fiberTraces, detectorMap, skyImage, lsf = data
+            for data in zip(
+                exposureList, fiberTraceList, detectorMapList, skyImageList, lsfList, refLinesList
+            ):
+                exposure, fiberTraces, detectorMap, skyImage, lsf, refLines = data
                 maskedImage = exposure.maskedImage
                 fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
                 spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                 originalList.append(spectra)
 
                 if self.config.doSubtractContinuum:
-                    continua = self.fitContinuum.run(spectra, visitInfo=exposure.visitInfo, lsf=lsf)
+                    continua = self.fitContinuum.run(
+                        spectra, visitInfo=exposure.visitInfo, lsf=lsf, refLines=refLines
+                    )
                     maskedImage -= fiberTraces.makeImage(exposure.getBBox(), continua)
                     spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                     # Set sky flux from continuum
                     for ss in spectra:
-                        ss.background += continua[ss.fiberId]*ss.norm
+                        if ss.fiberId not in continua:
+                            continue
+                        ss.background += continua[ss.fiberId]
 
                 if skyImage is not None:
                     skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra

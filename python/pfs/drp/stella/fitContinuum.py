@@ -532,7 +532,7 @@ class FitModelContinuumConfig(BaseFitContinuumConfig):
         default=os.path.join(getPackageDir("drp_pfs_data"), "atmosphere", "pfs_atmosphere.fits"),
         doc="Filename of atmospheric transmission model",
     )
-    numKnots = Field(dtype=int, default=30, doc="Number of knots for multiplicative spline")
+    numKnots = Field(dtype=int, default=100, doc="Number of knots for multiplicative spline")
     guessPwv = Field(dtype=float, default=1.5, doc="Starting guess for PWV (mm)")
 
 
