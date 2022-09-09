@@ -13,6 +13,7 @@ from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import FiberProfileSet
+from .background import BackgroundTask
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -56,6 +57,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
         doc="Target type for which to build profiles",
     )
+    background = ConfigurableField(target=BackgroundTask, doc="Subtract background")
 
     def setDefaults(self):
         super().setDefaults()
@@ -167,6 +169,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             lines = tracesToLines(detMap, traces, self.config.traceSpectralError)
             detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
+
+        self.background(exposure, detMap, pfsConfig)
 
         identity = CalibIdentity(
             obsDate=visitInfo.getDate().toPython().isoformat(),
