@@ -1,9 +1,17 @@
+from typing import Optional
 import numpy as np
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
+
+from lsst.afw.image import MaskedImage
+from .DetectorMap import DetectorMap
+from .FiberTrace import FiberTrace
+from .FiberTraceSet import FiberTraceSet
+from .Spectrum import Spectrum
+from .SpectrumSet import SpectrumSet
 
 
 class ExtractSpectraConfig(pexConfig.Config):
@@ -23,7 +31,13 @@ class ExtractSpectraTask(pipeBase.Task):
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, maskedImage, fiberTraceSet, detectorMap=None, fiberId=None):
+    def run(
+        self,
+        maskedImage: MaskedImage,
+        fiberTraceSet: FiberTraceSet,
+        detectorMap: Optional[DetectorMap] = None,
+        fiberId: Optional[np.ndarray] = None,
+    ) -> pipeBase.Struct:
         """Extract spectra from the image
 
         We extract the spectra using the profiles in the provided
@@ -66,7 +80,12 @@ class ExtractSpectraTask(pipeBase.Task):
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
         return pipeBase.Struct(spectra=spectra)
 
-    def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
+    def extractAllSpectra(
+        self,
+        maskedImage: MaskedImage,
+        fiberTraceSet: FiberTraceSet,
+        detectorMap: Optional[DetectorMap] = None,
+    ) -> SpectrumSet:
         """Extract all spectra in the fiberTraceSet
 
         Parameters
@@ -87,11 +106,14 @@ class ExtractSpectraTask(pipeBase.Task):
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
         spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
-        for spectrum in spectra:
-            spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
+        if detectorMap is not None:
+            for spectrum in spectra:
+                spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         return spectra
 
-    def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
+    def extractSpectrum(
+        self, maskedImage: MaskedImage, fiberTrace: FiberTrace, detectorMap: Optional[DetectorMap] = None
+    ) -> Spectrum:
         """Extract a single spectrum from the image
 
         Parameters
@@ -116,7 +138,9 @@ class ExtractSpectraTask(pipeBase.Task):
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
         return spectrum
 
-    def includeSpectra(self, spectra, fiberId, detectorMap=None):
+    def includeSpectra(
+        self, spectra: SpectrumSet, fiberId: np.ndarray, detectorMap: Optional[DetectorMap] = None
+    ) -> SpectrumSet:
         """Include in the output spectra for the provided fiberIds
 
         If we haven't extracted spectra for a particular fiberId, it's added as
@@ -141,10 +165,10 @@ class ExtractSpectraTask(pipeBase.Task):
             return spectra
         length = spectra.getLength()
         new = drpStella.SpectrumSet(len(fiberId), length)
-        specFibers = {ff: ii for ii, ff in enumerate(specFibers)}
+        fiberToIndex = {ff: ii for ii, ff in enumerate(specFibers)}
         for ii, ff in enumerate(fiberId):
-            if ff in specFibers:
-                target = spectra[specFibers[ff]]
+            if ff in fiberToIndex:
+                target = spectra[fiberToIndex[ff]]
             else:
                 target = drpStella.Spectrum(length, ff)
                 target.flux[:] = np.nan
