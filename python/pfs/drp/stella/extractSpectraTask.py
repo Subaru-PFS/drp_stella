@@ -1,5 +1,7 @@
 from typing import Optional
+
 import numpy as np
+import scipy.linalg
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -20,6 +22,12 @@ class ExtractSpectraConfig(pexConfig.Config):
                                doc="Mask pixels to ignore in extracting spectra")
     minFracMask = pexConfig.Field(dtype=float, default=0.0,
                                   doc="Minimum fractional contribution of pixel for mask to be accumulated")
+    doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
+    crosstalk = pexConfig.ListField(
+        dtype=float,
+        default=[4.41695363e-03, 1.26907573e-03, 6.37238677e-04, 3.99808286e-04],
+        doc="Optical crosstalk coefficients, in increasing distance from the fiber of interest",
+    )
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -78,6 +86,10 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
+
+        if self.config.doCrosstalk:
+            self.crosstalkCorrection(spectra)
+
         return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(
@@ -181,3 +193,70 @@ class ExtractSpectraTask(pipeBase.Task):
                 target.wavelength[:] = wavelength
             new[ii] = target
         return new
+
+    def crosstalkCorrection(self, spectra: SpectrumSet):
+        """Perform optical crosstalk correction
+
+        Given a set of measured coefficients (representing the fraction of a
+        fiber's flux that appears in its neighbours; assumed constant for all
+        rows), we solve the matrix equation and apply.
+
+        Parameters
+        ----------
+        spectra : `SpectrumSet`
+            Spectra to correct; modified in-place.
+        """
+        # Set up the coefficients array
+        halfSize = len(self.config.crosstalk)
+        fullSize = 2*halfSize + 1
+        coeff = np.zeros(fullSize)
+        coeff[:halfSize] = np.array(self.config.crosstalk)[::-1]
+        coeff[halfSize] = 1.0
+        coeff[halfSize + 1:] = self.config.crosstalk
+
+        # Calculate the matrix
+        # We generate the matrix that we'd get with full fiber sampling, and
+        # then sub-sample it to contain only the fibers for which we have
+        # spectra.
+        fiberId = spectra.getAllFiberIds()
+        minFiberId = fiberId.min()
+        maxFiberId = fiberId.max()
+        numFullFibers = maxFiberId - minFiberId + fullSize + 1
+        fullFiberId = np.arange(
+            minFiberId - halfSize, maxFiberId + halfSize + 2, dtype=int  # +1 for center, +1 for exclusive
+        )
+        fullMatrix = np.zeros((numFullFibers, numFullFibers), dtype=float)
+
+        for ii in range(halfSize, numFullFibers - fullSize + 1):
+            fullMatrix[ii, ii - halfSize:ii + halfSize + 1] = coeff
+
+        haveFiberId = np.isin(fullFiberId, fiberId)
+        matrix = fullMatrix[haveFiberId].T[haveFiberId].T
+
+        # Decompose matrix and prepare for solving
+        uu, ss, vv = scipy.linalg.svd(matrix)
+        uu = uu.T
+        ss = np.diag(1/ss)
+        vv = vv.conj().T
+
+        # Solve matrix equation for each row
+        flux = spectra.getAllFluxes()
+        bad = (spectra.getAllMasks() & spectra[0].mask.getPlaneBitMask(self.config.mask)) != 0
+        corrected = np.zeros_like(flux)
+        for ii in range(spectra.getLength()):
+            array = flux[:, ii]
+            # Set bad pixels to zero.
+            # This saves infecting all other pixels, but we could do better by
+            # interpolating masked fluxes in the spectral dimension. But the
+            # correction is small, and hopefully we won't be doing it this way
+            # for long.
+            array[bad[:, ii]] = 0.0
+            array[~np.isfinite(array)] = 0.0
+
+            # Solve using SVD, from https://stackoverflow.com/a/59292892/834250
+            cc = np.dot(uu, array)
+            ww = np.dot(ss, cc)
+            corrected[:, ii] = np.dot(vv, ww)
+
+        for spectrum, corr in zip(spectra, corrected):
+            spectrum.flux[:] = corr
