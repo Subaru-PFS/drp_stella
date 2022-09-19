@@ -26,7 +26,8 @@ class ExtractSpectraConfig(pexConfig.Config):
     crosstalk = pexConfig.ListField(
         dtype=float,
         default=[4.41695363e-03, 1.26907573e-03, 6.37238677e-04, 3.99808286e-04],
-        doc="Optical crosstalk coefficients, in increasing distance from the fiber of interest",
+        doc=("Optical crosstalk coefficients, in increasing distance from the fiber of interest. "
+             "These are the fraction of a given fiber's flux that appears in the neighboring fibers."),
     )
 
 
