@@ -262,9 +262,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
             ax.format_coord = pfs_format_coord
 
-        ax = fig.add_subplot(1, 3, 3, position=(0.915, 0.243, 0.02, 0.505))
-        plt.sca(ax)
-        plt.colorbar(cax=ax)
+        cax = fig.add_axes([0.915, 0.243, 0.02, 0.505])
+        plt.colorbar(cax=cax)
 
     plt.suptitle(f"{title}  " + (f"correction: {fitName}" if fitName else ""), y=0.92 if drawQuiver else 0.81)
 
