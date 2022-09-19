@@ -396,7 +396,7 @@ class FitSplineContinuumConfig(BaseFitContinuumConfig):
             "AKIMA_SPLINE": "Akima spline",
         },
     )
-    numKnots = Field(dtype=int, default=30, doc="Number of spline knots")
+    numKnots = Field(dtype=int, default=100, doc="Number of spline knots")
 
 
 class FitSplineContinuumTask(BaseFitContinuumTask):
@@ -628,7 +628,7 @@ class FitModelContinuumTask(BaseFitContinuumTask):
 
         # Interpolate model to match spectrum wavelength sampling
         model = interpolateFlux(self.model.wavelength, self.model.flux, spectrum.wavelength, fill=np.nan)
-        select = good & np.isfinite(model) & (model != 0)
+        select = good & np.isfinite(model) & (model != 0) & np.isfinite(invError)
 
         if not np.any(select):
             raise FitContinuumError("No good points")
@@ -679,7 +679,10 @@ class FitModelContinuumTask(BaseFitContinuumTask):
                 return ((flux - function(params)) * invError)[select]
 
         # Non-linear least-squares fit
-        result = least_squares(residuals, guess, x_scale=scale, method="lm")
-        if not result.success:
-            raise FitContinuumError(f"Failed to fit continuum: {result.message}")
+        try:
+            result = least_squares(residuals, guess, x_scale=scale, method="lm")
+            if not result.success:
+                raise FitContinuumError(f"Failed to fit continuum: {result.message}")
+        except Exception as exc:
+            raise FitContinuumError("Exception in least-squares fit") from exc
         return function(result.x)

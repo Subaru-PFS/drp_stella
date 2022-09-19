@@ -77,6 +77,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         self.makeSubtask("profiles")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
+        self.makeSubtask("background")
 
     def run(self, expRefList, butler, calibId):
         """Construct the ``fiberProfiles`` calib
@@ -170,7 +171,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
-        self.background(exposure, detMap, pfsConfig)
+#        self.background.run(exposure.maskedImage, detMap, pfsConfig)
+#        exposure.writeFits("bgSub.fits")
 
         identity = CalibIdentity(
             obsDate=visitInfo.getDate().toPython().isoformat(),

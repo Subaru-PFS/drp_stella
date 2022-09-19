@@ -93,15 +93,15 @@ class BackgroundTask(Task):
             Background model.
         """
         stats = afwMath.StatisticsControl()
-        stats.setAndMask(image.getMask().getPlaneBitMask(self.config.background.mask))
+        stats.setAndMask(image.getMask().getPlaneBitMask(self.config.mask))
         stats.setNanSafe(True)
         ctrl = afwMath.BackgroundControl(
-            self.config.background.algorithm,
-            max(int(image.getWidth() / self.config.background.xBinSize + 0.5), 1),
-            max(int(image.getHeight() / self.config.background.yBinSize + 0.5), 1),
+            self.config.algorithm,
+            max(int(image.getWidth() / self.config.xBinSize + 0.5), 1),
+            max(int(image.getHeight() / self.config.yBinSize + 0.5), 1),
             "REDUCE_INTERP_ORDER",
             stats,
-            self.config.background.statistic,
+            self.config.statistic,
         )
 
         bg = afwMath.makeBackground(image, ctrl)
@@ -109,7 +109,7 @@ class BackgroundTask(Task):
         return afwMath.BackgroundList(
             (
                 bg,
-                afwMath.stringToInterpStyle(self.config.background.algorithm),
+                afwMath.stringToInterpStyle(self.config.algorithm),
                 afwMath.stringToUndersampleStyle("REDUCE_INTERP_ORDER"),
                 afwMath.ApproximateControl.UNKNOWN,
                 0,

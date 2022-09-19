@@ -470,8 +470,6 @@ class ReduceExposureTask(CmdLineTask):
             Two-dimensional point-spread function.
         lsf : `pfs.drp.stella.Lsf`
             One-dimensional line-spread function.
-        background : `lsst.afw.math.BackgroundList`
-            Background model.
         """
         detectorMap = sensorRef.get("detectorMap")
         fiberProfiles = sensorRef.get("fiberProfiles")
@@ -547,11 +545,6 @@ class ReduceExposureTask(CmdLineTask):
                 sensorRef.put(detectorMap, "detectorMap_used")
                 fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
 
-        # This modifies the image, which is not good for a method that's supposed to just be getting the
-        # calibs. However, this keeps us from restoring the background only to remove it again later.
-        # In any case, this will all be replaced by a new Gen3 implementation soon.
-        background = self.background.run(exposure.maskedImage, detectorMap, pfsConfig)
-
         if self.config.doMeasurePsf:
             psf = self.measurePsf.runSingle(exposure, detectorMap)
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
@@ -577,7 +570,7 @@ class ReduceExposureTask(CmdLineTask):
                 sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf, background=background)
+                      refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
