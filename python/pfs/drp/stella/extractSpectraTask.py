@@ -235,6 +235,8 @@ class ExtractSpectraTask(pipeBase.Task):
 
         # Decompose matrix and prepare for solving
         uu, ss, vv = scipy.linalg.svd(matrix)
+        singular = (np.abs(ss) < 1.0e-6)
+        ss[singular] = 1.0
         uu = uu.T
         ss = np.diag(1/ss)
         vv = vv.conj().T
