@@ -166,6 +166,8 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
         softenChi2 : callable
             Function that calculates chi^2 given a softening parameter.
         """
+        if residuals.size == 0:
+            return 0.0
         residuals2 = residuals**2
         errors2 = errors**2
 
