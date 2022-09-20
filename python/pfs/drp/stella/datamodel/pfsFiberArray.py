@@ -1,18 +1,24 @@
+from typing import TYPE_CHECKING, Optional, Tuple, Union
+
 import numpy as np
+from numpy.typing import ArrayLike
 import pfs.datamodel
 
 from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
+
+if TYPE_CHECKING:
+    from matplotlib import Figure, Axes
 
 __all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 
 
 class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
-    def __imul__(self, rhs):
+    def __imul__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux multiplication, in-place"""
         self.flux *= rhs
         return self
 
-    def __itruediv__(self, rhs):
+    def __itruediv__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux division, in-place"""
         self.flux /= rhs
         return self
@@ -45,7 +51,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength, jacobian=False):
+    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsSimpleSpectrum":
         """Resampled the spectrum in wavelength
 
         Parameters
@@ -66,7 +72,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
 
 
 class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
-    def __imul__(self, rhs):
+    def __imul__(self, rhs: ArrayLike) -> "PfsFiberArray":
         """Flux multiplication, in-place"""
         rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
         with np.errstate(invalid="ignore"):
@@ -77,7 +83,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
                 self.covar[:, ii, :]*rhsSquared
         return self
 
-    def __itruediv__(self, rhs):
+    def __itruediv__(self, rhs: Union[float, np.ndarray]) -> "PfsFiberArray":
         """Flux division, in-place"""
         return self.__imul__(1.0/rhs)
 
@@ -112,7 +118,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength, jacobian=False):
+    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsFiberArray":
         """Resampled the spectrum in wavelength
 
         Parameters
