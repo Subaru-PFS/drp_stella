@@ -23,13 +23,13 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
         self.flux /= rhs
         return self
 
-    def plot(self, ignorePixelMask=0x0, show=True):
+    def plot(self, ignorePixelMask: Optional[int] = None, show: bool = True) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
         ----------
         ignorePixelMask : `int`
-            Mask to apply to flux pixels.
+            Mask to apply to flux pixels. Defaults to the ``NO_DATA`` bitmask.
         show : `bool`, optional
             Show the plot?
 
@@ -41,9 +41,20 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             Axes containing the plot.
         """
         import matplotlib.pyplot as plt
+        from matplotlib.cbook import contiguous_regions
+
+        if ignorePixelMask is None:
+            ignorePixelMask = self.flags.get("NO_DATA")
+
         figure, axes = plt.subplots()
         good = (self.mask & ignorePixelMask) == 0
         axes.plot(self.wavelength[good], self.flux[good], 'k-', label="Flux")
+
+        for start, stop in contiguous_regions(~good):
+            if stop >= self.wavelength.size:
+                stop = self.wavelength.size - 1
+            axes.axvspan(self.wavelength[start], self.wavelength[stop], color="grey", alpha=0.1)
+
         axes.set_xlabel("Wavelength (nm)")
         axes.set_ylabel("Flux (nJy)")
         axes.set_title(str(self.getIdentity()))
@@ -87,7 +98,13 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         """Flux division, in-place"""
         return self.__imul__(1.0/rhs)
 
-    def plot(self, plotSky=True, plotErrors=True, ignorePixelMask=0x0, show=True):
+    def plot(
+        self,
+        plotSky: bool = True,
+        plotErrors: bool = True,
+        ignorePixelMask: Optional[int] = None,
+        show: bool = True,
+    ) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
@@ -96,8 +113,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             Plot sky measurements?
         plotErrors : `bool`
             Plot flux errors?
-        ignorePixelMask : `int`
-            Mask to apply to flux pixels.
+        ignorePixelMask : `int`, optional
+            Mask to apply to flux pixels. Defaults to the ``NO_DATA`` bitmask.
         show : `bool`, optional
             Show the plot?
 
@@ -108,6 +125,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         axes : `matplotlib.Axes`
             Axes containing the plot.
         """
+        if ignorePixelMask is None:
+            ignorePixelMask = self.flags.get("NO_DATA")
         figure, axes = super().plot(ignorePixelMask=ignorePixelMask, show=False)
         good = (self.mask & ignorePixelMask) == 0
         if plotSky:
