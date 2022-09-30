@@ -5,6 +5,7 @@
 #include "lsst/afw/math/LeastSquares.h"
 
 #include "pfs/drp/stella/math/solveLeastSquares.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs {
 namespace drp {
@@ -20,8 +21,8 @@ ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
 ) {
     std::size_t const numValues = design.getShape()[0];
     std::size_t const numParams = design.getShape()[1];
-    assert(meas.size() == numValues);
-    assert(err.size() == numValues);
+    utils::checkSize(meas.size(), numValues, "meas vs design");
+    utils::checkSize(err.size(), numValues, "err vs design");
 
     ndarray::Array<double, 2, 1> designNorm = ndarray::copy(design);
     for (std::size_t ii = 0; ii < numParams; ++ii) {
