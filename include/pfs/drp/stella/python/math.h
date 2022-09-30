@@ -15,27 +15,37 @@ namespace drp {
 namespace stella {
 namespace python {
 
-
+//@{
 /// Add pybind11 bindings for calculateMedian and calculateQuartiles
-template <typename T, int C>
+template <typename T, int C1, int C2>
 auto wrapQuartiles(py::module & mod) {
     mod.def(
         "calculateMedian",
         py::overload_cast<
-            ndarray::Array<T, 1, C> const&, ndarray::Array<bool, 1, C> const&
-        >(math::calculateMedian<T, C>),
+            ndarray::Array<T, 1, C1> const&, ndarray::Array<bool, 1, C2> const&
+        >(math::calculateMedian<T, C1, C2>),
          "values"_a,
          "mask"_a
     );
     mod.def(
         "calculateQuartiles",
         py::overload_cast<
-            ndarray::Array<T, 1, C> const&, ndarray::Array<bool, 1, C> const&
-        >(math::calculateQuartiles<T, C>),
+            ndarray::Array<T, 1, C1> const&, ndarray::Array<bool, 1, C2> const&
+        >(math::calculateQuartiles<T, C1, C2>),
          "values"_a,
          "mask"_a
     );
 }
+
+template <typename T>
+auto wrapQuartiles(py::module & mod) {
+    wrapQuartiles<T, 0, 0>(mod);
+    wrapQuartiles<T, 1, 0>(mod);
+    wrapQuartiles<T, 0, 1>(mod);
+    wrapQuartiles<T, 1, 1>(mod);
+}
+//@}
+
 
 }}}}  // namespace pfs::drp::stella::python
 

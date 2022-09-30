@@ -22,15 +22,15 @@ double const NaN = std::numeric_limits<double>::quiet_NaN();
 /// This functor can be passed to algorithmic codes like std::sort or
 /// std::nth_element in combination with an index array in order to sort masked
 /// arrays without having to do an additional copy.
-template<typename T, int C>
+template<typename T, int C1, int C2>
 struct MaskedArrayIndexCompare {
     /// Constructor
     ///
     /// @param _values : Numbers to be compared
     /// @param _masks : Whether the numbers are to be considered as masked (true means bad value)
     MaskedArrayIndexCompare(
-        ndarray::ArrayRef<T, 1, C> const& _values,
-        ndarray::ArrayRef<bool, 1, C> const& _masks
+        ndarray::ArrayRef<T, 1, C1> const& _values,
+        ndarray::ArrayRef<bool, 1, C2> const& _masks
     ) : values(_values), masks(_masks) {}
 
     /// Perform comparison
@@ -54,8 +54,8 @@ struct MaskedArrayIndexCompare {
         return values[left] < values[right];
     }
 
-    ndarray::ArrayRef<T, 1, C> const values;  ///< Numbers to be compared
-    ndarray::ArrayRef<bool, 1, C> const masks;  ///< Mask
+    ndarray::ArrayRef<T, 1, C1> const values;  ///< Numbers to be compared
+    ndarray::ArrayRef<bool, 1, C2> const masks;  ///< Mask
 };
 
 //@{
@@ -64,10 +64,10 @@ struct MaskedArrayIndexCompare {
 /// @param values : Numbers for which to calculate median
 /// @param masks : Whether the numbers are to be considered as masked (true means bad value)
 /// @return Median
-template <typename T, int C>
+template <typename T, int C1, int C2>
 T calculateMedian(
-    ndarray::ArrayRef<T, 1, C> const values,
-    ndarray::ArrayRef<bool, 1, C> const masks
+    ndarray::ArrayRef<T, 1, C1> const values,
+    ndarray::ArrayRef<bool, 1, C2> const masks
 ) {
     utils::checkSize(masks.getShape(), values.getShape(), "masks");
     std::size_t const total = values.getNumElements();
@@ -92,7 +92,7 @@ T calculateMedian(
     for (std::size_t ii = 0; ii < total; ++ii) {
         indices[ii] = ii;
     }
-    MaskedArrayIndexCompare<T, C> compare{values, masks};
+    MaskedArrayIndexCompare<T, C1, C2> compare{values, masks};
 
     std::size_t const q50a = static_cast<std::size_t>(idx50);
     std::size_t const q50b = q50a + 1;
@@ -113,10 +113,10 @@ T calculateMedian(
 
     return T(median);
 }
-template <typename T, int C>
+template <typename T, int C1, int C2>
 T calculateMedian(
-    ndarray::Array<T, 1, C> const& values,
-    ndarray::Array<bool, 1, C> const& masks
+    ndarray::Array<T, 1, C1> const& values,
+    ndarray::Array<bool, 1, C2> const& masks
 ) {
     return calculateMedian(values.deep(), masks.deep());
 }
@@ -129,11 +129,11 @@ T calculateMedian(
 /// @param values : Numbers for which to calculate quartiles
 /// @param masks : Whether the numbers are to be considered as masked (true means bad value)
 /// @return lower quartile, median, upper quartile
-template <typename T, int C>
+template <typename T, int C1, int C2>
 std::tuple<T, T, T>
 calculateQuartiles(
-    ndarray::ArrayRef<T, 1, C> const values,
-    ndarray::ArrayRef<bool, 1, C> const masks
+    ndarray::ArrayRef<T, 1, C1> const values,
+    ndarray::ArrayRef<bool, 1, C2> const masks
 ) {
     utils::checkSize(masks.getShape(), values.getShape(), "masks");
     std::size_t const total = values.getNumElements();
@@ -156,7 +156,7 @@ calculateQuartiles(
     for (std::size_t ii = 0; ii < total; ++ii) {
         indices[ii] = ii;
     }
-    MaskedArrayIndexCompare<T, C> compare{values, masks};
+    MaskedArrayIndexCompare<T, C1, C2> compare{values, masks};
 
     // For efficiency:
     // - partition at 50th, then partition the two half further to get 25th and 75th
@@ -208,11 +208,11 @@ calculateQuartiles(
 
     return std::make_tuple(T(q1), T(median), T(q3));
 }
-template <typename T, int C>
+template <typename T, int C1, int C2>
 std::tuple<T, T, T>
 calculateQuartiles(
-    ndarray::Array<T, 1, C> const& values,
-    ndarray::Array<bool, 1, C> const& masks
+    ndarray::Array<T, 1, C1> const& values,
+    ndarray::Array<bool, 1, C2> const& masks
 ) {
     return calculateQuartiles(values.deep(), masks.deep());
 }
