@@ -15,7 +15,7 @@ from lsst.afw.math import LeastSquares
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
 from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .referenceLine import ReferenceLineStatus
-from .utils.math import robustRms
+from .utils.math import robustRms, fitStraightLine
 from .fitDistortedDetectorMap import ArcLineResidualsSet
 
 
@@ -38,38 +38,6 @@ def rmsPixelsToVelocity(rms, model):
         Velocity RMS (km/s).
     """
     return 3.0e5*rms*model.getScaling().dispersion/model.getScaling().wavelengthCenter
-
-
-def fitStraightLine(xx, yy):
-    """Fit a straight line, y = slope*x + intercept
-
-    Parameters
-    ----------
-    xx : `numpy.ndarray` of `float`, size ``N``
-        Ordinate.
-    yy : `numpy.ndarray` of `float`, size ``N``
-        Co-ordinate.
-
-    Returns
-    -------
-    slope : `float`
-        Slope of line.
-    intercept : `float`
-        Intercept of line.
-    xMean : `float`
-        Mean of x values.
-    yMean : `float`
-        Mean of y values.
-    """
-    xMean = xx.mean()
-    yMean = yy.mean()
-    dx = xx - xMean
-    dy = yy - yMean
-    xySum = np.sum(dx*dy)
-    xxSum = np.sum(dx**2)
-    slope = xySum/xxSum
-    intercept = yMean - slope*xMean
-    return Struct(slope=slope, intercept=intercept, xMean=xMean, yMean=yMean)
 
 
 def calculateFitStatistics(model, lines, selection, soften=0.0):
