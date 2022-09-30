@@ -8,6 +8,7 @@
 #include "lsst/afw/geom/SpanSet.h"
 
 #include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/math/quartiles.h"
 
 namespace pfs {
 namespace drp {
@@ -103,6 +104,24 @@ void centroidPeak(
     lsst::afw::image::MaskPixel badBitMask=0,
     float extent=3.0,
     float ampAst4=1.33
+);
+
+
+/// Median filter columns of an image
+///
+/// This is intended to remove the traces, to allow the cosmic ray finder to
+/// operate on an image (more) devoid of continuum sources which can cause
+/// false positive CRs.
+///
+/// @param image : Image to which to apply the median filter
+/// @param mask : Pixels that should be ignored (true means a bad value)
+/// @param halfHeight : Half-height of the median filter (pixels)
+/// @returns Median filter image
+template <typename T>
+ndarray::Array<T, 2, 1> medianFilterColumns(
+    ndarray::Array<T, 2, 1> const& image,
+    ndarray::Array<bool, 2, 1> const& mask,
+    int halfHeight
 );
 
 
