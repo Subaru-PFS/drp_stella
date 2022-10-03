@@ -5,10 +5,45 @@ import numpy as np
 from lsst.pex.config import Config, Field, makePropertySet
 from lsst.pipe.tasks.repair import RepairConfig, RepairTask
 from lsst.afw.detection import setMaskFromFootprintList
-from lsst.afw.image import Exposure
+from lsst.afw.image import Exposure, Mask
+from lsst.afw.geom import SpanSet
+from lsst.geom import Point2I
 from lsst.meas.algorithms import findCosmicRays
+from .DetectorMap import DetectorMap
+from .referenceLine import ReferenceLineSet
 
-__all__ = ("PfsRepairConfig", "PfsRepairTask")
+__all__ = ("maskLines", "PfsRepairConfig", "PfsRepairTask")
+
+
+def maskLines(
+    mask: Mask, detectorMap: DetectorMap, refLines: ReferenceLineSet, radius: int, maskPlane: str = "REFLINE"
+):
+    """Mask lines on an exposure
+
+    It is helpful to have bright lines masked so that they can be ignored when
+    measuring the background before finding cosmic-rays.
+
+    Parameters
+    ----------
+    mask : `lsst.afw.image.Mask`
+        Mask image on which to mask sky lines; modified.
+    detectorMap : `DetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    refLines : `ReferenceLineSet`
+        Lines to mask.
+    radius : `int`
+        Radius around reference lines to mask.
+    maskPlane : `str`
+        Name of mask plane to set.
+    """
+    bitmask = mask.getPlaneBitMask(maskPlane)
+    if detectorMap is not None and refLines is not None and len(refLines) > 0:
+        for fiberId in detectorMap.fiberId:
+            points = detectorMap.findPoint(fiberId, refLines.wavelength)
+            good = np.all(np.isfinite(points), axis=1)
+            for xx, yy in points[good]:
+                spans = SpanSet.fromShape(radius, offset=Point2I(int(xx + 0.5), int(yy + 0.5)))
+                spans.clippedTo(mask.getBBox()).setMask(mask, bitmask)
 
 
 class PfsRepairConfig(RepairConfig):
