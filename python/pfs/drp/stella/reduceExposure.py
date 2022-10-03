@@ -42,7 +42,7 @@ from .centroidTraces import CentroidTracesTask, tracesToLines
 from .adjustDetectorMap import AdjustDetectorMapTask
 from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
-from .repair import PfsRepairTask
+from .repair import PfsRepairTask, maskLines
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -59,6 +59,8 @@ class ReduceExposureConfig(Config):
                                      doc="Require detectorMap adjustment to succeed?")
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
+    doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines on image?")
+    maskRadius = Field(dtype=int, default=2, doc="Radius around reference lines to mask (pixels)")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
@@ -259,13 +261,17 @@ class ReduceExposureTask(CmdLineTask):
         if not exposureList:
             for sensorRef in sensorRefList:
                 exposure = self.runIsr(sensorRef)
-                if self.config.doRepair:
-                    self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
 
                 exposureList.append(exposure)
                 calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+
+                if self.config.doMaskLines:
+                    maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
+                if self.config.doRepair:
+                    self.repairExposure(exposure)
+
                 detectorMapList.append(calibs.detectorMap)
                 fiberTraceList.append(calibs.fiberTraces)
                 linesList.append(calibs.lines)
@@ -481,11 +487,10 @@ class ReduceExposureTask(CmdLineTask):
 
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
-        refLines = None
         lines = None
         traces = None
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
-            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
             lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
             if (
                 self.config.doForceTraces

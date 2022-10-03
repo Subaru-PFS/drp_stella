@@ -31,5 +31,5 @@ from .DoubleDetectorMapContinued import *
 from .DoubleDistortion import *
 
 from lsst.afw.image import Mask
-for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL"):
+for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL", "REFLINE"):
     Mask.addMaskPlane(plane)
