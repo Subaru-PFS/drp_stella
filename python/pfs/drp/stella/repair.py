@@ -2,13 +2,14 @@ from typing import ClassVar, Optional, Type
 
 import numpy as np
 
-from lsst.pex.config import Config, Field, makePropertySet
+from lsst.pex.config import Config, Field, ListField, makePropertySet
 from lsst.pipe.tasks.repair import RepairConfig, RepairTask
 from lsst.afw.detection import setMaskFromFootprintList
 from lsst.afw.image import Exposure, Mask
 from lsst.afw.geom import SpanSet
 from lsst.geom import Point2I
 from lsst.meas.algorithms import findCosmicRays
+from .traces import medianFilterColumns
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet
 
@@ -47,7 +48,13 @@ def maskLines(
 
 
 class PfsRepairConfig(RepairConfig):
-    halfHeight = Field(dtype=int, default=50, doc="Half-height for column background determination")
+    halfHeight = Field(dtype=int, default=35, doc="Half-height for column background determination")
+    doNirCosmicRay = Field(dtype=bool, default=True, doc="Do CR finding on NIR data?")
+    mask = ListField(
+        dtype=str,
+        default=["BAD", "SAT", "REFLINE", "NO_DATA"],
+        doc="Mask planes to ignore in trace removal",
+    )
 
     def setDefaults(self):
         self.cosmicray.nCrPixelMax = 5000000
@@ -79,21 +86,20 @@ class PfsRepairTask(RepairTask):
         crBit = mask.addMaskPlane("CR")
         mask.clearMaskPlane(crBit)
 
-        # Measure background
-        width, height = exposure.getDimensions()
-        background = np.full((height, width), np.nan, np.float32)
-        for yy in range(height):
-            low = max(0, yy - self.config.halfHeight)
-            high = min(exposure.getHeight(), yy + self.config.halfHeight + 1)
-            array = exposure.image.array[low:high, :]
-            background[yy, :] = np.median(array, axis=0)
+        if not self.config.doNirCosmicRay and exposure.getDetector().getName().startswith("n"):
+            self.log.warn("CR finding for NIR data has been disabled")
+            return
 
-        # Find CRs in background-subtracted image
-        exposure.image.array -= background
+        # Median filter on columns with mask
+        bad = (exposure.mask.array & exposure.mask.getPlaneBitMask(self.config.mask)) != 0
+        traces = medianFilterColumns(exposure.image.array, bad, self.config.halfHeight)
+
+        # Find CRs in traces-subtracted image
+        exposure.image.array -= traces
         try:
             cosmicrays = findCosmicRays(exposure.maskedImage, psf, 0.0, config, keepCRs)
         finally:
-            exposure.image.array += background
+            exposure.image.array += traces
 
         num = 0
         if cosmicrays is not None:
