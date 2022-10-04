@@ -77,6 +77,7 @@ class MeasureCentroidsConfig(PipelineTaskConfig, pipelineConnections=MeasureCent
     readLineList = ConfigurableField(
         target=ReadLineListTask, doc="Read line lists for detectorMap adjustment"
     )
+    doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     traceSpectralError = Field(
@@ -145,7 +146,7 @@ class MeasureCentroidsTask(PipelineTask):
         """
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig)
-        if not lines or "Continuum" in getLampElements(exposure.getMetadata()):
+        if self.config.doForceTraces or not lines or "Continuum" in getLampElements(exposure.getMetadata()):
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
         return Struct(refLines=refLines, centroids=lines)
