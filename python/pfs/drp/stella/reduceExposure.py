@@ -64,7 +64,7 @@ class ReduceExposureConfig(Config):
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     traceSpectralError = Field(dtype=float, default=1.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
-    doForceTraces = Field(dtype=bool, default=False, doc="Force use of traces for non-continuum data?")
+    doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
