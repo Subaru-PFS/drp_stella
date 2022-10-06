@@ -14,6 +14,7 @@ from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
+from lsst.skymap import BaseSkyMap
 
 from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
@@ -38,6 +39,12 @@ class CoaddSpectraConnections(
 ):
     """Connections for CoaddSpectraTask"""
 
+    skymap = PrerequisiteConnection(
+        doc="Definition of geometry/bbox and projection/wcs",
+        name=BaseSkyMap.SKYMAP_DATASET_TYPE_NAME,
+        storageClass="SkyMap",
+        dimensions=("skymap", ),
+    )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
@@ -179,9 +186,10 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             Container with attributes that are data references for the various
             output connections.
         """
+        skymap = butler.get(inputRefs.skymap)
         assert butler.quantum.dataId is not None
         tract = butler.quantum.dataId["tract"]
-        patch = butler.quantum.dataId["patch"]
+        patch = "%d,%d" % skymap[tract][butler.quantum.dataId["patch"]].getIndex()
 
         data: Dict[Identity, Struct] = {}
         for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
@@ -211,7 +219,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsTargetSpectra(outputs.pfsCoadd), outputRefs.pfsCoadd)
+        butler.put(PfsTargetSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
     def runDataRef(self, dataRefList):
