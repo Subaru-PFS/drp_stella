@@ -105,10 +105,8 @@ PYBIND11_PLUGIN(math) {
     py::module mod("math");
     declareNormalizedPolynomial1<double>(mod, "D");
     declareNormalizedPolynomial2<double>(mod, "D");
-    python::wrapQuartiles<float, 0>(mod);
-    python::wrapQuartiles<float, 1>(mod);
-    python::wrapQuartiles<double, 0>(mod);
-    python::wrapQuartiles<double, 1>(mod);
+    python::wrapQuartiles<float>(mod);
+    python::wrapQuartiles<double>(mod);
     mod.def("evaluatePolynomial",
             &evaluateFunction2<lsst::afw::math::Chebyshev1Function2<double>, double, 1, 1>,
             "poly"_a, "x"_a, "y"_a);

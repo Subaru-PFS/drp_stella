@@ -1,29 +1,35 @@
+from typing import TYPE_CHECKING, Optional, Tuple, Union
+
 import numpy as np
+from numpy.typing import ArrayLike
 import pfs.datamodel
 
 from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
+
+if TYPE_CHECKING:
+    from matplotlib import Figure, Axes
 
 __all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 
 
 class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
-    def __imul__(self, rhs):
+    def __imul__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux multiplication, in-place"""
         self.flux *= rhs
         return self
 
-    def __itruediv__(self, rhs):
+    def __itruediv__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux division, in-place"""
         self.flux /= rhs
         return self
 
-    def plot(self, ignorePixelMask=0x0, show=True):
+    def plot(self, ignorePixelMask: Optional[int] = None, show: bool = True) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
         ----------
         ignorePixelMask : `int`
-            Mask to apply to flux pixels.
+            Mask to apply to flux pixels. Defaults to the ``NO_DATA`` bitmask.
         show : `bool`, optional
             Show the plot?
 
@@ -35,9 +41,20 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             Axes containing the plot.
         """
         import matplotlib.pyplot as plt
+        from matplotlib.cbook import contiguous_regions
+
+        if ignorePixelMask is None:
+            ignorePixelMask = self.flags.get("NO_DATA")
+
         figure, axes = plt.subplots()
         good = (self.mask & ignorePixelMask) == 0
         axes.plot(self.wavelength[good], self.flux[good], 'k-', label="Flux")
+
+        for start, stop in contiguous_regions(~good):
+            if stop >= self.wavelength.size:
+                stop = self.wavelength.size - 1
+            axes.axvspan(self.wavelength[start], self.wavelength[stop], color="grey", alpha=0.1)
+
         axes.set_xlabel("Wavelength (nm)")
         axes.set_ylabel("Flux (nJy)")
         axes.set_title(str(self.getIdentity()))
@@ -45,7 +62,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength, jacobian=False):
+    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsSimpleSpectrum":
         """Resampled the spectrum in wavelength
 
         Parameters
@@ -66,7 +83,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
 
 
 class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
-    def __imul__(self, rhs):
+    def __imul__(self, rhs: ArrayLike) -> "PfsFiberArray":
         """Flux multiplication, in-place"""
         rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
         with np.errstate(invalid="ignore"):
@@ -77,11 +94,17 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
                 self.covar[:, ii, :]*rhsSquared
         return self
 
-    def __itruediv__(self, rhs):
+    def __itruediv__(self, rhs: Union[float, np.ndarray]) -> "PfsFiberArray":
         """Flux division, in-place"""
         return self.__imul__(1.0/rhs)
 
-    def plot(self, plotSky=True, plotErrors=True, ignorePixelMask=0x0, show=True):
+    def plot(
+        self,
+        plotSky: bool = True,
+        plotErrors: bool = True,
+        ignorePixelMask: Optional[int] = None,
+        show: bool = True,
+    ) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
@@ -90,8 +113,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             Plot sky measurements?
         plotErrors : `bool`
             Plot flux errors?
-        ignorePixelMask : `int`
-            Mask to apply to flux pixels.
+        ignorePixelMask : `int`, optional
+            Mask to apply to flux pixels. Defaults to the ``NO_DATA`` bitmask.
         show : `bool`, optional
             Show the plot?
 
@@ -102,6 +125,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         axes : `matplotlib.Axes`
             Axes containing the plot.
         """
+        if ignorePixelMask is None:
+            ignorePixelMask = self.flags.get("NO_DATA")
         figure, axes = super().plot(ignorePixelMask=ignorePixelMask, show=False)
         good = (self.mask & ignorePixelMask) == 0
         if plotSky:
@@ -112,7 +137,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength, jacobian=False):
+    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsFiberArray":
         """Resampled the spectrum in wavelength
 
         Parameters

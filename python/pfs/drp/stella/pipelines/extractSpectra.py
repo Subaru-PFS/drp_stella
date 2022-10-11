@@ -17,6 +17,8 @@ from ..fiberProfileSet import FiberProfileSet
 from ..fitContinuum import FitContinuumTask
 from ..focalPlaneFunction import FocalPlaneFunction
 from ..NevenPsfContinued import NevenPsf
+from ..readLineList import ReadLineListTask
+from ..repair import PfsRepairTask, maskLines
 from ..subtractSky2d import SkyModel, SubtractSky2dTask
 
 __all__ = ("ExtractSpectraTask",)
@@ -93,6 +95,11 @@ class ExtractSpectraConnections(PipelineTaskConnections, dimensions=("instrument
 class ExtractSpectraConfig(PipelineTaskConfig, pipelineConnections=ExtractSpectraConnections):
     """Configuration for ExtractSpectraTask"""
 
+    doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines on image?")
+    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read reference lines")
+    linesRadius = Field(dtype=int, default=2, doc="Radius around reference lines to mask (pixels)")
+    doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
+    repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
     doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
@@ -110,6 +117,8 @@ class ExtractSpectraTask(PipelineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
+        self.makeSubtask("readLineList")
+        self.makeSubtask("repair")
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("fitContinuum")
         self.makeSubtask("extractSpectra")
@@ -196,6 +205,16 @@ class ExtractSpectraTask(PipelineTask):
         fiberId = pfsConfig.fiberId
 
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+
+        if self.config.doMaskLines:
+            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            maskLines(exposure.mask, detectorMap, refLines, self.config.linesRadius)
+
+        if self.config.doRepair:
+            if psf is None:
+                psf = self.config.repair.interp.modelPsf.apply()
+            exposure.setPsf(psf)
+            self.repair.run(exposure)
 
         skyImage = None
         if self.config.doSubtractSky2d:

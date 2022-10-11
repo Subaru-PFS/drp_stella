@@ -1,11 +1,12 @@
 from lsst.pex.config import ConfigurableField, Field
 from lsst.afw.image import Exposure
 from lsst.pipe.base import Struct
-from lsst.pipe.tasks.repair import RepairTask
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
 from lsst.obs.pfs.isrTask import PfsIsrTask, PfsIsrTaskConfig
 from lsst.ip.isr.isrTask import IsrTaskConnections
+
+from ..repair import PfsRepairTask
 
 __all__ = ("IsrTask",)
 
@@ -26,7 +27,7 @@ class IsrConfig(PfsIsrTaskConfig, pipelineConnections=IsrConnections):
     """Configuration for IsrTask"""
 
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
-    repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
 
     def setDefaults(self):
         super().setDefaults()

@@ -2,6 +2,8 @@ description: Reduce an exposure
 tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      doRepair: False  # Will be done as part of extractSpectra
   measureDetectorMap:
     class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
   measurePhotometry:
