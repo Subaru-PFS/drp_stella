@@ -37,7 +37,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             return self.__imul__(1.0/rhs)
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
-             figure=None, axes=None):
+             figure=None, axes=None, **kwargs):
         """Plot the spectra
 
         Parameters
@@ -56,6 +56,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             The figure to use
         axes : `matplotlib.Axes` or ``None``
             The axes to use.
+        **kwargs
+            Keyword arguments for ``axes.plot``.
 
         Returns
         -------
@@ -66,6 +68,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         """
         import matplotlib.pyplot as plt
         import matplotlib.cm
+        from matplotlib.colors import Normalize
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
 
         if fiberId is None:
             fiberId = self.fiberId
@@ -84,7 +88,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         elif axes is None:
             axes = figure.gca()
 
-        colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))
+        cmap = matplotlib.cm.rainbow
+        colors = cmap(np.linspace(0, 1, len(fiberId)))
         for ff, cc in zip(fiberId, colors):
             index = np.where(self.fiberId == ff)[0][0]
             good = ((self.mask[index] & ignorePixelMask) == 0)
@@ -93,7 +98,15 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             if normalized:
                 with np.errstate(invalid="ignore", divide="ignore"):
                     flux /= self.norm[index][good]
-            axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
+            axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff), **kwargs)
+
+        # Colorbar
+        divider = make_axes_locatable(axes)
+        cax = divider.append_axes("right", size='5%', pad=0.05)
+        norm = Normalize(fiberId.min(), fiberId.max())
+        colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
+        colors.set_array([])
+        figure.colorbar(colors, cax=cax, orientation="vertical", label="fiberId")
 
         axes.set_xlabel(xLabel)
         axes.set_ylabel("Flux")
