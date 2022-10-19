@@ -9,7 +9,7 @@ from lsst.afw.math import makeInterpolate, stringToInterpStyle
 from lsst.pex.config import ChoiceField, Config, Field, ListField
 from lsst.pipe.base import Struct, Task
 from lsst.utils import getPackageDir
-from pfs.datamodel import Observations
+from pfs.datamodel import Observations, Target
 from scipy.interpolate import interp1d
 from scipy.optimize import least_squares
 
@@ -98,32 +98,33 @@ class BaseFitContinuumTask(Task):
         empty1d = np.array([])
         empty2d = np.array([[], []]).T
         spectrumList: List[PfsFiberArray] = []
+        normList: List[np.ndarray] = []
         for ii in range(spectra.numSpectra):
             spectrumList.append(
-                # Deliberately ignoring the normalisation: we want to subtract the flux
                 PfsFiberArray(
-                    None,
+                    Target(-1, -1, -1, spectra.fiberId[ii]),
                     Observations(empty1d, [], empty1d, empty1d, empty1d, empty2d, empty2d),
                     spectra.wavelength[ii],
-                    spectra.flux[ii],
+                    spectra.flux[ii]/spectra.norm[ii],
                     spectra.mask[ii],
-                    spectra.sky[ii],
-                    spectra.covar[ii],
+                    spectra.sky[ii]/spectra.norm[ii],
+                    spectra.covar[ii]/spectra.norm[ii],
                     np.array([[]]),
                     spectra.flags,
                 )
             )
+            normList.append(spectra.norm[ii])
 
         parameters = self.extractParameters(spectrumList, visitInfo)
         continuum: Dict[int, np.ndarray] = {}
-        for ff, spectrum, params in zip(fiberId, spectrumList, parameters):
+        for ff, spectrum, norm, params in zip(fiberId, spectrumList, normList, parameters):
             try:
                 continuum[ff] = self.fitContinuum(
                     spectrum,
                     refLines,
                     params,
                     lsf.get(ff, None) if lsf is not None else None,
-                )
+                )*norm
             except FitContinuumError:
                 continue
         return continuum
@@ -226,7 +227,7 @@ class BaseFitContinuumTask(Task):
             use = good & keep
             fit = self._fitContinuumImpl(spectrum, use, parameters, lsf)
             use &= np.isfinite(fit)
-            if lsstDebug.Info(__name__).plot:
+            if spectrum.target.objId == 199 or lsstDebug.Info(__name__).plot:
                 self.plotFit(spectrum, use, fit)
             resid = spectrum.flux - fit
             lq, uq = np.percentile(resid[use], [25.0, 75.0])
@@ -236,7 +237,7 @@ class BaseFitContinuumTask(Task):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
 
         fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
-        if lsstDebug.Info(__name__).plot:
+        if spectrum.target.objId == 199 or lsstDebug.Info(__name__).plot:
             self.plotFit(spectrum, use, fit)
         return fit
 
@@ -273,6 +274,8 @@ class BaseFitContinuumTask(Task):
         plotMax = spectrum.flux[good].max()
         buffer = 0.1 * (plotMax - plotMin)
         ax.set_ylim(plotMin - buffer, plotMax + buffer)
+        ax.set_xlabel("Wavelength (nm)")
+        ax.set_ylabel("Normalized flux")
         plt.show()
 
     def _fitContinuumImpl(
@@ -532,7 +535,7 @@ class FitModelContinuumConfig(BaseFitContinuumConfig):
         default=os.path.join(getPackageDir("drp_pfs_data"), "atmosphere", "pfs_atmosphere.fits"),
         doc="Filename of atmospheric transmission model",
     )
-    numKnots = Field(dtype=int, default=100, doc="Number of knots for multiplicative spline")
+    numKnots = Field(dtype=int, default=10, doc="Number of knots for multiplicative spline")
     guessPwv = Field(dtype=float, default=1.5, doc="Starting guess for PWV (mm)")
 
 
@@ -685,4 +688,5 @@ class FitModelContinuumTask(BaseFitContinuumTask):
                 raise FitContinuumError(f"Failed to fit continuum: {result.message}")
         except Exception as exc:
             raise FitContinuumError("Exception in least-squares fit") from exc
+        print(spectrum.target.objId, result.x[-1])
         return function(result.x)
