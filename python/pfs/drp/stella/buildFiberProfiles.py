@@ -268,9 +268,10 @@ class BuildFiberProfilesTask(Task):
                 del indices[-1]
                 unassociated[pp.peak] = pp
                 for index in indices:
-                    # Score is distance to most recent trace peak + negative number of past associations
-                    score = np.abs(pp.peak - traces[index][-1].peak)
-                    candidates[index].append((pp, (score, -indices[index])))
+                    # Score is negative number of past associations and distance to most recent trace peak
+                    numAssoc = indices[index]
+                    distance = np.abs(pp.peak - traces[index][-1].peak)
+                    candidates[index].append((pp, (-numAssoc, distance)))
 
             # Assign peaks to existing traces
             # Work through the traces, first with those with clear associations, and then those with multiple
