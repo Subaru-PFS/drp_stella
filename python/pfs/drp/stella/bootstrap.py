@@ -8,7 +8,7 @@ from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
-from lsst.ip.isr import IsrTask
+from lsst.obs.pfs.isrTask import PfsIsrTask
 
 from pfs.datamodel import FiberStatus
 from pfs.datamodel.pfsConfig import TargetType
@@ -24,7 +24,7 @@ import lsstDebug
 
 class BootstrapConfig(Config):
     """Configuration for BootstrapTask"""
-    isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
+    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Fiber profiles")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
