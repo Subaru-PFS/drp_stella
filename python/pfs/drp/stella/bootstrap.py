@@ -8,7 +8,7 @@ from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
-from lsst.ip.isr import IsrTask
+from lsst.obs.pfs.isrTask import PfsIsrTask
 
 from pfs.datamodel import FiberStatus
 from pfs.datamodel.pfsConfig import TargetType
@@ -24,7 +24,7 @@ import lsstDebug
 
 class BootstrapConfig(Config):
     """Configuration for BootstrapTask"""
-    isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
+    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Fiber profiles")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
@@ -410,10 +410,9 @@ class BootstrapTask(CmdLineTask):
             magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
             norm = Normalize()
             norm.autoscale(magnitude)
-            axes.quiver(xx[0], xx[1], diff[1] - mean[1], diff[0] - mean[0], color=cmap(norm(magnitude)))
+            axes.quiver(xx[0], xx[1], diff[0] - mean[0], diff[1] - mean[1], color=cmap(norm(magnitude)))
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
-            axes.set_title("Vector dimensions swapped")
             colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
             colors.set_array([])
             fig.colorbar(colors, cax=cax, orientation='vertical')
@@ -474,11 +473,10 @@ class BootstrapTask(CmdLineTask):
             magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
             norm = Normalize()
             norm.autoscale(magnitude[good])
-            axes.quiver(xx[0][good], xx[1][good], (diff[1] - mean[1])[good], (diff[0] - mean[0])[good],
+            axes.quiver(xx[0][good], xx[1][good], (diff[0] - mean[0])[good], (diff[1] - mean[1])[good],
                         color=cmap(norm(magnitude[good])))
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
-            axes.set_title("Vector dimensions swapped")
             colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
             colors.set_array([])
             fig.colorbar(colors, cax=cax, orientation='vertical')

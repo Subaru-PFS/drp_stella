@@ -268,9 +268,10 @@ class BuildFiberProfilesTask(Task):
                 del indices[-1]
                 unassociated[pp.peak] = pp
                 for index in indices:
-                    # Score is distance to most recent trace peak + negative number of past associations
-                    score = np.abs(pp.peak - traces[index][-1].peak)
-                    candidates[index].append((pp, (score, -indices[index])))
+                    # Score is negative number of past associations and distance to most recent trace peak
+                    numAssoc = indices[index]
+                    distance = np.abs(pp.peak - traces[index][-1].peak)
+                    candidates[index].append((pp, (-numAssoc, distance)))
 
             # Assign peaks to existing traces
             # Work through the traces, first with those with clear associations, and then those with multiple
@@ -324,6 +325,9 @@ class BuildFiberProfilesTask(Task):
             raise RuntimeError(f"Image height ({height}) is shorter than pruneMinLength "
                                f"({self.config.pruneMinLength})")
 
+        numTraces = len(traces)
+        length = np.empty(numTraces, dtype=int)
+        frac = np.empty(numTraces, dtype=float)
         accepted = []
         for ii, peakList in enumerate(traces):
             num = len(peakList)
@@ -331,13 +335,24 @@ class BuildFiberProfilesTask(Task):
             highRow = peakList[-1].row
             assert num == 1 or all(pp.row > lowRow for pp in peakList[1:])
             assert num == 1 or all(pp.row < highRow for pp in peakList[:1])
-            length = highRow - lowRow + 1
+            length[ii] = highRow - lowRow + 1
             numRows = len(set([pp.row for pp in peakList]))  # Weed out peaks in the same row
-            if length < self.config.pruneMinLength or numRows/length < self.config.pruneMinFrac:
-                self.log.trace("Pruning trace %d: %d vs %d, %f vs %f", ii, length, self.config.pruneMinLength,
-                               numRows/length, self.config.pruneMinFrac)
+            frac[ii] = numRows/length[ii]
+            if length[ii] < self.config.pruneMinLength or frac[ii] < self.config.pruneMinFrac:
+                self.log.trace("Pruning trace %d: %d vs %d, %f vs %f", ii, length[ii],
+                               self.config.pruneMinLength, frac[ii], self.config.pruneMinFrac)
                 continue
             accepted.append(peakList)
+
+        if self.debugInfo.pruneTraces:
+            import matplotlib.pyplot as plt
+            plt.plot(length, frac, "k.")
+            plt.xlabel("Trace length (pixels)")
+            plt.ylabel("Coverage fraction")
+            plt.axvline(self.config.pruneMinLength)
+            plt.axhline(self.config.pruneMinFrac)
+            plt.show()
+
         return accepted
 
     def generateTraces(self, detectorMap, pfsConfig=None):
