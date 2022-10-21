@@ -73,6 +73,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         if fiberId is None:
             fiberId = self.fiberId
+        else:
+            fiberId = np.array(fiberId)
         if usePixels:
             wavelength = np.arange(self.length)
             xLabel = "Pixel"

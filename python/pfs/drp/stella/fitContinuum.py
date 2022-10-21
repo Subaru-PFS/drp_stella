@@ -227,7 +227,7 @@ class BaseFitContinuumTask(Task):
             use = good & keep
             fit = self._fitContinuumImpl(spectrum, use, parameters, lsf)
             use &= np.isfinite(fit)
-            if spectrum.target.objId == 199 or lsstDebug.Info(__name__).plot:
+            if lsstDebug.Info(__name__).plot:
                 self.plotFit(spectrum, use, fit)
             resid = spectrum.flux - fit
             lq, uq = np.percentile(resid[use], [25.0, 75.0])
@@ -237,7 +237,7 @@ class BaseFitContinuumTask(Task):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
 
         fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
-        if spectrum.target.objId == 199 or lsstDebug.Info(__name__).plot:
+        if lsstDebug.Info(__name__).plot:
             self.plotFit(spectrum, use, fit)
         return fit
 
@@ -688,5 +688,4 @@ class FitModelContinuumTask(BaseFitContinuumTask):
                 raise FitContinuumError(f"Failed to fit continuum: {result.message}")
         except Exception as exc:
             raise FitContinuumError("Exception in least-squares fit") from exc
-        print(spectrum.target.objId, result.x[-1])
         return function(result.x)

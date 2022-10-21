@@ -108,7 +108,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
 
     def setDefaults(self):
         super().setDefaults()
-        self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE")
+        self.selectSky.targetType = ("SKY", "SUNSS_IMAGING")
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
         self.fitSkyModel.rejThreshold = 10.0
@@ -553,8 +553,17 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         sky1d : `FocalPlaneFunction`
             Sky model.
         """
-        skyConfig = self.selectSky.run(pfsConfig.select(fiberId=spectra.fiberId))
-        skySpectra = spectra.select(pfsConfig, fiberId=skyConfig.fiberId)
+
+        if True:
+            skyConfig = self.selectSky.run(pfsConfig.select(fiberId=spectra.fiberId))
+            skySpectra = spectra.select(pfsConfig, fiberId=skyConfig.fiberId)
+        else:
+            flux = np.median(spectra.flux, axis=1)
+            indices = np.argsort(flux)
+            fiberId = spectra.fiberId[indices[:indices.size//2]]
+            skyConfig = pfsConfig.select(fiberId=fiberId)
+            skySpectra = spectra.select(pfsConfig, fiberId=fiberId)
+
         if len(skySpectra) == 0:
             raise RuntimeError("No sky spectra to use for sky subtraction")
 
