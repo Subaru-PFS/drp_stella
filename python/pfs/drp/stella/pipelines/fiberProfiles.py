@@ -1,8 +1,9 @@
 from typing import Any, Dict, List
 
+import numpy as np
 from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.daf.butler import DeferredDatasetHandle
-from lsst.pex.config import ConfigurableField
+from lsst.pex.config import ConfigurableField, ListField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
 from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
@@ -13,6 +14,7 @@ from pfs.datamodel import CalibIdentity, PfsConfig
 
 from ..buildFiberProfiles import BuildFiberProfilesTask
 from ..DetectorMapContinued import DetectorMap
+from ..extractSpectraTask import ExtractSpectraTask
 from ..fiberProfileSet import FiberProfileSet
 
 __all__ = ("MeasureFiberProfilesTask", "MergeFiberProfilesTask")
@@ -57,12 +59,14 @@ class MeasureFiberProfilesConfig(CalibCombineConfig, pipelineConnections=Measure
     """Configuration for MeasureFiberProfilesTask"""
 
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
+    extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra")
+    mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "INTRP", "NO_DATA"],
+                     doc="Mask planes to exclude from fiberTrace")
 
     def setDefaults(self):
         super().setDefaults()
         self.profiles.profileRadius = 2  # Full fiber density, so can't go out very wide
         self.profiles.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA"]
-        self.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA"]
 
 
 class MeasureFiberProfilesTask(CalibCombineTask):
@@ -72,6 +76,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("profiles")
+        self.makeSubtask("extractSpectra")
 
     def runQuantum(
         self,
@@ -172,6 +177,20 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         if len(profiles) == 0:
             raise RuntimeError("No profiles found")
         self.log.info("%d fiber profiles found", len(profiles))
+
+        bitmask = combined.mask.getPlaneBitMask(self.config.mask)
+        traces = profiles.makeFiberTracesFromDetectorMap(detectorMap)
+        spectra = self.extractSpectra.run(combined.maskedImage, traces, detectorMap).spectra
+        medianTransmission = np.empty(len(spectra))
+        for i, ss in enumerate(spectra):
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
+            medianTransmission[i] = np.nanmedian(ss.flux)
+            self.log.debug("Median relative transmission of fiber %d is %f",
+                           ss.fiberId, medianTransmission[i])
+
+        self.log.info("Median relative transmission of fibers %.2f +- %.2f (min %.2f, max %.2f)",
+                      np.mean(medianTransmission), np.std(medianTransmission, ddof=1),
+                      np.min(medianTransmission), np.max(medianTransmission))
 
         return Struct(outputData=profiles)
 

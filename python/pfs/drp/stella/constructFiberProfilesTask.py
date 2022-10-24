@@ -13,7 +13,7 @@ from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import FiberProfileSet
-from .background import BackgroundTask
+from .extractSpectraTask import ExtractSpectraTask
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -58,6 +58,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         doc="Target type for which to build profiles",
     )
     background = ConfigurableField(target=BackgroundTask, doc="Subtract background")
+    extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra")
 
     def setDefaults(self):
         super().setDefaults()
@@ -77,7 +78,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         self.makeSubtask("profiles")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
-        self.makeSubtask("background")
+        self.makeSubtask("extractSpectra")
 
     def run(self, expRefList, butler, calibId):
         """Construct the ``fiberProfiles`` calib
@@ -171,9 +172,6 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
-#        self.background.run(exposure.maskedImage, detMap, pfsConfig)
-#        exposure.writeFits("bgSub.fits")
-
         identity = CalibIdentity(
             obsDate=visitInfo.getDate().toPython().isoformat(),
             spectrograph=dataRefList[0].dataId["spectrograph"],
@@ -198,7 +196,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
         bitmask = exposure.mask.getPlaneBitMask(self.config.mask)
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
-        spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
+        spectra = self.extractSpectra.run(exposure.maskedImage, traces, detMap).spectra
         medianTransmission = np.empty(len(spectra))
         for i, ss in enumerate(spectra):
             profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)

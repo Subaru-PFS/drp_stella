@@ -554,7 +554,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             Sky model.
         """
 
-        if True:
+        if False:
             skyConfig = self.selectSky.run(pfsConfig.select(fiberId=spectra.fiberId))
             skySpectra = spectra.select(pfsConfig, fiberId=skyConfig.fiberId)
         else:
