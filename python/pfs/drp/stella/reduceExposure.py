@@ -43,6 +43,7 @@ from .adjustDetectorMap import AdjustDetectorMapTask
 from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
 from .repair import PfsRepairTask, maskLines
+from .background import BackgroundTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -50,6 +51,8 @@ __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 class ReduceExposureConfig(Config):
     """Config for ReduceExposure"""
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
+    doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
+    background = ConfigurableField(target=BackgroundTask, doc="Task to subtract background")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
     doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
@@ -173,6 +176,7 @@ class ReduceExposureTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("repair")
+        self.makeSubtask("background")
         self.makeSubtask("readLineList")
         self.makeSubtask("centroidLines")
         self.makeSubtask("centroidTraces")
@@ -267,6 +271,9 @@ class ReduceExposureTask(CmdLineTask):
                     self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
+
+                if self.config.doBackground:
+                    self.background.run(exposure.maskedImage, sensorRef.get("detectorMap"))
 
                 exposureList.append(exposure)
                 calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)

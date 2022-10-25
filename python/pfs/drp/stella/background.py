@@ -2,13 +2,13 @@ from typing import ClassVar, Type
 
 import numpy as np
 
-from lsst.pex.config import Config, Field, ChoiceField, RangeField, ListField
+from lsst.pex.config import Config, Field, RangeField, ListField
 from lsst.pipe.base import Task
-import lsst.afw.math as afwMath
-from lsst.afw.image import Mask, MaskedImage
+from lsst.afw.image import MaskedImage
 
-from pfs.datamodel import PfsConfig, FiberStatus
 from .DetectorMap import DetectorMap
+from .math import calculateMedian
+from .spline import SplineD
 
 __all__ = ("BackgroundConfig", "BackgroundTask")
 
@@ -16,28 +16,8 @@ __all__ = ("BackgroundConfig", "BackgroundTask")
 class BackgroundConfig(Config):
     """Configuration for background measurement"""
 
-    maskHalfWidth = Field(dtype=float, default=3.5, doc="Half-width of masking around fibers")
-    statistic = ChoiceField(
-        dtype=str,
-        default="MEANCLIP",
-        doc="type of statistic to use for grid points",
-        allowed={"MEANCLIP": "clipped mean", "MEAN": "unclipped mean", "MEDIAN": "median"},
-    )
-    xBinSize = RangeField(dtype=int, default=256, min=1, doc="Superpixel size in x")
-    yBinSize = RangeField(dtype=int, default=256, min=1, doc="Superpixel size in y")
-    algorithm = ChoiceField(
-        dtype=str,
-        default="NATURAL_SPLINE",
-        optional=True,
-        doc="How to interpolate the background values. " "This maps to an enum; see afw::math::Background",
-        allowed={
-            "CONSTANT": "Use a single constant value",
-            "LINEAR": "Use linear interpolation",
-            "NATURAL_SPLINE": "cubic spline with zero second derivative at endpoints",
-            "AKIMA_SPLINE": "higher-level nonlinear spline that is more robust" " to outliers",
-            "NONE": "No background estimation is to be attempted",
-        },
-    )
+    maskHalfWidth = Field(dtype=int, default=10, doc="Half-width of masking around fibers")
+    binSize = RangeField(dtype=int, default=128, min=1, doc="Size of bins (pixels)")
     mask = ListField(
         dtype=str,
         default=["SAT", "BAD", "NO_DATA", "FIBERTRACE"],
@@ -49,71 +29,26 @@ class BackgroundTask(Task):
     ConfigClass: ClassVar[Type[Config]] = BackgroundConfig
     _DefaultName: ClassVar[str] = "background"
 
-    def run(
-        self, maskedImage: MaskedImage, detectorMap: DetectorMap, pfsConfig: PfsConfig
-    ) -> afwMath.BackgroundList:
-        self.maskFibers(maskedImage.mask, detectorMap, pfsConfig)
-        bg = self.measureBackground(maskedImage)
-        maskedImage.image -= bg.getImage()
-        return bg
+    def run(self, maskedImage: MaskedImage, detectorMap: DetectorMap) -> SplineD:
+        xCenter = detectorMap.getXCenter()
+        xLow = int(np.min(xCenter)) - self.config.maskHalfWidth
+        xHigh = int(np.max(xCenter) + 0.5) + self.config.maskHalfWidth
+        bad = (maskedImage.mask.array & maskedImage.mask.getPlaneBitMask(self.config.mask)) != 0
+        bad[:, xLow:xHigh] = True
 
-    def maskFibers(self, mask: Mask, detectorMap: DetectorMap, pfsConfig: PfsConfig):
-        height = mask.getHeight()
-        bitmask = mask.getPlaneBitMask("FIBERTRACE")
-        for fiberId in pfsConfig.select(
-            fiberId=detectorMap.fiberId, fiberStatus=(FiberStatus.GOOD, FiberStatus.BROKENFIBER)
-        ).fiberId:
-            # Could push this down to C++ for efficiency boost
-            xCenter = detectorMap.getXCenter(fiberId)
-            xLow = np.clip(np.floor(xCenter - self.config.maskHalfWidth).astype(int), 0, None)
-            xHigh = np.clip(
-                np.ceil(xCenter + self.config.maskHalfWidth).astype(int) + 1, None, height
-            )  # exclusive
-            for yy in range(mask.getHeight()):
-                mask.array[yy, xLow[yy] : xHigh[yy]] |= bitmask
+        height = maskedImage.getHeight()
+        numSwaths = max(5, int(np.ceil(2*height/self.config.binSize)))
+        bounds = np.linspace(0, height - 1, numSwaths, dtype=int)
 
-    def measureBackground(self, image: MaskedImage) -> afwMath.BackgroundList:
-        """Measure a background model for image
+        numKnots = numSwaths - 2
+        knots = np.zeros(numKnots, dtype=float)
+        values = np.zeros(numKnots, dtype=float)
+        array = maskedImage.image.array
+        for ii, (yLow, yHigh) in enumerate(zip(bounds[:-2], bounds[2:])):
+            knots[ii] = 0.5*(yLow + yHigh)
+            values[ii] = calculateMedian(array[yLow:yHigh].flatten(), bad[yLow:yHigh].flatten())
 
-        This doesn't use a full-featured background model (e.g., no Chebyshev
-        approximation) because we just want the binning behaviour.  This will
-        allow us to average the bins later (`averageBackgrounds`).
-
-        The `BackgroundMI` is wrapped in a `BackgroundList` so it can be
-        pickled and persisted.
-
-        Parameters
-        ----------
-        image : `lsst.afw.image.MaskedImage`
-            Image for which to measure background.
-
-        Returns
-        -------
-        bgModel : `lsst.afw.math.BackgroundList`
-            Background model.
-        """
-        stats = afwMath.StatisticsControl()
-        stats.setAndMask(image.getMask().getPlaneBitMask(self.config.mask))
-        stats.setNanSafe(True)
-        ctrl = afwMath.BackgroundControl(
-            self.config.algorithm,
-            max(int(image.getWidth() / self.config.xBinSize + 0.5), 1),
-            max(int(image.getHeight() / self.config.yBinSize + 0.5), 1),
-            "REDUCE_INTERP_ORDER",
-            stats,
-            self.config.statistic,
-        )
-
-        bg = afwMath.makeBackground(image, ctrl)
-
-        return afwMath.BackgroundList(
-            (
-                bg,
-                afwMath.stringToInterpStyle(self.config.algorithm),
-                afwMath.stringToUndersampleStyle("REDUCE_INTERP_ORDER"),
-                afwMath.ApproximateControl.UNKNOWN,
-                0,
-                0,
-                False,
-            )
-        )
+        spline = SplineD(knots, values)
+        for yy in range(height):
+            array[yy] -= spline(yy)
+        return spline

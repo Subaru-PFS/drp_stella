@@ -13,6 +13,7 @@ from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import FiberProfileSet
+from .background import BackgroundTask
 from .extractSpectraTask import ExtractSpectraTask
 
 
@@ -29,6 +30,8 @@ class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
 
 class ConstructFiberProfilesConfig(SpectralCalibConfig):
     """Configuration for FiberTrace construction"""
+    doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
+    background = ConfigurableField(target=BackgroundTask, doc="Task to subtract background")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
     requireZeroDither = Field(
         dtype=bool,
@@ -75,6 +78,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("background")
         self.makeSubtask("profiles")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
@@ -178,6 +182,10 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             arm=dataRefList[0].dataId["arm"],
             visit0=dataRefList[0].dataId["visit"],
         )
+
+        if self.config.doBackground:
+            self.background.run(exposure.maskedImage, detMap)
+
         results = self.profiles.run(exposure, identity=identity, detectorMap=detMap, pfsConfig=pfsConfig)
         profiles = results.profiles
         self.log.info('%d fiber profiles found on combined flat', len(profiles))

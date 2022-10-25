@@ -78,7 +78,8 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
     MaskT badBitMask,
-    float minFracMask
+    float minFracMask,
+    int bgOrder
 ) {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
