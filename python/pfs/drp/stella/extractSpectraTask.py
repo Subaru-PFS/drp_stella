@@ -215,8 +215,8 @@ class ExtractSpectraTask(pipeBase.Task):
         coeff[halfSize] = 1.0
         coeff[halfSize + 1:] = self.config.crosstalk
 
-        # Calculate the matrix
-        # We generate the matrix that we'd get with full fiber sampling, and
+        # Calculate the crosstalk crosstalkMatrix
+        # We generate the crosstalkMatrix that we'd get with full fiber sampling, and
         # then sub-sample it to contain only the fibers for which we have
         # spectra.
         fiberId = spectra.getAllFiberIds()
@@ -224,42 +224,34 @@ class ExtractSpectraTask(pipeBase.Task):
         maxFiberId = fiberId.max()
         numFullFibers = maxFiberId - minFiberId + fullSize + 1
         fullFiberId = np.arange(
-            minFiberId - halfSize, maxFiberId + halfSize + 2, dtype=int  # +1 for center, +1 for exclusive
+            minFiberId - halfSize,
+            maxFiberId + halfSize + 2, dtype=int # +1 for center, +1 for 1-based fiberId
         )
-        fullMatrix = np.zeros((numFullFibers, numFullFibers), dtype=float)
+        fullCrosstalkMatrix = np.zeros((numFullFibers, numFullFibers), dtype=float)
 
-        for ii in range(halfSize, numFullFibers - fullSize + 1):
-            fullMatrix[ii, ii - halfSize:ii + halfSize + 1] = coeff
+        for ii in range(halfSize, numFullFibers - halfSize):
+            fullCrosstalkMatrix[ii, ii - halfSize:ii + halfSize + 1] = coeff
 
         haveFiberId = np.isin(fullFiberId, fiberId)
-        matrix = fullMatrix[haveFiberId].T[haveFiberId].T
+        crosstalkMatrix = fullCrosstalkMatrix[haveFiberId].T[haveFiberId].T
 
-        # Decompose matrix and prepare for solving
-        uu, ss, vv = scipy.linalg.svd(matrix)
-        singular = (np.abs(ss) < 1.0e-6)
-        ss[singular] = 1.0
-        uu = uu.T
-        ss = np.diag(1/ss)
-        vv = vv.conj().T
+        icrosstalkMatrix = scipy.linalg.inv(crosstalkMatrix)
 
-        # Solve matrix equation for each row
         flux = spectra.getAllFluxes()
         bad = (spectra.getAllMasks() & spectra[0].mask.getPlaneBitMask(self.config.mask)) != 0
-        corrected = np.zeros_like(flux)
+
+        # Set bad pixels to zero.
+        # This saves infecting all other pixels, but we could do better by
+        # interpolating masked fluxes in the spectral dimension. But the
+        # correction is small, and hopefully we won't be doing it this way
+        # for long.
+        if True:                   # masking bad pixels may not be a good idea.  RHL
+            flux[bad] = 0.0
+        flux[~np.isfinite(flux)] = 0.0
+
+        # Correct in place row-by-row
         for ii in range(spectra.getLength()):
-            array = flux[:, ii]
-            # Set bad pixels to zero.
-            # This saves infecting all other pixels, but we could do better by
-            # interpolating masked fluxes in the spectral dimension. But the
-            # correction is small, and hopefully we won't be doing it this way
-            # for long.
-            array[bad[:, ii]] = 0.0
-            array[~np.isfinite(array)] = 0.0
+            flux[:, ii] = icrosstalkMatrix@flux[:, ii]
 
-            # Solve using SVD, from https://stackoverflow.com/a/59292892/834250
-            cc = np.dot(uu, array)
-            ww = np.dot(ss, cc)
-            corrected[:, ii] = np.dot(vv, ww)
-
-        for spectrum, corr in zip(spectra, corrected):
+        for spectrum, corr in zip(spectra, flux):
             spectrum.flux[:] = corr
