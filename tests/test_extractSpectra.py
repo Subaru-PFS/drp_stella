@@ -46,6 +46,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             Display(backend=display, frame=1).mtv(self.image, title="Synthetic image")
             Display(backend=display, frame=2).mtv(self.fiberTraces[4].trace, title="FiberTrace #4")
 
+#    @lsst.utils.tests.debugger(Exception)
     def assertSpectra(self, spectra, flux=None, mask=None):
         """Assert that the extracted spectra are as expected
 
