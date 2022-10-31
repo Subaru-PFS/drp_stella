@@ -108,7 +108,7 @@ class BaseFitContinuumTask(Task):
                     spectra.flux[ii]/spectra.norm[ii],
                     spectra.mask[ii],
                     spectra.sky[ii]/spectra.norm[ii],
-                    spectra.covar[ii]/spectra.norm[ii],
+                    spectra.covar[ii]/spectra.norm[ii]**2,
                     np.array([[]]),
                     spectra.flags,
                 )
@@ -125,7 +125,8 @@ class BaseFitContinuumTask(Task):
                     params,
                     lsf.get(ff, None) if lsf is not None else None,
                 )*norm
-            except FitContinuumError:
+            except FitContinuumError as exc:
+                self.log.warn("Failed to fit continuum of fiber %d: %s", ff, exc)
                 continue
         return continuum
 
@@ -234,7 +235,7 @@ class BaseFitContinuumTask(Task):
             stdev = 0.741 * (uq - lq)
             with np.errstate(invalid="ignore"):
                 diff = resid/np.sqrt(spectrum.variance + stdev**2)
-                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
+                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection)
 
         fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
         if lsstDebug.Info(__name__).plot:
