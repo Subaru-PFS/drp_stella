@@ -201,6 +201,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             return goodConfig
 
         pfsConfig = selectPfsConfig(
+            pfsConfig, "ABSENT_FIBER",
+            np.isin(pfsConfig.fiberId, pfsMerged.fiberId)
+        )
+        pfsConfig = selectPfsConfig(
             pfsConfig, "BAD_FIBER",
             (pfsConfig.fiberStatus == FiberStatus.GOOD)
         )
@@ -219,17 +223,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             [(bbPdf is not None and np.all(np.isfinite(bbPdf))) for bbPdf in bbPdfs]
         )
 
-        fiberIdSet = set(pfsMerged.fiberId)
-        pfsConfig = selectPfsConfig(
-            pfsConfig, "ABSENT_FIBER",
-            [(fiberId in fiberIdSet) for fiberId in pfsConfig.fiberId]
-        )
-
         # Extract just those fibers from pfsMerged
         # whose fiberId still remain in pfsConfig.
-        fiberIdSet = set(pfsConfig.fiberId)
-        index = [(fiberId in fiberIdSet) for fiberId in pfsMerged.fiberId]
-        pfsMerged = pfsMerged[np.array(index, dtype=bool)]
+        pfsMerged = pfsMerged[np.isin(pfsMerged.fiberId, pfsConfig.fiberId)]
         self.log.info("Number of observed FLUXSTD to be fitted to: %d", len(pfsMerged))
 
         if len(pfsMerged) == 0:
@@ -303,7 +299,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         fitFlagArray = np.zeros(shape=(len(originalFiberId),), dtype=np.int32)
 
-        for filterId, flag in fitFlag.items():
+        for fiberId, flag in fitFlag.items():
             index = fiberIdToIndex[fiberId]
             fitFlagArray[index] = flag
 
