@@ -200,9 +200,9 @@ class PfsTargetSpectra(Mapping):
         pfiCenter = np.empty((numObservations, 2), dtype=float)
         start = 0
         for tt, spectrum in zip(targetId, self.values()):
-            num = len(target.fiberFlux)
-            stop = start + num
             observations = spectrum.observations
+            num = len(observations)
+            stop = start + num
             observationsIndex[start:stop] = tt
             visit[start:stop] = observations.visit
             arm += list(observations.arm)
