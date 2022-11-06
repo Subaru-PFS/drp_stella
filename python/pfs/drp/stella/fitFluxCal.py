@@ -1,4 +1,5 @@
 from collections import defaultdict
+import math
 
 from astropy import constants as const
 import numpy as np
@@ -6,7 +7,7 @@ import numpy as np
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
-from pfs.datamodel import MaskHelper, FiberStatus
+from pfs.datamodel import MaskHelper, FiberStatus, TargetType
 
 from .fluxCalibrate import fluxCalibrate
 from .datamodel import PfsSimpleSpectrum, PfsSingle
@@ -71,8 +72,9 @@ class FitFluxCalTask(CmdLineTask):
         fluxCal = self.calculateCalibrations(pfsConfig, merged, mergedLsf, reference)
         fluxCalibrate(merged, pfsConfig, fluxCal)
 
-        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, merged.fiberId)
-        fiberId = merged.fiberId[indices]
+        selection = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD)
+        selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
+        fiberId = merged.fiberId[np.isin(merged.fiberId, pfsConfig.fiberId[selection])]
         spectra = [merged.extractFiber(PfsSingle, pfsConfig, ff) for ff in fiberId]
 
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
@@ -100,6 +102,7 @@ class FitFluxCalTask(CmdLineTask):
             for ff, spectrum in zip(fiberId, spectra):
                 dataId = spectrum.getIdentity().copy()
                 dataId.update(dataRef.dataId)
+                self.forceSpectrumToBePersistable(spectrum)
                 butler.put(spectrum, "pfsSingle", dataId)
                 butler.put(mergedLsf[ff], "pfsSingleLsf", dataId)
         return Struct(fluxCal=fluxCal, spectra=spectra)
@@ -169,6 +172,26 @@ class FitFluxCalTask(CmdLineTask):
 
         fluxStdConfig = pfsConfig[np.isin(pfsConfig.fiberId, pfsFluxReference.fiberId)]
         return self.fitFocalPlane.run(calibVectors, fluxStdConfig)
+
+    def forceSpectrumToBePersistable(self, spectrum):
+        """Force ``spectrum`` to be able to be written to file.
+
+        Parameters
+        ----------
+        spectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
+            An observed spectrum.
+        """
+        if not (math.isfinite(spectrum.target.ra) and math.isfinite(spectrum.target.dec)):
+            # Because target's (ra, dec) is written in the FITS header,
+            # these values must be finite.
+            self.log.warning(
+                "Target's (ra, dec) is not finite. Replaced by 0 in the FITS header (%s)",
+                spectrum.getIdentity()
+            )
+            # Even if ra or dec is finite, we replace both with zero, for
+            # (0, 0) looks more alarming than, say, (9.87654321, 0) to users.
+            spectrum.target.ra = 0
+            spectrum.target.dec = 0
 
     def _getMetadataName(self):
         return None
