@@ -220,7 +220,9 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
             detectorMap.display(display, wavelengths=data.refLines.wavelength, ctype="red", plotTraces=False)
 
         try:
-            detectorMap = self.adjustDetectorMap.run(detectorMap, data.centroids).detectorMap
+            detectorMap = self.adjustDetectorMap.run(
+                detectorMap, data.centroids, exposure.visitInfo.id
+            ).detectorMap
         except FittingError as exc:
             if self.config.requireAdjustDetectorMap:
                 raise

@@ -508,7 +508,11 @@ class ReduceExposureTask(CmdLineTask):
                                         ctype="red", plotTraces=False)
 
                 try:
-                    detectorMap = self.adjustDetectorMap.run(detectorMap, lines).detectorMap
+                    detectorMap = self.adjustDetectorMap.run(
+                        detectorMap,
+                        lines,
+                        seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
+                    ).detectorMap
                 except FittingError as exc:
                     if self.config.requireAdjustDetectorMap:
                         raise

@@ -20,7 +20,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
-    def run(self, detectorMap, lines):
+    def run(self, detectorMap, lines, seed=0):
         """Adjust a DistortedDetectorMap to fit arc line measurements
 
         We fit only the lowest order terms.
@@ -32,6 +32,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines : `pfs.drp.stella.ArcLineSet`
             Measured line positions. The ``status`` member will be updated to
             indicate which lines were used and reserved.
+        seed : `int`
+            Seed for random number generator used for selecting reserved lines.
 
         Returns
         -------
@@ -68,8 +70,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
-                                     seed=detectorMap.visitInfo.id, fitStatic=False,
-                                     Distortion=type(base.getDistortion()))
+                                     seed=seed, fitStatic=False, Distortion=type(base.getDistortion()))
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
