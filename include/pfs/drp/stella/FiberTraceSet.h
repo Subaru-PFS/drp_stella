@@ -130,7 +130,7 @@ class FiberTraceSet {
      * @param minFracMask : minimum fractional contribution of pixel for mask to be accumulated
      * @return extracted spectra.
      */
-    SpectrumSet extractSpectra(MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.0);
+    std::pair<SpectrumSet, lsst::afw::image::Image<ImageT>> extractSpectra(MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.0, unsigned int bgOrder=5);
 
   private:
     Collection _traces; // traces for each aperture

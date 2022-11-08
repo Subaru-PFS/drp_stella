@@ -33,7 +33,7 @@ void declareFiberTraceSet(py::module &mod)
     cls.def_property_readonly("metadata", py::overload_cast<>(&Class::getMetadata));
     cls.def("getInternal", &Class::getInternal);
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
-    cls.def("extractSpectra", &Class::extractSpectra, "image"_a, "badBitMask"_a=0, "minFracMask"_a=0.0);
+    cls.def("extractSpectra", &Class::extractSpectra, "image"_a, "badBitMask"_a=0, "minFracMask"_a=0.0, "bgOrder"_a=5);
     // Pythonic APIs
     cls.def("__len__", &Class::size);
     cls.def("__getitem__", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });

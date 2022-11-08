@@ -118,7 +118,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
+        spectra, bgImage = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
+        bgImage.writeFits("bgImage.fits")
         if detectorMap is not None:
             for spectrum in spectra:
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
