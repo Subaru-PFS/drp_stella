@@ -8,18 +8,23 @@ import pfs.drp.stella.synthetic
 from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import ReferenceLineSource
-from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.tests.utils import runTests, methodParametersProduct
 
 display = None
 
 
 class CentroidLinesTestCase(lsst.utils.tests.TestCase):
-    @methodParameters(fwhm=(3.21, 1.987))
-    def testCentroiding(self, fwhm):
+    @methodParametersProduct(fwhm=(3.21, 1.987), dense=(False, True))
+    def testCentroiding(self, fwhm, dense):
         """Test centroiding on an arc"""
+        if dense:
+            numLines = 300  # Lots of lines, to simulate blending
+            doSubtractTraces = False  # Lines are so dense that we can't subtract traces
+        else:
+            numLines = 50  # Fewer lines, to test trace subtraction
+            doSubtractTraces = True
         description = "Simulated"
         flux = 123456.789
-        numLines = 300  # Lots of lines, to create a bit of blending
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
         synthConfig.fwhm = fwhm
         rng = np.random.RandomState(12345)
@@ -50,6 +55,7 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         config = CentroidLinesConfig()
         config.fwhm = fwhm
         config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
+        config.doSubtractTraces = doSubtractTraces
         task = CentroidLinesTask(name="centroiding", config=config)
         lines = task.run(exposure, referenceLines, detMap)
 
