@@ -356,7 +356,7 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
 
 
 def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN=True,
-                           usePFImm=False, swaps=[[586, 589]], figure=None):
+                           usePFImm=False, swaps=[], figure=None):
     """
     usePFImm: make image in microns on PFI.  In this case, replace "arcsec" in side/pixelScale by "micron"
     swaps: list of pairs of switched fibres
