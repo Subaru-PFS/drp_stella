@@ -282,9 +282,6 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
         hexapod_sx -= hexapod_sx0
         hexapod_sy -= hexapod_sy0
 
-        if True:
-            pa *= -1
-
         if False:
             print(f"{d.visit} ({3600*(d.ra - dithers[0].ra):5.1f}, {3600*(d.dec - dithers[0].dec):5.1f}) "
                   f"{pa}, {hexapod_sx}, {hexapod_sy}")
