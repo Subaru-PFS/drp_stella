@@ -260,6 +260,11 @@ class FitDistortedDetectorMapConfig(Config):
     minSignalToNoise = Field(dtype=float, default=20.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
+    maxRejectionFrac = Field(
+        dtype=float,
+        default=0.3,
+        doc="Maximum fraction of lines that may be rejected in a single iteration",
+    )
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
@@ -505,8 +510,17 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("Spectral offsets: %s", spectral)
 
             with np.errstate(invalid="ignore"):
-                newUse = (select & (np.abs(result.xResid/xErr) < self.config.rejection) &
-                          (np.abs(result.yResid/yErr) < self.config.rejection))
+                xResid = np.abs(result.xResid/xErr)
+                yResid = np.abs(result.yResid/yErr)
+                newUse = (select & (xResid < self.config.rejection) & (yResid < self.config.rejection))
+            minKeepFrac = 1.0 - self.config.maxRejectionFrac
+            if newUse.sum() < minKeepFrac*use.sum():
+                xResidLimit = np.percentile(xResid[use], minKeepFrac*100)
+                yResidLimit = np.percentile(yResid[use], minKeepFrac*100)
+                self.log.debug("Standard rejection limit (%f) too severe; using %f, %f",
+                               self.config.rejection, xResidLimit, yResidLimit)
+                newUse = (select & (xResid < xResidLimit) & (yResid < yResidLimit))
+
             self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
             if np.all(newUse == use):
                 # Converged
@@ -738,8 +752,18 @@ class FitDistortedDetectorMapTask(Task):
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
-                    newUsed &= ((np.abs(result.xResid/xErr) < rejection) &
-                                (np.abs(result.yResid/yErr) < rejection))
+                    xResid = np.abs(result.xResid/xErr)
+                    yResid = np.abs(result.yResid/yErr)
+                    keep = newUsed & (xResid < rejection) & (yResid < rejection)
+                    minKeepFrac = 1.0 - self.config.maxRejectionFrac
+                    if keep.sum() < minKeepFrac*used.sum():
+                        xResidLimit = np.percentile(xResid[used], minKeepFrac*100)
+                        yResidLimit = np.percentile(yResid[used], minKeepFrac*100)
+                        keep = newUsed & (xResid < xResidLimit) & (yResid < yResidLimit)
+                        self.log.debug("Standard rejection limit (%f) too severe; using %f, %f",
+                                       rejection, xResidLimit, yResidLimit)
+                    newUsed &= keep
+
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
             if np.all(newUsed == used):
