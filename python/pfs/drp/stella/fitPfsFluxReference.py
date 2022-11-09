@@ -61,13 +61,13 @@ class FitPfsFluxReferenceConfig(Config):
     ignoredRangesLeft = ListField(
         dtype=float,
         default=[685.0, 716.0, 759.0, 810.0, 895.0, 1100.0],
-        doc="Left ends of wavelength ranges ignored (because e.g. of strong atomospheric absorption)"
+        doc="Left ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
             " when comparing observation spectra to models."
     )
     ignoredRangesRight = ListField(
         dtype=float,
         default=[695.0, 735.0, 770.0, 835.0, 985.0, 1200.0],
-        doc="Right ends of wavelength ranges ignored (because e.g. of strong atomospheric absorption)"
+        doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
             " when comparing observation spectra to models."
     )
     badMask = ListField(
@@ -91,6 +91,9 @@ class FitPfsFluxReferenceConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
+
+        self.estimateRadialVelocity.mask = ["BAD", "SAT", "CR", "NO_DATA", "EDGE", "ATMOSPHERE"]
+
         # Not sure these paramaters are good.
         self.fitObsContinuum.numKnots = 50
         self.fitObsContinuum.doMaskLines = True
@@ -235,6 +238,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         pfsMerged.norm[...] = 1.0
 
         pfsMerged = self.computeContinuum(pfsMerged, mode="observed").whiten(pfsMerged)
+        pfsMerged = self.maskUninterestingRegions(pfsMerged)
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
@@ -442,8 +446,6 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             matching the spectrum ``pfsConfig.fiberId[iSpectrum]``.
             ``pdfs[iSpectrum]`` may be ``None``.
         """
-        obsSpectra = self.maskUninterestingRegions(obsSpectra)
-
         nFibers = len(priorPdfs)
         nModels = len(self.fluxModelSet.parameters)
         relativePriors = np.full(shape=(nModels, nFibers), fill_value=np.nan, dtype=float)
