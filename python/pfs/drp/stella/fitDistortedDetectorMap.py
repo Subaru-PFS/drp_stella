@@ -259,6 +259,7 @@ class FitDistortedDetectorMapConfig(Config):
                  )
     minSignalToNoise = Field(dtype=float, default=20.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
+    maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
@@ -416,6 +417,11 @@ class FitDistortedDetectorMapTask(Task):
             with np.errstate(invalid="ignore", divide="ignore"):
                 good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
             self.log.debug("%d good lines after signal-to-noise", good.sum())
+        if self.config.maxCentroidError > 0:
+            maxCentroidError = self.config.maxCentroidError
+            good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
+            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")
+            self.log.debug("%d good lines after centroid errors", good.sum())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
