@@ -1,9 +1,15 @@
 import datetime
 import glob
+import os
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import unicodedata
+
+import psycopg2
+import pandas as pd
+import warnings
 
 import astropy.units
 import astropy.coordinates
@@ -18,7 +24,8 @@ from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 
 __all__ = ["raDecStrToDeg", "makeDither", "makeCobraImages", "makeSkyImageFromCobras",
            "plotSkyImageOneCobra", "plotSkyImageFromCobras", "calculateOffsets", "offsetsAsQuiver",
-           "getWindowedSpectralRange", "getWindowedFluxes", "showDesignPhotometry", ]
+           "getWindowedSpectralRange", "getWindowedFluxes", "showDesignPhotometry",
+           "estimateExtinction", "plotVisitImage", "getGuiderOffsets", "showGuiderOffsets"]
 
 
 def raDecStrToDeg(ra, dec):
@@ -189,17 +196,19 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
                     usePFImm=False, subtractBkgd=True, setUnimagedPixelsToNaN=False,
+                    extinction=None,
                     icrosstalk=None):
     """
-    dithers: a list of (visit, ra, dec, fluxes, pfsConfig, md)
+    dithers: a list of Dithers (carrying (visit, ra, dec, fluxes, pfsConfig, md))
              where (ra, dec) are the boresight pointing, fluxes are the fluxes in the fibres,
              and md is the image metadata
-    side: length of side of image, arcsec
+    side: length of side of postage stamp image, arcsec
     pixelScale: size of pixels, arcsec
     R: radius of fibre, microns
     fiberIds: only make images for these fibers
     usePFImm: make image in microns on PFI.  In this case, replace "arcsec" in side/pixelScale by "micron"
     subtractBkgd: subtract an estimate of the background
+    extinction: dict of extinction values for each visit in dithers
 
     Returns:
        images: sky image for each cobra in pfsConfig,  ndarray `(len(pfsConfig, n, n)`
@@ -269,6 +278,9 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
 
         fluxes[d.pfsConfig.fiberStatus != FiberStatus.GOOD] = np.NaN
 
+        if extinction is not None:
+            fluxes = fluxes*10**(0.4*extinction.get(d.visit, 0.0))
+
         cosDec = np.cos(np.deg2rad(dec))
         boresight = [[ra], [dec]]
 
@@ -312,11 +324,11 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
                                          mode="sky_pfi", pa=pa, za=90.0 - altitude,
                                          cent=boresight, time=utc)[0:2]
             R = np.hypot(x - x2, y - y2)*1e3  # microns corresponding to R_asec
-            R = R_asec*R_micron/R   # asec
+            R = np.full(len(pfsConfig), R_asec*R_micron/R) # asec
 
-            x, y = ra, dec
+            x, y = np.full_like(x, ra), np.full_like(x, dec)
 
-        if size is None:
+        if size is None:                # first time through the loop
             x0, y0 = x, y               # offset relative to first dither
 
             size = int(side/pixelScale + 1)
@@ -332,6 +344,8 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             images = np.zeros((nCobra, size, size))
             weights = np.zeros_like(images)
 
+            visitImage = np.full_like(images[0], 0)
+
         if usePFImm:
             dx, dy = 1e3*(x - x0), 1e3*(y - y0)   # microns
         else:
@@ -343,16 +357,21 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             if fiberIds and fid not in fiberIds:
                 continue
             r = np.hypot(I - yc[i], J - xc[i])
-            r = np.where(np.isfinite(r), r, 10*R/pixelScale)  # avoid annoying numpy warning on <
+            r = np.where(np.isfinite(r), r, 10*R/pixelScale)  # avoid annoying warning on < from np.where
             illum = np.where(r < R/pixelScale, 1.0, 0.0)
             images[i, I, J] += illum*fluxes[i]
             weights[i, I, J] += illum
+            ii = i                      # index for visitImage
+
+        r = np.hypot(I - yc[ii], J - xc[ii])
+        visitImage[I, J] = np.where(r < R/pixelScale, d.visit, visitImage[I, J])
 
     images /= np.where(weights == 0, 1, weights)
     if setUnimagedPixelsToNaN:
         images[weights == 0] = np.NaN
+        visitImage[weights[ii] == 0] = np.NaN
 
-    return images, extent
+    return images, extent, visitImage
 
 
 def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN=True,
@@ -370,14 +389,14 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
 
     xmin, xmax = np.nanmin(x), np.nanmax(x)
     ymin, ymax = np.nanmin(y), np.nanmax(y)
-    stampsize = images[0].shape[0]  # stamps of each cobra's images are stampsize x stampsize
+    stampsize = images[0].shape[0]      # stamps of each cobra's images are stampsize x stampsize
 
     if usePFImm:
-        scale = 1e3/pixelScale  # pixel/mm
+        scale = 1e3/pixelScale          # pixel/mm
     else:
-        scale = 3600/pixelScale  # pixel/deg
+        scale = 3600/pixelScale         # pixel/deg
 
-    border = 0.55*stampsize/scale  # needed extra width (on the PFI image)
+    border = 0.55*stampsize/scale       # needed extra width (on the PFI image)
 
     xmin -= border/cosDec
     xmax += border/cosDec
@@ -481,7 +500,7 @@ def plotSkyImageOneCobra(fiberId, pfsConfig, images, extent_CI, usePFImm=False, 
 
 
 def plotSkyImageFromCobras(pfsConfig, pfiIm, extent, stampOffset, usePFImm=False, showNominalPosition=True,
-                           vmin=None, vmax=None):
+                           vmin=None, vmax=None, norm=None):
     aspect = (extent[1] - extent[0])/(extent[3] - extent[2])  # == 1/cosDec
 
     if usePFImm:
@@ -493,7 +512,7 @@ def plotSkyImageFromCobras(pfsConfig, pfiIm, extent, stampOffset, usePFImm=False
     cmap.set_bad(color='black')
 
     ims = plt.imshow(pfiIm, origin='lower', interpolation='none', cmap=cmap,
-                     extent=extent, vmin=vmin, vmax=vmax)
+                     extent=extent, vmin=vmin, vmax=vmax, norm=norm)
     if showNominalPosition:
         plt.plot(x + stampOffset[:, 0], y + stampOffset[:, 1], '+', alpha=0.2, color='white')
 
@@ -508,6 +527,34 @@ def plotSkyImageFromCobras(pfsConfig, pfiIm, extent, stampOffset, usePFImm=False
 
     return ims
 
+
+def plotVisitImage(visitImage, extent_CI, usePFImm=False):
+    """Plot an image giving the visit numbers which went into a raster
+    The visitImage, as returned by makeCobraImages
+    extent_CI: (x0, x1, y0, y1) giving the corners of visitImage (as passed to plt.imshow)
+
+    visitImage, extent_CI are as returned by makeCobraImages
+    """
+    cmap = plt.matplotlib.cm.get_cmap().copy()
+    cmap.set_bad(color='black')
+
+    vmin=np.nanmin(visitImage)
+    vmax=np.nanmax(visitImage)
+
+    ims = plt.imshow(visitImage, origin='lower', interpolation='none',
+                     extent=extent_CI, cmap=cmap, vmin=vmin, vmax=vmax)
+    plt.gca().set_aspect(1)
+
+    plt.plot(0, 0, '+', color='white')
+
+    if usePFImm:
+        plt.xlabel(r"$\Delta x$ ($\mu m$)")
+        plt.ylabel(r"$\Delta y$ ($\mu m$)")
+    else:
+        plt.xlabel(r"$\Delta\alpha$ (arcsec)")
+        plt.ylabel(r"$\Delta\delta$ (arcsec)")
+
+    return ims
 
 def calculateOffsets(images, extent_CI):
     """Calculate and return the offset of the centroid for each of the images
@@ -538,8 +585,26 @@ def calculateOffsets(images, extent_CI):
 
 
 def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
-                    quiverLen=None, quiverLabel=None):
+                    quiverLen=None, quiverLabel=None, scale=None, C=None, quiver_args={}):
     """Plot the offsets (as calculated by calculateOffsets) as a quiver
+
+    pfsConfig:    description of targetting
+    xoff, yoff:   measured positional offsets, in (microns if usePFImm else arcsec)
+    usePFImm :    make plot in PFI mm rather than ra/dec (you may need to scale xoff/yoff)
+    select:       only show points for which select is True (if not None)
+    quiverLen:    passed to quiverKey (cv.) as "U"
+    quiverLabel:  passed to quiverKey (cv.) as "label"
+    scale:        passed to quiver (cv.)
+    C:            passed to quiver (cv.)
+    color:        passed to quiver (cv.)
+    quiver_args: dict of extra arguments to pass to quiver
+                 (so you could set scale as quiver_args=dict(scale=...))
+
+    Arguments
+       quiverLen, quiverLabel, scale, C, color
+    are passed to quiver, along with **quiver_args
+
+    Returns the Quiver
     """
     if select is None:
         select = np.ones_like(xoff, dtype=bool)
@@ -550,7 +615,7 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
         if quiverLen is None:
             quiverLen = 50
         if quiverLabel is None:
-            quiverLabel = "mm"
+            quiverLabel = r"$\mu$m"
     else:
         cosDec = np.cos(np.deg2rad(pfsConfig.decBoresight))
         x, y = pfsConfig.ra, pfsConfig.dec
@@ -559,7 +624,10 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
         if quiverLabel is None:
             quiverLabel = "arcsec"
 
-    Q = plt.quiver(x[select], y[select], xoff[select], yoff[select])
+    args = [x[select], y[select], xoff[select], yoff[select]]
+    if C is not None:
+        args.append(C[select])                  # can't just pass None in the "C" slot
+    Q = plt.quiver(*args, scale=scale, **quiver_args)
 
     plt.quiverkey(Q, 0.1, 0.9, quiverLen, f"{quiverLen}{quiverLabel}", coordinates='axes',
                   color='red', labelcolor='red')
@@ -572,6 +640,231 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
     else:
         plt.xlabel(r"$\alpha$ (deg)")
         plt.ylabel(r"$\delta$ (deg)")
+
+    return Q
+
+#
+# Workaround (harmless but annoying) pandas warning telling me to use sqlalchemy to access postgres
+#
+def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection) -> pd.DataFrame:
+    """Execute SQL Query and get Dataframe with pandas"""
+    with warnings.catch_warnings():
+        # ignore warning for non-SQLAlchemy Connecton
+        # see github.com/pandas-dev/pandas/issues/45660
+        warnings.simplefilter('ignore', UserWarning)
+        # create pandas DataFrame from database query
+        df = pd.read_sql_query(sql_query, db_conn)
+    return df
+
+
+def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
+    """Estimate the extinction for a given visit, using Gaia stars detected by the AG code
+    opdb: connection to the opdb
+    visit: desired visit
+    magLim: magnitude limit for Gaia stars to use
+    zeroPoint: estimated zero point for AG photometry (if this is wrong, the extinction will be wrong by the same amount)
+    """
+    with opdb:
+         tmp = pd_read_sql(f'''
+            SELECT
+                agc_exposure_id
+            FROM agc_exposure
+            JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+            WHERE
+                sps_exposure.pfs_visit_id = {visit} AND 
+                agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+            ORDER BY agc_exposure ASC
+            ''', opdb)
+
+    amin, amax = np.min(tmp.agc_exposure_id), np.max(tmp.agc_exposure_id)
+
+    if np.isnan(amin + amax):
+        return 0.0
+    
+    with opdb:
+        tmp = pd_read_sql(f'''
+        SELECT
+            pfs_visit_id, agc_exposure.agc_exptime, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
+            agc_match.guide_star_id, image_moment_00_pix, pfs_design_agc.guide_star_magnitude, pfs_design_agc.guide_star_color
+        FROM agc_exposure 
+        JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
+        JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+                          agc_match.agc_camera_id = agc_data.agc_camera_id AND 
+                          agc_match.spot_id = agc_data.spot_id
+        JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id
+        WHERE 
+            pfs_design_agc.passband = 'g_gaia' and
+            agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
+        ''', opdb)
+    #
+    # Set an array, it, which is the index into the possible timestamps
+    # We use this to add NaN entries for guide stars which are only sometimes detected; there
+    # must be a pandagenic way to do this
+    #
+    it = np.empty(len(tmp), dtype=int)
+    taken_ats = np.array(sorted(list(set(tmp.taken_at))))
+    for i, t in enumerate(taken_ats):
+        it[tmp.taken_at == t] = i
+
+    tmp["it"] = it
+    
+    guide_star_ids = sorted(list(set(tmp.guide_star_id)))
+    mag = zeroPoint - 2.5*np.log10(tmp.image_moment_00_pix)
+
+    mm = np.full((len(guide_star_ids), len(taken_ats)), np.NaN)
+    for i, gid in enumerate(guide_star_ids):
+        l = tmp.guide_star_id == gid
+        if np.mean(tmp.guide_star_magnitude[l] > magLim):
+            continue
+
+        mm[i][tmp.it[l]] = mag[l] - np.median(tmp.guide_star_magnitude[l])
+
+    return 0.0 if len(mm) == 0 else np.nanmedian(mm)
+
+
+def getGuideOffset(opdb, visit):
+    """Estimate the mean guide offset for a given visit
+    opdb: connection to the opdb
+    visit: desired visit
+    
+    Returns:
+       dra   mean offset in ra (arcseconds).  N.b. no cos(dec) so can be directly added to ra
+       ddec  mean offset in dec (arcseconds)
+       df    Pandas data frame for diagnostics, if desired
+    """
+    with opdb:
+         tmp = pd_read_sql(f'''
+            SELECT
+                agc_exposure_id
+            FROM agc_exposure
+            JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+            WHERE
+                sps_exposure.pfs_visit_id = {visit} AND 
+                agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+            ORDER BY agc_exposure ASC
+            ''', opdb)
+
+    amin, amax = np.min(tmp.agc_exposure_id), np.max(tmp.agc_exposure_id)
+
+    if np.isnan(amin + amax):
+        return 0, 0, None
+    
+    with opdb:
+         tmp = pd_read_sql(f'''
+            SELECT
+                pfs_visit.pfs_visit_id, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
+                guide_ra, guide_dec, guide_delta_ra, guide_delta_dec       
+            FROM pfs_visit
+            JOIN agc_exposure ON agc_exposure.pfs_visit_id = pfs_visit.pfs_visit_id
+            JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+            WHERE 
+                 agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
+            ''', opdb)
+
+    if len(tmp) == 0:
+        return 0, 0, tmp
+
+    return np.nanmean(tmp.guide_delta_ra), np.nanmean(tmp.guide_delta_dec), tmp
+
+
+def getDitherRaDec(opdb, visit):
+    """Return the dither_ra/dec for a visit
+
+    Will be in headers in the great bye-and-bye
+    """
+    with opdb:
+         tmp = pd_read_sql(f'''
+            SELECT
+                dither_ra, dither_dec, status_sequence_id
+            FROM tel_status
+            JOIN sps_exposure ON sps_exposure.pfs_visit_id = tel_status.pfs_visit_id
+            WHERE
+                tel_status.pfs_visit_id = {visit} AND 
+                tel_status.created_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+            ORDER BY status_sequence_id ASC
+            ''', opdb)
+
+    if len(tmp) == 0:
+        return np.NaN, np.NaN, tmp
+    
+    if len(set(tmp.dither_ra)) != 1 or len(set(tmp.dither_dec)) != 1:
+        print(f"getDitherRaDec: detected multiple dither_XXX values for visit {visit}:\n", tmp)
+
+    return tmp.dither_ra[0], tmp.dither_dec[0], tmp
+
+
+def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=False):
+    """
+    Plot the guide offsets for a set of visits
+
+    N.b. The guider's guide_delta_ra is multiplied by cos(dec) in all of these plots
+
+    opdb:                 a connection to the opdb postgres database
+    showGuidePath:        plot dAlpha : dDelta
+    showMeanToEndOffset:  plot the difference between the average offset in a visit and the last value
+    
+    returns: matplotlib.Figure
+    """
+    
+    fig, axs = plt.subplots(1 if showGuidePath else 2, 1, sharex=True, squeeze=False, gridspec_kw=dict(hspace=0))
+    axs = axs.flatten()
+
+    oldxy = None
+    for visit in visits:
+        dra, ddec, tmp = getGuideOffset(opdb, visit)
+
+        if tmp is None or len(tmp) == 0:
+            continue
+
+        cosDec = np.cos(np.deg2rad(tmp.guide_delta_dec))[0]
+        tmp.guide_delta_ra *= cosDec
+        dra *= cosDec
+
+        if showGuidePath:
+            x, y = tmp.guide_delta_ra.to_numpy(), tmp.guide_delta_dec.to_numpy()
+            color = plt.plot(x, y, label=f"{visit}")[0].get_color()
+            if oldxy is None:
+                plt.plot([x[0]], [y[0]], 'o', color='black', fillstyle='none', zorder=-1)
+            else:                
+                plt.plot([oldxy[0], x[0]], [oldxy[1], y[0]], ':', color=color, alpha=0.5)
+            oldxy = [x[-1], y[-1]]
+        elif showMeanToEndOffset:
+            plt.sca(axs[0])
+            plt.plot([np.mean(tmp.taken_at)], tmp.guide_delta_ra.to_numpy()[-1] - dra, 'o', color='black')
+
+            plt.sca(axs[1])
+            plt.plot([np.mean(tmp.taken_at)], tmp.guide_delta_dec.to_numpy()[-1] - ddec, 'o', color='black')
+        else:
+            plt.sca(axs[0])
+            color = plt.plot(tmp.taken_at, tmp.guide_delta_ra, 'o')[0].get_color()
+            plt.plot([np.mean(tmp.taken_at)], dra, '+', color='black')
+
+            plt.sca(axs[1])
+            plt.plot(tmp.taken_at, tmp.guide_delta_dec, 'o', color=color)
+            plt.plot([np.mean(tmp.taken_at)], ddec, '+', color='black')
+
+    if showGuidePath:
+        if oldxy is not None:
+            plt.plot(*oldxy, 'o', color='black')
+        axs[0].set_aspect(1)
+        plt.xlabel(r"$\Delta\alpha$ (arcsec)")
+        plt.ylabel(r"$\Delta\delta$ (arcsec)")
+    else:
+        plt.sca(axs[0])
+        if showMeanToEndOffset:
+            plt.axhline(0, ls='-', color="red")
+        plt.ylabel(r"$\Delta\alpha$ (arcsec)")
+
+        plt.sca(axs[1])
+        if showMeanToEndOffset:
+            plt.axhline(0, ls='-', color="red")
+
+        plt.ylabel(r"$\Delta\delta$ (arcsec)")
+        plt.xlabel("taken_at")
+
+    (plt.title if showGuidePath else plt.suptitle)(f"visits {visits[0]}:{visits[-1]}")
+    
+    return fig
 
 
 class ShowCobra:
@@ -661,7 +954,8 @@ def addCobraIdCallback(fig, pfi, gfm=None, pfsConfig=None):
     return onclick
 
 
-def showDesignPhotometry(pfsConfig=None, butler=None, dataId=None, showDesign=None, showGaia=True,
+def showDesignPhotometry(pfsConfig=None, butler=None, dataId=None, showDesign=None,
+                         showGaia=True, gaiaDir=".",
                          useAB=True, band=2, maglim=None, marker='+', cmap="viridis", preserveLimits=True):
     if dataId is None:
         assert pfsConfig is not None
@@ -712,7 +1006,7 @@ def showDesignPhotometry(pfsConfig=None, butler=None, dataId=None, showDesign=No
     if showDesign:
         for t in set(pfsConfig.targetType):
             ll = pfsConfig.targetType == t
-            x, y, = pfsConfig.pfiNominal.T
+            x, y = pfsConfig.pfiNominal.T
 
             ll = np.logical_and(ll, np.isfinite(x + y))
 
@@ -740,8 +1034,23 @@ def showDesignPhotometry(pfsConfig=None, butler=None, dataId=None, showDesign=No
         if plateName == 'raster_ngc6633_2':
             plateName = "ngc6633_astrometryFalse"
 
-        import pandas as pd             # a heavy-weight dependency just to read a csv.  Probably OK
-        gaia = pd.read_csv(f"gaia_{plateName}.csv")
+        if gaiaDir is None:
+            gaiaDir = "."
+
+        gaia = None
+        for g in ["gaia3", "gaia"]:
+            for pname in [plateName, re.sub("_.*$", "", plateName)]:
+                fname = os.path.join(gaiaDir, f"{g}_{pname}.csv")
+                if os.path.exists(fname):
+                    gaia = pd.read_csv(fname)
+                    break
+
+            if gaia is not None:
+                break
+
+        if gaia is None:
+            print(f"Unable to find GAIA catalogue for {plateName}")
+            return
 
         if False:
             "gaia_raster11.csv"
