@@ -225,7 +225,8 @@ class ExtractSpectraTask(pipeBase.Task):
         numFullFibers = maxFiberId - minFiberId + fullSize + 1
         fullFiberId = np.arange(
             minFiberId - halfSize,
-            maxFiberId + halfSize + 2, dtype=int # +1 for center, +1 for 1-based fiberId
+            maxFiberId + halfSize + 2,  # +1 for center, +1 for 1-based fiberId
+            dtype=int,
         )
         fullCrosstalkMatrix = np.zeros((numFullFibers, numFullFibers), dtype=float)
 
