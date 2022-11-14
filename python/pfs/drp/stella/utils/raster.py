@@ -25,7 +25,7 @@ from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 __all__ = ["raDecStrToDeg", "makeDither", "makeCobraImages", "makeSkyImageFromCobras",
            "plotSkyImageOneCobra", "plotSkyImageFromCobras", "calculateOffsets", "offsetsAsQuiver",
            "getWindowedSpectralRange", "getWindowedFluxes", "showDesignPhotometry",
-           "estimateExtinction", "plotVisitImage", "getGuiderOffsets", "showGuiderOffsets"]
+           "estimateExtinction", "plotVisitImage", "getGuideOffset", "showGuiderOffsets"]
 
 
 def raDecStrToDeg(ra, dec):
@@ -323,8 +323,8 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             x2, y2 = CoordinateTransform(np.stack(([pfsConfig.ra], [pfsConfig.dec + R_asec/3600])),
                                          mode="sky_pfi", pa=pa, za=90.0 - altitude,
                                          cent=boresight, time=utc)[0:2]
-            R = np.hypot(x - x2, y - y2)*1e3  # microns corresponding to R_asec
-            R = np.full(len(pfsConfig), R_asec*R_micron/R) # asec
+            R = np.hypot(x - x2, y - y2)*1e3   # microns corresponding to R_asec
+            R = np.full(len(pfsConfig), R_asec*R_micron/R)  # asec
 
             x, y = np.full_like(x, ra), np.full_like(x, dec)
 
@@ -538,8 +538,8 @@ def plotVisitImage(visitImage, extent_CI, usePFImm=False):
     cmap = plt.matplotlib.cm.get_cmap().copy()
     cmap.set_bad(color='black')
 
-    vmin=np.nanmin(visitImage)
-    vmax=np.nanmax(visitImage)
+    vmin = np.nanmin(visitImage)
+    vmax = np.nanmax(visitImage)
 
     ims = plt.imshow(visitImage, origin='lower', interpolation='none',
                      extent=extent_CI, cmap=cmap, vmin=vmin, vmax=vmax)
@@ -555,6 +555,7 @@ def plotVisitImage(visitImage, extent_CI, usePFImm=False):
         plt.ylabel(r"$\Delta\delta$ (arcsec)")
 
     return ims
+
 
 def calculateOffsets(images, extent_CI):
     """Calculate and return the offset of the centroid for each of the images
@@ -643,6 +644,7 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
 
     return Q
 
+
 #
 # Workaround (harmless but annoying) pandas warning telling me to use sqlalchemy to access postgres
 #
@@ -662,16 +664,17 @@ def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
     opdb: connection to the opdb
     visit: desired visit
     magLim: magnitude limit for Gaia stars to use
-    zeroPoint: estimated zero point for AG photometry (if this is wrong, the extinction will be wrong by the same amount)
+    zeroPoint: estimated zero point for AG photometry (if this is wrong, the extinction will be wrong
+               by the same amount)
     """
     with opdb:
-         tmp = pd_read_sql(f'''
+        tmp = pd_read_sql(f'''
             SELECT
                 agc_exposure_id
             FROM agc_exposure
             JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
             WHERE
-                sps_exposure.pfs_visit_id = {visit} AND 
+                sps_exposure.pfs_visit_id = {visit} AND
                 agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
             ORDER BY agc_exposure ASC
             ''', opdb)
@@ -680,19 +683,20 @@ def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
 
     if np.isnan(amin + amax):
         return 0.0
-    
+
     with opdb:
         tmp = pd_read_sql(f'''
         SELECT
             pfs_visit_id, agc_exposure.agc_exptime, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
-            agc_match.guide_star_id, image_moment_00_pix, pfs_design_agc.guide_star_magnitude, pfs_design_agc.guide_star_color
-        FROM agc_exposure 
+            agc_match.guide_star_id, image_moment_00_pix, pfs_design_agc.guide_star_magnitude,
+            pfs_design_agc.guide_star_color
+        FROM agc_exposure
         JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
         JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
-                          agc_match.agc_camera_id = agc_data.agc_camera_id AND 
+                          agc_match.agc_camera_id = agc_data.agc_camera_id AND
                           agc_match.spot_id = agc_data.spot_id
         JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id
-        WHERE 
+        WHERE
             pfs_design_agc.passband = 'g_gaia' and
             agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
         ''', opdb)
@@ -707,17 +711,17 @@ def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
         it[tmp.taken_at == t] = i
 
     tmp["it"] = it
-    
+
     guide_star_ids = sorted(list(set(tmp.guide_star_id)))
     mag = zeroPoint - 2.5*np.log10(tmp.image_moment_00_pix)
 
     mm = np.full((len(guide_star_ids), len(taken_ats)), np.NaN)
     for i, gid in enumerate(guide_star_ids):
-        l = tmp.guide_star_id == gid
-        if np.mean(tmp.guide_star_magnitude[l] > magLim):
+        ll = tmp.guide_star_id == gid
+        if np.mean(tmp.guide_star_magnitude[ll] > magLim):
             continue
 
-        mm[i][tmp.it[l]] = mag[l] - np.median(tmp.guide_star_magnitude[l])
+        mm[i][tmp.it[ll]] = mag[ll] - np.median(tmp.guide_star_magnitude[ll])
 
     return 0.0 if len(mm) == 0 else np.nanmedian(mm)
 
@@ -726,20 +730,20 @@ def getGuideOffset(opdb, visit):
     """Estimate the mean guide offset for a given visit
     opdb: connection to the opdb
     visit: desired visit
-    
+
     Returns:
        dra   mean offset in ra (arcseconds).  N.b. no cos(dec) so can be directly added to ra
        ddec  mean offset in dec (arcseconds)
        df    Pandas data frame for diagnostics, if desired
     """
     with opdb:
-         tmp = pd_read_sql(f'''
+        tmp = pd_read_sql(f'''
             SELECT
                 agc_exposure_id
             FROM agc_exposure
             JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
             WHERE
-                sps_exposure.pfs_visit_id = {visit} AND 
+                sps_exposure.pfs_visit_id = {visit} AND
                 agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
             ORDER BY agc_exposure ASC
             ''', opdb)
@@ -748,16 +752,16 @@ def getGuideOffset(opdb, visit):
 
     if np.isnan(amin + amax):
         return 0, 0, None
-    
+
     with opdb:
-         tmp = pd_read_sql(f'''
+        tmp = pd_read_sql(f'''
             SELECT
                 pfs_visit.pfs_visit_id, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
-                guide_ra, guide_dec, guide_delta_ra, guide_delta_dec       
+                guide_ra, guide_dec, guide_delta_ra, guide_delta_dec
             FROM pfs_visit
             JOIN agc_exposure ON agc_exposure.pfs_visit_id = pfs_visit.pfs_visit_id
             JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-            WHERE 
+            WHERE
                  agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
             ''', opdb)
 
@@ -773,20 +777,20 @@ def getDitherRaDec(opdb, visit):
     Will be in headers in the great bye-and-bye
     """
     with opdb:
-         tmp = pd_read_sql(f'''
+        tmp = pd_read_sql(f'''
             SELECT
                 dither_ra, dither_dec, status_sequence_id
             FROM tel_status
             JOIN sps_exposure ON sps_exposure.pfs_visit_id = tel_status.pfs_visit_id
             WHERE
-                tel_status.pfs_visit_id = {visit} AND 
+                tel_status.pfs_visit_id = {visit} AND
                 tel_status.created_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
             ORDER BY status_sequence_id ASC
             ''', opdb)
 
     if len(tmp) == 0:
         return np.NaN, np.NaN, tmp
-    
+
     if len(set(tmp.dither_ra)) != 1 or len(set(tmp.dither_dec)) != 1:
         print(f"getDitherRaDec: detected multiple dither_XXX values for visit {visit}:\n", tmp)
 
@@ -802,11 +806,12 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
     opdb:                 a connection to the opdb postgres database
     showGuidePath:        plot dAlpha : dDelta
     showMeanToEndOffset:  plot the difference between the average offset in a visit and the last value
-    
+
     returns: matplotlib.Figure
     """
-    
-    fig, axs = plt.subplots(1 if showGuidePath else 2, 1, sharex=True, squeeze=False, gridspec_kw=dict(hspace=0))
+
+    fig, axs = plt.subplots(1 if showGuidePath else 2, 1, sharex=True, squeeze=False,
+                            gridspec_kw=dict(hspace=0))
     axs = axs.flatten()
 
     oldxy = None
@@ -825,7 +830,7 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
             color = plt.plot(x, y, label=f"{visit}")[0].get_color()
             if oldxy is None:
                 plt.plot([x[0]], [y[0]], 'o', color='black', fillstyle='none', zorder=-1)
-            else:                
+            else:
                 plt.plot([oldxy[0], x[0]], [oldxy[1], y[0]], ':', color=color, alpha=0.5)
             oldxy = [x[-1], y[-1]]
         elif showMeanToEndOffset:
@@ -863,7 +868,7 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
         plt.xlabel("taken_at")
 
     (plt.title if showGuidePath else plt.suptitle)(f"visits {visits[0]}:{visits[-1]}")
-    
+
     return fig
 
 
