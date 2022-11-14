@@ -1,3 +1,4 @@
+from .asinhNorm import *
 from .display import *
 from .fiberProfiles import *
 from .plotting import *
