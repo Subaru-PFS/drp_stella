@@ -153,7 +153,7 @@ class ReadLineListTask(Task):
         if lampElements is None or len(lampElements) == 0:
             return lines
         keep = []
-        for component in lampElements:
+        for component in sorted(lampElements):
             if self._isSpeciesPattern.match(component):
                 # Component is a species. Perform a search for lines matching only this
                 keep += [ll for ll in lines if component == ll.description]
