@@ -153,7 +153,9 @@ class ReduceArcTask(CmdLineTask):
         lines : `pfs.drp.stella.ArcLineSet`
             Set of reference lines matched to the data
         """
-        lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
+        lines = self.centroidLines.run(
+            exposure, lines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
+        )
 
         if self.debugInfo.display and self.debugInfo.displayIdentifications:
             exp_id = exposure.getMetadata().get("EXP-ID")

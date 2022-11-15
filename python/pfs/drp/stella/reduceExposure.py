@@ -491,7 +491,9 @@ class ReduceExposureTask(CmdLineTask):
         traces = None
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
-            lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
+            lines = self.centroidLines.run(
+                exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
+            )
             if (
                 self.config.doForceTraces
                 or not lines

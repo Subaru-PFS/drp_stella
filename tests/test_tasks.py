@@ -170,6 +170,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task.log.setLevel(task.log.DEBUG)
 
         raw = lsst.afw.image.makeExposure(self.arc)
+        raw.getInfo().setVisitInfo(lsst.afw.image.VisitInfo(id=12345))
         dataRef = DummyDataRef(raw=raw, fiberProfiles=profiles, detectorMap=self.detMap,
                                pfsConfig=self.pfsConfig)
 

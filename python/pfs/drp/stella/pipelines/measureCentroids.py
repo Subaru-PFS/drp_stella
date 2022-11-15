@@ -145,7 +145,7 @@ class MeasureCentroidsTask(PipelineTask):
             Measured centroids.
         """
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
-        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig)
+        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id)
         if self.config.doForceTraces or not lines or "Continuum" in getLampElements(exposure.getMetadata()):
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))

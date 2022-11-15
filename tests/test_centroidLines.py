@@ -57,7 +57,7 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
         config.doSubtractTraces = doSubtractTraces
         task = CentroidLinesTask(name="centroiding", config=config)
-        lines = task.run(exposure, referenceLines, detMap)
+        lines = task.run(exposure, referenceLines, detMap, seed=12345)
 
         if display is not None:
             from lsst.afw.display import Display
