@@ -46,8 +46,11 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
-    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
-                           doc="Target type for which to build profiles")
+    targetType = ListField(
+        dtype=str,
+        default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+        doc="Target type for which to build profiles",
+    )
 
     def setDefaults(self):
         super().setDefaults()
