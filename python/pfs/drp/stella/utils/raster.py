@@ -429,9 +429,14 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
     ymin -= border
     ymax += border
 
-    imsize = int(max((xmax - xmin)*cosDec, ymax - ymin)*scale)
-    xmax = xmin + (imsize - 1)/cosDec/scale
-    ymax = ymin + (imsize - 1)/scale
+    imsize = int(max((xmax - xmin)*cosDec, ymax - ymin)*scale) + 2*stampsize
+    xsize = (imsize - 1)/cosDec/scale
+    xmin = -xsize/2
+    xmax = xmin + xsize
+
+    ysize = (imsize - 1)/scale
+    ymin = -ysize/2
+    ymax = ymin + ysize
 
     pfiIm = np.full((imsize, imsize), 0.0)
     weights = np.zeros_like(pfiIm)
@@ -473,7 +478,7 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
             pfiIm[y0:y1, x0:x1][good] += images[i][good]
             weights[y0:y1, x0:x1][good] += 1
             pfiImMask[y0:y1, x0:x1][good] = True
-        except ValueError:
+        except (IndexError, ValueError):
             print(f"fiberId {pfsConfig.fiberId[i]} doesn't fit in image")
 
     if setUnimagedPixelsToNaN:
@@ -950,7 +955,6 @@ class ShowCobra:
                     if False:  # just a guess, so probably worse than useless
                         xy = self.pfi.centers[self.cobraId - 1]
                         x, y = xy.real, xy.imag
-                        cobraColor = 'white'
 
                 self.msg += f"cobraId {self.cobraId:4}"
 
