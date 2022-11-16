@@ -37,8 +37,9 @@ def raDecStrToDeg(ra, dec):
 
 class Dither:
     """Information associated with a dithered PFS exposure"""
-    def __init__(self, visit, ra, dec, fluxes, pfsConfig, md):
-        self.visit = visit
+    def __init__(self, dataId, ra, dec, fluxes, pfsConfig, md):
+        self.visit = dataId["visit"]
+        self.dataId = dataId.copy()
         self.ra = ra
         self.dec = dec
         self.fluxes = fluxes
@@ -191,7 +192,7 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
 
     ra, dec = raDecStrToDeg(md['RA_CMD'], md['DEC_CMD'])
 
-    return Dither(dataId["visit"], ra, dec, fluxes, pfsConfig, md)
+    return Dither(dataId, ra, dec, fluxes, pfsConfig, md)
 
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
