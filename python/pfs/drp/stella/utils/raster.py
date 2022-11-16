@@ -46,6 +46,31 @@ class Dither:
         self.pfsConfig = pfsConfig
         self.md = md
 
+def concatenateDithers(butler, dithers):
+    d0 = dithers[0]
+    for d in dithers[1:]:
+        assert d.visit == d0.visit
+        assert d.ra == d0.ra
+        assert d.dec == d0.dec
+
+    n = sum([len(d.fluxes) for d in dithers])
+    fluxes = np.empty(n)
+    i = 0
+    for d in dithers:
+        l = len(d.fluxes)
+        fluxes[i:i + l] = d.fluxes
+        i += l
+    fluxes = fluxes
+
+    pfsConfig = butler.get("pfsConfig", d0.dataId)
+    l = np.zeros(len(pfsConfig), dtype=bool)
+
+    for d in dithers:
+        l = np.logical_or(l, pfsConfig.spectrograph == d.dataId["spectrograph"])
+
+    pfsConfig = pfsConfig[np.logical_and(l, pfsConfig.targetType != TargetType.ENGINEERING)]
+
+    return Dither(d0.dataId, d0.ra, d0.dec, fluxes, pfsConfig, d0.md)
 
 def getWindowedSpectralRange(row0, nrows, butler=None, dataId=None, detectorMap=None, pfsConfig=None):
     """Return the range of wavelengths available in all fibres for a windowed read
