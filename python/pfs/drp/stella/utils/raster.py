@@ -624,8 +624,8 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
     xoff, yoff:   measured positional offsets, in (microns if usePFImm else arcsec)
     usePFImm :    make plot in PFI mm rather than ra/dec (you may need to scale xoff/yoff)
     select:       only show points for which select is True (if not None)
-    quiverLen:    passed to quiverKey (cv.) as "U"
-    quiverLabel:  passed to quiverKey (cv.) as "label"
+    quiverLen:    passed to quiverkey (cv.) as "U"
+    quiverLabel:  passed to quiverkey (cv.) as "label"
     scale:        passed to quiver (cv.)
     C:            passed to quiver (cv.)
     color:        passed to quiver (cv.)
@@ -659,6 +659,10 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
     args = [x[select], y[select], xoff[select], yoff[select]]
     if C is not None:
         args.append(C[select])                  # can't just pass None in the "C" slot
+
+    if "alpha" in quiver_args:
+        quiver_args.update(alpha=quiver_args["alpha"][select])
+
     Q = plt.quiver(*args, scale=scale, **quiver_args)
 
     plt.quiverkey(Q, 0.1, 0.9, quiverLen, f"{quiverLen}{quiverLabel}", coordinates='axes',
