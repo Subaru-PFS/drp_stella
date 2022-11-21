@@ -195,7 +195,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
-        self.normalizeSpectra(allSpectra)
+        for spec in spectra:
+            self.normalizeSpectra(spec)
 
         sky1d = []
         if self.config.doSubtractSky1d:
@@ -319,8 +320,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         Parameters
         ----------
         spectra : iterable of `pfs.datamodel.PsfArm`
-            Extracted spectra from the different arms, for each spectrograph.
-            The spectra will be modified in-place.
+            Extracted spectra from the different arms, for a single
+            spectrograph. The spectra will be modified in-place.
 
         Returns
         -------
