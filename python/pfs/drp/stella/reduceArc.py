@@ -1,11 +1,9 @@
 from collections import defaultdict
 from datetime import datetime
-import re
 
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
-import lsst.afw.display as afwDisplay
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 from .reduceExposure import ReduceExposureTask
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
@@ -129,56 +127,6 @@ class ReduceArcTask(CmdLineTask):
             values = set([ref.dataId["arm"] for ref in dataRefList])
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
-
-    def run(self, exposure, detectorMap, lines, pfsConfig=None, fiberTraces=None):
-        """Entry point for scatter stage
-
-        Centroids and identifies lines in the spectra extracted from the exposure
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-            Image containing the spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
-            Mapping of wl,fiber to detector position.
-        lines : `pfs.drp.stella.ReferenceLineSet`
-            Reference lines to use.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration.
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Position and profile of traces.
-
-        Returns
-        -------
-        lines : `pfs.drp.stella.ArcLineSet`
-            Set of reference lines matched to the data
-        """
-        lines = self.centroidLines.run(
-            exposure, lines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
-        )
-
-        if self.debugInfo.display and self.debugInfo.displayIdentifications:
-            exp_id = exposure.getMetadata().get("EXP-ID")
-            visit = int(re.sub(r"^[A-Z]+0*", "", exp_id))
-
-            frame = 1
-            try:
-                frame = self.debugInfo.frame.get(visit, frame)
-            except AttributeError:
-                if self.debugInfo.frame:
-                    frame = self.debugInfo.frame
-
-            if isinstance(frame, afwDisplay.Display):
-                display = frame
-            else:
-                display = afwDisplay.Display(frame)
-            self.plotIdentifications(display, exposure, lines, detectorMap,
-                                     displayExposure=self.debugInfo.displayExposure,
-                                     fiberIds=self.debugInfo.fiberIds)
-
-        return Struct(
-            lines=lines
-        )
 
     def runDataRef(self, dataRef):
         """Entry point for scatter stage
