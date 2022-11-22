@@ -623,13 +623,48 @@ class FitDistortedDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        xx = lines.x
+        yy = lines.y
+        dx = lines.x - points[:, 0]
+        dy = lines.y - points[:, 1]
+
+        if self.debugInfo.baseResiduals:
+            import matplotlib.pyplot as plt
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            from mpl_toolkits.axes_grid1 import make_axes_locatable
+            cmap = matplotlib.cm.rainbow
+            fig, axes = plt.subplots()
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            good = self.getGoodLines(lines)
+            magnitude = np.hypot(dx[good], dy[good])
+            norm = Normalize()
+            norm.autoscale(magnitude)
+            axes.quiver(
+                xx[good],
+                yy[good],
+                dx[good],
+                dy[good],
+                color=cmap(norm(magnitude)),
+                scale=1,
+                angles="xy",
+                scale_units="xy",
+            )
+            axes.set_xlabel("Spatial (pixels)")
+            axes.set_ylabel("Spectral (pixels)")
+            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+            colors.set_array([])
+            fig.colorbar(colors, cax=cax, orientation="vertical", label="Offset (pixels)")
+            plt.show()
+
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
             wavelength=lines.wavelength,
-            x=lines.x - points[:, 0],
-            y=lines.y - points[:, 1],
-            xOrig=lines.x,
-            yOrig=lines.y,
+            x=dx,
+            y=dy,
+            xOrig=xx,
+            yOrig=yy,
             xBase=points[:, 0],
             yBase=points[:, 1],
             xErr=lines.xErr,
