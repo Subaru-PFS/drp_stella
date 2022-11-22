@@ -969,7 +969,7 @@ class FitDistortedDetectorMapTask(Task):
                       results.chi2, results.dof, results.xRms, results.yRms,
                       results.xSoften, results.ySoften, results.selection.sum())
 
-        for descr in set(lines.description):
+        for descr in sorted(set(lines.description)):
             choose = selection & (lines.description == descr)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
             self.log.info("Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
