@@ -787,8 +787,10 @@ class FitDistortedDetectorMapTask(Task):
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
-                    xResid = np.abs(result.xResid/xErr)
-                    yResid = np.abs(result.yResid/yErr)
+                    xSoften = result.xRobustRms if np.isfinite(result.xRobustRms) else 0.0
+                    ySoften = result.yRobustRms if np.isfinite(result.yRobustRms) else 0.0
+                    xResid = np.abs(result.xResid/np.hypot(xErr, xSoften))
+                    yResid = np.abs(result.yResid/np.hypot(yErr, ySoften))
                     keep = newUsed & (xResid < rejection) & (yResid < rejection)
                     minKeepFrac = 1.0 - self.config.maxRejectionFrac
                     if keep.sum() < minKeepFrac*used.sum():
