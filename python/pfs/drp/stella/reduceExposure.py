@@ -64,7 +64,7 @@ class ReduceExposureConfig(Config):
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
-    traceSpectralError = Field(dtype=float, default=1.0,
+    traceSpectralError = Field(dtype=float, default=5.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
