@@ -261,6 +261,8 @@ class ReduceExposureTask(CmdLineTask):
         if not exposureList:
             for sensorRef in sensorRefList:
                 exposure = self.runIsr(sensorRef)
+                if self.config.doRepair:
+                    self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
 
