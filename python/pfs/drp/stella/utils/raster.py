@@ -431,11 +431,11 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
 
     imsize = int(max((xmax - xmin)*cosDec, ymax - ymin)*scale) + 2*stampsize
     xsize = (imsize - 1)/cosDec/scale
-    xmin = -xsize/2
+    xmin = (xmin + xmax)/2 - xsize/2   # beware x=0 == 360!
     xmax = xmin + xsize
 
     ysize = (imsize - 1)/scale
-    ymin = -ysize/2
+    ymin = (ymin + ymax)/2 - ysize/2
     ymax = ymin + ysize
 
     pfiIm = np.full((imsize, imsize), 0.0)
