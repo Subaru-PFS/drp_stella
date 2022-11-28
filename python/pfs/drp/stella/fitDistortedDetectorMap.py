@@ -408,25 +408,32 @@ class FitDistortedDetectorMapTask(Task):
         good : `numpy.ndarray` of `bool`
             Boolean array indicating which lines are good.
         """
+        def getCounts():
+            """Provide a list of counts of different species"""
+            if self.log.isEnabledFor(self.log.DEBUG):
+                counts = Counter((ll.description for ll in lines[good]))
+                return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+            return ""
+
         self.log.debug("%d lines in list", len(lines))
         good = lines.flag == 0
-        self.log.debug("%d good lines after measurement flags", good.sum())
+        self.log.debug("%d good lines after measurement flags (%s)", good.sum(), getCounts())
         good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        self.log.debug("%d good lines after line status", good.sum())
+        self.log.debug("%d good lines after line status (%s)", good.sum(), getCounts())
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
-        self.log.debug("%d good lines after finite positions", good.sum())
+        self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
-            self.log.debug("%d good lines after finite intensities", good.sum())
+            self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
             with np.errstate(invalid="ignore", divide="ignore"):
                 good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
-            self.log.debug("%d good lines after signal-to-noise", good.sum())
+            self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
             good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
             good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")
-            self.log.debug("%d good lines after centroid errors", good.sum())
+            self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
