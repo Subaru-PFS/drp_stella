@@ -1,5 +1,7 @@
 import os
 from collections import defaultdict, Counter
+from typing import Optional
+from logging import Logger
 
 import numpy as np
 import scipy.optimize
@@ -204,6 +206,53 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, num=num,
                   numParameters=numParameters, selection=xSelection, soften=soften,
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
+
+
+def rejectOutliers(
+    fitStats: Struct,
+    xErr: np.ndarray,
+    yErr: np.ndarray,
+    rejection: float = 4.0,
+    maxRejectionFrac: float = 0.1,
+    log: Optional[Logger] = None,
+):
+    """Reject outliers from distortion fit
+
+    Parameters
+    ----------
+    fitStats : `lsst.pipe.base.Struct`
+        Fit statistics; the output of ``calculateFitStatistics``.
+    xErr, yErr : `np.ndarray`
+        Errors in x and y (pixels).
+    rejection : `float`
+        Rejection threshold, in standard deviations.
+    maxRejectionFrac : `float`
+        Maximum fraction of points to be rejected. If more than this fraction
+        are rejected, then the limit will be changed to reject only this
+        fraction.
+    log : `Logger`, optional
+        Logger for logging notice about changing rejection limit.
+
+    Returns
+    -------
+    keep : `np.ndarray` of `bool`
+        Array indicating which points should be kept.
+    """
+    xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
+    ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
+    xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
+    yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
+    keep = (xResid < rejection) & (yResid < rejection)
+    minKeepFrac = 1.0 - maxRejectionFrac
+    if keep.sum() < minKeepFrac*fitStats.selection.sum():
+        xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
+        yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+        keep = (xResid < xResidLimit) & (yResid < yResidLimit)
+        if log is not None:
+            log.debug(
+                "Standard rejection limit (%f) too severe; using %f, %f", rejection, xResidLimit, yResidLimit
+            )
+    return keep
 
 
 def addColorbar(figure, axes, cmap, norm, label=None):
@@ -516,17 +565,10 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("Spatial offsets: %s", spatial)
             self.log.debug("Spectral offsets: %s", spectral)
 
-            with np.errstate(invalid="ignore"):
-                xResid = np.abs(result.xResid/xErr)
-                yResid = np.abs(result.yResid/yErr)
-                newUse = (select & (xResid < self.config.rejection) & (yResid < self.config.rejection))
-            minKeepFrac = 1.0 - self.config.maxRejectionFrac
-            if newUse.sum() < minKeepFrac*use.sum():
-                xResidLimit = np.percentile(xResid[use], minKeepFrac*100)
-                yResidLimit = np.percentile(yResid[use], minKeepFrac*100)
-                self.log.debug("Standard rejection limit (%f) too severe; using %f, %f",
-                               self.config.rejection, xResidLimit, yResidLimit)
-                newUse = (select & (xResid < xResidLimit) & (yResid < yResidLimit))
+            keep = rejectOutliers(
+                result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
+            )
+            newUse = select & keep
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
             if np.all(newUse == use):
@@ -794,18 +836,9 @@ class FitDistortedDetectorMapTask(Task):
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
-                    xSoften = result.xRobustRms if np.isfinite(result.xRobustRms) else 0.0
-                    ySoften = result.yRobustRms if np.isfinite(result.yRobustRms) else 0.0
-                    xResid = np.abs(result.xResid/np.hypot(xErr, xSoften))
-                    yResid = np.abs(result.yResid/np.hypot(yErr, ySoften))
-                    keep = newUsed & (xResid < rejection) & (yResid < rejection)
-                    minKeepFrac = 1.0 - self.config.maxRejectionFrac
-                    if keep.sum() < minKeepFrac*used.sum():
-                        xResidLimit = np.percentile(xResid[used], minKeepFrac*100)
-                        yResidLimit = np.percentile(yResid[used], minKeepFrac*100)
-                        keep = newUsed & (xResid < xResidLimit) & (yResid < yResidLimit)
-                        self.log.debug("Standard rejection limit (%f) too severe; using %f, %f",
-                                       rejection, xResidLimit, yResidLimit)
+                    keep = rejectOutliers(
+                        result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
+                    )
                     newUsed &= keep
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
