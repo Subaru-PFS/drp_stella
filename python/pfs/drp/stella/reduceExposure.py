@@ -64,7 +64,7 @@ class ReduceExposureConfig(Config):
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
-    traceSpectralError = Field(dtype=float, default=1.0,
+    traceSpectralError = Field(dtype=float, default=5.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
@@ -261,6 +261,8 @@ class ReduceExposureTask(CmdLineTask):
         if not exposureList:
             for sensorRef in sensorRefList:
                 exposure = self.runIsr(sensorRef)
+                if self.config.doRepair:
+                    self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
 
@@ -491,7 +493,9 @@ class ReduceExposureTask(CmdLineTask):
         traces = None
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
-            lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
+            lines = self.centroidLines.run(
+                exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
+            )
             if (
                 self.config.doForceTraces
                 or not lines
@@ -508,7 +512,11 @@ class ReduceExposureTask(CmdLineTask):
                                         ctype="red", plotTraces=False)
 
                 try:
-                    detectorMap = self.adjustDetectorMap.run(detectorMap, lines).detectorMap
+                    detectorMap = self.adjustDetectorMap.run(
+                        detectorMap,
+                        lines,
+                        seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
+                    ).detectorMap
                 except FittingError as exc:
                     if self.config.requireAdjustDetectorMap:
                         raise

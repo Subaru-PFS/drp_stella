@@ -1,6 +1,6 @@
 import numpy as np
 
-from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, makeConfigClass
+from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, ListField, makeConfigClass
 from lsst.pipe.base import Task
 
 from lsst.geom import Point2D, Point2I, Box2I, Extent2I
@@ -15,6 +15,7 @@ from .images import convolveImage
 from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
 from .makeFootprint import makeFootprint
+from .traces import medianFilterColumns
 
 import lsstDebug
 
@@ -33,6 +34,13 @@ class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum before centroiding lines?")
     continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
+    doSubtractTraces = Field(dtype=bool, default=True, doc="Subtract traces before centroiding lines?")
+    halfHeight = Field(dtype=int, default=35, doc="Half-height for column trace determination")
+    mask = ListField(
+        dtype=str,
+        default=["BAD", "SAT", "REFLINE", "NO_DATA"],
+        doc="Mask planes to ignore in trace removal",
+    )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     peakSearch = Field(dtype=float, default=3, doc="Radius of peak search (pixels)")
     footprintHeight = Field(dtype=int, default=11, doc="Height of footprint (pixels)")
@@ -138,10 +146,25 @@ class CentroidLinesTask(Task):
             Centroided lines.
         """
         checkPsf(exposure, fwhm=self.config.fwhm)
-        convolved = self.convolveImage(exposure)
-        catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
-        self.measure(exposure, catalog, seed)
-        self.display(exposure, catalog)
+
+        traces = None
+        if self.config.doSubtractTraces:
+            # Median filter on columns
+            bad = (exposure.mask.array & exposure.mask.getPlaneBitMask(self.config.mask)) != 0
+            traces = medianFilterColumns(exposure.image.array, bad, self.config.halfHeight)
+
+        # Measure centroids on traces-subtracted image
+        if traces is not None:
+            exposure.image.array -= traces
+        try:
+            convolved = self.convolveImage(exposure)
+            catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
+            self.measure(exposure, catalog, seed)
+            self.display(exposure, catalog)
+        finally:
+            if traces is not None:
+                exposure.image.array += traces
+
         lines = self.translate(catalog)
         self.log.info("Measured %d line centroids", len(lines))
         return lines

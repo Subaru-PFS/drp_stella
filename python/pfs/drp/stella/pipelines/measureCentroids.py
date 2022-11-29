@@ -145,7 +145,7 @@ class MeasureCentroidsTask(PipelineTask):
             Measured centroids.
         """
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
-        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig)
+        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id)
         if self.config.doForceTraces or not lines or "Continuum" in getLampElements(exposure.getMetadata()):
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
@@ -220,7 +220,9 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
             detectorMap.display(display, wavelengths=data.refLines.wavelength, ctype="red", plotTraces=False)
 
         try:
-            detectorMap = self.adjustDetectorMap.run(detectorMap, data.centroids).detectorMap
+            detectorMap = self.adjustDetectorMap.run(
+                detectorMap, data.centroids, exposure.visitInfo.id
+            ).detectorMap
         except FittingError as exc:
             if self.config.requireAdjustDetectorMap:
                 raise

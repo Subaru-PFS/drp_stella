@@ -20,7 +20,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
-    def run(self, detectorMap, lines):
+    def run(self, detectorMap, lines, seed=0):
         """Adjust a DistortedDetectorMap to fit arc line measurements
 
         We fit only the lowest order terms.
@@ -32,6 +32,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines : `pfs.drp.stella.ArcLineSet`
             Measured line positions. The ``status`` member will be updated to
             indicate which lines were used and reserved.
+        seed : `int`
+            Seed for random number generator used for selecting reserved lines.
 
         Returns
         -------
@@ -59,7 +61,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         """
         base = self.getBaseDetectorMap(detectorMap)  # NB: DistortionBasedDetectorMap not SplinedDetectorMap
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
-        numGoodLines = self.countGoodLines(lines)
+        numGoodLines = self.getGoodLines(lines).sum()
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations):
@@ -68,8 +70,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
-                                     seed=detectorMap.visitInfo.id, fitStatic=False,
-                                     Distortion=type(base.getDistortion()))
+                                     seed=seed, fitStatic=False, Distortion=type(base.getDistortion()))
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
@@ -117,46 +118,6 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             Class = type(detectorMap)
             detectorMap = detectorMap.base
         return Class(detectorMap, distortion, visitInfo, metadata)
-
-    def countGoodLines(self, lines):
-        """Count the number of good lines
-
-        Parameters
-        ----------
-        lines : `pfs.drp.stella.ArcLineSet`
-            Measured arc lines.
-
-        Returns
-        -------
-        num : `int`
-            Number of good lines.
-        """
-        if lines is None:
-            return 0
-        good = lines.flag == 0
-        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
-        good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
-        return good.sum()
-
-    def isSufficientGoodLines(self, lines):
-        """Return whether we have enough good lines
-
-        to be able to fit using lines only.
-
-        Parameters
-        ----------
-        lines : `pfs.drp.stella.ArcLineSet`
-            Measured arc lines.
-
-        Returns
-        -------
-        isSufficient : `bool`
-            Do we have enough good lines?
-        """
-        needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
-        numGoodLines = self.countGoodLines(lines)
-        return numGoodLines > needNumLines
 
     def constructAdjustedDetectorMap(self, base, distortion):
         """Construct an adjusted detectorMap

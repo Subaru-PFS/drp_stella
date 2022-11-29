@@ -1,5 +1,7 @@
 import os
 from collections import defaultdict, Counter
+from typing import Optional
+from logging import Logger
 
 import numpy as np
 import scipy.optimize
@@ -206,6 +208,53 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
+def rejectOutliers(
+    fitStats: Struct,
+    xErr: np.ndarray,
+    yErr: np.ndarray,
+    rejection: float = 4.0,
+    maxRejectionFrac: float = 0.1,
+    log: Optional[Logger] = None,
+):
+    """Reject outliers from distortion fit
+
+    Parameters
+    ----------
+    fitStats : `lsst.pipe.base.Struct`
+        Fit statistics; the output of ``calculateFitStatistics``.
+    xErr, yErr : `np.ndarray`
+        Errors in x and y (pixels).
+    rejection : `float`
+        Rejection threshold, in standard deviations.
+    maxRejectionFrac : `float`
+        Maximum fraction of points to be rejected. If more than this fraction
+        are rejected, then the limit will be changed to reject only this
+        fraction.
+    log : `Logger`, optional
+        Logger for logging notice about changing rejection limit.
+
+    Returns
+    -------
+    keep : `np.ndarray` of `bool`
+        Array indicating which points should be kept.
+    """
+    xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
+    ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
+    xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
+    yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
+    keep = (xResid < rejection) & (yResid < rejection)
+    minKeepFrac = 1.0 - maxRejectionFrac
+    if keep.sum() < minKeepFrac*fitStats.selection.sum():
+        xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
+        yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+        keep = (xResid < xResidLimit) & (yResid < yResidLimit)
+        if log is not None:
+            log.debug(
+                "Standard rejection limit (%f) too severe; using %f, %f", rejection, xResidLimit, yResidLimit
+            )
+    return keep
+
+
 def addColorbar(figure, axes, cmap, norm, label=None):
     """Add colorbar to a plot
 
@@ -259,6 +308,12 @@ class FitDistortedDetectorMapConfig(Config):
                  )
     minSignalToNoise = Field(dtype=float, default=20.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
+    maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
+    maxRejectionFrac = Field(
+        dtype=float,
+        default=0.3,
+        doc="Maximum fraction of lines that may be rejected in a single iteration",
+    )
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
@@ -402,20 +457,32 @@ class FitDistortedDetectorMapTask(Task):
         good : `numpy.ndarray` of `bool`
             Boolean array indicating which lines are good.
         """
+        def getCounts():
+            """Provide a list of counts of different species"""
+            if self.log.isEnabledFor(self.log.DEBUG):
+                counts = Counter((ll.description for ll in lines[good]))
+                return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+            return ""
+
         self.log.debug("%d lines in list", len(lines))
         good = lines.flag == 0
-        self.log.debug("%d good lines after measurement flags", good.sum())
+        self.log.debug("%d good lines after measurement flags (%s)", good.sum(), getCounts())
         good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
-        self.log.debug("%d good lines after line status", good.sum())
+        self.log.debug("%d good lines after line status (%s)", good.sum(), getCounts())
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
-        self.log.debug("%d good lines after finite positions", good.sum())
+        self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
-            self.log.debug("%d good lines after finite intensities", good.sum())
+            self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
             with np.errstate(invalid="ignore", divide="ignore"):
                 good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
-            self.log.debug("%d good lines after signal-to-noise", good.sum())
+            self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
+        if self.config.maxCentroidError > 0:
+            maxCentroidError = self.config.maxCentroidError
+            good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
+            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")
+            self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
@@ -498,9 +565,11 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("Spatial offsets: %s", spatial)
             self.log.debug("Spectral offsets: %s", spectral)
 
-            with np.errstate(invalid="ignore"):
-                newUse = (select & (np.abs(result.xResid/xErr) < self.config.rejection) &
-                          (np.abs(result.yResid/yErr) < self.config.rejection))
+            keep = rejectOutliers(
+                result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
+            )
+            newUse = select & keep
+
             self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
             if np.all(newUse == use):
                 # Converged
@@ -603,13 +672,48 @@ class FitDistortedDetectorMapTask(Task):
             Arc line position residuals.
         """
         points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        xx = lines.x
+        yy = lines.y
+        dx = lines.x - points[:, 0]
+        dy = lines.y - points[:, 1]
+
+        if self.debugInfo.baseResiduals:
+            import matplotlib.pyplot as plt
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            from mpl_toolkits.axes_grid1 import make_axes_locatable
+            cmap = matplotlib.cm.rainbow
+            fig, axes = plt.subplots()
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            good = self.getGoodLines(lines)
+            magnitude = np.hypot(dx[good], dy[good])
+            norm = Normalize()
+            norm.autoscale(magnitude)
+            axes.quiver(
+                xx[good],
+                yy[good],
+                dx[good],
+                dy[good],
+                color=cmap(norm(magnitude)),
+                scale=1,
+                angles="xy",
+                scale_units="xy",
+            )
+            axes.set_xlabel("Spatial (pixels)")
+            axes.set_ylabel("Spectral (pixels)")
+            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+            colors.set_array([])
+            fig.colorbar(colors, cax=cax, orientation="vertical", label="Offset (pixels)")
+            plt.show()
+
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
             wavelength=lines.wavelength,
-            x=lines.x - points[:, 0],
-            y=lines.y - points[:, 1],
-            xOrig=lines.x,
-            yOrig=lines.y,
+            x=dx,
+            y=dy,
+            xOrig=xx,
+            yOrig=yy,
             xBase=points[:, 0],
             yBase=points[:, 1],
             xErr=lines.xErr,
@@ -732,8 +836,11 @@ class FitDistortedDetectorMapTask(Task):
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
-                    newUsed &= ((np.abs(result.xResid/xErr) < rejection) &
-                                (np.abs(result.yResid/yErr) < rejection))
+                    keep = rejectOutliers(
+                        result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
+                    )
+                    newUsed &= keep
+
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
             if np.all(newUsed == used):
@@ -758,11 +865,16 @@ class FitDistortedDetectorMapTask(Task):
         self.log.debug("    Final fit model: %s", result.distortion)
 
         soften = (result.xSoften, result.ySoften)
-        result = self.fitModel(bbox, lines, used, weights, soften, fitStatic=fitStatic, Distortion=Distortion)
-        self.log.info("Softened fit: "
-                      "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
-                      result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                      result.xSoften, result.ySoften, select.sum())
+        if not np.all(np.isfinite(soften)):
+            self.log.warn("Non-finite softening, probably a bad fit")
+        else:
+            result = self.fitModel(
+                bbox, lines, used, weights, soften, fitStatic=fitStatic, Distortion=Distortion
+            )
+            self.log.info("Softened fit: "
+                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
+                          result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
+                          result.xSoften, result.ySoften, select.sum())
 
         reservedStats = calculateFitStatistics(result.distortion(lines.xBase, lines.yBase), lines, reserved,
                                                result.distortion.getNumParameters(), soften,
@@ -902,7 +1014,7 @@ class FitDistortedDetectorMapTask(Task):
                       results.chi2, results.dof, results.xRms, results.yRms,
                       results.xSoften, results.ySoften, results.selection.sum())
 
-        for descr in set(lines.description):
+        for descr in sorted(set(lines.description)):
             choose = selection & (lines.description == descr)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
             self.log.info("Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",

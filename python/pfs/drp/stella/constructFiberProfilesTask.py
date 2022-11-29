@@ -158,7 +158,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         if self.config.doAdjustDetectorMap:
             traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
             lines = tracesToLines(detMap, traces, self.config.traceSpectralError)
-            detMap = self.adjustDetectorMap.run(detMap, lines).detectorMap
+            detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
         identity = CalibIdentity(
