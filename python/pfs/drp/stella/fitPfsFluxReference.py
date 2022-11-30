@@ -1,3 +1,4 @@
+import lsstDebug
 from lsst.pex.config import Config, ConfigurableField, Field, ListField
 from lsst.pipe.base import ArgumentParser, CmdLineTask, Struct
 from lsst.utils import getPackageDir
@@ -20,6 +21,7 @@ from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
 from pfs.drp.stella.lsf import GaussianLsf, warpLsf
+from pfs.drp.stella.utils import debugging
 
 from astropy import constants as const
 import numpy as np
@@ -116,6 +118,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         self.makeSubtask("fitObsContinuum")
         self.makeSubtask("fitModelContinuum")
         self.makeSubtask("estimateRadialVelocity")
+
+        self.debugInfo = lsstDebug.Info(__name__)
 
         self.fluxModelSet = FluxModelSet(getPackageDir("fluxmodeldata"))
         self.modelInterpolator = FluxModelInterpolator.fromFluxModelData(getPackageDir("fluxmodeldata"))
@@ -221,6 +225,13 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         # Prior PDF from broad-band typing, where the continuous spectrum matters.
         bbPdfs = self.fitBroadbandSED.run(pfsConfigCorr)
+        if self.debugInfo.doWritePrior:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/prior-{pfsMerged.filename}.pickle",
+                fiberId=pfsConfigCorr.fiberId,
+                prior=bbPdfs,
+            )
+
         pfsConfig = selectPfsConfig(
             pfsConfig, "FITBBSED_FAILED",
             [(bbPdf is not None and np.all(np.isfinite(bbPdf))) for bbPdf in bbPdfs]
@@ -239,7 +250,18 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         pfsMerged = self.computeContinuum(pfsMerged, mode="observed").whiten(pfsMerged)
         pfsMerged = self.maskUninterestingRegions(pfsMerged)
+
+        if self.debugInfo.doWriteWhitenedFlux:
+            pfsMerged.writeFits(f"fitPfsFluxReference-output/whitened-{pfsMerged.filename}")
+
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
+
+        if self.debugInfo.doWriteCrossCorr:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/crossCorr-{pfsMerged.filename}.pickle",
+                fiberId=pfsConfigCorr.fiberId,
+                crossCorr=[record.crossCorr for record in radialVelocities],
+            )
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
         for fiberId, velocity in zip(pfsConfig.fiberId, radialVelocities):
@@ -251,6 +273,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         likelihoods = self.fitModelsToSpectra(
             pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs
         )
+        if self.debugInfo.doWriteLikelihood:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/likelihood-{pfsMerged.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                likelihood=likelihoods,
+            )
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
         for fiberId, likelihood in zip(pfsConfig.fiberId, likelihoods):
@@ -267,6 +295,13 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 pdf = bbPdf * likelihood
                 pdf *= 1.0 / np.sum(pdf)
                 pdfs.append(pdf)
+
+        if self.debugInfo.doWritePosterior:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/posterior-{pfsMerged.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                posterior=pdfs,
+            )
 
         self.log.info("Making reference spectra by interpolation")
         bestModels = self.makeReferenceSpectra(pfsConfig, pdfs)
@@ -286,6 +321,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             ("alpha", np.float32),
             ("radial_velocity", np.float32),
             ("radial_velocity_err", np.float32),
+            ("flux_scaling_chi2", np.float32),
+            ("flux_scaling_dof", np.int32),
         ])
 
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
@@ -300,6 +337,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 fitParams["alpha"][index] = bestModel.param[3]
                 fitParams["radial_velocity"][index] = velocity.velocity
                 fitParams["radial_velocity_err"][index] = velocity.error
+                fitParams["flux_scaling_chi2"][index] = bestModel.fluxScalingChi2
+                fitParams["flux_scaling_dof"][index] = bestModel.fluxScalingDof
 
         fitFlagArray = np.zeros(shape=(len(originalFiberId),), dtype=np.int32)
 
@@ -339,8 +378,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         -------
         radialVelocities : `List[Optional[lsst.pipe.base.Struct]]`
             Radial velocity for each fiber.
-            Each element, if not None, has `velocity` and `error`
-            as its member. See ``EstimateRadialVelocityTask``.
+            Each element, if not None, has ``velocity``, ``error``, and
+            ``crossCorr`` as its member. See ``EstimateRadialVelocityTask``.
         """
         # Find the best model from broad bands.
         # This model is used as the reference for cross-correlation calculation
@@ -764,6 +803,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 Spectrum.
             param : `tuple`
                 Parameter (Teff, logg, M, alpha).
+            fluxScalingChi2 : `float`
+                chi^2 of flux scaling problem.
+            fluxScalingDof  : `int`
+                Degree of freedom of flux scaling problem.
         """
         bestModels = self.findBestModel(pdfs)
 
@@ -775,7 +818,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             extinction = F99ExtinctionCurve(self.config.Rv)
             model.spectrum.flux *= extinction.attenuation(model.spectrum.wavelength, ebv)
 
-            model.spectrum = adjustAbsoluteScale(model.spectrum, fiberConfig)
+            scaled = adjustAbsoluteScale(model.spectrum, fiberConfig)
+            model.spectrum = scaled.spectrum
+            model.fluxScalingChi2 = scaled.chi2
+            model.fluxScalingDof = scaled.dof
 
         return bestModels
 
@@ -952,6 +998,10 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
     -------
     spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
         The same instance as the argument.
+    chi2 : `float`
+        chi^2 of the problem to determine the scaling constant.
+    dof : `int`
+        Degree of freedom of the problem to determine the scaling constant.
     """
     fiberFlux = fiberConfig.fiberFlux[0]
     fiberFluxErr = fiberConfig.fiberFluxErr[0]
@@ -964,12 +1014,13 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
 
     refFlux = np.asarray(refFlux, dtype=float)
 
-    # minimum chi^2 solution of
-    #   chi^2 = sum((fiberFlux - scale*refFlux) / fiberFluxErr**2)
+    # This is the minimum point of chi^2(scale)
     scale = np.sum(fiberFlux * refFlux / fiberFluxErr**2) / np.sum((refFlux / fiberFluxErr)**2)
+    # chi^2(scale) at the minimum point
+    chi2 = np.sum((fiberFlux - scale*refFlux)**2 / fiberFluxErr**2)
 
     spectrum.flux[:] *= scale
-    return spectrum
+    return Struct(spectrum=spectrum, chi2=chi2, dof=len(fiberFlux) - 1)
 
 
 def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):

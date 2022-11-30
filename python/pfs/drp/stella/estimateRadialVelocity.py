@@ -93,6 +93,11 @@ class EstimateRadialVelocityTask(Task):
             Standard deviation of ``velocity``.
             This is reliable only if ``config.findMethod="gauss"``
             and ``config.useCovar=True``.
+        crossCorr : `numpy.array`
+            This is a structured array of
+            `dtype=[("velocity", float), ("crosscorr", float)]`.
+            ``"velocity"`` is radial velocity in km/s.
+            ``"crosscorr"`` is cross correlation.
         """
         # TODO: This method should be wholly rewritten so that it will use
         # a log-scaled wavelength for the sake of FFT convolution.
@@ -133,12 +138,17 @@ class EstimateRadialVelocityTask(Task):
         # This is cross correlation function
         ccf = scaledModel @ flux
 
+        # c.c.f. is returned to the caller in this format for debugging.
+        crossCorr = np.empty(len(ccf), dtype=[("velocity", float), ("crosscorr", float)])
+        crossCorr["velocity"] = searchVelocity
+        crossCorr["crosscorr"] = ccf
+
         # Find the peak of CCF
         if self.config.findMethod == "peak":
             iMax = np.argmax(ccf)
             velocity = searchVelocity[iMax]
             # We have to think of the error...
-            return Struct(velocity=velocity, error=np.nan)
+            return Struct(velocity=velocity, error=np.nan, crossCorr=crossCorr)
 
         # Gaussian fit
         if self.config.findMethod == "gauss":
@@ -166,6 +176,6 @@ class EstimateRadialVelocityTask(Task):
                 sigma=fitCovar, p0=iniParam, absolute_sigma=True
             )
 
-            return Struct(velocity=pfit[1], error=np.sqrt(pcov[1][1]))
+            return Struct(velocity=pfit[1], error=np.sqrt(pcov[1][1]), crossCorr=crossCorr)
 
         raise RuntimeError("config.findMethod has a wrong value.")

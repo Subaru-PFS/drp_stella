@@ -4,6 +4,7 @@ import math
 from astropy import constants as const
 import numpy as np
 
+import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
@@ -16,6 +17,7 @@ from .lsf import warpLsf
 from .subtractSky1d import subtractSky1d
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
+from .utils import debugging
 
 __all__ = ("FitFluxCalConfig", "FitFluxCalTask")
 
@@ -40,6 +42,8 @@ class FitFluxCalTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitFocalPlane")
         self.makeSubtask("fluxTable")
+
+        self.debugInfo = lsstDebug.Info(__name__)
 
     @classmethod
     def _makeArgumentParser(cls):
@@ -163,6 +167,13 @@ class FitFluxCalTask(CmdLineTask):
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
 
         # TODO: Smooth the flux calibration vectors.
+
+        if self.debugInfo.doWriteCalibVector:
+            debugging.writeExtraData(
+                f"fitFluxCal-output/calibVector-{pfsMerged.filename}.pickle",
+                fiberId=calibVectors.fiberId,
+                calibVector=calibVectors.flux,
+            )
 
         # Before the call to `fitFocalPlane`, we have to ensure
         # that all the bad flags in `config.mask` are contained in `flags`.
