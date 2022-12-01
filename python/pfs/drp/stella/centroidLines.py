@@ -235,7 +235,7 @@ class CentroidLinesTask(Task):
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 expected = Point2D(xx, yy)
-                peak = self.findPeak(convolved.image, expected)
+                peak = self.findPeak(convolved, expected)
                 footprint = makeFootprint(image, peak, self.config.footprintHeight,
                                           self.config.footprintWidth)
                 assert image.getBBox().contains(footprint.getSpans().getBBox())
@@ -263,7 +263,7 @@ class CentroidLinesTask(Task):
 
         Parameters
         ----------
-        image : `lsst.afw.image.Image`
+        image : `lsst.afw.image.MaskedImage`
             Image on which to find peak.
         center : `lsst.geom.Point2D`
             Expected center of peak.
@@ -279,8 +279,10 @@ class CentroidLinesTask(Task):
         box = Box2I(Point2I(x0, y0), Extent2I(size, size))
         box.clip(image.getBBox())
         subImage = image[box]
-        yy, xx = np.unravel_index(np.argmax(np.where(np.isfinite(subImage.array), subImage.array, 0.0)),
-                                  subImage.array.shape)
+        badBitmask = subImage.mask.getPlaneBitMask(self.config.mask)
+        good = np.isfinite(subImage.image.array) & ((subImage.mask.array & badBitmask) == 0)
+        yy, xx = np.unravel_index(np.argmax(np.where(good, subImage.image.array, 0.0)),
+                                  subImage.image.array.shape)
         return Point2I(xx + x0, yy + y0)
 
     def measure(self, exposure, catalog, seed=0):
