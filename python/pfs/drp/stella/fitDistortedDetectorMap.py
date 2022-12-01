@@ -272,10 +272,16 @@ class FitDistortedDetectorMapConfig(Config):
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
+<<<<<<< HEAD
     exclusionRadius = Field(dtype=float, default=4,
                             doc="Exclusion radius to apply to reference lines (pixels)")
     doRejectBadLines = Field(dtype=bool, default=True,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
+||||||| parent of be45f77e (fitDetectorMap: reject blended lines)
+=======
+    exclusionRadius = Field(dtype=float, default=4,
+                            doc="Exclusion radius to apply to reference lines (pixels)")
+>>>>>>> be45f77e (fitDetectorMap: reject blended lines)
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -647,10 +653,22 @@ class FitDistortedDetectorMapTask(Task):
             import matplotlib.cm
             from matplotlib.colors import Normalize
             cmap = matplotlib.cm.rainbow
+<<<<<<< HEAD
             fig, axes = plt.subplots(ncols=3)
 
             good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
             good &= np.all(np.isfinite(points), axis=1)
+||||||| parent of be45f77e (fitDetectorMap: reject blended lines)
+            fig, axes = plt.subplots()
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            good = self.getGoodLines(lines)
+=======
+            fig, axes = plt.subplots()
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
+>>>>>>> be45f77e (fitDetectorMap: reject blended lines)
             magnitude = np.hypot(dx[good], dy[good])
             norm = Normalize()
             norm.autoscale(magnitude)
