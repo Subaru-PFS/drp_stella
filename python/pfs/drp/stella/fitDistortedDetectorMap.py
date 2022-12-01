@@ -273,6 +273,8 @@ class FitDistortedDetectorMapConfig(Config):
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
     exclusionRadius = Field(dtype=float, default=4,
                             doc="Exclusion radius to apply to reference lines (pixels)")
+    doRejectBadLines = Field(dtype=bool, default=False,
+                             doc="Reject reference lines for all fibers that have a bad mean residual?")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -799,6 +801,8 @@ class FitDistortedDetectorMapTask(Task):
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
                     keep = self.rejectOutliers(result, xErr, yErr)
+                    if self.config.doRejectBadLines:
+                        keep &= self.rejectBadLines(result, lines)
                     newUsed &= keep
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
@@ -1036,6 +1040,39 @@ class FitDistortedDetectorMapTask(Task):
                 yResidLimit
             )
         return keep
+
+    def rejectBadLines(self, fitStats: Struct, lines: ArcLineSet) -> np.ndarray:
+        """Reject bad lines from distortion fit
+
+        If a particular reference line has a mean spectral residual across all
+        fibers exceeding the spectral RMS, it is rejected for all fibers. This
+        can help rejecting bad entries in the line list that haven't been
+        manually flagged.
+
+        Parameters
+        ----------
+        fitStats : `lsst.pipe.base.Struct`
+            Fit statistics; the output of ``calculateFitStatistics``.
+        lines : `lsst.pipe.tasks.ArcLineSet`
+            Arc line measurements.
+
+        Returns
+        -------
+        keep : `np.ndarray` of `bool`
+            Array indicating which points should be kept.
+        """
+        select = fitStats.selection & (lines.description != "Trace")
+        lineMeanResid = {}
+        for wl in np.unique(lines.wavelength[select]):
+            line = select & (lines.wavelength == wl)
+            lineMeanResid[wl] = np.mean(fitStats.yResid[line])
+
+        lineMeanResidWl = np.array(list(lineMeanResid.keys()))
+        lineMeanResidValues = np.array(list(lineMeanResid.values()))
+        badLines = lineMeanResidWl[np.abs(lineMeanResidValues) > self.config.rejection*fitStats.yRobustRms]
+        self.log.debug("Rejecting lines at wavelengths: %s", badLines)
+
+        return np.isin(lines.wavelength, badLines, invert=True)
 
     def lineQa(self, lines, detectorMap):
         """Check the quality of the model fit by looking at the lines
