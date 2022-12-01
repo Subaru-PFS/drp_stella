@@ -5,7 +5,37 @@ import numpy as np
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .arcLine import ArcLineSet
 
-__all__ = ("applyExclusionZone",)
+__all__ = ("getExclusionZone", "applyExclusionZone",)
+
+
+def getExclusionZone(
+    wavelength: np.ndarray,
+    exclusionRadius: float
+) -> np.ndarray:
+    """Get a boolean array indicating which lines violate the exclusion zone
+
+    A line cannot have another line within ``exclusionRadius``.
+
+    Parameters
+    ----------
+    wavelenth : `numpy.ndarray`
+        Line wavelengths (nm).
+    exclusionRadius : `float`
+        Radius in wavelength (nm) to apply around lines.
+
+    Returns
+    -------
+    excluded : `np.ndarray` of `bool`
+        Boolean array indicating which lines violate the exclusion zone.
+    """
+    excluded = np.zeros_like(wavelength, dtype=bool)
+    if exclusionRadius <= 0:
+        # No exclusion zone to apply
+        return excluded
+    for wl in wavelength:
+        distance = wavelength - wl
+        excluded |= (np.abs(distance) < exclusionRadius) & (distance != 0)
+    return excluded
 
 
 def applyExclusionZone(lines: Union[ReferenceLineSet, ArcLineSet], exclusionRadius: float,
@@ -28,9 +58,5 @@ def applyExclusionZone(lines: Union[ReferenceLineSet, ArcLineSet], exclusionRadi
     if exclusionRadius <= 0:
         # No exclusion zone to apply
         return
-    wavelength = lines.wavelength
-    reject = np.zeros(len(lines), dtype=bool)
-    for ll in lines:
-        distance = wavelength - ll.wavelength
-        reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
-    lines.status[reject] |= status
+    excluded = getExclusionZone(lines.wavelength, exclusionRadius)
+    lines.status[excluded] |= status
