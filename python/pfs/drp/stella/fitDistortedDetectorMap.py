@@ -645,16 +645,15 @@ class FitDistortedDetectorMapTask(Task):
             import matplotlib.pyplot as plt
             import matplotlib.cm
             from matplotlib.colors import Normalize
-            from mpl_toolkits.axes_grid1 import make_axes_locatable
             cmap = matplotlib.cm.rainbow
-            fig, axes = plt.subplots()
-            divider = make_axes_locatable(axes)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
+            fig, axes = plt.subplots(ncols=3)
+
             good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
+            good &= np.all(np.isfinite(points), axis=1)
             magnitude = np.hypot(dx[good], dy[good])
             norm = Normalize()
             norm.autoscale(magnitude)
-            axes.quiver(
+            axes[0].quiver(
                 xx[good],
                 yy[good],
                 dx[good],
@@ -664,11 +663,36 @@ class FitDistortedDetectorMapTask(Task):
                 angles="xy",
                 scale_units="xy",
             )
-            axes.set_xlabel("Spatial (pixels)")
-            axes.set_ylabel("Spectral (pixels)")
-            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-            colors.set_array([])
-            fig.colorbar(colors, cax=cax, orientation="vertical", label="Offset (pixels)")
+            axes[0].set_xlabel("Spatial (pixels)")
+            axes[0].set_ylabel("Spectral (pixels)")
+            axes[0].set_title("Offsets")
+            addColorbar(fig, axes[0], cmap, norm, "Offset (pixels)")
+
+            norm = Normalize()
+            norm.autoscale(dx[good])
+            axes[1].scatter(
+                lines.fiberId[good],
+                lines.wavelength[good],
+                color=cmap(norm(dx[good])),
+                marker=".",
+            )
+            axes[1].set_xlabel("fiberId")
+            axes[1].set_ylabel("Wavelength (nm)")
+            axes[1].set_title("Spatial offset")
+            addColorbar(fig, axes[1], cmap, norm, "Spatial offset (pixels)")
+            norm = Normalize()
+            norm.autoscale(dy[good])
+            axes[2].scatter(
+                lines.fiberId[good],
+                lines.wavelength[good],
+                color=cmap(norm(dy[good])),
+                marker=".",
+            )
+            axes[2].set_xlabel("fiberId")
+            axes[2].set_ylabel("Wavelength (nm)")
+            axes[2].set_title("Spectral offset")
+            addColorbar(fig, axes[2], cmap, norm, "Spectral offset (pixels)")
+            fig.subplots_adjust(wspace=0.75)
             plt.show()
 
         return ArcLineResidualsSet.fromColumns(
@@ -1385,25 +1409,37 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Line residuals")
 
         if np.any(isTrace):
-            fig, axes = plt.subplots(nrows=1, ncols=2, sharey=True)
+            fig, axes = plt.subplots(nrows=1, ncols=3, sharey=True)
             fiberId = set(lines.fiberId[isTrace])
             fiberNorm = Normalize(lines.fiberId.min(), lines.fiberId.max())
-            residNorm = calculateNormalization(dx[isTrace])
+            residNorm = calculateNormalization(dx[isTrace & used])
             for ff in fiberId:
-                select = isTrace & (lines.fiberId == ff)
+                select = isTrace & good & used & ~reserved & (lines.fiberId == ff)
+                rejected = isTrace & good & ~used & ~reserved & (lines.fiberId == ff)
                 with np.errstate(invalid="ignore"):
                     axes[0].scatter(lines.xOrig[select], lines.yOrig[select], marker=".",
                                     color=cmap(residNorm(dx[select])))
+                    if np.any(rejected):
+                        axes[1].scatter(lines.xOrig[rejected], lines.yOrig[rejected], marker=".",
+                                        color=cmap(residNorm(dx[rejected])))
                 if detectorMap is not None:
                     axes[0].plot(detectorMap.getXCenter(ff, lines.yOrig[select]), lines.yOrig[select], ls="-",
                                  color="k", alpha=0.2)
-                axes[1].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
+                axes[2].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
             addColorbar(fig, axes[0], cmap, residNorm, "x residual (pixels)")
-            addColorbar(fig, axes[1], cmap, fiberNorm, "fiberId")
+            addColorbar(fig, axes[1], cmap, residNorm, "x residual (pixels)")
+            addColorbar(fig, axes[2], cmap, fiberNorm, "fiberId")
             axes[0].set_xlabel("Column (pixels)")
             axes[0].set_ylabel("Row (pixels)")
-            axes[1].set_xlabel("x residual (pixels)")
+            axes[0].set_title("Used")
+            axes[1].set_xlim(axes[0].get_xlim())
+            axes[1].set_ylim(axes[0].get_ylim())
+            axes[1].set_xlabel("Column (pixels)")
             axes[1].set_ylabel("Row (pixels)")
+            axes[1].set_title("Rejected")
+            axes[2].set_xlabel("x residual (pixels)")
+            axes[2].set_ylabel("Row (pixels)")
+            axes[2].set_title("Residuals")
             fig.tight_layout()
             fig.suptitle("Trace residuals")
 
@@ -1440,7 +1476,7 @@ class FitDistortedDetectorMapTask(Task):
         numPlots = min(numCols*numRows, numFibers)
 
         indices = np.linspace(0, numFibers, numPlots, False, dtype=int)
-        rejected = ~used & ~reserved
+        rejected = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()) & ~used & ~reserved
 
         fig, axes = plt.subplots(nrows=numRows, ncols=numCols, sharex=True, sharey=True,
                                  gridspec_kw=dict(wspace=0.0, hspace=0.0))
