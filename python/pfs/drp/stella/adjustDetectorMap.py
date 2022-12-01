@@ -59,7 +59,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         pfs.drp.stella.fitDistortedDetectorMap.FittingError
             If the data is not of sufficient quality to fit.
         """
-        base = self.getBaseDetectorMap(detectorMap)  # NB: DistortionBasedDetectorMap not SplinedDetectorMap
+        base = self.getBaseDetectorMap(detectorMap)  # NB: DoubleDetectorMap not SplinedDetectorMap
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.getGoodLines(lines).sum()
         if numGoodLines < needNumLines:
@@ -108,7 +108,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
         if isinstance(detectorMap, SplinedDetectorMap):
-            # Promote SplinedDetectorMap to DistortionBasedDetectorMap
+            # Promote SplinedDetectorMap to DoubleDetectorMap
             numCoeff = self.Distortion.getNumParametersForOrder(self.config.order)
             coeff = np.zeros(numCoeff, dtype=float)
             distortion = self.Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)
