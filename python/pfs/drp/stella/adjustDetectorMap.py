@@ -61,7 +61,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         """
         base = self.getBaseDetectorMap(detectorMap)  # NB: DoubleDetectorMap not SplinedDetectorMap
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
-        numGoodLines = self.getGoodLines(lines).sum()
+        numGoodLines = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()).sum()
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations):

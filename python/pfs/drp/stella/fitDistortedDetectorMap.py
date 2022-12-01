@@ -15,6 +15,7 @@ from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
+from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
@@ -318,6 +319,8 @@ class FitDistortedDetectorMapConfig(Config):
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
+    exclusionRadius = Field(dtype=float, default=4,
+                            doc="Exclusion radius to apply to reference lines (pixels)")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -444,13 +447,15 @@ class FitDistortedDetectorMapTask(Task):
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
 
-    def getGoodLines(self, lines: ArcLineSet):
+    def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
 
         Parameters
         ----------
         lines : `ArcLineSet`
             Line measurements.
+        dispersion : `float`, optional
+            Dispersion (nm/pixel) to use for applying exclusion zone.
 
         Returns
         -------
@@ -464,6 +469,7 @@ class FitDistortedDetectorMapTask(Task):
                 return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
             return ""
 
+        isTrace = lines.description == "Trace"
         self.log.debug("%d lines in list", len(lines))
         good = lines.flag == 0
         self.log.debug("%d good lines after measurement flags (%s)", good.sum(), getCounts())
@@ -481,8 +487,15 @@ class FitDistortedDetectorMapTask(Task):
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
             good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
-            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")
+            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | isTrace
             self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
+        if dispersion is not None and self.config.exclusionRadius > 0 and not np.all(isTrace):
+            wavelength = np.unique(lines.wavelength[~isTrace])
+            exclusionRadius = dispersion*self.config.exclusionRadius
+            exclude = getExclusionZone(wavelength, exclusionRadius)
+            good &= np.isin(lines.wavelength, wavelength[exclude], invert=True) | isTrace
+            self.log.debug("%d good lines after %.2f nm exclusion zone (%s)",
+                           good.sum(), exclusionRadius, getCounts())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
@@ -686,7 +699,7 @@ class FitDistortedDetectorMapTask(Task):
             fig, axes = plt.subplots()
             divider = make_axes_locatable(axes)
             cax = divider.append_axes("right", size="5%", pad=0.05)
-            good = self.getGoodLines(lines)
+            good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
             magnitude = np.hypot(dx[good], dy[good])
             norm = Normalize()
             norm.autoscale(magnitude)
@@ -794,7 +807,7 @@ class FitDistortedDetectorMapTask(Task):
         FittingError
             If the data is not of sufficient quality to fit.
         """
-        good = self.getGoodLines(lines)
+        good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
