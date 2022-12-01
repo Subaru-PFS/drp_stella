@@ -16,6 +16,7 @@ from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
 from .makeFootprint import makeFootprint
 from .traces import medianFilterColumns
+from .referenceLine import ReferenceLineStatus
 
 import lsstDebug
 
@@ -160,7 +161,7 @@ class CentroidLinesTask(Task):
             convolved = self.convolveImage(exposure)
             catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
             self.measure(exposure, catalog, seed)
-            self.display(exposure, catalog)
+            self.display(exposure, catalog, detectorMap)
         finally:
             if traces is not None:
                 exposure.image.array += traces
@@ -357,12 +358,12 @@ class CentroidLinesTask(Task):
             source=[row[self.source] for row in catalog],
         )
 
-    def display(self, exposure, catalog):
+    def display(self, exposure, catalog, detectorMap):
         """Display centroids
 
-        Displays the exposure, initial positions with a red ``+``, and final
-        positions with a ``x`` that is green if the measurement is clean, and
-        yellow otherwise.
+        Displays the exposure, detectorMap positions with a ``o`` in cyan (good)
+        or blue (bad), initial peaks with a red ``+``, and final positions with
+        a ``x`` that is green if the measurement is clean, and yellow otherwise.
 
         The display is controlled by debug parameters:
         - ``display`` (`bool`): Enable display?
@@ -379,6 +380,8 @@ class CentroidLinesTask(Task):
             Exposure to display.
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog with measurements.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y.
         """
         if not self.debugInfo.display:
             return
@@ -391,6 +394,8 @@ class CentroidLinesTask(Task):
         if self.debugInfo.displayExposure:
             disp.mtv(exposure)
 
+        badLine = ReferenceLineStatus.fromNames("NOT_VISIBLE", "BLEND", "SUSPECT", "REJECTED")
+
         with disp.Buffering():
             # N.b. "not fiberIds" and "fiberIds not in (False, None)" fail with ndarray
             if self.debugInfo.fiberIds is not False and self.debugInfo.fiberIds is not None:
@@ -402,6 +407,9 @@ class CentroidLinesTask(Task):
                 catalog = catalog[showPeak]
 
             for row in catalog:
+                point = detectorMap.findPoint(row["fiberId"], row["wavelength"])
+                ctype = "blue" if (row["status"] & badLine) != 0 else "cyan"
+                disp.dot("o", point.getX(), point.getY(), ctype=ctype)
                 peak = row.getFootprint().getPeaks()[0]
                 disp.dot("+", peak.getFx(), peak.getFy(), size=2, ctype="red")
                 ctype = "yellow" if row.get("centroid_flag") else "green"
