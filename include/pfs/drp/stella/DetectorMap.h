@@ -77,8 +77,13 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     double getWavelength(int fiberId, double row) const { return findWavelengthImpl(fiberId, row); }
     //@}
 
+    //@{
     /// Return the dispersion (nm/pixel) at the center of a fiber
     double getDispersionAtCenter(int fiberId) const;
+    double getDispersionAtCenter() const {
+        return getDispersionAtCenter(_fiberId[getNumFibers()/2]);
+    }
+    //@}
 
     //@{
     /// Return the dispersion (nm/pixel) at a particular wavelength
