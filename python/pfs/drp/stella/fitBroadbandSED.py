@@ -17,8 +17,26 @@ class FitBroadbandSEDConfig(Config):
     filterMappings = DictField(
         keytype=str, itemtype=str,
         default={
-            "g": "HSCg", "r": "HSCr", "r2": "HSCr2", "i": "HSCi", "i2": "HSCi2",
-            "z": "HSCz", "y": "HSCy"
+            "g_hsc": "HSCg",
+            "r_old_hsc": "HSCr",
+            "r2_hsc": "HSCr2",
+            "i_old_hsc": "HSCi",
+            "i2_hsc": "HSCi2",
+            "z_hsc": "HSCz",
+            "y_hsc": "HSCy",
+            "g_ps1": "PS1g",
+            "r_ps1": "PS1r",
+            "i_ps1": "PS1i",
+            "z_ps1": "PS1z",
+            "y_ps1": "PS1y",
+            "bp_gaia": "GaiaBp",
+            "rp_gaia": "GaiaRp",
+            "g_gaia": "GaiaG",
+            "u_sdss": "SDSSu",
+            "g_sdss": "SDSSg",
+            "r_sdss": "SDSSr",
+            "i_sdss": "SDSSi",
+            "z_sdss": "SDSSz",
         },
         doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`"
     )
@@ -96,7 +114,7 @@ class FitBroadbandSEDTask(Task):
         ----------
         filterNames : `list` of `str`
             List of filters used to measure the fiber fluxes for each filter.
-            e.g. ``["g", "i"]``.
+            e.g. ``["g_hsc", "i2_hsc"]``.
         fiberFlux : `list` of `float`
             Array of fiber fluxes for each fiber, in [nJy].
         fiberFluxErr : `list` of `float`
