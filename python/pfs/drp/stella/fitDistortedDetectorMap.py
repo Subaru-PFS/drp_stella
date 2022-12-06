@@ -1349,7 +1349,7 @@ class FitDistortedDetectorMapTask(Task):
         import matplotlib.cm
         from matplotlib.colors import Normalize
 
-        good = self.getGoodLines(lines)
+        good = self.getGoodLines(lines) & np.isfinite(dx) & np.isfinite(dy)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
@@ -1380,7 +1380,7 @@ class FitDistortedDetectorMapTask(Task):
 
         for ax, select, label in zip(
             axes.T,
-            [(used & ~reserved), reserved, (good & ~used & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
+            [(used & ~reserved), reserved, (good & ~used & ~reserved)],
             ["Used", "Reserved", "Rejected"],
         ):
             ax[0].set_title(label)
@@ -1475,7 +1475,7 @@ class FitDistortedDetectorMapTask(Task):
                                  gridspec_kw=dict(wspace=0.0, hspace=0.0))
         for ax, index in zip(axes.flatten(), indices):
             ff = fiberId[index]
-            select = lines.fiberId == ff
+            select = (lines.fiberId == ff) & (lines.description != "Trace")
 
             for group, color, label in zip((used, rejected, reserved),
                                            ("k", "r", "b"),
