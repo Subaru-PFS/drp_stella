@@ -371,8 +371,7 @@ class FitDistortedDetectorMapTask(Task):
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
-            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved,
-                               detectorMap=detectorMap)
+            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, detectorMap)
@@ -1330,7 +1329,7 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, lines, dx, dy, used, reserved, detectorMap=None):
+    def plotResiduals(self, lines, dx, dy, used, reserved):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
@@ -1345,9 +1344,6 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Mapping from fiberId,wavelength to x,y. Used for plotting xCenter as
-            a function of row, if provided.
         """
         import matplotlib.pyplot as plt
         import matplotlib.cm
@@ -1422,9 +1418,6 @@ class FitDistortedDetectorMapTask(Task):
                     if np.any(rejected):
                         axes[1].scatter(lines.xOrig[rejected], lines.yOrig[rejected], marker=".",
                                         color=cmap(residNorm(dx[rejected])))
-                if detectorMap is not None:
-                    axes[0].plot(detectorMap.getXCenter(ff, lines.yOrig[select]), lines.yOrig[select], ls="-",
-                                 color="k", alpha=0.2)
                 axes[2].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
             addColorbar(fig, axes[0], cmap, residNorm, "x residual (pixels)")
             addColorbar(fig, axes[1], cmap, residNorm, "x residual (pixels)")

@@ -81,6 +81,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines.status[fit.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[fit.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
+        if self.debugInfo.finalResiduals:
+            self.plotResiduals(residuals, fit.xResid, fit.yResid, fit.selection, fit.reserved)
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
