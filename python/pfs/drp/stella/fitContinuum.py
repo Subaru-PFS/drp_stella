@@ -221,21 +221,28 @@ class BaseFitContinuumTask(Task):
         if self.config.doMaskLines and refLines and np.all(np.isfinite(spectrum.wavelength)):
             good &= ~maskLines(spectrum.wavelength, refLines.wavelength, self.config.maskLineRadius)
         good &= (spectrum.mask & spectrum.flags.get(*self.config.mask)) == 0
+        # print(good)
+        # print(spectrum.mask)
         if not np.any(good):
             raise FitContinuumError("No good values when fitting continuum")
         keep = np.ones_like(good, dtype=bool)
         for ii in range(self.config.iterations):
             use = good & keep
             fit = self._fitContinuumImpl(spectrum, use, parameters, lsf)
+            # print("Fit:", fit)
             use &= np.isfinite(fit)
             if lsstDebug.Info(__name__).plot:
                 self.plotFit(spectrum, use, fit)
             resid = spectrum.flux - fit
             lq, uq = np.percentile(resid[use], [25.0, 75.0])
             stdev = 0.741 * (uq - lq)
+            # print("Stdev:", lq, uq, stdev)
             with np.errstate(invalid="ignore"):
-                diff = resid/np.sqrt(spectrum.variance + stdev**2)
+                # XXX fix this when we're setting spectrum.variance properly again
+                diff = resid/np.sqrt(np.where(np.isfinite(spectrum.variance), spectrum.variance, 0) + stdev**2)
+                # print("Diff:", diff)
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection)
+            # print(f"Iteration {ii}: {keep.sum()} good values")
 
         fit = self._fitContinuumImpl(spectrum, good & keep, parameters, lsf)
         if lsstDebug.Info(__name__).plot:
@@ -340,7 +347,7 @@ class BaseFitContinuumTask(Task):
             Image containing continua.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraces.extractSpectra(maskedImage, badBitMask)
+        spectra, bgImage = fiberTraces.extractSpectra(maskedImage, badBitMask)
         if detectorMap is not None:
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
@@ -491,7 +498,14 @@ class FitSplineContinuumTask(BaseFitContinuumTask):
 
         centers, binned = binData(spectrum.flux, good, edges)
         use = np.isfinite(centers) & np.isfinite(binned)
+        # print("Flux:", spectrum.flux)
+        # print("Good:", good)
+        # print("Edges:", edges)
+        # print("Centers:", centers)
+        # print("Binned:", binned)
         if not np.any(use):
+            breakpoint()
+            raise RuntimeError("No good knots")
             raise FitContinuumError("No finite knots when fitting continuum")
         interp = makeInterpolate(centers[use], binned[use], self.fitType)
         indices = np.arange(length, dtype=spectrum.flux.dtype)
