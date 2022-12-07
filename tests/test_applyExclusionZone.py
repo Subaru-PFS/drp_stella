@@ -44,9 +44,10 @@ class ApplyExclusionZoneTestCase(lsst.utils.tests.TestCase):
 
     def testOrStatusFlags(self):
         """Test that we're applying the flags with OR"""
-        self.lines.status[:] = ReferenceLineStatus.NOT_VISIBLE
+        origFlag = ReferenceLineStatus.DETECTORMAP_USED
+        self.lines.status[:] = origFlag
         applyExclusionZone(self.lines, 1.1*self.spacing, ReferenceLineStatus.BLEND)
-        self.assertFloatsEqual(self.lines.status, ReferenceLineStatus.NOT_VISIBLE | ReferenceLineStatus.BLEND)
+        self.assertFloatsEqual(self.lines.status, origFlag | ReferenceLineStatus.BLEND)
 
     def testUnsorted(self):
         """Test that it works even if the wavelengths aren't sorted"""

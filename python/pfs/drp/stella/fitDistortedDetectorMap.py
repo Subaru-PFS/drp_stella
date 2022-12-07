@@ -444,8 +444,9 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
         if dispersion is not None and self.config.exclusionRadius > 0 and not np.all(isTrace):
             wavelength = np.unique(lines.wavelength[~isTrace])
+            status = [np.bitwise_or.reduce(lines.status[lines.wavelength == wl]) for wl in wavelength]
             exclusionRadius = dispersion*self.config.exclusionRadius
-            exclude = getExclusionZone(wavelength, exclusionRadius)
+            exclude = getExclusionZone(wavelength, exclusionRadius, np.array(status))
             good &= np.isin(lines.wavelength, wavelength[exclude], invert=True) | isTrace
             self.log.debug("%d good lines after %.2f nm exclusion zone (%s)",
                            good.sum(), exclusionRadius, getCounts())
