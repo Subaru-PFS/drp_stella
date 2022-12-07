@@ -39,7 +39,7 @@ class CentroidLinesConfig(Config):
     halfHeight = Field(dtype=int, default=35, doc="Half-height for column trace determination")
     mask = ListField(
         dtype=str,
-        default=["BAD", "SAT", "REFLINE", "NO_DATA"],
+        default=["BAD", "SAT", "CR", "REFLINE", "NO_DATA"],
         doc="Mask planes to ignore in trace removal",
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
