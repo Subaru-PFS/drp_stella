@@ -156,7 +156,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end.
         """
-        bbFilters = ["g", "r2", "i2", "z", "y"]
+        bbFilters = ["g_hsc", "r2_hsc", "i2_hsc", "z_hsc", "y_hsc"]
 
         fiberId = pfsMerged.fiberId
         flux = np.empty(shape=(len(fiberId), len(bbFilters)), dtype=float)

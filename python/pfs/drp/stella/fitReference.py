@@ -109,26 +109,28 @@ class FilterCurve(TransmissionCurve):
         Name of the filter. Must be one that is known.
     """
     filenames = {
-        "g": "HSC/hsc_g_v2018.dat",
-        "r": "HSC/hsc_r_v2018.dat",
-        "r2": "HSC/hsc_r2_v2018.dat",
-        "i": "HSC/hsc_i_v2018.dat",
-        "i2": "HSC/hsc_i2_v2018.dat",
-        "z": "HSC/hsc_z_v2018.dat",
-        "y": "HSC/hsc_y_v2018.dat",
-        "PS1g": "PS1/PS1_g.dat",
-        "PS1r": "PS1/PS1_r.dat",
-        "PS1i": "PS1/PS1_i.dat",
-        "PS1z": "PS1/PS1_z.dat",
-        "PS1y": "PS1/PS1_y.dat",
-        "GaiaBp": "Gaia/Gaia_Bp.txt",
-        "GaiaRp": "Gaia/Gaia_Rp.txt",
-        "GaiaG": "Gaia/Gaia_G.txt",
-        "SDSSu": "SDSS/u_all_tel_atm13.dat",
-        "SDSSg": "SDSS/g_all_tel_atm13.dat",
-        "SDSSr": "SDSS/r_all_tel_atm13.dat",
-        "SDSSi": "SDSS/i_all_tel_atm13.dat",
-        "SDSSz": "SDSS/z_all_tel_atm13.dat",
+        "g_hsc": "HSC/hsc_g_v2018.dat",
+        # This is HSC-R (as opposed to HSC-R2)
+        "r_old_hsc": "HSC/hsc_r_v2018.dat",
+        "r2_hsc": "HSC/hsc_r2_v2018.dat",
+        # This is HSC-I (as opposed to HSC-I2)
+        "i_old_hsc": "HSC/hsc_i_v2018.dat",
+        "i2_hsc": "HSC/hsc_i2_v2018.dat",
+        "z_hsc": "HSC/hsc_z_v2018.dat",
+        "y_hsc": "HSC/hsc_y_v2018.dat",
+        "g_ps1": "PS1/PS1_g.dat",
+        "r_ps1": "PS1/PS1_r.dat",
+        "i_ps1": "PS1/PS1_i.dat",
+        "z_ps1": "PS1/PS1_z.dat",
+        "y_ps1": "PS1/PS1_y.dat",
+        "bp_gaia": "Gaia/Gaia_Bp.txt",
+        "rp_gaia": "Gaia/Gaia_Rp.txt",
+        "g_gaia": "Gaia/Gaia_G.txt",
+        "u_sdss": "SDSS/u_all_tel_atm13.dat",
+        "g_sdss": "SDSS/g_all_tel_atm13.dat",
+        "r_sdss": "SDSS/r_all_tel_atm13.dat",
+        "i_sdss": "SDSS/i_all_tel_atm13.dat",
+        "z_sdss": "SDSS/z_all_tel_atm13.dat",
     }
     """Mapping of filter name to filename"""
 
