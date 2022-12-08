@@ -1,7 +1,6 @@
 import os
 from collections import defaultdict, Counter
 from typing import Optional
-from logging import Logger
 
 import numpy as np
 import scipy.optimize
@@ -15,6 +14,7 @@ from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
+from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
@@ -208,53 +208,6 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
-def rejectOutliers(
-    fitStats: Struct,
-    xErr: np.ndarray,
-    yErr: np.ndarray,
-    rejection: float = 4.0,
-    maxRejectionFrac: float = 0.1,
-    log: Optional[Logger] = None,
-):
-    """Reject outliers from distortion fit
-
-    Parameters
-    ----------
-    fitStats : `lsst.pipe.base.Struct`
-        Fit statistics; the output of ``calculateFitStatistics``.
-    xErr, yErr : `np.ndarray`
-        Errors in x and y (pixels).
-    rejection : `float`
-        Rejection threshold, in standard deviations.
-    maxRejectionFrac : `float`
-        Maximum fraction of points to be rejected. If more than this fraction
-        are rejected, then the limit will be changed to reject only this
-        fraction.
-    log : `Logger`, optional
-        Logger for logging notice about changing rejection limit.
-
-    Returns
-    -------
-    keep : `np.ndarray` of `bool`
-        Array indicating which points should be kept.
-    """
-    xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
-    ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
-    xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
-    yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
-    keep = (xResid < rejection) & (yResid < rejection)
-    minKeepFrac = 1.0 - maxRejectionFrac
-    if keep.sum() < minKeepFrac*fitStats.selection.sum():
-        xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
-        yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
-        keep = (xResid < xResidLimit) & (yResid < yResidLimit)
-        if log is not None:
-            log.debug(
-                "Standard rejection limit (%f) too severe; using %f, %f", rejection, xResidLimit, yResidLimit
-            )
-    return keep
-
-
 def addColorbar(figure, axes, cmap, norm, label=None):
     """Add colorbar to a plot
 
@@ -318,6 +271,10 @@ class FitDistortedDetectorMapConfig(Config):
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
+    exclusionRadius = Field(dtype=float, default=4,
+                            doc="Exclusion radius to apply to reference lines (pixels)")
+    doRejectBadLines = Field(dtype=bool, default=False,
+                             doc="Reject reference lines for all fibers that have a bad mean residual?")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -414,8 +371,7 @@ class FitDistortedDetectorMapTask(Task):
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
-            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved,
-                               detectorMap=detectorMap)
+            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, detectorMap)
@@ -444,13 +400,15 @@ class FitDistortedDetectorMapTask(Task):
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
 
-    def getGoodLines(self, lines: ArcLineSet):
+    def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
 
         Parameters
         ----------
         lines : `ArcLineSet`
             Line measurements.
+        dispersion : `float`, optional
+            Dispersion (nm/pixel) to use for applying exclusion zone.
 
         Returns
         -------
@@ -464,6 +422,7 @@ class FitDistortedDetectorMapTask(Task):
                 return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
             return ""
 
+        isTrace = lines.description == "Trace"
         self.log.debug("%d lines in list", len(lines))
         good = lines.flag == 0
         self.log.debug("%d good lines after measurement flags (%s)", good.sum(), getCounts())
@@ -481,8 +440,16 @@ class FitDistortedDetectorMapTask(Task):
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
             good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
-            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")
+            good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | isTrace
             self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
+        if dispersion is not None and self.config.exclusionRadius > 0 and not np.all(isTrace):
+            wavelength = np.unique(lines.wavelength[~isTrace])
+            status = [np.bitwise_or.reduce(lines.status[lines.wavelength == wl]) for wl in wavelength]
+            exclusionRadius = dispersion*self.config.exclusionRadius
+            exclude = getExclusionZone(wavelength, exclusionRadius, np.array(status))
+            good &= np.isin(lines.wavelength, wavelength[exclude], invert=True) | isTrace
+            self.log.debug("%d good lines after %.2f nm exclusion zone (%s)",
+                           good.sum(), exclusionRadius, getCounts())
         return good
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
@@ -565,10 +532,7 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("Spatial offsets: %s", spatial)
             self.log.debug("Spectral offsets: %s", spectral)
 
-            keep = rejectOutliers(
-                result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
-            )
-            newUse = select & keep
+            newUse = select & self.rejectOutliers(result, xErr, yErr)
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
             if np.all(newUse == use):
@@ -681,16 +645,15 @@ class FitDistortedDetectorMapTask(Task):
             import matplotlib.pyplot as plt
             import matplotlib.cm
             from matplotlib.colors import Normalize
-            from mpl_toolkits.axes_grid1 import make_axes_locatable
             cmap = matplotlib.cm.rainbow
-            fig, axes = plt.subplots()
-            divider = make_axes_locatable(axes)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            good = self.getGoodLines(lines)
+            fig, axes = plt.subplots(ncols=3)
+
+            good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
+            good &= np.all(np.isfinite(points), axis=1)
             magnitude = np.hypot(dx[good], dy[good])
             norm = Normalize()
             norm.autoscale(magnitude)
-            axes.quiver(
+            axes[0].quiver(
                 xx[good],
                 yy[good],
                 dx[good],
@@ -700,11 +663,36 @@ class FitDistortedDetectorMapTask(Task):
                 angles="xy",
                 scale_units="xy",
             )
-            axes.set_xlabel("Spatial (pixels)")
-            axes.set_ylabel("Spectral (pixels)")
-            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-            colors.set_array([])
-            fig.colorbar(colors, cax=cax, orientation="vertical", label="Offset (pixels)")
+            axes[0].set_xlabel("Spatial (pixels)")
+            axes[0].set_ylabel("Spectral (pixels)")
+            axes[0].set_title("Offsets")
+            addColorbar(fig, axes[0], cmap, norm, "Offset (pixels)")
+
+            norm = Normalize()
+            norm.autoscale(dx[good])
+            axes[1].scatter(
+                lines.fiberId[good],
+                lines.wavelength[good],
+                color=cmap(norm(dx[good])),
+                marker=".",
+            )
+            axes[1].set_xlabel("fiberId")
+            axes[1].set_ylabel("Wavelength (nm)")
+            axes[1].set_title("Spatial offset")
+            addColorbar(fig, axes[1], cmap, norm, "Spatial offset (pixels)")
+            norm = Normalize()
+            norm.autoscale(dy[good])
+            axes[2].scatter(
+                lines.fiberId[good],
+                lines.wavelength[good],
+                color=cmap(norm(dy[good])),
+                marker=".",
+            )
+            axes[2].set_xlabel("fiberId")
+            axes[2].set_ylabel("Wavelength (nm)")
+            axes[2].set_title("Spectral offset")
+            addColorbar(fig, axes[2], cmap, norm, "Spectral offset (pixels)")
+            fig.subplots_adjust(wspace=0.75)
             plt.show()
 
         return ArcLineResidualsSet.fromColumns(
@@ -794,7 +782,7 @@ class FitDistortedDetectorMapTask(Task):
         FittingError
             If the data is not of sufficient quality to fit.
         """
-        good = self.getGoodLines(lines)
+        good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
@@ -836,9 +824,9 @@ class FitDistortedDetectorMapTask(Task):
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
                                             (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
                 else:
-                    keep = rejectOutliers(
-                        result, xErr, yErr, self.config.rejection, self.config.maxRejectionFrac, self.log
-                    )
+                    keep = self.rejectOutliers(result, xErr, yErr)
+                    if self.config.doRejectBadLines:
+                        keep &= self.rejectBadLines(result, lines)
                     newUsed &= keep
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
@@ -1043,6 +1031,72 @@ class FitDistortedDetectorMapTask(Task):
                               stats.xSoften, stats.ySoften, stats.selection.sum())
 
         return results
+
+    def rejectOutliers(self, fitStats: Struct, xErr: np.ndarray, yErr: np.ndarray) -> np.ndarray:
+        """Reject outliers from distortion fit
+
+        Parameters
+        ----------
+        fitStats : `lsst.pipe.base.Struct`
+            Fit statistics; the output of ``calculateFitStatistics``.
+        xErr, yErr : `np.ndarray`
+            Errors in x and y (pixels).
+
+        Returns
+        -------
+        keep : `np.ndarray` of `bool`
+            Array indicating which points should be kept.
+        """
+        xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
+        ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
+        xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
+        yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
+        keep = (xResid < self.config.rejection) & (yResid < self.config.rejection)
+        minKeepFrac = 1.0 - self.config.maxRejectionFrac
+        if keep.sum() < minKeepFrac*fitStats.selection.sum():
+            xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
+            yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+            keep = (xResid < xResidLimit) & (yResid < yResidLimit)
+            self.log.debug(
+                "Standard rejection limit (%f) too severe; using %f, %f",
+                self.config.rejection,
+                xResidLimit,
+                yResidLimit
+            )
+        return keep
+
+    def rejectBadLines(self, fitStats: Struct, lines: ArcLineSet) -> np.ndarray:
+        """Reject bad lines from distortion fit
+
+        If a particular reference line has a mean spectral residual across all
+        fibers exceeding the spectral RMS, it is rejected for all fibers. This
+        can help rejecting bad entries in the line list that haven't been
+        manually flagged.
+
+        Parameters
+        ----------
+        fitStats : `lsst.pipe.base.Struct`
+            Fit statistics; the output of ``calculateFitStatistics``.
+        lines : `lsst.pipe.tasks.ArcLineSet`
+            Arc line measurements.
+
+        Returns
+        -------
+        keep : `np.ndarray` of `bool`
+            Array indicating which points should be kept.
+        """
+        select = fitStats.selection & (lines.description != "Trace")
+        lineMeanResid = {}
+        for wl in np.unique(lines.wavelength[select]):
+            line = select & (lines.wavelength == wl)
+            lineMeanResid[wl] = np.mean(fitStats.yResid[line])
+
+        lineMeanResidWl = np.array(list(lineMeanResid.keys()))
+        lineMeanResidValues = np.array(list(lineMeanResid.values()))
+        badLines = lineMeanResidWl[np.abs(lineMeanResidValues) > self.config.rejection*fitStats.yRobustRms]
+        self.log.debug("Rejecting lines at wavelengths: %s", badLines)
+
+        return np.isin(lines.wavelength, badLines, invert=True)
 
     def lineQa(self, lines, detectorMap):
         """Check the quality of the model fit by looking at the lines
@@ -1276,7 +1330,7 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, lines, dx, dy, used, reserved, detectorMap=None):
+    def plotResiduals(self, lines, dx, dy, used, reserved):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
@@ -1291,15 +1345,12 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Mapping from fiberId,wavelength to x,y. Used for plotting xCenter as
-            a function of row, if provided.
         """
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
 
-        good = self.getGoodLines(lines)
+        good = self.getGoodLines(lines) & np.isfinite(dx) & np.isfinite(dy)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
@@ -1330,7 +1381,7 @@ class FitDistortedDetectorMapTask(Task):
 
         for ax, select, label in zip(
             axes.T,
-            [(used & ~reserved), reserved, (good & ~used & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
+            [(used & ~reserved), reserved, (good & ~used & ~reserved)],
             ["Used", "Reserved", "Rejected"],
         ):
             ax[0].set_title(label)
@@ -1355,25 +1406,34 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Line residuals")
 
         if np.any(isTrace):
-            fig, axes = plt.subplots(nrows=1, ncols=2, sharey=True)
+            fig, axes = plt.subplots(nrows=1, ncols=3, sharey=True)
             fiberId = set(lines.fiberId[isTrace])
             fiberNorm = Normalize(lines.fiberId.min(), lines.fiberId.max())
-            residNorm = calculateNormalization(dx[isTrace])
+            residNorm = calculateNormalization(dx[isTrace & used])
             for ff in fiberId:
-                select = isTrace & (lines.fiberId == ff)
+                select = isTrace & good & used & ~reserved & (lines.fiberId == ff)
+                rejected = isTrace & good & ~used & ~reserved & (lines.fiberId == ff)
                 with np.errstate(invalid="ignore"):
                     axes[0].scatter(lines.xOrig[select], lines.yOrig[select], marker=".",
                                     color=cmap(residNorm(dx[select])))
-                if detectorMap is not None:
-                    axes[0].plot(detectorMap.getXCenter(ff, lines.yOrig[select]), lines.yOrig[select], ls="-",
-                                 color="k", alpha=0.2)
-                axes[1].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
+                    if np.any(rejected):
+                        axes[1].scatter(lines.xOrig[rejected], lines.yOrig[rejected], marker=".",
+                                        color=cmap(residNorm(dx[rejected])))
+                axes[2].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
             addColorbar(fig, axes[0], cmap, residNorm, "x residual (pixels)")
-            addColorbar(fig, axes[1], cmap, fiberNorm, "fiberId")
+            addColorbar(fig, axes[1], cmap, residNorm, "x residual (pixels)")
+            addColorbar(fig, axes[2], cmap, fiberNorm, "fiberId")
             axes[0].set_xlabel("Column (pixels)")
             axes[0].set_ylabel("Row (pixels)")
-            axes[1].set_xlabel("x residual (pixels)")
+            axes[0].set_title("Used")
+            axes[1].set_xlim(axes[0].get_xlim())
+            axes[1].set_ylim(axes[0].get_ylim())
+            axes[1].set_xlabel("Column (pixels)")
             axes[1].set_ylabel("Row (pixels)")
+            axes[1].set_title("Rejected")
+            axes[2].set_xlabel("x residual (pixels)")
+            axes[2].set_ylabel("Row (pixels)")
+            axes[2].set_title("Residuals")
             fig.tight_layout()
             fig.suptitle("Trace residuals")
 
@@ -1410,13 +1470,13 @@ class FitDistortedDetectorMapTask(Task):
         numPlots = min(numCols*numRows, numFibers)
 
         indices = np.linspace(0, numFibers, numPlots, False, dtype=int)
-        rejected = ~used & ~reserved
+        rejected = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()) & ~used & ~reserved
 
         fig, axes = plt.subplots(nrows=numRows, ncols=numCols, sharex=True, sharey=True,
                                  gridspec_kw=dict(wspace=0.0, hspace=0.0))
         for ax, index in zip(axes.flatten(), indices):
             ff = fiberId[index]
-            select = lines.fiberId == ff
+            select = (lines.fiberId == ff) & (lines.description != "Trace")
 
             for group, color, label in zip((used, rejected, reserved),
                                            ("k", "r", "b"),

@@ -5,7 +5,45 @@ import numpy as np
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .arcLine import ArcLineSet
 
-__all__ = ("applyExclusionZone",)
+__all__ = ("getExclusionZone", "applyExclusionZone",)
+
+
+def getExclusionZone(
+    wavelength: np.ndarray,
+    exclusionRadius: float,
+    status: np.ndarray,
+) -> np.ndarray:
+    """Get a boolean array indicating which lines violate the exclusion zone
+
+    A line cannot have another line within ``exclusionRadius`` unless that line
+    is flagged ``NOT_VISIBLE`` (lines that PFS doesn't typically detect) or
+    ``PROTECTED`` (lines that we want to keep).
+
+    Parameters
+    ----------
+    wavelenth : `numpy.ndarray`
+        Line wavelengths (nm).
+    exclusionRadius : `float`
+        Radius in wavelength (nm) to apply around lines.
+    status : `numpy.ndarray`
+        `ReferenceLineStatus`-equivalent integer for each line.
+
+    Returns
+    -------
+    excluded : `np.ndarray` of `bool`
+        Boolean array indicating which lines violate the exclusion zone.
+    """
+    excluded = np.zeros_like(wavelength, dtype=bool)
+    if exclusionRadius <= 0:
+        # No exclusion zone to apply
+        return excluded
+
+    visible = (status & ReferenceLineStatus.NOT_VISIBLE) == 0
+    for wl in wavelength[visible]:
+        distance = wavelength - wl
+        excluded |= (np.abs(distance) < exclusionRadius) & (distance != 0)
+    unprotected = (status & ReferenceLineStatus.PROTECTED) == 0
+    return excluded & unprotected
 
 
 def applyExclusionZone(lines: Union[ReferenceLineSet, ArcLineSet], exclusionRadius: float,
@@ -28,9 +66,5 @@ def applyExclusionZone(lines: Union[ReferenceLineSet, ArcLineSet], exclusionRadi
     if exclusionRadius <= 0:
         # No exclusion zone to apply
         return
-    wavelength = lines.wavelength
-    reject = np.zeros(len(lines), dtype=bool)
-    for ll in lines:
-        distance = wavelength - ll.wavelength
-        reject |= (np.abs(distance) < exclusionRadius) & (distance != 0)
-    lines.status[reject] |= status
+    excluded = getExclusionZone(lines.wavelength, exclusionRadius, lines.status)
+    lines.status[excluded] |= status

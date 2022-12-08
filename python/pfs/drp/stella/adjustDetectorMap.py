@@ -59,9 +59,9 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         pfs.drp.stella.fitDistortedDetectorMap.FittingError
             If the data is not of sufficient quality to fit.
         """
-        base = self.getBaseDetectorMap(detectorMap)  # NB: DistortionBasedDetectorMap not SplinedDetectorMap
+        base = self.getBaseDetectorMap(detectorMap)  # NB: DoubleDetectorMap not SplinedDetectorMap
         needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
-        numGoodLines = self.getGoodLines(lines).sum()
+        numGoodLines = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()).sum()
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations):
@@ -81,6 +81,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines.status[fit.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[fit.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
+        if self.debugInfo.finalResiduals:
+            self.plotResiduals(residuals, fit.xResid, fit.yResid, fit.selection, fit.reserved)
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
@@ -108,7 +110,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
         if isinstance(detectorMap, SplinedDetectorMap):
-            # Promote SplinedDetectorMap to DistortionBasedDetectorMap
+            # Promote SplinedDetectorMap to DoubleDetectorMap
             numCoeff = self.Distortion.getNumParametersForOrder(self.config.order)
             coeff = np.zeros(numCoeff, dtype=float)
             distortion = self.Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)

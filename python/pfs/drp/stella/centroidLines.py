@@ -16,6 +16,7 @@ from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
 from .makeFootprint import makeFootprint
 from .traces import medianFilterColumns
+from .referenceLine import ReferenceLineStatus
 
 import lsstDebug
 
@@ -38,7 +39,7 @@ class CentroidLinesConfig(Config):
     halfHeight = Field(dtype=int, default=35, doc="Half-height for column trace determination")
     mask = ListField(
         dtype=str,
-        default=["BAD", "SAT", "REFLINE", "NO_DATA"],
+        default=["BAD", "SAT", "CR", "REFLINE", "NO_DATA"],
         doc="Mask planes to ignore in trace removal",
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
@@ -160,7 +161,7 @@ class CentroidLinesTask(Task):
             convolved = self.convolveImage(exposure)
             catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
             self.measure(exposure, catalog, seed)
-            self.display(exposure, catalog)
+            self.display(exposure, catalog, detectorMap)
         finally:
             if traces is not None:
                 exposure.image.array += traces
@@ -234,7 +235,7 @@ class CentroidLinesTask(Task):
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 expected = Point2D(xx, yy)
-                peak = self.findPeak(convolved.image, expected)
+                peak = self.findPeak(convolved, expected)
                 footprint = makeFootprint(image, peak, self.config.footprintHeight,
                                           self.config.footprintWidth)
                 assert image.getBBox().contains(footprint.getSpans().getBBox())
@@ -262,7 +263,7 @@ class CentroidLinesTask(Task):
 
         Parameters
         ----------
-        image : `lsst.afw.image.Image`
+        image : `lsst.afw.image.MaskedImage`
             Image on which to find peak.
         center : `lsst.geom.Point2D`
             Expected center of peak.
@@ -278,8 +279,10 @@ class CentroidLinesTask(Task):
         box = Box2I(Point2I(x0, y0), Extent2I(size, size))
         box.clip(image.getBBox())
         subImage = image[box]
-        yy, xx = np.unravel_index(np.argmax(np.where(np.isfinite(subImage.array), subImage.array, 0.0)),
-                                  subImage.array.shape)
+        badBitmask = subImage.mask.getPlaneBitMask(self.config.mask)
+        good = np.isfinite(subImage.image.array) & ((subImage.mask.array & badBitmask) == 0)
+        yy, xx = np.unravel_index(np.argmax(np.where(good, subImage.image.array, 0.0)),
+                                  subImage.image.array.shape)
         return Point2I(xx + x0, yy + y0)
 
     def measure(self, exposure, catalog, seed=0):
@@ -357,12 +360,12 @@ class CentroidLinesTask(Task):
             source=[row[self.source] for row in catalog],
         )
 
-    def display(self, exposure, catalog):
+    def display(self, exposure, catalog, detectorMap):
         """Display centroids
 
-        Displays the exposure, initial positions with a red ``+``, and final
-        positions with a ``x`` that is green if the measurement is clean, and
-        yellow otherwise.
+        Displays the exposure, detectorMap positions with a ``o`` in cyan (good)
+        or blue (bad), initial peaks with a red ``+``, and final positions with
+        a ``x`` that is green if the measurement is clean, and yellow otherwise.
 
         The display is controlled by debug parameters:
         - ``display`` (`bool`): Enable display?
@@ -379,6 +382,8 @@ class CentroidLinesTask(Task):
             Exposure to display.
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog with measurements.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y.
         """
         if not self.debugInfo.display:
             return
@@ -391,6 +396,8 @@ class CentroidLinesTask(Task):
         if self.debugInfo.displayExposure:
             disp.mtv(exposure)
 
+        badLine = ReferenceLineStatus.fromNames("NOT_VISIBLE", "BLEND", "SUSPECT", "REJECTED")
+
         with disp.Buffering():
             # N.b. "not fiberIds" and "fiberIds not in (False, None)" fail with ndarray
             if self.debugInfo.fiberIds is not False and self.debugInfo.fiberIds is not None:
@@ -402,6 +409,9 @@ class CentroidLinesTask(Task):
                 catalog = catalog[showPeak]
 
             for row in catalog:
+                point = detectorMap.findPoint(row["fiberId"], row["wavelength"])
+                ctype = "blue" if (row["status"] & badLine) != 0 else "cyan"
+                disp.dot("o", point.getX(), point.getY(), ctype=ctype)
                 peak = row.getFootprint().getPeaks()[0]
                 disp.dot("+", peak.getFx(), peak.getFy(), size=2, ctype="red")
                 ctype = "yellow" if row.get("centroid_flag") else "green"

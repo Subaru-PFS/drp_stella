@@ -27,6 +27,7 @@ class ReferenceLineStatus(Bitmask):
     SKYSUB_USED = 0x80, "Used for 2d sky subtraction"
     MERGED = 0x100, "Line has been merged into another"
     COMBINED = 0x200, "Line created from MERGED lines"
+    PROTECTED = 0x400, "Line is protected from discard by exclusion zone"
     BAD = 0x01F, "Line is bad for any reason"
 
     @classmethod

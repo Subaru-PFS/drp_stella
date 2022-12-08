@@ -37,7 +37,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             return self.__imul__(1.0/rhs)
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
-             figure=None):
+             figure=None, axes=None):
         """Plot the spectra
 
         Parameters
@@ -54,6 +54,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             Show the plot?
         figure : `matplotlib.Figure` or ``None``
             The figure to use
+        axes : `matplotlib.Axes` or ``None``
+            The axes to use.
 
         Returns
         -------
@@ -75,8 +77,11 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             xLabel = "Wavelength (nm)"
 
         if figure is None:
-            figure, axes = plt.subplots()
-        else:
+            if axes is None:
+                figure, axes = plt.subplots()
+            else:
+                figure = axes.get_figure()
+        elif axes is None:
             axes = figure.gca()
 
         colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))

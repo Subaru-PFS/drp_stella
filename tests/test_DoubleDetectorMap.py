@@ -239,6 +239,7 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
             self.assertDoubleDetectorMapsEqual(detMap, copy)
 
     @methodParameters(arm=("r", "m"))
+    @lsst.utils.tests.debugger(Exception)
     def testFit(self, arm):
         """Test FitDistortedDetectorMapTask
 
@@ -261,6 +262,7 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
         config = FitDistortedDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True
+        config.exclusionRadius = 1.0  # We've got a lot of close lines, but no real fear of confusion
         task = FitDistortedDetectorMapTask(name="fitDistortedDetectorMap", config=config)
         task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
