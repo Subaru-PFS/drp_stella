@@ -548,10 +548,15 @@ class ReduceExposureTask(CmdLineTask):
         # Update photometry using best detectorMap, PSF
         apCorr = None
         if self.config.doMeasureLines:
-            phot = self.photometerLines.run(exposure, lines[lines.description != "Trace"], detectorMap,
-                                            pfsConfig, fiberTraces)
+            notTrace = lines.description != "Trace"
+            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
             apCorr = phot.apCorr
-            lines = phot.lines
+
+            # Copy results to the one list of lines that we return
+            lines.flux[notTrace] = phot.lines.flux
+            lines.fluxErr[notTrace] = phot.lines.fluxErr
+            lines.flag[notTrace] |= phot.lines.flag
+
             if apCorr is not None:
                 sensorRef.put(phot.apCorr, "apCorr")
 
