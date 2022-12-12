@@ -73,4 +73,4 @@ class PfsConfig(pfs.datamodel.PfsConfig):
         except Exception:
             # Need to get the pfsDesignId and visit from the filename
             parsed = pfs.datamodel.pfsConfig.parsePfsConfigFilename(path)
-            return cls._readImpl(path, pfsDesignId=parsed.pfsDesignId, visit0=parsed.visit)
+            return cls._readImpl(path, pfsDesignId=parsed.pfsDesignId, visit=parsed.visit)

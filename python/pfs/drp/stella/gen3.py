@@ -431,7 +431,7 @@ def addExposurePatchRecords(
         Raised if the record exists in the database (according to primary key
         lookup) but is inconsistent with the given one.
     """
-    exposure = pfsConfig.visit0
+    exposure = pfsConfig.visit
     pfsDesignId = pfsConfig.pfsDesignId
     dataId = [
         rr
@@ -508,7 +508,7 @@ def ingestPfsConfig(
         for path in pathList:
             for filename in glob(path):
                 pfsConfig = PfsConfig.readFits(filename)
-                exposure = pfsConfig.visit0
+                exposure = pfsConfig.visit
                 pfsDesignId = pfsConfig.pfsDesignId
                 dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
                 ref = DatasetRef(datasetType, dataId)
