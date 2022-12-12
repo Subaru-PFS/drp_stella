@@ -33,7 +33,7 @@ def plotPfsArm(dirName, visit, arm, spectrograph, fiberId=None):
     return arm.plot(fiberId=fiberId, show=False)
 
 
-def selectFiber(dirName, pfsDesignId, visit0, catId, tractId, patch, objId):
+def selectFiber(dirName, pfsDesignId, visit, catId, tractId, patch, objId):
     """Select a fiber by its target
 
     Parameters
@@ -42,8 +42,8 @@ def selectFiber(dirName, pfsDesignId, visit0, catId, tractId, patch, objId):
         Name of directory containing the data.
     pfsDesignId : `int`
         Identifier for top-end design.
-    visit0 : `int`
-        Initial visit for top-end design (may be distinct from 'visit').
+    visit : `int`
+        Visit for top-end design.
     catId : `int`
         Catalog identifier.
     tractId : `int`
@@ -58,7 +58,7 @@ def selectFiber(dirName, pfsDesignId, visit0, catId, tractId, patch, objId):
     fiberId : `int`
         Fiber identifier.
     """
-    config = PfsConfig.read(pfsDesignId, visit0, dirName=dirName)
+    config = PfsConfig.read(pfsDesignId, visit, dirName=dirName)
     index = config.selectTarget(catId, tractId, patch, objId)
     return config.fiberId[index]
 
@@ -72,7 +72,7 @@ def main():
     from argparse import ArgumentParser
     epilog = """To plot a specific fiber, you can either specify the fiber directly using
 '--fiberId' or select a fiber by its target by specifying all of
-'--pfsDesignId', '--visit0', '--catId', '--tract', '--patch', and '--objId'.
+'--pfsDesignId', '--visit', '--catId', '--tract', '--patch', and '--objId'.
 """
     parser = ArgumentParser(description="Plot PfsArm", epilog=epilog)
     parser.add_argument("--visit", type=int, required=True, help="Visit number")
@@ -84,8 +84,6 @@ def main():
     parser.add_argument("--fiberId", type=int, help="Desired fiber")
     # Or ALL of the following:
     parser.add_argument("--pfsDesignId", type=integer, help="Identifier for top-end design")
-    parser.add_argument("--visit0", type=int,
-                        help="Initial visit for top-end design (note: may be distinct from 'visit')")
     parser.add_argument("--catId", type=int, help="Desired catalog identifier")
     parser.add_argument("--tract", type=int, help="Desired tract")
     parser.add_argument("--patch", type=str, help="Desired patch")
@@ -95,7 +93,6 @@ def main():
     fiberId = None
     if args.fiberId is not None:
         if (args.pfsDesignId is not None or
-                args.visit0 is not None or
                 args.catId is not None or
                 args.tract is not None or
                 args.patch is not None or
@@ -105,12 +102,11 @@ def main():
                           "because fiberId was provided")
         fiberId = [args.fiberId]
     elif (args.pfsDesignId is not None and
-          args.visit0 is not None and
           args.catId is not None and
           args.tract is not None and
           args.patch is not None and
           args.objId is not None):
-        fiberId = [selectFiber(args.dir, args.pfsDesignId, args.visit0,
+        fiberId = [selectFiber(args.dir, args.pfsDesignId, args.visit,
                                args.catId, args.tract, args.patch, args.objId)]
 
     fig, axes = plotPfsArm(args.dir, args.visit, args.arm, args.spectrograph, fiberId)
