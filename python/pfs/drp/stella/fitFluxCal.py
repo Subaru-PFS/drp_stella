@@ -8,16 +8,22 @@ import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
-from pfs.datamodel import MaskHelper, FiberStatus, TargetType
+from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, TargetType
+from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
-from .fluxCalibrate import fluxCalibrate
-from .datamodel import PfsSimpleSpectrum, PfsSingle
+from .datamodel import PfsArm, PfsMerged, PfsSimpleSpectrum, PfsSingle
+from .datamodel.pfsTargetSpectra import PfsTargetSpectra
 from .fitFocalPlane import FitFocalPlaneTask
-from .lsf import warpLsf
+from .fluxCalibrate import fluxCalibrate
+from .focalPlaneFunction import FocalPlaneFunction
+from .lsf import warpLsf, LsfDict
 from .subtractSky1d import subtractSky1d
-from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .utils import debugging
+from .FluxTableTask import FluxTableTask
+
+from typing import Iterable
+from typing import Dict, List
 
 __all__ = ("FitFluxCalConfig", "FitFluxCalTask")
 
@@ -38,12 +44,87 @@ class FitFluxCalTask(CmdLineTask):
     ConfigClass = FitFluxCalConfig
     _DefaultName = "fitFluxCal"
 
+    fitFocalPlane: FitFocalPlaneTask
+    fluxTable: FluxTableTask
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitFocalPlane")
         self.makeSubtask("fluxTable")
 
         self.debugInfo = lsstDebug.Info(__name__)
+
+    def run(
+        self,
+        pfsMerged: PfsMerged,
+        pfsMergedLsf: LsfDict,
+        reference: PfsFluxReference,
+        pfsConfig: PfsConfig,
+        pfsArmList: List[PfsArm],
+        sky1dList: Iterable[FocalPlaneFunction],
+    ) -> Struct:
+        """Measure and apply the flux calibration
+
+        Parameters
+        ----------
+        pfsMerged : `PfsMerged`
+            Merged spectra, containing observations of ``FLUXSTD`` sources.
+        pfsMergedLsf : `LsfDict`
+            Line-spread functions for merged spectra.
+        reference : `PfsFluxReference`
+            Reference spectra.
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        pfsArmList : iterable of `PfsArm`
+            List of extracted spectra, for constructing the flux table.
+        sky1dList : iterable of `FocalPlaneFunction`
+            Corresponding list of 1d sky subtraction models.
+
+        Returns
+        -------
+        fluxCal : `FocalPlaneFunction`
+            Flux calibration solution.
+        pfsCalibrated : `PfsTargetSpectra`
+            Calibrated spectra.
+        pfsCalibratedLsf : `LsfDict`
+            Line-spread functions for calibrated spectra.
+        """
+        fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, reference)
+        fluxCalibrate(pfsMerged, pfsConfig, fluxCal)
+
+        calibrated = []
+        fiberToArm = defaultdict(list)
+        for ii, (pfsArm, sky1d) in enumerate(zip(pfsArmList, sky1dList)):
+            subtractSky1d(pfsArm, pfsConfig, sky1d)
+            fluxCalibrate(pfsArm, pfsConfig, fluxCal)
+            for ff in pfsArm.fiberId:
+                fiberToArm[ff].append(ii)
+            calibrated.append(pfsArm)
+
+        selection = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD)
+        selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
+        fiberId = pfsMerged.fiberId[np.isin(pfsMerged.fiberId, pfsConfig.fiberId[selection])]
+
+        pfsCalibrated: Dict[Target, PfsSingle] = {}
+        pfsCalibratedLsf: Dict[Target, Lsf] = {}
+        for ff in fiberId:
+            extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
+            extracted.fluxTable = self.fluxTable.run(
+                [ss.identity.getDict() for ss in calibrated],
+                [pfsArmList[ii].extractFiber(PfsSingle, pfsConfig, ff) for ii in fiberToArm[ff]],
+                MaskHelper.fromMerge([pfsArm.flags for pfsArm in pfsArmList]),
+            )
+            extracted.metadata = getPfsVersions()
+
+            target = extracted.target
+            pfsCalibrated[target] = extracted
+            pfsCalibratedLsf[target] = pfsMergedLsf[ff]
+
+        return Struct(
+            fluxCal=fluxCal,
+            pfsCalibrated=PfsTargetSpectra(pfsCalibrated.values()),
+            pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
+        )
 
     @classmethod
     def _makeArgumentParser(cls):
@@ -64,64 +145,48 @@ class FitFluxCalTask(CmdLineTask):
         -------
         fluxCal : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
-        spectra : `list` of `pfs.datamodel.PfsSingle`
-            Calibrated spectra for each fiber.
+        pfsCalibrated : `PfsTargetSpectra`
+            Calibrated spectra.
+        pfsCalibratedLsf : `LsfDict`
+            Line-spread functions for calibrated spectra.
         """
-        merged = dataRef.get("pfsMerged")
-        mergedLsf = dataRef.get("pfsMergedLsf")
+        pfsMerged = dataRef.get("pfsMerged")
+        pfsMergedLsf = dataRef.get("pfsMergedLsf")
         pfsConfig = dataRef.get("pfsConfig")
         reference = dataRef.get("pfsFluxReference")
+
         butler = dataRef.getButler()
-
-        fluxCal = self.calculateCalibrations(pfsConfig, merged, mergedLsf, reference)
-        fluxCalibrate(merged, pfsConfig, fluxCal)
-
-        selection = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD)
-        selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
-        fiberId = merged.fiberId[np.isin(merged.fiberId, pfsConfig.fiberId[selection])]
-        spectra = [merged.extractFiber(PfsSingle, pfsConfig, ff) for ff in fiberId]
-
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
-        armList = []
-        fiberToArm = defaultdict(list)
-        for ii, ref in enumerate(armRefList):
-            arm = ref.get("pfsArm")
-            sky1d = ref.get("sky1d")
-            subtractSky1d(arm, pfsConfig, sky1d)
-            fluxCalibrate(arm, pfsConfig, fluxCal)
-            for ff in arm.fiberId:
-                fiberToArm[ff].append(ii)
-            armList.append(arm)
+        pfsArmList = [armRef.get("pfsArm") for armRef in armRefList]
+        sky1dList = [armRef.get("sky1d") for armRef in armRefList]
 
-        # Add the fluxTable
-        for ss, ff in zip(spectra, fiberId):
-            ss.fluxTable = self.fluxTable.run([ref.dataId for ref in armRefList],
-                                              [armList[ii].extractFiber(PfsSingle, pfsConfig, ff) for
-                                               ii in fiberToArm[ff]],
-                                              MaskHelper.fromMerge([armList[ii].flags]))
-            ss.metadata = getPfsVersions()
+        outputs = self.run(pfsMerged, pfsMergedLsf, reference, pfsConfig, pfsArmList, sky1dList)
 
         if self.config.doWrite:
-            dataRef.put(fluxCal, "fluxCal")
-            for ff, spectrum in zip(fiberId, spectra):
-                dataId = spectrum.getIdentity().copy()
+            dataRef.put(outputs.fluxCal, "fluxCal")
+
+            # Gen2 writes the pfsCalibrated spectra individually
+            for target in outputs.pfsCalibrated:
+                pfsSingle = outputs.pfsCalibrated[target]
+                dataId = pfsSingle.getIdentity().copy()
                 dataId.update(dataRef.dataId)
-                self.forceSpectrumToBePersistable(spectrum)
-                butler.put(spectrum, "pfsSingle", dataId)
-                butler.put(mergedLsf[ff], "pfsSingleLsf", dataId)
-        return Struct(fluxCal=fluxCal, spectra=spectra)
+                self.forceSpectrumToBePersistable(pfsSingle)
+                butler.put(pfsSingle, "pfsSingle", dataId)
+                butler.put(outputs.pfsCalibratedLsf[target], "pfsSingleLsf", dataId)
+
+        return outputs
 
     def calculateCalibrations(self, pfsConfig, pfsMerged, pfsMergedLsf, pfsFluxReference):
         """ Model flux calibration over the focal plane
 
         Parameters
         ----------
-        pfsConfig: `pfs.datamodel.pfsConfig.PfsConfig`
-            Configuration of the PFS top-end.
-        pfsMerged : `pfs.datamodel.pfsFiberArraySet.PfsFiberArraySet`
-            Typically an instance of `PsfMerged`.
-        pfsMergedLsf : ``dict` (`int`: `pfs.drp.stella.Lsf`)
-            Combined line-spread functions indexed by fiberId.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration.
+        pfsMerged : `PfsMerged`
+            Merged spectra, containing observations of ``FLUXSTD`` sources.
+        pfsMergedLsf : `LsfDict`
+            Line-spread functions for merged spectra.
         pfsFluxReference: `pfs.datamodel.pfsFluxReference.PfsFluxReference`
             Model reference template set for flux calibration.
 
