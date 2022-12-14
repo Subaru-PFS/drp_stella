@@ -1,5 +1,6 @@
 from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Struct, Task
+from pfs.datamodel import PfsFiberArray, PfsSimpleSpectrum
 from pfs.drp.stella.interpolate import interpolateFlux
 
 import numpy as np
@@ -71,7 +72,7 @@ class EstimateRadialVelocityTask(Task):
     ConfigClass = EstimateRadialVelocityConfig
     _DefaultName = "estimateRadialVelocity"
 
-    def run(self, spectrum, modelSpectrum):
+    def run(self, spectrum: PfsFiberArray, modelSpectrum: PfsSimpleSpectrum) -> Struct:
         """Get the radial velocity of ``spectrum``
         in comparison with ``modelSpectrum``.
 

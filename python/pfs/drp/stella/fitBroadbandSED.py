@@ -1,5 +1,6 @@
-from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 
+import lsst.daf.persistence
 from lsst.pex.config import Config, ChoiceField, DictField
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
@@ -8,6 +9,14 @@ from .fluxModelSet import FluxModelSet
 
 import numpy
 import numpy.lib.recfunctions
+
+from typing import List, Union
+from typing import Sequence
+
+try:
+    from numpy.typing import NDArray
+except ImportError:
+    NDArray = Sequence
 
 
 class FitBroadbandSEDConfig(Config):
@@ -61,11 +70,12 @@ class FitBroadbandSEDTask(Task):
     ConfigClass = FitBroadbandSEDConfig
     _DefaultName = "fitBroadbandSED"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
 
-    def runDataRef(self, dataRef):
+    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) \
+            -> List[Union[NDArray[numpy.float64], None]]:
         """For each spectrum,
         calculate probabilities of model SEDs matching the spectrum.
 
@@ -88,7 +98,7 @@ class FitBroadbandSEDTask(Task):
         pfsConfig = dataRef.get("pfsConfig")
         return self.run(pfsConfig)
 
-    def run(self, pfsConfig):
+    def run(self, pfsConfig: PfsConfig) -> List[Union[NDArray[numpy.float64], None]]:
         """For each spectrum,
         calculate probabilities of model SEDs matching the spectrum.
 
@@ -123,7 +133,7 @@ class FitBroadbandSEDTask(Task):
                 f" ('{self.config.broadbandFluxType}')"
             )
 
-        pdfs = []
+        pdfs: List[Union[NDArray[numpy.float64], None]] = []
         for targetType, filterNames, bbFlux, bbFluxErr \
                 in zip(pfsConfig.targetType, pfsConfig.filterNames,
                        broadbandFlux, broadbandFluxErr):
@@ -134,7 +144,9 @@ class FitBroadbandSEDTask(Task):
 
         return pdfs
 
-    def getProbabilities(self, filterNames, bbFlux, bbFluxErr):
+    def getProbabilities(
+            self, filterNames: Sequence[str], bbFlux: Sequence[float], bbFluxErr: Sequence[float]) \
+            -> NDArray[numpy.float64]:
         """Calculate a chi square and a probability for each model SED.
 
         Parameters

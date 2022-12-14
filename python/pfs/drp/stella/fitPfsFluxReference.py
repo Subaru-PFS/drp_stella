@@ -1,13 +1,15 @@
 import lsstDebug
+import lsst.daf.persistence
 from lsst.pex.config import Config, ConfigurableField, ChoiceField, Field, ListField
 from lsst.pipe.base import ArgumentParser, CmdLineTask, Struct
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.observations import Observations
-from pfs.datamodel.pfsConfig import FiberStatus, TargetType
+from pfs.datamodel.pfsConfig import FiberStatus, PfsConfig, TargetType
 from pfs.datamodel.pfsFiberArray import PfsFiberArray
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
+from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
@@ -20,7 +22,7 @@ from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
-from pfs.drp.stella.lsf import GaussianLsf, warpLsf
+from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict, warpLsf
 from pfs.drp.stella.utils import debugging
 
 from astropy import constants as const
@@ -28,6 +30,16 @@ import numpy as np
 
 import copy
 import dataclasses
+
+from typing import Literal, overload
+from typing import Dict, List, Union
+from typing import Generator, Sequence
+
+try:
+    from numpy.typing import NDArray
+except ImportError:
+    NDArray = Sequence
+
 
 __all__ = ["FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
 
@@ -102,7 +114,7 @@ class FitPfsFluxReferenceConfig(Config):
         optional=False
     )
 
-    def setDefaults(self):
+    def setDefaults(self) -> None:
         super().setDefaults()
 
         self.estimateRadialVelocity.mask = ["BAD", "SAT", "CR", "NO_DATA", "EDGE", "ATMOSPHERE"]
@@ -123,7 +135,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
     ConfigClass = FitPfsFluxReferenceConfig
     _DefaultName = "fitPfsFluxReference"
 
-    def __init__(self, **kwargs):
+    fitBroadbandSED: FitBroadbandSEDTask
+    fitObsContinuum: FitContinuumTask
+    fitModelContinuum: FitContinuumTask
+    estimateRadialVelocity: EstimateRadialVelocityTask
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.makeSubtask("fitBroadbandSED")
         self.makeSubtask("fitObsContinuum")
@@ -139,17 +156,17 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         self.fitFlagNames = MaskHelper()
 
     @classmethod
-    def _makeArgumentParser(cls):
+    def _makeArgumentParser(cls) -> ArgumentParser:
         """Make ArgumentParser"""
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument(name="--id", datasetType="pfsMerged",
                                help="data IDs, e.g. --id exp=12345")
         return parser
 
-    def _getMetadataName(self):
+    def _getMetadataName(self) -> None:
         return None
 
-    def runDataRef(self, dataRef):
+    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> None:
         """Run on an exposure
 
         Parameters
@@ -165,7 +182,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         reference = self.run(pfsConfig, merged, mergedLsf)
         dataRef.put(reference, "pfsFluxReference")
 
-    def run(self, pfsConfig, pfsMerged, pfsMergedLsf):
+    def run(self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict) \
+            -> PfsFluxReference:
         """Create flux reference from ``pfsMerged``
         and corresponding ``pfsConfig``.
 
@@ -186,11 +204,11 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         """
         pfsConfig = pfsConfig.select(targetType=TargetType.FLUXSTD)
         originalFiberId = np.copy(pfsConfig.fiberId)
-        fitFlag = {}  # mapping fiberId -> flag indicating fit status
+        fitFlag: Dict[int, int] = {}  # mapping fiberId -> flag indicating fit status
 
         self.log.info("Number of FLUXSTD: %d", len(pfsConfig))
 
-        def selectPfsConfig(pfsConfig, flagName, isGood):
+        def selectPfsConfig(pfsConfig: PfsConfig, flagName: str, isGood: Sequence[bool]) -> PfsConfig:
             """Select fibers in pfsConfig for which ``isGood`` is ``True``.
             Fibers filtered out (``isGood`` is ``False``) will be registered
             on ``fitFlag`` (nonlocal variable).
@@ -298,7 +316,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                     fitFlag[fiberId] = flag
 
         # Posterior PDF
-        pdfs = []
+        pdfs: List[Union[NDArray[np.float64], None]] = []
         for bbPdf, likelihood in zip(bbPdfs, likelihoods):
             if (bbPdf is None) or (likelihood is None):
                 pdfs.append(None)
@@ -368,7 +386,13 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             fitParams=fitParams,
         )
 
-    def getRadialVelocities(self, pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs):
+    def getRadialVelocities(
+            self,
+            pfsConfig: PfsConfig,
+            pfsMerged: PfsFiberArraySet,
+            pfsMergedLsf: LsfDict,
+            bbPdfs: Sequence[Union[NDArray[np.float64], None]]) \
+            -> List[Union[Struct, None]]:
         """Estimate the radial velocity for each fiber in ``pfsMerged``.
 
         Parameters
@@ -396,7 +420,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         # This model is used as the reference for cross-correlation calculation
         bestModels = self.findRoughlyBestModel(bbPdfs)
 
-        radialVelocities = []
+        radialVelocities: List[Union[Struct, None]] = []
         for iFiber, (spectrum, model) in enumerate(zip(fibers(pfsConfig, pfsMerged), bestModels)):
             if model.spectrum is None:
                 radialVelocities.append(None)
@@ -409,7 +433,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return radialVelocities
 
-    def computeContinuum(self, spectra, *, mode):
+    def computeContinuum(
+            self,
+            spectra: Union[PfsSimpleSpectrum, PfsFiberArraySet],
+            *,
+            mode: Literal["observed", "model"]) \
+            -> "Continuum":
         """Whiten one or more spectra.
 
         Parameters
@@ -464,7 +493,14 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return Continuum(continua, absentIndex)
 
-    def fitModelsToSpectra(self, pfsConfig, obsSpectra, pfsMergedLsf, radialVelocities, priorPdfs):
+    def fitModelsToSpectra(
+            self,
+            pfsConfig: PfsConfig,
+            obsSpectra: PfsFiberArraySet,
+            pfsMergedLsf: LsfDict,
+            radialVelocities: Sequence[Union[Struct, None]],
+            priorPdfs: Sequence[Union[NDArray[np.float64], None]]) \
+            -> List[Union[NDArray[np.float64], None]]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -504,10 +540,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 relativePriors[:, iFiber] = pdf / np.max(pdf)
 
         # prepare an array of chi-squares.
-        chisqs = []
+        chisqs: List[Union[NDArray[np.float64], None]] = []
         for pdf in priorPdfs:
             if pdf is None:
-                chisqs.push(None)
+                chisqs.append(None)
                 continue
             chisqs.append(
                 np.full(
@@ -524,7 +560,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
             )
             # This one will be created afterward when it is actually required.
-            modelContinuum = None
+            modelContinuum: Union["Continuum", None] = None
 
             for iFiber, (obsSpectrum, velocity, prior) in enumerate(
                     zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)):
@@ -546,7 +582,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
 
-        pdfs = []
+        pdfs: List[Union[NDArray[np.float64], None]] = []
         for chisq in chisqs:
             if chisq is None:
                 pdfs.append(None)
@@ -558,7 +594,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return pdfs
 
-    def findRoughlyBestModel(self, pdfs):
+    def findRoughlyBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) \
+            -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``.
 
@@ -581,7 +618,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 Parameter (Teff, logg, M, alpha).
         """
         onePlusEpsilon = float(np.nextafter(np.float32(1), np.float32(2)))
-        models = []
+        models: List[Union[Struct, None]] = []
         for pdf in pdfs:
             if pdf is None:
                 models.append(Struct(spectrum=None, param=None))
@@ -605,7 +642,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return models
 
-    def findBestModel(self, pdfs):
+    def findBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) \
+            -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``. A smooth surface is fit to the ``pdf``,
         and the ``argmax`` here actually means the top of the surface.
@@ -641,7 +679,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         paramCatalog = self.fluxModelSet.parameters
 
-        models = []
+        models: List[Union[Struct, None]] = []
         for pdf in pdfs:
             if pdf is None:
                 models.append(Struct(spectrum=None, param=None))
@@ -753,7 +791,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return models
 
-    def maskUninterestingRegions(self, spectra):
+    def maskUninterestingRegions(self, spectra: PfsFiberArraySet) -> PfsFiberArraySet:
         """Mask regions to be ignored.
 
         Parameters
@@ -787,7 +825,11 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return spectra
 
-    def makeReferenceSpectra(self, pfsConfig, pdfs):
+    def makeReferenceSpectra(
+            self,
+            pfsConfig: PfsConfig,
+            pdfs: Sequence[Union[NDArray[np.float64], None]]) \
+            -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``. (See ``self.findBestModel()``)
 
@@ -836,7 +878,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return bestModels
 
-    def correctExtinction(self, pfsConfig):
+    def correctExtinction(self, pfsConfig: PfsConfig) -> PfsConfig:
         """Remove galactic extinction from photometry data, in place.
 
         Extinction is estimated for an F0 star.
@@ -882,7 +924,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         return pfsConfig
 
-    def getBadMask(self):
+    def getBadMask(self) -> List[str]:
         """Get the list of bad masks.
 
         The bad masks are those specified by the task configuration,
@@ -915,8 +957,16 @@ class Continuum:
         ``flux[i]`` (``i`` in  ``invalidIndices``) is invalid.
     """
 
-    flux: np.array
-    invalidIndices: np.array
+    flux: NDArray[np.float64]
+    invalidIndices: NDArray[np.int64]
+
+    @overload
+    def whiten(self, spectra: PfsFiberArraySet) -> PfsFiberArraySet:
+        ...
+
+    @overload
+    def whiten(self, spectra: PfsSimpleSpectrum) -> PfsSimpleSpectrum:
+        ...
 
     def whiten(self, spectra):
         """Divide ``spectra`` by ``self`` to whiten them.
@@ -946,7 +996,8 @@ class Continuum:
         return spectra
 
 
-def convolveLsf(spectrum, lsf, lsfWavelength):
+def convolveLsf(spectrum: PfsSimpleSpectrum, lsf: Lsf, lsfWavelength: NDArray[np.float64]) \
+        -> PfsSimpleSpectrum:
     """Convolve LSF to spectrum.
 
     This function assumes that ``spectrum`` (synthetic spectrum) is sampled
@@ -973,7 +1024,7 @@ def convolveLsf(spectrum, lsf, lsfWavelength):
     return spectrum
 
 
-def getAverageLsf(lsfs):
+def getAverageLsf(lsfs: Sequence[Lsf]) -> Lsf:
     """Get the average LSF.
 
     Parameters
@@ -990,7 +1041,11 @@ def getAverageLsf(lsfs):
     return GaussianLsf(lsfs[0].length, sigma)
 
 
-def adjustAbsoluteScale(spectrum, fiberConfig, broadbandFluxType):
+def adjustAbsoluteScale(
+        spectrum: PfsSimpleSpectrum,
+        fiberConfig: PfsConfig,
+        broadbandFluxType: Literal["fiber", "psf", "total"]) \
+        -> Struct:
     """Multiply a constant to the spectrum
     so that its integrations will agree to broadband fluxes.
 
@@ -1057,7 +1112,12 @@ def adjustAbsoluteScale(spectrum, fiberConfig, broadbandFluxType):
     return Struct(spectrum=spectrum, chi2=chi2, dof=len(obsFlux) - 1)
 
 
-def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
+def calculateSpecChiSquare(
+        obsSpectrum: PfsFiberArray,
+        model: PfsSimpleSpectrum,
+        radialVelocity: float,
+        badMask: Sequence[str]) \
+        -> float:
     """Calculate chi square of spectral fitting
     between a single observed spectrum and a single model spectrum.
 
@@ -1104,7 +1164,7 @@ def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
     return chisq
 
 
-def promoteSimpleSpectrumToFiberArray(spectrum, snr):
+def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:
     """Promote an instance of PfsSimpleSpectrum to PfsFiberArray.
 
     Parameters
@@ -1150,7 +1210,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum, snr):
     return spectrum
 
 
-def promoteFiberArrayToFiberArraySet(spectrum, fiberId):
+def promoteFiberArrayToFiberArraySet(spectrum: PfsFiberArray, fiberId: int) -> PfsFiberArraySet:
     """Promote an instance of PfsFiberArray to PfsFiberArraySet.
 
     Parameters
@@ -1178,10 +1238,9 @@ def promoteFiberArrayToFiberArraySet(spectrum, fiberId):
         metadata=spectrum.metadata,
     )
 
-    return spectrum
 
-
-def fibers(pfsConfig, fiberArraySet):
+def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) \
+        -> Generator[PfsFiberArray, None, None]:
     """Iterator that yields each fiber in `PfsFiberArraySet`.
 
     Parameters
@@ -1200,7 +1259,7 @@ def fibers(pfsConfig, fiberArraySet):
         yield fiberArraySet.extractFiber(PfsFiberArray, pfsConfig, fiberId)
 
 
-def fiberConfigs(pfsConfig):
+def fiberConfigs(pfsConfig: PfsConfig) -> Generator[PfsConfig, None, None]:
     """Iterator that yields single-fiber PfsConfigs.
 
     Parameters
