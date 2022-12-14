@@ -31,10 +31,16 @@ __all__ = ("FitFluxCalConfig", "FitFluxCalTask")
 
 class FitFluxCalConfig(Config):
     """Configuration for FitFluxCalTask"""
-    sysErr = Field(dtype=float, default=1.0e-4,
-                   doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
-                        "loss of variance as covariance when we resample, the result of which is "
-                        "underestimated errors and excess rejection."))
+
+    sysErr = Field(
+        dtype=float,
+        default=1.0e-4,
+        doc=(
+            "Fraction of value to add to variance before fitting. This attempts to offset the "
+            "loss of variance as covariance when we resample, the result of which is "
+            "underestimated errors and excess rejection."
+        ),
+    )
     fitFocalPlane = ConfigurableField(target=FitFocalPlaneTask, doc="Fit flux calibration model")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
@@ -42,6 +48,7 @@ class FitFluxCalConfig(Config):
 
 class FitFluxCalTask(CmdLineTask):
     """Measure and apply the flux calibration"""
+
     ConfigClass = FitFluxCalConfig
     _DefaultName = "fitFluxCal"
 
@@ -130,8 +137,9 @@ class FitFluxCalTask(CmdLineTask):
     @classmethod
     def _makeArgumentParser(cls) -> ArgumentParser:
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged", level="Visit",
-                               help="data IDs, e.g. --id exp=12345")
+        parser.add_id_argument(
+            name="--id", datasetType="pfsMerged", level="Visit", help="data IDs, e.g. --id exp=12345"
+        )
         return parser
 
     def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> Struct:
@@ -184,7 +192,7 @@ class FitFluxCalTask(CmdLineTask):
         pfsMergedLsf: LsfDict,
         pfsFluxReference: PfsFluxReference,
     ) -> FocalPlaneFunction:
-        """ Model flux calibration over the focal plane
+        """Model flux calibration over the focal plane
 
         Parameters
         ----------
@@ -233,7 +241,7 @@ class FitFluxCalTask(CmdLineTask):
 
             ref[i, :] = refSpec.flux
 
-        calibVectors.covar[:, 0] += self.config.sysErr*calibVectors.flux  # add systematic error
+        calibVectors.covar[:, 0] += self.config.sysErr * calibVectors.flux  # add systematic error
         calibVectors /= calibVectors.norm
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
@@ -269,7 +277,7 @@ class FitFluxCalTask(CmdLineTask):
             # these values must be finite.
             self.log.warning(
                 "Target's (ra, dec) is not finite. Replaced by 0 in the FITS header (%s)",
-                spectrum.getIdentity()
+                spectrum.getIdentity(),
             )
             # Even if ra or dec is finite, we replace both with zero, for
             # (0, 0) looks more alarming than, say, (9.87654321, 0) to users.
