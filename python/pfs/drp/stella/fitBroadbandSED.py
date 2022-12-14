@@ -1,6 +1,6 @@
 from pfs.datamodel.pfsConfig import TargetType
 
-from lsst.pex.config import Config, DictField
+from lsst.pex.config import Config, ChoiceField, DictField
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
 
@@ -13,6 +13,18 @@ import numpy.lib.recfunctions
 class FitBroadbandSEDConfig(Config):
     """Configuration for FitBroadbandSEDTask
     """
+
+    broadbandFluxType = ChoiceField(
+        doc="Type of broadband fluxes to use.",
+        dtype=str,
+        allowed={
+            "fiber": "Use `psfConfig.fiberFlux`.",
+            "psf": "Use `psfConfig.psfFlux`.",
+            "total": "Use `psfConfig.totalFlux`.",
+        },
+        default="psf",
+        optional=False
+    )
 
     filterMappings = DictField(
         keytype=str, itemtype=str,
@@ -96,36 +108,51 @@ class FitBroadbandSEDTask(Task):
             If the targetType of ``iSpectrum`` is not ``TargetType.FLUXSTD``,
             ``broadbandPDF[iSpectrum]`` is None.
         """
+        if self.config.broadbandFluxType == "fiber":
+            broadbandFlux = pfsConfig.fiberFlux
+            broadbandFluxErr = pfsConfig.fiberFluxErr
+        elif self.config.broadbandFluxType == "psf":
+            broadbandFlux = pfsConfig.psfFlux
+            broadbandFluxErr = pfsConfig.psfFluxErr
+        elif self.config.broadbandFluxType == "total":
+            broadbandFlux = pfsConfig.totalFlux
+            broadbandFluxErr = pfsConfig.totalFluxErr
+        else:
+            raise ValueError(
+                f"config.broadbandFluxType must be one of fiber|psf|total."
+                f" ('{self.config.broadbandFluxType}')"
+            )
+
         pdfs = []
-        for targetType, filterNames, fiberFlux, fiberFluxErr \
+        for targetType, filterNames, bbFlux, bbFluxErr \
                 in zip(pfsConfig.targetType, pfsConfig.filterNames,
-                       pfsConfig.fiberFlux, pfsConfig.fiberFluxErr):
+                       broadbandFlux, broadbandFluxErr):
             if targetType == TargetType.FLUXSTD:
-                pdfs.append(self.getProbabilities(filterNames, fiberFlux, fiberFluxErr))
+                pdfs.append(self.getProbabilities(filterNames, bbFlux, bbFluxErr))
             else:
                 pdfs.append(None)
 
         return pdfs
 
-    def getProbabilities(self, filterNames, fiberFlux, fiberFluxErr):
+    def getProbabilities(self, filterNames, bbFlux, bbFluxErr):
         """Calculate a chi square and a probability for each model SED.
 
         Parameters
         ----------
         filterNames : `list` of `str`
-            List of filters used to measure the fiber fluxes for each filter.
+            List of filters used to measure the broadband fluxes for each filter.
             e.g. ``["g_hsc", "i2_hsc"]``.
-        fiberFlux : `list` of `float`
-            Array of fiber fluxes for each fiber, in [nJy].
-        fiberFluxErr : `list` of `float`
-            Array of fiber flux errors for each fiber in [nJy].
+        bbFlux : `list` of `float`
+            Array of broadband fluxes for each fiber, in [nJy].
+        bbFluxErr : `list` of `float`
+            Array of broadband flux errors for each fiber in [nJy].
 
         Returns
         -------
         broadbandPDF : `numpy.array` of `float`
             Array of normalized probabilities of the SED fitting.
         """
-        if not (len(filterNames) == len(fiberFlux) == len(fiberFluxErr)):
+        if not (len(filterNames) == len(bbFlux) == len(bbFluxErr)):
             raise ValueError("Lengths of arguments must be equal.")
         if not filterNames:
             nSEDs = len(self.fluxLibrary)
@@ -140,9 +167,9 @@ class FitBroadbandSEDTask(Task):
         )
 
         # Note: observedFluxes.shape == (1, nBands)
-        observedFluxes = numpy.asarray(fiberFlux, dtype=float).reshape(1, -1)
+        observedFluxes = numpy.asarray(bbFlux, dtype=float).reshape(1, -1)
         # Note: observedNoises.shape == (1, nBands)
-        observedNoises = numpy.asarray(fiberFluxErr, dtype=float).reshape(1, -1)
+        observedNoises = numpy.asarray(bbFluxErr, dtype=float).reshape(1, -1)
         # Note: numer.shape == (nSEDs, 1)
         numer = numpy.sum(fluxLibrary * (observedFluxes / (observedNoises**2)), axis=1, keepdims=True)
         # Note: denom.shape == (nSEDs, 1)

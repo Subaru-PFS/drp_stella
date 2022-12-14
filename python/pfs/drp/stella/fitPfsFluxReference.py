@@ -1,5 +1,5 @@
 import lsstDebug
-from lsst.pex.config import Config, ConfigurableField, Field, ListField
+from lsst.pex.config import Config, ConfigurableField, ChoiceField, Field, ListField
 from lsst.pipe.base import ArgumentParser, CmdLineTask, Struct
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
@@ -89,6 +89,17 @@ class FitPfsFluxReferenceConfig(Config):
         dtype=float,
         default=3.1,
         doc="Ratio of total to selective extinction at V, Rv = A(V)/E(B-V)."
+    )
+    broadbandFluxType = ChoiceField(
+        doc="Type of broadband fluxes to use.",
+        dtype=str,
+        allowed={
+            "fiber": "Use `psfConfig.fiberFlux`.",
+            "psf": "Use `psfConfig.psfFlux`.",
+            "total": "Use `psfConfig.totalFlux`.",
+        },
+        default="psf",
+        optional=False
     )
 
     def setDefaults(self):
@@ -818,7 +829,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             extinction = F99ExtinctionCurve(self.config.Rv)
             model.spectrum.flux *= extinction.attenuation(model.spectrum.wavelength, ebv)
 
-            scaled = adjustAbsoluteScale(model.spectrum, fiberConfig)
+            scaled = adjustAbsoluteScale(model.spectrum, fiberConfig, self.config.broadbandFluxType)
             model.spectrum = scaled.spectrum
             model.fluxScalingChi2 = scaled.chi2
             model.fluxScalingDof = scaled.dof
@@ -979,11 +990,11 @@ def getAverageLsf(lsfs):
     return GaussianLsf(lsfs[0].length, sigma)
 
 
-def adjustAbsoluteScale(spectrum, fiberConfig):
+def adjustAbsoluteScale(spectrum, fiberConfig, broadbandFluxType):
     """Multiply a constant to the spectrum
     so that its integrations will agree to broadband fluxes.
 
-    Because the broadband fluxes (``fiberConfig.fiberFlux``) are affected
+    Because the broadband fluxes (``fiberConfig.psfFlux``) are affected
     by the Galactic extinction, ``spectrum`` must also be reddened before
     the call to this function.
 
@@ -993,6 +1004,8 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
         Spectrum.
     fiberConfig : `pfs.datamodel.pfsConfig.PfsConfig`
         PfsConfig that contains only a single fiber.
+    broadbandFluxType : `Literal["fiber", "psf", "total"]`
+        Type of broadband flux to use.
 
     Returns
     -------
@@ -1003,24 +1016,39 @@ def adjustAbsoluteScale(spectrum, fiberConfig):
     dof : `int`
         Degree of freedom of the problem to determine the scaling constant.
     """
-    fiberFlux = fiberConfig.fiberFlux[0]
-    fiberFluxErr = fiberConfig.fiberFluxErr[0]
+    if broadbandFluxType == "fiber":
+        obsFlux = fiberConfig.fiberFlux[0]
+        obsFluxErr = fiberConfig.fiberFluxErr[0]
+    elif broadbandFluxType == "psf":
+        obsFlux = fiberConfig.psfFlux[0]
+        obsFluxErr = fiberConfig.psfFluxErr[0]
+    elif broadbandFluxType == "total":
+        obsFlux = fiberConfig.totalFlux[0]
+        obsFluxErr = fiberConfig.totalFluxErr[0]
+    else:
+        raise ValueError(
+            f"`broadbandFluxType` must be one of fiber|psf|total."
+            f" ('{broadbandFluxType}')"
+        )
+
+    obsFlux = np.asarray(obsFlux, dtype=float)
+    obsFluxErr = np.asarray(obsFluxErr, dtype=float)
     filterNames = fiberConfig.filterNames[0]
 
-    refFlux = []
+    refFluxList = []
     for filterName in filterNames:
         flux = FilterCurve(filterName).photometer(spectrum)
-        refFlux.append(flux)
+        refFluxList.append(flux)
 
-    refFlux = np.asarray(refFlux, dtype=float)
+    refFlux = np.asarray(refFluxList, dtype=float)
 
     # This is the minimum point of chi^2(scale)
-    scale = np.sum(fiberFlux * refFlux / fiberFluxErr**2) / np.sum((refFlux / fiberFluxErr)**2)
+    scale = np.sum(obsFlux * refFlux / obsFluxErr**2) / np.sum((refFlux / obsFluxErr)**2)
     # chi^2(scale) at the minimum point
-    chi2 = np.sum((fiberFlux - scale*refFlux)**2 / fiberFluxErr**2)
+    chi2 = np.sum((obsFlux - scale*refFlux)**2 / obsFluxErr**2)
 
     spectrum.flux[:] *= scale
-    return Struct(spectrum=spectrum, chi2=chi2, dof=len(fiberFlux) - 1)
+    return Struct(spectrum=spectrum, chi2=chi2, dof=len(obsFlux) - 1)
 
 
 def calculateSpecChiSquare(obsSpectrum, model, radialVelocity, badMask):
