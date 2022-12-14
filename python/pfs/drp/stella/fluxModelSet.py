@@ -14,6 +14,7 @@ try:
     from numpy.typing import NDArray
 except ImportError:
     from typing import Sequence
+
     NDArray = Sequence
 
 
@@ -61,9 +62,9 @@ class FluxModelSet:
         # Field names of "photometries.fits" start with capitals.
         # We make them lower for consistency with parameter names
         # of other methods of this class.
-        parameters = recfunctions.rename_fields(parameters, {
-            key: key.lower() for key in ["Teff", "Logg", "M", "Alpha"]
-        })
+        parameters = recfunctions.rename_fields(
+            parameters, {key: key.lower() for key in ["Teff", "Logg", "M", "Alpha"]}
+        )
         return parameters
 
     def getFileName(self, *, teff: float, logg: float, m: float, alpha: float) -> str:

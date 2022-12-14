@@ -20,8 +20,7 @@ except ImportError:
 
 
 class FitBroadbandSEDConfig(Config):
-    """Configuration for FitBroadbandSEDTask
-    """
+    """Configuration for FitBroadbandSEDTask"""
 
     broadbandFluxType = ChoiceField(
         doc="Type of broadband fluxes to use.",
@@ -32,11 +31,12 @@ class FitBroadbandSEDConfig(Config):
             "total": "Use `psfConfig.totalFlux`.",
         },
         default="psf",
-        optional=False
+        optional=False,
     )
 
     filterMappings = DictField(
-        keytype=str, itemtype=str,
+        keytype=str,
+        itemtype=str,
         default={
             "g_hsc": "HSCg",
             "r_old_hsc": "HSCr",
@@ -59,13 +59,12 @@ class FitBroadbandSEDConfig(Config):
             "i_sdss": "SDSSi",
             "z_sdss": "SDSSz",
         },
-        doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`"
+        doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`",
     )
 
 
 class FitBroadbandSEDTask(Task):
-    """Fit an observed SED with synthetic model SEDs
-    """
+    """Fit an observed SED with synthetic model SEDs"""
 
     ConfigClass = FitBroadbandSEDConfig
     _DefaultName = "fitBroadbandSED"
@@ -74,8 +73,9 @@ class FitBroadbandSEDTask(Task):
         super().__init__(*args, **kwargs)
         self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
 
-    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) \
-            -> List[Union[NDArray[numpy.float64], None]]:
+    def runDataRef(
+        self, dataRef: lsst.daf.persistence.ButlerDataRef
+    ) -> List[Union[NDArray[numpy.float64], None]]:
         """For each spectrum,
         calculate probabilities of model SEDs matching the spectrum.
 
@@ -134,9 +134,9 @@ class FitBroadbandSEDTask(Task):
             )
 
         pdfs: List[Union[NDArray[numpy.float64], None]] = []
-        for targetType, filterNames, bbFlux, bbFluxErr \
-                in zip(pfsConfig.targetType, pfsConfig.filterNames,
-                       broadbandFlux, broadbandFluxErr):
+        for targetType, filterNames, bbFlux, bbFluxErr in zip(
+            pfsConfig.targetType, pfsConfig.filterNames, broadbandFlux, broadbandFluxErr
+        ):
             if targetType == TargetType.FLUXSTD:
                 pdfs.append(self.getProbabilities(filterNames, bbFlux, bbFluxErr))
             else:
@@ -145,8 +145,8 @@ class FitBroadbandSEDTask(Task):
         return pdfs
 
     def getProbabilities(
-            self, filterNames: Sequence[str], bbFlux: Sequence[float], bbFluxErr: Sequence[float]) \
-            -> NDArray[numpy.float64]:
+        self, filterNames: Sequence[str], bbFlux: Sequence[float], bbFluxErr: Sequence[float]
+    ) -> NDArray[numpy.float64]:
         """Calculate a chi square and a probability for each model SED.
 
         Parameters
@@ -173,16 +173,13 @@ class FitBroadbandSEDTask(Task):
         isgood = numpy.isfinite(observedFluxes) & (observedNoises > 0)
         if not numpy.any(isgood):
             nSEDs = len(self.fluxLibrary)
-            return numpy.full(shape=(nSEDs,), fill_value=1.0/nSEDs, dtype=float)
+            return numpy.full(shape=(nSEDs,), fill_value=1.0 / nSEDs, dtype=float)
 
         observedFluxes = observedFluxes[isgood]
         observedNoises = observedNoises[isgood]
 
         # Convert filter names.
-        filterNames = [
-            self.config.filterMappings.get(f, f) for f, good
-            in zip(filterNames, isgood) if good
-        ]
+        filterNames = [self.config.filterMappings.get(f, f) for f, good in zip(filterNames, isgood) if good]
 
         # Note: fluxLibrary.shape == (nSEDs, nBands)
         fluxLibrary = numpy.lib.recfunctions.structured_to_unstructured(
@@ -196,17 +193,17 @@ class FitBroadbandSEDTask(Task):
         # Note: numer.shape == (nSEDs, 1)
         numer = numpy.sum(fluxLibrary * (observedFluxes / (observedNoises**2)), axis=1, keepdims=True)
         # Note: denom.shape == (nSEDs, 1)
-        denom = numpy.sum((fluxLibrary / observedNoises)**2, axis=1, keepdims=True)
+        denom = numpy.sum((fluxLibrary / observedNoises) ** 2, axis=1, keepdims=True)
         # Note: alpha.shape == (nSEDs, 1)
         alpha = numer / denom
 
         # Compute chi square
         # Note: chisq.shape == (nSEDs,)
-        chisq = numpy.sum(((observedFluxes - alpha*fluxLibrary)/observedNoises)**2, axis=1)
+        chisq = numpy.sum(((observedFluxes - alpha * fluxLibrary) / observedNoises) ** 2, axis=1)
 
         # Convert a list of chi squares to a probability distribution
         delta_chisq = chisq - numpy.min(chisq)
-        prob = numpy.exp(delta_chisq / (-2.))
+        prob = numpy.exp(delta_chisq / (-2.0))
         prob_norm = prob / numpy.sum(prob)
 
         return prob_norm

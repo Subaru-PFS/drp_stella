@@ -45,22 +45,24 @@ __all__ = ["FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
 
 
 class FitPfsFluxReferenceConfig(Config):
-    """Configuration for FitPfsFluxReferenceTask
-    """
+    """Configuration for FitPfsFluxReferenceTask"""
 
-    fitBroadbandSED = ConfigurableField(target=FitBroadbandSEDTask,
-                                        doc="Get probabilities of SEDs from broadband photometries.")
-    fitObsContinuum = ConfigurableField(target=FitContinuumTask,
-                                        doc="Fit a model to observed spectrum's continuum")
-    fitModelContinuum = ConfigurableField(target=FitContinuumTask,
-                                          doc="Fit a model to model spectrum's continuum")
-    estimateRadialVelocity = ConfigurableField(target=EstimateRadialVelocityTask,
-                                               doc="Estimate radial velocity.")
+    fitBroadbandSED = ConfigurableField(
+        target=FitBroadbandSEDTask, doc="Get probabilities of SEDs from broadband photometries."
+    )
+    fitObsContinuum = ConfigurableField(
+        target=FitContinuumTask, doc="Fit a model to observed spectrum's continuum"
+    )
+    fitModelContinuum = ConfigurableField(
+        target=FitContinuumTask, doc="Fit a model to model spectrum's continuum"
+    )
+    estimateRadialVelocity = ConfigurableField(
+        target=EstimateRadialVelocityTask, doc="Estimate radial velocity."
+    )
     minBroadbandFluxes = Field(
         dtype=int,
         default=2,
-        doc="min.number of required broadband fluxes"
-            " for an observed flux standard to be fitted to.",
+        doc="min.number of required broadband fluxes for an observed flux standard to be fitted to.",
     )
     minWavelength = Field(
         dtype=float,
@@ -76,32 +78,24 @@ class FitPfsFluxReferenceConfig(Config):
         dtype=float,
         default=[685.0, 716.0, 759.0, 810.0, 895.0, 1100.0],
         doc="Left ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
-            " when comparing observation spectra to models."
+        " when comparing observation spectra to models.",
     )
     ignoredRangesRight = ListField(
         dtype=float,
         default=[695.0, 735.0, 770.0, 835.0, 985.0, 1200.0],
         doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
-            " when comparing observation spectra to models."
+        " when comparing observation spectra to models.",
     )
-    badMask = ListField(
-        dtype=str,
-        default=["BAD", "SAT", "CR", "NO_DATA"],
-        doc="Mask planes for bad pixels"
-    )
+    badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
     modelSNR = Field(
         dtype=float,
         default=400,
         doc="Supposed S/N of model spectra."
-            " Used in making up the variance of the flux for algorithms that require it."
-            " It is not that the model spectra are affected by this amount of noise,"
-            " nor is it that any artificial noise will be added to the model spectra."
+        " Used in making up the variance of the flux for algorithms that require it."
+        " It is not that the model spectra are affected by this amount of noise,"
+        " nor is it that any artificial noise will be added to the model spectra.",
     )
-    Rv = Field(
-        dtype=float,
-        default=3.1,
-        doc="Ratio of total to selective extinction at V, Rv = A(V)/E(B-V)."
-    )
+    Rv = Field(dtype=float, default=3.1, doc="Ratio of total to selective extinction at V, Rv = A(V)/E(B-V).")
     broadbandFluxType = ChoiceField(
         doc="Type of broadband fluxes to use.",
         dtype=str,
@@ -111,7 +105,7 @@ class FitPfsFluxReferenceConfig(Config):
             "total": "Use `psfConfig.totalFlux`.",
         },
         default="psf",
-        optional=False
+        optional=False,
     )
 
     def setDefaults(self) -> None:
@@ -129,8 +123,7 @@ class FitPfsFluxReferenceConfig(Config):
 
 
 class FitPfsFluxReferenceTask(CmdLineTask):
-    """Construct reference for flux calibration.
-    """
+    """Construct reference for flux calibration."""
 
     ConfigClass = FitPfsFluxReferenceConfig
     _DefaultName = "fitPfsFluxReference"
@@ -159,8 +152,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
     def _makeArgumentParser(cls) -> ArgumentParser:
         """Make ArgumentParser"""
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged",
-                               help="data IDs, e.g. --id exp=12345")
+        parser.add_id_argument(name="--id", datasetType="pfsMerged", help="data IDs, e.g. --id exp=12345")
         return parser
 
     def _getMetadataName(self) -> None:
@@ -182,8 +174,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         reference = self.run(pfsConfig, merged, mergedLsf)
         dataRef.put(reference, "pfsFluxReference")
 
-    def run(self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict) \
-            -> PfsFluxReference:
+    def run(
+        self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict
+    ) -> PfsFluxReference:
         """Create flux reference from ``pfsMerged``
         and corresponding ``pfsConfig``.
 
@@ -236,17 +229,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             self.log.info("Number of FLUXSTD that are not %s: %d", flagName, len(goodConfig))
             return goodConfig
 
+        pfsConfig = selectPfsConfig(pfsConfig, "ABSENT_FIBER", np.isin(pfsConfig.fiberId, pfsMerged.fiberId))
+        pfsConfig = selectPfsConfig(pfsConfig, "BAD_FIBER", (pfsConfig.fiberStatus == FiberStatus.GOOD))
         pfsConfig = selectPfsConfig(
-            pfsConfig, "ABSENT_FIBER",
-            np.isin(pfsConfig.fiberId, pfsMerged.fiberId)
-        )
-        pfsConfig = selectPfsConfig(
-            pfsConfig, "BAD_FIBER",
-            (pfsConfig.fiberStatus == FiberStatus.GOOD)
-        )
-        pfsConfig = selectPfsConfig(
-            pfsConfig, "DEFICIENT_BBFLUXES",
-            [len(filterNames) >= self.config.minBroadbandFluxes for filterNames in pfsConfig.filterNames]
+            pfsConfig,
+            "DEFICIENT_BBFLUXES",
+            [len(filterNames) >= self.config.minBroadbandFluxes for filterNames in pfsConfig.filterNames],
         )
 
         # Apply the Galactic extinction correction to observed broad-band fluxes in pfsConfig
@@ -262,8 +250,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             )
 
         pfsConfig = selectPfsConfig(
-            pfsConfig, "FITBBSED_FAILED",
-            [(bbPdf is not None and np.all(np.isfinite(bbPdf))) for bbPdf in bbPdfs]
+            pfsConfig,
+            "FITBBSED_FAILED",
+            [(bbPdf is not None and np.all(np.isfinite(bbPdf))) for bbPdf in bbPdfs],
         )
 
         # Extract just those fibers from pfsMerged
@@ -299,9 +288,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         # Likelihoods from spectral fitting, where line spectra matter.
         self.log.info("Fitting models to spectra (takes some time)...")
-        likelihoods = self.fitModelsToSpectra(
-            pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs
-        )
+        likelihoods = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
         if self.debugInfo.doWriteLikelihood:
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/likelihood-{pfsMerged.filename}.pickle",
@@ -343,16 +330,20 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         wavelength = bestModels[0].spectrum.wavelength
         flux = np.full(shape=(len(originalFiberId), len(wavelength)), fill_value=np.nan, dtype=np.float32)
-        fitParams = np.full(shape=(len(originalFiberId),), fill_value=np.nan, dtype=[
-            ("teff", np.float32),
-            ("logg", np.float32),
-            ("m", np.float32),
-            ("alpha", np.float32),
-            ("radial_velocity", np.float32),
-            ("radial_velocity_err", np.float32),
-            ("flux_scaling_chi2", np.float32),
-            ("flux_scaling_dof", np.int32),
-        ])
+        fitParams = np.full(
+            shape=(len(originalFiberId),),
+            fill_value=np.nan,
+            dtype=[
+                ("teff", np.float32),
+                ("logg", np.float32),
+                ("m", np.float32),
+                ("alpha", np.float32),
+                ("radial_velocity", np.float32),
+                ("radial_velocity_err", np.float32),
+                ("flux_scaling_chi2", np.float32),
+                ("flux_scaling_dof", np.int32),
+            ],
+        )
 
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
 
@@ -387,12 +378,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         )
 
     def getRadialVelocities(
-            self,
-            pfsConfig: PfsConfig,
-            pfsMerged: PfsFiberArraySet,
-            pfsMergedLsf: LsfDict,
-            bbPdfs: Sequence[Union[NDArray[np.float64], None]]) \
-            -> List[Union[Struct, None]]:
+        self,
+        pfsConfig: PfsConfig,
+        pfsMerged: PfsFiberArraySet,
+        pfsMergedLsf: LsfDict,
+        bbPdfs: Sequence[Union[NDArray[np.float64], None]],
+    ) -> List[Union[Struct, None]]:
         """Estimate the radial velocity for each fiber in ``pfsMerged``.
 
         Parameters
@@ -434,11 +425,8 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         return radialVelocities
 
     def computeContinuum(
-            self,
-            spectra: Union[PfsSimpleSpectrum, PfsFiberArraySet],
-            *,
-            mode: Literal["observed", "model"]) \
-            -> "Continuum":
+        self, spectra: Union[PfsSimpleSpectrum, PfsFiberArraySet], *, mode: Literal["observed", "model"]
+    ) -> "Continuum":
         """Whiten one or more spectra.
 
         Parameters
@@ -472,10 +460,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         # (PfsArm is a subclass of PfsFiberArraySet)
         specset = SpectrumSet.fromPfsArm(spectra)
 
-        lines = ReferenceLineSet.fromRows([
-            ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
-            ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
-        ])
+        lines = ReferenceLineSet.fromRows(
+            [
+                ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
+                ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
+            ]
+        )
 
         fiberIdToIndex = {fiberId: index for index, fiberId in enumerate(spectra.fiberId)}
 
@@ -486,21 +476,24 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         for continuum in continuumList:
             continua[fiberIdToIndex[continuum.fiberId], :] = continuum.flux
 
-        absentIndex = np.array([
-            fiberIdToIndex[fiberId] for fiberId in
-            set(spectra.fiberId) - set(continuum.fiberId for continuum in continuumList)
-        ], dtype=int)
+        absentIndex = np.array(
+            [
+                fiberIdToIndex[fiberId]
+                for fiberId in set(spectra.fiberId) - set(continuum.fiberId for continuum in continuumList)
+            ],
+            dtype=int,
+        )
 
         return Continuum(continua, absentIndex)
 
     def fitModelsToSpectra(
-            self,
-            pfsConfig: PfsConfig,
-            obsSpectra: PfsFiberArraySet,
-            pfsMergedLsf: LsfDict,
-            radialVelocities: Sequence[Union[Struct, None]],
-            priorPdfs: Sequence[Union[NDArray[np.float64], None]]) \
-            -> List[Union[NDArray[np.float64], None]]:
+        self,
+        pfsConfig: PfsConfig,
+        obsSpectra: PfsFiberArraySet,
+        pfsMergedLsf: LsfDict,
+        radialVelocities: Sequence[Union[Struct, None]],
+        priorPdfs: Sequence[Union[NDArray[np.float64], None]],
+    ) -> List[Union[NDArray[np.float64], None]]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -563,15 +556,14 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             modelContinuum: Union["Continuum", None] = None
 
             for iFiber, (obsSpectrum, velocity, prior) in enumerate(
-                    zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)):
+                zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)
+            ):
                 if velocity is None or not np.isfinite(velocity.velocity):
                     continue
                 if not (prior > 1e-8):
                     continue
                 if modelContinuum is None:
-                    convolvedModel = convolveLsf(
-                        model, averageLsf, obsSpectrum.wavelength
-                    )
+                    convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
                     modelContinuum = self.computeContinuum(convolvedModel, mode="model")
 
                 convolvedModel = convolveLsf(
@@ -588,14 +580,15 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 pdfs.append(None)
                 continue
             chisq -= np.min(chisq)
-            pdf = np.exp(chisq / (-2.))
+            pdf = np.exp(chisq / (-2.0))
             pdf /= np.sum(pdf)
             pdfs.append(pdf)
 
         return pdfs
 
-    def findRoughlyBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) \
-            -> List[Union[Struct, None]]:
+    def findRoughlyBestModel(
+        self, pdfs: Sequence[Union[NDArray[np.float64], None]]
+    ) -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``.
 
@@ -635,15 +628,13 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             model = self.fluxModelSet.getSpectrum(
                 teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
             )
-            models.append(Struct(
-                spectrum=model,
-                param=(param["teff"], param["logg"], param["m"], param["alpha"])
-            ))
+            models.append(
+                Struct(spectrum=model, param=(param["teff"], param["logg"], param["m"], param["alpha"]))
+            )
 
         return models
 
-    def findBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) \
-            -> List[Union[Struct, None]]:
+    def findBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``. A smooth surface is fit to the ``pdf``,
         and the ``argmax`` here actually means the top of the surface.
@@ -674,7 +665,12 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         numPointsToFitTo = [
             # Number of grid points within the (d-1)-dimensional sphere
             # of radius sqrt(d) in d-dimensional space.
-            1, 3, 9, 27, 89, 333
+            1,
+            3,
+            9,
+            27,
+            89,
+            333,
         ]
 
         paramCatalog = self.fluxModelSet.parameters
@@ -689,10 +685,10 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             peakParam = paramCatalog[np.argmax(pdf)]
 
             paramToIndex = {
-                param[len(fixedParamNames):]: index
-                for index, param in enumerate(zip(
-                    *(paramCatalog[name] for name in fixedParamNames + paramNames)
-                ))
+                param[len(fixedParamNames) :]: index
+                for index, param in enumerate(
+                    zip(*(paramCatalog[name] for name in fixedParamNames + paramNames))
+                )
                 if all(param[i] == peakParam[fpname] for i, fpname in enumerate(fixedParamNames))
             }
 
@@ -703,40 +699,28 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             # Note: ticToParam[i] = [-0.2, -0.1, 0, 0.1, 0.2] etc.
             # is the list of values of paramNames[i].
             ticToParam = [
-                sorted(set(param[i] for param in paramToIndex.keys()))
-                for i in range(len(paramNames))
+                sorted(set(param[i] for param in paramToIndex.keys())) for i in range(len(paramNames))
             ]
             # Note: tic = paramToTic[i][value] is the inverse function
             # of value = ticToParam[i][tic]
-            paramToTic = [
-                {value: tic for tic, value in enumerate(toParam)}
-                for toParam in ticToParam
-            ]
+            paramToTic = [{value: tic for tic, value in enumerate(toParam)} for toParam in ticToParam]
             # Rough peak in terms of tics
-            peakTic = tuple(
-                paramToTic[i][peakParam[name]]
-                for i, name in enumerate(paramNames)
-            )
+            peakTic = tuple(paramToTic[i][peakParam[name]] for i, name in enumerate(paramNames))
             # Sampled points in terms of tics
-            ticList = [
-                tuple(paramToTic[i][p] for i, p in enumerate(param))
-                for param in paramToIndex.keys()
-            ]
+            ticList = [tuple(paramToTic[i][p] for i, p in enumerate(param)) for param in paramToIndex.keys()]
 
             # We use some samples nearest to the rough peak.
             # Notice that the samples actually chosen are not necessarily
             # arranged neatly within a sphere---for example,
             # the rough peak may be on the border of the domain,
             # or there may be grid defects in the neighborhood of the peak.
-            ticList.sort(
-                key=lambda tpl: sum((x - y)**2 for x, y in zip(tpl, peakTic))
-            )
-            ticList = ticList[:numPointsToFitTo[len(paramNames)]]
+            ticList.sort(key=lambda tpl: sum((x - y) ** 2 for x, y in zip(tpl, peakTic)))
+            ticList = ticList[: numPointsToFitTo[len(paramNames)]]
             # Convert selected tics to indices in paramCatalog
-            indices = np.array([
-                paramToIndex[tuple(ticToParam[i][t] for i, t in enumerate(tic))]
-                for tic in ticList
-            ], dtype=int)
+            indices = np.array(
+                [paramToIndex[tuple(ticToParam[i][t] for i, t in enumerate(tic))] for tic in ticList],
+                dtype=int,
+            )
             # Cut only necessary portions out of pdf and paramCatalog.
             cutProb = pdf[indices]
             cutParamCatalog = paramCatalog[indices]
@@ -745,7 +729,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             # where y = pdf, x[0] = 1, x[1:] = (parameters)
             axisList = [1.0] + [cutParamCatalog[name] for name in paramNames]
             axisToIndex = {}
-            M = np.empty(shape=(len(cutProb), len(axisList)*(len(axisList) + 1)//2), dtype=float)
+            M = np.empty(shape=(len(cutProb), len(axisList) * (len(axisList) + 1) // 2), dtype=float)
             k = 0
             for i in range(0, len(axisList)):
                 for j in range(i, len(axisList)):
@@ -778,9 +762,11 @@ class FitPfsFluxReferenceTask(CmdLineTask):
                 # We employ this peak only if it is within the minimum box
                 # that includes ticList.
                 if all(
-                        ticToParam[i][min(tic[i] for tic in ticList)] <= p <=
-                        ticToParam[i][max(tic[i] for tic in ticList)]
-                        for i, p in enumerate(peak)):
+                    ticToParam[i][min(tic[i] for tic in ticList)]
+                    <= p
+                    <= ticToParam[i][max(tic[i] for tic in ticList)]
+                    for i, p in enumerate(peak)
+                ):
                     bestParam = tuple(peak) + tuple(peakParam[name] for name in fixedParamNames)
 
             if bestParam is None:
@@ -809,27 +795,23 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         badMask = spectra.flags.add("ATMOSPHERE")
 
         for low, high in zip(self.config.ignoredRangesLeft, self.config.ignoredRangesRight):
-            spectra.mask[...] |= np.where(
-                (low < wavelength) & (wavelength < high),
-                badMask,
-                0
-            ).astype(spectra.mask.dtype)
+            spectra.mask[...] |= np.where((low < wavelength) & (wavelength < high), badMask, 0).astype(
+                spectra.mask.dtype
+            )
 
         # Mask edge regions.
         spectra.mask[...] |= np.where(
-            (self.config.minWavelength < spectra.wavelength) &
-            (spectra.wavelength < self.config.maxWavelength),
+            (self.config.minWavelength < spectra.wavelength)
+            & (spectra.wavelength < self.config.maxWavelength),
             0,
-            spectra.flags.add("EDGE")
+            spectra.flags.add("EDGE"),
         ).astype(spectra.mask.dtype)
 
         return spectra
 
     def makeReferenceSpectra(
-            self,
-            pfsConfig: PfsConfig,
-            pdfs: Sequence[Union[NDArray[np.float64], None]]) \
-            -> List[Union[Struct, None]]:
+        self, pfsConfig: PfsConfig, pdfs: Sequence[Union[NDArray[np.float64], None]]
+    ) -> List[Union[Struct, None]]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs``. (See ``self.findBestModel()``)
 
@@ -982,7 +964,7 @@ class Continuum:
             The same instance as the argument.
         """
         if len(spectra.flux.shape) == 1:
-            assert(len(self.flux) == 1)
+            assert len(self.flux) == 1
             spectra /= self.flux[0, :]
             if 0 in self.invalidIndices:
                 spectra.mask[:] |= spectra.flags.add("BAD")
@@ -996,8 +978,9 @@ class Continuum:
         return spectra
 
 
-def convolveLsf(spectrum: PfsSimpleSpectrum, lsf: Lsf, lsfWavelength: NDArray[np.float64]) \
-        -> PfsSimpleSpectrum:
+def convolveLsf(
+    spectrum: PfsSimpleSpectrum, lsf: Lsf, lsfWavelength: NDArray[np.float64]
+) -> PfsSimpleSpectrum:
     """Convolve LSF to spectrum.
 
     This function assumes that ``spectrum`` (synthetic spectrum) is sampled
@@ -1042,10 +1025,8 @@ def getAverageLsf(lsfs: Sequence[Lsf]) -> Lsf:
 
 
 def adjustAbsoluteScale(
-        spectrum: PfsSimpleSpectrum,
-        fiberConfig: PfsConfig,
-        broadbandFluxType: Literal["fiber", "psf", "total"]) \
-        -> Struct:
+    spectrum: PfsSimpleSpectrum, fiberConfig: PfsConfig, broadbandFluxType: Literal["fiber", "psf", "total"]
+) -> Struct:
     """Multiply a constant to the spectrum
     so that its integrations will agree to broadband fluxes.
 
@@ -1081,10 +1062,7 @@ def adjustAbsoluteScale(
         obsFlux = fiberConfig.totalFlux[0]
         obsFluxErr = fiberConfig.totalFluxErr[0]
     else:
-        raise ValueError(
-            f"`broadbandFluxType` must be one of fiber|psf|total."
-            f" ('{broadbandFluxType}')"
-        )
+        raise ValueError(f"`broadbandFluxType` must be one of fiber|psf|total." f" ('{broadbandFluxType}')")
 
     obsFlux = np.asarray(obsFlux, dtype=float)
     obsFluxErr = np.asarray(obsFluxErr, dtype=float)
@@ -1092,9 +1070,7 @@ def adjustAbsoluteScale(
     isgood = np.isfinite(obsFlux) & (obsFluxErr > 0)
     obsFlux = obsFlux[isgood]
     obsFluxErr = obsFluxErr[isgood]
-    filterNames = [
-        f for f, good in zip(fiberConfig.filterNames[0], isgood) if good
-    ]
+    filterNames = [f for f, good in zip(fiberConfig.filterNames[0], isgood) if good]
 
     refFluxList = []
     for filterName in filterNames:
@@ -1104,20 +1080,17 @@ def adjustAbsoluteScale(
     refFlux = np.asarray(refFluxList, dtype=float)
 
     # This is the minimum point of chi^2(scale)
-    scale = np.sum(obsFlux * refFlux / obsFluxErr**2) / np.sum((refFlux / obsFluxErr)**2)
+    scale = np.sum(obsFlux * refFlux / obsFluxErr**2) / np.sum((refFlux / obsFluxErr) ** 2)
     # chi^2(scale) at the minimum point
-    chi2 = np.sum((obsFlux - scale*refFlux)**2 / obsFluxErr**2)
+    chi2 = np.sum((obsFlux - scale * refFlux) ** 2 / obsFluxErr**2)
 
     spectrum.flux[:] *= scale
     return Struct(spectrum=spectrum, chi2=chi2, dof=len(obsFlux) - 1)
 
 
 def calculateSpecChiSquare(
-        obsSpectrum: PfsFiberArray,
-        model: PfsSimpleSpectrum,
-        radialVelocity: float,
-        badMask: Sequence[str]) \
-        -> float:
+    obsSpectrum: PfsFiberArray, model: PfsSimpleSpectrum, radialVelocity: float, badMask: Sequence[str]
+) -> float:
     """Calculate chi square of spectral fitting
     between a single observed spectrum and a single model spectrum.
 
@@ -1140,15 +1113,13 @@ def calculateSpecChiSquare(
     beta = radialVelocity / const.c.to("km/s").value
     invDoppler = np.sqrt((1.0 - beta) / (1.0 + beta))
 
-    good = (0 == (model.mask & model.flags.get(*(m for m in badMask if m in model.flags))))
+    good = 0 == (model.mask & model.flags.get(*(m for m in badMask if m in model.flags)))
 
     modelFlux = interpolateFlux(
-        model.wavelength[good], model.flux[good],
-        obsSpectrum.wavelength * invDoppler,
-        jacobian=False
+        model.wavelength[good], model.flux[good], obsSpectrum.wavelength * invDoppler, jacobian=False
     )
 
-    bad = (0 != (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags))))
+    bad = 0 != (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags)))
 
     flux = np.copy(obsSpectrum.flux)
     # If not(any(isnan(flux))), we don't have to do this
@@ -1188,7 +1159,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -
         pfsDesignId=np.zeros(0, dtype=int),
         fiberId=np.zeros(0, dtype=int),
         pfiNominal=np.zeros(shape=(0, 2), dtype=float),
-        pfiCenter=np.zeros(shape=(0, 2), dtype=float)
+        pfiCenter=np.zeros(shape=(0, 2), dtype=float),
     )
 
     spectrum = PfsFiberArray(
@@ -1239,8 +1210,7 @@ def promoteFiberArrayToFiberArraySet(spectrum: PfsFiberArray, fiberId: int) -> P
     )
 
 
-def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) \
-        -> Generator[PfsFiberArray, None, None]:
+def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) -> Generator[PfsFiberArray, None, None]:
     """Iterator that yields each fiber in `PfsFiberArraySet`.
 
     Parameters

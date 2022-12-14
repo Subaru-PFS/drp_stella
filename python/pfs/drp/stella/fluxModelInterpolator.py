@@ -44,15 +44,16 @@ class FluxModelInterpolator:
     """
 
     def __init__(
-            self,
-            interpolator: scipy.interpolate.RBFInterpolator,
-            teffScale: float,
-            loggScale: float,
-            mScale: float,
-            alphaScale: float,
-            fluxScale: float,
-            lenWavelength: int,
-            wcs: astropy.io.fits.Header) -> None:
+        self,
+        interpolator: scipy.interpolate.RBFInterpolator,
+        teffScale: float,
+        loggScale: float,
+        mScale: float,
+        alphaScale: float,
+        fluxScale: float,
+        lenWavelength: int,
+        wcs: astropy.io.fits.Header,
+    ) -> None:
         self.interpolator = interpolator
         self.teffScale = teffScale
         self.loggScale = loggScale
@@ -80,9 +81,7 @@ class FluxModelInterpolator:
         """
         filePath = os.path.join(path, "interpolator.pickle")
         if not os.path.exists(filePath):
-            raise RuntimeError(
-                f"'{filePath}' not found. Run `makeFluxModelInterpolator.py` to generate it."
-            )
+            raise RuntimeError(f"'{filePath}' not found. Run `makeFluxModelInterpolator.py` to generate it.")
         return cls.fromPickle(filePath)
 
     @classmethod
