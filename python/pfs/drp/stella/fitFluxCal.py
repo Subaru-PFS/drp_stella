@@ -110,7 +110,7 @@ class FitFluxCalTask(CmdLineTask):
         for ff in fiberId:
             extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
             extracted.fluxTable = self.fluxTable.run(
-                [ss.identity.getDict() for ss in calibrated],
+                [calibrated[ii].identity.getDict() for ii in fiberToArm[ff]],
                 [pfsArmList[ii].extractFiber(PfsSingle, pfsConfig, ff) for ii in fiberToArm[ff]],
                 MaskHelper.fromMerge([pfsArm.flags for pfsArm in pfsArmList]),
             )
