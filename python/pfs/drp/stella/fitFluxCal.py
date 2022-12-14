@@ -5,18 +5,19 @@ from astropy import constants as const
 import numpy as np
 
 import lsstDebug
+import lsst.daf.persistence
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
-from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, TargetType
+from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
-from .datamodel import PfsArm, PfsMerged, PfsSimpleSpectrum, PfsSingle
+from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsTargetSpectra
 from .fitFocalPlane import FitFocalPlaneTask
 from .fluxCalibrate import fluxCalibrate
 from .focalPlaneFunction import FocalPlaneFunction
-from .lsf import warpLsf, LsfDict
+from .lsf import warpLsf, Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import getPfsVersions
 from .utils import debugging
@@ -47,7 +48,7 @@ class FitFluxCalTask(CmdLineTask):
     fitFocalPlane: FitFocalPlaneTask
     fluxTable: FluxTableTask
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitFocalPlane")
         self.makeSubtask("fluxTable")
@@ -127,13 +128,13 @@ class FitFluxCalTask(CmdLineTask):
         )
 
     @classmethod
-    def _makeArgumentParser(cls):
+    def _makeArgumentParser(cls) -> ArgumentParser:
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument(name="--id", datasetType="pfsMerged", level="Visit",
                                help="data IDs, e.g. --id exp=12345")
         return parser
 
-    def runDataRef(self, dataRef):
+    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> Struct:
         """Measure and apply the flux calibration
 
         Parameters
@@ -176,7 +177,13 @@ class FitFluxCalTask(CmdLineTask):
 
         return outputs
 
-    def calculateCalibrations(self, pfsConfig, pfsMerged, pfsMergedLsf, pfsFluxReference):
+    def calculateCalibrations(
+        self,
+        pfsConfig: PfsConfig,
+        pfsMerged: PfsMerged,
+        pfsMergedLsf: LsfDict,
+        pfsFluxReference: PfsFluxReference,
+    ) -> FocalPlaneFunction:
         """ Model flux calibration over the focal plane
 
         Parameters
@@ -249,12 +256,12 @@ class FitFluxCalTask(CmdLineTask):
         fluxStdConfig = pfsConfig[np.isin(pfsConfig.fiberId, pfsFluxReference.fiberId)]
         return self.fitFocalPlane.run(calibVectors, fluxStdConfig)
 
-    def forceSpectrumToBePersistable(self, spectrum):
+    def forceSpectrumToBePersistable(self, spectrum: PfsFiberArray) -> None:
         """Force ``spectrum`` to be able to be written to file.
 
         Parameters
         ----------
-        spectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
+        spectrum : `PfsFiberArray`
             An observed spectrum.
         """
         if not (math.isfinite(spectrum.target.ra) and math.isfinite(spectrum.target.dec)):
@@ -269,5 +276,5 @@ class FitFluxCalTask(CmdLineTask):
             spectrum.target.ra = 0
             spectrum.target.dec = 0
 
-    def _getMetadataName(self):
+    def _getMetadataName(self) -> None:
         return None
