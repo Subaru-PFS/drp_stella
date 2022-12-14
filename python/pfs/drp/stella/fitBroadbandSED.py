@@ -154,12 +154,23 @@ class FitBroadbandSEDTask(Task):
         """
         if not (len(filterNames) == len(bbFlux) == len(bbFluxErr)):
             raise ValueError("Lengths of arguments must be equal.")
-        if not filterNames:
+
+        observedFluxes = numpy.asarray(bbFlux, dtype=float)
+        observedNoises = numpy.asarray(bbFluxErr, dtype=float)
+
+        isgood = numpy.isfinite(observedFluxes) & (observedNoises > 0)
+        if not numpy.any(isgood):
             nSEDs = len(self.fluxLibrary)
             return numpy.full(shape=(nSEDs,), fill_value=1.0/nSEDs, dtype=float)
 
+        observedFluxes = observedFluxes[isgood]
+        observedNoises = observedNoises[isgood]
+
         # Convert filter names.
-        filterNames = [self.config.filterMappings.get(f, f) for f in filterNames]
+        filterNames = [
+            self.config.filterMappings.get(f, f) for f, good
+            in zip(filterNames, isgood) if good
+        ]
 
         # Note: fluxLibrary.shape == (nSEDs, nBands)
         fluxLibrary = numpy.lib.recfunctions.structured_to_unstructured(
@@ -167,9 +178,9 @@ class FitBroadbandSEDTask(Task):
         )
 
         # Note: observedFluxes.shape == (1, nBands)
-        observedFluxes = numpy.asarray(bbFlux, dtype=float).reshape(1, -1)
+        observedFluxes = observedFluxes.reshape(1, -1)
         # Note: observedNoises.shape == (1, nBands)
-        observedNoises = numpy.asarray(bbFluxErr, dtype=float).reshape(1, -1)
+        observedNoises = observedNoises.reshape(1, -1)
         # Note: numer.shape == (nSEDs, 1)
         numer = numpy.sum(fluxLibrary * (observedFluxes / (observedNoises**2)), axis=1, keepdims=True)
         # Note: denom.shape == (nSEDs, 1)

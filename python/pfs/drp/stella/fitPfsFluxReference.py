@@ -1033,7 +1033,13 @@ def adjustAbsoluteScale(spectrum, fiberConfig, broadbandFluxType):
 
     obsFlux = np.asarray(obsFlux, dtype=float)
     obsFluxErr = np.asarray(obsFluxErr, dtype=float)
-    filterNames = fiberConfig.filterNames[0]
+
+    isgood = np.isfinite(obsFlux) & (obsFluxErr > 0)
+    obsFlux = obsFlux[isgood]
+    obsFluxErr = obsFluxErr[isgood]
+    filterNames = [
+        f for f, good in zip(fiberConfig.filterNames[0], isgood) if good
+    ]
 
     refFluxList = []
     for filterName in filterNames:
