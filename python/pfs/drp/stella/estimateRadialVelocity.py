@@ -1,5 +1,6 @@
 from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Struct, Task
+from pfs.datamodel import PfsFiberArray, PfsSimpleSpectrum
 from pfs.drp.stella.interpolate import interpolateFlux
 
 import numpy as np
@@ -10,8 +11,7 @@ import math
 
 
 class EstimateRadialVelocityConfig(Config):
-    """Configuration for EstimateRadialVelocityTask
-    """
+    """Configuration for EstimateRadialVelocityTask"""
 
     findMethod = ChoiceField(
         doc="Peak-finding method.",
@@ -21,38 +21,30 @@ class EstimateRadialVelocityConfig(Config):
             "gauss": "Peak of a Gaussian fit to the cross-correlation.",
         },
         default="gauss",
-        optional=False
+        optional=False,
     )
 
-    searchMin = Field(
-        doc="Minimum of searched range of radial velocity, in km/s.",
-        dtype=float,
-        default=-500
-    )
+    searchMin = Field(doc="Minimum of searched range of radial velocity, in km/s.", dtype=float, default=-500)
 
-    searchMax = Field(
-        doc="Maximum of searched range of radial velocity, in km/s.",
-        dtype=float,
-        default=500
-    )
+    searchMax = Field(doc="Maximum of searched range of radial velocity, in km/s.", dtype=float, default=500)
 
     searchStep = Field(
         doc="Step of searched range of radial velocity, in km/s."
-            " The actual step may be slightly smaller than this value.",
+        " The actual step may be slightly smaller than this value.",
         dtype=float,
-        default=5.0
+        default=5.0,
     )
 
     peakRange = Field(
-        doc="Velocity range, in km/s, used in fitting gaussian (valid when `findMethod` = \"gauss\")",
+        doc='Velocity range, in km/s, used in fitting gaussian (valid when `findMethod` = "gauss")',
         dtype=float,
         default=100,
     )
 
     useCovar = Field(
         doc="Whether to use covariance. If False, use variance only."
-            " Covariance used, the returned error bar will be more correct,"
-            " but this task will be far less robust.",
+        " Covariance used, the returned error bar will be more correct,"
+        " but this task will be far less robust.",
         dtype=bool,
         default=True,
     )
@@ -65,13 +57,12 @@ class EstimateRadialVelocityConfig(Config):
 
 
 class EstimateRadialVelocityTask(Task):
-    """Estimate the radial velocity.
-    """
+    """Estimate the radial velocity."""
 
     ConfigClass = EstimateRadialVelocityConfig
     _DefaultName = "estimateRadialVelocity"
 
-    def run(self, spectrum, modelSpectrum):
+    def run(self, spectrum: PfsFiberArray, modelSpectrum: PfsSimpleSpectrum) -> Struct:
         """Get the radial velocity of ``spectrum``
         in comparison with ``modelSpectrum``.
 
@@ -106,21 +97,20 @@ class EstimateRadialVelocityTask(Task):
         searchStep = self.config.searchStep
         searchNum = 1 + int(math.ceil((searchMax - searchMin) / searchStep))
         searchVelocity = np.linspace(searchMin, searchMax, num=searchNum, endpoint=True)
-        beta = searchVelocity / const.c.to('km/s').value
+        beta = searchVelocity / const.c.to("km/s").value
         doppler = np.sqrt((1.0 + beta) / (1.0 - beta))
 
-        goodIndex = (0 == (
-            spectrum.mask &
-            spectrum.flags.get(*(m for m in self.config.mask if m in spectrum.flags))
-        ))
+        goodIndex = 0 == (
+            spectrum.mask & spectrum.flags.get(*(m for m in self.config.mask if m in spectrum.flags))
+        )
         wavelength = spectrum.wavelength[goodIndex]
         flux = spectrum.flux[goodIndex] - 1.0
         variance = spectrum.covar[0][goodIndex]
 
-        goodIndex = (0 == (
-            modelSpectrum.mask &
-            modelSpectrum.flags.get(*(m for m in self.config.mask if m in modelSpectrum.flags))
-        ))
+        goodIndex = 0 == (
+            modelSpectrum.mask
+            & modelSpectrum.flags.get(*(m for m in self.config.mask if m in modelSpectrum.flags))
+        )
         modelWavelength = modelSpectrum.wavelength[goodIndex]
         modelFlux = modelSpectrum.flux[goodIndex] - 1.0
 
@@ -152,14 +142,16 @@ class EstimateRadialVelocityTask(Task):
 
         # Gaussian fit
         if self.config.findMethod == "gauss":
+
             def gauss(v, a, v_est, sigma):
-                return a * np.exp((v - v_est)**2 / (-2*sigma**2))
+                return a * np.exp((v - v_est) ** 2 / (-2 * sigma**2))
 
             iMax = np.argmax(ccf)
             velocity = searchVelocity[iMax]
             coeff = 1.0 / ccf[iMax]
-            fitIndex = (searchVelocity > (velocity - self.config.peakRange / 2)) & \
-                       (searchVelocity < (velocity + self.config.peakRange / 2))
+            fitIndex = (searchVelocity > (velocity - self.config.peakRange / 2)) & (
+                searchVelocity < (velocity + self.config.peakRange / 2)
+            )
             fitVelocity = searchVelocity[fitIndex]
             fitCcf = coeff * ccf[fitIndex]
             scaledModel = scaledModel[fitIndex, :]
@@ -172,8 +164,7 @@ class EstimateRadialVelocityTask(Task):
 
             iniParam = [1.0, velocity, self.config.peakRange]
             pfit, pcov = scipy.optimize.curve_fit(
-                gauss, fitVelocity, fitCcf,
-                sigma=fitCovar, p0=iniParam, absolute_sigma=True
+                gauss, fitVelocity, fitCcf, sigma=fitCovar, p0=iniParam, absolute_sigma=True
             )
 
             return Struct(velocity=pfit[1], error=np.sqrt(pcov[1][1]), crossCorr=crossCorr)

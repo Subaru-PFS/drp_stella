@@ -10,6 +10,13 @@ import astropy.io.fits
 import functools
 import os
 
+try:
+    from numpy.typing import NDArray
+except ImportError:
+    from typing import Sequence
+
+    NDArray = Sequence
+
 
 class FluxModelSet:
     """A set of flux model spectra.
@@ -25,12 +32,12 @@ class FluxModelSet:
         This is typically ``lsst.utils.getPackageDir("fluxmodeldata")``.
     """
 
-    def __init__(self, dirname):
+    def __init__(self, dirname: str) -> None:
         self.dirname = dirname
 
     @property
     @functools.lru_cache()
-    def parameters(self):
+    def parameters(self) -> NDArray:
         """List of available parameters.
 
         This is a numpy structured array, among whose columns are at least
@@ -55,12 +62,12 @@ class FluxModelSet:
         # Field names of "photometries.fits" start with capitals.
         # We make them lower for consistency with parameter names
         # of other methods of this class.
-        parameters = recfunctions.rename_fields(parameters, {
-            key: key.lower() for key in ["Teff", "Logg", "M", "Alpha"]
-        })
+        parameters = recfunctions.rename_fields(
+            parameters, {key: key.lower() for key in ["Teff", "Logg", "M", "Alpha"]}
+        )
         return parameters
 
-    def getFileName(self, *, teff, logg, m, alpha):
+    def getFileName(self, *, teff: float, logg: float, m: float, alpha: float) -> str:
         """Get the name of the file that corresponds to the given arguments.
 
         Parameters
@@ -88,7 +95,7 @@ class FluxModelSet:
         filename = "spectra/fluxmodel_%(teff)d_g_%(logg).2f_z_%(m).2f_a_%(alpha).1f.fits" % args
         return os.path.join(self.dirname, filename)
 
-    def getSpectrum(self, teff, logg, m, alpha):
+    def getSpectrum(self, teff: float, logg: float, m: float, alpha: float) -> PfsSimpleSpectrum:
         """Get the spectrum that corresponds to the given arguments.
 
         Parameters
@@ -110,7 +117,7 @@ class FluxModelSet:
         path = self.getFileName(teff=teff, logg=logg, m=m, alpha=alpha)
         return self.readSpectrum(path)
 
-    def readSpectrum(self, path):
+    def readSpectrum(self, path: str) -> PfsSimpleSpectrum:
         """Read the file at ``path``.
 
         Parameters

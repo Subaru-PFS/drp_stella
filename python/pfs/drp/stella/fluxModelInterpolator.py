@@ -5,6 +5,7 @@ from pfs.drp.stella.datamodel.pfsFiberArray import PfsSimpleSpectrum
 
 import astropy.io.fits
 import numpy as np
+import scipy.interpolate
 
 import os
 import pickle
@@ -43,15 +44,16 @@ class FluxModelInterpolator:
     """
 
     def __init__(
-            self,
-            interpolator,
-            teffScale,
-            loggScale,
-            mScale,
-            alphaScale,
-            fluxScale,
-            lenWavelength,
-            wcs):
+        self,
+        interpolator: scipy.interpolate.RBFInterpolator,
+        teffScale: float,
+        loggScale: float,
+        mScale: float,
+        alphaScale: float,
+        fluxScale: float,
+        lenWavelength: int,
+        wcs: astropy.io.fits.Header,
+    ) -> None:
         self.interpolator = interpolator
         self.teffScale = teffScale
         self.loggScale = loggScale
@@ -61,7 +63,7 @@ class FluxModelInterpolator:
         self.wavelength = WavelengthArray.fromFitsHeader(wcs, lenWavelength, dtype=float)
 
     @classmethod
-    def fromFluxModelData(cls, path):
+    def fromFluxModelData(cls, path: str) -> "FluxModelInterpolator":
         """Read the RBF model in ``fluxmodeldata`` package.
 
         The RBF model must be generated in advance
@@ -79,13 +81,11 @@ class FluxModelInterpolator:
         """
         filePath = os.path.join(path, "interpolator.pickle")
         if not os.path.exists(filePath):
-            raise RuntimeError(
-                f"'{filePath}' not found. Run `makeFluxModelInterpolator.py` to generate it."
-            )
+            raise RuntimeError(f"'{filePath}' not found. Run `makeFluxModelInterpolator.py` to generate it.")
         return cls.fromPickle(filePath)
 
     @classmethod
-    def fromPickle(cls, path):
+    def fromPickle(cls, path: str) -> "FluxModelInterpolator":
         """Read an RBF model from a pickle file.
 
         Parameters
@@ -112,7 +112,7 @@ class FluxModelInterpolator:
                 astropy.io.fits.Header.fromstring(obj["wcs"]),
             )
 
-    def interpolate(self, teff, logg, m, alpha):
+    def interpolate(self, teff: float, logg: float, m: float, alpha: float) -> PfsSimpleSpectrum:
         """Generate an interpolated spectrum at a given parameter point.
 
         Parameters
