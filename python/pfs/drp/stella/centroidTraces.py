@@ -26,7 +26,7 @@ class CentroidTracesConfig(Config):
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
-    threshold = Field(dtype=float, default=50.0, doc="Signal-to-noise threshold for trace")
+    threshold = Field(dtype=float, default=20.0, doc="Signal-to-noise threshold for trace")
     searchRadius = Field(dtype=float, default=1, doc="Radius about the expected peak to search")
 
 
