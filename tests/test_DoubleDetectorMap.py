@@ -239,7 +239,6 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
             self.assertDoubleDetectorMapsEqual(detMap, copy)
 
     @methodParameters(arm=("r", "m"))
-    @lsst.utils.tests.debugger(Exception)
     def testFit(self, arm):
         """Test FitDistortedDetectorMapTask
 

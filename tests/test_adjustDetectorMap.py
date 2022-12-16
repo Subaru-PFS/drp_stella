@@ -109,7 +109,6 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                       numLines=(50, 0, 50),
                       traceTol=(0.05, 0.005, 0.07),
                       )
-    @lsst.utils.tests.debugger(Exception)
     def testAdjustment(self, flatFlux=1000, numLines=0, arcFlux=10000, traceTol=1.0e-2):
         """Test adjustment of a detectorMap
 
