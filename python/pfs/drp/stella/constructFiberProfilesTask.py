@@ -43,7 +43,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
     traceSpectralError = Field(dtype=float, default=1.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
-    mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
+    mask = ListField(dtype=str, default=["BAD_FLAT", "BAD", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
     fiberStatus = ListField(
@@ -142,6 +142,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         calib = self.combination.run(dataRefList, expScales=struct.scales.expScales,
                                      finalScale=struct.scales.ccdScale)
         exposure = afwImage.makeExposure(calib)
+        exposure.mask.array &= ~exposure.mask.getPlaneBitMask(self.config.mask)
 
         visitInfo = dataRefList[0].get("postISRCCD_visitInfo")
         exposure.getInfo().setVisitInfo(visitInfo)

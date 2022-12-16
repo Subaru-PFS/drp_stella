@@ -26,7 +26,7 @@ colors = ["red", "green", "blue", "cyan", "magenta", "yellow", "orange"]
 
 class BuildFiberProfilesConfig(Config):
     """Configuration for BuildFiberProfilesTask"""
-    mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
+    mask = ListField(dtype=str, default=["CR", "BAD", "SAT", "NO_DATA"], doc="Mask planes to ignore")
     doBlindFind = Field(dtype=bool, default=True, doc="Find traces without using DetectorMap?")
     columnFwhm = Field(dtype=float, default=2.0, doc="Typical FWHM across columns (spatial dimension)")
     rowFwhm = Field(dtype=float, default=3.0, doc="Typical FWHM across rows (spectral dimension)")
