@@ -171,7 +171,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         fluxErr = flux / bbSnr
 
         pfsDesignId = 0
-        visit0 = 0
+        visit = 0
         raBoresight = 0.0
         decBoresight = 0.0
         posAng = 0.0
@@ -201,7 +201,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
 
         return PfsConfig(
             pfsDesignId,
-            visit0,
+            visit,
             raBoresight,
             decBoresight,
             posAng,

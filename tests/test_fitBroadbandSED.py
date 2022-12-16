@@ -57,7 +57,7 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
 
         pfsConfig = PfsConfig(
             pfsDesignId=1,
-            visit0=1,
+            visit=1,
             raBoresight=1.0,
             decBoresight=1.0,
             posAng=1.0,
