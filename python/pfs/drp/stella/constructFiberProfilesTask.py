@@ -46,6 +46,11 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
+    fiberStatus = ListField(
+        dtype=str,
+        default=["GOOD", "BROKENFIBER"],
+        doc="Fiber status for which to build profiles",
+    )
     targetType = ListField(
         dtype=str,
         default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
@@ -149,7 +154,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         detMap = dataRefList[0].get('detectorMap')
         pfsConfig = dataRefList[0].get("pfsConfig")
-        pfsConfig = pfsConfig.select(fiberStatus=FiberStatus.GOOD,
+        fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
+        pfsConfig = pfsConfig.select(fiberStatus=fiberStatus,
                                      targetType=[TargetType.fromString(tt) for
                                                  tt in self.config.targetType],
                                      fiberId=detMap.fiberId)
@@ -172,8 +178,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         self.log.info('%d fiber profiles found on combined flat', len(profiles))
 
         if self.config.forceFiberIds:
-            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
-            fiberId = detMap.fiberId[indices].copy()
+            fiberId = pfsConfig.select(fiberStatus=fiberStatus, fiberId=detMap.fiberId).fiberId.copy()
             fiberId.sort()  # The profiles.fiberId is sorted too, so this gets us the same order
             if len(fiberId) != len(profiles):
                 raise RuntimeError(f"Found {len(profiles)} fibers but expected {len(fiberId)}")
