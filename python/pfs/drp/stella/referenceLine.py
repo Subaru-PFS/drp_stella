@@ -28,6 +28,8 @@ class ReferenceLineStatus(Bitmask):
     MERGED = 0x100, "Line has been merged into another"
     COMBINED = 0x200, "Line created from MERGED lines"
     PROTECTED = 0x400, "Line is protected from discard by exclusion zone"
+    LAM_FOCUS = 0x800, "Line is used by LAM for detector focus purposes"
+    LAM_IMAGEQUALITY = 0x1000, "Line is used by LAM for image quality measurement"
     BAD = 0x01F, "Line is bad for any reason"
 
     @classmethod
