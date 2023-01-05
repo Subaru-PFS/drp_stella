@@ -269,7 +269,7 @@ class FitDistortedDetectorMapConfig(Config):
         doc="Maximum fraction of lines that may be rejected in a single iteration",
     )
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
-    weightings = DictField(keytype=str, itemtype=float, default={"Trace": 1.0e-3},
+    weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
     exclusionRadius = Field(dtype=float, default=4,

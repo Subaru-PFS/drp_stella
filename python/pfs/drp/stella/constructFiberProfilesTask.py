@@ -13,7 +13,7 @@ from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import FiberProfileSet
-from .background import BackgroundTask
+from .background import DichroicBackgroundTask
 from .extractSpectraTask import ExtractSpectraTask
 
 
@@ -31,7 +31,7 @@ class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
 class ConstructFiberProfilesConfig(SpectralCalibConfig):
     """Configuration for FiberTrace construction"""
     doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
-    background = ConfigurableField(target=BackgroundTask, doc="Task to subtract background")
+    background = ConfigurableField(target=DichroicBackgroundTask, doc="Task to subtract background")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
     requireZeroDither = Field(
         dtype=bool,
@@ -60,7 +60,6 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
         doc="Target type for which to build profiles",
     )
-    background = ConfigurableField(target=BackgroundTask, doc="Subtract background")
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra")
 
     def setDefaults(self):
@@ -164,14 +163,14 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         detMap = dataRefList[0].get('detectorMap')
         pfsConfig = dataRefList[0].get("pfsConfig")
         fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
-        pfsConfig = pfsConfig.select(fiberStatus=fiberStatus,
-                                     targetType=[TargetType.fromString(tt) for
-                                                 tt in self.config.targetType],
-                                     fiberId=detMap.fiberId)
+        pfsConfigGood = pfsConfig.select(fiberStatus=fiberStatus,
+                                         targetType=[TargetType.fromString(tt) for
+                                                     tt in self.config.targetType],
+                                         fiberId=detMap.fiberId)
         self.config.slitOffsets.apply(detMap, self.log)
 
         if self.config.doAdjustDetectorMap:
-            traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
+            traces = self.centroidTraces.run(exposure, detMap, pfsConfigGood)
             lines = tracesToLines(detMap, traces, self.config.traceSpectralError)
             detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
@@ -184,14 +183,14 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         )
 
         if self.config.doBackground:
-            self.background.run(exposure.maskedImage, detMap)
+            self.background.run(exposure.maskedImage, identity.arm, detMap, pfsConfig)
 
-        results = self.profiles.run(exposure, identity=identity, detectorMap=detMap, pfsConfig=pfsConfig)
+        results = self.profiles.run(exposure, identity=identity, detectorMap=detMap, pfsConfig=pfsConfigGood)
         profiles = results.profiles
         self.log.info('%d fiber profiles found on combined flat', len(profiles))
 
         if self.config.forceFiberIds:
-            fiberId = pfsConfig.select(fiberStatus=fiberStatus, fiberId=detMap.fiberId).fiberId.copy()
+            fiberId = pfsConfigGood.select(fiberStatus=fiberStatus, fiberId=detMap.fiberId).fiberId.copy()
             fiberId.sort()  # The profiles.fiberId is sorted too, so this gets us the same order
             if len(fiberId) != len(profiles):
                 raise RuntimeError(f"Found {len(profiles)} fibers but expected {len(fiberId)}")

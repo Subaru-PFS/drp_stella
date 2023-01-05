@@ -224,7 +224,7 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     /// Not persistable because we haven't written the persistence code
     bool isPersistable() const noexcept override { return false; }
 
-  private:
+  protected:
 
     /// Initialize values used for normalization
     void _initialize(lsst::geom::Box2D const& range) {
