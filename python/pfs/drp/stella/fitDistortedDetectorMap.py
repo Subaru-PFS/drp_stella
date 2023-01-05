@@ -945,8 +945,9 @@ class FitDistortedDetectorMapTask(Task):
             yErr = np.where(lines.description[select] == "Trace", np.inf,
                             np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select])
 
+        notTrace = lines.description[select] != "Trace"
         distortion = Distortion.fit(self.config.order, Box2D(bbox), xBase, yBase,
-                                    xx, yy, xErr, yErr, fitStatic, self.config.lsqThreshold)
+                                    xx, yy, xErr, yErr, notTrace, fitStatic, self.config.lsqThreshold)
 
         return calculateFitStatistics(distortion(lines.xBase, lines.yBase), lines, select,
                                       distortion.getNumParameters(), soften, distortion=distortion)

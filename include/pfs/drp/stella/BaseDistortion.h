@@ -87,6 +87,7 @@ class BaseDistortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
+        ndarray::Array<bool, 1, 1> const& useForWavelength,
         bool fitStatic=true,
         double threshold=1.0e-6
     );
