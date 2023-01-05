@@ -186,6 +186,7 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
+    ndarray::Array<bool, 1, 1> const& useForWavelength,
     bool fitStatic,
     double threshold
 ) {

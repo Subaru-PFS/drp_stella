@@ -222,11 +222,44 @@ struct FitData {
     //
     // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
     // @return Solutions in x and y.
-    std::pair<Array1D, Array1D> getSolution(double threshold=1.0e-6) const {
+    std::pair<Array1D, Array1D> getSolution(
+        ndarray::Array<bool, 1, 1> const& useForWavelength,
+        double threshold=1.0e-6
+    ) const {
         assert(index == length);
+        assert(useForWavelength.size() == length);
+
+        auto xSolution = math::solveLeastSquaresDesign(design, xMeas, xErr, threshold);
+
+        std::size_t const numWavelength = std::count_if(
+            useForWavelength.begin(),
+            useForWavelength.end(),
+            [](bool ss) { return ss; }
+        );
+
+        if (numWavelength == 0) {
+            Array1D ySolution = utils::arrayFilled<double, 1, 1>(poly.getNParameters(), 0.0);
+            return std::make_pair(xSolution, ySolution);
+        }
+        if (numWavelength == length) {
+            Array1D ySolution = math::solveLeastSquaresDesign(design, yMeas, yErr, threshold);
+            return std::make_pair(xSolution, ySolution);
+        }
+
+        ndarray::Array<double, 2, 1> yDesign = ndarray::allocate(numWavelength, poly.getNParameters());
+        ndarray::Array<double, 1, 1> yMeasUse = ndarray::allocate(numWavelength);
+        ndarray::Array<double, 1, 1> yErrUse = ndarray::allocate(numWavelength);
+        for (std::size_t ii = 0, jj = 0; ii < length; ++ii) {
+            if (!useForWavelength[ii]) continue;
+            std::copy(design[ii].begin(), design[ii].end(), yDesign[jj].begin());
+            yMeasUse[jj] = yMeas[ii];
+            yErrUse[jj] = yErr[ii];
+            ++jj;
+        }
+
         return std::make_pair(
-            math::solveLeastSquaresDesign(design, xMeas, xErr, threshold),
-            math::solveLeastSquaresDesign(design, yMeas, yErr, threshold)
+            xSolution,
+            math::solveLeastSquaresDesign(yDesign, yMeasUse, yErrUse, threshold)
         );
     }
 
@@ -255,6 +288,7 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
+    ndarray::Array<bool, 1, 1> const& useForWavelength,
     bool fitStatic,
     double threshold
 ) {
@@ -266,6 +300,7 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     utils::checkSize(yMeas.size(), length, "yMeas");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
+    utils::checkSize(useForWavelength.getNumElements(), length, "useForWavelength");
 
     double const xCenter = range.getCenterX();
     ndarray::Array<bool, 1, 1> onLeftCcd = ndarray::allocate(length);
