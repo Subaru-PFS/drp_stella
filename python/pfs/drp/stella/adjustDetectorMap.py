@@ -64,13 +64,13 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
         Distortion = type(base.distortion)
         needNumLines = Distortion.getNumParametersForOrder(self.config.order)
+        dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         numGoodLines = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()).sum()
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
-            dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
                                      seed=seed, fitStatic=False, Distortion=type(base.getDistortion()))
@@ -85,7 +85,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines.status[fit.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
-            self.plotResiduals(residuals, fit.xResid, fit.yResid, fit.selection, fit.reserved)
+            self.plotResiduals(residuals, fit.xResid, fit.yResid, fit.selection, fit.reserved, dispersion)
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
