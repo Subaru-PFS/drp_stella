@@ -347,12 +347,12 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
+        dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
-            dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             results = self.fitDistortion(bbox, residuals, weights, dispersion, seed=visitInfo.id)
             reserved = results.reserved
             detectorMap = self.DetectorMap(base, results.distortion, visitInfo, metadata)
@@ -371,7 +371,8 @@ class FitDistortedDetectorMapTask(Task):
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
-            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved)
+            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved,
+                               dispersion)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, detectorMap)
@@ -751,7 +752,8 @@ class FitDistortedDetectorMapTask(Task):
             the measurement errors, and should be the square root of the usual
             weighting applied to the Fisher matrix.
         dispersion : `float`
-            Wavelength dispersion (nm/pixel); for interpreting RMS in logging.
+            Wavelength dispersion (nm/pixel); for interpreting RMS in logging
+            and plotting.
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
         fitStatic : `bool`, optional
@@ -800,6 +802,9 @@ class FitDistortedDetectorMapTask(Task):
 
         used = good & ~reserved
         result = None
+        if self.debugInfo.residuals:
+            self.plotResiduals(lines, lines.x, lines.y, used, reserved, dispersion)
+
         for ii in range(self.config.iterations):
             result = self.fitModel(bbox, lines, used, weights, fitStatic=fitStatic, Distortion=Distortion)
             self.log.debug(
@@ -811,7 +816,7 @@ class FitDistortedDetectorMapTask(Task):
             if self.debugInfo.plot:
                 self.plotModel(lines, used, result)
             if self.debugInfo.residuals:
-                self.plotResiduals(lines, result.xResid, result.yResid, used, reserved)
+                self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
                 newUsed = good & ~reserved
                 if self.config.doSlitOffsets:
@@ -880,7 +885,7 @@ class FitDistortedDetectorMapTask(Task):
         if self.debugInfo.distortion:
             self.plotDistortion(result.distortion, lines, used)
         if self.debugInfo.residuals:
-            self.plotResiduals(lines, result.xResid, result.yResid, used, reserved)
+            self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
         return result
 
     def fitModel(self, bbox, lines, select, weights, soften=None, fitStatic=True, Distortion=None):
@@ -1331,7 +1336,7 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, lines, dx, dy, used, reserved):
+    def plotResiduals(self, lines, dx, dy, used, reserved, dispersion):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
@@ -1346,12 +1351,14 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
+        dispersion : `float`
+            Wavelength dispersion (nm/pixel).
         """
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
 
-        good = self.getGoodLines(lines) & np.isfinite(dx) & np.isfinite(dy)
+        good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
