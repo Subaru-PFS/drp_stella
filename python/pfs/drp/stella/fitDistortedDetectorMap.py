@@ -13,7 +13,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable, Column
-from pfs.drp.stella import DetectorMap
+from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
 from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
 from pfs.drp.stella import PolynomialDetectorMap, PolynomialDistortion
 from .applyExclusionZone import getExclusionZone
@@ -362,7 +362,7 @@ class FitDistortedDetectorMapTask(Task):
                 bbox, residuals, weights, dispersion, seed=visitInfo.id, Distortion=Distortion
             )
             reserved = results.reserved
-            detectorMap = DetectorMap(base, results.distortion, visitInfo, metadata)
+            detectorMap = MultipleDistortionsDetectorMap(base, [results.distortion], visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
                 detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
@@ -818,7 +818,7 @@ class FitDistortedDetectorMapTask(Task):
             Seed for random number generator used for selecting reserved lines.
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        Distortion : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
@@ -970,7 +970,7 @@ class FitDistortedDetectorMapTask(Task):
             (pixels).
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        Distortion : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
@@ -1307,7 +1307,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Parameters
         ----------
-        distortion : `pfs.drp.stella.BaseDistortion`
+        distortion : `pfs.drp.stella.Distortion`
             Distortion model.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.

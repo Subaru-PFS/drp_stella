@@ -1,9 +1,10 @@
-import numpy as np
-
-from lsst.geom import Box2D
+from lsst.pex.config import Field
 
 from . import SplinedDetectorMap
 from . import ReferenceLineStatus
+from .DoubleDetectorMapContinued import DoubleDetectorMap
+from .DistortedDetectorMapContinued import DistortedDetectorMap
+from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
@@ -11,6 +12,8 @@ __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
+    fitStatic = Field(dtype=bool, default=False, doc="Fit static terms?")
+
     def setDefaults(self):
         super().setDefaults()
         self.order = 2  # Fit low-order coefficients only
@@ -72,8 +75,9 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
-            fit = self.fitDistortion(detectorMap.bbox, residuals, weights, dispersion,
-                                     seed=seed, fitStatic=False, Distortion=type(base.getDistortion()))
+            fit = self.fitDistortion(
+                detectorMap.bbox, residuals, weights, dispersion, seed=seed, fitStatic=self.config.fitStatic
+            )
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
@@ -114,22 +118,20 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         """
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
+        # Promote other detectorMap classes to MultipleDistortionsDetectorMap
         if isinstance(detectorMap, SplinedDetectorMap):
-            # Promote SplinedDetectorMap to the appropriate distorted version
-            Class = self.getDetectorMapClass(arm)
-            Distortion = self.getDistortionClass(arm)
-            numCoeff = Distortion.getNumParametersForOrder(self.config.order)
-            coeff = np.zeros(numCoeff, dtype=float)
-            distortion = Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)
+            distortions = []
+            base = detectorMap
+        elif isinstance(detectorMap, (DoubleDetectorMap, DistortedDetectorMap)):
+            distortions = [detectorMap.distortion.clone()]
+            base = detectorMap.base
+        elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
+            distortions = detectorMap.distortions
+            base = detectorMap.base
         else:
-            # Use what we've been given, after zeroing out the low-order coefficients
-            distortion = detectorMap.distortion.removeLowOrder(self.config.order)
-            Class = type(detectorMap)
-            Expected = self.getDetectorMapClass(arm)
-            if Class != Expected:
-                self.log.warn("Using %s instead of %s", Class, Expected)
-            detectorMap = detectorMap.base
-        return Class(detectorMap, distortion, visitInfo, metadata)
+            distortions = [dd.clone() for dd in detectorMap.distortions]
+            base = detectorMap.base
+        return MultipleDistortionsDetectorMap(base, distortions, visitInfo, metadata)
 
     def constructAdjustedDetectorMap(self, base, distortion):
         """Construct an adjusted detectorMap
@@ -139,17 +141,16 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         Parameters
         ----------
-        base : `pfs.drp.stella.DistortionBasedDetectorMap`
+        base : `pfs.drp.stella.MultipleDistortionsDetectorMap`
             Mapping from fiberId,wavelength --> x,y with low-order coefficients
             zeroed out.
-        distortion : `pfs.drp.stella.BaseDistortion`
+        distortion : `pfs.drp.stella.Distortion`
             Low-order distortion to apply.
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DistortionBasedDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y with both low- and
             high-order coefficients set.
         """
-        return type(base)(base.getBase(), base.getDistortion().merge(distortion),
-                          base.visitInfo, base.metadata)
+        return type(base)(base.base, [distortion] + base.distortions, base.visitInfo, base.metadata)

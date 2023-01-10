@@ -103,37 +103,6 @@ lsst::geom::Point2D DetectorDistortion::evaluate(
 }
 
 
-DetectorDistortion DetectorDistortion::removeLowOrder(int order) const {
-    Array1D xDistortion = getXCoefficients();
-    Array1D yDistortion = getYCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-    xDistortion[ndarray::view(0, num)] = 0.0;
-    yDistortion[ndarray::view(0, num)] = 0.0;
-    
-    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
-}
-
-
-DetectorDistortion DetectorDistortion::merge(DetectorDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xDistortion = getXCoefficients();
-    Array1D yDistortion = getYCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xDistortion[ndarray::view(0, numOther)] = other.getXCoefficients();
-    yDistortion[ndarray::view(0, numOther)] = other.getYCoefficients();
-
-    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
-}
-
-
 ndarray::Array<double, 1, 1> DetectorDistortion::getXCoefficients() const {
     return ndarray::copy(utils::vectorToArray(getXDistortion().getParameters()));
 }

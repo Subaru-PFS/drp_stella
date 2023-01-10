@@ -30,6 +30,7 @@ scripts.BasicSConscript.pybind11(
      'PolynomialDistortion',
      'PolynomialDetectorMap',
      'Distortion',
+     'MultipleDistortionsDetectorMap',
      ],
     addUnderscore=False
 )
