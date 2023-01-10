@@ -419,7 +419,7 @@ class FitDistortedDetectorMapTask(Task):
         def getCounts():
             """Provide a list of counts of different species"""
             if self.log.isEnabledFor(self.log.DEBUG):
-                counts = Counter((ll.description for ll in lines[good]))
+                counts = Counter(lines.description[good])
                 return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
             return ""
 
