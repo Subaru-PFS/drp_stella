@@ -29,6 +29,7 @@ scripts.BasicSConscript.pybind11(
      'makeFootprint',
      'PolynomialDistortion',
      'PolynomialDetectorMap',
+     'Distortion',
      ],
     addUnderscore=False
 )

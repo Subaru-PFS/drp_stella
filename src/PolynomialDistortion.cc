@@ -14,7 +14,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/PolynomialDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -36,13 +36,13 @@ PolynomialDistortion::PolynomialDistortion(
     lsst::geom::Box2D const& range,
     PolynomialDistortion::Array1D const& xCoeff,
     PolynomialDistortion::Array1D const& yCoeff
-) : BaseDistortion<PolynomialDistortion>(order, range, joinCoefficients(order, xCoeff, yCoeff)),
+) : AnalyticDistortion<PolynomialDistortion>(order, range, joinCoefficients(order, xCoeff, yCoeff)),
     _xPoly(xCoeff, range),
     _yPoly(yCoeff, range)
 {}
 
 
-template<> std::size_t BaseDistortion<PolynomialDistortion>::getNumParametersForOrder(int order) {
+template<> std::size_t AnalyticDistortion<PolynomialDistortion>::getNumParametersForOrder(int order) {
     return 2*PolynomialDistortion::getNumDistortionForOrder(order);
 }
 
@@ -90,38 +90,6 @@ lsst::geom::Point2D PolynomialDistortion::evaluate(
                            xx % yy % getRange()).str());
     }
     return lsst::geom::Point2D(getXPoly()(xx, yy), getYPoly()(xx, yy));
-}
-
-
-PolynomialDistortion PolynomialDistortion::removeLowOrder(int order) const {
-    Array1D xCoeff = getXCoefficients();
-    Array1D yCoeff = getYCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-
-    xCoeff[ndarray::view(0, num)] = 0.0;
-    yCoeff[ndarray::view(0, num)] = 0.0;
-
-    return PolynomialDistortion(getOrder(), getRange(), xCoeff, yCoeff);
-}
-
-
-PolynomialDistortion PolynomialDistortion::merge(PolynomialDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xCoeff = getXCoefficients();
-    Array1D yCoeff = getYCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xCoeff[ndarray::view(0, numOther)] = other.getXCoefficients();
-    yCoeff[ndarray::view(0, numOther)] = other.getYCoefficients();
-
-    return PolynomialDistortion(getOrder(), getRange(), xCoeff, yCoeff);
 }
 
 
@@ -229,7 +197,7 @@ struct FitData {
 
 
 template<>
-PolynomialDistortion BaseDistortion<PolynomialDistortion>::fit(
+PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -333,7 +301,7 @@ PolynomialDistortion::Factory registration("PolynomialDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<PolynomialDistortion>;
+template class AnalyticDistortion<PolynomialDistortion>;
 
 
 }}}  // namespace pfs::drp::stella

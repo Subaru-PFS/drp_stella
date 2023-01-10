@@ -6,10 +6,9 @@
 
 #include "lsst/geom/Box.h"
 #include "lsst/geom/Point.h"
-#include "lsst/afw/table/io/Persistable.h"
 
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
-#include "pfs/drp/stella/BaseDistortion.h"
+#include "pfs/drp/stella/Distortion.h"
 #include "pfs/drp/stella/PolynomialDistortion.h"
 
 namespace pfs {
@@ -25,31 +24,31 @@ namespace stella {
 /// The model parameters are:
 /// * xLeft, yLeft: 2D polynomial distortion field coefficients for left CCD.
 /// * xRight, yRight: 2D polynomial distortion field coefficients for right CCD.
-class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::afw::table::io::Persistable {
+class DoubleDistortion : public AnalyticDistortion<DoubleDistortion> {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
     /// Ctor
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param order : polynomial order for distortion
     /// @param range : range of input values in x and y
     /// @param coeff : distortion coefficients
     DoubleDistortion(
-        int distortionOrder,
+        int order,
         lsst::geom::Box2D const& range,
         Array1D const& coeff
     );
 
     /// Ctor
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param order : polynomial order for distortion
     /// @param range : range of input values in x and y
     /// @param xLeft : distortion field parameters for x, left CCD
     /// @param yLeft : distortion field parameters for y, left CCD
     /// @param xRight : distortion field parameters for x, right CCD
     /// @param yRight : distortion field parameters for y, right CCD
     DoubleDistortion(
-        int distortionOrder,
+        int order,
         lsst::geom::Box2D const& range,
         Array1D const& xLeft,
         Array1D const& yLeft,
@@ -119,16 +118,13 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
     //@}
 
 
-    bool isPersistable() const noexcept { return true; }
-
     class Factory;
 
   protected:
     friend std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model);
 
-    std::string getPersistenceName() const { return "DoubleDistortion"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    virtual std::string getPersistenceName() const override { return "DoubleDistortion"; }
+    virtual void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
   private:
     // Calculation parameters
@@ -140,7 +136,7 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
     ///
     /// @param order : Distortion order
     /// @param coeff : Coefficients array
-    /// @return xLeft, yLeft, xRight, yRight coefficients as columns
+    /// @return xLeft, yLeft, xRight, yRight coefficients as columns for distortion
     static Array2D splitCoefficients(int order, Array1D const& coeff);
 
     /// Join separate (x/y)(Left/Right) coefficient arrays into a single array
@@ -149,7 +145,7 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
     /// @param xLeft : distortion coefficients in x for left CCD
     /// @param yLeft : distortion coefficients in y for left CCD
     /// @param xRight : distortion coefficients in x for right CCD
-    /// @param xRight : distortion coefficients in x for right CCD
+    /// @param yRight : distortion coefficients in x for right CCD
     /// @return single coefficients array
     static Array1D joinCoefficients(
         int order,
@@ -164,16 +160,14 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
     /// Construct from the 2D array representation of the coefficients (output
     /// of splitCoefficients).
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param order : polynomial order for distortion
     /// @param range : range of input values in x and y
-    /// @param coeff : 2D coefficients array (output of splitCoefficients)
+    /// @param coeff : 2D coefficients arrays (output of splitCoefficients)
     DoubleDistortion(
         int order,
         lsst::geom::Box2D const& range,
         Array2D const& coeff
-    ) : DoubleDistortion(order, range, coeff[ndarray::view(0)], coeff[ndarray::view(1)],
-                         coeff[ndarray::view(2)], coeff[ndarray::view(3)])
-    {}
+    );
 
 };
 

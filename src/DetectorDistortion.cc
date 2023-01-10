@@ -13,7 +13,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/DetectorDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -28,18 +28,21 @@ DetectorDistortion::DetectorDistortion(
     DetectorDistortion::Array1D const& xDistortion,
     DetectorDistortion::Array1D const& yDistortion,
     DetectorDistortion::Array1D const& rightCcd
-) : BaseDistortion<DetectorDistortion>(order, range,
+) : AnalyticDistortion<DetectorDistortion>(order, range,
                                        joinCoefficients(order, xDistortion, yDistortion, rightCcd)),
     _xDistortion(xDistortion, range),
     _yDistortion(yDistortion, range),
     _rightCcd()
 {
+    utils::checkSize(xDistortion.size(), getNumDistortionForOrder(order), "xDistortion");
+    utils::checkSize(yDistortion.size(), getNumDistortionForOrder(order), "yDistortion");
+    utils::checkSize(rightCcd.size(), 6UL, "rightCcd");
     _rightCcd.setParameterVector(ndarray::asEigenArray(rightCcd));
 }
 
 
 template<>
-std::size_t BaseDistortion<DetectorDistortion>::getNumParametersForOrder(int order) {
+std::size_t AnalyticDistortion<DetectorDistortion>::getNumParametersForOrder(int order) {
     return 2*DetectorDistortion::getNumDistortionForOrder(order) + 6;
 }
 
@@ -177,7 +180,7 @@ std::ostream& operator<<(std::ostream& os, DetectorDistortion const& model) {
 
 
 template<>
-DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
+DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -327,7 +330,7 @@ DetectorDistortion::Factory registration("DetectorDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<DetectorDistortion>;
+template class AnalyticDistortion<DetectorDistortion>;
 
 
 }}}  // namespace pfs::drp::stella

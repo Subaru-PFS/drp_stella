@@ -16,7 +16,7 @@ namespace {
 
 void declareDetectorDistortion(py::module & mod) {
     using Class = DetectorDistortion;
-    auto cls = python::wrapDistortion<Class>(mod, "DetectorDistortion");
+    auto cls = python::wrapAnalyticDistortion<Class>(mod, "DetectorDistortion");
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
             "distortionOrder"_a, "range"_a, "coeff"_a);
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
