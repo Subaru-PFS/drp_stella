@@ -4,6 +4,10 @@
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
+#include "Minuit2/FunctionMinimum.h"
+#include "Minuit2/MnMigrad.h"
+#include "Minuit2/FCNBase.h"
+
 #include "lsst/afw/table.h"
 #include "lsst/afw/table/io/OutputArchive.h"
 #include "lsst/afw/table/io/InputArchive.h"
@@ -287,6 +291,169 @@ struct FitData {
 };
 
 
+/// Minimization function for fitting supplementary distortion
+///
+/// When fitting the supplementary distortion, we want to use a common
+/// first-order parameter for the x and y polynomials (for both left and right
+/// CCDs), corresponding to a scale change (e.g., due to a slight change in
+/// focus). This makes the problem non-linear, so we use a non-linear minimizer
+/// rather than a matrix inversion. Since the supplementary distortion should
+/// be low-order, this shouldn't adversely affect the runtime compared to the
+/// linear fit.
+class MinimizationFunction : public ROOT::Minuit2::FCNBase {
+  public:
+
+    /// Ctor
+    ///
+    /// @param order : Polynomial order in x and y
+    /// @param range : Box enclosing all x,y coordinates
+    /// @param xx : Expected x coordinates
+    /// @param yy : Expected y coordinates
+    /// @param xMeas : Measured x coordinates
+    /// @param yMeas : Measured y coordinates
+    /// @param xErr : Error in measured x coordinates
+    /// @param yErr : Error in measured y coordinates
+    /// @param useForWavelength : Whether to use this point for wavelength (y) fit
+    explicit MinimizationFunction(
+        int order,
+        lsst::geom::Box2D const& range,
+        ndarray::Array<double, 1, 1> const& xx,
+        ndarray::Array<double, 1, 1> const& yy,
+        ndarray::Array<double, 1, 1> const& xMeas,
+        ndarray::Array<double, 1, 1> const& yMeas,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr,
+        ndarray::Array<bool, 1, 1> const& useForWavelength
+    ) : _order(order),
+        _range(range),
+        _numData(xx.getNumElements()),
+        _numParams(DoubleDistortion::getNumDistortionForOrder(order)),
+        _x(xx),
+        _y(yy),
+        _xMeas(xMeas),
+        _yMeas(yMeas),
+        _xErr(xErr),
+        _yErr(yErr),
+        _useForWavelength(useForWavelength),
+        _xLeft(ndarray::allocate(_numParams)),
+        _yLeft(ndarray::allocate(_numParams)),
+        _xRight(ndarray::allocate(_numParams)),
+        _yRight(ndarray::allocate(_numParams))
+    {
+        assert(yy.getNumElements() == _numData);
+        assert(xMeas.getNumElements() == _numData);
+        assert(yMeas.getNumElements() == _numData);
+        assert(xErr.getNumElements() == _numData);
+        assert(yErr.getNumElements() == _numData);
+        assert(useForWavelength.getNumElements() == _numData);
+    }
+
+    MinimizationFunction(MinimizationFunction const &) = default;
+    MinimizationFunction(MinimizationFunction &&) = default;
+    MinimizationFunction &operator=(MinimizationFunction const &) = default;
+    MinimizationFunction &operator=(MinimizationFunction &&) = default;
+    ~MinimizationFunction() override = default;
+
+    /// Get number of parameters being fit
+    ///
+    /// This is different from the number of parameters for the distortion,
+    /// since we are fitting a common scale factor for the x/y and left/right
+    /// polynomials.
+    std::size_t getNumFitParameters() const;
+
+    /// Construct a DoubleDistortion from the fit parameters
+    DoubleDistortion makeDistortion(std::vector<double> const& parameters) const;
+
+    double operator()(std::vector<double> const& parameters) const override;
+    double Up() const override { return 1.0; }  // 1.0 --> fitting chi^2
+
+  private:
+    int _order;  // Polynomial order
+    lsst::geom::Box2D _range;  // Box enclosing all x,y coordinates
+    std::size_t _numData;  // Number of data points
+    std::size_t _numParams;  // Number of parameters
+    ndarray::Array<double, 1, 1> const& _x;  // Expected x coordinates
+    ndarray::Array<double, 1, 1> const& _y;  // Expected y coordinates
+    ndarray::Array<double, 1, 1> const& _xMeas;  // Measured x coordinates
+    ndarray::Array<double, 1, 1> const& _yMeas;  // Measured y coordinates
+    ndarray::Array<double, 1, 1> const& _xErr;  // Error in measured x coordinates
+    ndarray::Array<double, 1, 1> const& _yErr;  // Error in measured y coordinates
+    ndarray::Array<bool, 1, 1> const& _useForWavelength;  // Whether to use this point for wavelength (y) fit
+    // Pre-constructed coefficient arrays make constucting the distortion more efficient
+    mutable ndarray::Array<double, 1, 1> _xLeft;  // Polynomial coefficients for x distortion on left CCD
+    mutable ndarray::Array<double, 1, 1> _yLeft;  // Polynomial coefficients for y distortion on left CCD
+    mutable ndarray::Array<double, 1, 1> _xRight;  // Polynomial coefficients for x distortion on right CCD
+    mutable ndarray::Array<double, 1, 1> _yRight;  // Polynomial coefficients for y distortion on right CCD
+};
+
+
+std::size_t MinimizationFunction::getNumFitParameters() const {
+    std::size_t const numHighOrder = _numParams - 3;  // constant + x*scale + y*scale
+    return 5 + 4*numHighOrder;
+}
+
+
+DoubleDistortion MinimizationFunction::makeDistortion(std::vector<double> const& parameters) const {
+    std::size_t const numHighOrder = _numParams - 3;
+    assert(parameters.size() == 5 + 4*numHighOrder);
+
+    double const dxLeft = parameters[0];
+    double const dyLeft = parameters[1];
+    double const dxRight = parameters[2];
+    double const dyRight = parameters[3];
+    double const scale = parameters[4];
+
+    _xLeft[0] = dxLeft;
+    _yLeft[0] = dyLeft;
+    _xRight[0] = dxRight;
+    _yRight[0] = dyRight;
+
+    _xLeft[ndarray::view(1, 3)] = scale;
+    _yLeft[ndarray::view(1, 3)] = scale;
+    _xRight[ndarray::view(1, 3)] = scale;
+    _yRight[ndarray::view(1, 3)] = scale;
+
+    _xLeft[ndarray::view(3, _numParams)].deep() = utils::vectorToArray(
+        parameters, 5, numHighOrder
+    );
+    _yLeft[ndarray::view(3, _numParams)].deep() = utils::vectorToArray(
+        parameters, 5 + numHighOrder, numHighOrder
+    );
+    _xRight[ndarray::view(3, _numParams)].deep() = utils::vectorToArray(
+        parameters, 5 + 2*numHighOrder, numHighOrder
+    );
+    _yRight[ndarray::view(3, _numParams)].deep() = utils::vectorToArray(
+        parameters, 5 + 3*numHighOrder, numHighOrder
+    );
+
+    return DoubleDistortion(
+        _order,
+        _range,
+        _xLeft,
+        _yLeft,
+        _xRight,
+        _yRight
+    );
+}
+
+
+double MinimizationFunction::operator()(std::vector<double> const& parameters) const {
+    DoubleDistortion const distortion = makeDistortion(parameters);
+    auto const model = distortion(_x, _y);
+
+    double chi2 = 0.0;
+    for (std::size_t ii = 0; ii < _numData; ++ii) {
+        double const dx = model[ii][0] - _xMeas[ii];
+        chi2 += std::pow(dx/_xErr[ii], 2);
+        if (_useForWavelength[ii]) {
+            double const dy = model[ii][1] - _yMeas[ii];
+            chi2 += std::pow(dy/_yErr[ii], 2);
+        }
+    }
+    return chi2;
+}
+
+
 }  // anonymous namespace
 
 
@@ -323,30 +490,43 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
                                                     return count ? sum + 1 : sum; });
     std::size_t const numLeft = length - numRight;
 
-    FitData left(leftRange(range), distortionOrder, numLeft);
-    FitData right(rightRange(range), distortionOrder, numRight);
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        FitData & data = onRightCcd[ii] ? right : left;
-        data.add(lsst::geom::Point2D(xx[ii], yy[ii]), lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
-                 lsst::geom::Point2D(xErr[ii], yErr[ii]));
-    }
-
-    ndarray::Array<bool, 1, 1> useLeft = ndarray::allocate(numLeft);
-    ndarray::Array<bool, 1, 1> useRight = ndarray::allocate(numRight);
-    for (std::size_t ii = 0, iLeft = 0, iRight = 0; ii < length; ++ii) {
-        if (onRightCcd[ii]) {
-            useRight[iRight] = useForWavelength[ii];
-            ++iRight;
-        } else {
-            useLeft[iLeft] = useForWavelength[ii];
-            ++iLeft;
+    if (fitStatic) {
+        // Fit base distortion with no restriction on coefficients
+        FitData left(leftRange(range), distortionOrder, numLeft);
+        FitData right(rightRange(range), distortionOrder, numRight);
+        for (std::size_t ii = 0; ii < length; ++ii) {
+            FitData & data = onRightCcd[ii] ? right : left;
+            data.add(lsst::geom::Point2D(xx[ii], yy[ii]), lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
+                    lsst::geom::Point2D(xErr[ii], yErr[ii]));
         }
+
+        ndarray::Array<bool, 1, 1> useLeft = ndarray::allocate(numLeft);
+        ndarray::Array<bool, 1, 1> useRight = ndarray::allocate(numRight);
+        for (std::size_t ii = 0, iLeft = 0, iRight = 0; ii < length; ++ii) {
+            if (onRightCcd[ii]) {
+                useRight[iRight] = useForWavelength[ii];
+                ++iRight;
+            } else {
+                useLeft[iLeft] = useForWavelength[ii];
+                ++iLeft;
+            }
+        }
+
+        auto const leftSolution = left.getSolution(useLeft, threshold);
+        auto const rightSolution = right.getSolution(useRight, threshold);
+        return DoubleDistortion(distortionOrder, range, leftSolution.first, leftSolution.second,
+                                rightSolution.first, rightSolution.second);
     }
 
-    auto const leftSolution = left.getSolution(useLeft, threshold);
-    auto const rightSolution = right.getSolution(useRight, threshold);
-    return DoubleDistortion(distortionOrder, range, leftSolution.first, leftSolution.second,
-                            rightSolution.first, rightSolution.second);
+    // Fit for a common scale factor
+    MinimizationFunction func(distortionOrder, range, xx, yy, xMeas, yMeas, xErr, yErr, useForWavelength);
+    std::vector<double> parameters(func.getNumFitParameters(), 0.0);
+    std::vector<double> steps(func.getNumFitParameters(), 0.1);
+    auto const min = ROOT::Minuit2::MnMigrad(func, parameters, steps)();
+    if (!min.IsValid() || !std::isfinite(min.Fval())) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Minimization failed to converge");
+    }
+    return func.makeDistortion(min.UserParameters().Params());
 }
 
 
