@@ -14,7 +14,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/DoubleDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -55,7 +55,11 @@ DoubleDistortion::DoubleDistortion(
     DoubleDistortion::Array1D const& yLeft,
     DoubleDistortion::Array1D const& xRight,
     DoubleDistortion::Array1D const& yRight
-) : BaseDistortion<DoubleDistortion>(order, range, joinCoefficients(order, xLeft, yLeft, xRight, yRight)),
+) : AnalyticDistortion<DoubleDistortion>(
+        order,
+        range,
+        joinCoefficients(order, xLeft, yLeft, xRight, yRight)
+    ),
     _xLeft(xLeft, leftRange(range)),
     _yLeft(yLeft, leftRange(range)),
     _xRight(xRight, rightRange(range)),
@@ -63,13 +67,29 @@ DoubleDistortion::DoubleDistortion(
 {}
 
 
-template<> std::size_t BaseDistortion<DoubleDistortion>::getNumParametersForOrder(int order) {
+template<> std::size_t AnalyticDistortion<DoubleDistortion>::getNumParametersForOrder(int order) {
     return 4*DoubleDistortion::getNumDistortionForOrder(order);
 }
 
 
-DoubleDistortion::Array2D
-DoubleDistortion::splitCoefficients(
+DoubleDistortion::DoubleDistortion(
+    int order,
+    lsst::geom::Box2D const& range,
+    Array2D const& coeff
+) : DoubleDistortion(
+    order,
+    range,
+    coeff[ndarray::view(0)],
+    coeff[ndarray::view(1)],
+    coeff[ndarray::view(2)],
+    coeff[ndarray::view(3)]
+) {
+    utils::checkSize(coeff.getShape()[0], 4UL, "coefficients");
+    utils::checkSize(coeff.getShape()[1], getNumDistortionForOrder(order), "coefficients vs order");
+}
+
+
+DoubleDistortion::Array2D DoubleDistortion::splitCoefficients(
     int order,
     ndarray::Array<double, 1, 1> const& coeff
 ) {
@@ -313,7 +333,7 @@ struct FitData {
 
 
 template<>
-DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
+DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -453,7 +473,7 @@ DoubleDistortion::Factory registration("DoubleDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<DoubleDistortion>;
+template class AnalyticDistortion<DoubleDistortion>;
 
 
 }}}  // namespace pfs::drp::stella

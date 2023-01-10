@@ -7,9 +7,8 @@
 #include "lsst/geom/Box.h"
 #include "lsst/geom/Point.h"
 #include "lsst/geom/AffineTransform.h"
-#include "lsst/afw/table/io/Persistable.h"
 
-#include "pfs/drp/stella/BaseDistortion.h"
+#include "pfs/drp/stella/Distortion.h"
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 
 
@@ -26,8 +25,7 @@ namespace stella {
 /// The model parameters are:
 /// * xDistortion, yDistortion: 2D polynomial distortion field coefficients.
 /// * rightCcd: 2D affine transformation coefficients for the right CCD.
-class DetectorDistortion : public BaseDistortion<DetectorDistortion>,
-                           public lsst::afw::table::io::Persistable {
+class DetectorDistortion : public AnalyticDistortion<DetectorDistortion> {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
@@ -132,16 +130,13 @@ class DetectorDistortion : public BaseDistortion<DetectorDistortion>,
     ndarray::Array<bool, 1, 1> getOnRightCcd(ndarray::Array<double, 1, 1> const& xx) const;
     //@}
 
-    bool isPersistable() const noexcept { return true; }
-
     class Factory;
 
   protected:
     friend std::ostream& operator<<(std::ostream& os, DetectorDistortion const& model);
 
-    std::string getPersistenceName() const { return "DetectorDistortion"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    virtual std::string getPersistenceName() const override { return "DetectorDistortion"; }
+    virtual void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
   private:
     // Calculation parameters

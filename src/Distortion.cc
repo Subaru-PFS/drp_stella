@@ -1,30 +1,11 @@
-#ifndef PFS_DRP_STELLA_IMPL_DISTORTION_H
-#define PFS_DRP_STELLA_IMPL_DISTORTION_H
-
-#include "pfs/drp/stella/BaseDistortion.h"
-#include "pfs/drp/stella/utils/checkSize.h"
-
+#include "pfs/drp/stella/Distortion.h"
 
 namespace pfs {
 namespace drp {
 namespace stella {
 
 
-template <typename Derived>
-BaseDistortion<Derived>::BaseDistortion(
-    int order,
-    lsst::geom::Box2D const& range,
-    ndarray::Array<double, 1, 1> const& coeff
-) : _order(order),
-    _range(range),
-    _coeff(ndarray::copy(coeff))
-{
-    utils::checkSize(coeff.size(), getNumParametersForOrder(order), "coefficients vs order");
-}
-
-
-template <typename Derived>
-ndarray::Array<double, 2, 1> BaseDistortion<Derived>::operator()(
+ndarray::Array<double, 2, 1> Distortion::operator()(
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy
 ) const {
@@ -40,8 +21,7 @@ ndarray::Array<double, 2, 1> BaseDistortion<Derived>::operator()(
 }
 
 
-template <typename Derived>
-std::pair<double, std::size_t> BaseDistortion<Derived>::calculateChi2(
+std::pair<double, std::size_t> Distortion::calculateChi2(
     ndarray::Array<double, 1, 1> const& xOrig,
     ndarray::Array<double, 1, 1> const& yOrig,
     ndarray::Array<double, 1, 1> const& xMeas,
@@ -83,5 +63,3 @@ std::pair<double, std::size_t> BaseDistortion<Derived>::calculateChi2(
 
 
 }}}  // namespace pfs::drp::stella
-
-#endif  // include guard

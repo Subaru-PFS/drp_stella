@@ -27,6 +27,7 @@ scripts.BasicSConscript.pybind11(
      'centroidImage',
      'maskLines',
      'makeFootprint',
+     'Distortion',
      ],
     addUnderscore=False
 )

@@ -33,7 +33,7 @@ class DistortionBasedDetectorMap : public ModelBasedDetectorMap {
     /// @param samplingFactor : period to sample distortion field for cached spline (pixels)
     DistortionBasedDetectorMap(
         SplinedDetectorMap const& base,
-        Distortion const& distortion,
+        DistortionT const& distortion,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
         float samplingFactor=50.0
@@ -48,7 +48,7 @@ class DistortionBasedDetectorMap : public ModelBasedDetectorMap {
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
     SplinedDetectorMap const& getBase() const { return _base; }
-    Distortion const& getDistortion() const { return _distortion; }
+    DistortionT const& getDistortion() const { return _distortion; }
 
     bool isPersistable() const noexcept override { return true; }
 
@@ -70,7 +70,7 @@ class DistortionBasedDetectorMap : public ModelBasedDetectorMap {
 
   private:
     SplinedDetectorMap _base;
-    Distortion _distortion;
+    DistortionT _distortion;
 };
 
 

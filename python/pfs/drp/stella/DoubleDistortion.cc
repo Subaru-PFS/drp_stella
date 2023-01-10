@@ -16,18 +16,17 @@ namespace {
 
 void declareDoubleDistortion(py::module & mod) {
     using Class = DoubleDistortion;
-    auto cls = python::wrapDistortion<Class>(mod, "DoubleDistortion");
-    cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
+    using Array1D = ndarray::Array<double, 1, 1>;
+    auto cls = python::wrapAnalyticDistortion<Class>(mod, "DoubleDistortion");
+    cls.def(py::init<int, lsst::geom::Box2D const&, Array1D const&>(),
             "distortionOrder"_a, "range"_a, "coeff"_a);
-    cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
-                     ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
-                     ndarray::Array<double, 1, 1> const&>(),
+    cls.def(py::init<int, lsst::geom::Box2D const&, Array1D const&, Array1D const&, Array1D const&,
+                     Array1D const&>(),
             "distortionOrder"_a, "range"_a, "xLeft"_a, "yLeft"_a, "xRight"_a, "yRight"_a);
     cls.def_static("getNumDistortionForOrder", &Class::getNumDistortionForOrder, "order"_a);
     cls.def("getNumDistortion", &Class::getNumDistortion);
     cls.def("getOnRightCcd", py::overload_cast<double>(&Class::getOnRightCcd, py::const_));
-    cls.def("getOnRightCcd",
-            py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::getOnRightCcd, py::const_));
+    cls.def("getOnRightCcd", py::overload_cast<Array1D const&>(&Class::getOnRightCcd, py::const_));
     cls.def("getXLeftCoefficients", &Class::getXLeftCoefficients);
     cls.def("getYLeftCoefficients", &Class::getYLeftCoefficients);
     cls.def("getXRightCoefficients", &Class::getXRightCoefficients);
