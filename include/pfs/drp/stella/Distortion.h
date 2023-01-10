@@ -165,12 +165,6 @@ class AnalyticDistortion : public Distortion {
     Array1D getCoefficients() const { return _coeff; }
     //@}
 
-    /// Zero out low-order coefficients
-    virtual Derived removeLowOrder(int order) const = 0;
-
-    /// Merge distortions using low-order coefficients from another distortion
-    virtual Derived merge(Derived const& other) const = 0;
-
   protected:
     int _order;  // Order for distortion
     lsst::geom::Box2D _range;  // Range of input x,y positions

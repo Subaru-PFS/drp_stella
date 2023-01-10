@@ -143,47 +143,6 @@ lsst::geom::Point2D DoubleDistortion::evaluate(
     return lsst::geom::Point2D(getXLeft()(xx, yy), getYLeft()(xx, yy));
 }
 
-
-DoubleDistortion DoubleDistortion::removeLowOrder(int order) const {
-    Array1D xLeft = getXLeftCoefficients();
-    Array1D yLeft = getYLeftCoefficients();
-    Array1D xRight = getXRightCoefficients();
-    Array1D yRight = getYRightCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-
-    xLeft[ndarray::view(0, num)] = 0.0;
-    yLeft[ndarray::view(0, num)] = 0.0;
-    xRight[ndarray::view(0, num)] = 0.0;
-    yRight[ndarray::view(0, num)] = 0.0;
-
-    return DoubleDistortion(getOrder(), getRange(), xLeft, yLeft, xRight, yRight);
-}
-
-
-DoubleDistortion DoubleDistortion::merge(DoubleDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xLeft = getXLeftCoefficients();
-    Array1D yLeft = getYLeftCoefficients();
-    Array1D xRight = getXRightCoefficients();
-    Array1D yRight = getYRightCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xLeft[ndarray::view(0, numOther)] = other.getXLeftCoefficients();
-    yLeft[ndarray::view(0, numOther)] = other.getYLeftCoefficients();
-    xRight[ndarray::view(0, numOther)] = other.getXRightCoefficients();
-    yRight[ndarray::view(0, numOther)] = other.getYRightCoefficients();
-
-    return DoubleDistortion(getOrder(), getRange(), xLeft, yLeft, xRight, yRight);
-}
-
-
 namespace {
 
 

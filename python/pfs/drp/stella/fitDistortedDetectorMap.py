@@ -13,7 +13,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable
-from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
+from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap, DoubleDistortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
@@ -280,7 +280,7 @@ class FitDistortedDetectorMapConfig(Config):
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
-    DetectorMap = DoubleDetectorMap
+    DetectorMap = MultipleDistortionsDetectorMap
     Distortion = DoubleDistortion
 
     def __init__(self, *args, **kwargs):
@@ -355,7 +355,7 @@ class FitDistortedDetectorMapTask(Task):
             weights = self.calculateWeights(lines)
             results = self.fitDistortion(bbox, residuals, weights, dispersion, seed=visitInfo.id)
             reserved = results.reserved
-            detectorMap = self.DetectorMap(base, results.distortion, visitInfo, metadata)
+            detectorMap = self.DetectorMap(base, [results.distortion], visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
                 offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
@@ -758,7 +758,7 @@ class FitDistortedDetectorMapTask(Task):
             Seed for random number generator used for selecting reserved lines.
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        Distortion : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
@@ -908,7 +908,7 @@ class FitDistortedDetectorMapTask(Task):
             (pixels).
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        Distortion : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
@@ -1245,7 +1245,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Parameters
         ----------
-        distortion : `pfs.drp.stella.BaseDistortion`
+        distortion : `pfs.drp.stella.Distortion`
             Distortion model.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.

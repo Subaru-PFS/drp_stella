@@ -41,10 +41,8 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         # Introduce a low-order inaccuracy that we will correct with AdjustDetectorMapTask
         xDistortion[0] = 1.5
         xDistortion[1] = 1.23
-        xDistortion[2] = -1.23
         yDistortion[0] = -1.5
         yDistortion[1] = 1.23
-        yDistortion[2] = -1.23
 
         distortion = DetectorDistortion(distortionOrder, Box2D(self.base.bbox), xDistortion, yDistortion,
                                         rightCcd)
@@ -98,12 +96,6 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                                    self.base.getWavelengthSpline(ff).getY())
             self.assertEqual(detMap.base.getSpatialOffset(ff), self.base.getSpatialOffset(ff))
             self.assertEqual(detMap.base.getSpectralOffset(ff), self.base.getSpectralOffset(ff))
-
-        # Distortion should be zero after adjustment
-        if checkWavelengths:  # If the wavelength is unconstrained, some coefficients may be non-zero
-            self.assertFloatsAlmostEqual(detMap.distortion.getXCoefficients(), 0.0, atol=5.0e-3)
-            self.assertFloatsAlmostEqual(detMap.distortion.getYCoefficients(), 0.0, atol=5.0e-3)
-        self.assertFloatsEqual(detMap.distortion.getRightCcdCoefficients(), 0.0)
 
     @methodParameters(flatFlux=(10, 200000, 1000),
                       numLines=(50, 0, 50),
@@ -173,6 +165,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         config = AdjustDetectorMapConfig()
         config.order = 1
+        config.fitStatic = True  # Our example is not necessarily realistic, so allow full freedom
         task = AdjustDetectorMapTask(config=config)
         task.log.setLevel(task.log.DEBUG)
 

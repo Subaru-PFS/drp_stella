@@ -75,12 +75,6 @@ class DetectorDistortion : public AnalyticDistortion<DetectorDistortion> {
     lsst::geom::Point2D evaluate(lsst::geom::Point2D const& xy, bool onRightCcd) const;
     //@}
 
-    /// Zero out low-order coefficients
-    virtual DetectorDistortion removeLowOrder(int order) const override;
-
-    /// Merge distortions using low-order coefficients from another distortion
-    virtual DetectorDistortion merge(DetectorDistortion const& other) const override;
-
     //@{
     /// Accessors
     Polynomial const& getXDistortion() const { return _xDistortion; }

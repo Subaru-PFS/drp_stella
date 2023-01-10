@@ -28,6 +28,7 @@ scripts.BasicSConscript.pybind11(
      'maskLines',
      'makeFootprint',
      'Distortion',
+     'MultipleDistortionsDetectorMap',
      ],
     addUnderscore=False
 )

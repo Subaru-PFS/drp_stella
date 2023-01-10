@@ -74,12 +74,6 @@ class DoubleDistortion : public AnalyticDistortion<DoubleDistortion> {
     lsst::geom::Point2D evaluate(lsst::geom::Point2D const& xy, bool onRightCcd) const;
     //@}
 
-    /// Zero out low-order coefficients
-    virtual DoubleDistortion removeLowOrder(int order) const override;
-
-    /// Merge distortions using low-order coefficients from another distortion
-    virtual DoubleDistortion merge(DoubleDistortion const& other) const override;
-
     //@{
     /// Accessors
     Polynomial const& getXLeft() const { return _xLeft; }
@@ -146,7 +140,7 @@ class DoubleDistortion : public AnalyticDistortion<DoubleDistortion> {
     /// @param yRight : distortion coefficients in x for right CCD
     /// @return single coefficients array
     static Array1D joinCoefficients(
-        int order,
+        int order1,
         Array1D const& xLeft,
         Array1D const& yLeft,
         Array1D const& xRight,
