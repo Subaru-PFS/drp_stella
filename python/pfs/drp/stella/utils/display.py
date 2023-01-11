@@ -353,8 +353,8 @@ def getCtypeFromReferenceLineDefault(line):
     return ctype
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, lines=None,
-                    alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, showLegend=True,
+                    lines=None, alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
 
     Parameters:
@@ -393,7 +393,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     showAll = False
     if xcen is None:
         if fiberIds is None:
-            fiberIds = pfsConfig.fiberId
+            fiberIds = detMap.fiberId
             showAll = True
         else:
             try:
@@ -401,7 +401,13 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             except TypeError:
                 fiberIds = [fiberIds]
 
-            xcen = detMap.getXCenter(fiberIds[len(fiberIds)//2], height/2)
+            if len(fiberIds) == 1:
+                fid = fiberIds[0]
+                try:
+                    xcen = detMap.getXCenter(fid, height/2)
+                except IndexError:
+                    warnings.warn("Index %d is not found in DetectorMap" % (fid))  # doesn't permit lazy eval
+                    xcen = detMap.bbox.getWidth()//2
     else:
         pass  # xcen is already set
 
@@ -420,7 +426,14 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             if SuNSS:
                 continue
 
-        ind = pfsConfig.selectFiber([fid])[0]
+        if fiberIds is not None and len(fiberIds) > 1 and fid not in fiberIds:
+            continue
+
+        try:
+            ind = pfsConfig.selectFiber([fid])[0]
+        except IndexError:              # e.g. the pfsConfig contains a subset of the entire PFI
+            continue
+
         imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
         if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
             ls = ':'
@@ -429,7 +442,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             color = 'green' if SuNSS and imagingFiber else 'red'
 
         fiberX = detMap.getXCenter(fid, height//2)
-        if showAll or np.abs(fiberX - xcen) < width/2:
+        if showAll or len(fiberIds) > 1 or np.abs(fiberX - xcen) < width/2:
             fiberX = detMap.getXCenter(fid)
             plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
                      color=color if showAll else None)
@@ -438,19 +451,34 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     # Plot the position of a set of lines
     #
     if lines:
-        stride = len(pfsConfig)//25 + 1 if fiberIds is None else 1
+        if fiberIds is None or len(fiberIds) == 0:
+            fiberIds = detMap.fiberId
+            stride = len(fiberIds)//25 + 1
+        else:
+            stride = 1
+
+        # find the first and last valid fibres
+        firstGood, lastGood = None, None
+        ll = lines[0]
+        for i, fid in enumerate(fiberIds):
+            xc, yc = detMap.findPoint(fid, ll.wavelength)
+
+            if np.isnan(xc + yc):
+                continue
+
+            if firstGood is None:
+                firstGood = i
+            lastGood = i
 
         for ll in lines:
             ctype = getCtypeFromReferenceLine(ll)
             if ctype == "IGNORE":
                 continue
 
-            if fiberIds is None:
-                fiberIds = pfsConfig.fiberId
-
             xy = np.zeros((2, len(fiberIds))) + np.NaN
+
             for i, fid in enumerate(fiberIds):
-                if i%stride != 0 and i != len(pfsConfig) - 1:
+                if i%stride != 0 and i not in (firstGood, lastGood):
                     continue
 
                 xc, yc = detMap.findPoint(fid, ll.wavelength)
@@ -467,7 +495,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
                     plt.plot(xy[0][good], xy[1][good], color=ctype, alpha=alpha)
 
     if not showAll:
-        if nFiberShown > 0:
+        if nFiberShown > 0 and showLegend:
             plt.legend()
         if zoom > 0:
             display.zoom(zoom, xcen, np.mean(y))
