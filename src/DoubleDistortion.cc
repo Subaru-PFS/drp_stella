@@ -371,7 +371,7 @@ class MinimizationFunction : public ROOT::Minuit2::FCNBase {
     int _order;  // Polynomial order
     lsst::geom::Box2D _range;  // Box enclosing all x,y coordinates
     std::size_t _numData;  // Number of data points
-    std::size_t _numParams;  // Number of parameters
+    std::size_t _numParams;  // Number of parameters per polynomial
     ndarray::Array<double, 1, 1> const& _x;  // Expected x coordinates
     ndarray::Array<double, 1, 1> const& _y;  // Expected y coordinates
     ndarray::Array<double, 1, 1> const& _xMeas;  // Measured x coordinates
@@ -388,30 +388,43 @@ class MinimizationFunction : public ROOT::Minuit2::FCNBase {
 
 
 std::size_t MinimizationFunction::getNumFitParameters() const {
-    std::size_t const numHighOrder = _numParams - 3;  // constant + x*scale + y*scale
-    return 5 + 4*numHighOrder;
+    // replaced constant, x^1, y^1 for two polynomials with dx, dy, scale, theta
+    // --> for two polynomials, have replaced 6 parameters with 4.
+    std::size_t const numHighOrder = _numParams - 3;  // constant + c1*x + c2*y
+    return 8 + 4*numHighOrder;
 }
 
 
 DoubleDistortion MinimizationFunction::makeDistortion(std::vector<double> const& parameters) const {
     std::size_t const numHighOrder = _numParams - 3;
-    assert(parameters.size() == 5 + 4*numHighOrder);
+    assert(parameters.size() == 8 + 4*numHighOrder);
 
     double const dxLeft = parameters[0];
     double const dyLeft = parameters[1];
-    double const dxRight = parameters[2];
-    double const dyRight = parameters[3];
-    double const scale = parameters[4];
+    double const scaleLeft = parameters[2];
+    double const thetaLeft = parameters[3];
+    double const cosThetaLeft = std::cos(thetaLeft);
+    double const sinThetaLeft = std::sin(thetaLeft);
+    double const dxRight = parameters[4];
+    double const dyRight = parameters[5];
+    double const scaleRight = parameters[6];
+    double const thetaRight = parameters[7];
+    double const cosThetaRight = std::cos(thetaRight);
+    double const sinThetaRight = std::sin(thetaRight);
 
     _xLeft[0] = dxLeft;
     _yLeft[0] = dyLeft;
+    _xLeft[1] = scaleLeft*cosThetaLeft;
+    _xLeft[2] = scaleLeft*sinThetaLeft;
+    _yLeft[1] = -scaleLeft*sinThetaLeft;
+    _yLeft[2] = scaleLeft*cosThetaLeft;
+
     _xRight[0] = dxRight;
     _yRight[0] = dyRight;
-
-    _xLeft[ndarray::view(1, 3)] = scale;
-    _yLeft[ndarray::view(1, 3)] = scale;
-    _xRight[ndarray::view(1, 3)] = scale;
-    _yRight[ndarray::view(1, 3)] = scale;
+    _xRight[1] = scaleRight*cosThetaRight;
+    _xRight[2] = scaleRight*sinThetaRight;
+    _yRight[1] = -scaleRight*sinThetaRight;
+    _yRight[2] = scaleRight*cosThetaRight;
 
     _xLeft[ndarray::view(3, _numParams)].deep() = utils::vectorToArray(
         parameters, 5, numHighOrder
