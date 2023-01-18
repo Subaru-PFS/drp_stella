@@ -107,6 +107,14 @@ class FitPfsFluxReferenceConfig(Config):
         default="psf",
         optional=False,
     )
+    priorCutoff = Field(
+        dtype=float,
+        default=0.01,
+        doc="Cut-off prior probability relative to max(prior)."
+        " In comparing a flux model to an observed flux,"
+        " the model is immediately rejected if its prior probability"
+        " is less than `priorCutoff*max(prior)`.",
+    )
 
     def setDefaults(self) -> None:
         super().setDefaults()
@@ -561,7 +569,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             ):
                 if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                     continue
-                if not (prior > 1e-8):
+                if not (prior >= self.config.priorCutoff):
                     continue
                 if modelContinuum is None:
                     convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
