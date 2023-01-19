@@ -96,6 +96,16 @@ SpectrumSet::ImageArray SpectrumSet::getAllNormalizations() const {
 }
 
 
+std::vector<std::shared_ptr<lsst::daf::base::PropertySet>> SpectrumSet::getAllNotes() const {
+    std::vector<std::shared_ptr<lsst::daf::base::PropertySet>> notes;
+    notes.reserve(size());
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        notes.push_back(get(ii)->getNotes().deepCopy());
+    }
+    return notes;
+}
+
+
 void SpectrumSet::set(std::size_t ii, SpectrumSet::SpectrumPtr spectrum) {
     utils::checkSize(spectrum->getNumPixels(), _length, "SpectrumSet::set");
     _spectra[ii] = spectrum;

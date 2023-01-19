@@ -115,6 +115,9 @@ class SpectrumSet {
     /// Return the normalisations of all spectra in an array [length x nFibers]
     ImageArray getAllNormalizations() const;
 
+    /// Return all notes of all spectra
+    std::vector<std::shared_ptr<lsst::daf::base::PropertySet>> getAllNotes() const;
+
     /// Return the internal representation
     Collection const& getInternal() const { return _spectra; }
 

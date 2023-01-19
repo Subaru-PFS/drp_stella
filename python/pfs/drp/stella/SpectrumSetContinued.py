@@ -58,8 +58,12 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             covar[ii] = ss.getCovariance()
         metadata = getPfsVersions()
         identity = Identity.fromDict(dataId)
+        notes = PfsArm.NotesClass(**{
+            col.name: np.array([self[ii].notes.get(col.name, col.default) for ii in range(numSpectra)])
+            for col in PfsArm.NotesClass.schema
+        })
         return PfsArm(identity, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
-                      self.getAllBackgrounds(), self.getAllNormalizations(), covar, flags, metadata)
+                      self.getAllBackgrounds(), self.getAllNormalizations(), covar, flags, metadata, notes)
 
     @classmethod
     def fromPfsArm(cls, pfsArm):
@@ -90,6 +94,24 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spectrum.norm[:] = pfsArm.norm[ii]
             spectrum.covariance[:] = pfsArm.covar[ii]
             spectrum.wavelength[:] = pfsArm.wavelength[ii]
+
+            # Need to convert notes to pure-python types so PropertySet will recognise them
+            notesTypes = {
+                str: str,
+                bool: bool,
+                int: int,
+                float: float,
+                np.int16: int,
+                np.int32: int,
+                np.int64: int,
+                np.float32: float,
+                np.float64: float,
+            }
+            columns = {
+                col.name: getattr(pfsArm.notes, col.name).astype(notesTypes[col.dtype])
+                for col in pfsArm.notes.schema
+            }
+            spectrum.notes.update({col.name: columns[col.name][ii] for col in pfsArm.notes.schema})
             self.add(spectrum)
 
         return self
