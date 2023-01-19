@@ -557,20 +557,26 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         averageLsf = getAverageLsf([pfsMergedLsf[fiberId] for fiberId in pfsConfig.fiberId])
 
+        # `fibers()` is not very fast.
+        # We don't want to call it redundantly in the inner loop below.
+        obsSpectrumList = list(fibers(pfsConfig, obsSpectra))
+
         for iModel, (param, priorPdf) in enumerate(zip(self.fluxModelSet.parameters, relativePriors)):
-            model = self.fluxModelSet.getSpectrum(
-                teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
-            )
-            # This one will be created afterward when it is actually required.
+            # These things will be created afterward when they are actually required.
+            model: Union[PfsSimpleSpectrum, None] = None
             modelContinuum: Union["Continuum", None] = None
 
             for iFiber, (obsSpectrum, velocity, prior) in enumerate(
-                zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)
+                zip(obsSpectrumList, radialVelocities, priorPdf)
             ):
                 if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                     continue
                 if not (prior >= self.config.priorCutoff):
                     continue
+                if model is None:
+                    model = self.fluxModelSet.getSpectrum(
+                        teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
+                    )
                 if modelContinuum is None:
                     convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
                     modelContinuum = self.computeContinuum(convolvedModel, mode="model")
