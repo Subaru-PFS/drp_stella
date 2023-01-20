@@ -84,6 +84,8 @@ class EstimateRadialVelocityTask(Task):
             Standard deviation of ``velocity``.
             This is reliable only if ``config.findMethod="gauss"``
             and ``config.useCovar=True``.
+        fail : `bool`
+            True if measuring ``velocity`` failed.
         crossCorr : `numpy.array`
             This is a structured array of
             `dtype=[("velocity", float), ("crosscorr", float)]`.
@@ -137,8 +139,9 @@ class EstimateRadialVelocityTask(Task):
         if self.config.findMethod == "peak":
             iMax = np.argmax(ccf)
             velocity = searchVelocity[iMax]
+            fail = iMax == 0 or iMax + 1 == len(ccf)
             # We have to think of the error...
-            return Struct(velocity=velocity, error=np.nan, crossCorr=crossCorr)
+            return Struct(velocity=velocity, error=np.nan, fail=fail, crossCorr=crossCorr)
 
         # Gaussian fit
         if self.config.findMethod == "gauss":
@@ -148,6 +151,10 @@ class EstimateRadialVelocityTask(Task):
 
             iMax = np.argmax(ccf)
             velocity = searchVelocity[iMax]
+            fail = iMax == 0 or iMax + 1 == len(ccf)
+            if fail:
+                return Struct(velocity=velocity, error=np.nan, fail=fail, crossCorr=crossCorr)
+
             coeff = 1.0 / ccf[iMax]
             fitIndex = (searchVelocity > (velocity - self.config.peakRange / 2)) & (
                 searchVelocity < (velocity + self.config.peakRange / 2)
@@ -167,6 +174,6 @@ class EstimateRadialVelocityTask(Task):
                 gauss, fitVelocity, fitCcf, sigma=fitCovar, p0=iniParam, absolute_sigma=True
             )
 
-            return Struct(velocity=pfit[1], error=np.sqrt(pcov[1][1]), crossCorr=crossCorr)
+            return Struct(velocity=pfit[1], error=np.sqrt(pcov[1][1]), fail=fail, crossCorr=crossCorr)
 
         raise RuntimeError("config.findMethod has a wrong value.")

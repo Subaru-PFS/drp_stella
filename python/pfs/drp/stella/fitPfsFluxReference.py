@@ -283,7 +283,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
         for fiberId, velocity in zip(pfsConfig.fiberId, radialVelocities):
-            if velocity is None or not np.isfinite(velocity.velocity):
+            if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                 fitFlag[fiberId] = flag
 
         # Likelihoods from spectral fitting, where line spectra matter.
@@ -404,8 +404,9 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         -------
         radialVelocities : `List[Optional[lsst.pipe.base.Struct]]`
             Radial velocity for each fiber.
-            Each element, if not None, has ``velocity``, ``error``, and
-            ``crossCorr`` as its member. See ``EstimateRadialVelocityTask``.
+            Each element, if not None, has ``velocity``, ``error``,
+            ``crossCorr``, and ``fail`` as its member.
+            See ``EstimateRadialVelocityTask``.
         """
         # Find the best model from broad bands.
         # This model is used as the reference for cross-correlation calculation
@@ -507,7 +508,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             Combined line-spread functions indexed by fiberId.
         radialVelocities : `list` of `Optional[lsst.pipe.base.Struct]`
             Radial velocity for each fiber.
-            Each element, if not None, has `velocity` and `error`
+            Each element, if not None, has ``velocity``, ``error``, and ``fail``
             as its member. See ``EstimateRadialVelocityTask``.
         priorPdfs : `list` of `numpy.array` of `float`
             For each ``priorPdfs[iSpectrum]`` in ``priorPdfs``,
@@ -558,7 +559,7 @@ class FitPfsFluxReferenceTask(CmdLineTask):
             for iFiber, (obsSpectrum, velocity, prior) in enumerate(
                 zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdf)
             ):
-                if velocity is None or not np.isfinite(velocity.velocity):
+                if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                     continue
                 if not (prior > 1e-8):
                     continue
