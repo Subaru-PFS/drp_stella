@@ -45,7 +45,7 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
         self.np_random = np.random.RandomState(seed=0x0123456)
         self.refSpectrum = self.createRefSpectrum(self.refLsfSigma)
 
-    @methodParameters(snr=[25, 50, 100, 200, 400], trueVelocity=[-200, -100, 0, 100, 200])
+    @methodParameters(snr=[10, 20, 30, 40, 50], trueVelocity=[-200, -100, 0, 100, 200])
     def test(self, snr, trueVelocity):
         """Test run()
 
