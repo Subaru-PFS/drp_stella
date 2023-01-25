@@ -40,12 +40,21 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
     that cannot be explained by the statistical error.
     """
 
+    varianceTolerance = 1.2
+    """Error estimate (`retvalue.error`) must satisfy `1 / varianceTolerance < ratio < varianceTolerance`,
+    where `ratio = (variance of retvalue.velocity) / (average of retvalue.error**2)`.
+    """
+
+    numTrials = 100
+    """Number of trials for acquisition of statistics
+    """
+
     def setUp(self):
         self.estimateRadialVelocity = EstimateRadialVelocityTask(config=EstimateRadialVelocityConfig())
         self.np_random = np.random.RandomState(seed=0x0123456)
         self.refSpectrum = self.createRefSpectrum(self.refLsfSigma)
 
-    @methodParameters(snr=[25, 50, 100, 200, 400], trueVelocity=[-200, -100, 0, 100, 200])
+    @methodParameters(snr=[10, 20, 30, 40, 50], trueVelocity=[-200, -100, 0, 100, 200])
     def test(self, snr, trueVelocity):
         """Test run()
 
@@ -56,12 +65,29 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
         trueVelocity : `float`
             Radial velocity of the fake observed spectrum, in km/s.
         """
-        obsSpectrum = self.createObsSpectrum(self.refSpectrum, trueVelocity, self.obsLsfSigma, snr)
-        with temporarilyRuinMaskedRegion(obsSpectrum):
-            with temporarilyRuinMaskedRegion(self.refSpectrum):
-                result = self.estimateRadialVelocity.run(obsSpectrum, self.refSpectrum)
+        sum_1 = 0
+        sum_x = 0
+        sum_xx = 0
+        sum_v = 0
+        for i in range(self.numTrials):
+            obsSpectrum = self.createObsSpectrum(self.refSpectrum, trueVelocity, self.obsLsfSigma, snr)
+            with temporarilyRuinMaskedRegion(obsSpectrum):
+                with temporarilyRuinMaskedRegion(self.refSpectrum):
+                    result = self.estimateRadialVelocity.run(obsSpectrum, self.refSpectrum)
+                    sum_1 += 1
+                    sum_x += result.velocity
+                    sum_xx += result.velocity**2
+                    sum_v += result.error**2
 
-        self.assertLess(abs(result.velocity - trueVelocity), self.permissibleError + 2*result.error)
+        average = sum_x / sum_1
+        variance = (sum_xx / sum_1 - average**2) * (sum_1 / (sum_1 - 1))
+        estimatedVar = sum_v / sum_1
+        varianceRatio = (estimatedVar + self.permissibleError**2) / variance
+        error = (estimatedVar + self.permissibleError**2) / np.sqrt(sum_1)
+
+        self.assertLess(abs(average - trueVelocity), 2*error)
+        self.assertGreater(varianceRatio, 1 / self.varianceTolerance)
+        self.assertLess(varianceRatio, self.varianceTolerance)
 
     def createMask(self, shape, density):
         """Create a fake mask array
