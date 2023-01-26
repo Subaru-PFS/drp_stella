@@ -29,6 +29,7 @@ scripts.BasicSConscript.pybind11(
      'makeFootprint',
      'Distortion',
      'MultipleDistortionsDetectorMap',
+     'RotScaleDistortion',
      ],
     addUnderscore=False
 )

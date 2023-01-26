@@ -13,6 +13,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable
+from .DistortionContinued import Distortion
 from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap, DoubleDistortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -264,7 +265,7 @@ class FitDistortedDetectorMapConfig(Config):
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     maxRejectionFrac = Field(
         dtype=float,
-        default=0.3,
+        default=0.05,
         doc="Maximum fraction of lines that may be rejected in a single iteration",
     )
     minNumWavelengths = Field(dtype=int, default=3, doc="Required minimum number of discrete wavelengths")
@@ -273,7 +274,7 @@ class FitDistortedDetectorMapConfig(Config):
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
     exclusionRadius = Field(dtype=float, default=4,
                             doc="Exclusion radius to apply to reference lines (pixels)")
-    doRejectBadLines = Field(dtype=bool, default=False,
+    doRejectBadLines = Field(dtype=bool, default=True,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
 
 
@@ -281,7 +282,6 @@ class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
     DetectorMap = MultipleDistortionsDetectorMap
-    Distortion = DoubleDistortion
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
@@ -738,7 +738,7 @@ class FitDistortedDetectorMapTask(Task):
                 weights[selectSpecies] = self.config.weightings[species]
         return weights
 
-    def fitDistortion(self, bbox, lines, weights, dispersion, seed=0, fitStatic=True, Distortion=None):
+    def fitDistortion(self, bbox, lines, weights, dispersion, seed=0):
         """Fit a distortion model
 
         Parameters
@@ -756,10 +756,6 @@ class FitDistortedDetectorMapTask(Task):
             and plotting.
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
-        fitStatic : `bool`, optional
-            Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
         -------
@@ -806,7 +802,7 @@ class FitDistortedDetectorMapTask(Task):
             self.plotResiduals(lines, lines.x, lines.y, used, reserved, dispersion)
 
         for ii in range(self.config.iterations):
-            result = self.fitModel(bbox, lines, used, weights, fitStatic=fitStatic, Distortion=Distortion)
+            result = self.fitModel(bbox, lines, used, weights)
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion, used.sum(),
@@ -841,7 +837,7 @@ class FitDistortedDetectorMapTask(Task):
                 break
             used = newUsed
 
-        result = self.fitModel(bbox, lines, used, weights, fitStatic=fitStatic, Distortion=Distortion)
+        result = self.fitModel(bbox, lines, used, weights)
         self.log.info("Final fit: "
                       "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
@@ -861,9 +857,7 @@ class FitDistortedDetectorMapTask(Task):
         if not np.all(np.isfinite(soften)):
             self.log.warn("Non-finite softening, probably a bad fit")
         else:
-            result = self.fitModel(
-                bbox, lines, used, weights, soften, fitStatic=fitStatic, Distortion=Distortion
-            )
+            result = self.fitModel(bbox, lines, used, weights, soften)
             self.log.info("Softened fit: "
                           "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
                           result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
@@ -888,7 +882,7 @@ class FitDistortedDetectorMapTask(Task):
             self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
         return result
 
-    def fitModel(self, bbox, lines, select, weights, soften=None, fitStatic=True, Distortion=None):
+    def fitModel(self, bbox, lines, select, weights, soften=None):
         """Fit a model to the arc lines
 
         Parameters
@@ -906,10 +900,6 @@ class FitDistortedDetectorMapTask(Task):
         soften : `tuple` (`float`, `float`), optional
             Systematic error in x and y to add in quadrature to measured errors
             (pixels).
-        fitStatic : `bool`, optional
-            Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses ``self.Distortion``.
 
         Returns
         -------
@@ -935,8 +925,6 @@ class FitDistortedDetectorMapTask(Task):
         if numWavelengths < self.config.minNumWavelengths:
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
-        if Distortion is None:
-            Distortion = self.Distortion
         if soften is None:
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften
@@ -951,11 +939,59 @@ class FitDistortedDetectorMapTask(Task):
                             np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select])
 
         notTrace = lines.description[select] != "Trace"
-        distortion = Distortion.fit(self.config.order, Box2D(bbox), xBase, yBase,
-                                    xx, yy, xErr, yErr, notTrace, fitStatic, self.config.lsqThreshold)
+        distortion = self.fitModelImpl(Box2D(bbox), xBase, yBase, xx, yy, xErr, yErr, notTrace)
 
         return calculateFitStatistics(distortion(lines.xBase, lines.yBase), lines, select,
                                       distortion.getNumParameters(), soften, distortion=distortion)
+
+    def fitModelImpl(
+        self,
+        bbox: Box2D,
+        xBase: np.ndarray,
+        yBase: np.ndarray,
+        xMeas: np.ndarray,
+        yMeas: np.ndarray,
+        xErr: np.ndarray,
+        yErr: np.ndarray,
+        useForWavelength: np.ndarray,
+    ) -> Distortion:
+        """Implementation for fitting the distortion model
+
+        We've gathered and formatted all the data; this method encapsulates the
+        actual fitting, allowing it to be easily overridden by subclasses.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2D`
+            Bounding box for detector.
+        xBase, yBase : `numpy.ndarray` of `float`
+            Base position for each line (pixels).
+        xMeas, yMeas : `numpy.ndarray` of `float`
+            Measured position for each line (pixels).
+        xErr, yErr : `numpy.ndarray` of `float`
+            Error in measured position for each line (pixels).
+        useForWavelength : `numpy.ndarray` of `bool`
+            Flags indicating which of the lines are to be used for wavelength
+            calibration.
+
+        Returns
+        -------
+        distortion : `pfs.drp.stella.Distortion`
+            Distortion model that was fit to the data.
+        """
+        return DoubleDistortion.fit(
+            self.config.order,
+            bbox,
+            xBase,
+            yBase,
+            xMeas,
+            yMeas,
+            xErr,
+            yErr,
+            useForWavelength,
+            True,
+            self.config.lsqThreshold
+        )
 
     def measureQuality(self, lines: ArcLineSet, detectorMap: DetectorMap, selection, numParameters) -> Struct:
         """Measure and log fit quality information

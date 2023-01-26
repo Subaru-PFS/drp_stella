@@ -1,11 +1,15 @@
+import logging
+import lsst.log
+
 import numpy as np
 
 import lsst.utils.tests
 from lsst.geom import Box2D
 import lsst.afw.image
 from lsst.afw.display import Display
+import lsst.log
 
-from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapConfig, AdjustDetectorMapTask
+from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
@@ -14,7 +18,7 @@ from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, 
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat
 from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
-from pfs.drp.stella import DistortedDetectorMap, DetectorDistortion
+from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
 
@@ -26,6 +30,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct a ``SplinedDetectorMap`` to play with"""
         self.synthConfig = SyntheticConfig()
+        self.synthConfig.separation = 100  # Avoid having a fiber go down the middle
         self.minWl = 650.0
         self.maxWl = 950.0
         self.base = makeSyntheticDetectorMap(self.synthConfig, self.minWl, self.maxWl)
@@ -33,24 +38,33 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.darkTime = 12345.6
 
         distortionOrder = 5
-        numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
+        numCoeffs = DoubleDistortion.getNumDistortionForOrder(distortionOrder)
         xDistortion = np.zeros(numCoeffs, dtype=float)
         yDistortion = np.zeros(numCoeffs, dtype=float)
-        rightCcd = np.zeros(6, dtype=float)
 
         # Introduce a low-order inaccuracy that we will correct with AdjustDetectorMapTask
+        xScale = 3.21e-4
+        yScale = 5.43e-4
+        theta = 1.23e-3
+        xNorm = 0.25*self.synthConfig.width
+        yNorm = 0.5*self.synthConfig.height
         xDistortion[0] = 1.5
-        xDistortion[1] = 1.23
+        xDistortion[1] = (np.cos(theta) - 1 + xScale) * xNorm
+        xDistortion[2] = -np.sin(theta) * yNorm
         yDistortion[0] = -1.5
-        yDistortion[1] = 1.23
+        yDistortion[1] = np.sin(theta) * xNorm
+        yDistortion[2] = (np.cos(theta) - 1 + yScale) * yNorm
 
-        distortion = DetectorDistortion(distortionOrder, Box2D(self.base.bbox), xDistortion, yDistortion,
-                                        rightCcd)
+        distortion = DoubleDistortion(
+            distortionOrder,
+            Box2D(self.base.bbox),
+            np.concatenate((xDistortion, yDistortion, xDistortion, yDistortion))
+        )
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        self.distorted = DistortedDetectorMap(self.base.clone(), distortion, visitInfo, metadata)
+        self.distorted = DoubleDetectorMap(self.base.clone(), distortion, visitInfo, metadata)
 
     def assertExpected(self, detMap, checkWavelengths=True):
         """Assert that the ``DistortedDetectorMap``s is as expected
@@ -67,10 +81,10 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         # Positions as for the original detectorMap
         for fiberId in self.base.getFiberId():
             self.assertFloatsAlmostEqual(detMap.getXCenter(fiberId), self.base.getXCenter(fiberId),
-                                         atol=5.0e-3)
+                                         atol=1.0e-2)
             if checkWavelengths:
                 self.assertFloatsAlmostEqual(detMap.getWavelength(fiberId), self.base.getWavelength(fiberId),
-                                             atol=1.0e-3)
+                                             atol=2.0e-3)
 
         # Metadata: we only care that what we planted is there;
         # there may be other stuff that we don't care about.
@@ -124,6 +138,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         image += arc.image
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(image))
         exposure.mask.set(0)
+
         readnoise = self.synthConfig.readnoise
         gain = self.synthConfig.gain
         exposure.variance.array = readnoise**2/gain + image.array*gain
@@ -163,11 +178,10 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             expected = self.base.getXCenter(ff, rows)
             self.assertLess(robustRms(centers - expected), traceTol)
 
-        config = AdjustDetectorMapConfig()
-        config.order = 1
-        config.fitStatic = True  # Our example is not necessarily realistic, so allow full freedom
-        task = AdjustDetectorMapTask(config=config)
-        task.log.setLevel(task.log.DEBUG)
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(lsst.log.LogHandler())
+        task = AdjustDetectorMapTask()
 
         if display is not None:
             disp = Display(frame=1, backend=display)
