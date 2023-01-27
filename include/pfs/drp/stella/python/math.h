@@ -37,12 +37,28 @@ auto wrapQuartiles(py::module & mod) {
     );
 }
 
+
+template <typename T, int C>
+auto wrapQuartiles(py::module & mod) {
+    mod.def(
+        "calculateMedian",
+        py::overload_cast<ndarray::Array<T, 1, C> const&>(math::calculateMedian<T, C>),
+        "values"_a
+    );
+    mod.def(
+        "calculateQuartiles",
+        py::overload_cast<ndarray::Array<T, 1, C> const&>(math::calculateQuartiles<T, C>),
+        "values"_a
+    );
+    wrapQuartiles<T, C, 0>(mod);
+    wrapQuartiles<T, C, 1>(mod);
+}
+
+
 template <typename T>
 auto wrapQuartiles(py::module & mod) {
-    wrapQuartiles<T, 0, 0>(mod);
-    wrapQuartiles<T, 1, 0>(mod);
-    wrapQuartiles<T, 0, 1>(mod);
-    wrapQuartiles<T, 1, 1>(mod);
+    wrapQuartiles<T, 0>(mod);
+    wrapQuartiles<T, 1>(mod);
 }
 //@}
 
