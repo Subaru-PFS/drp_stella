@@ -24,17 +24,22 @@ double const NaN = std::numeric_limits<double>::quiet_NaN();
 /// This functor can be passed to algorithmic codes like std::sort or
 /// std::nth_element in combination with an index array in order to sort masked
 /// arrays without having to do an additional copy.
-template<typename T, int C1, int C2>
+template<bool maskMeansInclude, typename T, int C1, int C2>
 struct MaskedArrayIndexCompare {
     /// Constructor
     ///
     /// @param _values : Numbers to be compared
-    /// @param _masks : Whether the numbers are to be considered as masked (true means bad value)
+    /// @param _masks : Whether the numbers are masked
     MaskedArrayIndexCompare(
         ndarray::ArrayRef<T, 1, C1> const& _values,
         ndarray::ArrayRef<bool, 1, C2> const& _masks
     ) : values(_values), masks(_masks) {
         utils::checkSize(masks.getShape(), values.getShape(), "masks");
+    }
+
+    /// Return whether the value at index is masked
+    bool isMasked(std::size_t index) const {
+        return ((maskMeansInclude && !masks[index]) || (!maskMeansInclude && masks[index]));
     }
 
     /// Perform comparison
@@ -46,14 +51,14 @@ struct MaskedArrayIndexCompare {
     /// @param right : Index of the second element being compared
     /// @return Whether the left value compares less than the right value.
     bool operator()(std::size_t const left, std::size_t const right) const {
-        if (masks[right]) {
-            if (masks[left]) {
+        if (isMasked(right)) {
+            if (isMasked(left)) {
                 // Make the comparison stable by comparing indices
                 return left < right;
             }
             return true;
         }
-        if (masks[left]) {
+        if (isMasked(left)) {
             return false;
         }
         return values[left] < values[right];
@@ -66,7 +71,7 @@ struct MaskedArrayIndexCompare {
 };
 
 
-template<typename T, int C1, int C2>
+template<bool maskMeansInclude, typename T, int C1, int C2>
 struct MaskedArrayPartitioner {
     using Indices = ndarray::Array<std::size_t, 1, 1>;
     using Iterator = typename Indices::iterator;
@@ -81,7 +86,9 @@ struct MaskedArrayPartitioner {
         ndarray::ArrayRef<bool, 1, C2> const& _masks
     ) : compare(_values, _masks),
         indices(utils::arange(0UL, compare.size())),
-        unmasked(std::count_if(_masks.begin(), _masks.end(), [_masks](bool mm) { return !mm; }))
+        unmasked(std::count_if(_masks.begin(), _masks.end(), [_masks](bool mm) {
+            return (maskMeansInclude && mm) || (!maskMeansInclude && !mm); }
+        ))
         {}
 
     /// Return size of array
@@ -109,7 +116,7 @@ struct MaskedArrayPartitioner {
     Iterator begin() { return indices.begin(); }
     Iterator end() { return indices.end(); }
 
-    MaskedArrayIndexCompare<T, C1, C2> compare;  ///< Compare function
+    MaskedArrayIndexCompare<maskMeansInclude, T, C1, C2> compare;  ///< Compare function
     ndarray::Array<std::size_t, 1, 1> indices;  ///< Indices for arrays
     std::size_t unmasked;  ///< Number of unmasked entries
 };
@@ -225,21 +232,35 @@ typename Partitioner::Data calculateMedian(
 /// @param values : Numbers for which to calculate median
 /// @param masks : Whether the numbers are to be considered as masked (true means bad value)
 /// @return Median
-template <typename T, int C1, int C2>
+template <bool maskMeansInclude, typename T, int C1, int C2>
 T calculateMedian(
     ndarray::ArrayRef<T, 1, C1> const values,
     ndarray::ArrayRef<bool, 1, C2> const masks
 ) {
     utils::checkSize(masks.getShape(), values.getShape(), "masks");
-    MaskedArrayPartitioner<T, C1, C2> partitioner(values, masks);
+    MaskedArrayPartitioner<maskMeansInclude, T, C1, C2> partitioner(values, masks);
     return calculateMedian(partitioner);
+}
+template <typename T, int C1, int C2>
+T calculateMedian(
+    ndarray::ArrayRef<T, 1, C1> const values,
+    ndarray::ArrayRef<bool, 1, C2> const masks
+) {
+    return calculateMedian<false>(values, masks);
+}
+template <bool maskMeansInclude, typename T, int C1, int C2>
+T calculateMedian(
+    ndarray::Array<T, 1, C1> const& values,
+    ndarray::Array<bool, 1, C2> const& masks
+) {
+    return calculateMedian<maskMeansInclude>(values.deep(), masks.deep());
 }
 template <typename T, int C1, int C2>
 T calculateMedian(
     ndarray::Array<T, 1, C1> const& values,
     ndarray::Array<bool, 1, C2> const& masks
 ) {
-    return calculateMedian(values.deep(), masks.deep());
+    return calculateMedian<false>(values.deep(), masks.deep());
 }
 template <typename T, int C>
 T calculateMedian(
@@ -329,15 +350,31 @@ calculateQuartiles(
 /// @param values : Numbers for which to calculate quartiles
 /// @param masks : Whether the numbers are to be considered as masked (true means bad value)
 /// @return lower quartile, median, upper quartile
-template <typename T, int C1, int C2>
+template <bool maskMeansInclude, typename T, int C1, int C2>
 std::tuple<T, T, T>
 calculateQuartiles(
     ndarray::ArrayRef<T, 1, C1> const values,
     ndarray::ArrayRef<bool, 1, C2> const masks
 ) {
     utils::checkSize(masks.getShape(), values.getShape(), "masks");
-    MaskedArrayPartitioner<T, C1, C2> partitioner(values, masks);
+    MaskedArrayPartitioner<maskMeansInclude, T, C1, C2> partitioner(values, masks);
     return calculateQuartiles(partitioner);
+}
+template <typename T, int C1, int C2>
+std::tuple<T, T, T>
+calculateQuartiles(
+    ndarray::ArrayRef<T, 1, C1> const values,
+    ndarray::ArrayRef<bool, 1, C2> const masks
+) {
+    return calculateQuartiles<false>(values, masks);
+}
+template <bool maskMeansInclude, typename T, int C1, int C2>
+std::tuple<T, T, T>
+calculateQuartiles(
+    ndarray::Array<T, 1, C1> const& values,
+    ndarray::Array<bool, 1, C2> const& masks
+) {
+    return calculateQuartiles<maskMeansInclude>(values.deep(), masks.deep());
 }
 template <typename T, int C1, int C2>
 std::tuple<T, T, T>
@@ -345,7 +382,7 @@ calculateQuartiles(
     ndarray::Array<T, 1, C1> const& values,
     ndarray::Array<bool, 1, C2> const& masks
 ) {
-    return calculateQuartiles(values.deep(), masks.deep());
+    return calculateQuartiles<false>(values.deep(), masks.deep());
 }
 template <typename T, int C>
 std::tuple<T, T, T>
