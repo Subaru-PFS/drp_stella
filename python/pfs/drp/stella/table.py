@@ -3,12 +3,9 @@ from typing import ClassVar, Dict, Iterable, Iterator, List, Protocol, Type, Typ
 
 import numpy as np
 from pandas import DataFrame, concat
-from pfs.datamodel import PfsTable
+from pfs.datamodel import PfsTable, POD
 
 __all__ = ("Table",)
-
-# Plain Old Data
-POD = Union[str, bool, int, float, np.uint8, np.int16, np.int32, np.int64, np.float32, np.float64]
 
 
 class Row(Protocol):
@@ -69,9 +66,9 @@ class Table:
 
         Sets up the properties based on the schema.
         """
-        cls._schema = cls.DamdClass.schema
+        cls._schema = cls.DamdClass.getSchemaDict()
         cls.RowClass = dataclass(type(cls.__name__ + "Row", (object,), dict(__annotations__=cls._schema)))
-        for name in cls.DamdClass.schema:
+        for name in cls._schema:
 
             def getter(self, name: str = name) -> np.ndarray:
                 return self.data[name].values
@@ -84,7 +81,7 @@ class Table:
         This method mostly exists for the benefit of type checkers, as it sets
         the type for the columns.
         """
-        if name in self.DamdClass.schema:
+        if name in self._schema:
             return self.data[name].values
         raise AttributeError(f"Unknown attribute: {name}")
 

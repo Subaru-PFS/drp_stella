@@ -12,7 +12,7 @@ from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
-from pfs.datamodel.pfsTable import PfsTable
+from pfs.datamodel.pfsTable import PfsTable, Column
 from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -52,13 +52,12 @@ class LineResiduals(PfsTable):
     xBase, yBase : `np.array` of `float`
         Expected position from base detectorMap.
     """
-    schema = dict(
-        **ArcLineSet.DamdClass.schema,
-        xOrig=np.float64,
-        yOrig=np.float64,
-        xBase=np.float64,
-        yBase=np.float64,
-    )
+    schema = ArcLineSet.DamdClass.schema + [
+        Column("xOrig", np.float64, "Original measured x position (pixels)", np.nan),
+        Column("yOrig", np.float64, "Original measured y position (pixels)", np.nan),
+        Column("xBase", np.float64, "Expected x position from base detectorMap (pixels)", np.nan),
+        Column("yBase", np.float64, "Expected y position from base detectorMap (pixels)", np.nan),
+    ]
     fitsExtName = "RESID"
 
 

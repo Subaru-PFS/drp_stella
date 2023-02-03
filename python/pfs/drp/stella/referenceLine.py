@@ -7,7 +7,7 @@ import numpy as np
 from lsst.utils import getPackageDir
 
 from pfs.datamodel import MaskHelper
-from pfs.datamodel.pfsTable import PfsTable
+from pfs.datamodel.pfsTable import PfsTable, Column
 from .utils.bitmask import Bitmask
 from .table import Table
 
@@ -72,14 +72,14 @@ class ReferenceLineTable(PfsTable):
     source: `numpy.ndarray` of `int`
         Bitmask indicating the reference source information.
     """
-    schema = dict(
-        description=str,
-        wavelength=float,
-        intensity=float,
-        status=np.int32,
-        transition=str,
-        source=np.int32
-    )
+    schema = [
+        Column("description", str, "Description of line; usually the atomic or molecular identification", ""),
+        Column("wavelength", float, "Line wavelength (nm)", np.nan),
+        Column("intensity", float, "Estimated intensity (arbitrary units)", np.nan),
+        Column("status", np.int32, "Line status bitmask", -1),
+        Column("transition", str, "Line transition", "UNKNOWN"),
+        Column("source", np.int32, "Source information bitmask", -1),
+    ]
     fitsExtName = "REFLINES"
 
 
