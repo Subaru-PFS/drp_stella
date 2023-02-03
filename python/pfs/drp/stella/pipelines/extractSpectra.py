@@ -11,6 +11,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 from pfs.datamodel import Identity, PfsConfig
 
+from ..blackSpotCorrection import BlackSpotCorrectionTask
 from ..DetectorMapContinued import DetectorMap
 from ..extractSpectraTask import ExtractSpectraTask as ExtractionTask
 from ..fiberProfileSet import FiberProfileSet
@@ -106,6 +107,8 @@ class ExtractSpectraConfig(PipelineTaskConfig, pipelineConnections=ExtractSpectr
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = ConfigurableField(target=ExtractionTask, doc="Extract spectra from exposure")
+    doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
+    blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
 
 
 class ExtractSpectraTask(PipelineTask):
@@ -122,6 +125,7 @@ class ExtractSpectraTask(PipelineTask):
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("fitContinuum")
         self.makeSubtask("extractSpectra")
+        self.makeSubtask("blackSpotCorrection")
 
     def runQuantum(
         self,
@@ -233,6 +237,9 @@ class ExtractSpectraTask(PipelineTask):
             # Set sky flux from continuum
             for ss, cc in zip(spectra, continuum):
                 ss.background += cc.spectrum
+
+        if self.config.doBlackSpotCorrection:
+            self.blackSpotCorrection.run(pfsConfig, original)
 
         # Set sky flux from realised 2d sky model
         if skyImage is not None:

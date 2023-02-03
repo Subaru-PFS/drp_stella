@@ -43,6 +43,7 @@ from .adjustDetectorMap import AdjustDetectorMapTask
 from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
 from .repair import PfsRepairTask, maskLines
+from .blackSpotCorrection import BlackSpotCorrectionTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -92,6 +93,8 @@ class ReduceExposureConfig(Config):
     windowed = Field(dtype=bool, default=False,
                      doc="Reduction of windowed data, for real-time acquisition? Implies "
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
+    doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
+    blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
 
     def validate(self):
         if not self.doExtractSpectra and self.doWriteArm:
@@ -182,6 +185,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("blackSpotCorrection")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def runDataRef(self, sensorRefList):
@@ -319,6 +323,9 @@ class ReduceExposureTask(CmdLineTask):
                     # Set sky flux from continuum
                     for ss, cc in zip(spectra, continua):
                         ss.background += cc.spectrum/cc.norm*ss.norm
+
+                if self.config.doBlackSpotCorrection:
+                    self.blackSpotCorrection.run(pfsConfig, spectra)
 
                 if skyImage is not None:
                     skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
