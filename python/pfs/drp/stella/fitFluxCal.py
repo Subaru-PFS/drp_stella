@@ -22,7 +22,7 @@ from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
-from .datamodel.pfsTargetSpectra import PfsTargetSpectra
+from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .fitFocalPlane import FitFocalPlaneTask
 from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
 from .focalPlaneFunction import FocalPlaneFunction
@@ -102,7 +102,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         -------
         fluxCal : `FocalPlaneFunction`
             Flux calibration solution.
-        pfsCalibrated : `PfsTargetSpectra`
+        pfsCalibrated : `PfsCalibratedSpectra`
             Calibrated spectra.
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
@@ -140,7 +140,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
 
         return Struct(
             fluxCal=fluxCal,
-            pfsCalibrated=PfsTargetSpectra(pfsCalibrated.values()),
+            pfsCalibrated=PfsCalibratedSpectra(pfsCalibrated.values()),
             pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 
@@ -189,7 +189,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         -------
         fluxCal : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
-        pfsCalibrated : `PfsTargetSpectra`
+        pfsCalibrated : `PfsCalibratedSpectra`
             Calibrated spectra.
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
