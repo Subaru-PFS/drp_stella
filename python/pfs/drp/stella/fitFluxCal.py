@@ -5,9 +5,18 @@ from astropy import constants as const
 import numpy as np
 
 import lsstDebug
+from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import (
+    ArgumentParser,
+    CmdLineTask,
+    PipelineTask,
+    PipelineTaskConfig,
+    Struct,
+)
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+
 import lsst.daf.persistence
-from lsst.pex.config import Config, Field, ConfigurableField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
+from lsst.pex.config import Field, ConfigurableField
 
 from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
@@ -15,8 +24,9 @@ from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsTargetSpectra
 from .fitFocalPlane import FitFocalPlaneTask
-from .fluxCalibrate import fluxCalibrate
+from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
 from .focalPlaneFunction import FocalPlaneFunction
+from .gen3 import readDatasetRefs
 from .lsf import warpLsf, Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import getPfsVersions
@@ -26,10 +36,10 @@ from .FluxTableTask import FluxTableTask
 from typing import Iterable
 from typing import Dict, List
 
-__all__ = ("FitFluxCalConfig", "FitFluxCalTask")
+__all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
 
 
-class FitFluxCalConfig(Config):
+class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConnections):
     """Configuration for FitFluxCalTask"""
 
     sysErr = Field(
@@ -46,7 +56,7 @@ class FitFluxCalConfig(Config):
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
 
 
-class FitFluxCalTask(CmdLineTask):
+class FitFluxCalTask(CmdLineTask, PipelineTask):
     """Measure and apply the flux calibration"""
 
     ConfigClass = FitFluxCalConfig
@@ -66,7 +76,7 @@ class FitFluxCalTask(CmdLineTask):
         self,
         pfsMerged: PfsMerged,
         pfsMergedLsf: LsfDict,
-        reference: PfsFluxReference,
+        references: PfsFluxReference,
         pfsConfig: PfsConfig,
         pfsArmList: List[PfsArm],
         sky1dList: Iterable[FocalPlaneFunction],
@@ -79,7 +89,7 @@ class FitFluxCalTask(CmdLineTask):
             Merged spectra, containing observations of ``FLUXSTD`` sources.
         pfsMergedLsf : `LsfDict`
             Line-spread functions for merged spectra.
-        reference : `PfsFluxReference`
+        references : `PfsFluxReference`
             Reference spectra.
         pfsConfig : `PfsConfig`
             PFS fiber configuration.
@@ -97,7 +107,7 @@ class FitFluxCalTask(CmdLineTask):
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
         """
-        fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, reference)
+        fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, references)
         fluxCalibrate(pfsMerged, pfsConfig, fluxCal)
 
         calibrated = []
@@ -134,6 +144,31 @@ class FitFluxCalTask(CmdLineTask):
             pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 
+    def runQuantum(
+        self,
+        butler: ButlerQuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with butler I/O
+
+        Parameters
+        ----------
+        butler : `ButlerQuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        armInputs = readDatasetRefs(butler, inputRefs, "pfsArm", "sky1d")
+        inputs = butler.get(inputRefs)
+
+        outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
+        butler.put(outputs, outputRefs)
+
     @classmethod
     def _makeArgumentParser(cls) -> ArgumentParser:
         parser = ArgumentParser(name=cls._DefaultName)
@@ -162,14 +197,14 @@ class FitFluxCalTask(CmdLineTask):
         pfsMerged = dataRef.get("pfsMerged")
         pfsMergedLsf = dataRef.get("pfsMergedLsf")
         pfsConfig = dataRef.get("pfsConfig")
-        reference = dataRef.get("pfsFluxReference")
+        references = dataRef.get("pfsFluxReference")
 
         butler = dataRef.getButler()
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
         pfsArmList = [armRef.get("pfsArm") for armRef in armRefList]
         sky1dList = [armRef.get("sky1d") for armRef in armRefList]
 
-        outputs = self.run(pfsMerged, pfsMergedLsf, reference, pfsConfig, pfsArmList, sky1dList)
+        outputs = self.run(pfsMerged, pfsMergedLsf, references, pfsConfig, pfsArmList, sky1dList)
 
         if self.config.doWrite:
             dataRef.put(outputs.fluxCal, "fluxCal")

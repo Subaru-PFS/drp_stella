@@ -1,7 +1,20 @@
 import lsstDebug
+from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import (
+    ArgumentParser,
+    CmdLineTask,
+    PipelineTask,
+    PipelineTaskConfig,
+    PipelineTaskConnections,
+    Struct,
+)
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
+
 import lsst.daf.persistence
-from lsst.pex.config import Config, ConfigurableField, ChoiceField, Field, ListField
-from lsst.pipe.base import ArgumentParser, CmdLineTask, Struct
+from lsst.pex.config import ConfigurableField, ChoiceField, Field, ListField
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
@@ -41,10 +54,40 @@ except ImportError:
     NDArray = Sequence
 
 
-__all__ = ["FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
+__all__ = ["FitPfsFluxReferenceConnections", "FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
 
 
-class FitPfsFluxReferenceConfig(Config):
+class FitPfsFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+    """Connections for FitPfsFluxReferenceTask"""
+
+    pfsConfig = PrerequisiteConnection(
+        name="pfsConfig",
+        doc="Top-end fiber configuration",
+        storageClass="PfsConfig",
+        dimensions=("instrument", "exposure"),
+    )
+    pfsMerged = InputConnection(
+        name="pfsMerged",
+        doc="Merged spectra from exposure",
+        storageClass="PfsMerged",
+        dimensions=("instrument", "exposure"),
+    )
+    pfsMergedLsf = InputConnection(
+        name="pfsMergedLsf",
+        doc="Line-spread function of merged spectra",
+        storageClass="LsfDict",
+        dimensions=("instrument", "exposure"),
+    )
+
+    reference = OutputConnection(
+        name="pfsFluxReference",
+        doc="Fit reference spectrum of flux standards",
+        storageClass="PfsFluxReference",
+        dimensions=("instrument", "exposure"),
+    )
+
+
+class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFluxReferenceConnections):
     """Configuration for FitPfsFluxReferenceTask"""
 
     fitBroadbandSED = ConfigurableField(
@@ -130,7 +173,7 @@ class FitPfsFluxReferenceConfig(Config):
         self.fitModelContinuum.maskLineRadius = 25
 
 
-class FitPfsFluxReferenceTask(CmdLineTask):
+class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
     """Construct reference for flux calibration."""
 
     ConfigClass = FitPfsFluxReferenceConfig
@@ -155,6 +198,29 @@ class FitPfsFluxReferenceTask(CmdLineTask):
         self.extinctionMap = DustMap()
 
         self.fitFlagNames = MaskHelper()
+
+    def runQuantum(
+        self,
+        butler: ButlerQuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with butler I/O
+
+        Parameters
+        ----------
+        butler : `ButlerQuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        inputs = butler.get(inputRefs)
+        reference = self.run(**inputs)
+        butler.put(reference, outputRefs.reference)
 
     @classmethod
     def _makeArgumentParser(cls) -> ArgumentParser:
