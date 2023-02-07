@@ -43,6 +43,7 @@ void declareDoubleDistortion(py::module & mod) {
 
 PYBIND11_PLUGIN(DoubleDistortion) {
     py::module mod("DoubleDistortion");
+    mod.import("pfs.drp.stella.math");  // for NormalizedPolynomial2D
     declareDoubleDistortion(mod);
     return mod.ptr();
 }
