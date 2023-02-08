@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 
 from lsst.pex.config import Config, Field, ListField, ConfigField, ConfigurableField
@@ -82,7 +83,7 @@ class MeasureApertureCorrectionsTask(Task):
         self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap,
-            lines: ArcLineSet) -> FocalPlaneFunction:
+            lines: ArcLineSet) -> Optional[FocalPlaneFunction]:
         """Measure and apply aperture correction
 
         Parameters
@@ -122,8 +123,12 @@ class MeasureApertureCorrectionsTask(Task):
         wavelength = detectorMap.getWavelength()
         minWavelength = wavelength.min()
         maxWavelength = wavelength.max()
-        apCorr = self.fit.run(corrections, pfsConfig, minWavelength=minWavelength,
-                              maxWavelength=maxWavelength)
+        try:
+            apCorr = self.fit.run(corrections, pfsConfig, minWavelength=minWavelength,
+                                  maxWavelength=maxWavelength)
+        except Exception as e:
+            self.log.warn("Unable to fit aperture correction: %s", e)
+            return None
 
         # Apply aperture corrections.
         self.apply(lines, apCorr, pfsConfig)

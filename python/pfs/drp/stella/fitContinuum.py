@@ -347,7 +347,7 @@ class BaseFitContinuumTask(Task):
             Image containing continua.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra, bgImage = fiberTraces.extractSpectra(maskedImage, badBitMask)
+        spectra = fiberTraces.extractSpectra(maskedImage, badBitMask)
         if detectorMap is not None:
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
