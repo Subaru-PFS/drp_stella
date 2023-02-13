@@ -535,8 +535,9 @@ class ReduceExposureTask(CmdLineTask):
                 history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
                 detectorMap.metadata.add("HISTORY", history)
 
-                sensorRef.put(detectorMap, "detectorMap_used")
                 fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
+
+        sensorRef.put(detectorMap, "detectorMap_used")
 
         if self.config.doMeasurePsf:
             psf = self.measurePsf.runSingle(exposure, detectorMap)
