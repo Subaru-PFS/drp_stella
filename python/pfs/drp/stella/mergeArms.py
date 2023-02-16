@@ -105,6 +105,11 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
     if not, the values 0x666 and 0 are used.""")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum to mean normalisation")
+    notesCopyFirst = ListField(
+        dtype=str,
+        doc="Notes for which we simply copy the first value from one of the arms",
+        default=["blackSpotId", "blackSpotDistance", "blackSpotCorrection"],
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -417,11 +422,17 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         resampled = [ss.resample(wavelength, jacobian=True) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
+
+        notes = PfsMerged.NotesClass.empty(len(archetype))
+        for name in self.config.notesCopyFirst:
+            getattr(notes, name)[:] = getattr(archetype.notes, name)
+
         if self.config.doBarycentricCorr:
             self.log.warn("Barycentric correction is not yet implemented.")
 
         return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
-                         combination.sky, combination.norm, combination.covar, flags, archetype.metadata)
+                         combination.sky, combination.norm, combination.covar, flags, archetype.metadata,
+                         notes)
 
     def combine(self, spectra, flags):
         """Combine spectra

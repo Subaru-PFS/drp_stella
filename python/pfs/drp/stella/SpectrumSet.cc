@@ -25,6 +25,7 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("add", py::overload_cast<std::shared_ptr<Spectrum>>(&Class::add), "spectrum"_a);
     cls.def("getLength", &Class::getLength);
 
+    cls.def_property_readonly("fiberId", &Class::getAllFiberIds);
     cls.def("getAllFiberIds", &Class::getAllFiberIds);
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
@@ -32,6 +33,7 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("getAllCovariances", &Class::getAllCovariances);
     cls.def("getAllBackgrounds", &Class::getAllBackgrounds);
     cls.def("getAllNormalizations", &Class::getAllNormalizations);
+    cls.def("getAllNotes", &Class::getAllNotes);
 
     // Pythonic APIs
     cls.def("__len__", &Class::size);

@@ -10,6 +10,7 @@ import numpy as np  # noqa E402: import after code
 import lsst.utils.tests  # noqa E402: import after code
 import lsst.afw.image  # noqa E402: import after code
 import lsst.afw.image.testUtils  # noqa E402: import after code
+from lsst.daf.base import PropertySet  # noqa E402: import after code
 
 from pfs.drp.stella import Spectrum  # noqa E402: import after code
 
@@ -30,11 +31,12 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.norm = self.rng.uniform(size=self.length).astype(np.float32)
         self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
+        self.notes = {"foo": 123, "bar": 4.56}
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
         return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
-                        self.wavelengthArray, self.fiberId)
+                        self.wavelengthArray, self.fiberId, PropertySet.from_mapping(self.notes))
 
     def assertSpectrum(self, spectrum):
         """Assert that the ``Spectrum`` has the expected contents"""
@@ -47,6 +49,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectrum.norm, self.norm)
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
+        self.assertDictEqual(spectrum.notes.toDict(), self.notes)
 
     def testCreateEmpty(self):
         """Test creation of an empty ``Spectrum``
@@ -65,6 +68,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(spectrum.norm.shape, (self.length,))
         self.assertEqual(spectrum.covariance.shape, (3, self.length))
         self.assertEqual(spectrum.wavelength.shape, (self.length,))
+        self.assertEqual(len(spectrum.notes), 0)
 
         # Set elements via setters
         spectrum.setFiberId(self.fiberId)
@@ -74,6 +78,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum.setNorm(self.norm)
         spectrum.setCovariance(self.covariance)
         spectrum.setWavelength(self.wavelengthArray)
+        spectrum.getNotes().update(self.notes)
         self.assertSpectrum(spectrum)
 
         # Reset, and set elements via properties
@@ -85,6 +90,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum.norm = self.norm
         spectrum.covariance = self.covariance
         spectrum.wavelength = self.wavelengthArray
+        spectrum.notes.update(self.notes)
         self.assertSpectrum(spectrum)
 
         # Change versions in self and ensure the values in spectrum DO NOT change (setters do a copy)

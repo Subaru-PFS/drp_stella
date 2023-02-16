@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/daf/base/PropertySet.h"
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -42,6 +43,7 @@ class Spectrum {
     /// @param wavelength  Wavelength values
     /// @param lines  Line list
     /// @param fiberId  Fiber identifier
+    /// @param notes  Reduction notes
     Spectrum(
         ImageArray const& flux,
         Mask const& mask,
@@ -49,7 +51,8 @@ class Spectrum {
         ImageArray const& norm,
         CovarianceMatrix const& covariance,
         WavelengthArray const& wavelength,
-        int fiberId=0
+        int fiberId=0,
+        std::shared_ptr<lsst::daf::base::PropertySet> notes=nullptr
     );
 
     Spectrum(Spectrum const&) = delete;
@@ -118,6 +121,10 @@ class Spectrum {
     /// Return the fiber identifier for this spectrum
     int getFiberId() const { return _fiberId; }
 
+    /// Return the notes
+    lsst::daf::base::PropertySet & getNotes() { return *_notes; }
+    lsst::daf::base::PropertySet const& getNotes() const { return *_notes; }
+
     /// Set the flux (deep copy)
     void setFlux(ndarray::Array<ImageT, 1, 1>  const& flux);
 
@@ -161,6 +168,7 @@ class Spectrum {
     WavelengthArray _wavelength;
     int _fiberId;
     bool _isWavelengthSet;
+    std::shared_ptr<lsst::daf::base::PropertySet> _notes;
 };
 
 }}} // namespace pfs::drp::stella

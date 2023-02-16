@@ -1,23 +1,28 @@
 from collections.abc import Mapping
-from typing import Dict, Iterator, Iterable, List
+from typing import Dict, Iterator, Iterable, List, Type
 
 import astropy.io.fits
 import numpy as np
 import yaml
 from astropy.io.fits import BinTableHDU, Column, HDUList, ImageHDU
+from pfs.datamodel.drp import PfsSingleNotes, PfsSingle, PfsObjectNotes, PfsObject
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.observations import Observations
 from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsTable import PfsTable
 from pfs.datamodel.target import Target
 from pfs.drp.stella.datamodel.fluxTable import FluxTable
 
 from .pfsFiberArray import PfsFiberArray
 
-__all__ = ["PfsTargetSpectra"]
+__all__ = ["PfsTargetSpectra", "PfsCalibratedSpectra", "PfsObjectSpectra"]
 
 
 class PfsTargetSpectra(Mapping):
     """A collection of `PfsFiberArray` indexed by target"""
+
+    PfsFiberArrayClass: Type[PfsFiberArray]  # Subclasses must override
+    NotesClass: Type[PfsTable]  # Subclasses must override
 
     def __init__(self, spectra: Iterable[PfsFiberArray]):
         super().__init__()
@@ -66,6 +71,7 @@ class PfsTargetSpectra(Mapping):
             covar2Hdu = fits["COVAR2"].data if "COVAR2" in fits else None
             metadataHdu = fits["METADATA"].data
             fluxTableHdu = fits["FLUXTABLE"].data
+            notesTable = cls.NotesClass.readHdu(fits)
 
             for ii, row in enumerate(targetHdu):
                 targetId = row["targetId"]
@@ -118,7 +124,11 @@ class PfsTargetSpectra(Mapping):
                     flags,
                 )
 
-                spectrum = PfsFiberArray(
+                notes = cls.PfsFiberArrayClass.NotesClass(
+                    **{col.name: notesTable[col.name][ii] for col in notesTable.schema}
+                )
+
+                spectrum = cls.PfsFiberArrayClass(
                     target,
                     observations,
                     wavelengthHdu[ii],
@@ -130,6 +140,7 @@ class PfsTargetSpectra(Mapping):
                     flags,
                     metadata,
                     fluxTable,
+                    notes,
                 )
                 spectra.append(spectrum)
 
@@ -297,5 +308,34 @@ class PfsTargetSpectra(Mapping):
             )
         )
 
+        notes = self.NotesClass.empty(len(self))
+        for ii, spectrum in enumerate(self.values()):
+            notes.setRow(ii, **spectrum.notes.getDict())
+        notes.writeHdu(fits)
+
         with open(filename, "wb") as fd:
             fits.writeto(fd)
+
+
+class PfsCalibratedNotesTable(PfsTable):
+    """Table of notes for PfsCalibratedSpectra"""
+    schema = PfsSingleNotes.schema
+    fitsExtName = "NOTES"
+
+
+class PfsCalibratedSpectra(PfsTargetSpectra):
+    """A collection of PfsSingle indexed by target"""
+    PfsFiberArrayClass = PfsSingle
+    NotesClass = PfsCalibratedNotesTable
+
+
+class PfsObjectNotesTable(PfsTable):
+    """Table of notes for PfsObjectSpectra"""
+    schema = PfsObjectNotes.schema
+    fitsExtName = "NOTES"
+
+
+class PfsObjectSpectra(PfsTargetSpectra):
+    """A collection of PfsObject indexed by target"""
+    PfsFiberArrayClass = PfsObject
+    NotesClass = PfsObjectNotesTable

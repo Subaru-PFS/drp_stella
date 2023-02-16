@@ -226,18 +226,19 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         spectrum.spectrum[self.xy0.getY():self.xy0.getY() + self.height] = 1.0
         image = self.fiberTrace.constructImage(spectrum, self.bbox)
         self.assertEqual(image.getBBox(), self.bbox)
-        self.assertImagesEqual(image[self.bbox, lsst.afw.image.PARENT], self.subimage.image)
+
+        expected = self.subimage.image.array/self.subimage.image.array.sum(axis=1)[:, np.newaxis]
+        self.assertFloatsAlmostEqual(image[self.bbox, lsst.afw.image.PARENT].array, expected, atol=1.0e-7)
         image[self.bbox, lsst.afw.image.PARENT].set(0.0)
         self.assertFloatsEqual(image.array, 0.0)
 
         # Modify provided image
         image.set(0.0)
         self.fiberTrace.constructImage(image, spectrum)
-        self.assertImagesEqual(image[self.bbox, lsst.afw.image.PARENT], self.subimage.image)
+        self.assertFloatsAlmostEqual(image[self.bbox, lsst.afw.image.PARENT].array, expected, atol=1.0e-7)
         # Check that we're actually adding, not simply setting
         self.fiberTrace.constructImage(image, spectrum)
-        self.image += self.image
-        self.assertImagesEqual(image[self.bbox, lsst.afw.image.PARENT], self.subimage.image)
+        self.assertFloatsAlmostEqual(image[self.bbox, lsst.afw.image.PARENT].array, 2*expected, atol=1.0e-7)
         image[self.bbox, lsst.afw.image.PARENT].set(0.0)
         self.assertFloatsEqual(image.array, 0.0)
 

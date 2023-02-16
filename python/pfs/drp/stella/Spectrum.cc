@@ -20,8 +20,9 @@ void declareSpectrum(py::module &mod) {
     cls.def(py::init<std::size_t, int>(), "length"_a, "fiberId"_a=0);
     cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
                      Spectrum::ImageArray const&, Spectrum::CovarianceMatrix const&,
-                     Spectrum::WavelengthArray const&, int>(),
-            "flux"_a, "mask"_a, "background"_a, "norm"_a, "covariance"_a, "wavelength"_a, "fiberId"_a=0);
+                     Spectrum::WavelengthArray const&, int, std::shared_ptr<lsst::daf::base::PropertySet>>(),
+            "flux"_a, "mask"_a, "background"_a, "norm"_a, "covariance"_a, "wavelength"_a, "fiberId"_a=0,
+            "notes"_a=nullptr);
 
     cls.def("getFlux", py::overload_cast<>(&Class::getFlux));
     cls.def("setFlux", &Class::setFlux, "flux"_a);
@@ -62,6 +63,9 @@ void declareSpectrum(py::module &mod) {
     cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
     cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
+    cls.def("getNotes", py::overload_cast<>(&Class::getNotes), py::return_value_policy::reference_internal);
+    cls.def_property_readonly("notes", py::overload_cast<>(&Class::getNotes));
+
     cls.def("getNumPixels", &Class::getNumPixels);
     cls.def("__len__", &Class::getNumPixels);
 
@@ -73,13 +77,15 @@ void declareSpectrum(py::module &mod) {
     cls.def(py::pickle(
         [](Class const& self) {
             return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(), self.getNorm(),
-                                  self.getCovariance(), self.getWavelength(), self.getFiberId());
+                                  self.getCovariance(), self.getWavelength(), self.getFiberId(),
+                                  self.getNotes().deepCopy());
         },
         [](py::tuple const& t) {
             return Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
                             t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::ImageArray>(),
                             t[4].cast<Spectrum::CovarianceMatrix>(), t[5].cast<Spectrum::WavelengthArray>(),
-                            t[6].cast<std::size_t>());
+                            t[6].cast<std::size_t>(),
+                            t[7].cast<std::shared_ptr<lsst::daf::base::PropertySet>>());
         }
     ));
 }

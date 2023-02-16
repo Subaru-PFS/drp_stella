@@ -20,7 +20,8 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
     _covariance(ndarray::allocate(3, length)),
     _wavelength(ndarray::allocate(length)),
     _fiberId(fiberId),
-    _isWavelengthSet(false)
+    _isWavelengthSet(false),
+    _notes(std::make_shared<lsst::daf::base::PropertySet>(true))
 {
     _flux.deep() = 0.;
     _mask.getArray().deep() = 0;
@@ -38,7 +39,8 @@ Spectrum::Spectrum(
     ImageArray const& norm,
     CovarianceMatrix const& covariance,
     WavelengthArray const& wavelength,
-    int fiberId
+    int fiberId,
+    std::shared_ptr<lsst::daf::base::PropertySet> notes
 ) : _length(flux.getNumElements()),
     _flux(flux),
     _mask(mask),
@@ -47,7 +49,8 @@ Spectrum::Spectrum(
     _covariance(covariance),
     _wavelength(wavelength),
     _fiberId(fiberId),
-    _isWavelengthSet(!wavelength.empty())
+    _isWavelengthSet(!wavelength.empty()),
+    _notes(notes ? notes : std::make_shared<lsst::daf::base::PropertySet>(true))
 {}
 
 

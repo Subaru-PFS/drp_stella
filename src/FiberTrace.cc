@@ -56,16 +56,24 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     auto spec = spectrum.getSpectrum().begin() + box.getMinY();
     auto bg = spectrum.getBackground().begin() + box.getMinY();
-    for (std::ptrdiff_t y = box.getMinY(); y <= box.getMaxY(); ++y, ++spec, ++bg) {
-        auto profileIter = _trace.getImage()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();
-        auto maskIter = _trace.getMask()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();;
-        auto imageIter = image.row_begin(y - image.getY0()) + box.getMinX() - image.getX0();;
+    for (std::ptrdiff_t y = box.getMinY(), row = box.getMinY() - _trace.getY0();
+         y <= box.getMaxY(); ++y, ++row, ++spec, ++bg) {
+        std::ptrdiff_t const xStart = box.getMinX() - _trace.getX0();
+        std::ptrdiff_t const xStop = box.getMaxX() - _trace.getX0();  // Inclusive
+        auto profileIter = _trace.getImage()->row_begin(row) + xStart;
+        auto maskIter = _trace.getMask()->row_begin(row) + xStart;
+        auto imageIter = image.row_begin(row) + xStart;
+
+        double const invNorm = 1.0/ndarray::asEigenArray(
+            _trace.getImage()->getArray()[row][ndarray::view(xStart, xStop + 1)]
+        ).template cast<double>().sum();
+
         float const bgValue = *bg;
         float const specValue = *spec;
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
              ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *imageIter += bgValue + specValue*(*profileIter);
+                *imageIter += bgValue + specValue*(*profileIter)*invNorm;
             }
         }
     }

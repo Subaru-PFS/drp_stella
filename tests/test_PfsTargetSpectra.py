@@ -5,8 +5,8 @@ import lsst.utils.tests
 import numpy as np
 from lsst.pipe.base import Struct
 from pfs.datamodel import FluxTable, MaskHelper, Observations, Target, TargetType
-from pfs.drp.stella.datamodel import PfsFiberArray
-from pfs.drp.stella.datamodel.pfsTargetSpectra import PfsTargetSpectra
+from pfs.drp.stella.datamodel import PfsFiberArray, PfsObject
+from pfs.drp.stella.datamodel.pfsTargetSpectra import PfsTargetSpectra, PfsObjectSpectra
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -138,6 +138,10 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
     def makePfsFiberArray(self, length: int = 1000, numObservations: int = 3):
         """Create a spectrum with all required metadata
 
+        We create a `PfsObject`, as a specific subclass of `PfsFiberArray`,
+        because we need something where the `NotesClass` class attribute is
+        set.
+
         Parameters
         ----------
         length : `int`
@@ -151,7 +155,7 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
             Spectrum with random values.
         """
         spectrum = self.makeSpectrum(length)
-        return PfsFiberArray(
+        return PfsObject(
             target=self.makeTarget(),
             observations=self.makeObservations(numObservations),
             wavelength=spectrum.wavelength,
@@ -170,6 +174,10 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
     ) -> PfsTargetSpectra:
         """Create a set of spectra
 
+        We create a `PfsObjectSpectra`, as a specific subclass of
+        `PfsTargetSpectra`, because we need something where the `NotesClass`
+        class attribute is set.
+
         Parameters
         ----------
         num : `int`
@@ -184,7 +192,7 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
         spectra : `PfsTargetSpectra`
             Spectra with random values.
         """
-        return PfsTargetSpectra([self.makePfsFiberArray(length, numObservations) for _ in range(num)])
+        return PfsObjectSpectra([self.makePfsFiberArray(length, numObservations) for _ in range(num)])
 
     def assertPfsTargetSpectraEqual(self, left: PfsTargetSpectra, right: PfsTargetSpectra):
         """Assert that two `PfsTargetSpectra` are equal"""
@@ -257,7 +265,7 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
         spectra = self.makePfsTargetSpectra()
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             spectra.writeFits(filename)
-            copy = PfsTargetSpectra.readFits(filename)
+            copy = PfsObjectSpectra.readFits(filename)
             self.assertPfsTargetSpectraEqual(copy, spectra)
 
 

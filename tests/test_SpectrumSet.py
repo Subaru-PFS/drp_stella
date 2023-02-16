@@ -9,6 +9,7 @@ matplotlib.use("Agg")  # noqa
 import numpy as np  # noqa E402: import after code
 
 import lsst.utils.tests  # noqa E402: import after code
+from lsst.daf.base import PropertySet  # noqa E402: import after code
 from pfs.drp.stella import Spectrum, SpectrumSet  # noqa E402: import after code
 
 display = None
@@ -28,11 +29,12 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.norm = self.rng.uniform(size=self.length).astype(np.float32)
         self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
+        self.notes = {"blackSpotId": 123}
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
         return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
-                        self.wavelengthArray, self.fiberId)
+                        self.wavelengthArray, self.fiberId, PropertySet.from_mapping(self.notes))
 
     def assertSpectrum(self, spectrum):
         """Assert that the ``Spectrum`` has the expected contents"""
@@ -45,6 +47,8 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectrum.norm, self.norm)
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
+        for key, value in self.notes.items():
+            self.assertEqual(spectrum.notes[key], value)
 
     def testBasics(self):
         """Test basic APIs.
@@ -96,6 +100,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
             ss.covariance = self.covariance*multiplier
             ss.background = self.background*multiplier
             ss.norm = self.norm*multiplier
+            ss.notes.update(self.notes)
             spectra[ii] = ss
         self.assertSpectrumSet(spectra, num)
         return spectra
@@ -120,6 +125,8 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsEqual(spectrum.covariance, self.covariance*multiplier)
             self.assertFloatsEqual(spectrum.background, self.background*multiplier)
             self.assertFloatsEqual(spectrum.norm, self.norm*multiplier)
+            for key, value in self.notes.items():
+                self.assertEqual(spectrum.notes[key], value)
 
     def testGetAll(self):
         """Test the ``getAll*`` methods"""
@@ -139,6 +146,9 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectra.getAllCovariances(), covariance)
         self.assertFloatsEqual(spectra.getAllBackgrounds(), background)
         self.assertFloatsEqual(spectra.getAllNormalizations(), norm)
+        notes = spectra.getAllNotes()
+        for nn in notes:
+            self.assertDictEqual(nn.toDict(), self.notes)
 
     def testPickle(self):
         """Test pickling of ``SpectrumSet``"""

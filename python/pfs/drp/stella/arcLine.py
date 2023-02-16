@@ -4,6 +4,7 @@ import numpy as np
 
 from pfs.datamodel import Identity
 from pfs.datamodel.drp import LineMeasurements
+from pfs.datamodel.pfsTable import EmptyTable
 
 from .table import Table
 from .referenceLine import ReferenceLineSet, ReferenceLine, ReferenceLineStatus
@@ -115,8 +116,11 @@ class ArcLineSet(Table):
         flux[fiberIndices, wlIndices] = self.flux
         variance[fiberIndices, wlIndices] = self.flux**2
         mask[fiberIndices, wlIndices] = self.status
+        notes = EmptyTable(numFibers)
 
-        return PfsFiberArraySet(identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags, metadata)
+        return PfsFiberArraySet(
+            identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags, metadata, notes
+        )
 
     @property  # type: ignore
     @deprecated(reason="The 'intensity' attribute has been replaced by 'flux'")

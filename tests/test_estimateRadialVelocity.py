@@ -4,7 +4,7 @@ from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask, Es
 from pfs.drp.stella.tests import methodParameters, runTests
 from pfs.datamodel import MaskHelper
 from pfs.datamodel.observations import Observations
-from pfs.datamodel.pfsFiberArray import PfsFiberArray
+from pfs.datamodel.drp import PfsSingle
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
 
@@ -159,7 +159,7 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
 
         Returns
         -------
-        spectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
+        spectrum : `pfs.datamodel.PfsSingle`
             A fake observed spectrum.
         """
         refWavelength = refSpectrum.wavelength
@@ -200,7 +200,7 @@ class EstimateRadialVelocityTestCase(lsst.utils.tests.TestCase):
         covar[0, :] = variance
         covar2 = np.zeros(shape=(0, 0), dtype=float)
 
-        return PfsFiberArray(target, observations, wavelength, flux, mask, sky, covar, covar2, flags)
+        return PfsSingle(target, observations, wavelength, flux, mask, sky, covar, covar2, flags)
 
 
 def createLsf(wavelength, peak, sigma):

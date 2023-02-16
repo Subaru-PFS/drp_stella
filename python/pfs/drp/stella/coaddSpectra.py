@@ -21,8 +21,8 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 from pfs.drp.stella.datamodel.drp import PfsArm
 
-from .datamodel import PfsObject, PfsFiberArraySet, PfsFiberArray
-from .datamodel.pfsTargetSpectra import PfsTargetSpectra
+from .datamodel import PfsObject, PfsSingle
+from .datamodel.pfsTargetSpectra import PfsObjectSpectra
 from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
@@ -84,7 +84,7 @@ class CoaddSpectraConnections(
     pfsCoadd = OutputConnection(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
-        storageClass="PfsTargetSpectra",
+        storageClass="PfsObjectSpectra",
         dimensions=("instrument", "skymap", "tract", "patch"),
     )
     pfsCoaddLsf = OutputConnection(
@@ -219,7 +219,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsTargetSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
+        butler.put(PfsObjectSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
     def runDataRef(self, dataRefList):
@@ -330,7 +330,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
         pfiCenter = np.array([pfsConfig.pfiCenter[0] for pfsConfig in pfsConfigList])
         return Observations(visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter)
 
-    def getSpectrum(self, target: Target, data: Struct) -> PfsFiberArraySet:
+    def getSpectrum(self, target: Target, data: Struct) -> PfsSingle:
         """Return a calibrated spectrum for the nominated target
 
         Parameters
@@ -342,12 +342,12 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        spectrum : `PfsFiberArray`
+        spectrum : `PfsSingle`
             Calibrated spectrum of the target.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
         spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
-        return spectrum.extractFiber(PfsFiberArray, data.pfsConfig, spectrum.fiberId[0])
+        return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
         """Generate coadded spectra for a single target
