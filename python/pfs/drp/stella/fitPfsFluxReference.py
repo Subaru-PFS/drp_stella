@@ -26,7 +26,7 @@ from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
-from pfs.drp.stella.datamodel import PfsFiberArraySet
+from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsMerged, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
@@ -1243,7 +1243,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -
         pfiCenter=np.zeros(shape=(0, 2), dtype=float),
     )
 
-    spectrum = PfsFiberArray(
+    spectrum = PfsSingle(
         target=spectrum.target,
         observations=observations,
         wavelength=spectrum.wavelength,
@@ -1277,7 +1277,7 @@ def promoteFiberArrayToFiberArraySet(spectrum: PfsFiberArray, fiberId: int) -> P
     fiberArraySet : `pfs.drp.stella.datamodel.PfsFiberArraySet`
         `PfsFiberArraySet` that contains only the input fiber.
     """
-    return PfsFiberArraySet(
+    return PfsMerged(
         identity=Identity(visit=0, arm="", spectrograph=1, pfsDesignId=0),
         fiberId=np.full(shape=(1,), fill_value=fiberId, dtype=int),
         wavelength=spectrum.wavelength.reshape(1, -1),
@@ -1307,7 +1307,7 @@ def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) -> Generator[P
         spectrum observed with a fiber.
     """
     for fiberId in pfsConfig.fiberId:
-        yield fiberArraySet.extractFiber(PfsFiberArray, pfsConfig, fiberId)
+        yield fiberArraySet.extractFiber(PfsSingle, pfsConfig, fiberId)
 
 
 def fiberConfigs(pfsConfig: PfsConfig) -> Generator[PfsConfig, None, None]:
