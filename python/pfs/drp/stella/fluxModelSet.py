@@ -57,7 +57,7 @@ class FluxModelSet:
         with astropy.io.fits.open(os.path.join(self.dirname, filename)) as fits:
             # We convert FITS_rec back to numpy's structured array
             # because FITS_rec cannot be indexed with multiple column names.
-            parameters = np.asarray(fits[1].data)
+            parameters = np.asarray(fits[1].data.copy())
 
         # Field names of "photometries.fits" start with capitals.
         # We make them lower for consistency with parameter names
