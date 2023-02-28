@@ -15,7 +15,7 @@ from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType
-from pfs.datamodel import MaskHelper, FiberStatus, Target
+from pfs.datamodel import FiberStatus, Target
 from pfs.drp.stella.lsf import Lsf, LsfDict
 
 from .focalPlaneFunction import FocalPlaneFunction
@@ -231,7 +231,6 @@ class FluxCalibrateTask(CmdLineTask, PipelineTask):
             extracted.fluxTable = self.fluxTable.run(
                 [calibrated[ii].identity.getDict() for ii in fiberToArm[ff]],
                 [pfsArmList[ii].extractFiber(PfsSingle, pfsConfig, ff) for ii in fiberToArm[ff]],
-                MaskHelper.fromMerge([pfsArm.flags for pfsArm in pfsArmList]),
             )
             extracted.metadata = getPfsVersions()
 

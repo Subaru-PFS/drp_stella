@@ -18,7 +18,7 @@ class FluxTableTask(Task):
     ConfigClass = FluxTableConfig
     _DefaultName = "fluxTable"
 
-    def run(self, identities, spectra, flags):
+    def run(self, identities, spectra):
         """Create a FluxTable from multiple spectra
 
         Parameters
@@ -28,13 +28,11 @@ class FluxTableTask(Task):
             least the ``visit`` and ``arm`` keywords.
         spectra : iterable of `pfs.datamodel.PfsFiberArray`
             Spectra to coadd.
-        flags : `pfs.datamodel.MaskHelper`
-            Helper for dealing with symbolic names for mask values.
 
         Returns
         -------
         fluxTable : `pfs.datamodel.FluxTable`
             Fluxes at near the native resolution.
         """
-        return makeFluxTable(identities, spectra, flags, self.config.ignoreFlags,
+        return makeFluxTable(identities, spectra, self.config.ignoreFlags,
                              self.config.rejIterations, self.config.rejThreshold)

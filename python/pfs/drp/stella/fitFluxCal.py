@@ -18,7 +18,7 @@ from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantized
 import lsst.daf.persistence
 from lsst.pex.config import Field, ConfigurableField
 
-from pfs.datamodel import MaskHelper, FiberStatus, PfsConfig, Target, TargetType
+from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
@@ -130,7 +130,6 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
             extracted.fluxTable = self.fluxTable.run(
                 [calibrated[ii].identity.getDict() for ii in fiberToArm[ff]],
                 [pfsArmList[ii].extractFiber(PfsSingle, pfsConfig, ff) for ii in fiberToArm[ff]],
-                MaskHelper.fromMerge([pfsArm.flags for pfsArm in pfsArmList]),
             )
             extracted.metadata = getPfsVersions()
 

@@ -123,7 +123,7 @@ def maskOverlaps(wavelength1, sn1, mask1, wavelength2, sn2, mask2, maskVal):
         mask2[overlap2] |= maskVal
 
 
-def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, sigma=3.0):
+def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0):
     """Create a FluxTable from multiple spectra
 
     Parameters
@@ -133,8 +133,6 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
         least the ``visit`` and ``arm`` keywords.
     spectra : iterable of `pfs.datamodel.PfsFiberArray`
         Spectra to coadd.
-    flags : `pfs.datamodel.MaskHelper`
-        Helper for dealing with symbolic names for mask values.
     ignoreFlags : iterable of `str`, optional
         Masks for which to ignore pixels; ``NO_DATA`` is always included.
     iterations : `int`
@@ -152,6 +150,8 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     armSpectra = defaultdict(list)
     for ident, spec in zip(identities, spectra):
         armSpectra[ident["arm"]].append(spec)
+
+    flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
 
     if ignoreFlags is None:
         ignoreFlags = []
@@ -221,7 +221,6 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     mask = np.concatenate([armCoadds[arm].mask for arm, nn in zip(armList, lengths) if nn != 0])
 
     indices = np.argsort(wavelength)
-    flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
 
     with np.errstate(invalid="ignore"):
         stdev = np.sqrt(variance[indices])
