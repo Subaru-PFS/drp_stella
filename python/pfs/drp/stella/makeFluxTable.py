@@ -89,10 +89,10 @@ def maskOverlaps(wavelength1, sn1, mask1, wavelength2, sn2, mask2, maskVal):
         min1, max1, min2, max2 = min2, max2, min1, max1
 
     # Identify the crossover points from the signal-to-noise
-    sn1 = interpolateFlux(wavelength1, sn1, wavelength2, fill=0.0)  # S/N of arm1 in the frame of arm2
+    sn1 = interpolateFlux(wavelength1, sn1, wavelength2, fill=np.nan)  # S/N of arm1 in the frame of arm2
 
     with np.errstate(invalid="ignore"):
-        better = sn2 > sn1  # arm2 signal-to-noise is better than arm1
+        better = np.isfinite(sn1) & (np.maximum(sn2, 0) >= np.maximum(sn1, 0))  # arm2 s/n is better than arm1
     if np.all(better):
         # arm2 is always better than arm1
         overlap1 = slice(0, len(wavelength1))
@@ -104,6 +104,9 @@ def maskOverlaps(wavelength1, sn1, mask1, wavelength2, sn2, mask2, maskVal):
     elif max1 < max2:
         # Overlap is at the end of arm1 and beginning of arm2
         crossover2 = np.argwhere(better)[-1][-1]  # Last index with lesser variance
+        crossover1 = np.argwhere(~better)[0][0]  # First index with greater variance
+        # Take the middle of those two estimates
+        crossover2 = (crossover1 + crossover2)//2
         crossover1 = np.searchsorted(wavelength1, wavelength2[crossover2])
         overlap1 = slice(crossover1, len(wavelength1))
         overlap2 = slice(0, crossover2)
@@ -123,7 +126,7 @@ def maskOverlaps(wavelength1, sn1, mask1, wavelength2, sn2, mask2, maskVal):
         mask2[overlap2] |= maskVal
 
 
-def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, sigma=3.0):
+def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0):
     """Create a FluxTable from multiple spectra
 
     Parameters
@@ -133,8 +136,6 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
         least the ``visit`` and ``arm`` keywords.
     spectra : iterable of `pfs.datamodel.PfsFiberArray`
         Spectra to coadd.
-    flags : `pfs.datamodel.MaskHelper`
-        Helper for dealing with symbolic names for mask values.
     ignoreFlags : iterable of `str`, optional
         Masks for which to ignore pixels; ``NO_DATA`` is always included.
     iterations : `int`
@@ -152,6 +153,8 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     armSpectra = defaultdict(list)
     for ident, spec in zip(identities, spectra):
         armSpectra[ident["arm"]].append(spec)
+
+    flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
 
     if ignoreFlags is None:
         ignoreFlags = []
@@ -221,7 +224,6 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     mask = np.concatenate([armCoadds[arm].mask for arm, nn in zip(armList, lengths) if nn != 0])
 
     indices = np.argsort(wavelength)
-    flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
 
     with np.errstate(invalid="ignore"):
         stdev = np.sqrt(variance[indices])

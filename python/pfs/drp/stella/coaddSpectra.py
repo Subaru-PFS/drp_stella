@@ -375,7 +375,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
         lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
         combination = self.combine(spectra, lsfList, flags)
-        fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra, flags)
+        fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra)
 
         coadd = PfsObject(target, observations, combination.wavelength, combination.flux,
                           combination.mask, combination.sky, combination.covar, combination.covar2, flags,
