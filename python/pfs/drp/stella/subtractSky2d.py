@@ -408,7 +408,7 @@ class DummySubtractSky2dTask(Task):
         # Evaluate and subtract 1D sky model for all fibers
         for spectrum in spectra:
             sky = sky1d(spectrum.wavelength, pfsConfig.select(fiberId=spectrum.fiberId))
-            spectrum.flux[:] = sky.values
+            spectrum.flux[:] = sky.values*spectrum.norm
         skyImage = makeMaskedImage(spectra.makeImage(exposure.getBBox(), fiberTraces))
         exposure.maskedImage -= skyImage
 
