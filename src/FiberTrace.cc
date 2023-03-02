@@ -148,11 +148,12 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
             prevIndex = std::max(0L, nextIndex - 1);
         }
 
+        image.getMask()->getArray()[yy] = 0;
         if (!norm.isEmpty() && !std::isfinite(norm[yy])) {
             image.getImage()->getArray()[yy] = norm[yy];
-            image.getMask()->getArray()[yy] = 0;
             continue;
         }
+        image.getImage()->getArray()[yy] = 0.0;
 
         double const yPrev = rows[prevIndex];
         double const yNext = rows[nextIndex];
@@ -165,11 +166,13 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
-        double xRel = box.getMinX() - centers[yy];
-        auto imgIter = image.getImage()->row_begin(yy);
-        auto mskIter = image.getMask()->row_begin(yy);
+        int const xStart = std::ceil(centers[yy] - radius);
+        int const xStop = xStart + 2*radius;
+        double xRel = xStart - centers[yy];
+        auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
+        auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
         double sum = 0.0;
-        for (int xx = box.getMinX(); xx <= box.getMaxX(); ++xx, xRel += 1.0, ++imgIter, ++mskIter) {
+        for (int xx = xStart; xx < xStop; ++xx, xRel += 1.0, ++imgIter, ++mskIter) {
                 bool const prevOk = xRel >= prevLow && xRel <= prevHigh;
                 bool const nextOk = xRel >= nextLow && xRel <= nextHigh;
                 double const prevValue = prevOk ? prevSpline(xRel) : 0.0;
