@@ -95,8 +95,11 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     Array1D getDispersion(FiberIds const& fiberId, Array1D const& wavelength, double dWavelength=0.1) const;
     //@}
 
+    //@{
     /// Return the fiberId given a position on the detector
+    int findFiberId(double x, double y) const { return findFiberId(lsst::geom::Point2D(x, y)); }
     int findFiberId(lsst::geom::PointD const& point) const;
+    //@}
 
     //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength

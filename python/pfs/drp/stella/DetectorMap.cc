@@ -56,6 +56,7 @@ void declareDetectorMap(py::module & mod) {
                                                ndarray::Array<double, 1, 1> const&,
                                                double>(&Class::getDispersion, py::const_),
             "fiberId"_a, "wavelength"_a, "dWavelength"_a=0.1);
+    cls.def("findFiberId", py::overload_cast<double, double>(&Class::findFiberId, py::const_), "x"_a, "y"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);
     cls.def("findPoint", py::overload_cast<int, double, bool>(&Class::findPoint, py::const_),
