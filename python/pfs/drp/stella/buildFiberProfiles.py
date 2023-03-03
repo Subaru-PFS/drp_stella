@@ -44,6 +44,7 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
+    doProfileBackground = Field(dtype=bool, default=True, doc="Subtract outermost samples from profile?")
 
 
 class BuildFiberProfilesTask(Task):
@@ -447,6 +448,10 @@ class BuildFiberProfilesTask(Task):
                                          self.config.profileOversample, self.config.profileSwath,
                                          self.config.profileRejIter, self.config.profileRejThresh,
                                          self.config.mask)
+        if self.config.doProfileBackground:
+            for prof in profile.profiles:
+                indices = np.ma.flatnotmasked_edges(prof)
+                prof -= np.mean(prof[indices])
         if self.debugInfo.plotProfile:
             profile.plot()
         return profile
