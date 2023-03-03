@@ -7,6 +7,7 @@ import numpy as np  # noqa E402: import after code
 import lsst.utils.tests  # noqa E402: import after code
 import lsst.afw.image  # noqa E402: import after code
 import lsst.afw.image.testUtils  # noqa E402: import after code
+from lsst.afw.display import Display  # noqa E402: import after code
 
 from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig  # noqa E402: import after code
 from pfs.drp.stella.synthetic import makeSyntheticDetectorMap, makeSyntheticPfsConfig  # noqa E402
@@ -24,7 +25,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         This builds a small image with five traces, with a mild linear slope.
         """
         self.synth = SyntheticConfig()
-        self.synth.height = 256
+        self.synth.height = 512
         self.synth.width = 128
         self.synth.separation = 19.876
         self.synth.fwhm = 3.21
@@ -49,10 +50,11 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
 
         self.config = BuildFiberProfilesTask.ConfigClass()
         self.config.pruneMinLength = int(0.9*self.synth.height)
-        self.config.profileSwath = 80  # Produces 5 swaths
+        self.config.profileSwath = self.synth.height
         self.config.centerFit.order = 2
         self.config.rowFwhm = self.synth.fwhm
         self.config.columnFwhm = self.synth.fwhm
+        self.config.profileRadius = 9
         self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
@@ -118,8 +120,17 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         traces = fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)
         spectra = traces.extractSpectra(image, badBitMask)
         model = spectra.makeImage(image.getBBox(), traces)
+
+        if display:
+            Display(frame=1).mtv(image, title="Image")
+            Display(frame=2).mtv(model, title="Model")
+
         image -= model
-        select = (image.mask.array & badBitMask) == 0
+
+        if display:
+            Display(frame=3).mtv(image, title="Residuals")
+
+        select = ((image.mask.array & badBitMask) == 0) & (model != 0)
         chi2 = np.sum(image.image.array[select]**2/image.variance.array[select])
         dof = select.sum()  # Minus something from the model, which we'll ignore
         self.assertLess(chi2/dof, 0.55)  # Value chosen to reflect current state, and is < 1 which is good

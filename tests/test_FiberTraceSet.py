@@ -254,6 +254,8 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         task.config.pruneMinLength = 200
         task.config.findThreshold = 10
         task.config.profileOversample = 25
+        task.config.profileRadius = 5  # Deliberately overlapped, to test extraction
+        task.config.doProfileBackground = False  # Because we're overlapped
         evenProfiles = task.run(evenExposure, detectorMap=detMap).profiles
         oddProfiles = task.run(oddExposure, detectorMap=detMap).profiles
         evenTraces = evenProfiles.makeFiberTracesFromDetectorMap(detMap)
