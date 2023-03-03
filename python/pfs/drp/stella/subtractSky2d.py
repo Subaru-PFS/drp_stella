@@ -326,7 +326,16 @@ class DummySubtractSky2dTask(Task):
         self.makeSubtask("selectFibers")
         self.makeSubtask("fitSkyModel")
 
-    def run(self, exposureList, pfsConfig: PfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
+    def run(
+        self,
+        exposureList,
+        pfsConfig: PfsConfig,
+        psfList,
+        fiberTraceList,
+        detectorMapList,
+        linesList,
+        apCorrList,
+    ):
         """Measure and subtract sky from 2D spectra image
 
         Parameters
@@ -343,6 +352,8 @@ class DummySubtractSky2dTask(Task):
             Mapping of fiber,wavelength to x,y.
         linesList : iterable of `pfs.drp.stella.ArcLineSet`
             Measured sky lines.
+        apCorrList : iterable of `pfs.drp.stella.FocalPlaneFunction`
+            Aperture corrections.
 
         Returns
         -------
@@ -354,7 +365,9 @@ class DummySubtractSky2dTask(Task):
         skyFibers = self.selectFibers.run(pfsConfig).fiberId
         imageList = []
         for exp, ft, detMap in zip(exposureList, fiberTraceList, detectorMapList):
-            imageList.append(self.runSingle(exp, pfsConfig, skyFibers, ft, detMap))
+            imageList.append(
+                self.runSingle(exp, pfsConfig.select(fiberId=detMap.fiberId), skyFibers, ft, detMap)
+            )
         dummySky2d = SkyModel(wavelength=[], flux=[])
         return Struct(sky2d=dummySky2d, imageList=imageList)
 
@@ -395,7 +408,7 @@ class DummySubtractSky2dTask(Task):
         # Evaluate and subtract 1D sky model for all fibers
         for spectrum in spectra:
             sky = sky1d(spectrum.wavelength, pfsConfig.select(fiberId=spectrum.fiberId))
-            spectrum.flux[:] = sky.values
+            spectrum.flux[:] = sky.values*spectrum.norm
         skyImage = makeMaskedImage(spectra.makeImage(exposure.getBBox(), fiberTraces))
         exposure.maskedImage -= skyImage
 
