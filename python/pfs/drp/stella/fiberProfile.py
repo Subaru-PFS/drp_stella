@@ -2,6 +2,7 @@ import numpy as np
 
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
+from pfs.drp.stella.spline import SplineD
 
 import lsstDebug
 
@@ -187,13 +188,18 @@ class FiberProfile:
                     r"$\sigma = %.1f$" % rms,
                 ))
 
+            xx = np.linspace(self.index[0], self.index[-1], self.index.size*10)
+            spline = SplineD(self.index, prof, SplineD.InterpolationTypes.NATURAL)
+
             ax.plot(self.index, prof, 'k.')
+            ax.plot(xx, spline(xx), 'k:')
             if annotate:
                 ax.plot(self.index, np.exp(-0.5*((self.index - mean)/rms)**2)/rms/np.sqrt(2*np.pi), 'r-')
             ax.axvline(0.0, ls=":", color="blue")
             ax.axhline(0.0, ls=":", color="black")
             ax.text(0.05, 0.95, text, fontsize=6, horizontalalignment="left",
                     verticalalignment="top", transform=ax.transAxes)
+        fig.suptitle(f"Fiber profile: radius={self.radius} oversample={self.oversample}")
 
         if show:
             plt.show()
