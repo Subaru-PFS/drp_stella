@@ -6,8 +6,8 @@
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/table.h"
 #include "lsst/afw/geom.h"
-#include "lsst/afw/math/LeastSquares.h"
 #include "pfs/drp/stella/utils/checkSize.h"
+#include "pfs/drp/stella/math/SparseSquareMatrix.h"
 #include "pfs/drp/stella/photometry.h"
 
 namespace pfs {
@@ -41,62 +41,6 @@ std::shared_ptr<lsst::afw::detection::Psf::Image> getPsfImage(
     if (psfBox.isEmpty()) return nullptr;
     return std::make_shared<lsst::afw::detection::Psf::Image>(psfImage->subset(psfBox));
 }
-
-
-/// Sparse representation of a square matrix
-///
-/// Used for solving matrix problems.
-class SparseSquareMatrix {
-  public:
-    using ElemT = double;
-    using IndexT = std::ptrdiff_t;
-
-    /// Ctor
-    ///
-    /// The matrix is initialised to zero.
-    ///
-    /// @param num : Number of columns/rows
-    /// @param nonZeroPerCol : Estimated mean number of non-zero entries per column
-    SparseSquareMatrix(std::size_t num, float nonZeroPerCol=2.0)
-      : _num(num) {
-        _triplets.reserve(std::size_t(num*nonZeroPerCol));
-    }
-
-    virtual ~SparseSquareMatrix() {}
-    SparseSquareMatrix(SparseSquareMatrix const&) = delete;
-    SparseSquareMatrix(SparseSquareMatrix &&) = default;
-    SparseSquareMatrix & operator=(SparseSquareMatrix const&) = delete;
-    SparseSquareMatrix & operator=(SparseSquareMatrix &&) = default;
-
-    /// Add an entry to the matrix
-    void add(IndexT ii, IndexT jj, ElemT value) {
-        assert(ii >= 0 && jj >= 0 && ii < std::ptrdiff_t(_num) && jj < std::ptrdiff_t(_num));
-        _triplets.emplace_back(ii, jj, value);
-    }
-
-    /// Solve the matrix equation
-    ndarray::Array<ElemT, 1, 1> solve(ndarray::Array<ElemT, 1, 1> const& rhs) {
-        using Matrix = Eigen::SparseMatrix<ElemT, 0, IndexT>;
-        utils::checkSize(rhs.size(), std::size_t(_num), "rhs");
-        Matrix matrix(_num, _num);
-        matrix.setFromTriplets(_triplets.begin(), _triplets.end());
-        Eigen::SparseQR<Matrix, Eigen::NaturalOrdering<IndexT>> solver;
-        solver.compute(matrix);
-        if (solver.info() != Eigen::Success) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Sparse matrix decomposition failed.");
-        }
-        ndarray::Array<ElemT, 1, 1> solution = ndarray::allocate(_num);
-        ndarray::asEigenMatrix(solution) = solver.solve(ndarray::asEigenMatrix(rhs));
-        if (solver.info() != Eigen::Success) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Sparse matrix solving failed.");
-        }
-        return solution;
-    }
-
-  private:
-    std::size_t _num;  ///< Number of rows/columns
-    std::vector<Eigen::Triplet<ElemT>> _triplets;  ///< Triplets (two coordinates and a value) of matrix elems
-};
 
 
 }  // anonymous namespace
@@ -209,7 +153,7 @@ lsst::afw::table::BaseCatalog photometer(
         std::size_t const blendSize = indices.size();
 
         // Generate least-squares equations
-        SparseSquareMatrix matrix{blendSize};
+        math::SymmetricSparseSquareMatrix matrix{blendSize};
         ndarray::Array<double, 1, 1> vector = ndarray::allocate(blendSize);
         ndarray::Array<double, 1, 1> errors = ndarray::allocate(blendSize);
         vector.deep() = 0.0;
@@ -285,7 +229,6 @@ lsst::afw::table::BaseCatalog photometer(
 
                 double const modelDotModel = (im*jm).sum();  // model dot model
                 matrix.add(ii, jj, modelDotModel);
-                matrix.add(jj, ii, modelDotModel);
             }
         }
 
