@@ -44,7 +44,8 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
-    doProfileBackground = Field(dtype=bool, default=True, doc="Subtract outermost samples from profile?")
+    doProfileBackground = Field(dtype=bool, default=False, doc="Subtract outermost samples from profile?")
+    doExtendProfile = Field(dtype=bool, default=False, doc="Extend profile to additional radius?")
 
 
 class BuildFiberProfilesTask(Task):
@@ -448,6 +449,16 @@ class BuildFiberProfilesTask(Task):
                                          self.config.profileOversample, self.config.profileSwath,
                                          self.config.profileRejIter, self.config.profileRejThresh,
                                          self.config.mask)
+        if self.config.doExtendProfile:
+            for prof in profile.profiles:
+                # At radius of 3.5 pixels, the value is 3.5e-3, and the power-law index is -1.83
+                # XXX make these values configurable
+                for index in np.ma.flatnotmasked_edges(prof):
+                    if profile.index[index] < 0:
+                        target = slice(0, index)
+                    else:
+                        target = slice(index + 1, None)
+                    prof[target] = 3.5e-3*(np.abs(profile.index[target])/3.5)**-1.83
         if self.config.doProfileBackground:
             for prof in profile.profiles:
                 indices = np.ma.flatnotmasked_edges(prof)
