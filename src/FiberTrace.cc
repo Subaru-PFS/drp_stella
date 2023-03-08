@@ -166,8 +166,8 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
-        int const xStart = std::ceil(centers[yy] - radius);
-        int const xStop = xStart + 2*radius;
+        int const xStart = std::max(0, int(std::ceil(centers[yy] - radius)));
+        int const xStop = std::min(dims.getX(), xStart + 2*radius);
         double xRel = xStart - centers[yy];
         auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
         auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
