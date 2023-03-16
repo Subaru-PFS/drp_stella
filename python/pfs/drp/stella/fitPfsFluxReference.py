@@ -34,8 +34,9 @@ from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
-from pfs.drp.stella.interpolate import interpolateFlux
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
 from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict, warpLsf
+from pfs.drp.stella.utils.math import ChisqList
 from pfs.drp.stella.utils import debugging
 
 from astropy import constants as const
@@ -362,29 +363,27 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         # Likelihoods from spectral fitting, where line spectra matter.
         self.log.info("Fitting models to spectra (takes some time)...")
-        likelihoods = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
-        if self.debugInfo.doWriteLikelihood:
+        chisqs = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
+        if self.debugInfo.doWriteChisq:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/likelihood-{pfsMerged.filename}.pickle",
+                f"fitPfsFluxReference-output/chisq-{pfsMerged.filename}.pickle",
                 fiberId=pfsConfig.fiberId,
-                likelihood=likelihoods,
+                chisq=chisqs,
             )
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
-        for fiberId, likelihood in zip(pfsConfig.fiberId, likelihoods):
-            if likelihood is None or not np.all(np.isfinite(likelihood)):
+        for fiberId, chisq in zip(pfsConfig.fiberId, chisqs):
+            if chisq is None or not np.all(chisq.chisq >= 0):
                 if fitFlag.get(fiberId, 0) == 0:
                     fitFlag[fiberId] = flag
 
         # Posterior PDF
         pdfs: List[Union[NDArray[np.float64], None]] = []
-        for bbPdf, likelihood in zip(bbPdfs, likelihoods):
-            if (bbPdf is None) or (likelihood is None):
+        for bbPdf, chisq in zip(bbPdfs, chisqs):
+            if (bbPdf is None) or (chisq is None):
                 pdfs.append(None)
             else:
-                pdf = bbPdf * likelihood
-                pdf *= 1.0 / np.sum(pdf)
-                pdfs.append(pdf)
+                pdfs.append(chisq.toProbability(prior=bbPdf))
 
         if self.debugInfo.doWritePosterior:
             debugging.writeExtraData(
@@ -568,7 +567,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         pfsMergedLsf: LsfDict,
         radialVelocities: Sequence[Union[Struct, None]],
         priorPdfs: Sequence[Union[NDArray[np.float64], None]],
-    ) -> List[Union[NDArray[np.float64], None]]:
+    ) -> List[Union[ChisqList, None]]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -593,12 +592,11 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        pdfs : `list` of `numpy.array` of `float`
-            For each ``pdfs[iSpectrum]`` in ``pdfs``,
-            ``pdfs[iSpectrum][iSED]`` is the likelihood
-            (not multiplied by the prior) of the SED ``iSED``
-            matching the spectrum ``pfsConfig.fiberId[iSpectrum]``.
-            ``pdfs[iSpectrum]`` may be ``None``.
+        chisqLists : `list` of `ChisqList`
+            For each ``chisqLists[iSpectrum]`` in ``chisqLists``,
+            ``chisqLists[iSpectrum].chisq[iSED]`` is the chi^2 for the SED ``iSED``
+            compared to the spectrum ``pfsConfig.fiberId[iSpectrum]``.
+            ``chisqLists[iSpectrum]`` may be ``None``.
         """
         nFibers = len(priorPdfs)
         nModels = len(self.fluxModelSet.parameters)
@@ -608,18 +606,18 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 relativePriors[:, iFiber] = pdf / np.max(pdf)
 
         # prepare an array of chi-squares.
-        chisqs: List[Union[NDArray[np.float64], None]] = []
+        chisqLists: List[Union[ChisqList, None]] = []
         for pdf in priorPdfs:
             if pdf is None:
-                chisqs.append(None)
+                chisqLists.append(None)
                 continue
-            chisqs.append(
-                np.full(
-                    shape=(len(self.fluxModelSet.parameters),),
-                    fill_value=np.inf,
-                    dtype=float,
-                )
+
+            chisq = np.full(
+                shape=(len(self.fluxModelSet.parameters),),
+                fill_value=np.inf,
+                dtype=float,
             )
+            chisqLists.append(ChisqList(chisq, 0))
 
         averageLsf = getAverageLsf([pfsMergedLsf[fiberId] for fiberId in pfsConfig.fiberId])
 
@@ -651,21 +649,47 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
-                chisqs[iFiber][iModel] = calculateSpecChiSquare(
+                chisq = calculateSpecChiSquare(
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
+                chisqLists[iFiber].chisq[iModel] = chisq.chi2
+                # `chisq.dof` depends only on `iFiber`, so we can overwrite it
+                chisqLists[iFiber].dof = chisq.dof
 
-        pdfs: List[Union[NDArray[np.float64], None]] = []
-        for chisq in chisqs:
-            if chisq is None:
-                pdfs.append(None)
-                continue
-            chisq -= np.min(chisq)
-            pdf = np.exp(chisq / (-2.0))
-            pdf /= np.sum(pdf)
-            pdfs.append(pdf)
+        # Output best-fit model spectra in the state they were
+        # when they were compared to the whitened observed spectra
+        if self.debugInfo.doWriteWhitenedFlux:
+            whitenedModels = []
+            for iFiber, (obsSpectrum, velocity) in enumerate(zip(obsSpectrumList, radialVelocities)):
+                iModel = np.argmin(chisqLists[iFiber].chisq)
+                param = self.fluxModelSet.parameters[iModel]
+                model = self.fluxModelSet.getSpectrum(
+                    teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
+                )
+                convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
+                modelContinuum = self.computeContinuum(convolvedModel, mode="model")
+                convolvedModel = convolveLsf(
+                    model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
+                )
+                convolvedModel = modelContinuum.whiten(convolvedModel)
+                shifted = dopplerShift(
+                    convolvedModel.wavelength,
+                    convolvedModel.flux,
+                    convolvedModel.mask,
+                    velocity.velocity,
+                    convolvedModel.wavelength,
+                )
+                convolvedModel.flux[...] = shifted.flux
+                convolvedModel.mask[...] = shifted.mask
+                whitenedModels.append(convolvedModel)
 
-        return pdfs
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                whitenedModel=whitenedModels,
+            )
+
+        return chisqLists
 
     def findRoughlyBestModel(
         self, pdfs: Sequence[Union[NDArray[np.float64], None]]
@@ -1171,7 +1195,7 @@ def adjustAbsoluteScale(
 
 def calculateSpecChiSquare(
     obsSpectrum: PfsFiberArray, model: PfsSimpleSpectrum, radialVelocity: float, badMask: Sequence[str]
-) -> float:
+) -> Struct:
     """Calculate chi square of spectral fitting
     between a single observed spectrum and a single model spectrum.
 
@@ -1188,32 +1212,64 @@ def calculateSpecChiSquare(
 
     Returns
     -------
-    chisq : `float`
+    chi2 : `float`
         chi square.
+    dof : `int`
+        degree of freedom.
     """
-    beta = radialVelocity / const.c.to("km/s").value
+    shifted = dopplerShift(model.wavelength, model.flux, model.mask, radialVelocity, obsSpectrum.wavelength)
+    good = 0 == (shifted.mask & model.flags.get(*(m for m in badMask if m in model.flags)))
+    good &= 0 == (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags)))
+
+    modelFlux = shifted.flux[good]
+    flux = np.copy(obsSpectrum.flux)[good]
+    invVar = 1.0 / obsSpectrum.covar[0, good]
+
+    chi2 = np.sum(np.square(flux - modelFlux) * invVar)
+    # Degree of freedom must be decremented by 1 because we are comparing
+    # whitenend spectra, ignoring their amplitudes.
+    dof = np.count_nonzero(good) - 1
+    return Struct(chi2=chi2, dof=dof)
+
+
+def dopplerShift(
+    wavelength0: NDArray[np.float64],
+    flux0: NDArray[np.float64],
+    mask0: NDArray[np.integer],
+    velocity: float,
+    wavelength: NDArray[np.float64],
+) -> Struct:
+    """Apply Doppler shift to ``flux0`` (spectrum observed by an observer
+    moving together with the source) and interpolate it at ``wavelength``
+
+    Parameters
+    ----------
+    wavelength0 : `numpy.array` of `float`
+        Wavelength, in nm, at which ``flux0`` is sampled.
+    flux0 : `numpy.array` of `float`
+        Spectrum observed by an observer moving together with the source.
+    mask0 : `numpy.array` of `int`
+        Mask associated with ``flux0``
+    velocity : `float`
+        Velocity, in km/s, at which the source is moving away.
+    wavelength : `numpy.array` of `float`
+        Wavelength, in nm, at which the returned spectrum is sampled.
+
+    Returns
+    -------
+    flux : `numpy.array` of `float`
+        Doppler-shifted spectrum.
+    mask : `numpy.array` of `int`
+        Mask associated with ``flux``
+    """
+    beta = velocity / const.c.to("km/s").value
     invDoppler = np.sqrt((1.0 - beta) / (1.0 + beta))
+    shiftedWavelength = wavelength * invDoppler
 
-    good = 0 == (model.mask & model.flags.get(*(m for m in badMask if m in model.flags)))
+    flux = interpolateFlux(wavelength0, flux0, shiftedWavelength, jacobian=False)
+    mask = interpolateMask(wavelength0, mask0, shiftedWavelength)
 
-    modelFlux = interpolateFlux(
-        model.wavelength[good], model.flux[good], obsSpectrum.wavelength * invDoppler, jacobian=False
-    )
-
-    bad = 0 != (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags)))
-
-    flux = np.copy(obsSpectrum.flux)
-    # If not(any(isnan(flux))), we don't have to do this
-    # (because invVar will be set to 0 for bad pixels.)
-    # We set flux[bad] to a finite value to make sure we won't encounter nan.
-    flux[bad] = 1.0
-
-    invVar = 1.0 / obsSpectrum.covar[0, :]
-    invVar[bad] = 0.0
-
-    chisq = np.sum(np.square(flux - modelFlux) * invVar)
-
-    return chisq
+    return Struct(flux=flux, mask=mask)
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:

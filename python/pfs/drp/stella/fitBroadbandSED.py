@@ -1,11 +1,14 @@
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 
+import lsstDebug
 import lsst.daf.persistence
 from lsst.pex.config import Config, ChoiceField, DictField
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
 
 from .fluxModelSet import FluxModelSet
+from .utils.math import ChisqList
+from .utils import debugging
 
 import numpy
 import numpy.lib.recfunctions
@@ -72,6 +75,7 @@ class FitBroadbandSEDTask(Task):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
+        self.debugInfo = lsstDebug.Info(__name__)
 
     def runDataRef(
         self, dataRef: lsst.daf.persistence.ButlerDataRef
@@ -133,21 +137,28 @@ class FitBroadbandSEDTask(Task):
                 f" ('{self.config.broadbandFluxType}')"
             )
 
-        pdfs: List[Union[NDArray[numpy.float64], None]] = []
+        chisqs: List[Union[ChisqList, None]] = []
         for targetType, filterNames, bbFlux, bbFluxErr in zip(
             pfsConfig.targetType, pfsConfig.filterNames, broadbandFlux, broadbandFluxErr
         ):
             if targetType == TargetType.FLUXSTD:
-                pdfs.append(self.getProbabilities(filterNames, bbFlux, bbFluxErr))
+                chisqs.append(self.getChisq(filterNames, bbFlux, bbFluxErr))
             else:
-                pdfs.append(None)
+                chisqs.append(None)
 
-        return pdfs
+        if self.debugInfo.doWriteChisq:
+            debugging.writeExtraData(
+                f"fitBroadbandSED-output/chisq-{pfsConfig.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                chisq=chisqs,
+            )
 
-    def getProbabilities(
+        return [(chisq.toProbability() if chisq is not None else None) for chisq in chisqs]
+
+    def getChisq(
         self, filterNames: Sequence[str], bbFlux: Sequence[float], bbFluxErr: Sequence[float]
-    ) -> NDArray[numpy.float64]:
-        """Calculate a chi square and a probability for each model SED.
+    ) -> ChisqList:
+        """Calculate chi square for various model SEDs compared to ``bbFlux``.
 
         Parameters
         ----------
@@ -161,8 +172,8 @@ class FitBroadbandSEDTask(Task):
 
         Returns
         -------
-        broadbandPDF : `numpy.array` of `float`
-            Array of normalized probabilities of the SED fitting.
+        chisq : `ChisqList`
+            Chi square for various model SEDs compared to ``bbFlux``.
         """
         if not (len(filterNames) == len(bbFlux) == len(bbFluxErr)):
             raise ValueError("Lengths of arguments must be equal.")
@@ -173,7 +184,7 @@ class FitBroadbandSEDTask(Task):
         isgood = numpy.isfinite(observedFluxes) & (observedNoises > 0)
         if not numpy.any(isgood):
             nSEDs = len(self.fluxLibrary)
-            return numpy.full(shape=(nSEDs,), fill_value=1.0 / nSEDs, dtype=float)
+            return ChisqList(numpy.zeros(shape=(nSEDs,), dtype=float), 0)
 
         observedFluxes = observedFluxes[isgood]
         observedNoises = observedNoises[isgood]
@@ -201,9 +212,5 @@ class FitBroadbandSEDTask(Task):
         # Note: chisq.shape == (nSEDs,)
         chisq = numpy.sum(((observedFluxes - alpha * fluxLibrary) / observedNoises) ** 2, axis=1)
 
-        # Convert a list of chi squares to a probability distribution
-        delta_chisq = chisq - numpy.min(chisq)
-        prob = numpy.exp(delta_chisq / (-2.0))
-        prob_norm = prob / numpy.sum(prob)
-
-        return prob_norm
+        degree_of_freedom = len(filterNames) - 1
+        return ChisqList(chisq, degree_of_freedom)
