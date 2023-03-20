@@ -22,13 +22,15 @@ class FiberProfileSet:
         Identifying information for the calibration.
     visitInfo : `lsst.afw.image.VisitInfo`, optional
         Parameters characterising the visit.
-    metadata : `lsst.daf.base.PropertyList`
+    metadata : `lsst.daf.base.PropertyList`, optional
         Keyword-value metadata, used for the header.
     """
     def __init__(self, fiberProfiles, identity, visitInfo=None, metadata=None):
         self.fiberProfiles = fiberProfiles
         self.identity = identity
         self.visitInfo = visitInfo
+        if metadata is None:
+            metadata = PropertyList()
         self.metadata = metadata
 
     @classmethod
@@ -237,7 +239,8 @@ class FiberProfileSet:
         norm = [self[fiberId].norm if self[fiberId].norm is not None else [] for fiberId in self]
 
         metadata = self.metadata.deepCopy()
-        setVisitInfoMetadata(metadata, self.visitInfo)
+        if self.visitInfo is not None:
+            setVisitInfoMetadata(metadata, self.visitInfo)
 
         return PfsFiberProfiles(self.identity, self.fiberId, radius, oversample, rows, profiles, norm,
                                 metadata.toDict())
