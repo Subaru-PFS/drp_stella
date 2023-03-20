@@ -5,6 +5,7 @@ import lsst.utils.tests
 import lsst.afw.image.testUtils
 from lsst.geom import Box2I, Point2I, Extent2I
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.tests import runTests
@@ -29,12 +30,13 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.image = lsst.afw.image.makeMaskedImage(image)
         self.image.mask.array[:] = 0x0
         self.image.variance.array[:] = self.synthConfig.readnoise**2
+        self.identity = CalibIdentity("2020-01-01", 5, "x", 12345)
 
         config = BuildFiberProfilesTask.ConfigClass()
         config.pruneMinLength = self.synthConfig.height//2
         task = BuildFiberProfilesTask(config=config)
         self.fiberProfiles = task.run(
-            lsst.afw.image.makeExposure(self.image), detectorMap=self.detMap
+            lsst.afw.image.makeExposure(self.image), self.identity, detectorMap=self.detMap
         ).profiles
         for fiberId in self.fiberProfiles:
             self.fiberProfiles[fiberId].norm = np.full(self.synthConfig.height, self.flux, dtype=np.float32)

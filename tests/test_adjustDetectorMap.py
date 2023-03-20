@@ -5,6 +5,7 @@ from lsst.geom import Box2D
 import lsst.afw.image
 from lsst.afw.display import Display
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapConfig, AdjustDetectorMapTask
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
@@ -31,6 +32,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.base = makeSyntheticDetectorMap(self.synthConfig, self.minWl, self.maxWl)
         self.metadata = 123456
         self.darkTime = 12345.6
+        self.identity = CalibIdentity("2020-01-01", 5, "x", 12345)
 
         distortionOrder = 5
         numCoeffs = DetectorDistortion.getNumDistortionForOrder(distortionOrder)
@@ -151,7 +153,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         profilesConfig.doBlindFind = False
 
         buildFiberProfiles = BuildFiberProfilesTask(config=profilesConfig)
-        fiberProfiles = buildFiberProfiles.run(exposure, detectorMap=self.base).profiles
+        fiberProfiles = buildFiberProfiles.run(exposure, self.identity, detectorMap=self.base).profiles
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(self.base)
 
         centroidLines = CentroidLinesTask()

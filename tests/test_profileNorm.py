@@ -3,6 +3,7 @@ import numpy as np
 import lsst.utils.tests
 import lsst.afw.image.testUtils
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.tests import runTests
@@ -43,12 +44,14 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
         image.mask.array[:] = 0x0
         image.variance.array[:] = synthConfig.readnoise**2
 
+        identity = CalibIdentity("2020-01-01", 5, "x", 12345)
+
         if display:
             from lsst.afw.display import Display
             Display(backend=display, frame=1).mtv(image, title="Synthetic image")
 
         task = BuildFiberProfilesTask(config=profConfig)
-        fiberProfiles = task.run(lsst.afw.image.makeExposure(image), detectorMap=detMap).profiles
+        fiberProfiles = task.run(lsst.afw.image.makeExposure(image), identity, detectorMap=detMap).profiles
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap)
 
         spectra = fiberTraces.extractSpectra(image)

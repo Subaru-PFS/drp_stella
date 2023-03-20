@@ -7,6 +7,7 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 import lsst.afw.display
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.lsf import ExtractionLsf
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.SpectralPsfContinued import ImagingSpectralPsf
@@ -38,11 +39,14 @@ class ExtractionLsfTestCase(lsst.utils.tests.TestCase):
         variance.set(10000.0)
         self.flat = lsst.afw.image.makeMaskedImage(flat, mask, variance)
         self.detMap = makeSyntheticDetectorMap(self.config)
+        self.identity = CalibIdentity("2020-01-01", 5, "x", 12345)
 
         task = BuildFiberProfilesTask()
         task.config.pruneMinLength = 100
         task.config.findThreshold = 10
-        profiles = task.run(lsst.afw.image.makeExposure(self.flat), detectorMap=self.detMap).profiles
+        profiles = task.run(
+            lsst.afw.image.makeExposure(self.flat), self.identity, detectorMap=self.detMap
+        ).profiles
         self.traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.traces), self.config.numFibers)
 

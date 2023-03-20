@@ -1,12 +1,15 @@
+from collections import defaultdict
+from typing import Any, Iterable, Optional
 import numpy as np
 
-from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo
+from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
 from lsst.daf.base import PropertyList
 
-from pfs.datamodel import PfsFiberProfiles
+from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTraceSet
 from .spline import SplineD
+from .profile import fitSwathProfiles
 
 __all__ = ("FiberProfileSet",)
 
@@ -75,6 +78,119 @@ class FiberProfileSet:
                 raise RuntimeError(f"Duplicate fiberIds for input {ii}: {have.intersection(new)}")
             self.update(pp)
         return self
+
+    @classmethod
+    def fromImages(
+        cls,
+        identity: CalibIdentity,
+        imageList: Iterable[MaskedImageF],
+        fiberId: Any,
+        centerList: Iterable[Any],
+        normList: Iterable[Any],
+        radius: int,
+        oversample: int,
+        swathSize: float,
+        rejIter: int = 1,
+        rejThresh: float = 4.0,
+        maskPlanes: Optional[Iterable[str]] = None,
+        visitInfo: Optional[VisitInfo] = None,
+        metadata: Optional[PropertyList] = None,
+    ) -> "FiberProfileSet":
+        """Construct a `FiberProfileSet` from measuring images
+
+        The profile for each row is constructed in an oversampled pixel space,
+        relative the known center for each row. We combine the values within
+        each swath to produce an average profile.
+
+        Parameters
+        ----------
+        identity : `pfs.datamodel.CalibIdentity`
+            Identifying information for the calibration.
+        imageList : iterable of `lsst.afw.image.MaskedImageF`
+            Images from which to measure the fiber profiles.
+        fiberId : `numpy.ndarray` of `int`, shape ``(Nfibers,)``
+            Fiber identifiers.
+        centerList : iterable of `numpy.ndarray` of `float` with shape ``(Nfibers, Nrows)``
+            Arrays that provide the center of the trace as a function of
+            row for each fiber in each image.
+        normList : iterable of `numpy.ndarray` of `float` with shape ``(Nfibers, Nrows)``
+            Arrays that provide the flux of the trace (the normalisation) as a
+            function of row for each fiber in each image.
+        radius : `int`
+            Distance either side (i.e., a half-width) of the center the profile
+            is measured for.
+        oversample : `int`
+            Oversample factor for the profile.
+        swathSize : `float`
+            Desired size of swath, in number of rows. The actual swath size used
+            will be slightly different, to fit the total number of rows.
+        rejIter : `int`
+            Number of rejection iterations when combining profiles in a swath.
+        rejThresh : `float`
+            Rejection threshold (sigma) when combining profiles in a swath.
+        maskPlanes : iterable of `str`
+            Mask planes to ignore.
+        visitInfo : `lsst.afw.image.VisitInfo`, optional
+            Parameters characterising the visit.
+        metadata : `lsst.daf.base.PropertyList`, optional
+            Keyword-value metadata, used for the header.
+
+        Returns
+        -------
+        self : `FiberProfileSet`
+            Measured fiber profiles.
+        """
+        # Check consistent image dimensions
+        numImages = len(imageList)
+        numFibers = fiberId.size
+        if numImages == 0:
+            raise RuntimeError("No images")
+        dims = imageList[0].getDimensions()
+        for image in imageList[1:]:
+            if dims != image.getDimensions():
+                raise RuntimeError(f"Dimension mismatch: {dims} vs {image.getDimensions()}")
+        width, height = dims
+        badBitmask = imageList[0].mask.getPlaneBitMask(maskPlanes) if maskPlanes is not None else 0
+
+        # Check consistency between imageList, fiberId, centerList
+        if len(centerList) != numImages:
+            raise RuntimeError(f"Mismatch between number of images ({numImages}) and number of centers "
+                               f"{len(centerList)}")
+        if len(normList) != numImages:
+            raise RuntimeError(f"Mismatch between number of images ({numImages}) and number of spectra "
+                               f"{len(normList)}")
+        centersShape = (numFibers, height)
+        for ii, (centers, norm) in enumerate(zip(centerList, normList)):
+            if centers.shape != centersShape:
+                raise RuntimeError(f"Bad shape for centers {ii}: {centersShape} vs {centers.shape}")
+            if norm.shape != centersShape:
+                raise RuntimeError(f"Bad shape for norm {ii}: {centersShape} vs {norm.shape}")
+
+        # Ensure fiberId, centers are sorted with fibers in order from left to right
+        indices = np.argsort(centerList[0][:, height//2])
+        if not np.all(indices[1:] > indices[:-1]):  # monotonic increasing
+            fiberId = fiberId[indices]
+            centerList = [centers[indices] for centers in centerList]
+            normList = [norm[indices] for norm in normList]
+
+        # Interleave swaths by half, so there's twice as many as you would expect if they didn't interleave.
+        # Minimum of four bounds produces two swaths, so we can interpolate.
+        numSwaths = max(4, int(np.ceil(2*height/swathSize)))
+        bounds = np.linspace(0, height - 1, numSwaths, dtype=int)
+
+        profileList = defaultdict(list)  # List of profiles as a function of fiberId
+        yProfile = []  # List of mean row
+        for yMin, yMax in zip(bounds[:-2], bounds[2:]):
+            profiles, masks = fitSwathProfiles(imageList, centerList, normList, fiberId.astype(np.int32),
+                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh)
+            yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
+            for ff, pp, mm in zip(fiberId, profiles, masks):
+                pp = np.ma.MaskedArray(pp, mm)
+                profileList[ff].append(pp/np.ma.average(pp, axis=0)/oversample)
+
+        return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
+                                     np.ma.masked_array(profileList[ff])) for
+                    ff in fiberId}, identity, visitInfo, metadata)
 
     @property
     def fiberId(self):
