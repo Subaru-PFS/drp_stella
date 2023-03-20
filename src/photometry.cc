@@ -151,7 +151,7 @@ lsst::afw::table::BaseCatalog photometer(
         std::size_t const blendSize = indices.size();
 
         // Generate least-squares equations
-        math::SparseSquareMatrix matrix{blendSize};
+        math::SymmetricSparseSquareMatrix matrix{blendSize};
         ndarray::Array<double, 1, 1> vector = ndarray::allocate(blendSize);
         ndarray::Array<double, 1, 1> errors = ndarray::allocate(blendSize);
         vector.deep() = 0.0;
@@ -227,7 +227,6 @@ lsst::afw::table::BaseCatalog photometer(
 
                 double const modelDotModel = (im*jm).sum();  // model dot model
                 matrix.add(ii, jj, modelDotModel);
-                matrix.add(jj, ii, modelDotModel);
             }
         }
 
