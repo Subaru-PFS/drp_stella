@@ -79,7 +79,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
     MaskT badBitMask,
     float minFracMask
-) {
+) const {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
     std::size_t const width = image.getWidth();
