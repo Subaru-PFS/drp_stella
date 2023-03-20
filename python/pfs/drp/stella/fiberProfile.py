@@ -45,6 +45,34 @@ class FiberProfile:
         return self.__class__, (self.radius, self.oversample, self.rows, self.profiles, self.norm)
 
     @classmethod
+    def makeGaussian(cls, sigma: float, height: int, radius: int, oversample: float) -> "FiberProfile":
+        """Construct a `FiberProfile` with a Gaussian profile
+
+        Parameters
+        ----------
+        sigma : `float`
+            Gaussian sigma for profile.
+        height : `int`
+            Height of image.
+        radius : `int`
+            Distance either side (i.e., a half-width) of the center the profile
+            is measured for.
+        oversample : `float`
+            Oversample factor for the profile.
+
+        Returns
+        -------
+        profile : `FiberProfile`
+            Gaussian profile.
+        """
+        profileSize = 2*int((radius + 1)*oversample + 0.5) + 1
+        profileCenter = int((radius + 1)*oversample + 0.5)
+        xx = (np.arange(profileSize, dtype=int) - profileCenter)/oversample
+        profile = np.exp(-0.5*(xx/sigma)**2)/sigma/np.sqrt(2*np.pi)
+        rows = np.array([0.25*height, 0.75*height], dtype=float)
+        return cls(radius, oversample, rows, np.array([profile, profile]))
+
+    @classmethod
     def fromImage(cls, maskedImage, centerFunc, radius, oversample, swathSize,
                   rejIter=2, rejThresh=3.0, masks=None):
         """Construct a `FiberProfile` from measuring an image
@@ -204,8 +232,14 @@ class FiberProfile:
 
         Helper function for makeFiberTrace/makeFiberTraceFromDetectorMap to get the numpy types right
         """
+        if isinstance(self.profiles, np.ma.masked_array):
+            good = ~self.profiles.mask
+            data = self.profiles.data
+        else:
+            good = np.ones_like(self.profiles, dtype=bool)
+            data = self.profiles
         return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
-                                      self.profiles.data, ~self.profiles.mask, xCenter, self.norm)
+                                      data, good, xCenter, self.norm)
 
     def makeFiberTraceFromDetectorMap(self, detectorMap, fiberId):
         """Make a FiberTrace object
