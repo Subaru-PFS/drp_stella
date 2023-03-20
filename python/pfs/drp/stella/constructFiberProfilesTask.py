@@ -12,6 +12,7 @@ from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
+from .blackSpotCorrection import BlackSpotCorrectionTask
 from . import FiberProfileSet
 
 
@@ -56,6 +57,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
         doc="Target type for which to build profiles",
     )
+    blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
 
     def setDefaults(self):
         super().setDefaults()
@@ -75,6 +77,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         self.makeSubtask("profiles")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
+        self.makeSubtask("blackspots")
 
     def run(self, expRefList, butler, calibId):
         """Construct the ``fiberProfiles`` calib
@@ -193,9 +196,10 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         bitmask = exposure.mask.getPlaneBitMask(self.config.mask)
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
+        self.blackspots.run(pfsConfig, spectra)
         medianTransmission = np.empty(len(spectra))
         for i, ss in enumerate(spectra):
-            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux/ss.norm, np.nan)
             medianTransmission[i] = np.nanmedian(ss.flux)
             self.log.debug("Median relative transmission of fiber %d is %f",
                            ss.fiberId, medianTransmission[i])
