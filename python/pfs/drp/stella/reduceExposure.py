@@ -250,11 +250,10 @@ class ReduceExposureTask(CmdLineTask):
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
                 self.log.info("Reading existing calexps")
                 exposureList = [sensorRef.get("calexp") for sensorRef in sensorRefList]
-                if self.config.doExtractSpectra:
-                    calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
-                              ref, exp in zip(sensorRefList, exposureList)]
-                    detectorMapList = [cal.detectorMap for cal in calibs]
-                    fiberTraceList = [cal.fiberTraces for cal in calibs]
+                calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
+                          ref, exp in zip(sensorRefList, exposureList)]
+                detectorMapList = [cal.detectorMap for cal in calibs]
+                fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
                 linesList = [sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
