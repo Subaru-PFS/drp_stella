@@ -96,12 +96,12 @@ class FiberTrace {
      * @brief set the ID number of this trace (_fiberId) to this number
      * @param fiberId : ID to be assigned to this FiberTrace
      */
-    void setFiberId(std::size_t fiberId) { _fiberId = fiberId; }
+    void setFiberId(int fiberId) { _fiberId = fiberId; }
 
     /**
      * @brief Return ID of this FiberTrace
      */
-    std::size_t getFiberId() const { return _fiberId; }
+    int getFiberId() const { return _fiberId; }
 
     /**
      * @brief Construct from a fiber profile
@@ -132,7 +132,7 @@ class FiberTrace {
 
   private:
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> _trace;
-    std::size_t _fiberId;
+    int _fiberId;
 };
 
 /************************************************************************************************************/
