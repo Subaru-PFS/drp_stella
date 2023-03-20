@@ -196,6 +196,132 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
 }
 
 
+template<typename ImageT, typename MaskT, typename VarianceT>
+FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::boxcar(
+    int fiberId,
+    lsst::geom::Extent2I const& dims,
+    float radius,
+    ndarray::Array<double, 1, 1> const& centers,
+    ndarray::Array<double, 1, 1> const& norm
+) {
+    std::size_t const width = dims.getX();
+    std::size_t const height = dims.getY();
+    utils::checkSize(centers.size(), height, "centers");
+    if (!norm.isEmpty()) {
+        utils::checkSize(norm.size(), height, "norm");
+    }
+
+    // Set up image of trace
+    auto const centersMinMax = std::minmax_element(centers.begin(), centers.end());
+    int const xMin = std::max(0, int(*centersMinMax.first - radius));
+    int const xMax = std::min(width - 1, std::size_t(std::ceil(*centersMinMax.second + radius)));  // incl.
+    lsst::geom::Box2I box{lsst::geom::Point2I(xMin, 0),
+                          lsst::geom::Point2I(xMax, height - 1)};
+    lsst::afw::image::MaskedImage<double> image{box};
+    image.getMask()->getArray().deep() = 0;
+    lsst::afw::image::MaskPixel const ftMask = 1 << image.getMask()->addMaskPlane(fiberMaskPlane);
+
+    // Pixels:   |    +    |    +    |    +    |
+    // Aperture:        |---------X---------|
+    // "+" marks are integers: 1, 2, 3; "|" marks are pixel boundaries at +/- 0.5
+    // Center is at 2.2, aperture extends from 1.2 to 3.2.
+    // Expected contributions (before row normalisation): 0.2, 1.0, 0.8
+    for (std::size_t yy = 0; yy < height; ++yy) {
+        float const middle = centers[yy];
+        float const left = middle - radius;
+        float const right = middle + radius;
+        std::ptrdiff_t const low = std::max(0L, std::ptrdiff_t(left));
+        std::ptrdiff_t const high = std::min(width, std::size_t(std::ceil(right)) + 1);  // exclusive
+        double sum = 0;
+        auto iter = image.row_begin(yy) + (low - xMin);
+        // Use linear interpolation. There's probably fancier stuff with Lanczos resampling that we could do,
+        // but this should be good enough.
+        for (std::ptrdiff_t xx = low; xx < high; ++iter, ++xx) {
+            float value = 1.0;
+            if (xx < left - 0.5 || xx > right + 0.5) {
+                value = 0.0;
+            } else if (xx < left + 0.5) {
+                value = std::max(0.0F, xx + 0.5F - left);
+            } else if (xx > right - 0.5) {
+                value = 1 - std::max(0.0F, xx + 0.5F - right);;
+            }
+            assert(value >= 0.0);
+            iter.image() = value;
+            iter.mask() = value > 0 ? ftMask : 0;
+            sum += value;
+        }
+        if (sum != 0.0) {
+            ndarray::asEigenArray(image.getImage()->getArray()[yy]) *= (norm.isEmpty() ? 1.0 : norm[yy])/sum;
+        }
+    }
+
+    FiberTrace trace{lsst::afw::image::MaskedImage<float>(image, true)};
+    trace.setFiberId(fiberId);
+    return trace;
+}
+
+
+template<typename ImageT, typename MaskT, typename VarianceT>
+Spectrum FiberTrace<ImageT, MaskT, VarianceT>::extractAperture(
+    lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
+    lsst::afw::image::MaskPixel badBitmask
+) {
+    std::size_t const height = image.getHeight();
+    Spectrum spectrum{height, _fiberId};
+    MaskT const require = image.getMask()->getPlaneBitMask(fiberMaskPlane);
+
+    // Initialize results, in case we miss anything
+    spectrum.getSpectrum().deep() = 0.0;
+    spectrum.getMask().getArray().deep() = spectrum.getMask().getPlaneBitMask("NO_DATA");
+    spectrum.getCovariance().deep() = 0.0;
+    spectrum.getNorm().deep() = 0.0;
+
+    auto const trace = getTrace();
+    auto bbox = trace.getBBox();
+    bbox.clip(image.getBBox());
+    if (bbox.getArea() == 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "No overlap between image and trace");
+    }
+    std::ptrdiff_t const xMin = bbox.getMinX();
+    std::ptrdiff_t const xMax = bbox.getMaxX();  // inclusive
+
+    MaskT const noData = 1 << image.getMask()->addMaskPlane("NO_DATA");
+    MaskT const badFiberTrace = 1 << image.getMask()->addMaskPlane("BAD_FIBERTRACE");
+
+    for (std::ptrdiff_t yy = bbox.getMinY(); yy <= bbox.getMaxY(); ++yy) {
+        std::size_t const yImage = yy - image.getY0();
+        std::size_t const yTrace = yy - trace.getY0();
+        double sumImage = 0.0;
+        double sumVariance = 0.0;
+        double sumWeight = 0.0;
+        auto imageIter = image.row_begin(yImage) + (xMin - image.getX0());
+        auto traceIter = trace.row_begin(yTrace) + (xMin - trace.getX0());
+        for (std::ptrdiff_t xx = xMin; xx <= xMax; ++xx, ++imageIter, ++traceIter) {
+            ImageT const data = (*imageIter).image();
+            VarianceT const var = (*imageIter).variance();
+            double const weight = (*traceIter).image();
+            if (!((*traceIter).mask() & require) || ((*imageIter).mask() & badBitmask)) {
+                continue;
+            }
+            sumImage += data*weight;
+            sumVariance += var*std::pow(weight, 2);
+            sumWeight += weight;
+        }
+        spectrum.getFlux()[yImage] = sumImage;
+        spectrum.getCovariance()[0][yImage] = sumVariance;
+        lsst::afw::image::MaskPixel maskResult = 0;
+        if (sumWeight == 0 || !std::isfinite(sumWeight)) {
+            maskResult = noData|badFiberTrace;
+        } else if (!std::isfinite(sumImage) || !std::isfinite(sumVariance)) {
+            maskResult |= noData;
+        }
+        spectrum.getMask().getArray()[0][yImage] = maskResult;
+        spectrum.getNorm()[yImage] = sumWeight;
+    }
+    return spectrum;
+}
+
+
 // Explicit instantiation
 template class FiberTrace<float, lsst::afw::image::MaskPixel, float>;
 

@@ -41,6 +41,9 @@ void declareFiberTrace(py::module &mod)
 
     cls.def_static("fromProfile", &Class::fromProfile, "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
                    "rows"_a, "profiles"_a, "good"_a, "centers"_a, "norm"_a=nullptr);
+    cls.def_static("boxcar", &Class::boxcar,
+                   "fiberId"_a, "dims"_a, "radius"_a, "centers"_a, "norm"_a=nullptr);
+    cls.def("extractAperture", &Class::extractAperture, "image"_a, "badBitmask"_a);
 
     cls.def(py::pickle(
         [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); },

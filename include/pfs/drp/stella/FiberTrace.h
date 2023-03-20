@@ -130,6 +130,40 @@ class FiberTrace {
         ndarray::Array<Spectrum::ImageT, 1, 1> const& norm=ndarray::Array<Spectrum::ImageT, 1, 1>()
     );
 
+    /**
+     * @brief Construct a trace with a boxcar profile
+     *
+     * We use linear interpolation on the ends of the boxcar, to allow for
+     * subpixel positioning.
+     *
+     * @param fiberId : fiber identifier.
+     * @param dims : dimensions of image (not just this fiber trace).
+     * @param radius : distance either side (i.e., a half-width) of the center
+     *    the profile is measured for.
+     * @param centers : center of profile for each row in the image.
+     * @param norm : normalisation to apply
+     * @return fiberTrace
+     */
+    static FiberTrace boxcar(
+        int fiberId,
+        lsst::geom::Extent2I const& dims,
+        float radius,
+        ndarray::Array<double, 1, 1> const& centers,
+        ndarray::Array<double, 1, 1> const& norm=ndarray::Array<double, 1, 1>()
+    );
+
+    /**
+     * @brief Extract a spectrum using weighted aperture photometry
+     *
+     * @param image : image from which to extract spectrum
+     * @param badBitmask : bitmask of bad pixels
+     * @return spectrum
+    */
+    Spectrum extractAperture(
+        lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
+        lsst::afw::image::MaskPixel badBitmask
+    );
+
   private:
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> _trace;
     int _fiberId;
