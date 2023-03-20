@@ -106,7 +106,8 @@ class SyntheticConfig(Config):
     @property
     def traceCenters(self):
         """Center of each trace"""
-        return np.arange(self.separation, self.width - self.separation, self.separation)
+        buffer = self.separation + self.slope*0.5*self.height
+        return np.arange(buffer, self.width - buffer, self.separation)
 
     @property
     def numFibers(self):
