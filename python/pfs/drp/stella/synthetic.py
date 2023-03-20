@@ -47,19 +47,19 @@ def makeSpectrumImage(spectrum, dims, traceCenters, traceOffsets, fwhm):
     image = lsst.afw.image.ImageF(dims)
     sigma = fwhmToSigma(fwhm)
     width, height = dims
-    norm = 1.0/(sigma*math.sqrt(2*math.pi))
-    xx = np.arange(width, dtype=np.float32)
+    xx = np.arange(width, dtype=float)
 
     if np.isscalar(spectrum):
-        spectrum = spectrum*np.ones(height, dtype=np.float32)
+        spectrum = spectrum*np.ones(height, dtype=float)
     else:
         assert len(spectrum) == height
     assert len(traceOffsets) == height
     for row, (spec, offset) in enumerate(zip(spectrum, traceOffsets)):
         profile = np.zeros_like(xx)
         for center in traceCenters:
-            profile += np.exp(-0.5*((xx - center - offset)/sigma)**2)
-        image.array[row] = spec*norm*profile
+            pp = (np.exp(-0.5*((xx - center - offset)/sigma)**2)).astype(np.float32)
+            profile += pp/pp.sum()
+        image.array[row] = spec*profile
 
     return image
 
