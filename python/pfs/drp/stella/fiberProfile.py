@@ -289,7 +289,7 @@ class FiberProfile:
         xCenter = centerFunc(rows)
         return self.__makeFiberTrace(dimensions, xCenter, fiberId)
 
-    def extractSpectrum(self, maskedImage, detectorMap, fiberId):
+    def extractSpectrum(self, maskedImage, detectorMap, fiberId, badBitmask, minFracMask=0.0):
         """Extract a single spectrum from an image
 
         Parameters
@@ -300,6 +300,10 @@ class FiberProfile:
             Mapping of fiberId,wavelength to/from detector x,y.
         fiberId : `int`
             Fiber identifier.
+        badBitmask : `lsst.afw.image.MaskPixel`
+            Bitmask for bad pixels.
+        minFracMask : `float`
+            Minimum fractional contribution of pixel for mask to be accumulated.
 
         Returns
         -------
@@ -307,4 +311,4 @@ class FiberProfile:
             Extracted spectrum.
         """
         trace = self.makeFiberTraceFromDetectorMap(detectorMap, fiberId)
-        return trace.extractSpectrum(maskedImage)
+        return trace.extractSpectrum(maskedImage, badBitmask, minFracMask)
