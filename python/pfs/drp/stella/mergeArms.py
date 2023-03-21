@@ -1,6 +1,4 @@
 from collections import defaultdict
-import os.path
-import re
 import numpy as np
 
 import lsstDebug
@@ -281,18 +279,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                    specRefList in expSpecRefList]
         lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
         if self.config.pfsConfigFile:
-            try:
-                pfsDesignId, visit0 = re.split(r"[-.]", os.path.split(self.config.pfsConfigFile)[1])[1:-1]
-
-                pfsDesignId = int(pfsDesignId, 16)
-                visit0 = int(visit0)
-            except ValueError:
-                pfsDesignId = 666
-                visit0 = 0
-
-            self.log.info("Reading pfsConfig for pfsDesignId=0x%x, visit0=%d", pfsDesignId, visit0)
-            pfsConfig = PfsConfig._readImpl(self.config.pfsConfigFile,
-                                            pfsDesignId=pfsDesignId, visit0=visit0)
+            self.log.info("Reading alternate pfsConfig: %s", self.config.pfsConfigFile)
+            pfsConfig = PfsConfig.readFits(self.config.pfsConfigFile)
         else:
             pfsConfig = expSpecRefList[0][0].get("pfsConfig")
 
