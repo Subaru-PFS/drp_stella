@@ -119,7 +119,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
                 fiberToArm[ff].append(ii)
             calibrated.append(pfsArm)
 
-        selection = pfsConfig.getSelection(fiberId=set(fiberToArm.keys()), fiberStatus=FiberStatus.GOOD)
+        selection = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD)
         selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
         fiberId = pfsMerged.fiberId[np.isin(pfsMerged.fiberId, pfsConfig.fiberId[selection])]
 
