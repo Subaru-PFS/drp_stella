@@ -196,6 +196,7 @@ class SwathProfileBuilder {
                 if (jModel == 0) continue;
                 std::size_t const jPixel = getProfileNearest(jj, xx, centers[jj]);
                 _matrix.add(iPixel, jPixel, iModel*jModel);
+                _isZero[jPixel] = false;
             }
         }
 #endif
@@ -270,8 +271,15 @@ class SwathProfileBuilder {
             }
         }
 
+        solution.deep() = std::numeric_limits<double>::quiet_NaN();
+
+        // Not sure why, but LU solver seems to work better than the default QR solver
+        using Matrix = math::SymmetricSparseSquareMatrix::Matrix;
+        using IndexT = math::SymmetricSparseSquareMatrix::IndexT;
+        using Solver = Eigen::SparseLU<Matrix, Eigen::NaturalOrdering<IndexT>>;
+
         // Solve the matrix equation
-        _matrix.solve(solution, _vector);
+        _matrix.solve<Solver>(solution, _vector);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {
