@@ -2,7 +2,7 @@ from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 
 import lsstDebug
 import lsst.daf.persistence
-from lsst.pex.config import Config, ChoiceField, DictField
+from lsst.pex.config import Config, ChoiceField, DictField, Field
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
 
@@ -63,6 +63,13 @@ class FitBroadbandSEDConfig(Config):
             "z_sdss": "SDSSz",
         },
         doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`",
+    )
+
+    soften = Field(
+        doc="Soften flux errors: err**2 -> err**2 + (soften*flux)**2",
+        dtype=float,
+        default=0.1,
+        optional=False,
     )
 
 
@@ -187,7 +194,8 @@ class FitBroadbandSEDTask(Task):
             return ChisqList(numpy.zeros(shape=(nSEDs,), dtype=float), 0)
 
         observedFluxes = observedFluxes[isgood]
-        observedNoises = observedNoises[isgood]
+        # Soften noises
+        observedNoises = numpy.hypot(observedNoises[isgood], self.config.soften * observedFluxes)
 
         # Convert filter names.
         filterNames = [self.config.filterMappings.get(f, f) for f, good in zip(filterNames, isgood) if good]
