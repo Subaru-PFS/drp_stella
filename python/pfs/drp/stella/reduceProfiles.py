@@ -50,7 +50,7 @@ class ReduceProfilesTaskRunner(TaskRunner):
 
 class CombineConfig(Config):
     """Configuration for combining images"""
-    mask = ListField(dtype=str, default=["SAT", "DETECTED", "INTRP", "CR", "NO_DATA"],
+    mask = ListField(dtype=str, default=["BAD", "SAT", "INTRP", "CR", "NO_DATA"],
                      doc="Mask planes to reject from combination")
     combine = ChoiceField(dtype=str, default="MEANCLIP",
                           allowed=dict(MEAN="Sample mean", MEANCLIP="Clipped mean", MEDIAN="Sample median"),
@@ -175,7 +175,9 @@ class ReduceProfilesTask(CmdLineTask):
             detectorMap = self.adjustDetectorMap.run(detectorMap, lines, normExp.visitInfo.id).detectorMap
             normRefList[0].put(detectorMap, "detectorMap_used")
 
-        spectra = profiles.extractSpectra(normExp.maskedImage, detectorMap)
+        spectra = profiles.extractSpectra(
+            normExp.maskedImage, detectorMap, normExp.mask.getPlaneBitMask(self.config.mask)
+        )
         self.blackspots.run(normList[0].pfsConfig, spectra)
 
         for ss in spectra:
