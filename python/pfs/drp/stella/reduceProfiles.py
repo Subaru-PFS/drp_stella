@@ -181,7 +181,7 @@ class ReduceProfilesTask(CmdLineTask):
         self.blackspots.run(normList[0].pfsConfig, spectra)
 
         for ss in spectra:
-            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask(self.config.mask)) == 0
+            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) == 0
             profiles[ss.fiberId].norm = np.where(good, ss.flux/ss.norm, np.nan)
 
         self.write(dataRefList[0], profiles, [dataRef.dataId["visit"] for dataRef in dataRefList],
