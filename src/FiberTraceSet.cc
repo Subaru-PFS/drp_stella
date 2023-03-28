@@ -138,7 +138,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         }
 
         // Construct least-squares matrix and vector
-        math::SparseSquareMatrix<true> matrix{num};  // least-squares matrix: model dot model
+        math::SymmetricSparseSquareMatrix matrix{num};  // least-squares matrix: model dot model
         vector.deep() = 0.0;
         diagonalWeighted.deep() = 0.0;
         offDiagWeighted.deep() = 0.0;
