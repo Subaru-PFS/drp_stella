@@ -175,14 +175,19 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                  ++xModel, ++xData) {
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
                 double const modelValue = iModelImage(xModel, iyModel)/iNorm;
+                MaskT const maskValue = dataMask(xData, yData);
+                ImageT const imageValue = dataImage(xData, yData);
+                VarianceT const varianceValue = dataVariance(xData, yData);
                 if (modelValue > minFracMask) {
-                    maskResult[ii] |= dataMask(xData, yData);
+                    maskResult[ii] |= maskValue;
                 }
-                if (dataMask(xData, yData) & badBitMask) continue;
+                if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue)) {
+                    continue;
+                }
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
-                model2Weighted += m2/dataVariance(xData, yData);
-                modelData += modelValue*dataImage(xData, yData);
+                model2Weighted += m2/varianceValue;
+                modelData += modelValue*imageValue;
             }
 
             if (model2 == 0.0 || model2Weighted == 0.0) {
@@ -239,13 +244,19 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                         ++xData, ++xi, ++xj) {
                     if (!(iModelMask(xi, iyModel) & require)) continue;
                     if (!(jModelMask(xj, jyModel) & require)) continue;
-                    if (dataMask(xData, yData) & badBitMask) continue;
+                    MaskT const maskValue = dataMask(xData, yData);
+                    ImageT const imageValue = dataImage(xData, yData);
+                    VarianceT const varianceValue = dataVariance(xData, yData);
+                    if ((maskValue & badBitMask) || !std::isfinite(imageValue) ||
+                        !std::isfinite(varianceValue)) {
+                        continue;
+                    }
                     double const iModel = iModelImage(xi, iyModel)/iNorm;
                     double const jModel = jModelImage(xj, jyModel)/jNorm;
                     double const mm = iModel*jModel;
                     modelModel += mm;
                     if (accumulateWeighted) {
-                        modelModelWeighted += mm/dataVariance(xData, yData);
+                        modelModelWeighted += mm/varianceValue;
                     }
                 }
                 matrix.add(ii, jj, modelModel);
