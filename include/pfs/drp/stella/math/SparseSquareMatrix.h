@@ -58,6 +58,9 @@ class SparseSquareMatrix {
             // we work with the upper triangle
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
+        if (value == 0.0) {
+            return;
+        }
         _triplets.emplace_back(ii, jj, value);
     }
 
