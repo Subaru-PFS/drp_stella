@@ -66,17 +66,19 @@ class SwathProfileBuilder {
     // @param numFibers : Number of fibers
     // @param oversample : Oversampling factor
     // @param radius : Radius of fiber profile, in pixels
+    // @param numRows : Total number of rows to accumulate (for memory allocation)
     SwathProfileBuilder(
         std::size_t numFibers,
         int oversample,
-        int radius
+        int radius,
+        std::size_t numRows
     ) : _oversample(oversample),
         _radius(radius),
         _profileSize(2*std::size_t((radius + 1)*oversample + 0.5) + 1),
         _profileCenter((radius + 1)*oversample + 0.5),
         _numFibers(numFibers),
         _numParameters(numFibers*_profileSize),
-        _matrix(_numParameters, 5),
+        _matrix(_numParameters, oversample*numRows),
         _vector(ndarray::allocate(_numParameters)),
         _isZero(ndarray::allocate(_numParameters)) {
             reset();
@@ -129,6 +131,7 @@ class SwathProfileBuilder {
     // @param rejected : Rejected pixels for this row
     void accumulatePixel(
         int xx,
+        int yy,
         typename lsst::afw::image::Image<float>::x_iterator iter,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
@@ -142,9 +145,8 @@ class SwathProfileBuilder {
         double const pixelValue = *iter;
 
         // Iterate over fibers of interest
-#if 0
+#if 1
         // Linear interpolation
-        // This is very slow, because it greatly increases the number of off-diagonal elements in the matrix
         for (std::size_t ii = left; ii < right; ++ii) {
             double const iModel = norm[ii];
             if (iModel == 0) continue;
@@ -158,6 +160,9 @@ class SwathProfileBuilder {
             _matrix.add(iLower, iLower, std::pow(iLowerModel, 2));
             _matrix.add(iUpper, iUpper, std::pow(iUpperModel, 2));
             _matrix.add(iLower, iUpper, iLowerModel*iUpperModel);
+
+            // Add symmetric elements
+            _matrix.add(iUpper, iLower, iLowerModel*iUpperModel);
 
             _isZero[iLower] &= iLowerFrac == 0;
             _isZero[iUpper] &= iLowerFrac == 1;
@@ -178,15 +183,22 @@ class SwathProfileBuilder {
                 _matrix.add(iLower, jUpper, iLowerModel*jUpperModel);
                 _matrix.add(iUpper, jLower, iUpperModel*jLowerModel);
                 _matrix.add(iUpper, jUpper, iUpperModel*jUpperModel);
+
+                // Add symmetric elements
+                _matrix.add(jLower, iLower, iLowerModel*jLowerModel);
+                _matrix.add(jUpper, iLower, iLowerModel*jUpperModel);
+                _matrix.add(jLower, iUpper, iUpperModel*jLowerModel);
+                _matrix.add(jUpper, iUpper, iUpperModel*jUpperModel);
             }
         }
 #else
         // Nearest-neighbour interpolation
-        // This is much faster than linear interpolation, but it is subject to imprecisions
+        // This is much simpler than linear interpolation, but it is subject to imprecisions
         for (std::size_t ii = left; ii < right; ++ii) {
             double const iModel = norm[ii];
             if (iModel == 0) continue;
             std::size_t const iPixel = getProfileNearest(ii, xx, centers[ii]);
+
             _matrix.add(iPixel, iPixel, std::pow(iModel, 2));
             _isZero[iPixel] = false;
             _vector[iPixel] += iModel*pixelValue;
@@ -196,6 +208,8 @@ class SwathProfileBuilder {
                 if (jModel == 0) continue;
                 std::size_t const jPixel = getProfileNearest(jj, xx, centers[jj]);
                 _matrix.add(iPixel, jPixel, iModel*jModel);
+                _matrix.add(jPixel, iPixel, iModel*jModel);  // symmetric
+
                 _isZero[jPixel] = false;
             }
         }
@@ -235,16 +249,15 @@ class SwathProfileBuilder {
                 throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError,
                                   "fiberIds aren't sorted from left to right");
             }
-            int const centerPixel = int(centers[fiberIndex] + 0.5);
-            lower[fiberIndex] = std::max(0, centerPixel - _radius - 1);
-            upper[fiberIndex] = std::min(width - 1, centerPixel + _radius + 1);
+            lower[fiberIndex] = std::max(0, int(std::ceil(centers[fiberIndex] - _radius - 1)));
+            upper[fiberIndex] = std::min(width, int(std::floor(centers[fiberIndex] + _radius + 1)) + 1);
         }
 
         // Iterate over pixels in the row
         std::size_t left = 0;  // fiber index of lower bound of consideration for this pixel (inclusive)
-        std::size_t right = 0;  // fiber index of upper bound of consideration for this pixel (exclusive)
+        std::size_t right = 1;  // fiber index of upper bound of consideration for this pixel (exclusive)
         int xx = lower[0];  // column for pixel of interest
-        auto const stop = image.row_begin(yy) + upper[_numFibers - 1] + 1;
+        auto const stop = image.row_begin(yy) + upper[_numFibers - 1];
         for (auto ptr = image.row_begin(yy) + xx; ptr != stop; ++ptr, ++xx) {
             // Which fibers are we dealing with?
             // pixel:                X
@@ -255,9 +268,9 @@ class SwathProfileBuilder {
             // fiber 4:                 |-----------|
             // Our pixel (X, at top) overlaps 1,2,3; therefore get left=1 (inclusive), right=4 (exclusive)
             while (left < _numFibers && xx >= upper[left]) ++left;
-            while (right < _numFibers && xx > lower[right]) ++right;
+            while (right < _numFibers && xx >= lower[right]) ++right;
 
-            func(xx, ptr, centers, left, right, args...);
+            func(xx, yy, ptr, centers, left, right, args...);
         }
     }
 
@@ -268,18 +281,23 @@ class SwathProfileBuilder {
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {
                 _matrix.add(ii, ii, 1.0);
+                assert(_vector[ii] == 0.0);  // or we've done something wrong
             }
         }
 
         solution.deep() = std::numeric_limits<double>::quiet_NaN();
 
-        // Not sure why, but LU solver seems to work better than the default QR solver
-        using Matrix = math::SymmetricSparseSquareMatrix::Matrix;
-        using IndexT = math::SymmetricSparseSquareMatrix::IndexT;
-        using Solver = Eigen::SparseLU<Matrix, Eigen::NaturalOrdering<IndexT>>;
-
         // Solve the matrix equation
-        _matrix.solve<Solver>(solution, _vector);
+        // We use a preconditioned conjugate gradient solver, which is much less
+        // picky about the matrix being close to singular.
+        using Matrix = math::NonsymmetricSparseSquareMatrix::Matrix;
+        using Solver = Eigen::ConjugateGradient<
+            Matrix, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>
+        >;
+        Solver solver;
+        solver.setMaxIterations(getNumParameters()*10);
+        solver.setTolerance(1.0e-6);  // about single precision float
+        _matrix.solve(solution, _vector, solver);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {
@@ -361,6 +379,7 @@ class SwathProfileBuilder {
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
     void applyPixelRejection(
         int xx,
+        int yy,
         typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
@@ -379,7 +398,7 @@ class SwathProfileBuilder {
             double const iModel = norm[ii];
             if (iModel == 0) continue;
 
-#if 0
+#if 1
             // Linear interpolation
             std::size_t iLower;
             double iLowerFrac;
@@ -421,10 +440,10 @@ class SwathProfileBuilder {
     //
     // Given the integer index of a pixel in the oversampled space relative to
     // the start of the profile, return the appropriate model index.
-    std::size_t getProfileIndex(std::size_t fiberIndex, std::size_t profilePosition) const {
+    std::size_t getProfileIndex(std::size_t fiberIndex, std::ptrdiff_t profilePosition) const {
         // "profile index" is the index in the matrix for the profile position
         assert(fiberIndex < _numFibers);
-        assert(profilePosition >= 0 && profilePosition < _profileSize);
+        assert(profilePosition >= 0 && profilePosition < std::ptrdiff_t(_profileSize));
         return profilePosition + _profileSize*fiberIndex;
     }
 
@@ -432,16 +451,15 @@ class SwathProfileBuilder {
     //
     // Given the pixel column and fiber center, return the integer index of the
     // pixel in the oversampled space, relative to the start of the profile.
-    std::size_t getProfilePosition(int xx, double center) const {
+    std::ptrdiff_t getProfilePosition(int xx, double center) const {
         // "profile position" is the integer index of the pixel in the
         // oversampled space, relative to the start of the profile (not the
         // center).
-        std::size_t profilePosition = std::ptrdiff_t(std::round((xx - center)*_oversample)) + _profileCenter;
-        assert(profilePosition < _profileSize);
+        std::ptrdiff_t profilePosition = std::round((xx - center)*_oversample) + _profileCenter;
+        assert(profilePosition >= 0 && profilePosition < std::ptrdiff_t(_profileSize));
         return profilePosition;
     }
 
-#if 0
     // Linear interpolation between pixels: more accurate, but lots slower
     std::pair<std::size_t, double> getProfileInterpolation(
         std::size_t fiberIndex,
@@ -458,7 +476,6 @@ class SwathProfileBuilder {
         assert(frac >= 0 && frac <= 1.0);
         return std::make_pair(index, frac);
     }
-#endif
 
     // Nearest-neighbor interpolation
     //
@@ -482,7 +499,10 @@ class SwathProfileBuilder {
     std::size_t _profileCenter;  // index of center of profile = radius*oversample
     std::size_t _numFibers;  // number of fibers
     std::size_t _numParameters;  // number of parameters = profileSize*numFibers
-    math::SymmetricSparseSquareMatrix _matrix;  // least-squares (Fisher) matrix
+    // We use a non-symmetric matrix because the conjugate gradient solver
+    // doesn't work with a self-adjoint view. So we just add the symmetric
+    // elements manually.
+    math::NonsymmetricSparseSquareMatrix _matrix;  // least-squares (Fisher) matrix
     ndarray::Array<double, 1, 1> _vector;  // least-squares (right-hand side) vector
     ndarray::Array<bool, 1, 1> _isZero;  // any zero matrix elements for this parameter?
 };
@@ -543,7 +563,7 @@ fitSwathProfiles(
         }
     }
 
-    SwathProfileBuilder builder{fiberIds.size(), oversample, radius};
+    SwathProfileBuilder builder{fiberIds.size(), oversample, radius, images.size()*(yMax - yMin)};
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
