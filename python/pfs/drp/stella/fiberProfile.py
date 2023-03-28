@@ -239,8 +239,8 @@ class FiberProfile:
         Helper function for makeFiberTrace/makeFiberTraceFromDetectorMap to get the numpy types right
         """
         if isinstance(self.profiles, np.ma.masked_array):
-            good = ~self.profiles.mask
             data = self.profiles.data
+            good = np.ones_like(data, dtype=bool) & ~self.profiles.mask  # Avoids games with mask type/shape
         else:
             good = np.ones_like(self.profiles, dtype=bool)
             data = self.profiles
