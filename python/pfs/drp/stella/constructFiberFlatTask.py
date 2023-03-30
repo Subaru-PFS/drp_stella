@@ -5,6 +5,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
 
+from pfs.datamodel import CalibIdentity
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 
@@ -99,7 +100,14 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             # Check and correct for low values in variance
             self.correctLowVarianceImage(image)
 
-            profileData = self.profiles.run(afwImage.makeExposure(image))
+            dataRef = dithers[dd][0]
+            identity = CalibIdentity(
+                obsDate=dataRef.dataId["dateObs"],
+                spectrograph=dataRef.dataId["spectrograph"],
+                arm=dataRef.dataId["arm"],
+                visit0=dataRef.dataId["visit"],
+            )
+            profileData = self.profiles.run(afwImage.makeExposure(image), identity=identity)
             if len(profileData.profiles) == 0:
                 self.log.warn("No profiles found for dither %s: skipping", dd)
                 continue
