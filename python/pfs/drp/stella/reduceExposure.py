@@ -44,6 +44,7 @@ from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
 from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
+from .background import BackgroundTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -95,6 +96,8 @@ class ReduceExposureConfig(Config):
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
+    doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
+    background = ConfigurableField(target=BackgroundTask, doc="Background subtraction")
 
     def validate(self):
         if not self.doExtractSpectra and self.doWriteArm:
@@ -186,6 +189,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
         self.makeSubtask("blackSpotCorrection")
+        self.makeSubtask("background")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def runDataRef(self, sensorRefList):
@@ -271,6 +275,9 @@ class ReduceExposureTask(CmdLineTask):
 
                 exposureList.append(exposure)
                 calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+
+                if self.config.doBackground:
+                    self.background.run(exposure.maskedImage, calibs.detectorMap)
 
                 if self.config.doMaskLines:
                     maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
