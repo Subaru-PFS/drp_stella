@@ -42,9 +42,9 @@ class ReduceProfilesTaskRunner(TaskRunner):
             for arm in dataRefs[spectrograph]:
                 if spectrograph not in normRefs or arm not in normRefs[spectrograph]:
                     raise RuntimeError(f"No norm provided for spectrograph={spectrograph} arm={arm}")
-                targets.append(
-                    (dataRefs[spectrograph][arm], dict(normRefList=normRefs[spectrograph][arm], **kwargs))
-                )
+                dataList = sorted(dataRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
+                normList = sorted(normRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
+                targets.append((dataList, dict(normRefList=normList, **kwargs)))
         return targets
 
 
