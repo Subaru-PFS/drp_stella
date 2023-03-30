@@ -49,6 +49,7 @@ class BuildFiberProfilesConfig(Config):
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
+    extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
 
 
 class BuildFiberProfilesTask(Task):
@@ -222,6 +223,7 @@ class BuildFiberProfilesTask(Task):
             raise RuntimeError("No fibers")
         fiberId = np.array(list(sorted(fibers)), dtype=int)
 
+        self.log.info("Starting initial profile extraction...")
         profiles = FiberProfileSet.fromImages(
             identity,
             imageList,
@@ -241,6 +243,35 @@ class BuildFiberProfilesTask(Task):
         if self.debugInfo.plotProfile:
             for pp in profiles:
                 pp.plot()
+
+        # Iterate once with the revised profiles
+        for ii in range(self.config.extractIter):
+            for jj in range(num):
+                badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
+                normList[jj] = profiles.extractSpectra(
+                    imageList[jj], detectorMapList[jj], badBitMask
+                ).getAllFluxes()
+
+            self.log.info("Starting profile extraction iteration %d...", ii + 1)
+            profiles = FiberProfileSet.fromImages(
+                identity,
+                imageList,
+                fiberId,
+                centersList,
+                normList,
+                self.config.profileRadius,
+                self.config.profileOversample,
+                self.config.profileSwath,
+                self.config.profileRejIter,
+                self.config.profileRejThresh,
+                self.config.mask,
+                exposureList[0].getInfo().getVisitInfo(),
+                exposureList[0].getMetadata(),
+            )
+
+            if self.debugInfo.plotProfile:
+                for pp in profiles:
+                    pp.plot()
 
         return Struct(profiles=profiles, centers=centersList, norm=normList)
 

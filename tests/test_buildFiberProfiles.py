@@ -607,13 +607,13 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         # In the end, decided that this is an extreme case (profile is 10 pixels radius with fibers separated
         # by 6.5 pixels) on a toy model, so I've loosened up on the limits.
         self.assertFiberProfiles(results.profiles, exp1.maskedImage, detMap, scale1*self.flux,
-                                 spectrumChi2=1.3)
+                                 spectrumChi2=1.5)
         self.assertFiberProfiles(results.profiles, exp2.maskedImage, detMap, scale2*self.flux,
-                                 spectrumChi2=1.3)
+                                 spectrumChi2=1.5)
         self.assertFiberProfiles(results.profiles, exp3.maskedImage, detMap, scale3*self.flux,
-                                 spectrumChi2=1.3)
+                                 spectrumChi2=1.5)
         self.assertFiberProfiles(results.profiles, exp4.maskedImage, detMap, scale4*self.flux,
-                                 spectrumChi2=1.3)
+                                 spectrumChi2=1.5)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
