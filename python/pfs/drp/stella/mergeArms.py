@@ -289,7 +289,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         expSpecRefList[0][0].put(results.pfsMerged, "pfsMerged")
         expSpecRefList[0][0].put(results.pfsMergedLsf, "pfsMergedLsf")
         if results.sky1d is not None:
-            for sky1d, ref in zip(results.sky1d, expSpecRefList[0]):
+            for sky1d, ref in zip(results.sky1d, sum(expSpecRefList, [])):
                 ref.put(sky1d, "sky1d")
 
         results.pfsConfig = pfsConfig
