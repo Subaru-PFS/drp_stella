@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
 import numpy as np
 
 from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
@@ -10,6 +10,9 @@ from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTraceSet
 from .spline import SplineD
 from .profile import fitSwathProfiles
+
+if TYPE_CHECKING:
+    import matplotlib
 
 __all__ = ("FiberProfileSet",)
 
@@ -387,3 +390,43 @@ class FiberProfileSet:
             Name of FITS file.
         """
         self.toPfsFiberProfiles().writeFits(filename)
+
+    def plot(
+        self, rows: int = 10, cols: int = 10, fontsize: int = 6, show: bool = True
+    ) -> Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]]:
+        """Plot the fiber profiles
+
+        Parameters
+        ----------
+        rows, cols : `int`, optional
+            Number of rows and columns to use.
+        fontsize : `int`, optional
+            Font size to use for fiberId label.
+        show : `bool`, optional
+            Show the plots?
+
+        Returns
+        -------
+        figAxes : `dict`[`fiberId`, (`matplotlib.Figure`, `matplotlib.Axes`)]
+            Figures and axes indexed by fiberId.
+        """
+        import matplotlib.pyplot as plt
+
+        figAxes: Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]] = {}
+
+        fiberId = list(sorted(self.fiberProfiles.keys()))
+        while fiberId:
+            fig, axes = plt.subplots(rows=rows, cols=cols, sharex=True, sharey=True, squeeze=False)
+            fig.subplots_adjust(hspace=0, wspace=0)
+            for ff, ax in zip(fiberId, axes.flatten()):
+                self.fiberProfiles[ff].plotInAxes(ax)
+                ax.text(0.05, 0.95, f"fiberId={ff}", fontsize=fontsize, horizontalalignment="left",
+                        verticalalignment="top", transform=ax.transAxes)
+                figAxes[ff] = (fig, ax)
+            for ax in axes.flatten()[len(fiberId):]:
+                ax.axis("off")
+            fiberId = fiberId[rows*cols:]
+
+        if show:
+            plt.show()
+        return figAxes

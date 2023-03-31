@@ -1,3 +1,6 @@
+import itertools
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
@@ -5,6 +8,9 @@ from pfs.drp.stella.profile import calculateSwathProfile
 from pfs.drp.stella.spline import SplineD
 
 import lsstDebug
+
+if TYPE_CHECKING:
+    import matplotlib
 
 __all__ = ("FiberProfile",)
 
@@ -232,6 +238,21 @@ class FiberProfile:
         if show:
             plt.show()
         return fig, axes
+
+    def plotInAxes(self, axes: "matplotlib.Axes") -> None:
+        """Plot fiber profile in a single axes
+
+        A more compact version of the ``plot`` method.
+
+        Parameters
+        ----------
+        axes : `matplotlib.pyplot.Axes`
+            Axes to plot in.
+        addLegend : `bool`
+        """
+        colorList = ["r", "g", "b", "c", "m", "y", "k", "tab:orange", "tab:purple", "tab:brown"]
+        for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
+            axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
 
     def __makeFiberTrace(self, dimensions, xCenter, fiberId):
         """Make a FiberTrace object
