@@ -55,9 +55,8 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
 
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     auto spec = spectrum.getSpectrum().begin() + box.getMinY();
-    auto bg = spectrum.getBackground().begin() + box.getMinY();
     for (std::ptrdiff_t y = box.getMinY(), row = box.getMinY() - _trace.getY0();
-         y <= box.getMaxY(); ++y, ++row, ++spec, ++bg) {
+         y <= box.getMaxY(); ++y, ++row, ++spec) {
         std::ptrdiff_t const xStart = box.getMinX() - _trace.getX0();
         std::ptrdiff_t const xStop = box.getMaxX() - _trace.getX0();  // Inclusive
         auto profileIter = _trace.getImage()->row_begin(row) + xStart;
@@ -68,12 +67,11 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
             _trace.getImage()->getArray()[row][ndarray::view(xStart, xStop + 1)]
         ).template cast<double>().sum();
 
-        float const bgValue = *bg;
         float const specValue = *spec;
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
              ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *imageIter += bgValue + specValue*(*profileIter)*invNorm;
+                *imageIter += specValue*(*profileIter)*invNorm;
             }
         }
     }
