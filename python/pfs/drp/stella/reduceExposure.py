@@ -26,7 +26,7 @@ import lsstDebug
 
 from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
-from lsst.ip.isr import IsrTask
+from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
 from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
@@ -51,7 +51,7 @@ __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 class ReduceExposureConfig(Config):
     """Config for ReduceExposure"""
-    isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
+    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
     doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
