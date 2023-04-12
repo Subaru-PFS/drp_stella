@@ -43,7 +43,8 @@ class BootstrapConfig(Config):
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
     fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER"], doc="Fiber statuses to allow")
-    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+    targetType = ListField(dtype=str,
+                           default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE", "DCB"],
                            doc="Target types to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
@@ -603,7 +604,7 @@ def fitChebyshev2D(xx, yy, xOrder, yOrder, xDomain=None, yDomain=None, rejIterat
     assert len(xx) == len(yy)
     model = Chebyshev2D(xOrder, yOrder, x_domain=xDomain, y_domain=yDomain)
     fitter = LinearLSQFitter()
-    good = np.ones(xx.shape[1], dtype=bool)
+    good = np.all(np.isfinite(xx), axis=0) & np.all(np.isfinite(yy), axis=0)
     for ii in range(rejIterations):
         xFit = fitter(model, xx[0][good], xx[1][good], yy[0][good])
         yFit = fitter(model, xx[0][good], xx[1][good], yy[1][good])
