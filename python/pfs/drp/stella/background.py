@@ -1,14 +1,16 @@
-from typing import List
+from typing import ClassVar, List, Type
 
 import numpy as np
 
 import lsstDebug
-from lsst.pex.config import Config, Field, ListField
+from lsst.pex.config import Config, DictField, Field, ListField
 from lsst.pipe.base import Task, Struct
 
 from lsst.afw.image import MaskedImage
+from pfs.datamodel import FiberStatus
+from .datamodel import PfsConfig
 from pfs.drp.stella import DetectorMap
-from pfs.drp.stella.fitDistortedDetectorMap import addColorbar
+from .fitDistortedDetectorMap import addColorbar
 
 __all__ = ("BackgroundConfig", "BackgroundTask")
 
@@ -122,3 +124,113 @@ class BackgroundTask(Task):
             for jj in range(self.config.yOrder + 1 - ii):
                 design.append(xx**ii * yy**jj)
         return np.array(design).T
+
+
+class DichroicBackgroundConfig(Config):
+    """Configuration for background measurement in the dichroic region"""
+    fiberHalfWidth = Field(dtype=float, default=15, doc="Radius around fiber to mask (pixels)")
+    fiberStatus = ListField(
+        dtype=str,
+        default=["GOOD", "BROKENFIBER", "BLOCKED"],
+        doc="FiberStatus values to use for dichroic background subtraction",
+    )
+    mask = ListField(
+        dtype=str,
+        default=["SAT", "BAD", "NO_DATA"],
+        doc="Mask planes to ignore for dichroic background subtraction",
+    )
+    top = DictField(
+        keytype=str,
+        itemtype=int,
+        default=dict(
+            b=30,
+            r=30,
+        ),
+        doc="Number of rows to use for dichroic background subtraction at top of detector, indexed by arm",
+    )
+    bottom = DictField(
+        keytype=str,
+        itemtype=int,
+        default=dict(
+            r=50,
+            n=50,
+        ),
+        doc="Number of rows to use for dichroic background subtraction at bottom of detector, indexed by arm",
+    )
+
+
+class DichroicBackgroundTask(Task):
+    ConfigClass: ClassVar[Type[Config]] = DichroicBackgroundConfig
+    _DefaultName: ClassVar[str] = "background"
+
+    def run(self, image: MaskedImage, arm: str, detectorMap: DetectorMap, pfsConfig: PfsConfig) -> np.ndarray:
+        """Remove any diffuse background in the dichroic region
+
+        Parameters
+        ----------
+        image : `lsst.afw.image.MaskedImage`
+            Image to process.
+        arm : `str`
+            Spectrograph arm name (``b``, ``r``, ``n``, ``m``).
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId to x,y on the detector.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
+        """
+        height = image.getHeight()
+        topRows = self.config.top.get(arm, None)
+        bottomRows = self.config.bottom.get(arm, None)
+        if topRows is None and bottomRows is None:
+            return np.zeros(height)
+
+        fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
+        fiberId = pfsConfig.select(fiberId=detectorMap.fiberId, fiberStatus=fiberStatus).fiberId
+        bitmask = image.mask.getPlaneBitMask(self.config.mask)
+
+        def measureBackground(rows: slice) -> np.ndarray:
+            """Measure the background in the given rows
+
+            Parameters
+            ----------
+            rows : `slice`
+                Rows to measure.
+
+            Returns
+            -------
+            background : `np.ndarray`
+                Background as a function of row.
+            """
+            array = image.image.array[rows, :]
+            mask = image.mask.array[rows, :]
+            good = (mask & bitmask) == 0
+
+            for ff in fiberId:
+                for yy, xCenter in enumerate(detectorMap.getXCenter(ff)[rows]):
+                    xLow = int(xCenter - self.config.fiberHalfWidth)
+                    xHigh = int(xCenter + self.config.fiberHalfWidth + 0.5)
+                    good[yy, xLow:xHigh] = False
+            return np.median(array[good])
+
+        top = measureBackground(slice(-topRows, height)) if topRows else None
+        bottom = measureBackground(slice(bottomRows)) if bottomRows else None
+
+        if top is not None and bottom is not None:
+            # Subtract a ramp across the image
+            yBottom = 0.5*bottomRows
+            yTop = height - 0.5*topRows
+            yy = np.arange(height)
+            slope = (top - bottom)/(yTop - yBottom)
+            background = (yy - yBottom)*slope + bottom
+            self.log.info("Subtracting dichroic: bottom=%f top=%f", bottom, top)
+        elif top is not None:
+            background = np.full(height, top)
+            self.log.info("Subtracting dichroic: top=%f", top)
+        elif bottom is not None:
+            background = np.full(height, bottom)
+            self.log.info("Subtracting dichroic: bottom=%f", bottom)
+        else:
+            raise AssertionError("Should never get here")
+
+        image.image.array -= background[:, np.newaxis]
+
+        return background
