@@ -30,14 +30,27 @@ void declareFiberTrace(py::module &mod)
     cls.def_property_readonly("trace", [](Class const& self) { return self.getTrace(); });
     cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
-    cls.def("constructImage", py::overload_cast<Spectrum const&>(&Class::constructImage, py::const_),
-            "spectrum"_a);
-    cls.def("constructImage",
-            py::overload_cast<Spectrum const&, lsst::geom::Box2I const&>(&Class::constructImage, py::const_),
-            "spectrum"_a, "bbox"_a);
-    cls.def("constructImage",
-            py::overload_cast<typename Class::Image &, Spectrum const&>(&Class::constructImage, py::const_),
-            "image"_a, "spectrum"_a);
+    cls.def("constructImage", py::overload_cast<Spectrum const&, bool>(&Class::constructImage, py::const_),
+            "spectrum"_a, "useSky"_a=false);
+    cls.def(
+        "constructImage",
+        py::overload_cast<Spectrum const&, lsst::geom::Box2I const&, bool>(
+            &Class::constructImage, py::const_
+        ),
+        "spectrum"_a, "bbox"_a, "useSky"_a=false
+    );
+    cls.def(
+        "constructImage",
+        py::overload_cast<typename Class::Image &, Spectrum const&, bool>(&Class::constructImage, py::const_),
+        "image"_a, "spectrum"_a, "useSky"_a=false
+    );
+    cls.def(
+        "constructImage",
+        py::overload_cast<typename Class::Image &, ndarray::Array<Spectrum::ImageT const, 1, 1> const&>(
+                &Class::constructImage, py::const_
+        ),
+        "image"_a, "flux"_a
+    );
 
     cls.def_static("fromProfile", &Class::fromProfile, "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
                    "rows"_a, "profiles"_a, "good"_a, "centers"_a, "norm"_a=nullptr);

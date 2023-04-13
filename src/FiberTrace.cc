@@ -36,11 +36,12 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 std::shared_ptr<afwImage::Image<ImageT>>
 FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     Spectrum const& spectrum,
-    lsst::geom::Box2I const& bbox
+    lsst::geom::Box2I const& bbox,
+    bool useSky
 ) const {
     auto out = std::make_shared<afwImage::Image<ImageT>>(bbox);
     *out = 0.0;
-    constructImage(*out, spectrum);
+    constructImage(*out, spectrum, useSky);
     return out;
 }
 
@@ -48,13 +49,29 @@ FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     afwImage::Image<ImageT> & image,
-    Spectrum const& spectrum
+    Spectrum const& spectrum,
+    bool useSky
+) const {
+    return constructImage(image, useSky ? spectrum.getBackground() : spectrum.getFlux());
+}
+
+
+template<typename ImageT, typename MaskT, typename VarianceT>
+void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
+    afwImage::Image<ImageT> & image,
+    ndarray::Array<Spectrum::ImageT const, 1, 1> const& flux
 ) const {
     auto box = image.getBBox(lsst::afw::image::PARENT);
     box.clip(_trace.getBBox(lsst::afw::image::PARENT));
 
+    if (flux.size() < box.getMaxY()) {
+        std::ostringstream str;
+        str << "Size of flux array (" << flux.size() << ") too small for box (" << box.getMaxY() << ")";
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, str.str());
+    }
+
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
-    auto spec = spectrum.getSpectrum().begin() + box.getMinY();
+    auto spec = flux.begin() + box.getMinY();
     for (std::ptrdiff_t y = box.getMinY(), row = box.getMinY() - _trace.getY0();
          y <= box.getMaxY(); ++y, ++row, ++spec) {
         std::ptrdiff_t const xStart = box.getMinX() - _trace.getX0();
