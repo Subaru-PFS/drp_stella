@@ -280,6 +280,7 @@ class ReduceExposureTask(CmdLineTask):
                     bg = self.background.run(
                         exposure.maskedImage, sensorRef.dataId["arm"], calibs.detectorMap, pfsConfig
                     )
+                    sensorRef.put(bg, "background")
 
                 if self.config.doMaskLines:
                     maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
