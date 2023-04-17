@@ -211,7 +211,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         pfsArm = PfsArm.read(identity, dirName=parsed.dirName)
         return cls.fromPfsArm(pfsArm)
 
-    def makeImage(self, box, fiberTraces):
+    def makeImage(self, box, fiberTraces, useSky=False):
         """Make a 2D image of the spectra
 
         Parameters
@@ -220,6 +220,8 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             Bounding box for image.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces indicating where on the image the spectra go.
+        useSky : `bool`
+            Use sky value instead of flux?
 
         Returns
         -------
@@ -234,7 +236,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spec = specDict.get(ft.fiberId, None)
             if spec is None:
                 continue
-            fiberImage = ft.constructImage(spec)
+            fiberImage = ft.constructImage(spec, useSky)
             image[fiberImage.getBBox(), afwImage.PARENT] += fiberImage
 
         return image

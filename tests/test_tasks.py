@@ -12,6 +12,7 @@ from lsst.pipe.base import Struct
 
 import pfs.drp.stella.synthetic
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
@@ -68,6 +69,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         self.synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
         self.detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(self.synthConfig)
         self.flux = 1.0e5
+        self.identity = CalibIdentity("2020-01-01", 5, "x", 12345)
         flat = pfs.drp.stella.synthetic.makeSyntheticFlat(self.synthConfig, flux=self.flux,
                                                           addNoise=False, rng=self.rng)
         self.flat = lsst.afw.image.makeMaskedImage(flat)
@@ -107,7 +109,9 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config = BuildFiberProfilesTask.ConfigClass()
         config.pruneMinLength = self.synthConfig.height//2
         task = BuildFiberProfilesTask(config=config)
-        return task.run(lsst.afw.image.makeExposure(self.flat), detectorMap=self.detMap).profiles
+        return task.run(
+            lsst.afw.image.makeExposure(self.flat), self.identity, detectorMap=self.detMap
+        ).profiles
 
     def assertSpectra(self, spectra, hasContinuum=True):
         """Assert that the extracted arc spectra are as expected"""

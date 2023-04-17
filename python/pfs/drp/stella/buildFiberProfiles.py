@@ -1,20 +1,24 @@
 import itertools
 from collections import Counter, defaultdict
 from functools import partial
+from typing import Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
 
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
+from lsst.afw.image import ExposureF, MaskedImageF
 from lsst.afw.display import Display
 
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, CalibIdentity
 from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.images import convolveImage
+from pfs.drp.stella import DetectorMap
+from .datamodel import PfsConfig
 
 import lsstDebug
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -44,6 +48,8 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
+    extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
+    extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
 
 
 class BuildFiberProfilesTask(Task):
@@ -56,17 +62,24 @@ class BuildFiberProfilesTask(Task):
         self.makeSubtask("centerFit")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, exposure, *, identity=None, detectorMap=None, pfsConfig=None):
+    def run(
+        self,
+        exposure: ExposureF,
+        identity: CalibIdentity,
+        *,
+        detectorMap: Optional[DetectorMap] = None,
+        pfsConfig: Optional[PfsConfig] = None,
+    ):
         """Build a FiberProfileSet from an image
 
-        We find traces on the image, centroid those traces, measure the fiber
-        profile, and construct the FiberTraces.
+        We find traces on the image, centroid those traces, and measure the
+        fiber profiles.
 
         Parameters
         ----------
         exposure : `lsst.afw.image.Exposure`
-            Exposure from which to build FiberTraces.
-        identity : `pfs.datamodel.CalibIdentity`, optional
+            Exposure from which to build fiber profiles.
+        identity : `pfs.datamodel.CalibIdentity`
             Identifying information for the calibration.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
@@ -80,16 +93,220 @@ class BuildFiberProfilesTask(Task):
         centers : `dict` mapping `int` to callable
             Callable for each fiber (indexed by fiberId) that provides the
             center of the trace as a function of row.
+
+        See also
+        --------
+        BuildFiberProfilesTask.runMultiple
+        """
+        return self.runSingle(exposure, identity, detectorMap, pfsConfig)
+
+    def runSingle(
+        self,
+        exposure: ExposureF,
+        identity: CalibIdentity,
+        detectorMap: Optional[DetectorMap] = None,
+        pfsConfig: Optional[PfsConfig] = None,
+    ):
+        """Build a FiberProfileSet from a single image
+
+        We find traces on the image, centroid those traces, measure the fiber
+        profile, and construct the fiber profiles.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure from which to build fiber profiles.
+        identity : `pfs.datamodel.CalibIdentity`
+            Identifying information for the calibration.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Mapping from x,y to fiberId,row.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end fiber configuration.
+
+        Returns
+        -------
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of each fiber.
+        centers : `dict` mapping `int` to callable
+            Callable for each fiber (indexed by fiberId) that provides the
+            center of the trace as a function of row.
+
+        See also
+        --------
+        BuildFiberProfilesTask.runMultiple
+        """
+        centers = self.findTraces(exposure.maskedImage, detectorMap, pfsConfig)
+        profiles = FiberProfileSet.makeEmpty(
+            identity, exposure.getInfo().getVisitInfo(), exposure.getMetadata()
+        )
+        for ff in centers:
+            profiles[ff] = self.calculateProfile(exposure.maskedImage, centers[ff])
+
+        self.log.info("Profiled %d fibers", len(profiles))
+        return Struct(profiles=profiles, centers=centers)
+
+    def runMultiple(
+        self,
+        exposureList: Sequence[ExposureF],
+        identity: CalibIdentity,
+        detectorMapList: Sequence[DetectorMap],
+        pfsConfigList: Optional[Sequence[PfsConfig]] = None,
+    ) -> Struct:
+        """Build a FiberProfileSet from an image
+
+        We find traces on the image, centroid those traces, measure the fiber
+        profile, and construct the FiberTraces.
+
+        Parameters
+        ----------
+        exposureList : iterable of `lsst.afw.image.Exposure`
+            Exposures from which to build fiber profiles.
+        identity : `pfs.datamodel.CalibIdentity`
+            Identifying information for the calibration.
+        detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
+            Mappings from x,y to fiberId,row.
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`, optional
+            Top-end fiber configurations.
+
+        Returns
+        -------
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of each fiber.
+        centerList : iterable of `numpy.ndarray` of `float` with shape ``(Nfibers, Nrows)``
+            Arrays that provide the center of the trace as a function of
+            row for each fiber in each image.
+        spectraList : iterable of `numpy.ndarray` of `float` with shape ``(Nfibers, Nrows)``
+            Arrays that provide the flux of the trace as a function of row for
+            each fiber in each image.
+        """
+        num = len(exposureList)
+        imageList = [exp.maskedImage for exp in exposureList]
+        dims = imageList[0].getDimensions()
+        for img in imageList[1:]:
+            if img.getDimensions() != dims:
+                raise RuntimeError(f"Dimensions mismatch: {img.getDimensions()} vs {dims}")
+        if len(imageList) != len(detectorMapList):
+            raise RuntimeError(f"Length mismatch for exposures ({len(imageList)}) and "
+                               f"detectorMaps ({len(detectorMapList)})")
+        if pfsConfigList is not None and len(imageList) != len(pfsConfigList):
+            raise RuntimeError(f"Length mismatch for exposures ({len(imageList)}) and "
+                               f"pfsConfigs ({len(pfsConfigList)})")
+
+        rows = np.arange(0, dims.getY(), dtype=float)
+
+        centersList: List[np.ndarray] = []
+        normList: List[np.ndarray] = []
+        fibers: Optional[Set[int]] = None
+        for ii in range(num):
+            image = imageList[ii]
+            detectorMap = detectorMapList[ii]
+            pfsConfig = pfsConfigList[ii] if pfsConfigList is not None else None
+            centers = self.findTraces(image, detectorMap, pfsConfig)
+            if fibers is None:
+                fibers = set(centers.keys())
+            elif set(centers.keys()) != fibers:
+                raise RuntimeError(f"FiberId mismatch: {set(centers.keys())} vs {fibers}")
+            centersArray = np.empty((len(centers), image.getHeight()), dtype=float)
+            norm = np.zeros_like(centersArray, dtype=np.float32)
+            prof = FiberProfile.makeGaussian(fwhmToSigma(self.config.extractFwhm), image.getHeight(),
+                                             self.config.profileRadius, self.config.profileOversample)
+            badBitMask = image.mask.getPlaneBitMask(self.config.mask)
+            for ii, ff in enumerate(sorted(centers.keys())):
+                centersArray[ii] = centers[ff](rows)
+                spectrum = prof.extractSpectrum(image, detectorMap, ff, badBitMask)
+                norm[ii] = spectrum.flux
+
+            centersList.append(centersArray)
+            normList.append(norm)
+
+        if fibers is None:
+            raise RuntimeError("No fibers")
+        fiberId = np.array(list(sorted(fibers)), dtype=int)
+
+        self.log.info("Starting initial profile extraction...")
+        profiles = FiberProfileSet.fromImages(
+            identity,
+            imageList,
+            fiberId,
+            centersList,
+            normList,
+            self.config.profileRadius,
+            self.config.profileOversample,
+            self.config.profileSwath,
+            self.config.profileRejIter,
+            self.config.profileRejThresh,
+            self.config.mask,
+            exposureList[0].getInfo().getVisitInfo(),
+            exposureList[0].getMetadata(),
+        )
+
+        if self.debugInfo.plotProfile:
+            for pp in profiles:
+                pp.plot()
+
+        # Iterate once with the revised profiles
+        for ii in range(self.config.extractIter):
+            for jj in range(num):
+                badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
+                normList[jj] = profiles.extractSpectra(
+                    imageList[jj], detectorMapList[jj], badBitMask
+                ).getAllFluxes()
+
+            self.log.info("Starting profile extraction iteration %d...", ii + 1)
+            profiles = FiberProfileSet.fromImages(
+                identity,
+                imageList,
+                fiberId,
+                centersList,
+                normList,
+                self.config.profileRadius,
+                self.config.profileOversample,
+                self.config.profileSwath,
+                self.config.profileRejIter,
+                self.config.profileRejThresh,
+                self.config.mask,
+                exposureList[0].getInfo().getVisitInfo(),
+                exposureList[0].getMetadata(),
+            )
+
+            if self.debugInfo.plotProfile:
+                for pp in profiles:
+                    pp.plot()
+
+        return Struct(profiles=profiles, centers=centersList, norm=normList)
+
+    def findTraces(
+        self,
+        image: MaskedImageF,
+        detectorMap: Optional[DetectorMap] = None,
+        pfsConfig: Optional[PfsConfig] = None,
+    ) -> Dict[int, Callable[[float], float]]:
+        """Find and centroid traces on an image
+
+        Parameters
+        ----------
+        image : `lsst.afw.image.MaskedImage`
+            Image from which to build FiberTraces.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Mapping from x,y to fiberId,row.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end fiber configuration.
+
+        Returns
+        -------
+        centers : `dict` mapping `int` to callable
+            Callable for each fiber (indexed by fiberId) that provides the
+            center of the trace as a function of row.
         """
         if self.config.doBlindFind or detectorMap is None:
-            convolved = self.convolveImage(exposure.maskedImage)
+            convolved = self.convolveImage(image)
             peaks = self.findPeaks(convolved)
             self.log.debug("Found %d peaks", sum([len(pp) for pp in peaks]))
             peaks = self.prunePeaks(peaks)
             self.log.debug("Pruned to %d peaks", sum([len(pp) for pp in peaks]))
             traces = self.associatePeaks(peaks, convolved.getWidth())
             self.log.debug("Associated into %d traces", len(traces))
-            traces = self.pruneTraces(traces, exposure.getHeight())
+            traces = self.pruneTraces(traces, image.getHeight())
             self.log.debug("Pruned to %d traces", len(traces))
             traces = {ii: tt for ii, tt in enumerate(traces)}
         else:
@@ -100,8 +317,8 @@ class BuildFiberProfilesTask(Task):
             # If we don't have a detectorMap, we will fit a functional form to get the centers for the
             # profiles. If we do have a detectorMap, this will be used for identifying fibers.
             for ff, tt in traces.items():
-                self.centroidTrace(exposure.maskedImage, tt)
-            centers = {ff: self.fitTraceCenters(tt, exposure.getHeight()).func for ff, tt in traces.items()}
+                self.centroidTrace(image, tt)
+            centers = {ff: self.fitTraceCenters(tt, image.getHeight()).func for ff, tt in traces.items()}
             if detectorMap is not None:
                 identifications = self.identifyFibers(centers, detectorMap, pfsConfig)
                 traces = {identifications[ff]: tt for ff, tt in traces.items()}
@@ -127,14 +344,8 @@ class BuildFiberProfilesTask(Task):
 
             centers = {ff: partial(centerFunc, ff) for ff in traces}
 
-        profiles = FiberProfileSet.makeEmpty(
-            identity, exposure.getInfo().getVisitInfo(), exposure.getMetadata()
-        )
-        for ff in centers:
-            profiles[ff] = self.calculateProfile(exposure.maskedImage, centers[ff])
-
-        self.log.info("Profiled %d fibers", len(profiles))
-        return Struct(profiles=profiles, centers=centers)
+        self.log.info("Found and centroided %d traces", len(centers))
+        return centers
 
     def convolveImage(self, maskedImage):
         """Convolve image by Gaussian kernels in x and y

@@ -1,6 +1,13 @@
-from typing import Iterator, List, overload
+from typing import Any, Dict, Iterator, List, Optional, Tuple, overload
+
 import numpy as np
+from lsst.afw.image import Image
 from lsst.daf.base import PropertySet
+from lsst.geom import Box2I
+from matplotlib import Axes, Figure
+
+from .datamodel import PfsArm
+from .FiberTraceSetContinued import FiberTraceSet
 from .Spectrum import Spectrum
 
 class SpectrumSet:
@@ -24,3 +31,11 @@ class SpectrumSet:
     def __getitem__(self, index: int) -> Spectrum: ...
     def __setitem__(self, index: int, spectrum: Spectrum): ...
     def __iter__(self) -> Iterator[Spectrum]: ...  # auto-provided by python from len and getitem
+    def toPfsArm(self, dataId: Dict[str, Any]) -> PfsArm: ...
+    @classmethod
+    def fromPfsArm(self, pfsArm: PfsArm) -> "SpectrumSet": ...
+    def writeFits(self, filename: str): ...
+    @classmethod
+    def readFits(self, path: str) -> "SpectrumSet": ...
+    def makeImage(self, box: Box2I, fiberTraces: FiberTraceSet, useSky: bool = False) -> Image: ...
+    def plot(self, numRows: int = 3, filename: Optional[str] = None) -> Tuple[Figure, Axes]: ...

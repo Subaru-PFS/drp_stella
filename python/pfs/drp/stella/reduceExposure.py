@@ -26,7 +26,7 @@ import lsstDebug
 
 from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
-from lsst.ip.isr import IsrTask
+from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
 from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
@@ -44,13 +44,14 @@ from .fitDistortedDetectorMap import FittingError
 from .constructSpectralCalibs import setCalibHeader
 from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
+from .background import DichroicBackgroundTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 
 class ReduceExposureConfig(Config):
     """Config for ReduceExposure"""
-    isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
+    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
     doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
@@ -95,6 +96,8 @@ class ReduceExposureConfig(Config):
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
+    doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
+    background = ConfigurableField(target=DichroicBackgroundTask, doc="Background subtraction")
 
     def validate(self):
         if not self.doExtractSpectra and self.doWriteArm:
@@ -186,6 +189,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
         self.makeSubtask("blackSpotCorrection")
+        self.makeSubtask("background")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def runDataRef(self, sensorRefList):
@@ -250,11 +254,10 @@ class ReduceExposureTask(CmdLineTask):
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
                 self.log.info("Reading existing calexps")
                 exposureList = [sensorRef.get("calexp") for sensorRef in sensorRefList]
-                if self.config.doExtractSpectra:
-                    calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
-                              ref, exp in zip(sensorRefList, exposureList)]
-                    detectorMapList = [cal.detectorMap for cal in calibs]
-                    fiberTraceList = [cal.fiberTraces for cal in calibs]
+                calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
+                          ref, exp in zip(sensorRefList, exposureList)]
+                detectorMapList = [cal.detectorMap for cal in calibs]
+                fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
                 linesList = [sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
@@ -272,6 +275,12 @@ class ReduceExposureTask(CmdLineTask):
 
                 exposureList.append(exposure)
                 calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+
+                if self.config.doBackground:
+                    bg = self.background.run(
+                        exposure.maskedImage, sensorRef.dataId["arm"], calibs.detectorMap, pfsConfig
+                    )
+                    sensorRef.put(bg, "background")
 
                 if self.config.doMaskLines:
                     maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)

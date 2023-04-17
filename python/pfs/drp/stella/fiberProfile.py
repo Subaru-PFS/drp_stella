@@ -1,9 +1,16 @@
+import itertools
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
+from pfs.drp.stella.spline import SplineD
 
 import lsstDebug
+
+if TYPE_CHECKING:
+    import matplotlib
 
 __all__ = ("FiberProfile",)
 
@@ -43,6 +50,34 @@ class FiberProfile:
     def __reduce__(self):
         """Pickling"""
         return self.__class__, (self.radius, self.oversample, self.rows, self.profiles, self.norm)
+
+    @classmethod
+    def makeGaussian(cls, sigma: float, height: int, radius: int, oversample: float) -> "FiberProfile":
+        """Construct a `FiberProfile` with a Gaussian profile
+
+        Parameters
+        ----------
+        sigma : `float`
+            Gaussian sigma for profile.
+        height : `int`
+            Height of image.
+        radius : `int`
+            Distance either side (i.e., a half-width) of the center the profile
+            is measured for.
+        oversample : `float`
+            Oversample factor for the profile.
+
+        Returns
+        -------
+        profile : `FiberProfile`
+            Gaussian profile.
+        """
+        profileSize = 2*int((radius + 1)*oversample + 0.5) + 1
+        profileCenter = int((radius + 1)*oversample + 0.5)
+        xx = (np.arange(profileSize, dtype=int) - profileCenter)/oversample
+        profile = np.exp(-0.5*(xx/sigma)**2)/sigma/np.sqrt(2*np.pi)
+        rows = np.array([0.25*height, 0.75*height], dtype=float)
+        return cls(radius, oversample, rows, np.array([profile, profile]))
 
     @classmethod
     def fromImage(cls, maskedImage, centerFunc, radius, oversample, swathSize,
@@ -187,25 +222,51 @@ class FiberProfile:
                     r"$\sigma = %.1f$" % rms,
                 ))
 
+            xx = np.linspace(self.index[0], self.index[-1], self.index.size*10)
+            spline = SplineD(self.index, prof, SplineD.InterpolationTypes.NATURAL)
+
             ax.plot(self.index, prof, 'k.')
+            ax.plot(xx, spline(xx), 'k:')
             if annotate:
                 ax.plot(self.index, np.exp(-0.5*((self.index - mean)/rms)**2)/rms/np.sqrt(2*np.pi), 'r-')
             ax.axvline(0.0, ls=":", color="blue")
             ax.axhline(0.0, ls=":", color="black")
             ax.text(0.05, 0.95, text, fontsize=6, horizontalalignment="left",
                     verticalalignment="top", transform=ax.transAxes)
+        fig.suptitle(f"Fiber profile: radius={self.radius} oversample={self.oversample}")
 
         if show:
             plt.show()
         return fig, axes
+
+    def plotInAxes(self, axes: "matplotlib.Axes") -> None:
+        """Plot fiber profile in a single axes
+
+        A more compact version of the ``plot`` method.
+
+        Parameters
+        ----------
+        axes : `matplotlib.pyplot.Axes`
+            Axes to plot in.
+        addLegend : `bool`
+        """
+        colorList = ["r", "g", "b", "c", "m", "y", "k", "tab:orange", "tab:purple", "tab:brown"]
+        for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
+            axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
 
     def __makeFiberTrace(self, dimensions, xCenter, fiberId):
         """Make a FiberTrace object
 
         Helper function for makeFiberTrace/makeFiberTraceFromDetectorMap to get the numpy types right
         """
+        if isinstance(self.profiles, np.ma.masked_array):
+            data = self.profiles.data
+            good = np.ones_like(data, dtype=bool) & ~self.profiles.mask  # Avoids games with mask type/shape
+        else:
+            good = np.ones_like(self.profiles, dtype=bool)
+            data = self.profiles
         return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
-                                      self.profiles.data, ~self.profiles.mask, xCenter, self.norm)
+                                      data, good, xCenter, self.norm)
 
     def makeFiberTraceFromDetectorMap(self, detectorMap, fiberId):
         """Make a FiberTrace object
@@ -255,7 +316,7 @@ class FiberProfile:
         xCenter = centerFunc(rows)
         return self.__makeFiberTrace(dimensions, xCenter, fiberId)
 
-    def extractSpectrum(self, maskedImage, detectorMap, fiberId):
+    def extractSpectrum(self, maskedImage, detectorMap, fiberId, badBitmask, minFracMask=0.0):
         """Extract a single spectrum from an image
 
         Parameters
@@ -266,6 +327,10 @@ class FiberProfile:
             Mapping of fiberId,wavelength to/from detector x,y.
         fiberId : `int`
             Fiber identifier.
+        badBitmask : `lsst.afw.image.MaskPixel`
+            Bitmask for bad pixels.
+        minFracMask : `float`
+            Minimum fractional contribution of pixel for mask to be accumulated.
 
         Returns
         -------
@@ -273,4 +338,4 @@ class FiberProfile:
             Extracted spectrum.
         """
         trace = self.makeFiberTraceFromDetectorMap(detectorMap, fiberId)
-        return trace.extractSpectrum(maskedImage)
+        return trace.extractSpectrum(maskedImage, badBitmask, minFracMask)

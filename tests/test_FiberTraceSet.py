@@ -12,6 +12,7 @@ import lsst.geom
 import lsst.afw.image
 import lsst.afw.image.testUtils
 
+from pfs.datamodel import CalibIdentity
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
@@ -28,6 +29,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         self.bbox = lsst.geom.Box2I(
             self.xy0, lsst.geom.Extent2I(self.width, self.height)
         )  # Bounding box for trace
+        self.identity = CalibIdentity("2020-01-01", 5, "x", 12345)
         self.metadata = lsst.daf.base.PropertyList()
         self.metadata.add("METADATA", 12345)
 
@@ -254,8 +256,8 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         task.config.pruneMinLength = 200
         task.config.findThreshold = 10
         task.config.profileOversample = 25
-        evenProfiles = task.run(evenExposure, detectorMap=detMap).profiles
-        oddProfiles = task.run(oddExposure, detectorMap=detMap).profiles
+        evenProfiles = task.run(evenExposure, self.identity, detectorMap=detMap).profiles
+        oddProfiles = task.run(oddExposure, self.identity, detectorMap=detMap).profiles
         evenTraces = evenProfiles.makeFiberTracesFromDetectorMap(detMap)
         oddTraces = oddProfiles.makeFiberTracesFromDetectorMap(detMap)
 

@@ -3,6 +3,7 @@ import unittest
 import pickle
 
 import numpy as np
+from scipy.special import erf
 
 import lsst.utils.tests
 import lsst.pex.exceptions
@@ -11,6 +12,9 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.tests.utils import methodParameters
+from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticFlat, makeSyntheticDetectorMap
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 display = None
 
@@ -246,6 +250,30 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """Test application of trace mask to image"""
         self.fiberTrace.applyToMask(self.image.mask)
         self.assertImagesEqual(self.image.mask[self.bbox, lsst.afw.image.PARENT], self.trace.mask)
+
+
+class BoxcarFiberTraceTestCase(lsst.utils.tests.TestCase):
+    @methodParameters(radius=(2.5, 3.5, 5.0),
+                      rtol=(2.0e-2, 1.0e-2, 5.0e-3))
+    def testBoxcar(self, radius, rtol):
+        """Extraction with a boxcar fiberTrace"""
+        flux = 100000
+        rng = np.random.RandomState(12345)
+        badBitmask = 0x0
+        config = SyntheticConfig()
+        image = lsst.afw.image.makeMaskedImage(makeSyntheticFlat(config, flux=flux, addNoise=False, rng=rng))
+        image.writeFits("image.fits")
+        detMap = makeSyntheticDetectorMap(config)
+        sigma = fwhmToSigma(config.fwhm)
+        factor = erf(radius/sigma/np.sqrt(2))
+        expectFlux = flux*factor/(2*radius)
+
+        for fiberId in config.fiberId:
+            trace = drpStella.FiberTrace.boxcar(fiberId, config.dims, radius, detMap.getXCenter(fiberId))
+            spectrum = trace.extractAperture(image, badBitmask)
+            self.assertFloatsAlmostEqual(spectrum.norm, np.sum(trace.trace.image.array, axis=1), atol=1.0e-6)
+            self.assertFloatsAlmostEqual(spectrum.spectrum, expectFlux/spectrum.norm, rtol=rtol)
+            self.assertEqual(spectrum.fiberId, fiberId)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

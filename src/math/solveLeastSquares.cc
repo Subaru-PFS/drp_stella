@@ -22,15 +22,25 @@ ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     std::size_t const numValues = design.getShape()[0];
     std::size_t const numParams = design.getShape()[1];
     utils::checkSize(meas.size(), numValues, "meas vs design");
-    utils::checkSize(err.size(), numValues, "err vs design");
-
-    ndarray::Array<double, 2, 1> designNorm = ndarray::copy(design);
-    for (std::size_t ii = 0; ii < numParams; ++ii) {
-        designNorm[ndarray::view()(ii)] /= err;
+    if (!err.isEmpty()) {
+        utils::checkSize(err.size(), numValues, "err vs design");
     }
-    ndarray::Array<double, 1, 1> measNorm = ndarray::copy(meas);
-    measNorm.deep() /= err;
 
+    ndarray::Array<double, 2, 1> designNorm;
+    ndarray::Array<double, 1, 1> measNorm;
+    if (err.isEmpty()) {
+        // No normalisation required
+        designNorm = design;
+        measNorm = meas;
+    } else {
+        auto const invErr = 1.0/asEigenArray(err);
+        designNorm = ndarray::allocate(design.getShape());
+        measNorm = ndarray::allocate(meas.getShape());
+        for (std::size_t ii = 0; ii < numParams; ++ii) {
+            asEigenArray(designNorm[ndarray::view()(ii)]) = asEigenArray(design[ndarray::view()(ii)])*invErr;
+        }
+        asEigenArray(measNorm) = asEigenArray(meas)*invErr;
+    }
     auto const dd = asEigenMatrix(designNorm);
 
     ndarray::Array<double, 2, 1> fisher = ndarray::allocate(numParams, numParams);

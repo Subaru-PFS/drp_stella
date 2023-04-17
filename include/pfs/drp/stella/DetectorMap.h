@@ -3,6 +3,7 @@
 
 #include <map>
 #include <utility>
+#include <unordered_map>
 #include "ndarray_fwd.h"
 
 #include "lsst/geom/Box.h"
@@ -95,8 +96,11 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     Array1D getDispersion(FiberIds const& fiberId, Array1D const& wavelength, double dWavelength=0.1) const;
     //@}
 
+    //@{
     /// Return the fiberId given a position on the detector
+    int findFiberId(double x, double y) const { return findFiberId(lsst::geom::Point2D(x, y)); }
     int findFiberId(lsst::geom::PointD const& point) const;
+    //@}
 
     //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
@@ -178,7 +182,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
   private:
     lsst::geom::Box2I _bbox;  ///< bounding box of detector
     FiberIds _fiberId;  ///< fiber identifiers (between 1 and c. 2400) present on this detector
-    std::map<int, std::size_t> _fiberMap;  // Mapping fiberId -> fiber index
+    std::unordered_map<int, std::size_t> _fiberMap;  // Mapping fiberId -> fiber index
 
     Array1D _spatialOffsets;   ///< per-fiber offsets in the spatial dimension
     Array1D _spectralOffsets;   ///< per-fiber offsets in the spectral dimension

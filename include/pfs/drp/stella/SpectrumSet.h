@@ -38,9 +38,9 @@ class SpectrumSet {
     /// Construct from internal representation
     explicit SpectrumSet(Collection const& spectra);
 
-    SpectrumSet(SpectrumSet const&) = delete;
+    SpectrumSet(SpectrumSet const&) = default;
     SpectrumSet(SpectrumSet &&) = default;
-    SpectrumSet & operator=(SpectrumSet const&) = delete;
+    SpectrumSet & operator=(SpectrumSet const&) = default;
     SpectrumSet & operator=(SpectrumSet &&) = default;
 
     virtual ~SpectrumSet() {}
