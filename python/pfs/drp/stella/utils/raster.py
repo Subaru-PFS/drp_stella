@@ -37,14 +37,40 @@ def raDecStrToDeg(ra, dec):
 
 class Dither:
     """Information associated with a dithered PFS exposure"""
-    def __init__(self, visit, ra, dec, fluxes, pfsConfig, md):
-        self.visit = visit
+    def __init__(self, dataId, ra, dec, fluxes, pfsConfig, md):
+        self.visit = dataId["visit"]
+        self.dataId = dataId.copy()
         self.ra = ra
         self.dec = dec
         self.fluxes = fluxes
         self.pfsConfig = pfsConfig
         self.md = md
 
+def concatenateDithers(butler, dithers):
+    d0 = dithers[0]
+    for d in dithers[1:]:
+        assert d.visit == d0.visit
+        assert d.ra == d0.ra
+        assert d.dec == d0.dec
+
+    n = sum([len(d.fluxes) for d in dithers])
+    fluxes = np.empty(n)
+    i = 0
+    for d in dithers:
+        l = len(d.fluxes)
+        fluxes[i:i + l] = d.fluxes
+        i += l
+    fluxes = fluxes
+
+    pfsConfig = butler.get("pfsConfig", d0.dataId)
+    l = np.zeros(len(pfsConfig), dtype=bool)
+
+    for d in dithers:
+        l = np.logical_or(l, pfsConfig.spectrograph == d.dataId["spectrograph"])
+
+    pfsConfig = pfsConfig[np.logical_and(l, pfsConfig.targetType != TargetType.ENGINEERING)]
+
+    return Dither(d0.dataId, d0.ra, d0.dec, fluxes, pfsConfig, d0.md)
 
 def getWindowedSpectralRange(row0, nrows, butler=None, dataId=None, detectorMap=None, pfsConfig=None):
     """Return the range of wavelengths available in all fibres for a windowed read
@@ -191,7 +217,7 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
 
     ra, dec = raDecStrToDeg(md['RA_CMD'], md['DEC_CMD'])
 
-    return Dither(dataId["visit"], ra, dec, fluxes, pfsConfig, md)
+    return Dither(dataId, ra, dec, fluxes, pfsConfig, md)
 
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
@@ -403,9 +429,14 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
     ymin -= border
     ymax += border
 
-    imsize = int(max((xmax - xmin)*cosDec, ymax - ymin)*scale)
-    xmax = xmin + (imsize - 1)/cosDec/scale
-    ymax = ymin + (imsize - 1)/scale
+    imsize = int(max((xmax - xmin)*cosDec, ymax - ymin)*scale) + 2*stampsize
+    xsize = (imsize - 1)/cosDec/scale
+    xmin = (xmin + xmax)/2 - xsize/2   # beware x=0 == 360!
+    xmax = xmin + xsize
+
+    ysize = (imsize - 1)/scale
+    ymin = (ymin + ymax)/2 - ysize/2
+    ymax = ymin + ysize
 
     pfiIm = np.full((imsize, imsize), 0.0)
     weights = np.zeros_like(pfiIm)
@@ -447,7 +478,7 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
             pfiIm[y0:y1, x0:x1][good] += images[i][good]
             weights[y0:y1, x0:x1][good] += 1
             pfiImMask[y0:y1, x0:x1][good] = True
-        except ValueError:
+        except (IndexError, ValueError):
             print(f"fiberId {pfsConfig.fiberId[i]} doesn't fit in image")
 
     if setUnimagedPixelsToNaN:
@@ -593,8 +624,8 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
     xoff, yoff:   measured positional offsets, in (microns if usePFImm else arcsec)
     usePFImm :    make plot in PFI mm rather than ra/dec (you may need to scale xoff/yoff)
     select:       only show points for which select is True (if not None)
-    quiverLen:    passed to quiverKey (cv.) as "U"
-    quiverLabel:  passed to quiverKey (cv.) as "label"
+    quiverLen:    passed to quiverkey (cv.) as "U"
+    quiverLabel:  passed to quiverkey (cv.) as "label"
     scale:        passed to quiver (cv.)
     C:            passed to quiver (cv.)
     color:        passed to quiver (cv.)
@@ -628,6 +659,10 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
     args = [x[select], y[select], xoff[select], yoff[select]]
     if C is not None:
         args.append(C[select])                  # can't just pass None in the "C" slot
+
+    if "alpha" in quiver_args:
+        quiver_args.update(alpha=quiver_args["alpha"][select])
+
     Q = plt.quiver(*args, scale=scale, **quiver_args)
 
     plt.quiverkey(Q, 0.1, 0.9, quiverLen, f"{quiverLen}{quiverLabel}", coordinates='axes',
@@ -924,7 +959,6 @@ class ShowCobra:
                     if False:  # just a guess, so probably worse than useless
                         xy = self.pfi.centers[self.cobraId - 1]
                         x, y = xy.real, xy.imag
-                        cobraColor = 'white'
 
                 self.msg += f"cobraId {self.cobraId:4}"
 
