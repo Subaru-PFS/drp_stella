@@ -8,7 +8,11 @@ from numpy.lib import recfunctions
 import astropy.io.fits
 
 import functools
+import io
 import os
+import zipfile
+
+from typing import Union
 
 try:
     from numpy.typing import NDArray
@@ -34,6 +38,8 @@ class FluxModelSet:
 
     def __init__(self, dirname: str) -> None:
         self.dirname = dirname
+        self.zipFileObj: Union[zipfile.ZipFile, None] = None
+        self.zipFileExists: Union[bool, None] = None
 
     @property
     @functools.lru_cache()
@@ -115,22 +121,26 @@ class FluxModelSet:
             The spectrum.
         """
         path = self.getFileName(teff=teff, logg=logg, m=m, alpha=alpha)
-        return self.readSpectrum(path)
+        return self.readSpectrum(path, inZip=True)
 
-    def readSpectrum(self, path: str) -> PfsSimpleSpectrum:
+    def readSpectrum(self, path: str, *, inZip=False) -> PfsSimpleSpectrum:
         """Read the file at ``path``.
 
         Parameters
         ----------
         path : `str`
             Spectrum's file name.
+        inZip : `bool`
+            Search the zip archive, if it exists, for the requested file.
+            If this is ``True`` and the zip archive exists,
+            then the dirname of ``path`` is ignored.
 
         Returns
         -------
         spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
             The spectrum.
         """
-        with astropy.io.fits.open(path) as hdus:
+        with self.openSpectrumFile(path, inZip=inZip) as hdus:
             header = hdus[0].header
             start = header["CRVAL1"] + header["CDELT1"] * (1 - header["CRPIX1"])
             stop = header["CRVAL1"] + header["CDELT1"] * (header["NAXIS1"] - header["CRPIX1"])
@@ -143,3 +153,33 @@ class FluxModelSet:
             flags = MaskHelper()
             mask[:] = np.where(np.isfinite(flux), 0, flags.add("BAD"))
             return PfsSimpleSpectrum(target, wavelength, flux, mask, flags)
+
+    def openSpectrumFile(self, path: str, *, inZip=False) -> astropy.io.fits.HDUList:
+        """Open the file at ``path``.
+
+        Parameters
+        ----------
+        path : `str`
+            Spectrum's file name.
+        inZip : `bool`
+            Search the zip archive, if it exists, for the requested file.
+            If this is ``True`` and the zip archive exists,
+            then the dirname of ``path`` is ignored.
+
+        Returns
+        -------
+        spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
+            The spectrum.
+        """
+        if inZip:
+            if self.zipFileExists is None:
+                zippath = os.path.join(self.dirname, "spectra.zip")
+                if os.path.exists(zippath):
+                    self.zipFileObj = zipfile.ZipFile(zippath)
+                    self.zipFileExists = True
+                else:
+                    self.zipFileExists = False
+            if self.zipFileExists:
+                return astropy.io.fits.open(io.BytesIO(self.zipFileObj.read(os.path.basename(path))))
+
+        return astropy.io.fits.open(path)
