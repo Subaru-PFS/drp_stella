@@ -77,12 +77,21 @@ class ReduceProfilesConfig(Config):
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     fiberStatus = ListField(
         dtype=str,
-        default=["GOOD", "BROKENFIBER"],
+        default=["GOOD", "BROKENFIBER", "BLACKSPOT"],
         doc="Fiber status for which to build profiles",
     )
     targetType = ListField(
         dtype=str,
-        default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE", "HOME"],
+        default=[
+            "SCIENCE",
+            "SKY",
+            "FLUXSTD",
+            "UNASSIGNED",
+            "SUNSS_IMAGING",
+            "SUNSS_DIFFUSE",
+            "HOME",
+            "BLACKSPOT",
+        ],
         doc="Target type for which to build profiles",
     )
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
