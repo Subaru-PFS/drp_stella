@@ -22,11 +22,10 @@ from pfs.datamodel.observations import Observations
 from pfs.datamodel.pfsConfig import FiberStatus, PfsConfig, TargetType
 from pfs.datamodel.pfsFiberArray import PfsFiberArray
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
-from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import SpectrumSet
-from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsMerged, PfsSingle
+from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
@@ -44,6 +43,7 @@ import numpy as np
 
 import copy
 import dataclasses
+import math
 
 from typing import Literal, overload
 from typing import Dict, List, Union
@@ -99,6 +99,9 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
     )
     fitModelContinuum = ConfigurableField(
         target=FitContinuumTask, doc="Fit a model to model spectrum's continuum"
+    )
+    fitDownsampledContinuum = ConfigurableField(
+        target=FitContinuumTask, doc="Fit a model to downsampled model spectrum's continuum"
     )
     estimateRadialVelocity = ConfigurableField(
         target=EstimateRadialVelocityTask, doc="Estimate radial velocity."
@@ -159,6 +162,14 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         " the model is immediately rejected if its prior probability"
         " is less than `priorCutoff*max(prior)`.",
     )
+    modelOversamplingFactor = Field(
+        dtype=float,
+        default=2.0,
+        doc="Before a model is compared to an observed spectrum,"
+        " the model is downsampled so that its wavelength resolution will be"
+        " about this much times as fine as obs.spec.'s wavelength resolution."
+        " Disabled if 0.",
+    )
 
     def setDefaults(self) -> None:
         super().setDefaults()
@@ -172,6 +183,9 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         self.fitModelContinuum.numKnots = 50
         self.fitModelContinuum.doMaskLines = True
         self.fitModelContinuum.maskLineRadius = 25
+        self.fitDownsampledContinuum.numKnots = 50
+        self.fitDownsampledContinuum.doMaskLines = True
+        self.fitDownsampledContinuum.maskLineRadius = 25
 
 
 class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
@@ -183,6 +197,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
     fitBroadbandSED: FitBroadbandSEDTask
     fitObsContinuum: FitContinuumTask
     fitModelContinuum: FitContinuumTask
+    fitDownsampledContinuum: FitContinuumTask
     estimateRadialVelocity: EstimateRadialVelocityTask
 
     def __init__(self, **kwargs) -> None:
@@ -190,6 +205,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         self.makeSubtask("fitBroadbandSED")
         self.makeSubtask("fitObsContinuum")
         self.makeSubtask("fitModelContinuum")
+        self.makeSubtask("fitDownsampledContinuum")
         self.makeSubtask("estimateRadialVelocity")
 
         self.debugInfo = lsstDebug.Info(__name__)
@@ -499,7 +515,10 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         return radialVelocities
 
     def computeContinuum(
-        self, spectra: Union[PfsSimpleSpectrum, PfsFiberArraySet], *, mode: Literal["observed", "model"]
+        self,
+        spectra: Union[PfsSimpleSpectrum, PfsFiberArraySet],
+        *,
+        mode: Literal["observed", "model", "downsampled"],
     ) -> "Continuum":
         """Whiten one or more spectra.
 
@@ -508,8 +527,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         spectra : `PfsSimpleSpectrum` or `PfsFiberArraySet`
             spectra to whiten.
         mode : `str`
-            "observed" or "model".
-            Whether ``spectra`` is from observation or from simulation.
+            "observed", "model", or "downsampled".
+            Whether ``spectra`` is from observation, from simulation,
+            or downsampled from simulation.
 
         Returns
         -------
@@ -520,6 +540,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             fitContinuum = self.fitObsContinuum
         if mode == "model":
             fitContinuum = self.fitModelContinuum
+        if mode == "downsampled":
+            fitContinuum = self.fitDownsampledContinuum
 
         # If `spectra` is actually a single spectrum,
         # we put it into PfsFiberArraySet
@@ -642,11 +664,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                         teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
                     )
                 if modelContinuum is None:
-                    convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
-                    modelContinuum = self.computeContinuum(convolvedModel, mode="model")
+                    convolvedModel = self.downsampleModel(
+                        convolveLsf(model, averageLsf, obsSpectrum.wavelength),
+                        obsSpectrum,
+                    )
+                    modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
 
-                convolvedModel = convolveLsf(
-                    model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
+                convolvedModel = self.downsampleModel(
+                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
+                    obsSpectrum,
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
                 chisq = calculateSpecChiSquare(
@@ -666,10 +692,14 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 model = self.fluxModelSet.getSpectrum(
                     teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
                 )
-                convolvedModel = convolveLsf(model, averageLsf, obsSpectrum.wavelength)
-                modelContinuum = self.computeContinuum(convolvedModel, mode="model")
-                convolvedModel = convolveLsf(
-                    model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength
+                convolvedModel = self.downsampleModel(
+                    convolveLsf(model, averageLsf, obsSpectrum.wavelength),
+                    obsSpectrum,
+                )
+                modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
+                convolvedModel = self.downsampleModel(
+                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
+                    obsSpectrum,
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
                 shifted = dopplerShift(
@@ -1025,6 +1055,42 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         badMask = set(self.config.badMask)
         badMask.update(["EDGE", "ATMOSPHERE"])
         return list(badMask)
+
+    def downsampleModel(self, model: PfsSimpleSpectrum, obsSpectrum: PfsSimpleSpectrum) -> PfsSimpleSpectrum:
+        """Downsample a model spectrum so that its resolution will not be
+        unmeaningfully higher than the observed spectrum's.
+
+        Parameters
+        ----------
+        model : `PfsSimpleSpectrum`
+            Model spectrum.
+        obsSpectrum : `PfsSimpleSpectrum`
+            Observed spectrum.
+
+        Returns
+        -------
+        downsampled : `PfsSimpleSpectrum`
+            Downsampled model.
+        """
+        if self.config.modelOversamplingFactor <= 0:
+            # Downsampling is disabled
+            return model
+
+        minWavelength = model.wavelength[0]
+        maxWavelength = model.wavelength[-1]
+        dlambdaModel = np.max(model.wavelength[1:] - model.wavelength[:-1])
+        dlambdaObs = np.min(obsSpectrum.wavelength[1:] - obsSpectrum.wavelength[:-1])
+        # This is \Delta\lambda_{new} that we aim at
+        dlambdaNew = dlambdaObs / self.config.modelOversamplingFactor
+        lenNew = 1 + int(math.ceil((maxWavelength - minWavelength) / dlambdaNew))
+        # This is \Delta\lambda_{new} that will actually be realized
+        dlambdaNew = (maxWavelength - minWavelength) / (lenNew - 1)
+
+        if dlambdaNew <= dlambdaModel:
+            return model
+
+        wavelengthNew = np.linspace(minWavelength, maxWavelength, num=lenNew, endpoint=True)
+        return model.resample(wavelengthNew, jacobian=False)
 
 
 @dataclasses.dataclass
