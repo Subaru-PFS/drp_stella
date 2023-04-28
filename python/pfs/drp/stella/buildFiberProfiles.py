@@ -48,6 +48,7 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
+    profileTol = Field(dtype=float, default=1.0e-4, doc="Tolerance for matrix inversion when fitting profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
 
@@ -238,6 +239,7 @@ class BuildFiberProfilesTask(Task):
             self.config.profileSwath,
             self.config.profileRejIter,
             self.config.profileRejThresh,
+            self.config.profileTol,
             self.config.mask,
             exposureList[0].getInfo().getVisitInfo(),
             exposureList[0].getMetadata(),
@@ -267,6 +269,7 @@ class BuildFiberProfilesTask(Task):
                 self.config.profileSwath,
                 self.config.profileRejIter,
                 self.config.profileRejThresh,
+                self.config.profileTol,
                 self.config.mask,
                 exposureList[0].getInfo().getVisitInfo(),
                 exposureList[0].getMetadata(),

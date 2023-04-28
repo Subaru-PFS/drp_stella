@@ -95,6 +95,7 @@ class FiberProfileSet:
         swathSize: float,
         rejIter: int = 1,
         rejThresh: float = 4.0,
+        matrixTol: float = 1.0e-4,
         maskPlanes: Optional[Iterable[str]] = None,
         visitInfo: Optional[VisitInfo] = None,
         metadata: Optional[PropertyList] = None,
@@ -131,6 +132,8 @@ class FiberProfileSet:
             Number of rejection iterations when combining profiles in a swath.
         rejThresh : `float`
             Rejection threshold (sigma) when combining profiles in a swath.
+        matrixTol : `float`
+            Tolerance for matrix inversion.
         maskPlanes : iterable of `str`
             Mask planes to ignore.
         visitInfo : `lsst.afw.image.VisitInfo`, optional
@@ -185,7 +188,8 @@ class FiberProfileSet:
         yProfile = []  # List of mean row
         for yMin, yMax in zip(bounds[:-2], bounds[2:]):
             profiles, masks = fitSwathProfiles(imageList, centerList, normList, fiberId.astype(np.int32),
-                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh)
+                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh,
+                                               matrixTol)
             yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
             for ff, pp, mm in zip(fiberId, profiles, masks):
                 pp = np.ma.MaskedArray(pp, mm)

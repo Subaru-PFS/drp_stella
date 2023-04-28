@@ -276,7 +276,7 @@ class SwathProfileBuilder {
 
     //@{
     // Solve the matrix equation
-    void solve(ndarray::Array<double, 1, 1> & solution) {
+    void solve(ndarray::Array<double, 1, 1> & solution, float matrixTol=1.0e-4) {
         // Deal with singular values
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {
@@ -296,7 +296,7 @@ class SwathProfileBuilder {
         >;
         Solver solver;
         solver.setMaxIterations(getNumParameters()*10);
-        solver.setTolerance(1.0e-6);  // about single precision float
+        solver.setTolerance(matrixTol);
         _matrix.solve(solution, _vector, solver);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
@@ -305,9 +305,9 @@ class SwathProfileBuilder {
             }
         }
     }
-    ndarray::Array<double, 1, 1> solve() {
+    ndarray::Array<double, 1, 1> solve(float matrixTol=1.0e-4) {
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(_numParameters);
-        solve(solution);
+        solve(solution, matrixTol);
         return solution;
     }
     //@}
@@ -522,7 +522,8 @@ fitSwathProfiles(
     int oversample,
     int radius,
     int rejIter,
-    float rejThresh
+    float rejThresh,
+    float matrixTol
 ) {
     std::size_t const num = images.size();
     if (num == 0) {
@@ -572,7 +573,7 @@ fitSwathProfiles(
             builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax,
                                     rejected[ii]);
         }
-        auto const solution = builder.solve();
+        auto const solution = builder.solve(matrixTol);
 
         // Reject bad pixels
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
@@ -585,7 +586,7 @@ fitSwathProfiles(
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
     }
-    auto const solution = builder.solve();
+    auto const solution = builder.solve(matrixTol);
 
     return builder.repackageSolution(solution);
 }
