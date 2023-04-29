@@ -1,5 +1,7 @@
 #include "ndarray.h"
 
+#include "lsst/log/Log.h"
+
 #include "pfs/drp/stella/profile.h"
 
 #include "pfs/drp/stella/math/quartiles.h"
@@ -16,6 +18,8 @@ namespace stella {
 
 
 namespace {
+
+LOG_LOGGER _log = LOG_GET("pfs.drp.stella.profile");
 
 
 // The following is used to represent bound methods as a callable
@@ -284,6 +288,9 @@ class SwathProfileBuilder {
                 assert(_vector[ii] == 0.0);  // or we've done something wrong
             }
         }
+
+        LOGL_DEBUG(_log, "Solving matrix equation of %ld parameters with %ld non-zero elements",
+                   _numParameters, _matrix.getTriplets().size());
 
         solution.deep() = std::numeric_limits<double>::quiet_NaN();
 
@@ -597,18 +604,23 @@ fitSwathProfiles(
         }
     }
 
+    LOGL_DEBUG(_log, "Guestimating %f non-zero matrix elements per column", SwathProfileBuilder::calculateNonZeroPerCol(fiberIds.size(), radius, oversample, width));
+
     SwathProfileBuilder builder{fiberIds.size(), oversample, radius, width};
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
         builder.reset();
+        LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: iteration %d", yMin, yMax, iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
+            LOGL_DEBUG(_log, "    Accumulating image %d", ii);
             builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax,
                                     rejected[ii]);
         }
         auto const solution = builder.solve(matrixTol);
 
         // Reject bad pixels
+        LOGL_DEBUG(_log, "Rejecting pixels for rows %d-%d: iteration %d", yMin, yMax, iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             builder.reject(solution, images[ii], centers[ii], spectra[ii], yMin, yMax,
                            rejected[ii], rejThresh);
@@ -616,7 +628,9 @@ fitSwathProfiles(
     }
     // Final solution after iteration
     builder.reset();
+    LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: final iteration", yMin, yMax);
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
+        LOGL_DEBUG(_log, "    Accumulating image %d", ii);
         builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
     }
     auto const solution = builder.solve(matrixTol);
