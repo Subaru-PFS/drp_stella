@@ -16,6 +16,192 @@ namespace stella {
 namespace math {
 
 
+// Collection of triplets (row, column, value) of sparse matrix
+//
+// A std::vector of triplets is fine if all the elements have been accumulated
+// ahead of time, but if not then simply collecting values can produce a
+// collection of triplets much larger than desired. This collection of triplets
+// does the accumulation of matrix elements automatically.
+template <typename ElemT=double, typename IndexT=std::ptrdiff_t>
+class MatrixTriplets {
+  public:
+    using Map = std::unordered_map<IndexT, ElemT>;  // column --> value
+    using List = std::vector<Map>;  // row --> (column, value)
+
+    /// Ctor
+    ///
+    /// @param numCols : number of columns
+    /// @param numRows : number of rows
+    /// @param nonZeroPerRow : Estimated mean number of non-zero entries per row
+    MatrixTriplets(IndexT numRows, IndexT numCols, float nonZeroPerRow=2.0)
+      : _numRows(numRows), _numCols(numCols), _numNonZero(std::ceil(nonZeroPerRow)) {
+        if (numRows < 0) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of rows is negative");
+        }
+        if (numCols < 0) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of columns is negative");
+        }
+        _triplets.reserve(numRows);
+        clear();
+    }
+
+    virtual ~MatrixTriplets() {}
+    MatrixTriplets(MatrixTriplets const&) = delete;
+    MatrixTriplets(MatrixTriplets &&) = default;
+    MatrixTriplets & operator=(MatrixTriplets const&) = delete;
+    MatrixTriplets & operator=(MatrixTriplets &&) = default;
+
+    std::size_t size() const {
+        std::size_t num = 0;
+        for (auto const& map : _triplets) {
+            num += map.size();
+        }
+        return num;
+    }
+
+    //@{
+    /// Add a matrix element
+    ///
+    /// If the element exists, the value is added to the existing value.
+    void add(IndexT row, IndexT col, ElemT value) {
+        _checkIndex(row, col);
+        if (value == 0.0) {
+            return;
+        }
+        Map & map = _triplets[row];
+        auto result = map.insert({col, value});
+        if (!result.second) {  // there's already an entry
+            result.first->second += value;
+        }
+    }
+    //@}
+
+    /// Clear the list of triplets
+    void clear() {
+        _triplets.clear();
+        for (IndexT ii = 0; ii < _numRows; ++ii) {
+            _triplets.emplace_back(_numNonZero);
+        }
+    }
+
+    /// Copy-constructable and assignable version of Eigen::Triplet
+    /// This allows our iterator to work.
+    class Triplet : public Eigen::Triplet<ElemT, IndexT> {
+      public:
+        using Base = Eigen::Triplet<ElemT, IndexT>;
+
+        Triplet(IndexT row, IndexT col, ElemT value)
+          : Base(row, col, value) {}
+
+        Triplet(Triplet const&) = default;
+        Triplet(Triplet &&) = default;
+        Triplet & operator=(Triplet const&) = default;
+        Triplet & operator=(Triplet &&) = default;
+    };
+
+
+    class Iterator {
+      public:
+        using ListIterator = typename List::const_iterator;
+        using MapIterator = typename Map::const_iterator;
+        using iterator_category = std::input_iterator_tag;
+        using value_type = Triplet;
+        using reference = Triplet;
+        using pointer = Triplet*;
+
+        Iterator(IndexT row, List const& triplets)
+          : _row(row),
+            _triplets(triplets),
+            _listIter(triplets.cbegin() + row),
+            _current(IndexT(), IndexT(), ElemT()) {
+            if (_listIter != _triplets.end()) {
+                _mapIter = _listIter->cbegin();
+                _ensureExists();
+            }
+        }
+
+        Iterator& operator++() {
+            ++_mapIter;
+            _ensureExists();
+            return *this;
+        }
+        Iterator operator++(int) {
+            Iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        value_type operator*() const {
+            return Triplet(row(), col(), value());
+        }
+        pointer operator->() const {
+            _current = **this;
+            return &_current;
+        }
+
+        bool operator==(Iterator const& other) const {
+            return (_listIter == other._listIter &&
+                    (_listIter == _triplets.end() || _mapIter == other._mapIter));
+        }
+        bool operator!=(Iterator const& other) const {
+            return !(this->operator==(other));
+        }
+
+        IndexT row() const { return _row; }
+        IndexT col() const { return _mapIter->first; }
+        ElemT value() const { return _mapIter->second; }
+
+      private:
+
+        // Ensure that the iterators point to a valid entry (or the end)
+        void _ensureExists() {
+            while (_listIter != _triplets.end() && _mapIter == _listIter->cend()) {
+                ++_row;
+                ++_listIter;
+                if (_listIter != _triplets.end()) {
+                    _mapIter = _listIter->cbegin();
+                }
+            }
+        }
+
+        IndexT _row;
+        List const& _triplets;
+        ListIterator _listIter;
+        MapIterator _mapIter;
+        mutable value_type _current;
+    };
+
+    Iterator begin() const { return Iterator(0, _triplets); }
+    Iterator end() const { return Iterator(_numRows, _triplets); }
+
+    /// Convert to a classic list of Eigen triplets
+    std::vector<Eigen::Triplet<ElemT, IndexT>> getEigen() const {
+        std::vector<Eigen::Triplet<ElemT, IndexT>> result;
+        result.reserve(_triplets.size());
+        for (auto const& triplet : *this) {
+            result.emplace_back(triplet.row(), triplet.col(), triplet.value());
+        }
+        return result;
+    }
+
+  private:
+
+    void _checkIndex(IndexT row, IndexT col) const {
+        if (row < 0 || row >= _numRows) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Row index is out of range");
+        }
+        if (col < 0 || col >= _numCols) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Column index is out of range");
+        }
+    }
+
+    IndexT _numRows;  ///< Number of rows
+    IndexT _numCols;  ///< Number of columns
+    std::size_t _numNonZero;  ///< Number of non-zero elements per row
+    List _triplets;  ///< Triplets
+};
+
+
 /// Sparse representation of a square matrix
 ///
 /// Used for solving matrix problems.
@@ -33,11 +219,12 @@ class SparseSquareMatrix {
     /// @param num : Number of columns/rows
     /// @param nonZeroPerCol : Estimated mean number of non-zero entries per column
     SparseSquareMatrix(std::size_t num, float nonZeroPerCol=2.0)
-      : _num(num) {
+      : _num(num),
+        _triplets(num, num, nonZeroPerCol)
+       {
         if (num < 0) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of columns is negative");
         }
-        _triplets.reserve(std::size_t(num*nonZeroPerCol));
     }
 
     virtual ~SparseSquareMatrix() {}
@@ -46,22 +233,24 @@ class SparseSquareMatrix {
     SparseSquareMatrix & operator=(SparseSquareMatrix const&) = delete;
     SparseSquareMatrix & operator=(SparseSquareMatrix &&) = default;
 
+    /// Get the number of entries
+    std::size_t size() const { return _triplets.size(); }
+
     /// Add an entry to the matrix
     void add(IndexT ii, IndexT jj, ElemT value) {
+#if 0  // Triplets does this for us
         if (ii < 0 || ii >= std::ptrdiff_t(_num)) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index i is out of range");
         }
         if (jj < 0 || jj >= std::ptrdiff_t(_num)) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j is out of range");
         }
+#endif
         if (symmetric && jj < ii) {
             // we work with the upper triangle
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
-        if (value == 0.0) {
-            return;
-        }
-        _triplets.emplace_back(ii, jj, value);
+        _triplets.add(ii, jj, value);
     }
 
     //@{
@@ -128,7 +317,7 @@ class SparseSquareMatrix {
     }
 
     /// Return the triplets
-    std::vector<Eigen::Triplet<ElemT, IndexT>> const& getTriplets() const { return _triplets; }
+    MatrixTriplets<ElemT, IndexT> const& getTriplets() const { return _triplets; }
 
   protected:
 
@@ -137,7 +326,7 @@ class SparseSquareMatrix {
     void _compute(Solver & solver, Matrix const& matrix) const;
 
     IndexT _num;  ///< Number of rows/columns
-    std::vector<Eigen::Triplet<ElemT, IndexT>> _triplets;  ///< Non-zero matrix elements (i,j,value)
+    MatrixTriplets<ElemT, IndexT> _triplets;  ///< Non-zero matrix elements (i,j,value)
 };
 
 
