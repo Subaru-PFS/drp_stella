@@ -42,22 +42,34 @@ def getAGCPositionsForVisitByAgcExposureId(obdb, pfs_visit_id, flipToHardwareCoo
     with obdb:
         tmp = pd_read_sql(f'''
            SELECT
-               min(pfs_visit_id) as pfs_visit_id, agc_exposure.agc_exposure_id,
-               min(agc_exposure.taken_at) as taken_at,
-               avg(agc_exposure.altitude) as altitude, avg(agc_exposure.azimuth) as azimuth,
-               avg(agc_exposure.insrot) as insrot,
-               agc_match.guide_star_id, min(m2_pos3) as m2_pos3,
-               avg(agc_match.agc_camera_id) as agc_camera_id,
-               avg(agc_nominal_x_mm) as agc_nominal_x_mm, avg(agc_center_x_mm) as agc_center_x_mm,
-               avg(agc_nominal_y_mm) as agc_nominal_y_mm, avg(agc_center_y_mm) as agc_center_y_mm,
-               min(agc_match.flags) as agc_match_flags, min(agc_data.flags) as agc_data_flags
+               min(agc_exposure.pfs_visit_id) AS pfs_visit_id,
+               agc_exposure.agc_exposure_id,
+               agc_match.guide_star_id,
+               min(agc_exposure.taken_at) AS taken_at,
+               avg(agc_exposure.altitude) AS altitude,
+               avg(agc_exposure.azimuth) AS azimuth,
+               avg(agc_exposure.insrot) AS insrot,
+               min(m2_pos3) AS m2_pos3,
+               avg(agc_match.agc_camera_id) AS agc_camera_id,
+               avg(agc_nominal_x_mm) AS agc_nominal_x_mm,
+               avg(agc_center_x_mm) AS agc_center_x_mm,
+               avg(agc_nominal_y_mm) AS agc_nominal_y_mm,
+               avg(agc_center_y_mm) AS agc_center_y_mm,
+               min(agc_match.flags) AS agc_match_flags,
+               (min(agc_exposure.taken_at) BETWEEN min(sps_exposure.time_exp_start) AND
+                                                   min(sps_exposure.time_exp_end)) AS shutter_open,
+               min(guide_delta_insrot) as guide_delta_insrot,
+               min(guide_delta_az) as guide_delta_azimuth,
+               min(guide_delta_el) as guide_delta_altitude
            FROM agc_exposure
            JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
            JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
                              agc_match.agc_camera_id = agc_data.agc_camera_id AND
                              agc_match.spot_id = agc_data.spot_id
+           JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+           JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
            WHERE
-               pfs_visit_id = {pfs_visit_id}
+               agc_exposure.pfs_visit_id = {pfs_visit_id}
            GROUP BY guide_star_id, agc_exposure.agc_exposure_id
            ''', obdb)
 
@@ -109,8 +121,8 @@ def stdFromIQR(im):
 
 def showAgcErrorsForVisits(agcData,
                            byTime=False,
-                           figure=None
-                           ):
+                           figure=None,
+                           showLegend=True):
     """
     agcData: pandas DataFrame as returned by readAgcDataFromOpdb
     byTime = False    # use time, not agc_exposure_id, as x-axis
@@ -121,32 +133,30 @@ def showAgcErrorsForVisits(agcData,
 
     agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
 
-    pfs_visit_ids = np.empty(len(agc_exposure_ids))
-    taken_ats = np.empty(len(agc_exposure_ids), dtype=agcData.taken_at.dtype)
-    for i, eid in enumerate(agc_exposure_ids):
-        sel = agcData.agc_exposure_id == eid
-        pfs_visit_ids[i] = agcData.pfs_visit_id[sel].to_numpy()[0]
-        taken_ats[i] = agcData.taken_at[sel].to_numpy()[0]
+    subset = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
+    grouped = subset.groupby("agc_exposure_id")
 
-    xbar = np.empty(len(agc_exposure_ids))
-    ybar = np.full_like(xbar, np.NaN)
+    pfs_visit_ids = grouped.pfs_visit_id.min()
+    taken_ats = grouped.taken_at.mean()
+    shutter_open = grouped.shutter_open.max()
 
-    for i, eid in enumerate(agc_exposure_ids):
-        present = (agcData.agc_exposure_id == eid).to_numpy()
-        xerr = agcData.agc_nominal_x_mm - agcData.agc_center_x_mm
-        xbar[i] = 1e3*np.nanmean(xerr[present])
-
-        yerr = agcData.agc_nominal_y_mm - agcData.agc_center_y_mm
-        ybar[i] = 1e3*np.nanmean(yerr[present])
+    tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id,
+                            dx=agcData.agc_nominal_x_mm - agcData.agc_center_x_mm,
+                            dy=agcData.agc_nominal_y_mm - agcData.agc_center_y_mm))
+    grouped = tmp.groupby("agc_exposure_id")
+    xbar, ybar = grouped.agg(xbar=('dx', 'mean')), grouped.agg(ybar=('dy', 'mean')).to_numpy()
 
     def plot_zbar(zbar, xvec=agc_exposure_ids):
         plt.gca().set_prop_cycle(None)
         for pfs_visit_id in sorted(set(pfs_visit_ids)):
             sel = pfs_visit_ids == pfs_visit_id
-            plt.plot(xvec[sel], zbar[sel], '.-', label=f"{int(pfs_visit_id)}")
+            color = plt.plot(xvec[sel], zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
+            sel &= shutter_open
+            plt.plot(xvec[sel], zbar[sel], 'o', color=color)
 
         plt.axhline(0, color='black')
-        plt.legend(ncol=6)
+        if showLegend:
+            plt.legend(ncol=6)
 
     j = 0
     plt.sca(axs[j]); j += 1             # noqa E702
@@ -175,6 +185,7 @@ class GuiderConfig:
     transforms = {}
 
     def __init__(self,
+                 transforms={},
                  showAverageGuideStarPos=False,
                  showGuideStars=True,
                  showGuideStarsAsPoints=True,
@@ -184,6 +195,8 @@ class GuiderConfig:
                  rotateToZenith=True,
                  modelBoresightOffset=True,
                  modelCCDOffset=True,
+                 solveForAGTransforms=False,
+                 onlyShutterOpen=True,
                  maxGuideError=25,
                  maxPosError=40,
                  guideErrorEstimate=50,
@@ -208,13 +221,15 @@ class GuiderConfig:
         showByVisit=True                  colour code by exposure_id, not AG camera (ignored if
                                           self.showGuideStarsAsPoints is False)
         rotateToZenith=True
-        modelBoresightOffset=True           remove the mean offset and rotation/scale for each exposure
-        modelCCDOffset=True                 remove the mean offset and rotation/scale for each CCD
-        maxGuideError=25                  only plot exposures with |guideError| < maxGuideError microns;
+        modelBoresightOffset=True         remove the mean offset and rotation/scale for each exposure
+        modelCCDOffset=True               remove the mean offset and rotation/scale for each CCD
+        solveForAGTransforms=False        re-solve for the CCD offsets, even if already estimated
+        onlyShutterOpen=True              only show exposures when the spectrograph shutters were open
+        maxGuideError=25                  only plot exposures with |guideError| < maxGuideError microns
                                           ignored if <= 0
                                           N.b. guideError is the mean of stars with
                                           guide errors < maxPosError
-        maxPosError=40                    don't show guide stars with mean(error) > maxPosError (micros);
+        maxPosError=40                    don't show guide stars with mean(error) > maxPosError (micros)
                                           ignore if <= 0
         guideErrorEstimate=50             average guide error in microns (used to show quiver scalebar)
         pfiScaleReduction=1               How much to shrink AG distances from the centre of the PFI
@@ -230,6 +245,8 @@ class GuiderConfig:
         showByVisitSize=5
         showByVisitAlpha=1
         """
+        self.transforms = transforms
+
         self.showAverageGuideStarPos = showAverageGuideStarPos
         self.showGuideStars = showGuideStars
         self.showGuideStarsAsPoints = showGuideStarsAsPoints
@@ -239,6 +256,8 @@ class GuiderConfig:
         self.rotateToZenith = rotateToZenith
         self.modelBoresightOffset = modelBoresightOffset
         self.modelCCDOffset = modelCCDOffset
+        self.solveForAGTransforms = solveForAGTransforms
+        self.onlyShutterOpen = onlyShutterOpen
         self.maxGuideError = maxGuideError
         self.maxPosError = maxPosError
         self.guideErrorEstimate = guideErrorEstimate
@@ -253,27 +272,47 @@ class GuiderConfig:
         self.agc_exposure_cm = agc_exposure_cm
         self.showByVisitSize = showByVisitSize
         self.showByVisitAlpha = showByVisitAlpha
+
+        self.validate()
+
+    def validate(self):
         #
         # Check options
         #
         if not self.showGuideStarsAsPoints:
             if self.showByVisit:
-                print("Disabling showByVisit")
+                print("Disabling GuiderConfig.showByVisit")
                 self.showByVisit = False
 
         self.guide_star_frac = min([self.guide_star_frac, 1])  # sanity check
 
-    def selectStars(self, agcData, guidingErrors=None):
-        sel = np.zeros(len(agcData.agc_camera_id), dtype=int)
+        if self.agc_exposure_idsStride <= 0:
+            print(f"GuiderConfig.agc_exposure_idsStride (== {self.agc_exposure_idsStride})"
+                  " <= 0 is not supported; setting to 1")
+            self.agc_exposure_idsStride = 1
 
-        agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
+    def selectStars(self, agcData, agc_camera_id=-1, guidingErrors=None):
+        agc_exposure_ids = sorted(set(agcData.agc_exposure_id))
 
-        for aid in agc_exposure_ids[self.agc_exposure_id0::self.agc_exposure_idsStride]:
-            if guidingErrors is not None and self.maxGuideError > 0:
-                if guidingErrors[aid] > 1e-3*self.maxGuideError:
-                    continue
-            sel |= agcData.agc_exposure_id == aid
+        aids = agc_exposure_ids[self.agc_exposure_id0::self.agc_exposure_idsStride]
 
+        sel = agcData.isin(dict(agc_exposure_id=aids)).agc_exposure_id.to_numpy()
+        sel &= agcData.agc_camera_id == agc_camera_id
+
+        if guidingErrors is not None and self.maxGuideError > 0:
+            dx = agcData.agc_center_x_mm - agcData.agc_nominal_x_mm
+            dy = agcData.agc_center_y_mm - agcData.agc_nominal_y_mm
+            dr = np.hypot(dx, dy)
+
+            tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id, dr=dr))
+            grouped = tmp.groupby("agc_exposure_id")
+            _guidingErrors = grouped.agg(guidingErrors=('dr', 'mean'))
+            tmp = _guidingErrors.merge(agcData, on="agc_exposure_id").guidingErrors
+
+            sel &= tmp.to_numpy() < 1e-3*self.maxGuideError
+
+        if self.onlyShutterOpen:
+            sel &= agcData.shutter_open
         if self.pfs_visitIdMin > 0:
             sel &= agcData.pfs_visit_id >= self.pfs_visitIdMin
         if self.pfs_visitIdMax > 0:
@@ -292,22 +331,30 @@ class GuiderConfig:
             return ""
         return f" {stride}" + {2: 'nd', 3: 'rd'}.get(stride, 'th')
 
-    def make_title(self, agcData):
+    def make_title(self, agcData, name=None):
+        title = ""
+        if name is not None:
+            title += f"{name}  "
+
         visits = sorted(set(agcData.pfs_visit_id))
 
-        v0, v1 = visits[0], visits[-1]
+        if len(visits) == 0:
+            v0, v1 = 0, 0
+        else:
+            v0, v1 = visits[0], visits[-1]
         if self.pfs_visitIdMin > 0 and v0 < self.pfs_visitIdMin:
             v0 = self.pfs_visitIdMin
         if self.pfs_visitIdMax > 0 and v1 < self.pfs_visitIdMax:
             v1 = self.pfs_visitIdMax
-        title = f"{v0}..{v1}"
+        title += f"{v0}..{v1}"
         if self.modelBoresightOffset or self.modelCCDOffset:
             title += " "
+            what = []
             if self.modelBoresightOffset:
-                title += " Boresight"
+                what.append("Boresight")
             if self.modelCCDOffset:
-                title += " AGs"
-            title += " offset and rotation/scale removed"
+                what.append("AGs")
+            title += f" {' and '.join(what)} offset and rotation/scale removed"
         if self.rotateToZenith:
             insrot = np.deg2rad(agcData.insrot).to_numpy()
 
@@ -327,6 +374,8 @@ class GuiderConfig:
         title += f"\nEvery{self.nameStride(self.agc_exposure_idsStride)} AG exposure"
         if self.showGuideStars:
             title += f"; {100*self.guide_star_frac:.0f}% of guide stars"
+        if not self.onlyShutterOpen:
+            title += " (including open shutter)"
         if self.showAverageGuideStarPos and \
            not (self.showGuideStarsAsArrows or self.showGuideStarsAsPoints):
             title += "  Mean guide error"
@@ -336,9 +385,13 @@ class GuiderConfig:
 
 def showGuiderErrors(agcData, config,
                      verbose=False,
-                     agc_camera_ids=range(6)):
+                     agc_camera_ids=range(6),
+                     name=None):
     """
-        agcData: pandas DataFrame as returned by readAgcDataFromOpdb
+    agcData: pandas DataFrame as returned by readAgcDataFromOpdb
+    config: a GuiderConfig
+    agc_camera_ids:  a list of 0-indexed cameras to display; default 0..5
+    name:  a string to show in the header; or None
     """
     agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
 
@@ -375,7 +428,7 @@ def showGuiderErrors(agcData, config,
                 if verbose:
                     print(f"Solving for offsets/rotations for {aid}")
                 transform = MeasureDistortion(agc_center_x_mm[sel], agc_center_y_mm[sel], -1,
-                                              agc_nominal_x_mm[sel], agc_nominal_y_mm[sel], None)
+                                              agc_nominal_x_mm[sel], agc_nominal_y_mm[sel], None, nsigma=3)
 
                 res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
                 transform.setArgs(res.x)
@@ -390,28 +443,51 @@ def showGuiderErrors(agcData, config,
     #
     # Find the mean guiding errors for each exposure
     #
-    guidingErrors = {}
-    for aid in agc_exposure_ids:
-        sel = agcData.agc_exposure_id == aid
-        guidingErrors[aid] = np.mean(dr[sel][dr[sel] < 1e-3*config.maxPosError])
+    if True:                            # pandas opt
+        tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id, dr=dr))
+        grouped = tmp.groupby("agc_exposure_id")
+        guidingErrors = grouped.agg(guidingErrors=('dr', 'mean'))
+        guidingErrors = guidingErrors.to_dict()['guidingErrors']
+    else:
+        guidingErrors = {}
+        for aid in agc_exposure_ids:
+            sel = agcData.agc_exposure_id == aid
+            guidingErrors[aid] = np.mean(dr[sel][dr[sel] < 1e-3*config.maxPosError])
     #
     # Set the agc_nominal_[xy]_mm values for each star to have the same position as in the first exposure_id,
     # to take out dithers
     # N.b. only used for plotting
     #
-    agc_nominal_x_mm0 = np.empty_like(agc_nominal_x_mm)
-    agc_nominal_y_mm0 = np.empty_like(agc_nominal_y_mm)
-    for gid in set(agcData.guide_star_id):
-        sel = agcData.guide_star_id == gid
-        agc_nominal_x_mm0[sel] = agc_nominal_x_mm[sel][0]
-        agc_nominal_y_mm0[sel] = agc_nominal_y_mm[sel][0]
+    if True:                            # pandas opt
+        grouped = agcData.groupby("guide_star_id")
+        agc_nominal_xy_mm0 = grouped.agc_nominal_x_mm.min()
+
+        agc_nominal_xy_mm0.name = "agc_nominal_x_mm0"
+        agc_nominal_xy_mm0 = agc_nominal_xy_mm0.to_frame()
+        agc_nominal_xy_mm0["agc_nominal_y_mm0"] = grouped.agc_nominal_y_mm.min()
+
+        tmp = agc_nominal_xy_mm0.merge(agcData, on="guide_star_id")
+        del agc_nominal_xy_mm0
+        agc_nominal_x_mm0 = tmp.agc_nominal_x_mm0.to_numpy()
+        agc_nominal_y_mm0 = tmp.agc_nominal_y_mm0.to_numpy()
+    else:
+        agc_nominal_x_mm0 = np.empty_like(agc_nominal_x_mm)
+        agc_nominal_y_mm0 = np.empty_like(agc_nominal_y_mm)
+        for gid in set(agcData.guide_star_id):
+            sel = agcData.guide_star_id == gid
+            agc_nominal_x_mm0[sel] = agc_nominal_x_mm[sel][0]
+            agc_nominal_y_mm0[sel] = agc_nominal_y_mm[sel][0]
 
     config.agc_exposure_id0 = 0      # start with this agc_exposure_id (if config.agc_exposure_idsStride != 1)
-    if config.agc_exposure_idsStride > 0 and config.maxGuideError > 0:
+    if config.agc_exposure_idsStride > 0 and (config.onlyShutterOpen or config.maxGuideError > 0):
         for aid in agc_exposure_ids:
-            if guidingErrors[aid] < 1e-3*config.maxGuideError:
-                config.agc_exposure_id0 = np.where(agc_exposure_ids == aid)[0][0]
-                break
+            if (config.onlyShutterOpen and not agcData.shutter_open[agcData.agc_exposure_id == aid].any()):
+                continue
+            if (config.maxGuideError > 0 and guidingErrors[aid] > 1e-3*config.maxGuideError):
+                continue
+
+            config.agc_exposure_id0 = np.where(agc_exposure_ids == aid)[0][0]
+            break
 
     guideErrorByCamera = {}   # per-exposure mean guide error
     S = None                  # returned by scatter
@@ -422,8 +498,9 @@ def showGuiderErrors(agcData, config,
         color = f"C{agc_camera_id}"
         AGlabel = f"AG{agc_camera_id + 1}"
 
-        sel = config.selectStars(agcData, guidingErrors) & (agcData.agc_camera_id == agc_camera_id).to_numpy()
+        sel = config.selectStars(agcData, agc_camera_id, guidingErrors)
 
+        labelled = False
         if sum(sel) > 0:
             guide_star_ids = sorted(set(agcData.guide_star_id[sel]))
             np.random.seed(666)
@@ -431,13 +508,15 @@ def showGuiderErrors(agcData, config,
             useGuideStars = np.random.choice(range(nguide_star),
                                              max([1, int(config.guide_star_frac*nguide_star)]), replace=False)
 
-            if config.modelCCDOffset:
+            if config.modelCCDOffset and \
+               (config.solveForAGTransforms or agc_camera_id not in config.transforms):
                 #
                 # Solve for a per-CCD offset and rotation/scale
                 #
                 print(f"Solving for offsets/rotations for {AGlabel}")
                 transform = MeasureDistortion(agc_center_x_mm[sel], agc_center_y_mm[sel], -1,
                                               agc_nominal_x_mm[sel], agc_nominal_y_mm[sel], None)
+                config.transforms[agc_camera_id] = transform
 
                 res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
                 transform.setArgs(res.x)
@@ -483,14 +562,18 @@ def showGuiderErrors(agcData, config,
             else:
                 xbar = np.full_like(x, np.mean(x))
                 ybar = np.full_like(xbar, np.mean(y))
+            #
+            # OK, ready to plot
+            #
 
             if config.rotateToZenith:
                 plt.gca().add_patch(Circle((0, 0), agc_ring_R, fill=False, color="red"))
             else:
                 plt.plot(xbar, ybar, '+',
-                         color='red' if (config.showAverageGuideStarPos and
-                                         not (config.showGuideStarsAsArrows or
-                                              config.showGuideStarsAsPoints)) else 'black',
+                         color='red' if
+                         config.showByVisit or (config.showAverageGuideStarPos and
+                                                not (config.showGuideStarsAsArrows or
+                                                     config.showGuideStarsAsPoints)) else 'black',
                          zorder=10)
 
             labelled = False
@@ -595,13 +678,13 @@ def showGuiderErrors(agcData, config,
         plt.xlabel(r"$\delta$x (microns)")
         plt.ylabel(r"$\delta$y (microns)")
 
-    plt.suptitle(config.make_title(agcData))
+    plt.suptitle(config.make_title(agcData, name))
 
     return guideErrorByCamera
 
 
 def showGuiderErrorsByParams(agcData, guideErrorByCamera, params, config, figure=None,
-                             plotScatter=True):
+                             plotScatter=True, name=None):
     n = len(params)
     ny = int(np.sqrt(n))
     nx = n//ny
@@ -626,8 +709,8 @@ def showGuiderErrorsByParams(agcData, guideErrorByCamera, params, config, figure
 
                 subset = agcData[agcData.isin(dict(agc_exposure_id=aids)).agc_exposure_id]
                 grouped = subset.groupby("agc_exposure_id")
-                # Return what for each group -- there's only one value, but we still need to aggregate
-                param = getattr(grouped, what).mean() # e.g. grouped.altitude.mean()
+                #  Return what for each group -- there's only one value, but we still need to aggregate
+                param = getattr(grouped, what).mean()  # e.g. grouped.altitude.mean()
 
                 xas.append(list(xa))
                 yas.append(list(ya))
@@ -664,7 +747,74 @@ def showGuiderErrorsByParams(agcData, guideErrorByCamera, params, config, figure
     fig.supxlabel(r"$\delta$x (microns)")
     fig.supylabel(r"$\delta$y (microns)")
 
-    plt.suptitle(config.make_title(agcData), y=1.0)
+    plt.suptitle(config.make_title(agcData, name), y=1.0)
+
+
+def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20):
+    """
+    radbar: distance from PFI center used to convert angles to position errors (cm)
+    """
+    agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
+
+    # unpack the first three values from config.transforms for our agc_exposure_ids
+    dx, dy, theta = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])[:, :3].T
+
+    subset = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
+    grouped = subset.groupby("agc_exposure_id")
+    altitude = grouped.altitude.mean()
+    azimuth = grouped.azimuth.mean()
+    shutter_open = grouped.shutter_open.mean()
+
+    sel = shutter_open.to_numpy() == 1
+
+    nx, ny = 2, 2
+    fig, axs = plt.subplots(nx, ny, num=figure, sharex=False, sharey=False, squeeze=False)
+    axs = axs.flatten()
+
+    for i, ax in enumerate(axs):
+        plt.sca(ax)
+
+        shrink = 0.45 if ny == 1 else 1
+        if i == 0:
+            S = plt.hexbin(1e3*dx[sel], 1e3*dy[sel], gridsize=50)
+            plt.colorbar(S, shrink=shrink)
+            plt.gca().set_aspect(1)
+            plt.xlabel(r"$\delta$x (microns)")
+            plt.ylabel(r"$\delta$y (microns)")
+        elif i == 1:
+            S = plt.scatter(1e3*dx[sel], 1e3*dy[sel], s=10, c=agc_exposure_ids[sel])
+            plt.colorbar(S, shrink=shrink).set_label("agc_exposure_id")
+            ax.set_facecolor('black')
+            plt.gca().set_aspect(1)
+            plt.xlabel(r"$\delta$x (microns)")
+            plt.ylabel(r"$\delta$y (microns)")
+
+            ax.get_shared_x_axes().join(ax, axs[0])
+            ax.get_shared_y_axes().join(ax, axs[0])
+        elif i == 2:
+            if showTheta:
+                yvec, ylabel = 3600*theta, r"$\theta$ (arcsec)"
+                ylim = 40*np.array([-1, 1])
+            else:
+                yvec, ylabel = radbar*1e4*np.deg2rad(theta), f"guide error @{radbar}cm (microns)"
+                ylim = 40*np.array([-1, 1])
+            S = plt.scatter(agc_exposure_ids[sel], yvec[sel], c=altitude[sel])
+            plt.colorbar(S).set_label("altitude")
+
+            plt.ylim(ylim)
+            plt.xlabel("agc_exposure_id")
+            plt.ylabel(ylabel)
+        elif i == 3:
+            vmin, vmax = 40*np.array([-1, 1])
+            S = plt.scatter(azimuth[sel], altitude[sel], c=3600*theta[sel], s=5, vmin=vmin, vmax=vmax)
+            plt.colorbar(S).set_label(r"$\theta$ (arcsec)")
+
+            plt.xlabel("azimuth")
+            plt.ylabel("altitude")
+
+    title = ""
+    title += f"({1e3*np.mean(dx):.1f}, {1e3*np.mean(dy):.1f}) microns   {3600*np.mean(theta):.1f} arcsec"
+    plt.suptitle(title)
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -719,5 +869,6 @@ def showAGCameraCartoon(showInstrot=False, showUp=False, lookingAtHardware=True)
         drawCircularArrow(100, (0, 10), (0, 250), clockwise=lookingAtHardware, ax=ax)
 
     if showUp:
+        ax.text(0, 5, r"0$^\circ$", ha="center", va="center", size=7)
         for i in [-1, 1]:
             ax.text(-260, i*150, r'$\uparrow$', va='center', rotation=90)
