@@ -38,8 +38,8 @@ def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection) -> pd.D
     return df
 
 
-def getAGCPositionsForVisitByAgcExposureId(obdb, pfs_visit_id, flipToHardwareCoords, agc_exposure_idStride=1):
-    with obdb:
+def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords, agc_exposure_idStride=1):
+    with opdb:
         tmp = pd_read_sql(f'''
            SELECT
                min(agc_exposure.pfs_visit_id) AS pfs_visit_id,
@@ -71,7 +71,7 @@ def getAGCPositionsForVisitByAgcExposureId(obdb, pfs_visit_id, flipToHardwareCoo
            WHERE
                agc_exposure.pfs_visit_id = {pfs_visit_id}
            GROUP BY guide_star_id, agc_exposure.agc_exposure_id
-           ''', obdb)
+           ''', opdb)
 
     if flipToHardwareCoords:
         tmp.agc_nominal_y_mm *= -1
@@ -297,7 +297,8 @@ class GuiderConfig:
         aids = agc_exposure_ids[self.agc_exposure_id0::self.agc_exposure_idsStride]
 
         sel = agcData.isin(dict(agc_exposure_id=aids)).agc_exposure_id.to_numpy()
-        sel &= agcData.agc_camera_id == agc_camera_id
+        if agc_camera_id >= 0:
+            sel &= agcData.agc_camera_id == agc_camera_id
 
         if guidingErrors is not None and self.maxGuideError > 0:
             dx = agcData.agc_center_x_mm - agcData.agc_nominal_x_mm
@@ -383,6 +384,15 @@ class GuiderConfig:
         return title
 
 
+def rotXY(angle, x, y):
+    """Rotate (x, y) by angle in a +ve direction
+    insrot in radians"""
+    c, s = np.cos(angle), np.sin(angle)
+    x, y = c*x - s*y, s*x + c*y
+
+    return x, y
+
+
 def showGuiderErrors(agcData, config,
                      verbose=False,
                      agc_camera_ids=range(6),
@@ -401,14 +411,6 @@ def showGuiderErrors(agcData, config,
     agc_center_y_mm = agcData.agc_center_y_mm.to_numpy().copy()
 
     insrot = np.deg2rad(agcData.insrot).to_numpy()
-
-    def rotXY(angle, x, y):
-        """Rotate (x, y) by angle in a +ve direction
-        insrot in radians"""
-        c, s = np.cos(angle), np.sin(angle)
-        x, y = c*x - s*y, s*x + c*y
-
-        return x, y
     #
     # Fix the mean guiding offset for each exposure?
     #
@@ -443,40 +445,26 @@ def showGuiderErrors(agcData, config,
     #
     # Find the mean guiding errors for each exposure
     #
-    if True:                            # pandas opt
-        tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id, dr=dr))
-        grouped = tmp.groupby("agc_exposure_id")
-        guidingErrors = grouped.agg(guidingErrors=('dr', 'mean'))
-        guidingErrors = guidingErrors.to_dict()['guidingErrors']
-    else:
-        guidingErrors = {}
-        for aid in agc_exposure_ids:
-            sel = agcData.agc_exposure_id == aid
-            guidingErrors[aid] = np.mean(dr[sel][dr[sel] < 1e-3*config.maxPosError])
+    tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id, dr=dr))
+    grouped = tmp.groupby("agc_exposure_id")
+    guidingErrors = grouped.agg(guidingErrors=('dr', 'mean'))
+    guidingErrors = guidingErrors.to_dict()['guidingErrors']
     #
     # Set the agc_nominal_[xy]_mm values for each star to have the same position as in the first exposure_id,
     # to take out dithers
     # N.b. only used for plotting
     #
-    if True:                            # pandas opt
-        grouped = agcData.groupby("guide_star_id")
-        agc_nominal_xy_mm0 = grouped.agc_nominal_x_mm.min()
+    grouped = agcData.groupby("guide_star_id")
+    agc_nominal_xy_mm0 = grouped.agc_nominal_x_mm.min()
 
-        agc_nominal_xy_mm0.name = "agc_nominal_x_mm0"
-        agc_nominal_xy_mm0 = agc_nominal_xy_mm0.to_frame()
-        agc_nominal_xy_mm0["agc_nominal_y_mm0"] = grouped.agc_nominal_y_mm.min()
+    agc_nominal_xy_mm0.name = "agc_nominal_x_mm0"
+    agc_nominal_xy_mm0 = agc_nominal_xy_mm0.to_frame()
+    agc_nominal_xy_mm0["agc_nominal_y_mm0"] = grouped.agc_nominal_y_mm.min()
 
-        tmp = agc_nominal_xy_mm0.merge(agcData, on="guide_star_id")
-        del agc_nominal_xy_mm0
-        agc_nominal_x_mm0 = tmp.agc_nominal_x_mm0.to_numpy()
-        agc_nominal_y_mm0 = tmp.agc_nominal_y_mm0.to_numpy()
-    else:
-        agc_nominal_x_mm0 = np.empty_like(agc_nominal_x_mm)
-        agc_nominal_y_mm0 = np.empty_like(agc_nominal_y_mm)
-        for gid in set(agcData.guide_star_id):
-            sel = agcData.guide_star_id == gid
-            agc_nominal_x_mm0[sel] = agc_nominal_x_mm[sel][0]
-            agc_nominal_y_mm0[sel] = agc_nominal_y_mm[sel][0]
+    tmp = agc_nominal_xy_mm0.merge(agcData, on="guide_star_id")
+    del agc_nominal_xy_mm0
+    agc_nominal_x_mm0 = tmp.agc_nominal_x_mm0.to_numpy()
+    agc_nominal_y_mm0 = tmp.agc_nominal_y_mm0.to_numpy()
 
     config.agc_exposure_id0 = 0      # start with this agc_exposure_id (if config.agc_exposure_idsStride != 1)
     if config.agc_exposure_idsStride > 0 and (config.onlyShutterOpen or config.maxGuideError > 0):
@@ -565,7 +553,6 @@ def showGuiderErrors(agcData, config,
             #
             # OK, ready to plot
             #
-
             if config.rotateToZenith:
                 plt.gca().add_patch(Circle((0, 0), agc_ring_R, fill=False, color="red"))
             else:
@@ -632,7 +619,7 @@ def showGuiderErrors(agcData, config,
                 xa[i] = np.mean(xgs[aid])
                 ya[i] = np.mean(ygs[aid])
 
-            guideErrorByCamera[agc_camera_id] = (list(xgs.keys()), xa, ya)
+            guideErrorByCamera[agc_camera_id] = (np.array(list(xgs.keys())), xa, ya)
 
             if config.showAverageGuideStarPos:
                 if config.showGuideStarsAsPoints or config.showGuideStarsAsArrows:
@@ -754,7 +741,14 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
     """
     radbar: distance from PFI center used to convert angles to position errors (cm)
     """
-    agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
+    agc_exposure_ids = set(agcData.agc_exposure_id)
+
+    diff = agc_exposure_ids.difference(config.transforms)
+    if len(diff) > 0:
+        print(f"Warning: {diff} not present in config.transforms; ignoring")
+        agc_exposure_ids = agc_exposure_ids.intersection(config.transforms)
+
+    agc_exposure_ids = np.array(sorted(agc_exposure_ids))
 
     # unpack the first three values from config.transforms for our agc_exposure_ids
     dx, dy, theta = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])[:, :3].T
