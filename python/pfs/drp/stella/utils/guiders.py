@@ -812,6 +812,82 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#  New pandas-native routines.  Should eventually replace the above
+
+
+def estimateGuideErrors(agcData, guideStrategy="center0", xy0Stat="median"):
+    """Estimate the mean guide errors for each AG camera and exposure
+
+    guideStrategy: how to define the correct position of the guide stars
+        center0:          Use the average of the first visit's agc_center_[xy]_mm (see xy0Stat)
+        nominal:          Use agc_nominal_[xy]_mm
+        nominal0:         Use agc_nominal_[xy]_mm at start of sequence
+        nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
+    xy0Stat: The name of the statistic to use for center0 (must be supported by pd.DataFrame.agg,
+             and also in validXy0StatStrategies list)
+
+    Returns:
+       agcData:  As updated, with added columns
+                 agc_center_[xy]_mm0          Values of agc_center_[xy]_mm at start of sequence
+                 agc_nominal_[xy]_mm0         Values of agc_nominal_[xy]_mm at start of sequence
+                 agc_nominal_[xy]y_mm_visit0  Values of agc_nominal_[xy]_mm at start of each visit
+       agcGuideErrors: pandas DataFrame with desired errors
+    """
+
+    validXy0StatStrategies = ["mean", "median", "first", "last"]
+    if xy0Stat not in validXy0StatStrategies:
+        raise RuntimeError(f"Unknown xy0Stat {xy0Stat}"
+                           f" (valid: {', '.join(validXy0StatStrategies)})")
+
+    validGuideStrategies = ["center0", "nominal", "nominal0PerVisit", "nominal0"]
+    if guideStrategy not in validGuideStrategies:
+        raise RuntimeError(f"Unknown guideStrategy {guideStrategy}"
+                           f" (valid: {', '.join(validGuideStrategies)})")
+
+    grouped = agcData.groupby(["guide_star_id"], as_index=False)
+    agcData = grouped.agg(
+        agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
+        agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
+    ).merge(agcData, on=["guide_star_id"])
+
+    grouped = agcData[agcData.shutter_open].groupby(["pfs_visit_id", "guide_star_id"], as_index=False)
+    agcData = grouped.agg(
+        agc_center_x_mm0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
+        agc_center_y_mm0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
+        agc_nominal_x_mm_visit0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
+        agc_nominal_y_mm_visit0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
+    ).merge(agcData, on=["pfs_visit_id", "guide_star_id"])
+
+    if guideStrategy == "center0":
+        agcData["dx"] = agcData.agc_center_x_mm0 - agcData.agc_center_x_mm
+        agcData["dy"] = agcData.agc_center_y_mm0 - agcData.agc_center_y_mm
+    elif guideStrategy == "nominal":
+        agcData["dx"] = agcData.agc_nominal_x_mm - agcData.agc_center_x_mm
+        agcData["dy"] = agcData.agc_nominal_y_mm - agcData.agc_center_y_mm
+    elif guideStrategy == "nominal0PerVisit":
+        agcData["dx"] = agcData.agc_nominal_x_mm_visit0 - agcData.agc_center_x_mm
+        agcData["dy"] = agcData.agc_nominal_y_mm_visit0 - agcData.agc_center_y_mm
+    elif guideStrategy == "nominal0":
+        agcData["dx"] = agcData.agc_nominal_x_mm0 - agcData.agc_center_x_mm
+        agcData["dy"] = agcData.agc_nominal_y_mm0 - agcData.agc_center_y_mm
+    else:
+        raise RuntimeError("You can't get here; complain to RHL")
+
+    grouped = agcData[agcData.shutter_open].groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
+    agcGuideErrors = grouped.agg(
+        pfs_visit_id=pd.NamedAgg("pfs_visit_id", "first"),
+        agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", "mean"),
+        agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", "mean"),
+        xbar=pd.NamedAgg("dx", "mean"),
+        ybar=pd.NamedAgg("dy", "mean"),
+        yvar=pd.NamedAgg("dy", "var"),
+        shutter_open=pd.NamedAgg("shutter_open", "max")
+    )
+
+    return agcData, agcGuideErrors
+
+
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
 # Plotting utils
 
