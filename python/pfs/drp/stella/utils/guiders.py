@@ -39,6 +39,10 @@ def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection) -> pd.D
 
 
 def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords, agc_exposure_idStride=1):
+    """Query the database for useful AG related things
+
+    N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
+    """
     with opdb:
         tmp = pd_read_sql(f'''
            SELECT
@@ -56,8 +60,12 @@ def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoo
                avg(agc_nominal_y_mm) AS agc_nominal_y_mm,
                avg(agc_center_y_mm) AS agc_center_y_mm,
                min(agc_match.flags) AS agc_match_flags,
-               (min(agc_exposure.taken_at) BETWEEN min(sps_exposure.time_exp_start) AND
-                                                   min(sps_exposure.time_exp_end)) AS shutter_open,
+               CASE
+                   WHEN min(sps_exposure.pfs_visit_id) IS NULL THEN 2
+                   WHEN (min(agc_exposure.taken_at) BETWEEN min(sps_exposure.time_exp_start) AND
+                                                            min(sps_exposure.time_exp_end)) THEN 1
+                   ELSE 0
+               END AS shutter_open,
                min(guide_delta_insrot) as guide_delta_insrot,
                min(guide_delta_az) as guide_delta_azimuth,
                min(guide_delta_el) as guide_delta_altitude
@@ -67,7 +75,7 @@ def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoo
                              agc_match.agc_camera_id = agc_data.agc_camera_id AND
                              agc_match.spot_id = agc_data.spot_id
            JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-           JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+           LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
            WHERE
                agc_exposure.pfs_visit_id = {pfs_visit_id}
            GROUP BY guide_star_id, agc_exposure.agc_exposure_id
@@ -151,7 +159,7 @@ def showAgcErrorsForVisits(agcData,
         for pfs_visit_id in sorted(set(pfs_visit_ids)):
             sel = pfs_visit_ids == pfs_visit_id
             color = plt.plot(xvec[sel], zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
-            sel &= shutter_open
+            sel &= shutter_open > 0
             plt.plot(xvec[sel], zbar[sel], 'o', color=color)
 
         plt.axhline(0, color='black')
@@ -313,7 +321,7 @@ class GuiderConfig:
             sel &= tmp.to_numpy() < 1e-3*self.maxGuideError
 
         if self.onlyShutterOpen:
-            sel &= agcData.shutter_open
+            sel &= agcData.shutter_open > 0
         if self.pfs_visitIdMin > 0:
             sel &= agcData.pfs_visit_id >= self.pfs_visitIdMin
         if self.pfs_visitIdMax > 0:
@@ -469,7 +477,7 @@ def showGuiderErrors(agcData, config,
     config.agc_exposure_id0 = 0      # start with this agc_exposure_id (if config.agc_exposure_idsStride != 1)
     if config.agc_exposure_idsStride > 0 and (config.onlyShutterOpen or config.maxGuideError > 0):
         for aid in agc_exposure_ids:
-            if (config.onlyShutterOpen and not agcData.shutter_open[agcData.agc_exposure_id == aid].any()):
+            if (config.onlyShutterOpen and (agcData.shutter_open == 0)[agcData.agc_exposure_id == aid].any()):
                 continue
             if (config.maxGuideError > 0 and guidingErrors[aid] > 1e-3*config.maxGuideError):
                 continue
@@ -757,9 +765,9 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
     grouped = subset.groupby("agc_exposure_id")
     altitude = grouped.altitude.mean()
     azimuth = grouped.azimuth.mean()
-    shutter_open = grouped.shutter_open.mean()
+    shutter_open = grouped.shutter_open.max()
 
-    sel = shutter_open.to_numpy() == 1
+    sel = shutter_open.to_numpy() > 0
 
     nx, ny = 2, 2
     fig, axs = plt.subplots(nx, ny, num=figure, sharex=False, sharey=False, squeeze=False)
@@ -815,14 +823,16 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
 #  New pandas-native routines.  Should eventually replace the above
 
 
-def estimateGuideErrors(agcData, guideStrategy="center0", xy0Stat="median"):
+def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, xy0Stat="median"):
     """Estimate the mean guide errors for each AG camera and exposure
+    Only exposures with the spectrograph shutters open are considered
 
     guideStrategy: how to define the correct position of the guide stars
         center0:          Use the average of the first visit's agc_center_[xy]_mm (see xy0Stat)
         nominal:          Use agc_nominal_[xy]_mm
         nominal0:         Use agc_nominal_[xy]_mm at start of sequence
         nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
+    subtractMedian:       Subtract the median from each camera's guide errors
     xy0Stat: The name of the statistic to use for center0 (must be supported by pd.DataFrame.agg,
              and also in validXy0StatStrategies list)
 
@@ -850,7 +860,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", xy0Stat="median"):
         agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
     ).merge(agcData, on=["guide_star_id"])
 
-    grouped = agcData[agcData.shutter_open].groupby(["pfs_visit_id", "guide_star_id"], as_index=False)
+    grouped = agcData[agcData.shutter_open > 0].groupby(["pfs_visit_id", "guide_star_id"], as_index=False)
     agcData = grouped.agg(
         agc_center_x_mm0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
         agc_center_y_mm0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
@@ -873,7 +883,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", xy0Stat="median"):
     else:
         raise RuntimeError("You can't get here; complain to RHL")
 
-    grouped = agcData[agcData.shutter_open].groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
+    grouped = agcData[agcData.shutter_open > 0].groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
     agcGuideErrors = grouped.agg(
         pfs_visit_id=pd.NamedAgg("pfs_visit_id", "first"),
         agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", "mean"),
@@ -883,6 +893,14 @@ def estimateGuideErrors(agcData, guideStrategy="center0", xy0Stat="median"):
         yvar=pd.NamedAgg("dy", "var"),
         shutter_open=pd.NamedAgg("shutter_open", "max")
     )
+
+    if subtractMedian:
+        for agc_camera_id in sorted(set(agcGuideErrors.agc_camera_id)):
+            sel = (agcGuideErrors.agc_camera_id == agc_camera_id) & (agcGuideErrors.shutter_open > 0)
+            agcGuideErrors.xbar = np.where(sel, agcGuideErrors.xbar - np.median(agcGuideErrors.xbar[sel]),
+                                           agcGuideErrors.xbar)
+            agcGuideErrors.ybar = np.where(sel, agcGuideErrors.ybar - np.median(agcGuideErrors.ybar[sel]),
+                                           agcGuideErrors.ybar)
 
     return agcData, agcGuideErrors
 
