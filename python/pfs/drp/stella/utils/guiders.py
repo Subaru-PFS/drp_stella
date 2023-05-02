@@ -823,7 +823,8 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
 #  New pandas-native routines.  Should eventually replace the above
 
 
-def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, xy0Stat="median"):
+def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False,
+                        showClosedShutter=False, xy0Stat="median"):
     """Estimate the mean guide errors for each AG camera and exposure
     Only exposures with the spectrograph shutters open are considered
 
@@ -833,6 +834,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, 
         nominal0:         Use agc_nominal_[xy]_mm at start of sequence
         nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
     subtractMedian:       Subtract the median from each camera's guide errors
+    showClosedShutter:    Include data with the spectrograph shutter closed
     xy0Stat: The name of the statistic to use for center0 (must be supported by pd.DataFrame.agg,
              and also in validXy0StatStrategies list)
 
@@ -854,13 +856,16 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, 
         raise RuntimeError(f"Unknown guideStrategy {guideStrategy}"
                            f" (valid: {', '.join(validGuideStrategies)})")
 
+    shutterMin = -1 if showClosedShutter else 0
+
     grouped = agcData.groupby(["guide_star_id"], as_index=False)
     agcData = grouped.agg(
         agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
         agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
     ).merge(agcData, on=["guide_star_id"])
 
-    grouped = agcData[agcData.shutter_open > 0].groupby(["pfs_visit_id", "guide_star_id"], as_index=False)
+    grouped = agcData[agcData.shutter_open > shutterMin].groupby(["pfs_visit_id", "guide_star_id"],
+                                                                 as_index=False)
     agcData = grouped.agg(
         agc_center_x_mm0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
         agc_center_y_mm0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
@@ -883,7 +888,8 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, 
     else:
         raise RuntimeError("You can't get here; complain to RHL")
 
-    grouped = agcData[agcData.shutter_open > 0].groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
+    grouped = agcData[agcData.shutter_open > shutterMin].groupby(["agc_exposure_id", "agc_camera_id"],
+                                                                 as_index=False)
     agcGuideErrors = grouped.agg(
         pfs_visit_id=pd.NamedAgg("pfs_visit_id", "first"),
         agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", "mean"),
@@ -896,7 +902,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False, 
 
     if subtractMedian:
         for agc_camera_id in sorted(set(agcGuideErrors.agc_camera_id)):
-            sel = (agcGuideErrors.agc_camera_id == agc_camera_id) & (agcGuideErrors.shutter_open > 0)
+            sel = (agcGuideErrors.agc_camera_id == agc_camera_id) & (agcGuideErrors.shutter_open > shutterMin)
             agcGuideErrors.xbar = np.where(sel, agcGuideErrors.xbar - np.median(agcGuideErrors.xbar[sel]),
                                            agcGuideErrors.xbar)
             agcGuideErrors.ybar = np.where(sel, agcGuideErrors.ybar - np.median(agcGuideErrors.ybar[sel]),
