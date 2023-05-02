@@ -211,16 +211,20 @@ class SparseSquareMatrix {
     using ElemT = double;
     using IndexT = std::ptrdiff_t;  // must be signed
     using Matrix = Eigen::SparseMatrix<ElemT, 0, IndexT>;
+    using DefaultSolver = Eigen::SparseQR<
+        typename SparseSquareMatrix<symmetric>::Matrix,
+        Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>
+    >;
 
     /// Ctor
     ///
     /// The matrix is initialised to zero.
     ///
     /// @param num : Number of columns/rows
-    /// @param nonZeroPerCol : Estimated mean number of non-zero entries per column
-    SparseSquareMatrix(std::size_t num, float nonZeroPerCol=2.0)
+    /// @param nonZeroPerRow : Estimated mean number of non-zero entries per row
+    SparseSquareMatrix(std::size_t num, float nonZeroPerRow=2.0)
       : _num(num),
-        _triplets(num, num, nonZeroPerCol)
+        _triplets(num, num, nonZeroPerRow)
        {
         if (num < 0) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of columns is negative");
@@ -255,19 +259,13 @@ class SparseSquareMatrix {
 
     //@{
     /// Solve the matrix equation
-    template <class Solver=Eigen::SparseQR<
-        typename SparseSquareMatrix<symmetric>::Matrix,
-        Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>>
-        >
+    template <class Solver=DefaultSolver>
     ndarray::Array<ElemT, 1, 1> solve(ndarray::Array<ElemT, 1, 1> const& rhs, bool debug=false) const {
         ndarray::Array<ElemT, 1, 1> solution = ndarray::allocate(_num);
-        solve(solution, rhs, debug);
+        solve<Solver>(solution, rhs, debug);
         return solution;
     }
-    template <class Solver=Eigen::SparseQR<
-        typename SparseSquareMatrix<symmetric>::Matrix,
-        Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>>
-        >
+    template <class Solver=DefaultSolver>
     void solve(
         ndarray::Array<ElemT, 1, 1> & solution, ndarray::Array<ElemT, 1, 1> const& rhs, bool debug=false
     ) const {
@@ -333,11 +331,6 @@ class SparseSquareMatrix {
 using NonsymmetricSparseSquareMatrix = SparseSquareMatrix<false>;  // more explicit
 using SymmetricSparseSquareMatrix = SparseSquareMatrix<true>;  // more explicit
 
-
-template <bool sym>
-std::ostream& operator<<(std::ostream& os, SparseSquareMatrix<sym> const& matrix) {
-    return os << matrix.asEigen();
-}
 
 // Specialisations
 template <>
