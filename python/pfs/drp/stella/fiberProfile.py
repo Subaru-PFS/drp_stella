@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from lsst.pipe.base import Struct
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
 from pfs.drp.stella.spline import SplineD
@@ -253,6 +254,19 @@ class FiberProfile:
         colorList = ["r", "g", "b", "c", "m", "y", "k", "tab:orange", "tab:purple", "tab:brown"]
         for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
             axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
+
+    def calculateStatistics(self):
+        """Calculate statistics about this fiber profile"""
+        xx = self.index[np.newaxis, :]
+        norm = self.profiles.sum(axis=1)
+        centroid = (xx*self.profiles).sum(axis=1)/norm
+        width = ((xx - centroid[:, np.newaxis])**2*self.profiles).sum(axis=1)/norm
+        return Struct(
+            centroid=centroid,
+            width=width,
+            min=self.profiles.min(axis=1),
+            max=self.profiles.max(axis=1),
+        )
 
     def __makeFiberTrace(self, dimensions, xCenter, fiberId):
         """Make a FiberTrace object
