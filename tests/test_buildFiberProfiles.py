@@ -288,6 +288,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         stop = 123
         self.image.image.array[start:stop] = np.nan
         self.image.mask.array[start:stop] = self.image.mask.getPlaneBitMask("BAD")
+        self.config.pruneMinLength = 200
         result = self.task.run(self.exposure, self.identity, detectorMap=self.detMap)
         self.assertFiberProfiles(result.profiles, self.image, self.image.mask.getPlaneBitMask("BAD"),
                                  doCheckSpectra=False)
@@ -297,6 +298,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         for xx in self.synth.traceCenters.astype(int) - 2:
             self.image.image.array[:, xx] = -123.45
             self.image.mask.array[:, xx] = self.image.mask.getPlaneBitMask("BAD")
+        self.config.pruneMinLength = 200
         result = self.task.run(self.exposure, self.identity, detectorMap=self.detMap)
         # We're not going to have good profiles out of this, so not using self.assertFiberProfiles
         self.assertNumTraces(result)
@@ -327,7 +329,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         image.image.array[cosmics] += cosmicValue
 
         self.config.pruneMaxWidth = 1000  # Make sure the CR peaks are included
-        self.config.pruneMinLength = self.synth.height - crMaxRow - 5  # Because we've stolen some image
+        self.config.pruneMinLength = self.synth.height - crMaxRow - 7  # Because we've stolen some image
         result = self.task.run(self.makeExposure(image), self.identity, detectorMap=self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)

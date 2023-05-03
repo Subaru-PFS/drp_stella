@@ -140,7 +140,10 @@ class BuildFiberProfilesTask(Task):
             identity, exposure.getInfo().getVisitInfo(), exposure.getMetadata()
         )
         for ff in centers:
-            profiles[ff] = self.calculateProfile(exposure.maskedImage, centers[ff])
+            try:
+                profiles[ff] = self.calculateProfile(exposure.maskedImage, centers[ff])
+            except RuntimeError as exc:
+                self.log.debug("Failed to calculate profile for fiber %d: %s", ff, exc)
 
         self.log.info("Profiled %d fibers", len(profiles))
         return Struct(profiles=profiles, centers=centers)
@@ -316,13 +319,22 @@ class BuildFiberProfilesTask(Task):
             # Centroid the traces.
             # If we don't have a detectorMap, we will fit a functional form to get the centers for the
             # profiles. If we do have a detectorMap, this will be used for identifying fibers.
+            newTraces = {}
             for ff, tt in traces.items():
-                self.centroidTrace(image, tt)
+                tt = self.centroidTrace(image, tt)
+                if len(tt) < self.config.pruneMinLength:
+                    continue
+                newTraces[ff] = tt
+            traces = newTraces
+            del newTraces
+            self.log.debug("Centroided %d traces", len(traces))
+
             centers = {ff: self.fitTraceCenters(tt, image.getHeight()).func for ff, tt in traces.items()}
             if detectorMap is not None:
                 identifications = self.identifyFibers(centers, detectorMap, pfsConfig)
                 traces = {identifications[ff]: tt for ff, tt in traces.items()}
                 centers = {identifications[ff]: cc for ff, cc in centers.items()}
+            self.log.debug("Fit centers for %d traces", len(centers))
         else:
             # Use centers directly from detectorMap. This yields more accurate centers for the profiles.
             def centerFunc(fiberId, yy):
@@ -608,14 +620,27 @@ class BuildFiberProfilesTask(Task):
         peakList : iterable of `pfs.drp.stella.TracePeak`
             List of peaks to centroid. Peaks will be updated with the measured
             centroids.
+
+        Returns
+        -------
+        newPeakList : `list` of `pfs.drp.stella.TracePeak`
+            List of peaks with centroids measured. Peaks without a good centroid
+            measurement will be removed.
         """
         badBitmask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+        sigma = fwhmToSigma(self.config.columnFwhm)
+        newPeakList = []
         for pp in peakList:
-            centroidPeak(pp, maskedImage, fwhmToSigma(self.config.columnFwhm), badBitmask)
+            centroidPeak(pp, maskedImage, sigma, badBitmask)
+            if not np.isfinite(pp.peak):
+                continue
+            newPeakList.append(pp)
+
         if self.debugInfo.plotCentroids:
             import matplotlib.pyplot as plt
-            plt.plot([pp.peak for pp in peakList], [pp.row for pp in peakList], 'k.')
+            plt.plot([pp.peak for pp in newPeakList], [pp.row for pp in newPeakList], 'k.')
             plt.show()
+        return newPeakList
 
     def fitTraceCenters(self, peakList, height):
         """Fit a function of trace center as a function of row
