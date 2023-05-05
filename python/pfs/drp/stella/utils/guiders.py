@@ -823,7 +823,7 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None, radbar=20
 #  New pandas-native routines.  Should eventually replace the above
 
 
-def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False,
+def estimateGuideErrors(agcData, guideStrategy="center0", byVisit=False, subtractMedian=False,
                         showClosedShutter=False, xy0Stat="median"):
     """Estimate the mean guide errors for each AG camera and exposure
     Only exposures with the spectrograph shutters open are considered
@@ -833,6 +833,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False,
         nominal:          Use agc_nominal_[xy]_mm
         nominal0:         Use agc_nominal_[xy]_mm at start of sequence
         nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
+    byVisit: group on pfs_visit_id rather than agc_exposure_id
     subtractMedian:       Subtract the median from each camera's guide errors
     showClosedShutter:    Include data with the spectrograph shutter closed
     xy0Stat: The name of the statistic to use for center0 (must be supported by pd.DataFrame.agg,
@@ -888,15 +889,21 @@ def estimateGuideErrors(agcData, guideStrategy="center0", subtractMedian=False,
     else:
         raise RuntimeError("You can't get here; complain to RHL")
 
-    grouped = agcData[agcData.shutter_open > shutterMin].groupby(["agc_exposure_id", "agc_camera_id"],
-                                                                 as_index=False)
+    grouped = agcData[agcData.shutter_open > shutterMin].groupby(
+        ["pfs_visit_id" if byVisit else "agc_exposure_id" , "agc_camera_id"], as_index=False)
     agcGuideErrors = grouped.agg(
-        pfs_visit_id=pd.NamedAgg("pfs_visit_id", "first"),
+        agc_exposure_id=pd.NamedAgg("agc_exposure_id", "mean"),
+        pfs_visit_id=pd.NamedAgg("pfs_visit_id", "mean"),
         agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", "mean"),
         agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", "mean"),
+        altitude=pd.NamedAgg("altitude", "mean"),
+        azimuth=pd.NamedAgg("azimuth", "mean"),
+        insrot=pd.NamedAgg("insrot", "mean"),
+        guide_delta_altitude=pd.NamedAgg("guide_delta_altitude", "mean"),
+        guide_delta_azimuth=pd.NamedAgg("guide_delta_azimuth", "mean"),
+        guide_delta_insrot=pd.NamedAgg("guide_delta_insrot", "mean"),
         xbar=pd.NamedAgg("dx", "mean"),
         ybar=pd.NamedAgg("dy", "mean"),
-        yvar=pd.NamedAgg("dy", "var"),
         shutter_open=pd.NamedAgg("shutter_open", "max")
     )
 
