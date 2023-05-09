@@ -2,7 +2,7 @@ from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 
 import lsstDebug
 import lsst.daf.persistence
-from lsst.pex.config import Config, ChoiceField, DictField, Field
+from lsst.pex.config import Config, ChoiceField, Field
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
 
@@ -35,34 +35,6 @@ class FitBroadbandSEDConfig(Config):
         },
         default="psf",
         optional=False,
-    )
-
-    filterMappings = DictField(
-        keytype=str,
-        itemtype=str,
-        default={
-            "g_hsc": "HSCg",
-            "r_old_hsc": "HSCr",
-            "r2_hsc": "HSCr2",
-            "i_old_hsc": "HSCi",
-            "i2_hsc": "HSCi2",
-            "z_hsc": "HSCz",
-            "y_hsc": "HSCy",
-            "g_ps1": "PS1g",
-            "r_ps1": "PS1r",
-            "i_ps1": "PS1i",
-            "z_ps1": "PS1z",
-            "y_ps1": "PS1y",
-            "bp_gaia": "GaiaBp",
-            "rp_gaia": "GaiaRp",
-            "g_gaia": "GaiaG",
-            "u_sdss": "SDSSu",
-            "g_sdss": "SDSSg",
-            "r_sdss": "SDSSr",
-            "i_sdss": "SDSSi",
-            "z_sdss": "SDSSz",
-        },
-        doc="Conversion table from pfsConfig's filter names to those used by `fluxLibrary`",
     )
 
     soften = Field(
@@ -197,8 +169,7 @@ class FitBroadbandSEDTask(Task):
         # Soften noises
         observedNoises = numpy.hypot(observedNoises[isgood], self.config.soften * observedFluxes)
 
-        # Convert filter names.
-        filterNames = [self.config.filterMappings.get(f, f) for f, good in zip(filterNames, isgood) if good]
+        filterNames = [f for f, good in zip(filterNames, isgood) if good]
 
         # Note: fluxLibrary.shape == (nSEDs, nBands)
         fluxLibrary = numpy.lib.recfunctions.structured_to_unstructured(
