@@ -7,7 +7,6 @@ import numpy as np
 from numpy.lib import recfunctions
 import astropy.io.fits
 
-import functools
 import io
 import os
 import zipfile
@@ -38,11 +37,11 @@ class FluxModelSet:
 
     def __init__(self, dirname: str) -> None:
         self.dirname = dirname
+        self.__parameters: Union[NDArray, None] = None
         self.zipFileObj: Union[zipfile.ZipFile, None] = None
         self.zipFileExists: Union[bool, None] = None
 
     @property
-    @functools.lru_cache()
     def parameters(self) -> NDArray:
         """List of available parameters.
 
@@ -59,6 +58,9 @@ class FluxModelSet:
             A structured array,
             whose columns are SED parameters and various broadband fluxes.
         """
+        if self.__parameters is not None:
+            return self.__parameters
+
         filename = "broadband/photometries.fits"
         with astropy.io.fits.open(os.path.join(self.dirname, filename)) as fits:
             # We convert FITS_rec back to numpy's structured array
@@ -68,7 +70,7 @@ class FluxModelSet:
         # Field names of "photometries.fits" start with capitals.
         # We make them lower for consistency with parameter names
         # of other methods of this class.
-        parameters = recfunctions.rename_fields(
+        self.__parameters = parameters = recfunctions.rename_fields(
             parameters, {key: key.lower() for key in ["Teff", "Logg", "M", "Alpha"]}
         )
         return parameters
