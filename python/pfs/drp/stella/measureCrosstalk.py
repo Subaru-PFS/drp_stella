@@ -40,7 +40,6 @@ from .reduceExposure import ReduceExposureTask
 from .selectFibers import SelectFibersTask
 
 
-
 class MeasureCrosstalkConfig(Config):
     """Configuration for MeasureCrosstalkTask"""
     reduceExposure = ConfigurableField(target=ReduceExposureTask, doc="Reduce exposure")
