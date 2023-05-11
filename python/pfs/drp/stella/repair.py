@@ -99,7 +99,7 @@ class PfsRepairTask(RepairTask):
         # which can be interpreted as a CR, whereas it really just means
         # that we're on an absorption feature or our median has been
         # biased high by real structure in the trace.
-        traces = np.min(exposure.image.array, traces)
+        traces = np.minimum(exposure.image.array, traces)
 
         # Find CRs in traces-subtracted image
         exposure.image.array -= traces
