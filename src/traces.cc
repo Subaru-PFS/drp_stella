@@ -290,21 +290,9 @@ ndarray::Array<T, 2, 1> medianFilterColumns(
     for (int yy = 0; yy < height; ++yy) {
         int const yLow = std::max(0, yy - halfHeight);
         int const yHigh = std::min(height, yy + halfHeight + 1);  // exclusive
-        ndarray::Array<float, 1, 1> indices = utils::arange<float>(yLow, yHigh);
-        ndarray::asEigenArray(indices) -= yy;
-        ndarray::asEigenArray(indices) /= indices.size();
-        ndarray::Array<float, 1, 1> resid = ndarray::allocate(indices.size());
         for (int xx = 0; xx < width; ++xx) {
-            // Don't allow the result to exceed the actual value.
-            // Negative values in the subtracted image mean a larger gradient,
-            // which can be interpreted as a CR, whereas it really just means
-            // that we're on an absorption feature or our median has been
-            // biased high by real structure in the trace.
-            result[yy][xx] = std::min(
-                image[yy][xx],
-                math::calculateMedian(
-                    image[ndarray::view(yLow, yHigh)(xx)], mask[ndarray::view(yLow, yHigh)(xx)]
-                )
+            result[yy][xx] = math::calculateMedian(
+                image[ndarray::view(yLow, yHigh)(xx)], mask[ndarray::view(yLow, yHigh)(xx)]
             );
         }
     }
