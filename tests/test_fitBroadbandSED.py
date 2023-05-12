@@ -25,7 +25,6 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
         """
         random = numpy.random.RandomState(0xfeed5eed)
         filters = ["g_hsc", "r2_hsc", "i2_hsc", "z_hsc", "y_hsc"]
-        filters = [self.fitBroadbandSED.config.filterMappings.get(f, f) for f in filters]
 
         trueSEDIndices = numpy.arange(len(self.fitBroadbandSED.fluxLibrary))[::5]
         nFibers = len(trueSEDIndices)
