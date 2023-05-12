@@ -45,6 +45,7 @@ from .constructSpectralCalibs import setCalibHeader
 from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
 from .background import DichroicBackgroundTask
+from .arcLine import ArcLineSet
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -481,7 +482,7 @@ class ReduceExposureTask(CmdLineTask):
             One-dimensional line-spread function.
         """
         detectorMap = sensorRef.get("detectorMap")
-        fiberProfiles = sensorRef.get("fiberProfiles")
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
         # Check that the calibs have the expected number of fibers
         select = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD,
@@ -491,27 +492,35 @@ class ReduceExposureTask(CmdLineTask):
         fiberId = pfsConfig.fiberId[select]
         need = set(fiberId)
         haveDetMap = set(detectorMap.fiberId)
-        haveProfiles = set(fiberProfiles.fiberId)
         missingDetMap = need - haveDetMap
-        missingProfiles = need - haveProfiles
         if missingDetMap:
             uri = sensorRef.getUri("detectorMap")
             raise RuntimeError(f"detectorMap ({uri}) does not include fibers: {list(sorted(missingDetMap))}")
-        if need - haveProfiles:
-            uri = sensorRef.getUri("fiberProfiles")
-            raise RuntimeError(
-                f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
-            )
 
-        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+        fiberProfiles = None
+        fiberTraces = None
+        if (
+            self.config.doMeasureLines or
+            (self.config.doAdjustDetectorMap and len(refLines) > 0) or
+            self.config.doExtractSpectra
+        ):
+            fiberProfiles = sensorRef.get("fiberProfiles")
+            haveProfiles = set(fiberProfiles.fiberId)
+            missingProfiles = need - haveProfiles
+            if missingProfiles:
+                uri = sensorRef.getUri("fiberProfiles")
+                raise RuntimeError(
+                    f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
+                )
+            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
-        lines = None
+        lines = ArcLineSet.empty()
         traces = None
-        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
         if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
-            lines = self.centroidLines.run(
-                exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
-            )
+            if len(refLines) > 0:
+                lines = self.centroidLines.run(
+                    exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
+                )
             if (
                 self.config.doForceTraces
                 or not lines
@@ -551,7 +560,9 @@ class ReduceExposureTask(CmdLineTask):
                 history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
                 detectorMap.metadata.add("HISTORY", history)
 
-                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
+                if fiberProfiles is not None:
+                    # make fiberTraces with new detectorMap
+                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
         sensorRef.put(detectorMap, "detectorMap_used")
 
@@ -560,7 +571,7 @@ class ReduceExposureTask(CmdLineTask):
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
         else:
             psf = None
-            lsf = self.defaultLsf(sensorRef.dataId["arm"], fiberTraces.fiberId, detectorMap)
+            lsf = self.defaultLsf(sensorRef.dataId["arm"], detectorMap.fiberId, detectorMap)
 
         # Update photometry using best detectorMap, PSF
         apCorr = None
