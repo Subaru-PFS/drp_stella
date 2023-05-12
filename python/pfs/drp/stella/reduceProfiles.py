@@ -257,7 +257,7 @@ class ReduceProfilesTask(CmdLineTask):
         for ii, vv in enumerate(sorted(set(normVisits))):
             profiles.metadata.set(f"CALIB_NORM_{ii}", vv)
 
-        dataRef.put(profiles, "fiberProfiles", visit0=visit0)
+        dataRef.put(profiles, "fiberProfiles", **outputId)
 
     def combine(self, exposureList: Iterable[Exposure]) -> Exposure:
         """Combine multiple exposures.
