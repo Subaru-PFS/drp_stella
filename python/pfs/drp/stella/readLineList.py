@@ -222,7 +222,7 @@ class ReadLineListTask(Task):
             if self.config.assumeSkyIfNoLamps:
                 self.log.info("No lamps on; assuming sky.")
                 lamps = {"sky"}
-                lampElements = {"OI", "NaI", "OH"}
+                lampElements = {"OI", "NaI", "OH", "O2"}
             else:
                 self.log.warning('No lamp information can be found in the metadata')
         return Struct(lamps=lamps, lampElements=lampElements)

@@ -12,7 +12,11 @@ from pfs.drp.stella.referenceLine import ReferenceLineStatus
 import pfs.utils.fiberids as fiberids
 
 
-__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap"]
+__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict"]
+
+
+lineColorDict = dict(ArI="cyan", HgI="blue", KrI="peachpuff", NeI="red", XeI="silver",
+                     OI="green", NaI="darkorange", OH="magenta", O2="bisque")
 
 
 def get_norm(image, algorithm, minval, maxval, **kwargs):
@@ -170,8 +174,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         plt.sca(axs[0])
         plt.yticks(ticks=[], labels=[])
 
-        colors = dict(ArI="cyan", HgI="blue", KrI="peachpuff", NeI="red", XeI="silver",
-                      OI="green", NaI="darkorange", OH="magenta")
+        colors = lineColorDict.copy()
         labels = {}
         for ll in lines:
             lam = ll.wavelength
