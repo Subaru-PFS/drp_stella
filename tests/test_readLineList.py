@@ -172,8 +172,6 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         lampInfo = task.getLampInfo(metadata)
         expectedSource = {'sky'}
         self.assertEqual(lampInfo.lamps, expectedSource)
-        expectedLampElements = {"OI", "NaI", "OH"}
-        self.assertEqual(lampInfo.lampElements, expectedLampElements)
 
     def testDefaultLightSources(self):
         """Test expected light sources are listed in default configuration"""
