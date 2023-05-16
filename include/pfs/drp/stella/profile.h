@@ -27,6 +27,7 @@ namespace stella {
 /// @param radius : Radius of fiber profile
 /// @param rejIter : Number of rejection iterations
 /// @param rejThresh : Rejection threshold (sigma)
+/// @param matrixTol : Matrix solver tolerance
 /// @return fiber profiles and mask
 std::pair<ndarray::Array<double, 2, 1>, ndarray::Array<bool, 2, 1>>
 fitSwathProfiles(
@@ -40,7 +41,8 @@ fitSwathProfiles(
     int oversample,
     int radius,
     int rejIter=1,
-    float rejThresh=4.0
+    float rejThresh=4.0,
+    float matrixTol=1e-4
 );
 
 

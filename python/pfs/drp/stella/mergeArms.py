@@ -111,7 +111,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
 
     def setDefaults(self):
         super().setDefaults()
-        self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE")
+        self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE", "HOME")
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
         self.fitSkyModel.rejThreshold = 10.0

@@ -9,6 +9,7 @@
 #include "pfs/drp/stella/math/quartiles.h"
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
+#include "pfs/drp/stella/math/SparseSquareMatrix.h"
 #include "pfs/drp/stella/python/math.h"
 
 namespace py = pybind11;
@@ -101,6 +102,59 @@ std::pair<ndarray::Array<T, N, C>, ndarray::Array<T, N, N>> evaluateAffineTransf
 }
 
 
+void declareMatrixTriplets(py::module & mod) {
+    using ElemT = double;
+    using IndexT = std::ptrdiff_t;
+    using Class = MatrixTriplets<ElemT, IndexT>;
+    py::class_<Class> cls(mod, "MatrixTriplets");
+    cls.def(py::init<IndexT, IndexT, float>(), "numRows"_a, "numCols"_a, "nonZeroPerRow"_a=2.0);
+    cls.def("size", &Class::size);
+    cls.def("__len__", &Class::size);
+    cls.def("add", &Class::add, "row"_a, "col"_a, "value"_a);
+    cls.def("clear", &Class::clear);
+    cls.def("getTriplets", [](Class & self) {
+        ndarray::Array<IndexT, 1, 1> rows = ndarray::allocate(self.size());
+        ndarray::Array<IndexT, 1, 1> cols = ndarray::allocate(self.size());
+        ndarray::Array<ElemT, 1, 1> values = ndarray::allocate(self.size());
+        auto iter = self.begin();
+        for (std::size_t ii = 0; iter != self.end(); ++ii, ++iter) {
+            rows[ii] = iter->row();
+            cols[ii] = iter->col();
+            values[ii] = iter->value();
+        }
+        return std::make_tuple(rows, cols, values);
+    });
+}
+
+
+template <bool symmetric>
+void declareSparseSquareMatrix(py::module & mod, char const* name) {
+    using Class = SparseSquareMatrix<symmetric>;
+    py::class_<Class> cls(mod, name);
+    cls.def(py::init<std::size_t, float>(), "size"_a, "nonZeroPerRow"_a=2.0);
+    cls.def("size", &Class::size);
+    cls.def("__len__", &Class::size);
+    cls.def("add", &Class::add, "row"_a, "col"_a, "value"_a);
+    cls.def(
+        "solve",
+        py::overload_cast<ndarray::Array<double, 1, 1> const&, bool>(&Class::template solve<>, py::const_),
+        "rhs"_a,
+        "debug"_a=false
+    );
+    cls.def(
+        "solve",
+        py::overload_cast<ndarray::Array<double, 1, 1> &, ndarray::Array<double, 1, 1> const&, bool>(
+            &Class::template solve<>, py::const_
+        ),
+        "solution"_a,
+        "rhs"_a,
+        "debug"_a=false
+    );
+    cls.def("reset", &Class::reset);
+    cls.def("getTriplets", &Class::getTriplets);
+}
+
+
 PYBIND11_PLUGIN(math) {
     py::module mod("math");
     declareNormalizedPolynomial1<double>(mod, "D");
@@ -119,6 +173,9 @@ PYBIND11_PLUGIN(math) {
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
     mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
             "err"_a, "threshold"_a=1.0e-6);
+    declareMatrixTriplets(mod);
+    declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
+    declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
     return mod.ptr();
 }
 

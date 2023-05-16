@@ -54,7 +54,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     )
     targetType = ListField(
         dtype=str,
-        default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
+        default=["SCIENCE", "SKY", "FLUXSTD", "UNASSIGNED", "SUNSS_IMAGING", "SUNSS_DIFFUSE", "HOME"],
         doc="Target type for which to build profiles",
     )
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")

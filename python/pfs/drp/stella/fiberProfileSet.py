@@ -95,6 +95,7 @@ class FiberProfileSet:
         swathSize: float,
         rejIter: int = 1,
         rejThresh: float = 4.0,
+        matrixTol: float = 1.0e-4,
         maskPlanes: Optional[Iterable[str]] = None,
         visitInfo: Optional[VisitInfo] = None,
         metadata: Optional[PropertyList] = None,
@@ -131,6 +132,8 @@ class FiberProfileSet:
             Number of rejection iterations when combining profiles in a swath.
         rejThresh : `float`
             Rejection threshold (sigma) when combining profiles in a swath.
+        matrixTol : `float`
+            Tolerance for matrix inversion.
         maskPlanes : iterable of `str`
             Mask planes to ignore.
         visitInfo : `lsst.afw.image.VisitInfo`, optional
@@ -185,7 +188,8 @@ class FiberProfileSet:
         yProfile = []  # List of mean row
         for yMin, yMax in zip(bounds[:-2], bounds[2:]):
             profiles, masks = fitSwathProfiles(imageList, centerList, normList, fiberId.astype(np.int32),
-                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh)
+                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh,
+                                               matrixTol)
             yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
             for ff, pp, mm in zip(fiberId, profiles, masks):
                 pp = np.ma.MaskedArray(pp, mm)
@@ -430,3 +434,63 @@ class FiberProfileSet:
         if show:
             plt.show()
         return figAxes
+
+    def plotHistograms(
+        self,
+        numBins=20,
+        show=True,
+        centroidRange=(-0.2, 0.2),
+        widthRange=(1.5, 4.0),
+        minRange=(-0.2, 0.05),
+        maxRange=(1.0, 3.0),
+    ):
+        """Plot histograms of statistics about the fiber profiles
+
+        Parameters
+        ----------
+        numBins : `int`, optional
+            Number of bins to use in the histograms.
+        show : `bool`
+            Show the plots?
+        centroidRange : `tuple` of `float`, optional
+            Minimum and maximum centroid values to plot.
+        widthRange : `tuple` of `float`, optional
+            Minimum and maximum width values to plot.
+        minRange : `tuple` of `float`, optional
+            Minimum and maximum minimum values to plot.
+        maxRange : `tuple` of `float`, optional
+            Minimum and maximum maximum values to plot.
+
+        Returns
+        -------
+        fig : `matplotlib.Figure`
+            Figure containing the histograms.
+        axes : `numpy.ndarray` of `matplotlib.Axes`
+            Axes containing the histograms.
+        """
+        import matplotlib.pyplot as plt
+
+        stats = {fiberId: self[fiberId].calculateStatistics() for fiberId in self}
+        centroids = np.array([stats[fiberId].centroid for fiberId in stats]).flatten()
+        widths = np.array([stats[fiberId].width for fiberId in stats]).flatten()
+        minimums = np.array([stats[fiberId].min for fiberId in stats]).flatten()
+        maximums = np.array([stats[fiberId].max for fiberId in stats]).flatten()
+
+        fig, axes = plt.subplots(nrows=2, ncols=2)
+
+        axes[0, 0].hist(centroids, bins=np.linspace(*centroidRange, numBins))
+        axes[0, 0].set_xlabel("centroid")
+
+        axes[0, 1].hist(widths, bins=np.linspace(*widthRange, numBins))
+        axes[0, 1].set_xlabel("width")
+
+        axes[1, 0].hist(minimums, bins=np.linspace(*minRange, numBins))
+        axes[1, 0].set_xlabel("min")
+
+        axes[1, 1].hist(maximums, bins=np.linspace(*maxRange, numBins))
+        axes[1, 1].set_xlabel("max")
+
+        if show:
+            plt.show()
+
+        return fig, axes

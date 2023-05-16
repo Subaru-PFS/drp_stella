@@ -1,5 +1,7 @@
 #include "ndarray.h"
 
+#include "lsst/log/Log.h"
+
 #include "pfs/drp/stella/profile.h"
 
 #include "pfs/drp/stella/math/quartiles.h"
@@ -16,6 +18,8 @@ namespace stella {
 
 
 namespace {
+
+LOG_LOGGER _log = LOG_GET("pfs.drp.stella.profile");
 
 
 // The following is used to represent bound methods as a callable
@@ -66,19 +70,19 @@ class SwathProfileBuilder {
     // @param numFibers : Number of fibers
     // @param oversample : Oversampling factor
     // @param radius : Radius of fiber profile, in pixels
-    // @param numRows : Total number of rows to accumulate (for memory allocation)
+    // @param width : Image width, in pixels (for memory allocation estimation)
     SwathProfileBuilder(
         std::size_t numFibers,
         int oversample,
         int radius,
-        std::size_t numRows
+        int width
     ) : _oversample(oversample),
         _radius(radius),
         _profileSize(2*std::size_t((radius + 1)*oversample + 0.5) + 1),
         _profileCenter((radius + 1)*oversample + 0.5),
         _numFibers(numFibers),
         _numParameters(numFibers*_profileSize),
-        _matrix(_numParameters, oversample*numRows),
+        _matrix(_numParameters, calculateNonZeroPerCol(numFibers, radius, oversample, width)),
         _vector(ndarray::allocate(_numParameters)),
         _isZero(ndarray::allocate(_numParameters)) {
             reset();
@@ -276,7 +280,7 @@ class SwathProfileBuilder {
 
     //@{
     // Solve the matrix equation
-    void solve(ndarray::Array<double, 1, 1> & solution) {
+    void solve(ndarray::Array<double, 1, 1> & solution, float matrixTol=1.0e-4) {
         // Deal with singular values
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {
@@ -284,6 +288,9 @@ class SwathProfileBuilder {
                 assert(_vector[ii] == 0.0);  // or we've done something wrong
             }
         }
+
+        LOGL_DEBUG(_log, "Solving matrix equation of %ld parameters with %ld non-zero elements",
+                   _numParameters, _matrix.getTriplets().size());
 
         solution.deep() = std::numeric_limits<double>::quiet_NaN();
 
@@ -296,7 +303,7 @@ class SwathProfileBuilder {
         >;
         Solver solver;
         solver.setMaxIterations(getNumParameters()*10);
-        solver.setTolerance(1.0e-6);  // about single precision float
+        solver.setTolerance(matrixTol);
         _matrix.solve(solution, _vector, solver);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
@@ -305,9 +312,9 @@ class SwathProfileBuilder {
             }
         }
     }
-    ndarray::Array<double, 1, 1> solve() {
+    ndarray::Array<double, 1, 1> solve(float matrixTol=1.0e-4) {
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(_numParameters);
-        solve(solution);
+        solve(solution, matrixTol);
         return solution;
     }
     //@}
@@ -419,6 +426,39 @@ class SwathProfileBuilder {
         }
     }
 
+    // Calculate the number of non-zero pixels per column
+    //
+    // @param numFibers : Number of fibers
+    // @param radius : Radius of profile
+    // @param oversample : Oversampling factor
+    // @param width : Width of image
+    // @return Number of non-zero pixels per column
+    static float calculateNonZeroPerCol(int numFibers, int radius, float oversample, int width) {
+        std::size_t const profileSize = 2*std::size_t((radius + 1)*oversample + 0.5) + 1;
+
+        float const spacing = float(width)/numFibers;  // guess at space between fibers
+        float const meanOverlap = 2*(radius + 1)/spacing;
+
+        // We can assume that each pixel in the profile is going to overlap with another pixel from a
+        // different fiber (otherwise, why are you using this expensive fitting method?). Each pixel
+        // is subdivided into 'oversample' parts, and each of those can overlap with the 'oversample'
+        // parts of another pixel, so we get oversample^2 cross terms. Dividing by the number of terms
+        // per fiber, we're left with simply the oversampling.
+        // We get that for each fiber that we overlap with to.
+        float const interFiberCrossTerms = oversample*meanOverlap;
+
+        // For each pixel in the oversampled profile, we get cross terms from the linear interpolation
+        float const intraFiberCrossTerms = 2*profileSize;
+
+        // And there's the diagonal
+        float const diagonal = profileSize;
+
+        // Add a fiddle factor for buffering
+        float const fiddle = 4;
+
+        return fiddle*(interFiberCrossTerms + intraFiberCrossTerms + diagonal)/profileSize;
+    }
+
   private:
     // Indices:
     // profile[fiberIndex=0, position=0]
@@ -522,7 +562,8 @@ fitSwathProfiles(
     int oversample,
     int radius,
     int rejIter,
-    float rejThresh
+    float rejThresh,
+    float matrixTol
 ) {
     std::size_t const num = images.size();
     if (num == 0) {
@@ -563,18 +604,23 @@ fitSwathProfiles(
         }
     }
 
-    SwathProfileBuilder builder{fiberIds.size(), oversample, radius, images.size()*(yMax - yMin)};
+    LOGL_DEBUG(_log, "Guestimating %f non-zero matrix elements per column", SwathProfileBuilder::calculateNonZeroPerCol(fiberIds.size(), radius, oversample, width));
+
+    SwathProfileBuilder builder{fiberIds.size(), oversample, radius, width};
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
         builder.reset();
+        LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: iteration %d", yMin, yMax, iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
+            LOGL_DEBUG(_log, "    Accumulating image %d", ii);
             builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax,
                                     rejected[ii]);
         }
-        auto const solution = builder.solve();
+        auto const solution = builder.solve(matrixTol);
 
         // Reject bad pixels
+        LOGL_DEBUG(_log, "Rejecting pixels for rows %d-%d: iteration %d", yMin, yMax, iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             builder.reject(solution, images[ii], centers[ii], spectra[ii], yMin, yMax,
                            rejected[ii], rejThresh);
@@ -582,10 +628,12 @@ fitSwathProfiles(
     }
     // Final solution after iteration
     builder.reset();
+    LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: final iteration", yMin, yMax);
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
+        LOGL_DEBUG(_log, "    Accumulating image %d", ii);
         builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
     }
-    auto const solution = builder.solve();
+    auto const solution = builder.solve(matrixTol);
 
     return builder.repackageSolution(solution);
 }
