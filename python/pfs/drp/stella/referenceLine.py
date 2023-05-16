@@ -30,6 +30,7 @@ class ReferenceLineStatus(Bitmask):
     PROTECTED = 0x400, "Line is protected from discard by exclusion zone"
     LAM_FOCUS = 0x800, "Line is used by LAM for detector focus purposes"
     LAM_IMAGEQUALITY = 0x1000, "Line is used by LAM for image quality measurement"
+    DUPLICATE = 0x2000, "Line is a duplicate (e.g. an unmerged component of a merged line)"
     BAD = 0x01F, "Line is bad for any reason"
 
     @classmethod
@@ -149,6 +150,10 @@ class ReferenceLineSet(Table):
                 except Exception as ex:
                     raise RuntimeError(f"Unable to parse line {ii} of {filename}: {ex}")
 
+                status = ReferenceLineStatus(int(status, 0))
+                if status & ReferenceLineStatus.DUPLICATE:
+                    continue
+
                 try:
                     intensity = float(intensity)
                 except ValueError:
@@ -159,7 +164,7 @@ class ReferenceLineSet(Table):
                         description=description,
                         wavelength=float(wavelength),
                         intensity=intensity,
-                        status=ReferenceLineStatus(int(status)),
+                        status=status,
                         transition=transition,
                         source=source,
                     )
