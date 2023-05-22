@@ -8,6 +8,7 @@ from lsst.pex.config import Field, ConfigurableField
 from pfs.datamodel import CalibIdentity
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
+from .traces import medianFilterColumns
 
 __all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
 
@@ -22,6 +23,11 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
     )
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
     ditherRounding = Field(dtype=int, default=4, doc="Number of decimals for rounding the dither value")
+    smoothWidth = Field(
+        dtype=int,
+        default=400,
+        doc="Half-width (pixels) of median filter for smoothing spectra",
+    )
 
     def setDefaults(self):
         self.combination.stats.maxVisitsToCalcErrorFromInputVariance = 5
@@ -118,7 +124,14 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             spectra = traces.extractSpectra(image, maskVal)
             self.log.info("Extracted %d for dither %s", len(spectra), dd)
 
+            # We need to smooth the extracted spectra so the flat samples any deviations
+            mask = (spectra.getAllMasks() & mask.getPlaneBitMask(["BAD", "SAT", "CR"])) != 0
+            smoothWidth = self.config.smoothWidth
+            flux = medianFilterColumns(spectra.getAllFluxes().T.copy(), mask.T.copy(), smoothWidth).T
+            for ss, ff in zip(spectra, flux):
+                ss.flux[:] = ff
             expect = spectra.makeImage(image.getBBox(), traces)
+
             # Occasionally NaNs are present in these images,
             # despite the original coadded image containing zero NaNs
             self.interpolateNans(expect)
