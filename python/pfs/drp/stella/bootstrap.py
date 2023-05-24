@@ -10,7 +10,7 @@ from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.obs.pfs.isrTask import PfsIsrTask
 
-from pfs.datamodel import FiberStatus
+from pfs.datamodel import FiberStatus, CalibIdentity
 from pfs.datamodel.pfsConfig import TargetType
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .buildFiberProfiles import BuildFiberProfilesTask
@@ -176,7 +176,8 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(flatRef).exposure
         detMap = flatRef.get("detectorMap")
-        result = self.profiles.run(exposure, detectorMap=detMap, pfsConfig=pfsConfig)
+        identity = CalibIdentity.fromDict(flatRef.dataId)
+        result = self.profiles.run(exposure, identity, detectorMap=detMap, pfsConfig=pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
         traces.sortTracesByXCenter()  # Organised left to right
         self.log.info("Found %d fibers on flat", len(traces))
