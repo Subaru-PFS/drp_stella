@@ -97,7 +97,7 @@ class ReduceExposureConfig(Config):
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
-    doBackground = Field(dtype=bool, default=True, doc="Subtract background?")
+    doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
     background = ConfigurableField(target=DichroicBackgroundTask, doc="Background subtraction")
 
     def validate(self):
