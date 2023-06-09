@@ -2,6 +2,7 @@ import lsst.utils
 
 from .fluxModelSet import FluxModelSet
 
+from deprecated import deprecated
 import numpy as np
 from scipy.interpolate import RBFInterpolator
 
@@ -12,6 +13,11 @@ import pickle
 import textwrap
 
 
+@deprecated(
+    reason="It is not necessary to run makeFluxModelInterpolator"
+    " with fluxmodeldata >= ambre-20230608."
+    " See PIPE2D-1231."
+)
 def makeFluxModelInterpolator(fluxmodeldataPath):
     """Generate an RBF interpolation model from input model spectra.
 
@@ -22,6 +28,10 @@ def makeFluxModelInterpolator(fluxmodeldataPath):
     nProcs : `int`
         Number of processes.
     """
+    if os.path.exists(os.path.join(fluxmodeldataPath, "pca.fits")):
+        print("This program no longer needs running. See PIPE2D-1231.")
+        return
+
     modelSet = FluxModelSet(fluxmodeldataPath)
 
     if "isinterpolated" in modelSet.parameters.dtype.names:
@@ -78,27 +88,33 @@ def makeFluxModelInterpolator(fluxmodeldataPath):
     # Pickle the model
     output = os.path.join(fluxmodeldataPath, "interpolator.pickle")
     with open(output, "wb") as f:
-        pickle.dump({
-            "wcs": wcs.tostring(),
-            "interpolator": interpolator,
-            "kernel": kernel,
-            "teffScale": teffScale,
-            "loggScale": loggScale,
-            "mScale": mScale,
-            "alphaScale": alphaScale,
-            "epsilon": epsilon,
-            "fluxScale": fluxScale,
-            "lenWavelength": fluxList.shape[-1]
-        }, f, protocol=4)
+        pickle.dump(
+            {
+                "wcs": wcs.tostring(),
+                "interpolator": interpolator,
+                "kernel": kernel,
+                "teffScale": teffScale,
+                "loggScale": loggScale,
+                "mScale": mScale,
+                "alphaScale": alphaScale,
+                "epsilon": epsilon,
+                "fluxScale": fluxScale,
+                "lenWavelength": fluxList.shape[-1],
+            },
+            f,
+            protocol=4,
+        )
 
 
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=textwrap.dedent("""
+        description=textwrap.dedent(
+            """
             Make `interpolator.pickle` in `fluxmodeldata` package.
             This pickle file is required by `fitPfsFluxReference.py`.
-        """)
+        """
+        ),
     )
     parser.add_argument("fluxmodeldata", nargs="?", help="Path to fluxmodeldata package")
     args = parser.parse_args()
