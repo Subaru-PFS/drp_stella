@@ -324,7 +324,7 @@ class FindLinesTask(Task):
         if lsstDebug.Info(__name__).plotCentroidLines:
             def fit(xx):
                 """Calculate the fit values as a function of pixel index"""
-                gaussian = result.amplitude*np.exp(-0.5*((xx - result.center)/result.width)**2)
+                gaussian = result.amplitude*np.exp(-0.5*((xx - result.center)/result.rmsSize)**2)
                 background = result.bg0 + result.bg1*(xx - result.center)
                 return gaussian + background
 
