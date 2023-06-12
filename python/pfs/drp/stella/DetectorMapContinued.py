@@ -246,7 +246,7 @@ class DisplayDetectorMapTask(CmdLineTask):
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = InputOnlyArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", datasetType="calexp",
+        parser.add_id_argument("--id", datasetType="postISRCCD",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         return parser
 
@@ -258,7 +258,7 @@ class DisplayDetectorMapTask(CmdLineTask):
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Butler data reference.
         """
-        exposure = dataRef.get("calexp")
+        exposure = dataRef.get("postISRCCD")
         detectorMap = dataRef.get("detectorMap")
         pfsConfig = dataRef.get("pfsConfig")
         self.log.info("Displaying %s", dataRef.dataId)
