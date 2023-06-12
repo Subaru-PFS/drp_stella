@@ -293,6 +293,7 @@ class DisplayDetectorMapTask(CmdLineTask):
                                   (pfs.datamodel.TargetType.ENGINEERING, "CYAN"),
                                   (pfs.datamodel.TargetType.SUNSS_DIFFUSE, "BLUE"),
                                   (pfs.datamodel.TargetType.SUNSS_IMAGING, "GREEN"),
+                                  (pfs.datamodel.TargetType.DCB, "GREEN"),
                                   ):
             indices = pfsConfig.selectByTargetType(targetType, goodFibers)
             if indices.size == 0:
