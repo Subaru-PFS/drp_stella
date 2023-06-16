@@ -243,7 +243,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
     def _makeArgumentParser(cls) -> ArgumentParser:
         """Make ArgumentParser"""
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged", help="data IDs, e.g. --id exp=12345")
+        parser.add_id_argument(
+            name="--id", datasetType="pfsMerged", level="Visit", help="data IDs, e.g. --id exp=12345"
+        )
         return parser
 
     def _getMetadataName(self) -> None:
