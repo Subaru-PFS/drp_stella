@@ -47,7 +47,7 @@ import math
 
 from typing import Literal, overload
 from typing import Dict, List, Union
-from typing import Generator, Sequence
+from typing import Generator, Mapping, Sequence
 
 try:
     from numpy.typing import NDArray
@@ -442,10 +442,10 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             if fitFlag.get(fiberId, 0) == 0:
                 index = fiberIdToIndex[fiberId]
                 flux[index, :] = bestModel.spectrum.flux
-                fitParams["teff"][index] = bestModel.param[0]
-                fitParams["logg"][index] = bestModel.param[1]
-                fitParams["m"][index] = bestModel.param[2]
-                fitParams["alpha"][index] = bestModel.param[3]
+                fitParams["teff"][index] = bestModel.param.teff
+                fitParams["logg"][index] = bestModel.param.logg
+                fitParams["m"][index] = bestModel.param.m
+                fitParams["alpha"][index] = bestModel.param.alpha
                 fitParams["radial_velocity"][index] = velocity.velocity
                 fitParams["radial_velocity_err"][index] = velocity.error
                 fitParams["flux_scaling_chi2"][index] = bestModel.fluxScalingChi2
@@ -744,8 +744,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+            param : `ModelParam`
+                Parameter of ``spectrum``.
         """
         onePlusEpsilon = float(np.nextafter(np.float32(1), np.float32(2)))
         models: List[Union[Struct, None]] = []
@@ -758,16 +758,12 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 # because this one is better than
                 #     `self.fluxModelSet.parameters[np.argmax(pdf)]`
                 # which is always `self.fluxModelSet.parameters[0]`.
-                param = {"teff": 7500, "logg": 4.5, "m": 0.0, "alpha": 0.0}
+                param = ModelParam(teff=7500, logg=4.5, m=0.0, alpha=0.0)
                 self.log.warn("findRoughlyBestModel: Probability distribution is uniform.")
             else:
-                param = self.fluxModelSet.parameters[np.argmax(pdf)]
-            model = self.fluxModelSet.getSpectrum(
-                teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
-            )
-            models.append(
-                Struct(spectrum=model, param=(param["teff"], param["logg"], param["m"], param["alpha"]))
-            )
+                param = ModelParam.fromDict(self.fluxModelSet.parameters[np.argmax(pdf)])
+            model = self.fluxModelSet.getSpectrum(**param.toDict())
+            models.append(Struct(spectrum=model, param=param))
 
         return models
 
@@ -791,8 +787,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+            param : `ModelParam`
+                Parameter of ``spectrum``.
         """
         paramNames = ["teff", "logg", "m"]
         fixedParamNames = ["alpha"]
@@ -910,7 +906,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 bestParam = tuple(peakParam[name] for name in paramNames + fixedParamNames)
 
             spectrum = self.modelInterpolator.interpolate(*bestParam)
-            models.append(Struct(spectrum=spectrum, param=bestParam))
+            models.append(Struct(spectrum=spectrum, param=ModelParam(*bestParam)))
 
         return models
 
@@ -973,8 +969,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+            param : `ModelParam`
+                Parameter of ``spectrum``.
             fluxScalingChi2 : `float`
                 chi^2 of flux scaling problem.
             fluxScalingDof  : `int`
@@ -1093,6 +1089,60 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         wavelengthNew = np.linspace(minWavelength, maxWavelength, num=lenNew, endpoint=True)
         return model.resample(wavelengthNew, jacobian=False)
+
+
+@dataclasses.dataclass
+class ModelParam:
+    """Parameter set of a model spectra.
+
+    Parameters
+    ----------
+    teff : `float`
+        Effective temperature in K.
+    logg : `float`
+        Surface gravity in Log(g/cm/s^2).
+    m : `float`
+        Metalicity in M/H.
+    alpha : `float`
+        Alpha-elements abundance in alpha/Fe.
+    """
+
+    teff: float
+    logg: float
+    m: float
+    alpha: float
+
+    @classmethod
+    def fromDict(cls, mapping: Mapping[str, float]) -> "ModelParam":
+        """Construct an instance from a dict-like object.
+
+        Parameters
+        ----------
+        mapping : `Mapping[str, float]`
+            A dict-like object that contains "teff", "logg", "m", and "alpha".
+            There may be other keys, which are ignored by this method.
+
+        Returns
+        -------
+        instance : `ModelParam`
+            Constructed instance.
+        """
+        return cls(
+            teff=float(mapping["teff"]),
+            logg=float(mapping["logg"]),
+            m=float(mapping["m"]),
+            alpha=float(mapping["alpha"]),
+        )
+
+    def toDict(self) -> Dict[str, float]:
+        """Convert ``self`` to a dictionary.
+
+        Returns
+        -------
+        dic : `Dict[str, float]`
+            A dictionary that contains "teff", "logg", "m", and "alpha".
+        """
+        return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
