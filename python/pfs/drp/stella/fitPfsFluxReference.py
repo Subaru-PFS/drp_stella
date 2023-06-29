@@ -40,6 +40,9 @@ from pfs.drp.stella.utils import debugging
 
 from astropy import constants as const
 import numpy as np
+import scipy.interpolate
+import scipy.optimize
+import scipy.spatial
 
 import copy
 import dataclasses
@@ -47,7 +50,7 @@ import math
 
 from typing import Literal, overload
 from typing import Dict, List, Union
-from typing import Generator, Sequence
+from typing import Generator, Mapping, Sequence
 
 try:
     from numpy.typing import NDArray
@@ -154,13 +157,32 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         default="psf",
         optional=False,
     )
+    minimizationMethod = Field(
+        dtype=str,
+        default="Powell",
+        doc="Method with which to find the minimum of the objective function of spectrum fitting."
+        " Valid values are 'brute-force' or any valid arguments for `scipy.optimize.minimize()`",
+    )
     priorCutoff = Field(
         dtype=float,
         default=0.01,
-        doc="Cut-off prior probability relative to max(prior)."
+        doc="(Valid if minimizationMethod='brute-force') Cut-off prior probability relative to max(prior)."
         " In comparing a flux model to an observed flux,"
         " the model is immediately rejected if its prior probability"
         " is less than `priorCutoff*max(prior)`.",
+    )
+    paramScale = ListField(
+        dtype=float,
+        default=[1e-3, 1, 1, 1],
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Values by which to multiply (teff, logg, m, alpha)"
+        " to adjust them to be as large as each other.",
+    )
+    paramOrder = ListField(
+        dtype=int,
+        default=[2, 3, 0, 1],
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Order of (teff (0), logg (1), m (2), alpha (3)) in the parameter list of the objective function.",
     )
     modelOversamplingFactor = Field(
         dtype=float,
@@ -381,37 +403,18 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         # Likelihoods from spectral fitting, where line spectra matter.
         self.log.info("Fitting models to spectra (takes some time)...")
-        chisqs = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
-        if self.debugInfo.doWriteChisq:
-            debugging.writeExtraData(
-                f"fitPfsFluxReference-output/chisq-{pfsMerged.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
-                chisq=chisqs,
-            )
+        bestParams = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
-        for fiberId, chisq in zip(pfsConfig.fiberId, chisqs):
-            if chisq is None or not np.all(chisq.chisq >= 0):
+        for fiberId, param in zip(pfsConfig.fiberId, bestParams):
+            if param is None or not param.success:
                 if fitFlag.get(fiberId, 0) == 0:
                     fitFlag[fiberId] = flag
 
-        # Posterior PDF
-        pdfs: List[Union[NDArray[np.float64], None]] = []
-        for bbPdf, chisq in zip(bbPdfs, chisqs):
-            if (bbPdf is None) or (chisq is None):
-                pdfs.append(None)
-            else:
-                pdfs.append(chisq.toProbability(prior=bbPdf))
-
-        if self.debugInfo.doWritePosterior:
-            debugging.writeExtraData(
-                f"fitPfsFluxReference-output/posterior-{pfsMerged.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
-                posterior=pdfs,
-            )
-
         self.log.info("Making reference spectra by interpolation")
-        bestModels = self.makeReferenceSpectra(pfsConfig, pdfs)
+        bestModels = self.makeReferenceSpectra(
+            pfsConfig, [(p.param if p is not None else None) for p in bestParams]
+        )
 
         flag = self.fitFlagNames.add("MAKEREFERENCESPECTRA_FAILED")
         for fiberId, bestModel in zip(pfsConfig.fiberId, bestModels):
@@ -442,10 +445,10 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             if fitFlag.get(fiberId, 0) == 0:
                 index = fiberIdToIndex[fiberId]
                 flux[index, :] = bestModel.spectrum.flux
-                fitParams["teff"][index] = bestModel.param[0]
-                fitParams["logg"][index] = bestModel.param[1]
-                fitParams["m"][index] = bestModel.param[2]
-                fitParams["alpha"][index] = bestModel.param[3]
+                fitParams["teff"][index] = bestModel.param.teff
+                fitParams["logg"][index] = bestModel.param.logg
+                fitParams["m"][index] = bestModel.param.m
+                fitParams["alpha"][index] = bestModel.param.alpha
                 fitParams["radial_velocity"][index] = velocity.velocity
                 fitParams["radial_velocity_err"][index] = velocity.error
                 fitParams["flux_scaling_chi2"][index] = bestModel.fluxScalingChi2
@@ -591,7 +594,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         pfsMergedLsf: LsfDict,
         radialVelocities: Sequence[Union[Struct, None]],
         priorPdfs: Sequence[Union[NDArray[np.float64], None]],
-    ) -> List[Union[ChisqList, None]]:
+    ) -> List[Union[Struct, None]]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -616,11 +619,188 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        chisqLists : `list` of `ChisqList`
-            For each ``chisqLists[iSpectrum]`` in ``chisqLists``,
-            ``chisqLists[iSpectrum].chisq[iSED]`` is the chi^2 for the SED ``iSED``
-            compared to the spectrum ``pfsConfig.fiberId[iSpectrum]``.
-            ``chisqLists[iSpectrum]`` may be ``None``.
+        bestParams : `list` of `Struct|None`
+            ``bestParams[iSpectrum]`` is the best-fit parameters for
+            ``pfsConfig.fiberId[iSpectrum]``. Each element ``bestParams[iSpectrum]``,
+            if not None, consists of the following members:
+
+              - param : `ModelParam`
+                Best-fit parameter.
+              - success : `bool`
+                True if optimization has succeeded.
+
+            The following members exist if self.config.minimizationMethod != 'brute-force'
+
+              - chi2 : `float`
+                chi square.
+              - dof : `int`
+                degree of freedom of the chi square.
+        """
+        if self.config.minimizationMethod.lower() == "brute-force":
+            return self.fitModelsToSpectraBruteForce(
+                pfsConfig, obsSpectra, pfsMergedLsf, radialVelocities, priorPdfs
+            )
+
+        paramScale = np.array(self.config.paramScale, dtype=float)
+        paramOrder = np.array(self.config.paramOrder, dtype=int)
+        # Inverse of `paramOrder`.
+        paramOrderInv = np.array([i for j, i in sorted((j, i) for i, j in enumerate(paramOrder))], dtype=int)
+
+        def paramToX(param: Sequence) -> NDArray:
+            """Convert (teff, logg, m, alpha) to arguments of the objective.
+
+            Parameters
+            ----------
+            param : `numpy.ndarray`, shape(4,)
+                [teff, logg, m, alpha].
+
+            Returns
+            -------
+            x : `numpy.ndarray`, shape(4,)
+                An array that can be input to the objective function.
+            """
+            x = np.array(param, dtype=float)
+            x *= paramScale
+            return x[paramOrder]
+
+        def xToParam(x: NDArray) -> NDArray:
+            """Convert arguments of the objective to (teff, logg, m, alpha).
+
+            Parameters
+            ----------
+            x : `numpy.ndarray`, shape(4,)
+                An array that can be input to the objective function.
+
+            Returns
+            -------
+            param : `numpy.ndarray`, shape(4,)
+                [teff, logg, m, alpha].
+            """
+            param = np.copy(x[paramOrderInv])
+            param /= paramScale
+            return param
+
+        param4d = np.lib.recfunctions.structured_to_unstructured(
+            self.fluxModelSet.parameters[["teff", "logg", "m", "alpha"]]
+        ).astype(float)
+        triangulation = scipy.spatial.Delaunay(param4d)
+
+        bestParams = [None] * len(priorPdfs)
+
+        for iFiber, (obsSpectrum, velocity, priorPdf) in enumerate(
+            zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdfs)
+        ):
+            if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
+                continue
+
+            priorPdfInterp = scipy.interpolate.LinearNDInterpolator(triangulation, priorPdf, fill_value=0.0)
+
+            def objective(x: NDArray, returnChisq=False) -> Union[float, Struct]:
+                """Objective function to minimize.
+
+                Parameters
+                ----------
+                x : `numpy.ndarray`, shape (4,)
+                    Array returned by ``paramToX([teff, logg, m, alpha])``
+                returnChisq : `bool`
+                    If true, this function returns (chi2, dof).
+                    If false (default), this function returns an objective
+                    taking both chi2 and prior into account.
+
+                Returns
+                -------
+                objective : float
+                    Badness of ``x``. (returned only if ``returnChisq=False``)
+                chi2 : `float`
+                    chi square. (returned only if ``returnChisq=True``)
+                dof : `int`
+                    degree of freedom. (returned only if ``returnChisq=True``)
+                """
+                param = xToParam(x)
+                prior = float(priorPdfInterp(param))  # array of length 1 => scalar
+                if prior <= 0:
+                    if returnChisq:
+                        return Struct(chi2=np.inf, dof=0)
+                    else:
+                        return np.inf
+
+                model = self.modelInterpolator.interpolate(*param)
+                convolvedModel = self.downsampleModel(
+                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
+                    obsSpectrum,
+                )
+                modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
+                convolvedModel = modelContinuum.whiten(convolvedModel)
+                chisq = calculateSpecChiSquare(
+                    obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
+                )
+                if returnChisq:
+                    return chisq
+                else:
+                    return chisq.chi2 - 2 * math.log(prior)
+
+            x0 = paramToX(param4d[np.argmax(priorPdf)])
+
+            result = scipy.optimize.minimize(objective, x0, method=self.config.minimizationMethod)
+            param = xToParam(result.x)
+            chisq = objective(result.x, returnChisq=True)
+
+            bestParams[iFiber] = Struct(
+                param=ModelParam(*param),
+                chi2=chisq.chi2,
+                dof=chisq.dof,
+                success=result.success and math.isfinite(chisq.chi2),
+            )
+
+        return bestParams
+
+    def fitModelsToSpectraBruteForce(
+        self,
+        pfsConfig: PfsConfig,
+        obsSpectra: PfsFiberArraySet,
+        pfsMergedLsf: LsfDict,
+        radialVelocities: Sequence[Union[Struct, None]],
+        priorPdfs: Sequence[Union[NDArray[np.float64], None]],
+    ) -> List[Union[Struct, None]]:
+        """For each observed spectrum,
+        get probability of each model fitting to the spectrum.
+
+        This method does not use a wise optimizer but evaluates chi^2 for every
+        pre-computed model template in ``FluxModelSet`` to return the global
+        minimum. Note that this method, for speed, adopts some approximations
+        that ``fitModelsToSpectra`` does not use.
+        For example, this method assumes all fibers have the same average LSF.
+
+        Parameters
+        ----------
+        pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
+            Configuration of the PFS top-end.
+        obsSpectra : `PfsFiberArraySet`
+            Continuum-subtracted observed spectra
+        pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
+        radialVelocities : `list` of `Optional[lsst.pipe.base.Struct]`
+            Radial velocity for each fiber.
+            Each element, if not None, has ``velocity``, ``error``, and ``fail``
+            as its member. See ``EstimateRadialVelocityTask``.
+        priorPdfs : `list` of `numpy.array` of `float`
+            For each ``priorPdfs[iSpectrum]`` in ``priorPdfs``,
+            ``priorPdfs[iSpectrum][iSED]`` is the prior probability of the SED ``iSED``
+            matching the spectrum ``pfsConfig.fiberId[iSpectrum]``.
+            ``priorPdfs[iSpectrum]`` can be ``None``,
+            in which case the corresponding return value will be ``None``.
+
+        Returns
+        -------
+        bestParams : `list` of `Struct|None`
+            ``bestParams[iSpectrum]`` is the best-fit parameters for
+            ``pfsConfig.fiberId[iSpectrum]``. Each element ``bestParams[iSpectrum]``,
+            if not None, consists of the following members:
+
+              - param : `ModelParam`
+                Best-fit parameter.
+              - success : `bool`
+                True if optimization has succeeded.
         """
         nFibers = len(priorPdfs)
         nModels = len(self.fluxModelSet.parameters)
@@ -721,7 +901,30 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 whitenedModel=whitenedModels,
             )
 
-        return chisqLists
+        if self.debugInfo.doWriteChisq:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/chisq-{obsSpectra.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                chisq=chisqLists,
+            )
+
+        # Posterior PDF
+        pdfs: List[Union[NDArray[np.float64], None]] = []
+        for prior, chisq in zip(priorPdfs, chisqLists):
+            if (prior is None) or (chisq is None):
+                pdfs.append(None)
+            else:
+                pdfs.append(chisq.toProbability(prior=prior))
+
+        if self.debugInfo.doWritePosterior:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/posterior-{obsSpectra.filename}.pickle",
+                fiberId=pfsConfig.fiberId,
+                posterior=pdfs,
+            )
+
+        bestParams = self.findSubgridPeak(pdfs)
+        return [(Struct(param=param, success=True) if param is not None else None) for param in bestParams]
 
     def findRoughlyBestModel(
         self, pdfs: Sequence[Union[NDArray[np.float64], None]]
@@ -744,8 +947,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+            param : `ModelParam`
+                Parameter of ``spectrum``.
         """
         onePlusEpsilon = float(np.nextafter(np.float32(1), np.float32(2)))
         models: List[Union[Struct, None]] = []
@@ -758,22 +961,21 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 # because this one is better than
                 #     `self.fluxModelSet.parameters[np.argmax(pdf)]`
                 # which is always `self.fluxModelSet.parameters[0]`.
-                param = {"teff": 7500, "logg": 4.5, "m": 0.0, "alpha": 0.0}
+                param = ModelParam(teff=7500, logg=4.5, m=0.0, alpha=0.0)
                 self.log.warn("findRoughlyBestModel: Probability distribution is uniform.")
             else:
-                param = self.fluxModelSet.parameters[np.argmax(pdf)]
-            model = self.fluxModelSet.getSpectrum(
-                teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
-            )
-            models.append(
-                Struct(spectrum=model, param=(param["teff"], param["logg"], param["m"], param["alpha"]))
-            )
+                param = ModelParam.fromDict(self.fluxModelSet.parameters[np.argmax(pdf)])
+            model = self.fluxModelSet.getSpectrum(**param.toDict())
+            models.append(Struct(spectrum=model, param=param))
 
         return models
 
-    def findBestModel(self, pdfs: Sequence[Union[NDArray[np.float64], None]]) -> List[Union[Struct, None]]:
-        """Get the model spectrum corresponding to ``argmax(pdf)``
-        for ``pdf`` in ``pdfs``. A smooth surface is fit to the ``pdf``,
+    def findSubgridPeak(
+        self, pdfs: Sequence[Union[NDArray[np.float64], None]]
+    ) -> List[Union["ModelParam", None]]:
+        """Get ``argmax(pdf)`` for ``pdf`` in ``pdfs`` to subgrid precision.
+
+        A smooth surface is fit to the ``pdf``,
         and the ``argmax`` here actually means the top of the surface.
 
         Parameters
@@ -786,13 +988,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        models : `list` of `Optional[lsst.pipe.base.Struct]`
-            The members of each element are:
-
-            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
-                Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+        params : `list` of `Optional[ModelParam]`
+            Each element, if not None, is the best-fit parameter
+            for the corresponding spectrum.
         """
         paramNames = ["teff", "logg", "m"]
         fixedParamNames = ["alpha"]
@@ -812,10 +1010,10 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         paramCatalog = self.fluxModelSet.parameters
 
-        models: List[Union[Struct, None]] = []
+        outputParams: List[Union[Struct, None]] = []
         for pdf in pdfs:
             if pdf is None:
-                models.append(Struct(spectrum=None, param=None))
+                outputParams.append(None)
                 continue
 
             # Rough peak
@@ -909,10 +1107,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             if bestParam is None:
                 bestParam = tuple(peakParam[name] for name in paramNames + fixedParamNames)
 
-            spectrum = self.modelInterpolator.interpolate(*bestParam)
-            models.append(Struct(spectrum=spectrum, param=bestParam))
+            outputParams.append(ModelParam(*bestParam))
 
-        return models
+        return outputParams
 
     def maskUninterestingRegions(self, spectra: PfsFiberArraySet) -> PfsFiberArraySet:
         """Mask regions to be ignored.
@@ -947,24 +1144,20 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         return spectra
 
     def makeReferenceSpectra(
-        self, pfsConfig: PfsConfig, pdfs: Sequence[Union[NDArray[np.float64], None]]
+        self, pfsConfig: PfsConfig, params: Sequence[Union["ModelParam", None]]
     ) -> List[Union[Struct, None]]:
-        """Get the model spectrum corresponding to ``argmax(pdf)``
-        for ``pdf`` in ``pdfs``. (See ``self.findBestModel()``)
+        """Get the model spectrum corresponding to each ``param`` in ``params``.
 
-        This method is different from ``self.findBestModel()``
-        in that the returned spectra are affected by galactic extinction
+        The returned spectra are affected by galactic extinction
         and their flux values agree with ``pfsConfig.psfFlux``.
 
         Parameters
         ----------
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end.
-        pdfs : `list` of `numpy.array` of `float`
-            For each ``pdfs[iSpectrum]`` in ``pdfs``,
-            ``pdfs[iSpectrum][iSED]`` is the probability of the SED ``iSED``
-            matching the spectrum ``iSpectrum``.
-            ``pdfs[iSpectrum]`` can be ``None``.
+        params : `list` of `Union[ModelParam, None]` of `float`
+            Each ``params[iSpectrum]`` in ``params``, if not None,
+            is the parameter for ``pfsConfig.fiberId[iSpectrum]``.
 
         Returns
         -------
@@ -973,18 +1166,23 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                 Spectrum.
-            param : `tuple`
-                Parameter (Teff, logg, M, alpha).
+            param : `ModelParam`
+                Parameter of ``spectrum``.
             fluxScalingChi2 : `float`
                 chi^2 of flux scaling problem.
             fluxScalingDof  : `int`
                 Degree of freedom of flux scaling problem.
         """
-        bestModels = self.findBestModel(pdfs)
+        bestModels = []
 
-        for model, fiberConfig in zip(bestModels, fiberConfigs(pfsConfig)):
-            if model.spectrum is None:
+        for param, fiberConfig in zip(params, fiberConfigs(pfsConfig)):
+            if param is None:
+                bestModels.append(None)
                 continue
+
+            model = Struct()
+            model.param = param
+            model.spectrum = self.modelInterpolator.interpolate(**model.param.toDict())
 
             ebv = self.extinctionMap(fiberConfig.ra[0], fiberConfig.dec[0])
             extinction = F99ExtinctionCurve(self.config.Rv)
@@ -994,6 +1192,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             model.spectrum = scaled.spectrum
             model.fluxScalingChi2 = scaled.chi2
             model.fluxScalingDof = scaled.dof
+            bestModels.append(model)
 
         return bestModels
 
@@ -1093,6 +1292,60 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         wavelengthNew = np.linspace(minWavelength, maxWavelength, num=lenNew, endpoint=True)
         return model.resample(wavelengthNew, jacobian=False)
+
+
+@dataclasses.dataclass
+class ModelParam:
+    """Parameter set of a model spectra.
+
+    Parameters
+    ----------
+    teff : `float`
+        Effective temperature in K.
+    logg : `float`
+        Surface gravity in Log(g/cm/s^2).
+    m : `float`
+        Metalicity in M/H.
+    alpha : `float`
+        Alpha-elements abundance in alpha/Fe.
+    """
+
+    teff: float
+    logg: float
+    m: float
+    alpha: float
+
+    @classmethod
+    def fromDict(cls, mapping: Mapping[str, float]) -> "ModelParam":
+        """Construct an instance from a dict-like object.
+
+        Parameters
+        ----------
+        mapping : `Mapping[str, float]`
+            A dict-like object that contains "teff", "logg", "m", and "alpha".
+            There may be other keys, which are ignored by this method.
+
+        Returns
+        -------
+        instance : `ModelParam`
+            Constructed instance.
+        """
+        return cls(
+            teff=float(mapping["teff"]),
+            logg=float(mapping["logg"]),
+            m=float(mapping["m"]),
+            alpha=float(mapping["alpha"]),
+        )
+
+    def toDict(self) -> Dict[str, float]:
+        """Convert ``self`` to a dictionary.
+
+        Returns
+        -------
+        dic : `Dict[str, float]`
+            A dictionary that contains "teff", "logg", "m", and "alpha".
+        """
+        return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
