@@ -420,7 +420,7 @@ class FiberProfileSet:
 
         fiberId = list(sorted(self.fiberProfiles.keys()))
         while fiberId:
-            fig, axes = plt.subplots(rows=rows, cols=cols, sharex=True, sharey=True, squeeze=False)
+            fig, axes = plt.subplots(nrows=rows, ncols=cols, sharex=True, sharey=True, squeeze=False)
             fig.subplots_adjust(hspace=0, wspace=0)
             for ff, ax in zip(fiberId, axes.flatten()):
                 self.fiberProfiles[ff].plotInAxes(ax)
