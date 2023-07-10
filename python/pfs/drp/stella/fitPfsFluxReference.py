@@ -1291,7 +1291,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             return model
 
         wavelengthNew = np.linspace(minWavelength, maxWavelength, num=lenNew, endpoint=True)
-        return model.resample(wavelengthNew, jacobian=False)
+        return model.resample(wavelengthNew)
 
 
 @dataclasses.dataclass
@@ -1587,7 +1587,7 @@ def dopplerShift(
     invDoppler = np.sqrt((1.0 - beta) / (1.0 + beta))
     shiftedWavelength = wavelength * invDoppler
 
-    flux = interpolateFlux(wavelength0, flux0, shiftedWavelength, jacobian=False)
+    flux = interpolateFlux(wavelength0, flux0, shiftedWavelength)
     mask = interpolateMask(wavelength0, mask0, shiftedWavelength)
 
     return Struct(flux=flux, mask=mask)

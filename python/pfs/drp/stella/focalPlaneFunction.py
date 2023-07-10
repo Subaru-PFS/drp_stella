@@ -393,7 +393,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         ]
 
         values = [
-            interpolateFlux(self.wavelength, self.value, wl, jacobian=False) if resamp else self.value
+            interpolateFlux(self.wavelength, self.value, wl) if resamp else self.value
             for wl, resamp in zip(wavelengths, doResample)
         ]
         masks = [
@@ -401,7 +401,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             for wl, resamp in zip(wavelengths, doResample)
         ]
         variances = [
-            interpolateVariance(self.wavelength, self.variance, wl, jacobian=False)
+            interpolateVariance(self.wavelength, self.variance, wl)
             if resamp
             else self.variance
             for wl, resamp in zip(wavelengths, doResample)

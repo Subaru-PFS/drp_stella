@@ -271,7 +271,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
             beta = pfsFluxReference.fitParams["radial_velocity"][i].astype(float) / c
             # `refSpec.wavelength[...]` is not mutable. We replace this member.
             refSpec.wavelength = refSpec.wavelength * np.sqrt((1.0 + beta) / (1.0 - beta))
-            refSpec = refSpec.resample(calibVectors.wavelength[i, :], jacobian=False)
+            refSpec = refSpec.resample(calibVectors.wavelength[i, :])
 
             ref[i, :] = refSpec.flux
 

@@ -27,7 +27,7 @@ def calculateDispersion(wavelength):
     return np.abs(dispersion)
 
 
-def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=True):
+def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
     """Interpolate a flux-like spectrum
 
     Basic linear interpolation, suitable for fluxes and flux-like (e.g., maybe
@@ -43,25 +43,19 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0, jacobian=T
         Target wavelength array.
     fill : `float`, optional
         Fill value.
-    jacobian : `bool`, optional
-        Correct for the Jacobian of the transformation?
 
     Returns
     -------
     toFlux : `numpy.ndarray` of `float`
         Target flux-(like) array.
     """
-    if jacobian:
-        fromFlux = fromFlux/calculateDispersion(fromWavelength)
     with np.errstate(invalid="ignore"):
         toFlux = interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
                           fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
-    if jacobian:
-        toFlux *= calculateDispersion(toWavelength)
     return toFlux
 
 
-def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0, jacobian=True):
+def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0):
     """Interpolate a variance-like spectrum
 
     Like ``interpolateFlux``, except we square all the coefficients that get
@@ -77,16 +71,12 @@ def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0, ja
         Target wavelength array.
     fill : `float`, optional
         Fill value.
-    jacobian : `bool`, optional
-        Correct for the Jacobian of the transformation?
 
     Returns
     -------
     toVariance : `numpy.ndarray` of `float`
         Target variance array.
     """
-    if jacobian:
-        fromVariance = fromVariance/calculateDispersion(fromWavelength)**2
     length = len(fromWavelength)
     indices = np.arange(length, dtype=int)
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -102,8 +92,6 @@ def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0, ja
         prevWeight = 1.0 - nextWeight
         toVariance = fromVariance[prevIndex]*prevWeight**2 + fromVariance[nextIndex]*nextWeight**2
         toVariance[extrapolate] = fill
-    if jacobian:
-        toVariance *= calculateDispersion(toWavelength)**2
     return toVariance
 
 

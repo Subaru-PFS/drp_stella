@@ -407,7 +407,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
         wavelength = self.config.wavelength.wavelength
-        resampled = [ss.resample(wavelength, jacobian=True) for ss in spectraList]
+        resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
 
