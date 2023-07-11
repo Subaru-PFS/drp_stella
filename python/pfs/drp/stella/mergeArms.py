@@ -2,7 +2,7 @@ from collections import defaultdict
 import numpy as np
 
 import lsstDebug
-from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
+from lsst.pex.config import Field, ConfigurableField, ListField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -13,7 +13,6 @@ from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel.masks import MaskHelper
-from pfs.datamodel.wavelengthArray import WavelengthArray
 from pfs.drp.stella.gen3 import DatasetRefList, zipDatasetRefs
 from pfs.drp.stella.selectFibers import SelectFibersTask
 from .datamodel import PfsConfig, PfsArm, PfsMerged
@@ -26,23 +25,7 @@ from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
 from .subtractSky1d import subtractSky1d
-
-
-class WavelengthSamplingConfig(Config):
-    """Configuration for wavelength sampling"""
-    minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
-    maxWavelength = Field(dtype=float, default=1270, doc="Maximum wavelength (nm)")
-    length = Field(dtype=int, default=11376, doc="Length of wavelength array (sets the resolution)")
-
-    @property
-    def dWavelength(self):
-        """Return the wavelength spacing (nm)"""
-        return (self.maxWavelength - self.minWavelength)/(self.length - 1)
-
-    @property
-    def wavelength(self):
-        """Return the appropriate wavelength vector"""
-        return WavelengthArray(self.minWavelength, self.maxWavelength, self.length)
+from .wavelength import WavelengthTask
 
 
 class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
@@ -91,7 +74,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
 
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
-    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
+    wavelength = ConfigurableField(target=WavelengthTask, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
@@ -155,6 +138,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("wavelength")
         self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
@@ -198,8 +182,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
+        wavelength = self.wavelength.run([ss.wavelength for ss in allSpectra])
+
         for spec in spectra:
-            self.normalizeSpectra(spec)
+            self.normalizeSpectra(spec, wavelength)
 
         sky1d = []
         if self.config.doSubtractSky1d:
@@ -207,10 +193,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             for ss in allSpectra:
                 sky1d.append(self.skySubtraction(ss, pfsConfig))
 
-        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss, wavelength) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
-        lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
+        lsfList = [self.mergeLsfs(ll, ss, wavelength) for ll, ss in zip(lsfList, spectra)]
         mergedLsf = self.combineLsfs(lsfList)
 
         return Struct(pfsMerged=merged, pfsMergedLsf=mergedLsf, sky1d=sky1d)
@@ -295,7 +281,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         results.pfsConfig = pfsConfig
         return results
 
-    def normalizeSpectra(self, spectra):
+    def normalizeSpectra(self, spectra, wavelength):
         """Calculate and apply a suitable target normalisation
 
         We want the merged spectra to have normalisations something close to
@@ -315,13 +301,14 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         spectra : iterable of `pfs.datamodel.PsfArm`
             Extracted spectra from the different arms, for a single
             spectrograph. The spectra will be modified in-place.
+        wavelength : `numpy.ndarray`
+            Wavelength array for the merged spectra.
 
         Returns
         -------
         norm : `numpy.ndarray` of `float`
             Adopted normalisation.
         """
-        wavelength = self.config.wavelength.wavelength
         fiberId = spectra[0].fiberId
         assert all(np.all(ss.fiberId == fiberId) for ss in spectra)  # Consistent fibers
 
@@ -385,7 +372,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
         return norm
 
-    def mergeSpectra(self, spectraList):
+    def mergeSpectra(self, spectraList, wavelength):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -395,6 +382,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
+        wavelength : `np.ndarray`
+            Wavelength array for the merged spectra.
 
         Returns
         -------
@@ -406,7 +395,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
-        wavelength = self.config.wavelength.wavelength
         resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
@@ -486,7 +474,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky*norm, norm=norm,
                           covar=covar*norm[:, np.newaxis, :]**2, mask=mask, covar2=covar2)
 
-    def mergeLsfs(self, lsfList, spectraList):
+    def mergeLsfs(self, lsfList, spectraList, wavelength):
         """Merge LSFs for different arms within a spectrograph
 
         Parameters
@@ -495,6 +483,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             Line-spread functions indexed by fiberId, for each arm.
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             Spectra for each arm.
+        wavelength : `numpy.ndarray`
+            Wavelength array for the merged spectra.
 
         Returns
         -------
@@ -504,7 +494,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         fiberId = set(lsfList[0].keys())
         for lsf in lsfList:
             assert set(lsf.keys()) == fiberId
-        wavelength = self.config.wavelength.wavelength
         warpedLsfList = []
         for lsf, spectra in zip(lsfList, spectraList):
             warpedLsf = {}

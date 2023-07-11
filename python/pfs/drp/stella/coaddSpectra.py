@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField, ConfigField
+from lsst.pex.config import ConfigurableField, ListField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -24,11 +24,11 @@ from pfs.drp.stella.datamodel.drp import PfsArm
 from .datamodel import PfsObject, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsObjectSpectra
 from .fluxCalibrate import calibratePfsArm
-from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, LsfDict, warpLsf, coaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
+from .wavelength import WavelengthTask
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -97,7 +97,7 @@ class CoaddSpectraConnections(
 
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
-    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
+    wavelength = ConfigurableField(target=WavelengthTask, doc="Wavelength configuration")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_SKY", "BAD_FLUXCAL", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
@@ -120,6 +120,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
     ConfigClass = CoaddSpectraConfig
     RunnerClass = CoaddSpectraRunner
 
+    wavelength: WavelengthTask
     fluxTable: FluxTableTask
 
     @classmethod
@@ -130,6 +131,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("wavelength")
         self.makeSubtask("fluxTable")
 
     def run(self, data: Mapping[Identity, Struct]) -> Struct:
@@ -406,7 +408,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             Mask for combined spectrum.
         """
         # First, resample to a common wavelength sampling
-        wavelength = self.config.wavelength.wavelength
+        wavelength = self.wavelength.run([ss.wavelength for ss in spectraList])
         resampled = []
         resampledLsf = []
         for spectrum, lsf in zip(spectraList, lsfList):

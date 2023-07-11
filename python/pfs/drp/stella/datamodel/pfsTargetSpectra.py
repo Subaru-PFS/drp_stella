@@ -240,7 +240,9 @@ class PfsTargetSpectra(Mapping):
             )
         )
 
-        fits.append(ImageHDU(data=[spectrum.wavelength for spectrum in self.values()], name="WAVELENGTH"))
+        # We don't support WavelengthArray (yet?), so force conversion to a vanilla ndarray
+        wavelength = [np.array(spectrum.wavelength) for spectrum in self.values()]
+        fits.append(ImageHDU(data=wavelength, name="WAVELENGTH"))
         fits.append(ImageHDU(data=[spectrum.flux for spectrum in self.values()], name="FLUX"))
         fits.append(ImageHDU(data=[spectrum.mask for spectrum in self.values()], name="MASK"))
         fits.append(ImageHDU(data=[spectrum.sky for spectrum in self.values()], name="SKY"))
