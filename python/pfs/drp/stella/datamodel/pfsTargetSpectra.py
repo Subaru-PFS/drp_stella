@@ -63,11 +63,13 @@ class PfsTargetSpectra(Mapping):
             targetHdu = fits["TARGET"].data
             targetFluxHdu = fits["TARGETFLUX"].data
             observationsHdu = fits["OBSERVATIONS"].data
-            wavelengthHdu = fits["WAVELENGTH"].data
-            fluxHdu = fits["FLUX"].data
-            maskHdu = fits["MASK"].data
-            skyHdu = fits["SKY"].data
-            covarHdu = fits["COVAR"].data
+
+            wavelength = fits["SPECTRA"].data["wavelength"]
+            flux = fits["SPECTRA"].data["flux"]
+            mask = fits["SPECTRA"].data["mask"]
+            sky = fits["SPECTRA"].data["sky"]
+            covar = [cv.reshape((3, len(wl))) for cv, wl in zip(fits["SPECTRA"].data["covar"], wavelength)]
+
             covar2Hdu = fits["COVAR2"].data if "COVAR2" in fits else None
             metadataHdu = fits["METADATA"].data
             fluxTableHdu = fits["FLUXTABLE"].data
@@ -131,11 +133,11 @@ class PfsTargetSpectra(Mapping):
                 spectrum = cls.PfsFiberArrayClass(
                     target,
                     observations,
-                    wavelengthHdu[ii],
-                    fluxHdu[ii],
-                    maskHdu[ii],
-                    skyHdu[ii],
-                    covarHdu[ii],
+                    wavelength[ii],
+                    flux[ii],
+                    mask[ii],
+                    sky[ii],
+                    covar[ii],
                     covar2Hdu[ii] if covar2Hdu is not None else [],
                     flags,
                     metadata,
@@ -240,13 +242,20 @@ class PfsTargetSpectra(Mapping):
             )
         )
 
-        # We don't support WavelengthArray (yet?), so force conversion to a vanilla ndarray
-        wavelength = [np.array(spectrum.wavelength) for spectrum in self.values()]
-        fits.append(ImageHDU(data=wavelength, name="WAVELENGTH"))
-        fits.append(ImageHDU(data=[spectrum.flux for spectrum in self.values()], name="FLUX"))
-        fits.append(ImageHDU(data=[spectrum.mask for spectrum in self.values()], name="MASK"))
-        fits.append(ImageHDU(data=[spectrum.sky for spectrum in self.values()], name="SKY"))
-        fits.append(ImageHDU(data=[spectrum.covar for spectrum in self.values()], name="COVAR"))
+        # Inputs may have different lengths, so we write everything as a giant table
+        fits.append(
+            BinTableHDU.from_columns(
+                [
+                    Column("wavelength", "PD()", array=[np.array(ss.wavelength) for ss in self.values()]),
+                    Column("flux", "PD()", array=[np.array(ss.flux) for ss in self.values()]),
+                    Column("mask", "PJ()", array=[np.array(ss.mask) for ss in self.values()]),
+                    Column("sky", "PD()", array=[np.array(ss.sky) for ss in self.values()]),
+                    Column("covar", "PD()", array=[np.array(ss.covar).flatten() for ss in self.values()]),
+                ],
+                name="SPECTRA",
+            )
+        )
+
         haveCovar2 = [spectrum.covar2 is not None for spectrum in self.values()]
         if len(set(haveCovar2)) == 2:
             raise RuntimeError("covar2 must be uniformly populated")
