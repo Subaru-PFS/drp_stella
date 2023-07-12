@@ -310,6 +310,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         the basis for our target normalisation: we'll resample back to the
         original wavelength frames and apply.
 
+        This process converts the units of the spectra from electrons (used for
+        pfsArm) to electrons/nm (used for pfsMerged), because the new
+        normalisation has been divided by the dispersion.
+
         Parameters
         ----------
         spectra : iterable of `pfs.datamodel.PsfArm`
