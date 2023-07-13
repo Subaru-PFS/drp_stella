@@ -3,6 +3,7 @@
 
 #include "ndarray/pybind11.h"
 #include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -43,6 +44,28 @@ void declareDetectorMap(py::module & mod) {
                               ndarray::Array<double, 1, 1> const&>(&Class::getXCenter, py::const_));
     cls.def("getXCenter",
             py::overload_cast<int, ndarray::Array<double, 1, 1> const&>(&Class::getXCenter, py::const_));
+    // For convenience, add overloads that support a single-precision numpy array
+    cls.def("getXCenter",
+            [](Class const& self, int fiberId, ndarray::Array<double, 1, 1> const& row) {
+                ndarray::Array<double, 1, 1> result(row.getShape());
+                for (std::size_t ii = 0; ii < row.getShape()[0]; ++ii) {
+                    result[ii] = self.getXCenter(fiberId, row[ii]);
+                }
+                return result;
+            });
+    cls.def("getXCenter",
+            [](
+                Class const& self,
+                ndarray::Array<int, 1, 1> const& fiberId,
+                ndarray::Array<float, 1, 1> const& row
+            ) {
+                utils::checkSize(fiberId.getShape(), row.getShape(), "fiberId vs row");
+                ndarray::Array<double, 1, 1> result(fiberId.getShape());
+                for (std::size_t ii = 0; ii < row.getShape()[0]; ++ii) {
+                    result[ii] = self.getXCenter(fiberId[ii], row[ii]);
+                }
+                return result;
+            });
     cls.def("getWavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
     cls.def("getWavelength", py::overload_cast<int>(&Class::getWavelength, py::const_), "fiberId"_a);
     cls.def("getWavelength", py::overload_cast<int, double>(&Class::getWavelength, py::const_),
@@ -76,6 +99,28 @@ void declareDetectorMap(py::module & mod) {
             py::overload_cast<Class::FiberIds const&,
                               Class::Array1D const&>(&Class::findWavelength, py::const_),
             "fiberId"_a, "row"_a);
+    // For convenience, add overloads that accept a single-precision numpy array
+    cls.def("findWavelength",
+            [](Class const& self, int fiberId, ndarray::Array<float, 1, 1> const& row) {
+                ndarray::Array<double, 1, 1> result(row.getShape());
+                for (std::size_t ii = 0; ii < row.getShape()[0]; ++ii) {
+                    result[ii] = self.findWavelength(fiberId, row[ii]);
+                }
+                return result;
+            });
+    cls.def("findWavelength",
+            [](
+                Class const& self,
+                ndarray::Array<int, 1, 1> const& fiberId,
+                ndarray::Array<float, 1, 1> const& row
+            ) {
+                utils::checkSize(fiberId.getShape(), row.getShape(), "fiberId vs row");
+                ndarray::Array<double, 1, 1> result(fiberId.getShape());
+                for (std::size_t ii = 0; ii < row.getShape()[0]; ++ii) {
+                    result[ii] = self.findWavelength(fiberId[ii], row[ii]);
+                }
+                return result;
+            });
     cls.def("getVisitInfo", &Class::getVisitInfo);
     cls.def("setVisitInfo", &Class::setVisitInfo, "visitInfo"_a);
     cls.def_property("visitInfo", &Class::getVisitInfo, &Class::setVisitInfo);

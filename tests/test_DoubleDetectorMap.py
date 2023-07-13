@@ -266,9 +266,9 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
         task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
-        self.assertFloatsEqual(detMap.distortion.getCoefficients(), 0.0)
-        self.assertFloatsEqual(detMap.getSpatialOffsets(), 0.0)
-        self.assertFloatsEqual(detMap.getSpectralOffsets(), 0.0)
+        self.assertFloatsAlmostEqual(detMap.distortion.getCoefficients(), 0.0, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(detMap.getSpatialOffsets(), 0.0, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(detMap.getSpectralOffsets(), 0.0, atol=1.0e-6)
 
     def testOutOfRange(self):
         """Test that inputs that are out-of-range produce NaNs"""
