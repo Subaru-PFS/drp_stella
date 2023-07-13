@@ -310,6 +310,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         the basis for our target normalisation: we'll resample back to the
         original wavelength frames and apply.
 
+        This process converts the units of the spectra from electrons (used for
+        pfsArm) to electrons/nm (used for pfsMerged), because the new
+        normalisation has been divided by the dispersion.
+
         Parameters
         ----------
         spectra : iterable of `pfs.datamodel.PsfArm`
@@ -407,7 +411,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
         wavelength = self.config.wavelength.wavelength
-        resampled = [ss.resample(wavelength, jacobian=True) for ss in spectraList]
+        resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
 

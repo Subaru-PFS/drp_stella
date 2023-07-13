@@ -176,7 +176,7 @@ def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0
         armWavelengths[arm] = np.array([ss.wavelength for ss in armSpectra[arm]]).mean(axis=0)
 
         # Resample all spectra to the common wavelength scale
-        resampled = [ss.resample(armWavelengths[arm], jacobian=True) for ss in armSpectra[arm]]
+        resampled = [ss.resample(armWavelengths[arm]) for ss in armSpectra[arm]]
 
         # Convert lists to arrays, for convenience and speed
         resampledFlux = np.array([ss.flux for ss in resampled])

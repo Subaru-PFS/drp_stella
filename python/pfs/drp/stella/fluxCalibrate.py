@@ -21,6 +21,7 @@ from pfs.drp.stella.lsf import Lsf, LsfDict
 from .focalPlaneFunction import FocalPlaneFunction
 from .datamodel import PfsArm, PfsSingle, PfsMerged, PfsReference, PfsFiberArray, PfsFiberArraySet
 from .fitFocalPlane import FitFocalPlaneTask
+from .interpolate import calculateDispersion
 from .subtractSky1d import subtractSky1d
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
@@ -79,10 +80,11 @@ def calibratePfsArm(spectra: PfsArm, pfsConfig: PfsConfig, sky1d: FocalPlaneFunc
         Calibrated PfsArm spectra.
     """
     pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
+    spectra /= calculateDispersion(spectra.wavelength)  # Convert to electrons/nm
     subtractSky1d(spectra, pfsConfig, sky1d)
     fluxCalibrate(spectra, pfsConfig, fluxCal)
     if wavelength is not None:
-        spectra = spectra.resample(wavelength, jacobian=True)  # sampling of pfsArm related to the flux values
+        spectra = spectra.resample(wavelength)  # sampling of pfsArm related to the flux values
     return spectra
 
 

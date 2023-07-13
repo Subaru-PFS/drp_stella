@@ -62,22 +62,20 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsSimpleSpectrum":
+    def resample(self, wavelength: np.ndarray) -> "PfsSimpleSpectrum":
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
-        jacobian : `bool`
-            Apply Jacobian, so that flux density is preserved?
 
         Returns
         -------
         resampled : `PfsSimpleSpectrum`
             Resampled spectrum.
         """
-        flux = interpolateFlux(self.wavelength, self.flux, wavelength, jacobian=jacobian)
+        flux = interpolateFlux(self.wavelength, self.flux, wavelength)
         mask = interpolateMask(self.wavelength, self.mask, wavelength)
         return type(self)(self.target, wavelength, flux, mask, self.flags)
 
@@ -137,15 +135,13 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength: np.ndarray, jacobian: bool = False) -> "PfsFiberArray":
+    def resample(self, wavelength: np.ndarray) -> "PfsFiberArray":
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
-        jacobian : `bool`
-            Apply Jacobian, so that flux density is preserved?
 
         Returns
         -------
@@ -160,12 +156,13 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         mask = self.mask.copy()
         mask[bad] |= self.flags.get("NO_DATA")
 
-        flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength,
-                               jacobian=jacobian)
+        flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength)
         mask = interpolateMask(self.wavelength, mask, wavelength, fill=self.flags.get("NO_DATA"))
-        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, jacobian=jacobian)
-        covar = np.array([interpolateVariance(self.wavelength, np.where(badVariance, 0.0, cc), wavelength,
-                                              jacobian=jacobian) for cc in self.covar])
+        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength)
+        covar = np.array([
+            interpolateVariance(self.wavelength, np.where(badVariance, 0.0, cc), wavelength)
+            for cc in self.covar
+        ])
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(self.target, self.observations, wavelength, flux, mask, sky, covar, covar2,
                           self.flags, self.fluxTable)
