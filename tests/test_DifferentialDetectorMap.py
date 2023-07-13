@@ -266,8 +266,8 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
-                             float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake",
-                             None, ReferenceLineSource.NONE))
+                             float(yy), 0.01, 0.01, np.nan, np.nan, np.nan, flux, fluxErr, False,
+                             ReferenceLineStatus.GOOD, "Fake", None, ReferenceLineSource.NONE))
         lines = ArcLineSet.fromRows(lines)
         config = FitDifferentialDetectorMapTask.ConfigClass()
         config.order = 1

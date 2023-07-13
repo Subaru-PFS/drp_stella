@@ -184,7 +184,7 @@ def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak
     for fiberId in traces:
         row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
         wavelength = detectorMap.findWavelength(fiberId, row)
-        lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError,
+        lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError, np.nan, np.nan, np.nan,
                               tt.flux, tt.fluxErr, False, ReferenceLineStatus.GOOD, "Trace",
                               "UNKNOWN", ReferenceLineSource.NONE) for
                       wl, yy, tt in zip(wavelength, row, traces[fiberId])])

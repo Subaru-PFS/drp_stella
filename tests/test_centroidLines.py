@@ -9,6 +9,7 @@ from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import ReferenceLineSource
 from pfs.drp.stella.tests.utils import runTests, methodParametersProduct
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 display = None
 
@@ -73,6 +74,11 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lines.y, xyExpect[:, 1], atol=2.0e-2)
         self.assertTrue(np.all((lines.xErr > 0) & (lines.xErr < 0.1)))
         self.assertTrue(np.all((lines.yErr > 0) & (lines.yErr < 0.1)))
+        if not dense:  # Accurate shapes require a reasonable separation between sources and trace subtraction
+            shapeTol = 3.0e-2 if fwhm > 2.0 else 5.0e-2  # Easier to measure wider lines
+            self.assertFloatsAlmostEqual(lines.xx, fwhmToSigma(fwhm)**2, atol=shapeTol)
+            self.assertFloatsAlmostEqual(lines.yy, fwhmToSigma(fwhm)**2, atol=shapeTol)
+            self.assertFloatsAlmostEqual(lines.xy, 0.0, atol=shapeTol)
         self.assertFloatsAlmostEqual(lines.flux, flux, rtol=1.0e-2)
         self.assertTrue(np.all(lines.fluxErr > 0))
         self.assertFloatsEqual(lines.flag, 0)

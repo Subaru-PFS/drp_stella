@@ -25,6 +25,9 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.xErr = 0.01*np.random.uniform(size=self.fiberId.shape)
         self.y = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
+        self.xx = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.yy = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.xy = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.flux = 1000.0*np.random.uniform(size=self.fiberId.shape)
         self.fluxErr = 10.0*np.random.uniform(size=self.fiberId.shape)
@@ -36,6 +39,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
                                                      self.x, self.y, self.xErr, self.yErr,
+                                                     self.xx, self.yy, self.xy,
                                                      self.flux, self.fluxErr,
                                                      self.flag, self.status, self.description,
                                                      self.transition, self.source)]
