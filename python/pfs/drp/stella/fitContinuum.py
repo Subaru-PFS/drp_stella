@@ -14,11 +14,13 @@ __all__ = ("FitContinuumConfig", "FitContinuumTask", "FitContinuumError")
 
 class FitContinuumError(RuntimeError):
     """Error when fitting continuum"""
+
     pass
 
 
 class FitContinuumConfig(Config):
     """Configuration for SubtractContinuumTask"""
+
     fitType = ChoiceField(
         dtype=str,
         default="AKIMA_SPLINE",
@@ -46,6 +48,7 @@ class FitContinuumTask(Task):
         binned data.
     - ``plotBins`` (`int`): number of bins if not ``plotAll`` (default 1000).
     """
+
     ConfigClass = FitContinuumConfig
     _DefaultName = "fitContinuum"
 
@@ -116,9 +119,9 @@ class FitContinuumTask(Task):
             fit = self._fitContinuumImpl(flux, use)
             diff = flux - fit
             lq, uq = np.percentile(diff[use], [25.0, 75.0])
-            stdev = 0.741*(uq - lq)
-            with np.errstate(invalid='ignore'):
-                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
+            stdev = 0.741 * (uq - lq)
+            with np.errstate(invalid="ignore"):
+                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
         return self._fitContinuumImpl(flux, good & keep)
 
     def _fitContinuumImpl(self, values, good):
@@ -151,6 +154,7 @@ class FitContinuumTask(Task):
 
         if lsstDebug.Info(__name__).plot:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
 
             if lsstDebug.Info(__name__).plotAll:
@@ -158,7 +162,8 @@ class FitContinuumTask(Task):
                 # https://matplotlib.org/gallery/lines_bars_and_markers/multicolored_line.html
                 import matplotlib
                 from matplotlib.collections import LineCollection
-                cmap, norm = matplotlib.colors.from_levels_and_colors([0.0, 0.5, 2.0], ['red', 'black'])
+
+                cmap, norm = matplotlib.colors.from_levels_and_colors([0.0, 0.5, 2.0], ["red", "black"])
                 points = np.array([indices, values]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
                 lines = LineCollection(segments, cmap=cmap, norm=norm)
@@ -167,11 +172,11 @@ class FitContinuumTask(Task):
             else:
                 # Plot binned data
                 xBinned, yBinned = binData(indices, values, good, lsstDebug.Info(__name__).plotBins or 1000)
-                ax.plot(xBinned, yBinned, 'k-')
+                ax.plot(xBinned, yBinned, "k-")
 
-            ax.plot(indices, fit, 'b-')
-            ax.plot(knots, binned, 'bo')
-            ax.set_ylim(0.7*fit.min(), 1.3*fit.max())
+            ax.plot(indices, fit, "b-")
+            ax.plot(knots, binned, "bo")
+            ax.set_ylim(0.7 * fit.min(), 1.3 * fit.max())
             plt.show()
 
         return fit
