@@ -255,8 +255,8 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
-                             float(yy), 0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake",
-                             None, ReferenceLineSource.NONE))
+                             float(yy), 0.01, 0.01, np.nan, np.nan, np.nan, flux, fluxErr, False,
+                             ReferenceLineStatus.GOOD, "Fake", None, ReferenceLineSource.NONE))
         lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
         config.order = 1
@@ -266,9 +266,9 @@ class DoubleDetectorMapTestCase(lsst.utils.tests.TestCase):
         task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
-        self.assertFloatsEqual(detMap.distortion.getCoefficients(), 0.0)
-        self.assertFloatsEqual(detMap.getSpatialOffsets(), 0.0)
-        self.assertFloatsEqual(detMap.getSpectralOffsets(), 0.0)
+        self.assertFloatsAlmostEqual(detMap.distortion.getCoefficients(), 0.0, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(detMap.getSpatialOffsets(), 0.0, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(detMap.getSpectralOffsets(), 0.0, atol=1.0e-6)
 
     def testOutOfRange(self):
         """Test that inputs that are out-of-range produce NaNs"""

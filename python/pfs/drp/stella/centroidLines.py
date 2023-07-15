@@ -7,6 +7,7 @@ from lsst.geom import Point2D, Point2I, Box2I, Extent2I
 from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
+from lsst.meas.base.sdssShape import SdssShapeAlgorithm, SdssShapeControl
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 
 from pfs.datamodel import FiberStatus
@@ -28,6 +29,7 @@ FATAL_EXCEPTIONS = (MemoryError, FatalAlgorithmError)
 
 
 CentroidConfig = makeConfigClass(SdssCentroidControl)
+ShapeConfig = makeConfigClass(SdssShapeControl)
 PhotometryConfig = makeConfigClass(PsfFluxControl)
 
 
@@ -43,6 +45,7 @@ class CentroidLinesConfig(Config):
         doc="Mask planes to ignore in trace removal",
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
+    shapes = ConfigField(dtype=ShapeConfig, doc="Shape measurement")
     peakSearch = Field(dtype=float, default=3, doc="Radius of peak search (pixels)")
     footprintHeight = Field(dtype=int, default=11, doc="Height of footprint (pixels)")
     footprintWidth = Field(dtype=float, default=3, doc="Width of footprint (pixels)")
@@ -65,6 +68,7 @@ class CentroidLinesTask(Task):
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
         self.centroidName = "centroid"
+        self.shapeName = "shape"
         self.photometryName = "flux"
         self.schema = SourceTable.makeMinimalSchema()
         self.fiberId = self.schema.addField("fiberId", type=np.int32, doc="Fiber identifier")
@@ -77,6 +81,7 @@ class CentroidLinesTask(Task):
         self.centroider = SdssCentroidAlgorithm(self.config.centroider.makeControl(), self.centroidName,
                                                 self.schema)
         self.schema.getAliasMap().set("slot_Centroid", self.centroidName)
+        self.shapes = SdssShapeAlgorithm(self.config.shapes.makeControl(), self.shapeName, self.schema)
         self.photometer = PsfFluxAlgorithm(self.config.photometer.makeControl(), self.photometryName,
                                            self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
@@ -316,7 +321,7 @@ class CentroidLinesTask(Task):
             Row from the catalog of arc lines; modified with the measured
             position.
         """
-        for measurement in (self.centroider, self.photometer):
+        for measurement in (self.centroider, self.shapes, self.photometer):
             try:
                 measurement.measure(source, exposure)
             except FATAL_EXCEPTIONS:
@@ -350,6 +355,9 @@ class CentroidLinesTask(Task):
             y=catalog[self.centroidName + "_y"],
             xErr=catalog[self.centroidName + "_xErr"],
             yErr=catalog[self.centroidName + "_yErr"],
+            xx=catalog[self.shapeName + "_xx"],
+            yy=catalog[self.shapeName + "_yy"],
+            xy=catalog[self.shapeName + "_xy"],
             flux=catalog[self.photometryName + "_instFlux"],
             fluxErr=catalog[self.photometryName + "_instFluxErr"],
             flag=(catalog[self.centroidName + "_flag"] | catalog[self.photometryName + "_flag"] |

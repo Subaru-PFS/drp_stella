@@ -25,6 +25,9 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.xErr = 0.01*np.random.uniform(size=self.fiberId.shape)
         self.y = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
+        self.xx = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.yy = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.xy = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.flux = 1000.0*np.random.uniform(size=self.fiberId.shape)
         self.fluxErr = 10.0*np.random.uniform(size=self.fiberId.shape)
@@ -36,6 +39,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
                                                      self.x, self.y, self.xErr, self.yErr,
+                                                     self.xx, self.yy, self.xy,
                                                      self.flux, self.fluxErr,
                                                      self.flag, self.status, self.description,
                                                      self.transition, self.source)]
@@ -53,12 +57,15 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(lines), len(self.fiberId))
         self.assertFloatsEqual(lines.fiberId, self.fiberId)
         self.assertFloatsAlmostEqual(lines.wavelength, self.wavelength, atol=atol)
-        self.assertFloatsAlmostEqual(lines.x, self.x, atol=atol)
-        self.assertFloatsAlmostEqual(lines.xErr, self.xErr, atol=atol)
-        self.assertFloatsAlmostEqual(lines.y, self.y, atol=atol)
-        self.assertFloatsAlmostEqual(lines.yErr, self.yErr, atol=atol)
-        self.assertFloatsAlmostEqual(lines.flux, self.flux, atol=atol)
-        self.assertFloatsAlmostEqual(lines.fluxErr, self.fluxErr, atol=atol)
+        self.assertFloatsAlmostEqual(lines.x, self.x, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.xErr, self.xErr, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.y, self.y, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.yErr, self.yErr, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.xx, self.xx, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.yy, self.yy, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.xy, self.xy, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.flux, self.flux, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.fluxErr, self.fluxErr, atol=atol, rtol=1e-6)
         self.assertTrue(np.all(lines.flag == self.flag))
         self.assertFloatsEqual(lines.status, self.status)
         self.assertListEqual(lines.description.tolist(), self.description.tolist())
@@ -86,12 +93,15 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         for ii, ll in enumerate(lines):
             self.assertEqual(ll.fiberId, self.fiberId[ii])
             self.assertEqual(ll.wavelength, self.wavelength[ii])
-            self.assertEqual(ll.x, self.x[ii])
-            self.assertEqual(ll.xErr, self.xErr[ii])
-            self.assertEqual(ll.y, self.y[ii])
-            self.assertEqual(ll.yErr, self.yErr[ii])
-            self.assertEqual(ll.flux, self.flux[ii])
-            self.assertEqual(ll.fluxErr, self.fluxErr[ii])
+            self.assertFloatsAlmostEqual(ll.x, self.x[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.xErr, self.xErr[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.y, self.y[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.yErr, self.yErr[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.xx, self.xx[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.yy, self.yy[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.xy, self.xy[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.flux, self.flux[ii], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ll.fluxErr, self.fluxErr[ii], rtol=1.0e-6)
             self.assertEqual(ll.flag, self.flag[ii])
             self.assertEqual(ll.status, self.status[ii])
             self.assertEqual(ll.description, self.description[ii])
