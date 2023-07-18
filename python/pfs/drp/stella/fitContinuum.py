@@ -9,6 +9,8 @@ from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
 
+from typing import Tuple
+
 __all__ = ("FitContinuumConfig", "FitContinuumTask", "FitContinuumError")
 
 
@@ -266,7 +268,7 @@ class FitContinuumTask(Task):
             maskedImage += results.continuumImage
 
 
-def binData(xx, yy, good, numBins):
+def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> Tuple[np.ndarray, np.ndarray]:
     """Bin arrays
 
     Parameters
@@ -283,11 +285,28 @@ def binData(xx, yy, good, numBins):
     xBinned, yBinned : `numpy.ndarray`
         Binned data.
     """
-    edges = (np.linspace(0, len(xx), numBins + 1) + 0.5).astype(int)
-    xBinned = np.empty(numBins)
-    yBinned = np.empty(numBins)
-    for ii, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
-        select = good[low:high]
-        xBinned[ii] = np.median(xx[low:high][select]) if np.any(select) else np.nan
-        yBinned[ii] = np.median(yy[low:high][select]) if np.any(select) else np.nan
-    return xBinned.astype(xx.dtype), yBinned.astype(yy.dtype)
+    bad = ~good
+    xMasked = np.copy(xx)
+    yMasked = np.copy(yy)
+    xMasked[bad] = np.nan
+    yMasked[bad] = np.nan
+
+    lenInput = len(xx)
+    lenWide = (lenInput + (numBins - 1)) // numBins * numBins
+    numExtra = lenWide - lenInput
+    select = np.ones(shape=(lenWide,), dtype=bool)
+    if numExtra > 0:
+        indexExtra = np.around(
+            (lenWide - 1) / numExtra * (np.arange(numExtra).astype(np.float32) + 0.5)
+        ).astype(int)
+        select[indexExtra] = False
+
+    xWide = np.full(shape=(lenWide,), dtype=xMasked.dtype, fill_value=np.nan)
+    yWide = np.full(shape=(lenWide,), dtype=yMasked.dtype, fill_value=np.nan)
+    xWide[select] = xMasked
+    yWide[select] = yMasked
+
+    xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
+    yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
+
+    return xBinned, yBinned
