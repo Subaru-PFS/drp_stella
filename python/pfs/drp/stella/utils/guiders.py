@@ -769,7 +769,13 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
     agc_exposure_ids = np.array(sorted(agc_exposure_ids))
 
     # unpack the first three values from config.transforms for our agc_exposure_ids
-    dx, dy, theta = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])[:, :3].T
+    arr = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])
+    if len(arr) == 0:
+        raise RuntimeError("""No transforms were found.  Consider running showGuiderErrors with
+        config.modelBoresightOffset = True
+        config.solveForAGTransforms = True
+        """)
+    dx, dy, theta = arr[:, :3].T
 
     subset = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
     grouped = subset.groupby("agc_exposure_id")
