@@ -186,6 +186,11 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
 
         fiberStatus = np.full(fiberId.shape, FiberStatus.GOOD, dtype=int)
 
+        epoch = np.full(shape=fiberId.shape, fill_value="J2000.0")
+        pmRa = np.full(shape=fiberId.shape, fill_value=0.0, dtype=np.float32)
+        pmDec = np.full(shape=fiberId.shape, fill_value=0.0, dtype=np.float32)
+        parallax = np.full(shape=fiberId.shape, fill_value=1e-5, dtype=np.float32)
+
         fiberFlux = np.copy(flux)
         psfFlux = np.copy(flux)
         totalFlux = np.copy(flux)
@@ -215,6 +220,10 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             objId,
             targetType,
             fiberStatus,
+            epoch,
+            pmRa,
+            pmDec,
+            parallax,
             fiberFlux,
             psfFlux,
             totalFlux,
