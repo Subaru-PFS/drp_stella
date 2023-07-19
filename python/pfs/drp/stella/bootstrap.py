@@ -239,6 +239,10 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectorMap")
+
+        if hasattr(detMap, "getBase"):
+            detMap = detMap.getBase()
+
         detMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
         refLines = self.readLineList.run(metadata=exposure.getMetadata())
         badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
