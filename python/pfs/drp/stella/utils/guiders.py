@@ -129,21 +129,33 @@ def stdFromIQR(im):
 
 
 def showAgcErrorsForVisits(agcData,
+                           pfs_visit_ids=None,
+                           agc_exposure_ids=None,
                            byTime=False,
+                           yminmax=None,
                            figure=None,
                            showLegend=True):
     """
     agcData: pandas DataFrame as returned by readAgcDataFromOpdb
-    byTime = False    # use time, not agc_exposure_id, as x-axis
-    matplotlib figure to use, or None
+    byTime:  use time, not agc_exposure_id, as x-axis (default: False)
+    yminmax: float Scale figures into +- yminmax (or 0, sqrt(2)*yminmax for rerror); or None
+    figure:  matplotlib figure to use, or None
     """
     fig, axs = plt.subplots(3, 1, num=figure, sharex=True, sharey=False, squeeze=False)
     axs = axs.flatten()
 
+    if pfs_visit_ids is not None:
+        agcData = agcData[agcData.isin(dict(pfs_visit_id=pfs_visit_ids)).pfs_visit_id]
+
+    if agc_exposure_ids is not None:
+        agcData = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
+
+    if len(agcData) == 0:
+        raise RuntimeError("I have no data to plot")
+
     agc_exposure_ids = np.array(sorted(set(agcData.agc_exposure_id)))
 
-    subset = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
-    grouped = subset.groupby("agc_exposure_id")
+    grouped = agcData.groupby("agc_exposure_id")
 
     pfs_visit_ids = grouped.pfs_visit_id.min()
     taken_ats = grouped.taken_at.mean()
@@ -159,9 +171,9 @@ def showAgcErrorsForVisits(agcData,
         plt.gca().set_prop_cycle(None)
         for pfs_visit_id in sorted(set(pfs_visit_ids)):
             sel = pfs_visit_ids == pfs_visit_id
-            color = plt.plot(xvec[sel], zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
+            color = plt.plot(xvec[sel], 1e3*zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
             sel &= shutter_open > 0
-            plt.plot(xvec[sel], zbar[sel], 'o', color=color)
+            plt.plot(xvec[sel], 1e3*zbar[sel], 'o', color=color)
 
         plt.axhline(0, color='black')
         if showLegend:
@@ -172,20 +184,26 @@ def showAgcErrorsForVisits(agcData,
 
     plot_zbar(np.hypot(xbar, ybar), taken_ats if byTime else agc_exposure_ids)
     plt.ylabel("rerror (microns)")
+    if yminmax is not None:
+        plt.ylim(yminmax*np.array([-0.1, np.sqrt(2)]))
 
     plt.sca(axs[j]); j += 1             # noqa E702
 
     plot_zbar(xbar, taken_ats if byTime else agc_exposure_ids)
     plt.ylabel("xerror (microns)")
+    if yminmax is not None:
+        plt.ylim(yminmax*np.array([-1, 1]))
 
     plt.sca(axs[j]); j += 1             # noqa E702
     plot_zbar(ybar, taken_ats if byTime else agc_exposure_ids)
     plt.ylabel("yerror (microns)")
+    if yminmax is not None:
+        plt.ylim(yminmax*np.array([-1, 1]))
 
     plt.xlabel("HST" if byTime else "agc_exposure_id")
 
     visits = sorted(set(pfs_visit_ids))
-    plt.suptitle(f"{visits[0]:.0f}..{visits[-1]:.0f}")
+    plt.suptitle(f"pfs_visit_ids {visits[0]:.0f}..{visits[-1]:.0f}")
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
