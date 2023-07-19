@@ -928,7 +928,7 @@ def plotDriftRate(agcData, agc_exposure_ids=None,
             for agc_camera_id in range(6):
                 ll = tmp.agc_camera_id == agc_camera_id
 
-                kwargs = dict(color=f"C{agc_camera_id}", label=f"{agc_camera_id + 1}")
+                kwargs = dict(color=f"C{agc_camera_id}", label=f"AG{agc_camera_id + 1}")
                 if byTime:
                     plt.plot(time[ll], vec[ll], 'o', **kwargs)
                 else:
@@ -956,19 +956,24 @@ def plotDriftRate(agcData, agc_exposure_ids=None,
     plt.suptitle(f"visits {visits[0]}..{visits[-1]}")
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-#  New pandas-native routines.  Should eventually replace the above
+#  New pandas-native routines.  Should eventually replace the above (maybe? I've
+# also worked on making the above routines more-or-less pandas-compliant)
 
 
-def estimateGuideErrors(agcData, guideStrategy="center0", byVisit=False, subtractMedian=False,
-                        showClosedShutter=False, xy0Stat="median"):
-    """Estimate the mean guide errors for each AG camera and exposure
-    Only exposures with the spectrograph shutters open are considered
+def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNominal=False,
+                        byVisit=False, subtractMedian=False,
+                        showClosedShutter=False, xy0Stat="median", visitName=None):
+    """Estimate (and maybe plot) the mean guide errors for each AG camera and exposure
+    Only exposures with the spectrograph shutters open are considered unless showClosedShutter is True
 
+    plot: `bool` plot the results?
     guideStrategy: how to define the correct position of the guide stars
         center0:          Use the average of the first visit's agc_center_[xy]_mm (see xy0Stat)
+        boresight:        Use nominal, but corrected by xy0Stat for each visit
         nominal:          Use agc_nominal_[xy]_mm
         nominal0:         Use agc_nominal_[xy]_mm at start of sequence
         nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
+    showNominal: show the difference between the nominal (rather than the center) and the "guide" positions
     byVisit: group on pfs_visit_id rather than agc_exposure_id
     subtractMedian:       Subtract the median from each camera's guide errors
     showClosedShutter:    Include data with the spectrograph shutter closed
@@ -988,7 +993,7 @@ def estimateGuideErrors(agcData, guideStrategy="center0", byVisit=False, subtrac
         raise RuntimeError(f"Unknown xy0Stat {xy0Stat}"
                            f" (valid: {', '.join(validXy0StatStrategies)})")
 
-    validGuideStrategies = ["center0", "nominal", "nominal0PerVisit", "nominal0"]
+    validGuideStrategies = ["center0", "nominal", "nominal0PerVisit", "nominal0", "boresight"]
     if guideStrategy not in validGuideStrategies:
         raise RuntimeError(f"Unknown guideStrategy {guideStrategy}"
                            f" (valid: {', '.join(validGuideStrategies)})")
@@ -1011,19 +1016,59 @@ def estimateGuideErrors(agcData, guideStrategy="center0", byVisit=False, subtrac
     ).merge(agcData, on=["pfs_visit_id", "guide_star_id"])
 
     if guideStrategy == "center0":
-        agcData["dx"] = agcData.agc_center_x_mm0 - agcData.agc_center_x_mm
-        agcData["dy"] = agcData.agc_center_y_mm0 - agcData.agc_center_y_mm
+        refPos_x = agcData.agc_center_x_mm0
+        refPos_y = agcData.agc_center_y_mm0
     elif guideStrategy == "nominal":
-        agcData["dx"] = agcData.agc_nominal_x_mm - agcData.agc_center_x_mm
-        agcData["dy"] = agcData.agc_nominal_y_mm - agcData.agc_center_y_mm
+        refPos_x = agcData.agc_nominal_x_mm
+        refPos_y = agcData.agc_nominal_y_mm
+    elif guideStrategy == "boresight":
+        tmp = pd.DataFrame(dict(pfs_visit_id=agcData.pfs_visit_id,
+                                guide_star_id=agcData.guide_star_id,
+                                agc_camera_id=agcData.agc_camera_id,
+                                agc_nominal_x_mm_offset=agcData.agc_nominal_x_mm - agcData.agc_nominal_x_mm0,
+                                agc_nominal_y_mm_offset=agcData.agc_nominal_y_mm - agcData.agc_nominal_y_mm0,
+                                ))
+        #
+        # Find the stars that are detected in all the exposures
+        # (actually the ones that appear most often, but that should usually be the same thing)
+        #
+        grouped = agcData.groupby(["guide_star_id"], as_index=False)
+        tmp2 = grouped.agg(
+            nobs=("agc_exposure_id", "count"),
+        )
+        tmp2 = tmp2[tmp2.nobs == tmp2.nobs.max()]
+        tmp = tmp[tmp.isin(dict(guide_star_id=tmp2.guide_star_id.to_numpy())).guide_star_id]
+        #
+        # Use those stars to calculate the per-visit offsets
+        #
+        grouped = tmp.groupby(["pfs_visit_id"], as_index=False)
+        tmp = grouped.agg(
+            agc_nominal_x_mm_visit=("agc_nominal_x_mm_offset", xy0Stat),
+            agc_nominal_y_mm_visit=("agc_nominal_y_mm_offset", xy0Stat),
+        )
+        agcData = tmp.merge(agcData, on=["pfs_visit_id"])
+
+        if False:
+            tmp["dr"] = np.hypot(tmp.agc_nominal_x_mm_visit, tmp.agc_nominal_y_mm_visit)
+            print(tmp)
+
+        refPos_x = agcData.agc_nominal_x_mm0 + agcData.agc_nominal_x_mm_visit
+        refPos_y = agcData.agc_nominal_y_mm0 + agcData.agc_nominal_y_mm_visit
     elif guideStrategy == "nominal0PerVisit":
-        agcData["dx"] = agcData.agc_nominal_x_mm_visit0 - agcData.agc_center_x_mm
-        agcData["dy"] = agcData.agc_nominal_y_mm_visit0 - agcData.agc_center_y_mm
+        refPos_x = agcData.agc_nominal_x_mm_visit0
+        refPos_y = agcData.agc_nominal_y_mm_visit0
     elif guideStrategy == "nominal0":
-        agcData["dx"] = agcData.agc_nominal_x_mm0 - agcData.agc_center_x_mm
-        agcData["dy"] = agcData.agc_nominal_y_mm0 - agcData.agc_center_y_mm
+        refPos_x = agcData.agc_nominal_x_mm0
+        refPos_y = agcData.agc_nominal_y_mm0
     else:
         raise RuntimeError("You can't get here; complain to RHL")
+
+    if showNominal:
+        agcData["dx"] = refPos_x - agcData.agc_nominal_x_mm
+        agcData["dy"] = refPos_y - agcData.agc_nominal_y_mm
+    else:
+        agcData["dx"] = refPos_x - agcData.agc_center_x_mm
+        agcData["dy"] = refPos_y - agcData.agc_center_y_mm
 
     grouped = agcData[agcData.shutter_open > shutterMin].groupby(
         ["pfs_visit_id" if byVisit else "agc_exposure_id" , "agc_camera_id"], as_index=False)
@@ -1050,6 +1095,44 @@ def estimateGuideErrors(agcData, guideStrategy="center0", byVisit=False, subtrac
                                            agcGuideErrors.xbar)
             agcGuideErrors.ybar = np.where(sel, agcGuideErrors.ybar - np.median(agcGuideErrors.ybar[sel]),
                                            agcGuideErrors.ybar)
+    #
+    # Plot the results?
+    if plot:
+        for i in range(2):
+            if i == 1 and showClosedShutter:
+                ll = agcGuideErrors.shutter_open == 0
+                s = 5
+            else:
+                ll = agcGuideErrors.shutter_open > 0
+                s = None
+
+            S = plt.scatter((agcGuideErrors.agc_nominal_x_mm0 + 1e3*agcGuideErrors.xbar)[ll],
+                            (agcGuideErrors.agc_nominal_y_mm0 + 1e3*agcGuideErrors.ybar)[ll], marker='o',
+                            c=agcGuideErrors.pfs_visit_id[ll] if
+                            byVisit else agcGuideErrors.agc_exposure_id[ll],
+                            s=s
+                            )
+        plt.colorbar(S).set_label("pfs_visit_id" if byVisit else "agc_exposure_id")
+
+        plt.gca().set_aspect(1)
+        plt.xlim(plt.ylim(280*np.array([-1, 1])))
+        plt.xlabel(r"$\delta$x (microns)")
+        plt.ylabel(r"$\delta$y (microns)")
+
+        _visits = sorted(set(agcData.pfs_visit_id))
+        title = f"{_visits[0]}..{_visits[-1]}"
+        if visitName:
+            title += f" {visitName}"
+        title += f"\nguideStrategy: {guideStrategy}"
+
+        if guideStrategy in ("boresight", "center0"):
+            title += f" xy0Stat:{xy0Stat}"
+
+        title += f"\n(guide - {'nominal' if showNominal else 'center'})"
+
+        showAGCameraCartoon(showInstrot=True, showUp=True)
+
+        plt.suptitle(title)
 
     return agcData, agcGuideErrors
 
