@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict, Counter
-from typing import Optional
+from typing import Optional, Type
 
 import numpy as np
 import scipy.optimize
@@ -13,7 +13,9 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable, Column
-from pfs.drp.stella import DetectorMap, DoubleDetectorMap, DoubleDistortion
+from pfs.drp.stella import DetectorMap
+from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
+from pfs.drp.stella import PolynomialDetectorMap, PolynomialDistortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
@@ -279,8 +281,6 @@ class FitDistortedDetectorMapConfig(Config):
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
-    DetectorMap = DoubleDetectorMap
-    Distortion = DoubleDistortion
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
@@ -346,15 +346,19 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
+        DetectorMap = self.getDetectorMapClass(dataId["arm"])
+        Distortion = self.getDistortionClass(dataId["arm"])
         self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
             dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
-            results = self.fitDistortion(bbox, residuals, weights, dispersion, seed=visitInfo.id)
+            results = self.fitDistortion(
+                bbox, residuals, weights, dispersion, seed=visitInfo.id, Distortion=Distortion
+            )
             reserved = results.reserved
-            detectorMap = self.DetectorMap(base, results.distortion, visitInfo, metadata)
+            detectorMap = DetectorMap(base, results.distortion, visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
                 offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
@@ -398,6 +402,36 @@ class FitDistortedDetectorMapTask(Task):
         """
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
+
+    def getDetectorMapClass(self, arm: str) -> Type[DetectorMap]:
+        """Return the class to use for the detectorMap
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm in use (one of ``b``, ``r``, ``n``, ``m``).
+
+        Returns
+        -------
+        detectorMapClass : `type`
+            Class to use for the detectorMap.
+        """
+        return PolynomialDetectorMap if arm == "n" else DoubleDetectorMap
+
+    def getDistortionClass(self, arm: str) -> Type:
+        """Return the class to use for the distortion
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm in use (one of ``b``, ``r``, ``n``, ``m``).
+
+        Returns
+        -------
+        distortionClass : `type`
+            Class to use for the distortion.
+        """
+        return PolynomialDistortion if arm == "n" else DoubleDistortion
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -759,7 +793,7 @@ class FitDistortedDetectorMapTask(Task):
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
         Distortion : subclass of `pfs.drp.stella.BaseDistortion`
-            Class to use for distortion. If ``None``, uses ``self.Distortion``.
+            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
         -------
@@ -784,6 +818,8 @@ class FitDistortedDetectorMapTask(Task):
         FittingError
             If the data is not of sufficient quality to fit.
         """
+        if Distortion is None:
+            Distortion = DoubleDistortion
         good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
 
@@ -906,7 +942,7 @@ class FitDistortedDetectorMapTask(Task):
         fitStatic : `bool`, optional
             Fit static components to the distortion model?
         Distortion : subclass of `pfs.drp.stella.BaseDistortion`
-            Class to use for distortion. If ``None``, uses ``self.Distortion``.
+            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
         -------
@@ -933,7 +969,7 @@ class FitDistortedDetectorMapTask(Task):
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
         if Distortion is None:
-            Distortion = self.Distortion
+            Distortion = DoubleDistortion
         if soften is None:
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften

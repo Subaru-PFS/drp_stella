@@ -190,7 +190,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                         disp.dot("+", tt.peak, tt.row, ctype="blue")
 
         lines += tracesToLines(self.distorted, traces, 10.0)
-        adjusted = task.run(self.distorted, lines)
+        adjusted = task.run(self.distorted, lines, arm="r")
 
         if display is not None:
             adjusted.detectorMap.display(disp, ctype="green", wavelengths=refLines.wavelength)

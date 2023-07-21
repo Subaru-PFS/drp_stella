@@ -20,7 +20,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
-    def run(self, detectorMap, lines, seed=0):
+    def run(self, detectorMap, lines, arm: str, seed=0):
         """Adjust a DistortedDetectorMap to fit arc line measurements
 
         We fit only the lowest order terms.
@@ -32,6 +32,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         lines : `pfs.drp.stella.ArcLineSet`
             Measured line positions. The ``status`` member will be updated to
             indicate which lines were used and reserved.
+        arm : `str`
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
 
@@ -59,8 +61,9 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         pfs.drp.stella.fitDistortedDetectorMap.FittingError
             If the data is not of sufficient quality to fit.
         """
-        base = self.getBaseDetectorMap(detectorMap)  # NB: DoubleDetectorMap not SplinedDetectorMap
-        needNumLines = self.Distortion.getNumParametersForOrder(self.config.order)
+        base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
+        Distortion = type(base.distortion)
+        needNumLines = Distortion.getNumParametersForOrder(self.config.order)
         numGoodLines = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()).sum()
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
@@ -89,7 +92,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             self.plotWavelengthResiduals(results.detectorMap, lines, fit.selection, fit.reserved)
         return results
 
-    def getBaseDetectorMap(self, detectorMap):
+    def getBaseDetectorMap(self, detectorMap, arm: str):
         """Get detectorMap to use as a base
 
         We need to ensure that the detectorMap is indeed a
@@ -101,6 +104,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         ----------
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
+        arm : `str`
+            Spectrograph arm in use.
 
         Returns
         -------
@@ -110,14 +115,19 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
         if isinstance(detectorMap, SplinedDetectorMap):
-            # Promote SplinedDetectorMap to DoubleDetectorMap
-            numCoeff = self.Distortion.getNumParametersForOrder(self.config.order)
+            # Promote SplinedDetectorMap to the appropriate distorted version
+            Class = self.getDetectorMapClass(arm)
+            Distortion = self.getDistortionClass(arm)
+            numCoeff = Distortion.getNumParametersForOrder(self.config.order)
             coeff = np.zeros(numCoeff, dtype=float)
-            distortion = self.Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)
-            Class = self.DetectorMap
+            distortion = Distortion(self.config.order, Box2D(detectorMap.bbox), coeff)
         else:
+            # Use what we've been given, after zeroing out the low-order coefficients
             distortion = detectorMap.distortion.removeLowOrder(self.config.order)
             Class = type(detectorMap)
+            Expected = self.getDetectorMapClass(arm)
+            if Class != Expected:
+                self.log.warn("Using %s instead of %s", Class, Expected)
             detectorMap = detectorMap.base
         return Class(detectorMap, distortion, visitInfo, metadata)
 

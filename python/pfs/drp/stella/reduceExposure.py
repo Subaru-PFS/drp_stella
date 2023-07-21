@@ -540,6 +540,7 @@ class ReduceExposureTask(CmdLineTask):
                     detectorMap = self.adjustDetectorMap.run(
                         detectorMap,
                         lines,
+                        sensorRef.dataId["arm"],
                         seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
                     ).detectorMap
                 except FittingError as exc:

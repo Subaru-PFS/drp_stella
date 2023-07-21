@@ -151,10 +151,11 @@ class ReduceProfilesTask(CmdLineTask):
         dataList = [self.processExposure(ref) for ref in dataRefList]
 
         exposureList = [data.exposureList[0] for data in dataList]
+        arm = dataRefList[0].dataId["arm"]
         identity = CalibIdentity(
             obsDate=exposureList[0].visitInfo.getDate().toPython().isoformat(),
             spectrograph=dataRefList[0].dataId["spectrograph"],
-            arm=dataRefList[0].dataId["arm"],
+            arm=arm,
             visit0=dataRefList[0].dataId["visit"],
         )
         detectorMapList = [data.detectorMapList[0] for data in dataList]
@@ -181,7 +182,9 @@ class ReduceProfilesTask(CmdLineTask):
             detectorMap = normList[0].detectorMapList[0]
             traces = self.centroidTraces.run(normExp, detectorMap, normList[0].pfsConfig)
             lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
-            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, normExp.visitInfo.id).detectorMap
+            detectorMap = self.adjustDetectorMap.run(
+                detectorMap, lines, arm, normExp.visitInfo.id
+            ).detectorMap
             normRefList[0].put(detectorMap, "detectorMap_used")
 
         spectra = profiles.extractSpectra(
