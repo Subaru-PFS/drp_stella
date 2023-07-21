@@ -10,6 +10,7 @@
 
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/BaseDistortion.h"
+#include "pfs/drp/stella/PolynomialDistortion.h"
 
 namespace pfs {
 namespace drp {
@@ -83,18 +84,20 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
 
     //@{
     /// Accessors
-    Polynomial const& getXLeft() const { return _xLeft; }
-    Polynomial const& getYLeft() const { return _yLeft; }
-    Polynomial const& getXRight() const { return _xRight; }
-    Polynomial const& getYRight() const { return _yRight; }
+    PolynomialDistortion const& getLeft() const { return _left; }
+    PolynomialDistortion const& getRight() const { return _right; }
+    Polynomial const& getXLeft() const { return getLeft().getXPoly(); }
+    Polynomial const& getYLeft() const { return getLeft().getYPoly(); }
+    Polynomial const& getXRight() const { return getRight().getXPoly(); }
+    Polynomial const& getYRight() const { return getRight().getYPoly(); }
     //@}
 
     //@{
     /// Return the distortion polynomial coefficients
-    Array1D getXLeftCoefficients() const;
-    Array1D getYLeftCoefficients() const;
-    Array1D getXRightCoefficients() const;
-    Array1D getYRightCoefficients() const;
+    Array1D getXLeftCoefficients() const { return getLeft().getXCoefficients(); }
+    Array1D getYLeftCoefficients() const { return getLeft().getYCoefficients(); }
+    Array1D getXRightCoefficients() const { return getRight().getXCoefficients(); }
+    Array1D getYRightCoefficients() const { return getRight().getYCoefficients(); }
     //@}
 
     //@{
@@ -129,10 +132,9 @@ class DoubleDistortion : public BaseDistortion<DoubleDistortion>, public lsst::a
 
   private:
     // Calculation parameters
-    Polynomial _xLeft;  // distortion polynomial in x for left CCD
-    Polynomial _yLeft;  // distortion polynomial in y for left CCD
-    Polynomial _xRight;  // distortion polynomial in x for right CCD
-    Polynomial _yRight;  // distortion polynomial in y for right CCD
+
+    PolynomialDistortion _left;  // distortion for left CCD
+    PolynomialDistortion _right;  // distortion for right CCD
 
     /// Split single coefficients array into xLeft, yLeft, xRight, yRight
     ///

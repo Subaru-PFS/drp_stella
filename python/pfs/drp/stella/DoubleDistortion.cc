@@ -36,6 +36,8 @@ void declareDoubleDistortion(py::module & mod) {
     cls.def("getYLeft", &Class::getYLeft);
     cls.def("getXRight", &Class::getXRight);
     cls.def("getYRight", &Class::getYRight);
+    cls.def("getLeft", &Class::getLeft);
+    cls.def("getRight", &Class::getRight);
     lsst::utils::python::addOutputOp(cls, "__str__");
     lsst::utils::python::addOutputOp(cls, "__repr__");
 }
