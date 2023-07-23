@@ -39,7 +39,7 @@ def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection) -> pd.D
     return df
 
 
-def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords, agc_exposure_idStride=1):
+def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords):
     """Query the database for useful AG related things
 
     N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
@@ -89,7 +89,7 @@ def getAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoo
     return tmp
 
 
-def readAgcDataFromOpdb(opdb, visits, agc_exposure_idStride=1, butler=None, dataId=None):
+def readAgcDataFromOpdb(opdb, visits, butler=None, dataId=None):
     """Read a useful set of data about the AGs from the opdb
     opdb: connection to the opdb
     visits: list of the desired visits
@@ -97,8 +97,7 @@ def readAgcDataFromOpdb(opdb, visits, agc_exposure_idStride=1, butler=None, data
     """
     dd = []
     for v in visits:
-        dd.append(getAGCPositionsForVisitByAgcExposureId(opdb, v, flipToHardwareCoords=True,
-                                                         agc_exposure_idStride=1))
+        dd.append(getAGCPositionsForVisitByAgcExposureId(opdb, v, flipToHardwareCoords=True))
     agcData = pd.concat(dd)
     del dd
     #
@@ -445,35 +444,31 @@ def showGuiderErrors(agcData, config,
     name:  a string to show in the header; or None
     """
     agc_exposure_ids = np.sort(agcData.agc_exposure_id.unique())
-
-    if "agc_nominal_x_mm0" in agcData:  # restore original values from the opdb
-        agcData.agc_nominal_x_mm = agcData.agc_nominal_x_mm0
-        agcData.agc_nominal_y_mm = agcData.agc_nominal_y_mm0
-    else:
-        assert "agc_nominal_y_mm0" not in agcData
-
-        agcData["agc_nominal_x_mm0"] = agcData.agc_nominal_x_mm
-        agcData["agc_nominal_y_mm0"] = agcData.agc_nominal_y_mm
     #
     # Fix the mean guiding offset for each exposure?
     #
+    for aid in agc_exposure_ids:
+        if config.solveForAGTransforms or (config.modelBoresightOffset and aid not in config.transforms):
+            if aid in config.transforms:
+                continue
+
+            sel = agcData.agc_exposure_id == aid
+
+            if verbose:
+                print(f"Solving for offsets/rotations for {aid}")
+            transform = MeasureDistortion(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel], -1,
+                                          agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
+                                          None, nsigma=3)
+
+            res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
+            transform.setArgs(res.x)
+            config.transforms[aid] = transform
+
     if config.modelBoresightOffset:
         for aid in agc_exposure_ids:
             sel = agcData.agc_exposure_id == aid
 
-            if aid in config.transforms:
-                transform = config.transforms[aid]
-            else:
-                if verbose:
-                    print(f"Solving for offsets/rotations for {aid}")
-                transform = MeasureDistortion(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel], -1,
-                                              agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
-                                              None, nsigma=3)
-
-                res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
-                transform.setArgs(res.x)
-                config.transforms[aid] = transform
-
+            transform = config.transforms[aid]
             agcData.loc[sel, "agc_nominal_x_mm"], agcData.loc[sel, "agc_nominal_y_mm"] = \
                 transform.distort(agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel], inverse=True)
 
@@ -512,23 +507,24 @@ def showGuiderErrors(agcData, config,
         if sum(sel) == 0:
             continue
 
-        if config.modelCCDOffset:
-            agcDataCam = agcData[sel].copy()   # pandas doesn't guarantee a copy or a view, so be specific
-
-            if agc_camera_id in config.transforms and not config.solveForAGTransforms:
-                transform = config.transforms[agc_camera_id]
-            else:
-                #
-                # Solve for a per-CCD offset and rotation/scale
-                #
+        if config.solveForAGTransforms or (config.modelCCDOffset and agc_camera_id not in config.transforms):
+            #
+            # Solve for a per-CCD offset and rotation/scale
+            #
+            if agc_camera_id not in config.transforms:
                 print(f"Solving for offsets/rotations for AG{agc_camera_id + 1}")
 
-                transform = MeasureDistortion(agcDataCam.agc_center_x_mm, agcDataCam.agc_center_y_mm, -1,
-                                              agcDataCam.agc_nominal_x_mm, agcDataCam.agc_nominal_y_mm, None)
+                transform = MeasureDistortion(agcData.agc_center_x_mm, agcData.agc_center_y_mm, -1,
+                                              agcData.agc_nominal_x_mm, agcData.agc_nominal_y_mm, None)
                 config.transforms[agc_camera_id] = transform
 
                 res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
                 transform.setArgs(res.x)
+
+        if config.modelCCDOffset:
+            agcDataCam = agcData[sel].copy()   # pandas doesn't guarantee a copy or a view, so be specific
+
+            transform = config.transforms[agc_camera_id]
 
             agcDataCam.agc_nominal_x_mm, agcDataCam.agc_nominal_y_mm = \
                 transform.distort(agcDataCam.agc_nominal_x_mm, agcDataCam.agc_nominal_y_mm, inverse=True)
@@ -542,7 +538,7 @@ def showGuiderErrors(agcData, config,
     sel = config.selectStars(agcData, guidingErrors=guidingErrors)
     tmp = agcData[sel]
     if config.maxPosError > 0:
-        grouped = tmp.groupby(["guide_star_id"])
+        grouped = tmp.groupby("guide_star_id")
         _tmp = grouped.agg(
             drbar=("dr", "mean"),
         )
@@ -692,6 +688,8 @@ def showGuiderErrors(agcData, config,
         lims = 350/config.pfiScaleReduction*np.array([-1, 1])
     plt.xlim(plt.ylim(np.min(lims), np.max(lims)))
 
+    plt.plot([0], [0], '+', color='red')
+
     if Q is not None:
         plt.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     else:
@@ -757,6 +755,8 @@ def showGuiderErrorsByParams(agcData, guideErrorByCamera, params, config, figure
         if config.rotateToAG1Down:
             plt.gca().add_patch(Circle((0, 0), agc_ring_R, fill=False, color="red"))
 
+        plt.plot([0], [0], '+', color='red')
+
         if True:
             lims = 350/config.pfiScaleReduction*np.array([-1, 1])
             plt.xlim(plt.ylim(np.min(lims), np.max(lims)))
@@ -790,7 +790,6 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
     arr = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])
     if len(arr) == 0:
         raise RuntimeError("""No transforms were found.  Consider running showGuiderErrors with
-        config.modelBoresightOffset = True
         config.solveForAGTransforms = True
         """)
     dx, dy, theta = arr[:, :3].T
@@ -853,21 +852,27 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
     plt.suptitle(title)
 
 
-def plotDriftRate(agcData, agc_exposure_ids=None,
-                  robust=True, subtractMeanOffset=True, byTime=True, showCamera=True,
+def plotDriftRate(agcData, agc_exposure_ids=None, radialTangential=True, fitTrend=True,
+                  robust=True, subtractMeanOffset=True, byTime=True, byCamera=True, showCamera=True,
                   figure=None):
     """Fit and plot the guide cameras drifts, based on the values in agcData
     Only use the agc_exposures in agc_exposure_ids (if provided)
 
     agcData : as updated by showGuiderErrors, with dx/dy columns
-    agc_exposure_ids : only show these agc_exposure_ids; or None
-    robust: `bool` use scipy.stats.siegelslopes's robust line-fitter
+    agc_exposure_ids : `list of int` only show these agc_exposure_ids; or None
+    radialTangential :`bool`  decompose x/y offsets into radial/tangential components
+    fitTrend: `bool` if true, fit the drift against time
+    robust: `bool` if fitTrend, use scipy.stats.siegelslopes's robust line-fitter
     subtractMeanOffset: `bool` Subtract mean offset for each camera
     byTime:  `bool` plot against time, not agc_exposure_id
+    byCamera: `bool` show separate symbols for each AG camera
     showCamera: `bool` colour points by agc_camera_id
     figure: `matplotlib.Figure` reuse this figure
 
     """
+    if not byCamera:
+        showCamera = False
+
     if agc_exposure_ids is not None:
         agcData = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
 
@@ -876,78 +881,101 @@ def plotDriftRate(agcData, agc_exposure_ids=None,
 
     agcData = agcData[agcData.shutter_open == 1]
 
-    grouped = agcData.groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
-    tmp = grouped.agg(
-        taken_at=("taken_at", "first"),
-        agc_nominal_x_mm=("agc_nominal_x_mm", "mean"),
-        agc_nominal_y_mm=("agc_nominal_y_mm", "mean"),
-        dx=("dx", "mean"),
-        dy=("dy", "mean"),
-    )
-
-    if subtractMeanOffset:
-        grouped = tmp.groupby("agc_camera_id")
-        ntmp = grouped.agg(
-            dxbar=("dx", "mean"),
-            dybar=("dy", "mean"),
+    if byCamera:
+        grouped = agcData.groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
+        tmp = grouped.agg(
+            taken_at=("taken_at", "first"),
+            agc_nominal_x_mm=("agc_nominal_x_mm", "mean"),
+            agc_nominal_y_mm=("agc_nominal_y_mm", "mean"),
+            dx=("dx", "mean"),
+            dy=("dy", "mean"),
         )
-        tmp = ntmp.merge(tmp, on="agc_camera_id")
-        tmp.dx -= tmp.dxbar
-        tmp.dy -= tmp.dybar
+
+        if subtractMeanOffset:
+            grouped = tmp.groupby("agc_camera_id")
+            ntmp = grouped.agg(
+                dxbar=("dx", "mean"),
+                dybar=("dy", "mean"),
+            )
+            tmp = ntmp.merge(tmp, on="agc_camera_id")
+            tmp.dx -= tmp.dxbar
+            tmp.dy -= tmp.dybar
+    else:
+        grouped = agcData.groupby(["agc_exposure_id"], as_index=False)
+        tmp = grouped.agg(
+            taken_at=("taken_at", "first"),
+            agc_nominal_x_mm=("agc_nominal_x_mm", "mean"),
+            agc_nominal_y_mm=("agc_nominal_y_mm", "mean"),
+            dx=("dx", "mean"),
+            dy=("dy", "mean"),
+        )
+        tmp.dx = tmp.dx - np.mean(tmp.dx)
+        tmp.dy = tmp.dy - np.mean(tmp.dy)
 
     tmp.sort_values("taken_at", inplace=True)
 
     dx, dy = tmp.dx, tmp.dy
-    theta = np.arctan2(tmp.agc_nominal_y_mm, tmp.agc_nominal_x_mm)
-
-    c, s = np.cos(theta), np.sin(theta)
-    dradial, dtangential = c*dx + s*dy, -s*dx + c*dy
     time = (tmp.taken_at - tmp.taken_at.iloc[0]).dt.total_seconds().to_numpy()
+
+    if radialTangential:
+        theta = np.arctan2(tmp.agc_nominal_y_mm, tmp.agc_nominal_x_mm)
+
+        c, s = np.cos(theta), np.sin(theta)
+        dradial, dtangential = c*dx + s*dy, -s*dx + c*dy
     #
     # OK!  time to do the fit
     #
+    if fitTrend:
+        def func(x, a, b):
+            return a + b*x
 
-    def func(x, a, b):
-        return a + b*x
-
-    if robust:
-        br, ar = scipy.stats.siegelslopes(dradial, time)  # offset and rate;  microns and microns/sec
-        bt, at = scipy.stats.siegelslopes(dtangential, time)  # offset and rate;  microns and microns/sec
-    else:
-        ar, br = scipy.optimize.curve_fit(func, time, dradial)[0]
-        at, bt = scipy.optimize.curve_fit(func, time, dtangential)[0]
+        z1, z2 = (dradial, dtangential) if radialTangential else (dx, dy)
+        if robust:
+            # offset and rate;  microns and microns/sec
+            br, ar = scipy.stats.siegelslopes(z1, time)
+            bt, at = scipy.stats.siegelslopes(z2, time)
+        else:
+            ar, br = scipy.optimize.curve_fit(func, time, z1)[0]
+            at, bt = scipy.optimize.curve_fit(func, time, z2)[0]
     #
     # And make the plots
     #
     fig, axs = plt.subplots(2, 1, num=figure, sharex=True, sharey=True, squeeze=False)
     axs = axs.flatten()
 
-    for ax, vec, xy in zip(axs, [1e3*dradial, 1e3*dtangential], ["radial", "tangential"]):
+    if radialTangential:
+        vectors, labels = [dradial, dtangential], ["radial", "tangential"]
+    else:
+        vectors, labels = [dy, dx], ["y", "x"]
+
+    for ax, vec, xy in zip(axs, vectors, labels):
         plt.sca(ax)
+        vecm = 1e3*vec  # convert mm to microns
         if showCamera:
             for agc_camera_id in range(6):
                 ll = tmp.agc_camera_id == agc_camera_id
 
                 kwargs = dict(color=f"C{agc_camera_id}", label=f"AG{agc_camera_id + 1}")
                 if byTime:
-                    plt.plot(time[ll], vec[ll], 'o', **kwargs)
+                    plt.plot(time[ll], vecm[ll], 'o', **kwargs)
                 else:
-                    plt.plot(tmp.agc_exposure_id[ll], vec[ll], 'o', **kwargs)
+                    plt.plot(tmp.agc_exposure_id[ll], vecm[ll], 'o', **kwargs)
             plt.legend(ncol=3, loc='upper center')
         else:
             if byTime:
-                plt.plot(time, vec, 'o')
+                plt.plot(time, vecm, 'o')
             else:
-                plt.plot(tmp.agc_exposure_id, vec, 'o')
+                plt.plot(tmp.agc_exposure_id, vecm, 'o')
 
         plt.ylabel(xy)
 
-        a, b = (ar, br) if xy == "radial" else (at, bt)
-        tt = np.array([time[0], time[-1]])
-        xx = tt if byTime else np.array([tmp.agc_exposure_id.iloc[0], tmp.agc_exposure_id.iloc[-1]])
-        plt.plot(xx, 1e3*(a + b*tt), color='black')
+        if fitTrend:
+            a, b = (ar, br) if xy in ("x", "radial") else (at, bt)
+            tt = np.array([time[0], time[-1]])
+            xx = tt if byTime else np.array([tmp.agc_exposure_id.iloc[0], tmp.agc_exposure_id.iloc[-1]])
+            plt.plot(xx, 1e3*(a + b*tt), color='black')
 
-        plt.text(0.05, 0.9, f"Rate: {60*1e3*b:.3f} microns/min", transform=ax.transAxes)
+            plt.text(0.05, 0.9, f"Rate: {60*1e3*b:.3f} microns/min", transform=ax.transAxes)
 
     visits = sorted(set(agcData.pfs_visit_id))
 
@@ -961,24 +989,32 @@ def plotDriftRate(agcData, agc_exposure_ids=None,
 
 
 def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNominal=False,
-                        byVisit=False, subtractMedian=False,
+                        byVisit=False, showAGMean=True, drawTrack=False,
+                        recenterPerVisit=False, agcVisitSmoothing=1,
+                        subtractMedian=False, expand=1,
                         showClosedShutter=False, xy0Stat="median", visitName=None):
     """Estimate (and maybe plot) the mean guide errors for each AG camera and exposure
     Only exposures with the spectrograph shutters open are considered unless showClosedShutter is True
 
     plot: `bool` plot the results?
-    guideStrategy: how to define the correct position of the guide stars
+    guideStrategy: how to define the reference position of the guide stars
         center0:          Use the average of the first visit's agc_center_[xy]_mm (see xy0Stat)
+        center0PerVisit:  Use the average of agc_center_[xy]_mm for each visit (see xy0Stat)
         boresight:        Use nominal, but corrected by xy0Stat for each visit
         nominal:          Use agc_nominal_[xy]_mm
         nominal0:         Use agc_nominal_[xy]_mm at start of sequence
         nominal0PerVisit: Use agc_nominal_[xy]_mm at start of each visit
     showNominal: show the difference between the nominal (rather than the center) and the "guide" positions
     byVisit: group on pfs_visit_id rather than agc_exposure_id
+    showAGMean: Show the mean of the AG guide signals at the centre of the plot
+    drawTrack: connect the dots, helping see the order of points
+    agcVisitSmoothing: Smooth the sequence of errors by a boxcar of width agcVisitSmoothing
+    recenterPerVisit: `bool` Subtract the per-visit mean position
     subtractMedian:       Subtract the median from each camera's guide errors
+    expand:             Enlarge the residual plot by a factor of expand
     showClosedShutter:    Include data with the spectrograph shutter closed
-    xy0Stat: The name of the statistic to use for center0 (must be supported by pd.DataFrame.agg,
-             and also in validXy0StatStrategies list)
+    xy0Stat: The name of the statistic to use for center0/center0PerVisit (must be supported by
+             pd.DataFrame.agg, and also in validXy0StatStrategies list)
 
     Returns:
        agcData:  As updated, with added columns
@@ -987,41 +1023,53 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
                  agc_nominal_[xy]y_mm_visit0  Values of agc_nominal_[xy]_mm at start of each visit
        agcGuideErrors: pandas DataFrame with desired errors
     """
-
     validXy0StatStrategies = ["mean", "median", "first", "last"]
     if xy0Stat not in validXy0StatStrategies:
         raise RuntimeError(f"Unknown xy0Stat {xy0Stat}"
                            f" (valid: {', '.join(validXy0StatStrategies)})")
 
-    validGuideStrategies = ["center0", "nominal", "nominal0PerVisit", "nominal0", "boresight"]
+    validGuideStrategies = ["boresight",
+                            "center0", "center0PerVisit", "nominal", "nominal0PerVisit", "nominal0"]
     if guideStrategy not in validGuideStrategies:
         raise RuntimeError(f"Unknown guideStrategy {guideStrategy}"
                            f" (valid: {', '.join(validGuideStrategies)})")
 
     shutterMin = -1 if showClosedShutter else 0
 
-    grouped = agcData.groupby(["guide_star_id"], as_index=False)
-    agcData = grouped.agg(
-        agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
-        agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
-    ).merge(agcData, on=["guide_star_id"])
+    if "agc_center_x_mm0" not in agcData:
+        grouped = agcData[agcData.shutter_open > shutterMin].groupby(["guide_star_id"], as_index=False)
+        agcData = grouped.agg(
+            agc_center_x_mm0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
+            agc_center_y_mm0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
+        ).merge(agcData, on=["guide_star_id"])
 
-    grouped = agcData[agcData.shutter_open > shutterMin].groupby(["pfs_visit_id", "guide_star_id"],
-                                                                 as_index=False)
-    agcData = grouped.agg(
-        agc_center_x_mm0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
-        agc_center_y_mm0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
-        agc_nominal_x_mm_visit0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
-        agc_nominal_y_mm_visit0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
-    ).merge(agcData, on=["pfs_visit_id", "guide_star_id"])
+    if "agc_center_x_mm_visit0" not in agcData:
+        grouped = agcData[agcData.shutter_open > shutterMin].groupby(["pfs_visit_id", "guide_star_id"],
+                                                                     as_index=False)
+        _agcData = grouped.agg(
+            agc_center_x_mm_visit0=pd.NamedAgg("agc_center_x_mm", xy0Stat),
+            agc_center_y_mm_visit0=pd.NamedAgg("agc_center_y_mm", xy0Stat),
+        ).merge(agcData, on=["pfs_visit_id", "guide_star_id"])
+        agcData["agc_center_x_mm_visit0"] = _agcData.agc_center_x_mm_visit0
+        agcData["agc_center_y_mm_visit0"] = _agcData.agc_center_y_mm_visit0
 
-    if guideStrategy == "center0":
-        refPos_x = agcData.agc_center_x_mm0
-        refPos_y = agcData.agc_center_y_mm0
-    elif guideStrategy == "nominal":
-        refPos_x = agcData.agc_nominal_x_mm
-        refPos_y = agcData.agc_nominal_y_mm
-    elif guideStrategy == "boresight":
+    if "agc_nominal_x_mm0" not in agcData:
+        grouped = agcData[agcData.shutter_open > shutterMin].groupby(["guide_star_id"], as_index=False)
+        agcData = grouped.agg(
+            agc_nominal_x_mm0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
+            agc_nominal_y_mm0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
+        ).merge(agcData, on=["guide_star_id"])
+
+        grouped = agcData[agcData.shutter_open > shutterMin].groupby(["pfs_visit_id", "guide_star_id"],
+                                                                     as_index=False)
+        _agcData = grouped.agg(
+            agc_nominal_x_mm_visit0=pd.NamedAgg("agc_nominal_x_mm", xy0Stat),
+            agc_nominal_y_mm_visit0=pd.NamedAgg("agc_nominal_y_mm", xy0Stat),
+        ).merge(agcData, on=["pfs_visit_id", "guide_star_id"])
+
+    agcData = agcData[agcData.shutter_open > 0]
+
+    if guideStrategy == "boresight":
         tmp = pd.DataFrame(dict(pfs_visit_id=agcData.pfs_visit_id,
                                 guide_star_id=agcData.guide_star_id,
                                 agc_camera_id=agcData.agc_camera_id,
@@ -1041,36 +1089,53 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
         #
         # Use those stars to calculate the per-visit offsets
         #
-        grouped = tmp.groupby(["pfs_visit_id"], as_index=False)
-        tmp = grouped.agg(
-            agc_nominal_x_mm_visit=("agc_nominal_x_mm_offset", xy0Stat),
-            agc_nominal_y_mm_visit=("agc_nominal_y_mm_offset", xy0Stat),
-        )
-        agcData = tmp.merge(agcData, on=["pfs_visit_id"])
-
-        if False:
-            tmp["dr"] = np.hypot(tmp.agc_nominal_x_mm_visit, tmp.agc_nominal_y_mm_visit)
-            print(tmp)
+        if "agc_nominal_x_mm_visit" not in agcData:
+            grouped = tmp.groupby(["pfs_visit_id"], as_index=False)
+            tmp = grouped.agg(
+                agc_nominal_x_mm_visit=("agc_nominal_x_mm_offset", xy0Stat),
+                agc_nominal_y_mm_visit=("agc_nominal_y_mm_offset", xy0Stat),
+            )
+            agcData = tmp.merge(agcData, on=["pfs_visit_id"])
 
         refPos_x = agcData.agc_nominal_x_mm0 + agcData.agc_nominal_x_mm_visit
         refPos_y = agcData.agc_nominal_y_mm0 + agcData.agc_nominal_y_mm_visit
-    elif guideStrategy == "nominal0PerVisit":
-        refPos_x = agcData.agc_nominal_x_mm_visit0
-        refPos_y = agcData.agc_nominal_y_mm_visit0
+    elif guideStrategy == "center0":
+        refPos_x = agcData.agc_center_x_mm0
+        refPos_y = agcData.agc_center_y_mm0
+    elif guideStrategy == "center0PerVisit":
+        refPos_x = agcData.agc_center_x_mm_visit0
+        refPos_y = agcData.agc_center_y_mm_visit0
+    elif guideStrategy == "nominal":
+        refPos_x = agcData.agc_nominal_x_mm
+        refPos_y = agcData.agc_nominal_y_mm
     elif guideStrategy == "nominal0":
         refPos_x = agcData.agc_nominal_x_mm0
         refPos_y = agcData.agc_nominal_y_mm0
+    elif guideStrategy == "nominal0PerVisit":
+        refPos_x = agcData.agc_nominal_x_mm_visit0
+        refPos_y = agcData.agc_nominal_y_mm_visit0
     else:
         raise RuntimeError("You can't get here; complain to RHL")
 
     if showNominal:
-        agcData["dx"] = refPos_x - agcData.agc_nominal_x_mm
-        agcData["dy"] = refPos_y - agcData.agc_nominal_y_mm
+        agcData["dx"] = agcData.agc_nominal_x_mm - refPos_x
+        agcData["dy"] = agcData.agc_nominal_y_mm - refPos_y
     else:
-        agcData["dx"] = refPos_x - agcData.agc_center_x_mm
-        agcData["dy"] = refPos_y - agcData.agc_center_y_mm
+        agcData["dx"] = agcData.agc_center_x_mm - refPos_x
+        agcData["dy"] = agcData.agc_center_y_mm - refPos_y
 
-    grouped = agcData[agcData.shutter_open > shutterMin].groupby(
+    if agcVisitSmoothing > 1:
+        taken_at = agcData["taken_at"]
+        del agcData["taken_at"]
+
+        agcData = agcData.groupby("agc_camera_id", as_index=False)
+        agcData = agcData.rolling(agcVisitSmoothing,
+                                  on="agc_exposure_id",
+                                  min_periods=1, center=True).mean()
+
+        agcData["taken_at"] = taken_at
+
+    grouped = agcData.groupby(
         ["pfs_visit_id" if byVisit else "agc_exposure_id" , "agc_camera_id"], as_index=False)
     agcGuideErrors = grouped.agg(
         agc_exposure_id=pd.NamedAgg("agc_exposure_id", "mean"),
@@ -1085,7 +1150,7 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
         guide_delta_insrot=pd.NamedAgg("guide_delta_insrot", "mean"),
         xbar=pd.NamedAgg("dx", "mean"),
         ybar=pd.NamedAgg("dy", "mean"),
-        shutter_open=pd.NamedAgg("shutter_open", "max")
+        shutter_open=pd.NamedAgg("shutter_open", "max"),
     )
 
     if subtractMedian:
@@ -1096,39 +1161,104 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
             agcGuideErrors.ybar = np.where(sel, agcGuideErrors.ybar - np.median(agcGuideErrors.ybar[sel]),
                                            agcGuideErrors.ybar)
     #
+    if recenterPerVisit:
+        grouped = agcGuideErrors.groupby("pfs_visit_id")
+        tmp = grouped.agg(
+            xbarMean=pd.NamedAgg("xbar", lambda x: np.nanmean(x)),
+            ybarMean=pd.NamedAgg("ybar", lambda x: np.nanmean(x)),
+        ).merge(agcGuideErrors, on="pfs_visit_id")
+        agcGuideErrors.xbar = agcGuideErrors.xbar - tmp.xbarMean
+        agcGuideErrors.ybar = agcGuideErrors.ybar - tmp.ybarMean
+    #
     # Plot the results?
-    if plot:
-        for i in range(2):
-            if i == 1 and showClosedShutter:
-                ll = agcGuideErrors.shutter_open == 0
-                s = 5
-            else:
-                ll = agcGuideErrors.shutter_open > 0
-                s = None
+    #
 
-            S = plt.scatter((agcGuideErrors.agc_nominal_x_mm0 + 1e3*agcGuideErrors.xbar)[ll],
-                            (agcGuideErrors.agc_nominal_y_mm0 + 1e3*agcGuideErrors.ybar)[ll], marker='o',
-                            c=agcGuideErrors.pfs_visit_id[ll] if
-                            byVisit else agcGuideErrors.agc_exposure_id[ll],
-                            s=s
-                            )
+    def selectPoints(df, i):
+        if i == 1 and showClosedShutter:
+            ll = df.shutter_open == 0
+            s = 5
+        else:
+            ll = df.shutter_open > 0
+            s = None
+
+        return ll, s
+
+    if plot:
+        _agcGuideErrors = agcGuideErrors[["agc_exposure_id", "pfs_visit_id", "agc_camera_id", "shutter_open",
+                                          "agc_nominal_x_mm0", "agc_nominal_y_mm0", "xbar", "ybar"]]
+
+        if True:   # draw each guide star at the centre of its CCD
+            grouped = _agcGuideErrors.groupby("agc_camera_id")
+            _agcGuideErrors = grouped.agg(
+                agc_camera_x_mm0=("agc_nominal_x_mm0", "median"),
+                agc_camera_y_mm0=("agc_nominal_y_mm0", "median"),
+            ).merge(_agcGuideErrors, on="agc_camera_id")
+
+            agc_camera_x_mm = _agcGuideErrors.agc_camera_x_mm0
+            agc_camera_y_mm = _agcGuideErrors.agc_camera_y_mm0
+        else:    # draw each guide star at its position within the CCD
+            agc_camera_x_mm = _agcGuideErrors.agc_nominal_x_mm0
+            agc_camera_y_mm = _agcGuideErrors.agc_nominal_y_mm0
+
+        for i in range(2):
+            ll, s = selectPoints(_agcGuideErrors, i)
+
+            x = agc_camera_x_mm/expand + 1e3*_agcGuideErrors.xbar
+            y = agc_camera_y_mm/expand + 1e3*_agcGuideErrors.ybar
+            S = plt.scatter(x[ll], y[ll], marker='o', s=s,
+                            c=_agcGuideErrors.pfs_visit_id[ll] if byVisit else
+                            _agcGuideErrors.agc_exposure_id[ll])
+            if drawTrack:
+                for agc_camera_id in range(6):
+                    lll = ll & (_agcGuideErrors.agc_camera_id == agc_camera_id)
+                    plt.plot(x[lll], y[lll], color='black', alpha=0.25, zorder=-1)
+
+            if showAGMean:
+                grouped = _agcGuideErrors.groupby("agc_exposure_id", as_index=False)
+                tmp = grouped.agg(
+                    xbar=("xbar", "mean"),
+                    ybar=("ybar", "mean"),
+                    shutter_open=("shutter_open", "first"),
+                )
+                x = 1e3*tmp.xbar
+                y = 1e3*tmp.ybar
+                ll, s = selectPoints(tmp, i)
+
+                S = plt.scatter(x[ll], y[ll], marker='o', s=s, alpha=0.5,
+                                c=_agcGuideErrors.pfs_visit_id[ll] if byVisit else tmp.agc_exposure_id[ll])
+                if drawTrack:
+                    plt.plot(x[ll], y[ll], color='black', alpha=0.25, zorder=-1)
+
+        a = S.get_alpha()
+        S.set_alpha(1)
         plt.colorbar(S).set_label("pfs_visit_id" if byVisit else "agc_exposure_id")
+        S.set_alpha(a)
+
+        plt.plot([0], [0], '+', color='red')
 
         plt.gca().set_aspect(1)
-        plt.xlim(plt.ylim(280*np.array([-1, 1])))
-        plt.xlabel(r"$\delta$x (microns)")
-        plt.ylabel(r"$\delta$y (microns)")
+        plt.xlim(plt.ylim(280/expand*np.array([-1, 1])))
+
+        delta = f"{'nominal' if showNominal else 'center'} - {guideStrategy}"
+        plt.xlabel(f"x (microns)  ({delta})")
+        plt.ylabel(f"y (microns)  ({delta})")
 
         _visits = sorted(set(agcData.pfs_visit_id))
-        title = f"{_visits[0]}..{_visits[-1]}"
+        title = []
+        title.append(f"{_visits[0]}..{_visits[-1]}")
         if visitName:
-            title += f" {visitName}"
-        title += f"\nguideStrategy: {guideStrategy}"
+            title[-1] += f" {visitName}"
 
-        if guideStrategy in ("boresight", "center0"):
-            title += f" xy0Stat:{xy0Stat}"
+        title.append("")
 
-        title += f"\n(guide - {'nominal' if showNominal else 'center'})"
+        if guideStrategy in ("boresight", "center0", "center0PerVisit"):
+            title[-1] += f" xy0Stat:{xy0Stat}"
+        if recenterPerVisit:
+            title[-1] += " per-visit centre removed"
+        if agcVisitSmoothing > 1:
+            title[-1] += f" smoothed {agcVisitSmoothing}"
+
+        title = '\n'.join(title)
 
         showAGCameraCartoon(showInstrot=True, showUp=True)
 
@@ -1285,8 +1415,8 @@ def _showGuiderErrors(agcData, config,
             useGuideStars = np.random.choice(range(nguide_star),
                                              max([1, int(config.guide_star_frac*nguide_star)]), replace=False)
 
-            if config.modelCCDOffset and \
-               (config.solveForAGTransforms or agc_camera_id not in config.transforms):
+            if config.solveForAGTransforms or \
+               (config.modelCCDOffset and agc_camera_id not in config.transforms):
                 #
                 # Solve for a per-CCD offset and rotation/scale
                 #
