@@ -101,9 +101,13 @@ def plotArcResiduals(als,
         dispersion = detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
 
     ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
-    with np.testing.suppress_warnings() as suppress:
-        suppress.filter(RuntimeWarning, "invalid value encountered in less")
-        ll = np.logical_and(ll, als.lamErr < lamErrMax)
+    if lamErrMax > 0:
+        with np.testing.suppress_warnings() as suppress:
+            suppress.filter(RuntimeWarning, "invalid value encountered in less")
+            ll = np.logical_and(ll, als.lamErr < lamErrMax)
+    else:
+        # for some reason als.lam == als.wavelength for some lines with "good" fits
+        ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
 
     fiberIds = np.array(sorted(set(als.fiberId)))
     nFiber = len(fiberIds)
@@ -184,7 +188,7 @@ def plotArcResiduals(als,
 
 
 def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
-                       maxCentroidErr=0.1, maxDetectorMapError=1,
+                       maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0,
                        drawQuiver=True, arrowSize=0.1,
                        vmin=None, vmax=None, percentiles=[25, 75],
                        hexBin=False, gridsize=100, linewidths=None):
@@ -201,6 +205,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
         ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < maxCentroidErr)
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
+        if minSN > 0:
+            ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     indices = len(als.fiberId)//2
     dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
@@ -216,7 +222,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
         Q = plt.quiver(als.x[ll], als.y[ll], dx[ll], dy[ll], alpha=0.5,
                        angles='xy', scale_units='xy', scale=arrowSize*100/detectorMap.getBBox().getHeight())
-        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize} pixels")
+        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize:.2g} pixels")
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -409,7 +415,7 @@ class PlotArcLines:
                               scale=self.arrowSize*100/detectorMap.getBBox().getHeight())
                 self._pobj = [Q]
 
-                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize} pixels")
+                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize:.2g} pixels")
 
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")
