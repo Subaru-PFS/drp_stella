@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import lsst.daf.persistence as dafPersist
 
 from .stability import addTraceLambdaToArclines
 
@@ -79,7 +80,12 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
         if dataIdStr not in alsCache:
             if butler is None:
                 raise RuntimeError(f"I'm unable to read data for {dataIdStr} without a butler")
-            detMap = butler.get("detectorMap_used", dataId)
+
+            try:
+                detMap = butler.get("detectorMap_used", dataId, visit=0)
+            except dafPersist.NoResults:
+                detMap = butler.get("detectorMap", dataId)
+
             alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('arcLines', dataId), detMap)
 
     for i, (ax, dataId) in enumerate(zip(axs, dataIds)):
