@@ -5,6 +5,7 @@ from .stability import addTraceLambdaToArclines
 
 __all__ = ["momentsToABT", "showImageQuality"]
 
+
 def momentsToABT(ixx, ixy, iyy):
     """Return a, b, theta given an ellipses second central moments
     a: semi-major axis
@@ -14,13 +15,13 @@ def momentsToABT(ixx, ixy, iyy):
     xx_p_yy = ixx + iyy
     xx_m_yy = ixx - iyy
     tmp = np.sqrt(xx_m_yy*xx_m_yy + 4*ixy*ixy)
-    
+
     a = np.sqrt(0.5*(xx_p_yy + tmp))
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "invalid value encountered in sqrt")
         b = np.sqrt(0.5*(xx_p_yy - tmp))
     theta = 0.5*np.arctan2(2*ixy, xx_m_yy)
-    
+
     return a, b, theta
 
 
@@ -111,7 +112,8 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
                            fwhm[ll], cmap=cmap, norm=norm,
                            headwidth=0, pivot="middle",
                            angles='xy', scale_units='xy', scale=arrowSize*30/imageSize)
-            plt.colorbar(sm, shrink=0.95/nx if ny == 1 else 1, label="FWHM (pixels)" if i%nx == nx - 1 else None)
+            plt.colorbar(sm, shrink=0.95/nx if ny == 1 else 1,
+                         label="FWHM (pixels)" if i%nx == nx - 1 else None)
             plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
             plt.xlim(plt.ylim(-1, 4096))
             plt.gca().set_aspect(1)
@@ -128,7 +130,6 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
 
             if logScale:
                 plt.yscale("log")
-
 
         plt.text(0.9, 1.02, f"SM{dataId['spectrograph']}", transform=ax.transAxes)
 

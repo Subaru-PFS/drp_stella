@@ -786,21 +786,21 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
 
     agc_exposure_ids = np.array(sorted(agc_exposure_ids))
 
-    # unpack the first three values from config.transforms for our agc_exposure_ids
-    arr = np.array([config.transforms[aid].getArgs() for aid in agc_exposure_ids])
-    if len(arr) == 0:
-        raise RuntimeError("""No transforms were found.  Consider running showGuiderErrors with
-        config.solveForAGTransforms = True
-        """)
-    dx, dy, theta = arr[:, :3].T
-
     subset = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
     grouped = subset.groupby("agc_exposure_id")
     altitude = grouped.altitude.mean()
     azimuth = grouped.azimuth.mean()
     shutter_open = grouped.shutter_open.max()
+    guide_delta_altitude = grouped.guide_delta_altitude.mean()
+    guide_delta_azimuth = grouped.guide_delta_azimuth.mean()
+    guide_delta_insrot = grouped.guide_delta_insrot.mean()
 
     sel = shutter_open.to_numpy() > 0
+
+    # Lookup the guide errors
+    dx = guide_delta_altitude
+    dy = guide_delta_azimuth
+    theta = guide_delta_insrot
 
     nx, ny = 2, 2
     fig, axs = plt.subplots(nx, ny, num=figure, sharex=False, sharey=False, squeeze=False)
@@ -810,28 +810,27 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
         plt.sca(ax)
 
         shrink = 0.45 if ny == 1 else 1
-        if i == 0:
-            S = plt.hexbin(1e3*dx[sel], 1e3*dy[sel], gridsize=50)
-            plt.colorbar(S, shrink=shrink)
-            plt.gca().set_aspect(1)
-            plt.xlabel(r"$\delta$x (microns)")
-            plt.ylabel(r"$\delta$y (microns)")
-        elif i == 1:
-            S = plt.scatter(1e3*dx[sel], 1e3*dy[sel], s=10, c=agc_exposure_ids[sel])
-            plt.colorbar(S, shrink=shrink).set_label("agc_exposure_id")
-            ax.set_facecolor('black')
-            plt.gca().set_aspect(1)
-            plt.xlabel(r"$\delta$x (microns)")
-            plt.ylabel(r"$\delta$y (microns)")
+        if i in [0, 1]:
+            if i == 0:
+                S = plt.hexbin(dx[sel], dy[sel], gridsize=min(10, int(np.sqrt(sum(sel)))))
+                plt.colorbar(S, shrink=shrink).set_label("N")
+            elif i == 1:
+                S = plt.scatter(dx[sel], dy[sel], s=10, c=agc_exposure_ids[sel])
+                plt.colorbar(S, shrink=shrink).set_label("agc_exposure_id")
+                ax.set_facecolor('black')
 
-            ax.get_shared_x_axes().join(ax, axs[0])
-            ax.get_shared_y_axes().join(ax, axs[0])
+                ax.get_shared_x_axes().join(ax, axs[0])
+                ax.get_shared_y_axes().join(ax, axs[0])
+
+            plt.gca().set_aspect(1)
+            plt.xlabel(r"$\delta$alt (asec)")
+            plt.ylabel(r"$\delta$az (asec)")
         elif i == 2:
             if showTheta:
-                yvec, ylabel = 3600*theta, r"$\theta$ (arcsec)"
+                yvec, ylabel = theta, r"$\theta$ (arcsec)"
                 ylim = 40*np.array([-1, 1])
             else:
-                yvec, ylabel = agc_ring_R*1e4*np.deg2rad(theta), f"guide error @{agc_ring_R}cm (microns)"
+                yvec, ylabel = agc_ring_R*1e4*np.deg2rad(3600*theta), f"guide error @{agc_ring_R}cm (microns)"
                 ylim = 40*np.array([-1, 1])
             S = plt.scatter(agc_exposure_ids[sel], yvec[sel], c=altitude[sel])
             plt.colorbar(S).set_label("altitude")
@@ -848,7 +847,8 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
             plt.ylabel("altitude")
 
     title = ""
-    title += f"({1e3*np.mean(dx):.1f}, {1e3*np.mean(dy):.1f}) microns   {3600*np.mean(theta):.1f} arcsec"
+    title += f"$\\langle\\delta (az, alt)\\rangle$ = ({np.mean(dx):.1f}, {np.mean(dy):.2f}) arcsec "
+    title += f"   $\\langle\\theta\\rangle$ = {np.mean(theta):.1f} arcsec"
     plt.suptitle(title)
 
 
@@ -1243,7 +1243,7 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
         plt.xlabel(f"x (microns)  ({delta})")
         plt.ylabel(f"y (microns)  ({delta})")
 
-        _visits = sorted(set(agcData.pfs_visit_id))
+        _visits = [int(v) for v in sorted(agcData.pfs_visit_id.unique())]
         title = []
         title.append(f"{_visits[0]}..{_visits[-1]}")
         if visitName:
