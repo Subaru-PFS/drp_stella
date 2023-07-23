@@ -34,6 +34,8 @@ class ReadLineListConfig(Config):
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
                                         'sky': 'skyLines.txt'})
+    assumeSky = Field(dtype=bool, default=False,
+                      doc="Assume that we're looking at sky even if lamps claim to be active?")
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
@@ -216,11 +218,15 @@ class ReadLineListTask(Task):
         """
         if metadata is None:
             raise RuntimeError("Cannot determine lamp information because metadata was not provided")
+
         lamps = getLamps(metadata)
         lampElements = getLampElements(metadata)
-        if not lamps:
-            if self.config.assumeSkyIfNoLamps:
-                self.log.info("No lamps on; assuming sky.")
+        if self.config.assumeSky or not lamps:
+            if self.config.assumeSky or self.config.assumeSkyIfNoLamps:
+                if self.config.assumeSky:
+                    self.log.info("Ignoring lamp status and assuming sky.")
+                else:
+                    self.log.info("No lamps on; assuming sky.")
                 lamps = {"sky"}
                 lampElements = {"OI", "NaI", "OH", "O2"}
             else:
