@@ -397,11 +397,13 @@ class BootstrapTask(CmdLineTask):
         yDomain = [detectorMap.bbox.getMinY(), detectorMap.bbox.getMaxY()]
         if fiberId:
             fiberId = set(fiberId)
+
         xx = np.array([detectorMap.findPoint(mm.obs.fiberId, mm.ref.wavelength)
                        for mm in matches if not fiberId or mm.obs.fiberId in fiberId]).T  # Where it should be
         yy = np.array([[mm.obs.x, mm.obs.y] for mm in matches if
                        not fiberId or mm.obs.fiberId in fiberId]).T  # Where it is
         diff = yy - xx
+        good = np.isfinite(diff).all(axis=0)
 
         if lsstDebug.Info(__name__).plotShifts:
             import matplotlib.pyplot as plt
@@ -409,15 +411,22 @@ class BootstrapTask(CmdLineTask):
             from matplotlib.colors import Normalize
             from mpl_toolkits.axes_grid1 import make_axes_locatable
             cmap = matplotlib.cm.rainbow
-            mean = diff.mean(axis=1)
+            xMean = diff[0][good].mean()
+            yMean = diff[1][good].mean()
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
             divider = make_axes_locatable(axes)
             cax = divider.append_axes('right', size='5%', pad=0.05)
-            magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
+            magnitude = np.hypot(diff[0][good] - xMean, diff[1][good] - yMean)
             norm = Normalize()
             norm.autoscale(magnitude)
-            axes.quiver(xx[0], xx[1], diff[0] - mean[0], diff[1] - mean[1], color=cmap(norm(magnitude)))
+            axes.quiver(
+                xx[0][good],
+                xx[1][good],
+                diff[0][good] - xMean,
+                diff[1][good] - yMean,
+                color=cmap(norm(magnitude)),
+            )
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
             colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
@@ -426,7 +435,7 @@ class BootstrapTask(CmdLineTask):
             plt.show()
 
         self.log.info("Median difference from detectorMap: %f,%f pixels",
-                      np.median(diff[0]), np.median(diff[1]))
+                      np.median(diff[0][good]), np.median(diff[1][good]))
 
         result = fitChebyshev2D(xx, yy, self.config.spatialOrder, self.config.spectralOrder,
                                 xDomain=xDomain, yDomain=yDomain, rejIterations=self.config.rejIterations,
@@ -472,15 +481,16 @@ class BootstrapTask(CmdLineTask):
             plt.show()
 
             cmap = matplotlib.cm.rainbow
-            mean = diff.mean(axis=1)
+            xMean = diff[0][good].mean()
+            yMean = diff[1][good].mean()
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
             divider = make_axes_locatable(axes)
             cax = divider.append_axes('right', size='5%', pad=0.05)
-            magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
+            magnitude = np.hypot(diff[0] - xMean, diff[1] - yMean)
             norm = Normalize()
             norm.autoscale(magnitude[good])
-            axes.quiver(xx[0][good], xx[1][good], (diff[0] - mean[0])[good], (diff[1] - mean[1])[good],
+            axes.quiver(xx[0][good], xx[1][good], (diff[0] - xMean)[good], (diff[1] - yMean)[good],
                         color=cmap(norm(magnitude[good])))
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
