@@ -287,7 +287,7 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     );
     auto const right = PolynomialDistortion::fit(
         distortionOrder,
-        leftRange(range),
+        rightRange(range),
         utils::arraySelect(xx, onRightCcd),
         utils::arraySelect(yy, onRightCcd),
         utils::arraySelect(xMeas, onRightCcd),
