@@ -27,6 +27,8 @@ scripts.BasicSConscript.pybind11(
      'centroidImage',
      'maskLines',
      'makeFootprint',
+     'PolynomialDistortion',
+     'PolynomialDetectorMap',
      ],
     addUnderscore=False
 )

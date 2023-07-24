@@ -165,16 +165,18 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
                                      fiberId=detMap.fiberId)
         self.config.slitOffsets.apply(detMap, self.log)
 
+        arm = dataRefList[0].dataId["arm"]
+
         if self.config.doAdjustDetectorMap:
             traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
             lines = tracesToLines(detMap, traces, self.config.traceSpectralError)
-            detMap = self.adjustDetectorMap.run(detMap, lines, visitInfo.id).detectorMap
+            detMap = self.adjustDetectorMap.run(detMap, lines, arm, visitInfo.id).detectorMap
             dataRefList[0].put(detMap, "detectorMap_used")
 
         identity = CalibIdentity(
             obsDate=visitInfo.getDate().toPython().isoformat(),
             spectrograph=dataRefList[0].dataId["spectrograph"],
-            arm=dataRefList[0].dataId["arm"],
+            arm=arm,
             visit0=dataRefList[0].dataId["visit"],
         )
         results = self.profiles.run(exposure, identity=identity, detectorMap=detMap, pfsConfig=pfsConfig)

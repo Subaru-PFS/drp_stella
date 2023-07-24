@@ -29,6 +29,8 @@ from .arcLine import *
 from .centroidImage import *
 from .DoubleDetectorMapContinued import *
 from .DoubleDistortion import *
+from .PolynomialDetectorMapContinued import *
+from .PolynomialDistortion import *
 
 from lsst.afw.image import Mask
 for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL", "IPC", "REFLINE"):

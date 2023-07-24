@@ -188,10 +188,20 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
-        outputs = super().runQuantum(butler, inputRefs, outputRefs)
-        butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
+        inputs = butler.get(inputRefs)
+        inputs["detectorMap"] = inputs.pop(
+            ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
+        )
 
-    def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap):
+        detector = next(
+            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.exposure.dataId))
+        )
+        assert detector.arm in "brnm"
+
+        outputs = self.run(**inputs, arm=detector.arm)
+        butler.put(outputs, outputRefs)
+
+    def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap, arm: str):
         """Measure centroids on a single exposure and adjust the detectorMap
 
         Parameters
@@ -202,6 +212,8 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
             PFS fiber configuration.
         detectorMap : `DetectorMap`
             Mapping of fiberId,wavelength to x,y.
+        arm : `str`
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
 
         Returns
         -------
@@ -221,7 +233,7 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
         try:
             detectorMap = self.adjustDetectorMap.run(
-                detectorMap, data.centroids, exposure.visitInfo.id
+                detectorMap, data.centroids, arm, exposure.visitInfo.id
             ).detectorMap
         except FittingError as exc:
             if self.config.requireAdjustDetectorMap:
