@@ -26,16 +26,22 @@ def momentsToABT(ixx, ixy, iyy):
     return a, b, theta
 
 
-def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False, logScale=True,
+def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
+                     showFWHMHistogram=False, showFluxHistogram=False,
+                     assembleSpectrograph=True,
+                     logScale=True, gridsize=100,
                      butler=None, alsCache=None, figure=None):
     """
     Make QA plots for image quality
 
     dataIds: list of dataIds to analyze
     showWhisker: Show a whisker plot [default]
-    showFWHM:    Show a histogram of FWHM
-    showFlux:    Show a histogram of line fluxes
+    showFWHM:    Show a 2-D image of the FWHM
+    showFWHMHistogram:    Show a histogram of the FWHM
+    showFluxHistogram:    Show a histogram of line fluxes
+    assembleSpectrograph: If true, and if more than one arm is present, arrange plots as brn columns
     logScale:    Show log histograme [default]
+    gridsize     Passed to hexbin (default: 100, the same as matplotlib)
     butler       A butler to read data that isn't in the alsCache
     alsCache     A dict to cache line shape data; returned by this function
     figure       The figure to use; or None
@@ -60,14 +66,30 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
     Return:
       alsCache
     """
-    if not (showWhisker or showFWHM or showFlux):
+    if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram):
         showWhisker = True
 
-    n = len(dataIds)
-    ny = int(np.sqrt(n))
-    nx = n//ny
-    if nx*ny < n:
-        ny += 1
+    visits = sorted(set([dataId["visit"] for dataId in dataIds]))
+    spectrographs = sorted(set([dataId["spectrograph"] for dataId in dataIds]))
+    arms = set([dataId["arm"] for dataId in dataIds])
+    if assembleSpectrograph and len(arms) > 1:
+
+        ny = len(arms)
+        nx = len(spectrographs)*len(visits)
+
+        dataIds = []
+        for a in "nmrb":
+            if a in arms:
+                for v in visits:
+                    for s in spectrographs:
+                        dataIds.append(dict(visit=v, spectrograph=s, arm=a))
+        n = len(dataIds)
+    else:
+        n = len(dataIds)
+        ny = int(np.sqrt(n))
+        nx = n//ny
+        if nx*ny < n:
+            ny += 1
 
     fig, axs = plt.subplots(ny, nx, num=figure, sharex=True, sharey=True, squeeze=False, layout="constrained")
     axs = axs.flatten()
@@ -100,7 +122,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
         r = np.sqrt(a*b)
         fwhm = 2*np.sqrt(2*np.log(2))*r
 
-        if showWhisker:
+        if showWhisker or showFWHM:
             q10 = np.nanpercentile(als.flux, [10])[0]
 
             ll = np.isfinite(als.xx + als.xy + als.yy)
@@ -108,26 +130,38 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
             ll &= als.flux > q10
             ll &= (als.fiberId % 10) == 0
 
-            arrowSize = 4
-            norm = plt.Normalize(2, 4)
-            cmap = plt.colormaps["viridis"]
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            if showWhisker:
+                imageSize = 4096            # used in estimating scale
 
-            imageSize = 4096            # used in estimating scale
-            Q = plt.quiver(als.x[ll], als.y[ll], (fwhm*np.cos(theta))[ll], (fwhm*np.sin(theta))[ll],
-                           fwhm[ll], cmap=cmap, norm=norm,
-                           headwidth=0, pivot="middle",
-                           angles='xy', scale_units='xy', scale=arrowSize*30/imageSize)
-            plt.colorbar(sm, shrink=0.95/nx if ny == 1 else 1,
-                         label="FWHM (pixels)" if i%nx == nx - 1 else None)
-            plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
+                arrowSize = 4
+                norm = plt.Normalize(2, 4)
+                cmap = plt.colormaps["viridis"]
+                C = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+
+                Q = plt.quiver(als.x[ll], als.y[ll], (fwhm*np.cos(theta))[ll], (fwhm*np.sin(theta))[ll],
+                               fwhm[ll], cmap=cmap, norm=norm,
+                               headwidth=0, pivot="middle",
+                               angles='xy', scale_units='xy', scale=arrowSize*30/imageSize)
+
+                plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
+            elif showFWHM:
+                norm = plt.Normalize(2.5, 3.5)
+                C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
+            else:
+                raise RuntimeError("You can't get here")
+
+            # We'll use C when we add a colorbar to the entire figure
             plt.xlim(plt.ylim(-1, 4096))
-            plt.gca().set_aspect(1)
+            plt.xlabel("x (pixels)")
+            plt.ylabel("y (pixels)")
+
+            ax.set_aspect(1)
+            ax.label_outer()
         else:
-            if showFWHM:
+            if showFWHMHistogram:
                 plt.hist(fwhm, bins=np.linspace(0, 10, 100))
                 plt.xlabel(r"FWHM (pix)")
-            elif showFlux:
+            elif showFluxHistogram:
                 q99 = np.nanpercentile(als.flux, [99])[0]
                 plt.hist(als.flux, bins=np.linspace(0, q99, 100))
                 plt.xlabel("flux")
@@ -137,19 +171,26 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFlux=False,
             if logScale:
                 plt.yscale("log")
 
-        plt.text(0.9, 1.02, f"SM{dataId['spectrograph']}", transform=ax.transAxes)
+        plt.text(0.9, 1.02, dataIdStr, transform=ax.transAxes, ha='right')
 
-    if showWhisker:
-        kwargs = {}
-        if ny < nx:
-            kwargs.update(y=0.22)
-        fig.supxlabel("x (pixels)", **kwargs)
-        fig.supylabel("y (pixels)")
+    for i in range(n, nx*ny):
+        axs[i].set_axis_off()
+
+    if showWhisker or showFWHM:
+        # Setting shrink is a black art
+        if ny == 1:
+            shrink = 0.99 if nx == 1 else 0.95/nx
+        elif ny == 2:
+            shrink = 0.99 if nx <= 4 else 0.72
+        else:
+            shrink = 1 if nx <= 2 else 0.93 if nx <= 4 else 0.85
+
+        fig.colorbar(C, shrink=shrink, label="FWHM (pixels)", ax=axs)
 
     kwargs = {}
     if showWhisker and ny < nx:
         kwargs.update(y=0.76)
 
-    plt.suptitle(f"FWHM {'%(visit)d %(arm)s' % dataId}", **kwargs)
+    plt.suptitle(f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}", **kwargs)
 
     return alsCache
