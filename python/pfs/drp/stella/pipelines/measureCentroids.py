@@ -199,7 +199,9 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
         assert detector.arm in "brnm"
 
         outputs = self.run(**inputs, arm=detector.arm)
-        butler.put(outputs, outputRefs)
+        butler.put(outputs.centroids, outputRefs.centroids)
+        butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
+        return outputs
 
     def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap, arm: str):
         """Measure centroids on a single exposure and adjust the detectorMap
