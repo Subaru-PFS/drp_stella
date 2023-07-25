@@ -303,6 +303,11 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
 
     fiberStatus = np.full_like(targetType, FiberStatus.GOOD)
 
+    epoch = np.full(shape=numFibers, fill_value="J2000.0")
+    pmRa = np.full(shape=numFibers, fill_value=0.0, dtype=np.float32)
+    pmDec = np.full(shape=numFibers, fill_value=0.0, dtype=np.float32)
+    parallax = np.full(shape=numFibers, fill_value=1e-5, dtype=np.float32)
+
     fiberMagnitude = [22.0, 23.5, 25.0, 26.0]
     fluxes = [(f * u.ABmag).to_value(u.nJy) for f in fiberMagnitude]
 
@@ -329,6 +334,7 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                      posAng.asDegrees(),
                      arms,
                      fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
+                     epoch, pmRa, pmDec, parallax,
                      fiberFlux, psfFlux, totalFlux,
                      fiberFluxErr, psfFluxErr, totalFluxErr,
                      filterNames, pfiCenter, pfiNominal, GuideStars.empty())

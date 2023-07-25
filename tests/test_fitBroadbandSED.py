@@ -70,6 +70,10 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
             objId=random.randint(0x8000_0000_0000_0000, size=(nFibers,), dtype=numpy.int64),
             targetType=random.choice(allTargetTypes, size=(nFibers,)),
             fiberStatus=random.choice(allFiberStatuses, size=(nFibers,)),
+            epoch=numpy.full(nFibers, "J2000.0"),
+            pmRa=random.uniform(low=0, high=100, size=nFibers),  # mas/yr
+            pmDec=random.uniform(low=0, high=100, size=nFibers),  # mas/yr
+            parallax=random.uniform(low=1e-5, high=10, size=nFibers),  # mas
             fiberFlux=fiberFlux,
             psfFlux=fiberFlux,
             totalFlux=fiberFlux,
