@@ -192,6 +192,13 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         " about this much times as fine as obs.spec.'s wavelength resolution."
         " Disabled if 0.",
     )
+    numPCAComponents = Field(
+        dtype=int,
+        default=512,
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Number of PCA components to use during fitting."
+        " The final products are made of all components regardless of this setting.",
+    )
 
     def setDefaults(self) -> None:
         super().setDefaults()
@@ -685,6 +692,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         ).astype(float)
         triangulation = scipy.spatial.Delaunay(param4d)
 
+        if hasattr(self.modelInterpolator, "getSmallerInterpolator"):
+            modelInterpolator = self.modelInterpolator.getSmallerInterpolator(self.config.numPCAComponents)
+        else:
+            self.log.warn(
+                "FluxModelInterpolator does not have getSmallerInterpolator() method."
+                " Update fluxmodeldata package."
+            )
+            modelInterpolator = self.modelInterpolator
+
         bestParams = [None] * len(priorPdfs)
 
         for iFiber, (obsSpectrum, velocity, priorPdf) in enumerate(
@@ -727,7 +743,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     else:
                         return np.inf
 
-                model = self.modelInterpolator.interpolate(*param)
+                model = modelInterpolator.interpolate(*param)
                 model.wavelength = model.wavelength * doppler
                 model = convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength)
                 model = model.resample(obsSpectrum.wavelength)
