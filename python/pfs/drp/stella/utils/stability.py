@@ -88,7 +88,8 @@ def plotArcResiduals(als,
                      hexBin=False,
                      gridsize=100,
                      linewidths=None,
-                     nsigma=0):
+                     nsigma=0,
+                     figure=None):
 
     """
 
@@ -114,7 +115,7 @@ def plotArcResiduals(als,
     fiberIds = np.array(sorted(set(als.fiberId)))
     nFiber = len(fiberIds)
 
-    fig, axs = plt.subplots(2, 1, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
+    fig, axs = plt.subplots(2, 1, num=figure, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
     axs = axs.flatten()
 
     for iax, plotWavelength in enumerate([True, False]):
@@ -177,7 +178,7 @@ def plotArcResiduals(als,
         plt.title(f"rms = {rms:.3f}" +
                   (f" (soften = {soften}{yUnit})" if showChi else yUnit) +
                   (f" (clipped {nsigma} sigma)" if nsigma > 0 else "") + f" correction: {fiddle}",
-                  color="white" if hexBin else "black", y=0.90)
+                  color="red", y=0.90)
 
     nFiber = len(set(als.fiberId))
 
@@ -193,7 +194,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
                        maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0,
                        drawQuiver=True, arrowSize=0.1,
                        vmin=None, vmax=None, percentiles=[25, 75],
-                       hexBin=False, gridsize=100, linewidths=None):
+                       hexBin=False, gridsize=100, linewidths=None, figure=None):
     """
     arrowSize: characteristic arrow length in pixels
     """
@@ -219,11 +220,11 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         dz[ll] -= fit
 
     if drawQuiver:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 1, num=figure)
         plt.sca(ax)
 
         Q = plt.quiver(als.x[ll], als.y[ll], dx[ll], dy[ll], alpha=0.5,
-                       angles='xy', scale_units='xy', scale=arrowSize*100/detectorMap.getBBox().getHeight())
+                       angles='xy', scale_units='xy', scale=arrowSize*20/detectorMap.getBBox().getHeight())
         plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize:.2g} pixels")
 
         plt.xlabel("x")
@@ -237,7 +238,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
         plt.gca().set_aspect('equal')
     else:
-        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, gridspec_kw=dict(wspace=0.0))
+        fig, axs = plt.subplots(1, 2, num=figure, sharex=True, sharey=True, gridspec_kw=dict(wspace=0.0))
 
         v0, v1 = np.percentile(np.concatenate((dx, dy)), percentiles)
         if vmin is None:
