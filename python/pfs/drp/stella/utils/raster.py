@@ -228,7 +228,7 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
                     usePFImm=False, subtractBkgd=True, setUnimagedPixelsToNaN=False,
-                    useInitialPointing=False,
+                    useInitialPointing=False, skipFirstDither=False,
                     extinction=None,
                     icrosstalk=None):
     """
@@ -239,6 +239,7 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
     pixelScale: size of pixels, arcsec
     R: radius of fibre, microns
     fiberIds: only make images for these fibers
+    skipFirstDither: use first dither for geometry, but omit its photons from the raster image
     usePFImm: make image in microns on PFI.  In this case, replace "arcsec" in side/pixelScale by "micron"
     subtractBkgd: subtract an estimate of the background
     extinction: dict of extinction values for each visit in dithers
@@ -392,6 +393,9 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             weights = np.zeros_like(images)
 
             visitImage = np.full_like(images[0], 0)
+
+            if skipFirstDither:
+                continue
 
         if usePFImm:
             dx, dy = 1e3*(x - x0), 1e3*(y - y0)   # microns
