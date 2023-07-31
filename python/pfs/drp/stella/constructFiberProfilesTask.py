@@ -188,7 +188,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             fiberId.sort()  # The profiles.fiberId is sorted too, so this gets us the same order
             if len(fiberId) != len(profiles):
                 raise RuntimeError(f"Found {len(profiles)} fibers but expected {len(fiberId)}")
-            newProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
+            newProfiles = FiberProfileSet.makeEmpty(profiles.identity, profiles.visitInfo, profiles.metadata)
             for old, new in zip(profiles.fiberId, fiberId):
                 newProfiles[new] = profiles[old]
             profiles = newProfiles
