@@ -249,11 +249,23 @@ class BuildFiberProfilesTask(Task):
             for pp in profiles:
                 pp.plot()
 
-        # Iterate once with the revised profiles
+        # Iterate with the revised profiles
         for ii in range(self.config.extractIter):
+            # Generate profiles with which to measure the flux
+            # These are Gaussian approximations to the profiles we've measured, to remove any nastiness in the
+            # measured profiles that might slow down convergence.
+            fluxProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
+            width = np.array([profiles[ff].calculateStatistics().width for ff in profiles])
+            select = np.isfinite(width) & (width > 0)
+            sigma = np.median(np.sqrt(width[select]))
+            for ff in profiles:
+                fluxProfiles[ff] = FiberProfile.makeGaussian(
+                    sigma, image.getHeight(), self.config.profileRadius, self.config.profileOversample
+                )
+
             for jj in range(num):
                 badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
-                normList[jj] = profiles.extractSpectra(
+                normList[jj] = fluxProfiles.extractSpectra(
                     imageList[jj], detectorMapList[jj], badBitMask
                 ).getAllFluxes()
 
