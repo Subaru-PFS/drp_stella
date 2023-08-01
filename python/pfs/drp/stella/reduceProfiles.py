@@ -95,6 +95,17 @@ class ReduceProfilesConfig(Config):
         doc="Target type for which to build profiles",
     )
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
+    replaceFibers = ListField(
+        dtype=int,
+        default=[
+            84,  # One of three in a row with bad cobras
+            85,  # One of three in a row with bad cobras
+            86,  # One of three in a row with bad cobras
+            114,  # Broken fiber; always blank
+        ],
+        doc="Replace the profiles for these fibers",
+    )
+    replaceNearest = Field(dtype=int, default=2, doc="Replace profiles with average of this many near fibers")
 
     def setDefaults(self):
         super().setDefaults()
@@ -174,6 +185,7 @@ class ReduceProfilesTask(CmdLineTask):
         pfsConfigList = [pfsConfig.select(fiberId=fiberId) for pfsConfig in pfsConfigList]
 
         profiles = self.profiles.runMultiple(exposureList, identity, detectorMapList, pfsConfigList).profiles
+        profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
         normList = [self.processExposure(ref) for ref in normRefList]
         normExp = self.combine([norm.exposureList[0] for norm in normList])

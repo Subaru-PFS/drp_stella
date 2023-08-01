@@ -58,6 +58,14 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         doc="Target type for which to build profiles",
     )
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
+    replaceFibers = ListField(
+        dtype=int,
+        default=[
+            114,  # Broken fiber; always blank
+        ],
+        doc="Replace the profiles for these fibers",
+    )
+    replaceNearest = Field(dtype=int, default=2, doc="Replace profiles with average of this many near fibers")
 
     def setDefaults(self):
         super().setDefaults()
@@ -192,6 +200,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             for old, new in zip(profiles.fiberId, fiberId):
                 newProfiles[new] = profiles[old]
             profiles = newProfiles
+
+        profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.

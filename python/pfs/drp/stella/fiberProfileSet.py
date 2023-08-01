@@ -494,3 +494,35 @@ class FiberProfileSet:
             plt.show()
 
         return fig, axes
+
+    def replaceFibers(self, replaceFibers: Iterable[int], nearest: int = 2):
+        """Replace profiles of certain fibers
+
+        Some fibers have broken cobras which do not allow them to be moved
+        behind their black spot, and hence it can be difficult to measure their
+        profiles (especially if they are next to another fiber with a broken
+        cobra, since we never get a measurement of one fiber's profile without
+        the other's). Here, we replace the profiles of these fibers with the
+        average of their nearest neighbors.
+
+        The normalisations of the fibers are NOT replaced; they should be
+        measured from data using the new profiles.
+
+        Parameters
+        ----------
+        replaceFibers : iterable of `int`
+            Fiber identifiers for which to replace the profiles. May include
+            fibers not present in the set.
+        nearest : `int`, optional
+            Number of nearest neighbors to use when replacing the profiles.
+        """
+        badFibers = set(replaceFibers) & set(self.fiberId)
+        if not badFibers:
+            return
+        goodFibers = np.array(list(set(self.fiberId) - set(replaceFibers)))
+        for fiberId in badFibers:
+            indices = np.argpartition(np.abs(goodFibers - fiberId), np.arange(nearest))[:nearest]
+            neighbors = goodFibers[indices]
+            shape = self[neighbors[0]].profiles.shape
+            assert all(self[ff].profiles.shape == shape for ff in neighbors)
+            self[fiberId].profiles = np.array([self[ff].profiles for ff in neighbors]).mean(axis=0)
