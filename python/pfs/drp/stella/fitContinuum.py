@@ -9,16 +9,20 @@ from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
 
+from typing import Tuple
+
 __all__ = ("FitContinuumConfig", "FitContinuumTask", "FitContinuumError")
 
 
 class FitContinuumError(RuntimeError):
     """Error when fitting continuum"""
+
     pass
 
 
 class FitContinuumConfig(Config):
     """Configuration for SubtractContinuumTask"""
+
     fitType = ChoiceField(
         dtype=str,
         default="AKIMA_SPLINE",
@@ -46,6 +50,7 @@ class FitContinuumTask(Task):
         binned data.
     - ``plotBins`` (`int`): number of bins if not ``plotAll`` (default 1000).
     """
+
     ConfigClass = FitContinuumConfig
     _DefaultName = "fitContinuum"
 
@@ -116,9 +121,9 @@ class FitContinuumTask(Task):
             fit = self._fitContinuumImpl(flux, use)
             diff = flux - fit
             lq, uq = np.percentile(diff[use], [25.0, 75.0])
-            stdev = 0.741*(uq - lq)
-            with np.errstate(invalid='ignore'):
-                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
+            stdev = 0.741 * (uq - lq)
+            with np.errstate(invalid="ignore"):
+                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
         return self._fitContinuumImpl(flux, good & keep)
 
     def _fitContinuumImpl(self, values, good):
@@ -151,6 +156,7 @@ class FitContinuumTask(Task):
 
         if lsstDebug.Info(__name__).plot:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
 
             if lsstDebug.Info(__name__).plotAll:
@@ -158,7 +164,8 @@ class FitContinuumTask(Task):
                 # https://matplotlib.org/gallery/lines_bars_and_markers/multicolored_line.html
                 import matplotlib
                 from matplotlib.collections import LineCollection
-                cmap, norm = matplotlib.colors.from_levels_and_colors([0.0, 0.5, 2.0], ['red', 'black'])
+
+                cmap, norm = matplotlib.colors.from_levels_and_colors([0.0, 0.5, 2.0], ["red", "black"])
                 points = np.array([indices, values]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
                 lines = LineCollection(segments, cmap=cmap, norm=norm)
@@ -167,11 +174,11 @@ class FitContinuumTask(Task):
             else:
                 # Plot binned data
                 xBinned, yBinned = binData(indices, values, good, lsstDebug.Info(__name__).plotBins or 1000)
-                ax.plot(xBinned, yBinned, 'k-')
+                ax.plot(xBinned, yBinned, "k-")
 
-            ax.plot(indices, fit, 'b-')
-            ax.plot(knots, binned, 'bo')
-            ax.set_ylim(0.7*fit.min(), 1.3*fit.max())
+            ax.plot(indices, fit, "b-")
+            ax.plot(knots, binned, "bo")
+            ax.set_ylim(0.7 * fit.min(), 1.3 * fit.max())
             plt.show()
 
         return fit
@@ -261,7 +268,7 @@ class FitContinuumTask(Task):
             maskedImage += results.continuumImage
 
 
-def binData(xx, yy, good, numBins):
+def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> Tuple[np.ndarray, np.ndarray]:
     """Bin arrays
 
     Parameters
@@ -278,11 +285,28 @@ def binData(xx, yy, good, numBins):
     xBinned, yBinned : `numpy.ndarray`
         Binned data.
     """
-    edges = (np.linspace(0, len(xx), numBins + 1) + 0.5).astype(int)
-    xBinned = np.empty(numBins)
-    yBinned = np.empty(numBins)
-    for ii, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
-        select = good[low:high]
-        xBinned[ii] = np.median(xx[low:high][select]) if np.any(select) else np.nan
-        yBinned[ii] = np.median(yy[low:high][select]) if np.any(select) else np.nan
-    return xBinned.astype(xx.dtype), yBinned.astype(yy.dtype)
+    bad = ~good
+    xMasked = np.copy(xx)
+    yMasked = np.copy(yy)
+    xMasked[bad] = np.nan
+    yMasked[bad] = np.nan
+
+    lenInput = len(xx)
+    lenWide = (lenInput + (numBins - 1)) // numBins * numBins
+    numExtra = lenWide - lenInput
+    select = np.ones(shape=(lenWide,), dtype=bool)
+    if numExtra > 0:
+        indexExtra = np.around(
+            (lenWide - 1) / numExtra * (np.arange(numExtra).astype(np.float32) + 0.5)
+        ).astype(int)
+        select[indexExtra] = False
+
+    xWide = np.full(shape=(lenWide,), dtype=xMasked.dtype, fill_value=np.nan)
+    yWide = np.full(shape=(lenWide,), dtype=yMasked.dtype, fill_value=np.nan)
+    xWide[select] = xMasked
+    yWide[select] = yMasked
+
+    xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
+    yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
+
+    return xBinned, yBinned
