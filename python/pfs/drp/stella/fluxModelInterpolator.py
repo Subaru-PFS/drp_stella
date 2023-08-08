@@ -436,3 +436,51 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         mask[:] = np.where(np.isfinite(flux), 0, flags.add("BAD"))
 
         return PfsSimpleSpectrum(target, self.wavelength, flux, mask, flags)
+
+    def getSmallerInterpolator(self, numComponents: int) -> "PCAFluxModelInterpolator":
+        """Get another interpolator with the number of PCA components reduced.
+
+        Parameters
+        ----------
+        numComponents : `int`
+            Number of PCA components used by the returned interpolator.
+
+        Returns
+        -------
+        interpolator : `PCAFluxModelInterpolator`
+            New interpolator.
+        """
+        baseInterpolator = self.interpolator
+
+        def interpolatorSlice(x: np.ndarray) -> np.ndarray:
+            """Duck-typed alternative to ``PCAFluxModelInterpolator.interpolator``.
+
+            This function calls the original interpolator
+            and returns a slice of its return value.
+
+            Parameters
+            ----------
+            x : np.ndarray
+                Position at which to interpolate the return value.
+
+            Returns
+            -------
+            y : np.ndarray
+                Interpolated value.
+            """
+            return baseInterpolator(x)[..., :numComponents]
+
+        pcaCompositorSlice = PCACompositor(
+            self.pcaCompositor.basis[:numComponents, ...],
+            self.pcaCompositor.mean,
+            self.pcaCompositor.header,
+        )
+
+        return PCAFluxModelInterpolator(
+            interpolatorSlice,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            pcaCompositorSlice,
+        )

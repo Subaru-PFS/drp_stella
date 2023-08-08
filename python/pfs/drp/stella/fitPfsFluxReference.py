@@ -192,6 +192,13 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         " about this much times as fine as obs.spec.'s wavelength resolution."
         " Disabled if 0.",
     )
+    numPCAComponents = Field(
+        dtype=int,
+        default=512,
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Number of PCA components to use during fitting."
+        " The final products are made of all components regardless of this setting.",
+    )
 
     def setDefaults(self) -> None:
         super().setDefaults()
@@ -685,6 +692,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         ).astype(float)
         triangulation = scipy.spatial.Delaunay(param4d)
 
+        if hasattr(self.modelInterpolator, "getSmallerInterpolator"):
+            modelInterpolator = self.modelInterpolator.getSmallerInterpolator(self.config.numPCAComponents)
+        else:
+            self.log.warn(
+                "FluxModelInterpolator does not have getSmallerInterpolator() method."
+                " Update fluxmodeldata package."
+            )
+            modelInterpolator = self.modelInterpolator
+
         bestParams = [None] * len(priorPdfs)
 
         for iFiber, (obsSpectrum, velocity, priorPdf) in enumerate(
@@ -692,6 +708,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         ):
             if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                 continue
+
+            beta = velocity.velocity / const.c.to("km/s").value
+            doppler = np.sqrt((1.0 + beta) / (1.0 - beta))
 
             priorPdfInterp = scipy.interpolate.LinearNDInterpolator(triangulation, priorPdf, fill_value=0.0)
 
@@ -724,16 +743,13 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     else:
                         return np.inf
 
-                model = self.modelInterpolator.interpolate(*param)
-                convolvedModel = self.downsampleModel(
-                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
-                    obsSpectrum,
-                )
-                modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
-                convolvedModel = modelContinuum.whiten(convolvedModel)
-                chisq = calculateSpecChiSquare(
-                    obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
-                )
+                model = modelInterpolator.interpolate(*param)
+                model.wavelength = model.wavelength * doppler
+                model = convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength)
+                model = model.resample(obsSpectrum.wavelength)
+                modelContinuum = self.computeContinuum(model, mode="observed")
+                model = modelContinuum.whiten(model)
+                chisq = calculateSpecChiSquare(obsSpectrum, model, self.getBadMask())
                 if returnChisq:
                     return chisq
                 else:
@@ -857,7 +873,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     obsSpectrum,
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
-                chisq = calculateSpecChiSquare(
+                chisq = calculateSpecChiSquareWithVelocity(
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
                 chisqLists[iFiber].chisq[iModel] = chisq.chi2
@@ -1515,6 +1531,44 @@ def adjustAbsoluteScale(
 
 
 def calculateSpecChiSquare(
+    obsSpectrum: PfsFiberArray, model: PfsSimpleSpectrum, badMask: Sequence[str]
+) -> Struct:
+    """Calculate chi square of spectral fitting
+    between a single observed spectrum and a single model spectrum.
+
+    ``obsSpectrum.wavelength`` must be the same array as ``model.wavelength``.
+
+    Parameters
+    ----------
+    obsSpectrum : `pfs.datamodel.pfsFiberArray.PfsFiberArray`
+        Observed spectrum.
+    model : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
+        Model spectrum.
+    badMask : `List[str]`
+        Mask names.
+
+    Returns
+    -------
+    chi2 : `float`
+        chi square.
+    dof : `int`
+        degree of freedom.
+    """
+    good = 0 == (model.mask & model.flags.get(*(m for m in badMask if m in model.flags)))
+    good &= 0 == (obsSpectrum.mask & obsSpectrum.flags.get(*(m for m in badMask if m in obsSpectrum.flags)))
+
+    modelFlux = model.flux[good]
+    flux = np.copy(obsSpectrum.flux)[good]
+    invVar = 1.0 / obsSpectrum.covar[0, good]
+
+    chi2 = np.sum(np.square(flux - modelFlux) * invVar)
+    # Degree of freedom must be decremented by 1 because we are comparing
+    # whitenend spectra, ignoring their amplitudes.
+    dof = np.count_nonzero(good) - 1
+    return Struct(chi2=chi2, dof=dof)
+
+
+def calculateSpecChiSquareWithVelocity(
     obsSpectrum: PfsFiberArray, model: PfsSimpleSpectrum, radialVelocity: float, badMask: Sequence[str]
 ) -> Struct:
     """Calculate chi square of spectral fitting
