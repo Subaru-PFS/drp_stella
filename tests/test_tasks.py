@@ -182,18 +182,13 @@ class TasksTestCase(lsst.utils.tests.TestCase):
             self.referenceLines.writeLineList(filename)
             config.readLineList.lightSourceMap = {'fake': filename}
             config.readLineList.lightSources = ['fake']
-            results = task.runDataRef([dataRef])
+            results = task.runDataRef(dataRef)
 
-        self.assertEqual(len(results.exposureList), 1)
-        self.assertEqual(len(results.originalList), 1)
-        self.assertEqual(len(results.spectraList), 1)
-        self.assertEqual(len(results.fiberTraceList), 1)
-        self.assertEqual(len(results.detectorMapList), 1)
-        self.assertMaskedImagesEqual(results.exposureList[0].maskedImage, self.arc)
-        self.assertSpectra(results.originalList[0])
-        self.assertSpectra(results.spectraList[0], False)
-        self.assertTrue(results.fiberTraceList[0] is not None)
-        self.assertTrue(results.detectorMapList[0] is not None)
+        self.assertMaskedImagesEqual(results.exposure.maskedImage, self.arc)
+        self.assertSpectra(results.original)
+        self.assertSpectra(results.spectra, False)
+        self.assertTrue(results.fiberTraces is not None)
+        self.assertTrue(results.detectorMap is not None)
 
         putted = dataRef.getPutObjects()
         self.assertMaskedImagesEqual(putted["calexp"].maskedImage, self.arc)
