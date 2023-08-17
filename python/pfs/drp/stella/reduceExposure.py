@@ -230,6 +230,7 @@ class ReduceExposureTask(CmdLineTask):
         exposure = None
         fiberTraces = None
         detectorMap = None
+        refLines = None
         lines = None
         apCorr = None
         psf = None
@@ -245,6 +246,7 @@ class ReduceExposureTask(CmdLineTask):
                 fiberTraces = calibs.fiberTraces
                 psf = exposure.getPsf()
                 lsf = sensorRef.get("pfsArmLsf")
+                refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
                 lines = sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
             else:
                 self.log.warn("Not retrieving calexp, despite 'useCalexp' config, since it is missing")
@@ -271,6 +273,7 @@ class ReduceExposureTask(CmdLineTask):
 
             detectorMap = calibs.detectorMap
             fiberTraces = calibs.fiberTraces
+            refLines = calibs.refLines
             lines = calibs.lines
             apCorr = calibs.apCorr
             psf = calibs.psf
@@ -307,7 +310,7 @@ class ReduceExposureTask(CmdLineTask):
             original = spectra
 
             if self.config.doSubtractContinuum:
-                continua = self.fitContinuum.run(spectra)
+                continua = self.fitContinuum.run(spectra, refLines)
                 maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
                 spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                 # Set sky flux from continuum
