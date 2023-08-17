@@ -360,6 +360,7 @@ class CentroidLinesTask(Task):
             xy=catalog[self.shapeName + "_xy"],
             flux=catalog[self.photometryName + "_instFlux"],
             fluxErr=catalog[self.photometryName + "_instFluxErr"],
+            fluxNorm=np.nan,  # Don't have a value yet
             flag=(catalog[self.centroidName + "_flag"] | catalog[self.photometryName + "_flag"] |
                   catalog[self.ignore]),
             status=catalog[self.status],

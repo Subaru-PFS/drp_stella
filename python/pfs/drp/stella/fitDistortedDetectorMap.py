@@ -744,6 +744,7 @@ class FitDistortedDetectorMapTask(Task):
             xy=lines.xy,
             flux=lines.flux,
             fluxErr=lines.fluxErr,
+            fluxNorm=lines.fluxNorm,
             flag=lines.flag,
             status=lines.status,
             description=lines.description,

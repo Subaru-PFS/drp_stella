@@ -584,6 +584,7 @@ class ReduceExposureTask(CmdLineTask):
             # Copy results to the one list of lines that we return
             lines.flux[notTrace] = phot.lines.flux
             lines.fluxErr[notTrace] = phot.lines.fluxErr
+            lines.fluxNorm[notTrace] = phot.lines.fluxNorm
             lines.flag[notTrace] |= phot.lines.flag
 
             if apCorr is not None:

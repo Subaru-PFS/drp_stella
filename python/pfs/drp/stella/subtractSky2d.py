@@ -200,7 +200,8 @@ class SubtractSky2dTask(Task):
             for wl in set(lines.wavelength[select]):
                 choose = select & (lines.wavelength == wl) & ~lines.flag
                 lines.status[choose] |= ReferenceLineStatus.SKYSUB_USED
-                ff = lines.flux[choose]
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    ff = lines.flux[choose]/lines.fluxNorm[choose]
                 if np.isfinite(ff).any():
                     fluxes[wl] = ff
 

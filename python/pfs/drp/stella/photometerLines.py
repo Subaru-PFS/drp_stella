@@ -101,7 +101,7 @@ class PhotometerLinesTask(Task):
             phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
 
         if fiberTraces is not None:
-            self.correctFluxNormalizations(phot.lines, fiberTraces)
+            self.addFluxNormalizations(phot.lines, fiberTraces)
         else:
             self.log.warning("Not normalizing measured line fluxes")
         self.log.info("Photometered %d lines", len(phot.lines))
@@ -149,7 +149,8 @@ class PhotometerLinesTask(Task):
             source = [lookup[wl].status for wl in wavelength]
 
             lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=xx, y=yy,
-                                           xErr=nan, yErr=nan, flux=nan, fluxErr=nan, xx=nan, yy=nan, xy=nan,
+                                           xErr=nan, yErr=nan, flux=nan, fluxErr=nan, fluxNorm=nan,
+                                           xx=nan, yy=nan, xy=nan,
                                            flag=flags, status=status, description=description,
                                            transition=transition,
                                            source=source)
@@ -206,11 +207,11 @@ class PhotometerLinesTask(Task):
             raise RuntimeError(f"Unrecognised traces/profiles object: {tracesOrProfiles}")
         return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in norm}
 
-    def correctFluxNormalizations(self, lines, tracesOrProfiles):
-        """Correct the raw flux measurements for the trace normalization
+    def addFluxNormalizations(self, lines, tracesOrProfiles):
+        """Add the trace normalization
 
-        We divide by the normalization, which is typically the extracted flux of
-        a quartz, so the flux is relative to the quartz.
+        We provide the normalization, which is typically the extracted flux of
+        a quartz, so the flux can be corrected to be relative to the quartz.
 
         Parameters
         ----------
@@ -221,11 +222,9 @@ class PhotometerLinesTask(Task):
             Fiber traces or fiber profiles, which contain the normalization.
         """
         interpolators = self.getNormalizations(tracesOrProfiles)
-        norm = [interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for
-                ll in lines]
-        with np.errstate(divide="ignore", invalid="ignore"):
-            lines.flux[:] /= norm
-            lines.fluxErr[:] /= norm
+        lines.fluxNorm[:] = [
+            interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for ll in lines
+        ]
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image

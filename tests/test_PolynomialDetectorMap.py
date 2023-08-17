@@ -239,7 +239,7 @@ class PolynomialDetectorMapTestCase(lsst.utils.tests.TestCase):
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ArcLine(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy),
-                             float(yy), 0.01, 0.01, np.nan, np.nan, np.nan, flux, fluxErr, False,
+                             float(yy), 0.01, 0.01, np.nan, np.nan, np.nan, flux, fluxErr, np.nan, False,
                              ReferenceLineStatus.GOOD, "Fake", None, ReferenceLineSource.NONE))
         lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
