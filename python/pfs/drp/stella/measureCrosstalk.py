@@ -160,9 +160,9 @@ class MeasureCrosstalkTask(CmdLineTask):
             detectorMap = dataRef.get("detectorMap_used")
             pfsConfig = dataRef.get("pfsConfig")
         except NoResults:
-            results = self.reduceExposure.runDataRef([dataRef])
-            exposure = results.exposureList[0]
-            detectorMap = results.detectorMapList[0]
+            results = self.reduceExposure.runDataRef(dataRef)
+            exposure = results.exposure
+            detectorMap = results.detectorMap
             pfsConfig = results.pfsConfig
 
         results = self.run(exposure, detectorMap, pfsConfig)

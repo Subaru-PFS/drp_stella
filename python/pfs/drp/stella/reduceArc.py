@@ -169,12 +169,11 @@ class ReduceArcTask(CmdLineTask):
             exposure = dataRef.get("calexp")  # Reading this just to return the visitInfo: inefficient, but...
             self.log.info("Read existing data for %s", dataRef.dataId)
         except Exception:
-            results = self.reduceExposure.runDataRef([dataRef])
-            assert len(results.spectraList) == 1, "Single in, single out"
-            spectra = results.spectraList[0]
-            exposure = results.exposureList[0]
-            detectorMap = results.detectorMapList[0]
-            lines = results.linesList[0]
+            results = self.reduceExposure.runDataRef(dataRef)
+            spectra = results.spectra
+            exposure = results.exposure
+            detectorMap = results.detectorMap
+            lines = results.lines
 
         return Struct(
             spectra=spectra,

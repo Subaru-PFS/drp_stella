@@ -161,7 +161,7 @@ class ReduceProfilesTask(CmdLineTask):
             raise RuntimeError("No normalisation exposures")
         dataList = [self.processExposure(ref) for ref in dataRefList]
 
-        exposureList = [data.exposureList[0] for data in dataList]
+        exposureList = [data.exposure for data in dataList]
         arm = dataRefList[0].dataId["arm"]
         identity = CalibIdentity(
             obsDate=exposureList[0].visitInfo.getDate().toPython().isoformat(),
@@ -169,7 +169,7 @@ class ReduceProfilesTask(CmdLineTask):
             arm=arm,
             visit0=dataRefList[0].dataId["visit"],
         )
-        detectorMapList = [data.detectorMapList[0] for data in dataList]
+        detectorMapList = [data.detectorMap for data in dataList]
         pfsConfigList = [
             ref.get("pfsConfig").select(fiberId=detMap.fiberId)
             for ref, detMap in zip(dataRefList, detectorMapList)
@@ -238,7 +238,7 @@ class ReduceProfilesTask(CmdLineTask):
                 detectorMapList=[dataRef.get("detectorMap_used")],
                 pfsConfig=dataRef.get("pfsConfig"),
             )
-        return self.reduceExposure.runDataRef([dataRef])
+        return self.reduceExposure.runDataRef(dataRef)
 
     def write(self, dataRef: ButlerDataRef, profiles: FiberProfileSet, dataVisits: Iterable[int],
               normVisits: Iterable[int]):
