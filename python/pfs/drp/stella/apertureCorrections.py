@@ -261,7 +261,7 @@ class MeasureApertureCorrectionsTask(Task):
 
         lines = ArcLineSet.fromColumns(fiberId=fiberId, wavelength=wavelength, x=empty, y=empty,
                                        xErr=empty, yErr=empty, xx=empty, yy=empty, xy=empty,
-                                       flux=apCorr, fluxErr=apCorrErr,
+                                       flux=apCorr, fluxErr=apCorrErr, fluxNorm=np.nan,
                                        flag=flag, status=status, description=description,
                                        transition=transition, source=source)
         return lines.asPfsFiberArraySet()

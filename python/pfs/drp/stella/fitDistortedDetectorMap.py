@@ -252,9 +252,10 @@ class FitDistortedDetectorMapConfig(Config):
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
-    soften = Field(dtype=float, default=0.03, doc="Systematic error to apply")
+    soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
     lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
+    slitOffsetIterations = Field(dtype=int, default=3, doc="Number of iterations for measuring slit offsets")
     base = Field(dtype=str,
                  doc="Template for base detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
@@ -346,9 +347,12 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
+        if self.config.doSlitOffsets:
+            base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
+        else:
+            self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         DetectorMap = self.getDetectorMapClass(dataId["arm"])
         Distortion = self.getDistortionClass(dataId["arm"])
-        self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
@@ -361,7 +365,9 @@ class FitDistortedDetectorMapTask(Task):
             detectorMap = DetectorMap(base, results.distortion, visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
-                offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
+                detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
+                for _ in range(self.config.slitOffsetIterations):
+                    offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
                 numParameters += offsets.numParameters
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
@@ -451,7 +457,7 @@ class FitDistortedDetectorMapTask(Task):
         def getCounts():
             """Provide a list of counts of different species"""
             if self.log.isEnabledFor(self.log.DEBUG):
-                counts = Counter((ll.description for ll in lines[good]))
+                counts = Counter(lines.description[good])
                 return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
             return ""
 
@@ -522,15 +528,20 @@ class FitDistortedDetectorMapTask(Task):
         sysErr = self.config.soften
         numFibers = len(detectorMap)
         fiberId = lines.fiberId
-        xy = detectorMap.findPoint(fiberId, lines.wavelength)
+        xy = np.full((len(lines), 2), np.nan, dtype=float)
+        isTrace = lines.description == "Trace"
+        notTrace = ~isTrace
+
+        xy[notTrace] = detectorMap.findPoint(fiberId[notTrace], lines.wavelength[notTrace])
+        xy[isTrace, 0] = detectorMap.getXCenter(fiberId[isTrace], lines.y[isTrace])
+        xy[isTrace, 1] = lines.y[isTrace]
         dx = xy[:, 0] - lines.x
         dy = xy[:, 1] - lines.y
         xErr = np.hypot(lines.xErr, sysErr)
         yErr = np.hypot(lines.yErr, sysErr)
         fit = np.full((len(lines), 2), np.nan, dtype=float)
-        notTrace = lines.description != "Trace"
 
-        use = select & np.isfinite(dx) & np.isfinite(dy)
+        use = select & np.isfinite(dx) & np.isfinite(dy) & np.isfinite(xErr) & np.isfinite(yErr)
 
         # Check for fibers that have all measurements rejected in previous fits.
         # For those fibers, restore all measurements, just for this exercise.
@@ -538,6 +549,7 @@ class FitDistortedDetectorMapTask(Task):
             thisFiber = fiberId == ff
             if not np.any(use & thisFiber):
                 use[thisFiber] = np.isfinite(dx[thisFiber]) & np.isfinite(dy[thisFiber])
+                use[thisFiber] &= np.isfinite(xErr[thisFiber]) & np.isfinite(yErr[thisFiber])
 
         for ii in range(self.config.iterations):
             spatial = np.zeros(numFibers, dtype=float)
@@ -744,6 +756,7 @@ class FitDistortedDetectorMapTask(Task):
             xy=lines.xy,
             flux=lines.flux,
             fluxErr=lines.fluxErr,
+            fluxNorm=lines.fluxNorm,
             flag=lines.flag,
             status=lines.status,
             description=lines.description,

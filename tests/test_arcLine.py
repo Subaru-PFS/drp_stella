@@ -31,6 +31,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.flux = 1000.0*np.random.uniform(size=self.fiberId.shape)
         self.fluxErr = 10.0*np.random.uniform(size=self.fiberId.shape)
+        self.fluxNorm = 1000.0*np.random.uniform(size=self.fiberId.shape)
         self.flag = np.random.choice((True, False), size=self.fiberId.shape)
         self.status = np.full_like(self.fiberId, int(ReferenceLineStatus.GOOD), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
@@ -40,7 +41,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
                                                      self.x, self.y, self.xErr, self.yErr,
                                                      self.xx, self.yy, self.xy,
-                                                     self.flux, self.fluxErr,
+                                                     self.flux, self.fluxErr, self.fluxNorm,
                                                      self.flag, self.status, self.description,
                                                      self.transition, self.source)]
 
@@ -66,6 +67,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lines.xy, self.xy, atol=atol, rtol=1e-6)
         self.assertFloatsAlmostEqual(lines.flux, self.flux, atol=atol, rtol=1e-6)
         self.assertFloatsAlmostEqual(lines.fluxErr, self.fluxErr, atol=atol, rtol=1e-6)
+        self.assertFloatsAlmostEqual(lines.fluxNorm, self.fluxNorm, atol=atol, rtol=1e-6)
         self.assertTrue(np.all(lines.flag == self.flag))
         self.assertFloatsEqual(lines.status, self.status)
         self.assertListEqual(lines.description.tolist(), self.description.tolist())

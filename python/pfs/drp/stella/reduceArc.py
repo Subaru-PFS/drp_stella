@@ -11,6 +11,7 @@ from .arcLine import ArcLineSet
 from .utils import addPfsCursor
 from .referenceLine import ReferenceLineStatus
 from .constructSpectralCalibs import setCalibHeader
+from .SpectrumSetContinued import SpectrumSet
 
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
@@ -160,13 +161,20 @@ class ReduceArcTask(CmdLineTask):
             Exposure metadata (FITS header)
         """
         metadata = dataRef.get("raw_md")
-        results = self.reduceExposure.runDataRef([dataRef])
-        assert len(results.spectraList) == 1, "Single in, single out"
-        spectra = results.spectraList[0]
-        exposure = results.exposureList[0]
-        detectorMap = results.detectorMapList[0]
-        lines = results.linesList[0]
-        dataRef.put(lines, "arcLines")
+
+        try:
+            spectra = SpectrumSet.fromPfsArm(dataRef.get("pfsArm"))
+            lines = dataRef.get("arcLines")
+            detectorMap = dataRef.get("detectorMap_used")
+            exposure = dataRef.get("calexp")  # Reading this just to return the visitInfo: inefficient, but...
+            self.log.info("Read existing data for %s", dataRef.dataId)
+        except Exception:
+            results = self.reduceExposure.runDataRef([dataRef])
+            assert len(results.spectraList) == 1, "Single in, single out"
+            spectra = results.spectraList[0]
+            exposure = results.exposureList[0]
+            detectorMap = results.detectorMapList[0]
+            lines = results.linesList[0]
 
         return Struct(
             spectra=spectra,
@@ -202,6 +210,8 @@ class ReduceArcTask(CmdLineTask):
         oldDetMap = archetype.detectorMap  # All more or less identical
         spatialOffsets = oldDetMap.getSpatialOffsets()
         spectralOffsets = oldDetMap.getSpectralOffsets()
+
+        dataRef.put(lines, "arcLines")
 
         detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
                                               oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap

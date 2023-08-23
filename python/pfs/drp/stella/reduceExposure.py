@@ -99,6 +99,8 @@ class ReduceExposureConfig(Config):
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
     doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
     background = ConfigurableField(target=DichroicBackgroundTask, doc="Background subtraction")
+    spatialOffset = Field(dtype=float, default=0.0, doc="Spatial offset to add")
+    spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
 
     def validate(self):
         if not self.doExtractSpectra and self.doWriteArm:
@@ -482,6 +484,12 @@ class ReduceExposureTask(CmdLineTask):
             One-dimensional line-spread function.
         """
         detectorMap = sensorRef.get("detectorMap")
+        spatialOffset = self.config.spatialOffset
+        spectralOffset = self.config.spectralOffset
+        if spatialOffset != 0.0 or spectralOffset != 0.0:
+            self.log.info("Adjusting detectorMap slit offset by %f,%f", spatialOffset, spectralOffset)
+            detectorMap.applySlitOffset(spatialOffset, spectralOffset)
+
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
         # Check that the calibs have the expected number of fibers
@@ -584,6 +592,7 @@ class ReduceExposureTask(CmdLineTask):
             # Copy results to the one list of lines that we return
             lines.flux[notTrace] = phot.lines.flux
             lines.fluxErr[notTrace] = phot.lines.fluxErr
+            lines.fluxNorm[notTrace] = phot.lines.fluxNorm
             lines.flag[notTrace] |= phot.lines.flag
 
             if apCorr is not None:
