@@ -87,6 +87,20 @@ std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 );
 
 
+/// Extract trace data from peaks
+///
+/// This serves as an optimization for extracting the row, column centroid and
+/// column centroid error, peak flux and peak flux error from the peaks
+/// found by findTracePeaks.
+///
+/// @param peaks : Lists of peaks indexed by fiber identifier, returned by findTracePeaks
+/// @return Arrays of row, column centroid and column centroid error, peak flux and peak flux error,
+///     indexed by fiber identifier.
+std::map<int, ndarray::Array<double, 2, 2>> extractTraceData(
+    std::map<int, std::vector<std::shared_ptr<TracePeak>>> const& peaks
+);
+
+
 /// Centroid peak
 ///
 /// We measure the centroid for all peaks, modifying the input

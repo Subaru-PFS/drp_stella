@@ -45,6 +45,7 @@ PYBIND11_PLUGIN(traces) {
                               float, float, lsst::afw::image::MaskPixel,
                               ndarray::Array<int, 1, 1> const&>(&findTracePeaks),
             "image"_a, "detectorMap"_a, "threshold"_a, "radius"_a, "badBitMask"_a=0, "fiberId"_a=nullptr);
+    mod.def("extractTraceData", &extractTraceData, "peaks"_a);
     mod.def("centroidPeak", &centroidPeak, "peak"_a, "image"_a, "psfSigma"_a,
             "badBitMask"_a=0, "extent"_a=3.0, "ampAst4"_a=1.33);
     mod.def("medianFilterColumns", medianFilterColumns<float>, "image"_a, "mask"_a, "halfHeight"_a=35);

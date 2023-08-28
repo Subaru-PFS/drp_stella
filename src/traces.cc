@@ -167,6 +167,28 @@ std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 }
 
 
+std::map<int, ndarray::Array<double, 2, 2>> extractTraceData(
+    std::map<int, std::vector<std::shared_ptr<TracePeak>>> const& peaks
+) {
+    std::map<int, ndarray::Array<double, 2, 2>> result;
+    for (auto const& item : peaks) {
+        int const fiberId = item.first;
+        auto const& fiberPeaks = item.second;
+        ndarray::Array<double, 2, 2> data = ndarray::allocate(fiberPeaks.size(), 5);
+        for (std::size_t ii = 0; ii < fiberPeaks.size(); ++ii) {
+            auto const& peak = *fiberPeaks[ii];
+            data[ii][0] = peak.span.getY();
+            data[ii][1] = peak.peak;
+            data[ii][2] = peak.peakErr;
+            data[ii][3] = peak.flux;
+            data[ii][4] = peak.fluxErr;
+        }
+        result[fiberId] = std::move(data);
+    }
+    return result;
+}
+
+
 namespace {
 
 /// Convolve a pixel along the row
