@@ -79,6 +79,35 @@ void declareDetectorMap(py::module & mod) {
                                                ndarray::Array<double, 1, 1> const&,
                                                double>(&Class::getDispersion, py::const_),
             "fiberId"_a, "wavelength"_a, "dWavelength"_a=0.1);
+    cls.def("getSlope", py::overload_cast<int, double>(&Class::getSlope, py::const_),
+            "fiberId"_a, "row"_a);
+    cls.def("getSlope", py::overload_cast<ndarray::Array<int, 1, 1> const&,
+                                          ndarray::Array<double, 1, 1> const&,
+                                          ndarray::Array<bool, 1, 1> const&>(&Class::getSlope, py::const_),
+            "fiberId"_a, "row"_a, "calculate"_a=nullptr);
+    cls.def("getSlope",
+            [](
+                Class const& self,
+                ndarray::Array<int, 1, 1> const& fiberId,
+                ndarray::Array<float, 1, 1> const& row,
+                ndarray::Array<bool, 1, 1> const& calculate
+            ) {
+                utils::checkSize(fiberId.getShape(), row.getShape(), "fiberId vs row");
+                std::size_t const num = fiberId.size();
+                bool const haveCalculate = !calculate.isEmpty();
+                if (haveCalculate) {
+                    utils::checkSize(calculate.size(), num, "fiberId vs calculate");
+                }
+                ndarray::Array<double, 1, 1> slope = ndarray::allocate(num);
+                for (std::size_t ii = 0; ii < num; ++ii) {
+                    if (haveCalculate && !calculate[ii]) {
+                        slope[ii] = std::numeric_limits<double>::quiet_NaN();
+                        continue;
+                    }
+                    slope[ii] = self.getSlope(fiberId[ii], row[ii]);
+                }
+                return slope;
+            });
     cls.def("findFiberId", py::overload_cast<double, double>(&Class::findFiberId, py::const_), "x"_a, "y"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);

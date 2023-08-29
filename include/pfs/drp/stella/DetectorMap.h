@@ -97,6 +97,21 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     //@}
 
     //@{
+    /// Return the (inverse) slope (dx/dy) of the fiber trace
+    ///
+    /// @param fiberId : Fiber identifier.
+    /// @param row : Row on the detector (pixels).
+    /// @param calculate : Calculate value for this point? Allows excluding points from calculation (e.g,.
+    ///     because it's an actual line rather than a trace measurement).
+    double getSlope(int fiberId, double row) const;
+    Array1D getSlope(
+        FiberIds const& fiberId,
+        Array1D const& row,
+        ndarray::Array<bool, 1, 1> const& calculate=ndarray::Array<bool, 1, 1>()
+    ) const;
+    //@}
+
+    //@{
     /// Return the fiberId given a position on the detector
     int findFiberId(double x, double y) const { return findFiberId(lsst::geom::Point2D(x, y)); }
     int findFiberId(lsst::geom::PointD const& point) const;
