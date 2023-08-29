@@ -312,10 +312,19 @@ ndarray::Array<T, 2, 1> medianFilterColumns(
     for (int yy = 0; yy < height; ++yy) {
         int const yLow = std::max(0, yy - halfHeight);
         int const yHigh = std::min(height, yy + halfHeight + 1);  // exclusive
+        std::size_t const num = yHigh - yLow;
+        ndarray::Array<T, 1, 1> values = ndarray::allocate(num);
         for (int xx = 0; xx < width; ++xx) {
-            result[yy][xx] = math::calculateMedian(
-                image[ndarray::view(yLow, yHigh)(xx)], mask[ndarray::view(yLow, yHigh)(xx)]
-            );
+            std::size_t index = 0;
+            for (int ii = yLow; ii < yHigh; ++ii) {
+                if (mask[ii][xx]) {
+                    continue;
+                }
+                values[index] = image[ii][xx];
+                ++index;
+            }
+            assert(index <= num);
+            result[yy][xx] = math::calculateMedian(values[ndarray::view(0, index)]);
         }
     }
 
