@@ -543,64 +543,75 @@ class FitDistortedDetectorMapTask(Task):
 
         use = select & np.isfinite(dx) & np.isfinite(dy) & np.isfinite(xErr) & np.isfinite(yErr)
 
-        # Check for fibers that have all measurements rejected in previous fits.
-        # For those fibers, restore all measurements, just for this exercise.
-        for ff in set(fiberId):
+        spatial = np.zeros(numFibers, dtype=float)
+        spectral = np.zeros(numFibers, dtype=float)
+
+        noMeasurements = set()
+        for ii, ff in enumerate(detectorMap.getFiberId()):
             thisFiber = fiberId == ff
+
+            if not np.any(thisFiber):
+                self.log.debug("No measurements for fiberId=%d", ff)
+                noMeasurements.add(ff)
+                continue
+
+            # If all measurements were rejected in previous fits, restore all measurements, just for this.
             if not np.any(use & thisFiber):
                 use[thisFiber] = np.isfinite(dx[thisFiber]) & np.isfinite(dy[thisFiber])
                 use[thisFiber] &= np.isfinite(xErr[thisFiber]) & np.isfinite(yErr[thisFiber])
 
-        for ii in range(self.config.iterations):
-            spatial = np.zeros(numFibers, dtype=float)
-            spectral = np.zeros(numFibers, dtype=float)
-            noMeasurements = set()
-            for jj, ff in enumerate(detectorMap.getFiberId()):
-                choose = use & (fiberId == ff)
-                if not np.any(choose & notTrace):
-                    noMeasurements.add(ff)
-                    continue
+            choose = use & thisFiber
+            numChoose = choose.sum()
+
+            chooseFiber = np.ones(numChoose, dtype=bool)
+            notTraceFiber = notTrace[choose]
+            linesFiber = lines[choose]
+            xyFiber = xy[choose]
+            fitFiber = fit[choose]
+            dxFiber = dx[choose]
+            dyFiber = dy[choose]
+            xErrFiber = xErr[choose]
+            yErrFiber = yErr[choose]
+            weightsFiber = weights[choose]
+
+            for jj in range(self.config.iterations):
+                yChoose = chooseFiber & notTraceFiber
+                if not np.any(yChoose):
+                    break
+
                 # Robust measurement
-                spatial[jj] = -np.median(dx[choose])
-                spectral[jj] = -np.median(dy[choose & notTrace])
-                fit[choose, 0] = xy[choose, 0] + spatial[jj]
-                fit[choose, 1] = xy[choose, 1] + spectral[jj]
+                spatialFiber = -np.median(dxFiber)
+                spectralFiber = -np.median(dyFiber[yChoose])
 
-            result = calculateFitStatistics(fit, lines, use, 2*(numFibers - len(noMeasurements)),
-                                            (sysErr, sysErr))
-            self.log.debug(
-                "Slit offsets iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f from %d/%d lines",
-                ii, result.chi2, result.dof, result.xRms, result.yRms, use.sum(), select.sum()
-            )
-            self.log.debug("Unable to measure slit offsets for %d fiberIds: %s",
-                           len(noMeasurements), sorted(noMeasurements))
-            self.log.debug("Spatial offsets: %s", spatial)
-            self.log.debug("Spectral offsets: %s", spectral)
+                fitFiber[:, 0] = xyFiber[:, 0] + spatialFiber
+                fitFiber[:, 1] = xyFiber[:, 1] + spectralFiber
 
-            newUse = select & self.rejectOutliers(result, xErr, yErr)
+                result = calculateFitStatistics(fitFiber, linesFiber, chooseFiber, 2, (sysErr, sysErr))
+                newChooseFiber = chooseFiber & self.rejectOutliers(result, xErrFiber, yErrFiber)
 
-            self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
-            if np.all(newUse == use):
-                # Converged
-                break
-            use = newUse
+                if np.all(newChooseFiber == chooseFiber):
+                    # Converged
+                    break
+                chooseFiber = newChooseFiber
 
-        # Final fit, with more precise measurement
-        spatial = np.zeros(numFibers, dtype=float)
-        spectral = np.zeros(numFibers, dtype=float)
-        fit = np.zeros_like(xy)
-        noMeasurements = set()
-        for jj, ff in enumerate(detectorMap.getFiberId()):
-            choose = use & (fiberId == ff)
-            yChoose = choose & notTrace
-            if not np.any(choose) or not np.any(yChoose):
+            # Final fit, with more precise measurement
+            yChoose = chooseFiber & notTraceFiber
+            if not np.any(yChoose):
                 noMeasurements.add(ff)
                 continue
             with np.errstate(divide="ignore"):
-                spatial[jj] = -np.average(dx[choose], weights=(weights[choose]/xErr[choose])**2)
-                spectral[jj] = -np.average(dy[yChoose], weights=(weights[yChoose]/yErr[yChoose])**2)
-                fit[choose, 0] = xy[choose, 0] + spatial[jj]
-                fit[choose, 1] = xy[choose, 1] + spectral[jj]
+                spatialFiber = -np.average(
+                    dxFiber[chooseFiber], weights=(weightsFiber[chooseFiber]/xErrFiber[chooseFiber])**2
+                )
+                spectralFiber = -np.average(
+                    dyFiber[yChoose], weights=(weightsFiber[yChoose]/yErrFiber[yChoose])**2
+                )
+
+            fit[choose, 0] = xy[choose, 0] + spatialFiber
+            fit[choose, 1] = xy[choose, 1] + spectralFiber
+            use[choose] = chooseFiber
+            spatial[ii] = spatialFiber
+            spectral[ii] = spectralFiber
 
         result = calculateFitStatistics(fit, lines, use, 2*(numFibers - len(noMeasurements)),
                                         (sysErr, sysErr))
