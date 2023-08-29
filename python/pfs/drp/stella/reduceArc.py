@@ -24,6 +24,7 @@ class ReduceArcConfig(pexConfig.Config):
     fitDetectorMap = pexConfig.ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
     doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
                                           doc="Write an updated detectorMap?")
+    arcLines = pexConfig.Field(dtype=str, optional=True, doc="Filename for merged arc line list")
 
     def setDefaults(self):
         super().setDefaults()
@@ -174,6 +175,7 @@ class ReduceArcTask(CmdLineTask):
             exposure = results.exposure
             detectorMap = results.detectorMap
             lines = results.lines
+            dataRef.put(lines, "arcLines")
 
         return Struct(
             spectra=spectra,
@@ -210,7 +212,8 @@ class ReduceArcTask(CmdLineTask):
         spatialOffsets = oldDetMap.getSpatialOffsets()
         spectralOffsets = oldDetMap.getSpectralOffsets()
 
-        dataRef.put(lines, "arcLines")
+        if self.config.arcLines is not None:
+            lines.writeFits(self.config.arcLines)
 
         detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
                                               oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap
