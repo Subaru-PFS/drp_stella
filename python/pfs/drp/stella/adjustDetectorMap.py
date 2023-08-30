@@ -1,10 +1,17 @@
-from lsst.pex.config import Field
+from typing import Type
+
+import numpy as np
+
+from lsst.geom import Box2D
 
 from . import SplinedDetectorMap
 from . import ReferenceLineStatus
+from .DistortionContinued import Distortion
 from .DoubleDetectorMapContinued import DoubleDetectorMap
 from .DistortedDetectorMapContinued import DistortedDetectorMap
 from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
+from .PolynomialDetectorMapContinued import PolynomialDetectorMap
+from .RotScaleDistortionContinued import RotScaleDistortion, DoubleRotScaleDistortion
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
@@ -12,11 +19,7 @@ __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
-    fitStatic = Field(dtype=bool, default=False, doc="Fit static terms?")
-
-    def setDefaults(self):
-        super().setDefaults()
-        self.order = 2  # Fit low-order coefficients only
+    pass
 
 
 class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
@@ -65,10 +68,12 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             If the data is not of sufficient quality to fit.
         """
         base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
-        Distortion = type(base.distortion)
-        needNumLines = Distortion.getNumParametersForOrder(self.config.order)
+        DistortionClass = self.getDistortionClass(arm)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
-        numGoodLines = self.getGoodLines(lines, detectorMap.getDispersionAtCenter()).sum()
+        needNumLines = 8  # RotScaleDistortion
+        good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
+        numGoodLines = good.sum()
+
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations):
@@ -76,7 +81,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(
-                detectorMap.bbox, residuals, weights, dispersion, seed=seed, fitStatic=self.config.fitStatic
+                detectorMap.bbox, residuals, weights, dispersion, seed=seed, DistortionClass=DistortionClass
             )
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
             if not self.updateTraceWavelengths(lines, detectorMap):
@@ -96,13 +101,23 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             self.plotWavelengthResiduals(results.detectorMap, lines, fit.selection, fit.reserved)
         return results
 
+    def getDistortionClass(self, arm: str) -> Type:
+        """Return the class to use for the distortion
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm in use (one of ``b``, ``r``, ``n``, ``m``).
+
+        Returns
+        -------
+        distortionClass : `type`
+            Class to use for the distortion.
+        """
+        return RotScaleDistortion if arm == "n" else DoubleRotScaleDistortion
+
     def getBaseDetectorMap(self, detectorMap, arm: str):
         """Get detectorMap to use as a base
-
-        We need to ensure that the detectorMap is indeed a
-        ``DistortionBasedDetectorMap`` with a sufficient polynomial order.
-        We zero out the low-order coefficients to make it easy to construct the
-        adjusted version.
 
         Parameters
         ----------
@@ -122,15 +137,14 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         if isinstance(detectorMap, SplinedDetectorMap):
             distortions = []
             base = detectorMap
-        elif isinstance(detectorMap, (DoubleDetectorMap, DistortedDetectorMap)):
+        elif isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
             distortions = [detectorMap.distortion.clone()]
             base = detectorMap.base
         elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
-            distortions = detectorMap.distortions
-            base = detectorMap.base
-        else:
             distortions = [dd.clone() for dd in detectorMap.distortions]
             base = detectorMap.base
+        else:
+            raise RuntimeError(f"Unrecognized detectorMap type: {type(detectorMap)}")
         return MultipleDistortionsDetectorMap(base, distortions, visitInfo, metadata)
 
     def constructAdjustedDetectorMap(self, base, distortion):
@@ -153,4 +167,49 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             Mapping from fiberId,wavelength --> x,y with both low- and
             high-order coefficients set.
         """
-        return type(base)(base.base, [distortion] + base.distortions, base.visitInfo, base.metadata)
+        return MultipleDistortionsDetectorMap(
+            base.base, base.distortions + [distortion], base.visitInfo, base.metadata
+        )
+
+    def fitModelImpl(
+        self,
+        bbox: Box2D,
+        xBase: np.ndarray,
+        yBase: np.ndarray,
+        xMeas: np.ndarray,
+        yMeas: np.ndarray,
+        xErr: np.ndarray,
+        yErr: np.ndarray,
+        slope : np.ndarray,
+        isLine: np.ndarray,
+        DistortionClass: Type[Distortion],
+    ) -> Distortion:
+        """Implementation for fitting the distortion model
+
+        We've gathered and formatted all the data; this method encapsulates the
+        actual fitting, allowing it to be easily overridden by subclasses.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2D`
+            Bounding box for detector.
+        xBase, yBase : `numpy.ndarray` of `float`
+            Base position for each line (pixels).
+        xMeas, yMeas : `numpy.ndarray` of `float`
+            Measured position for each line (pixels).
+        xErr, yErr : `numpy.ndarray` of `float`
+            Error in measured position for each line (pixels).
+        slope : `numpy.ndarray` of `float`
+            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
+            lines where ``useForWavelength`` is `False`.
+        isLine : `numpy.ndarray` of `bool`
+            Is this point a line? Otherwise, it's a trace.
+        DistortionClass : `type`
+            Class to use for the distortion.
+
+        Returns
+        -------
+        distortion : `pfs.drp.stella.Distortion`
+            Distortion model that was fit to the data.
+        """
+        return DistortionClass.fit(bbox, xBase, yBase, xMeas, yMeas, xErr, yErr, slope, isLine)

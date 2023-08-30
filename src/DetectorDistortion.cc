@@ -158,8 +158,8 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<bool, 1, 1> const& useForWavelength,
-    bool fitStatic,
+    ndarray::Array<bool, 1, 1> const& isLine,  // unused: new feature in deprecated class
+    ndarray::Array<double, 1, 1> const& slope,  // unused: new feature in deprecated class
     double threshold
 ) {
     std::size_t const length = xx.size();
@@ -170,7 +170,7 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     utils::checkSize(yErr.size(), length, "yErr");
 
     std::size_t const numDistortion = DetectorDistortion::getNumDistortionForOrder(distortionOrder);
-    std::size_t const numTerms = numDistortion + (fitStatic ? 3 : 0);
+    std::size_t const numTerms = numDistortion + 3;
     ndarray::Array<double, 2, 1> design = ndarray::allocate(length, numTerms);
     DetectorDistortion::Polynomial const poly(distortionOrder, range);
     double const xCenter = range.getCenterX();
@@ -178,14 +178,10 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
         auto const terms = poly.getDFuncDParameters(xx[ii], yy[ii]);
         assert(terms.size() == numDistortion);
         std::copy(terms.begin(), terms.end(), design[ii].begin());
-        if (fitStatic) {
-            if (xx[ii] > xCenter) {
-                design[ii][numTerms - 3] = 1.0;
-                design[ii][numTerms - 2] = xx[ii];
-                design[ii][numTerms - 1] = yy[ii];
-            } else {
-                design[ii][ndarray::view(numTerms - 3, numTerms)] = 0.0;
-            }
+        if (xx[ii] > xCenter) {
+            design[ii][numTerms - 3] = 1.0;
+            design[ii][numTerms - 2] = xx[ii];
+            design[ii][numTerms - 1] = yy[ii];
         }
     }
 
@@ -196,13 +192,9 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> xCoeff = copy(xSolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> yCoeff = copy(ySolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> rightCcd;
-    if (fitStatic) {
-        rightCcd = DetectorDistortion::makeRightCcdCoefficients(xSolution[numTerms - 3],
-        ySolution[numTerms - 3], xSolution[numTerms - 2], xSolution[numTerms - 1],
-        ySolution[numTerms - 2], ySolution[numTerms - 1]);
-    } else {
-        rightCcd = utils::arrayFilled<double, 1, 1>(6, 0);
-    }
+    rightCcd = DetectorDistortion::makeRightCcdCoefficients(xSolution[numTerms - 3],
+    ySolution[numTerms - 3], xSolution[numTerms - 2], xSolution[numTerms - 1],
+    ySolution[numTerms - 2], ySolution[numTerms - 1]);
     return DetectorDistortion(distortionOrder, range, xCoeff, yCoeff, rightCcd);
 }
 

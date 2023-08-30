@@ -302,6 +302,7 @@ class FitDifferentialDetectorMapTask(Task):
             yOrig=lines.y,
             xBase=points[:, 0],
             yBase=points[:, 1],
+            slope=np.full(len(lines), np.nan),
             xErr=lines.xErr,
             yErr=lines.yErr,
             xx=lines.xx,

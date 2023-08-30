@@ -154,110 +154,6 @@ std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model) {
 }
 
 
-namespace {
-
-// Structure to aid in fitting a polynomial distortion
-//
-// We calculate the design matrix one point at a time and then solve.
-struct FitData {
-    using Array1D = ndarray::Array<double, 1, 1>;
-    using Array2D = ndarray::Array<double, 2, 1>;
-
-    // Ctor
-    //
-    // @param range : Box enclosing all x,y coordinates.
-    // @param order : Polynomial order.
-    // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t length_) :
-        poly(order, range),
-        length(length_),
-        xMeas(ndarray::allocate(length)),
-        yMeas(ndarray::allocate(length)),
-        xErr(ndarray::allocate(length)),
-        yErr(ndarray::allocate(length)),
-        design(ndarray::allocate(length_, poly.getNParameters())),
-        index(0)
-        {}
-
-    // Add a point to the design matrix
-    //
-    // @param xy : Point at which to evaluate the polynomial
-    // @param meas : Measured value
-    // @param err : Error in measured value
-    void add(lsst::geom::Point2D const& xy, lsst::geom::Point2D const& meas, lsst::geom::Point2D const& err) {
-        std::size_t const ii = index++;
-        assert(ii < length);
-
-        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
-        assert (terms.size() == poly.getNParameters());
-        std::copy(terms.begin(), terms.end(), design[ii].begin());
-
-        xMeas[ii] = meas.getX();
-        yMeas[ii] = meas.getY();
-        xErr[ii] = err.getX();
-        yErr[ii] = err.getY();
-    }
-
-    // Solve the least-squares problem
-    //
-    // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
-    // @return Solutions in x and y.
-    std::pair<Array1D, Array1D> getSolution(
-        ndarray::Array<bool, 1, 1> const& useForWavelength,
-        double threshold=1.0e-6
-    ) const {
-        assert(index == length);
-        assert(useForWavelength.size() == length);
-
-        auto xSolution = math::solveLeastSquaresDesign(design, xMeas, xErr, threshold);
-
-        std::size_t const numWavelength = std::count_if(
-            useForWavelength.begin(),
-            useForWavelength.end(),
-            [](bool ss) { return ss; }
-        );
-
-        if (numWavelength == 0) {
-            Array1D ySolution = utils::arrayFilled<double, 1, 1>(poly.getNParameters(), 0.0);
-            return std::make_pair(xSolution, ySolution);
-        }
-        if (numWavelength == length) {
-            Array1D ySolution = math::solveLeastSquaresDesign(design, yMeas, yErr, threshold);
-            return std::make_pair(xSolution, ySolution);
-        }
-
-        ndarray::Array<double, 2, 1> yDesign = ndarray::allocate(numWavelength, poly.getNParameters());
-        ndarray::Array<double, 1, 1> yMeasUse = ndarray::allocate(numWavelength);
-        ndarray::Array<double, 1, 1> yErrUse = ndarray::allocate(numWavelength);
-        for (std::size_t ii = 0, jj = 0; ii < length; ++ii) {
-            if (!useForWavelength[ii]) continue;
-            std::copy(design[ii].begin(), design[ii].end(), yDesign[jj].begin());
-            yMeasUse[jj] = yMeas[ii];
-            yErrUse[jj] = yErr[ii];
-            ++jj;
-        }
-
-        return std::make_pair(
-            xSolution,
-            math::solveLeastSquaresDesign(yDesign, yMeasUse, yErrUse, threshold)
-        );
-    }
-
-    DoubleDistortion::Polynomial poly;  // Polynomial used for calculating design
-    std::size_t length;  // Number of measurements
-    Array1D xMeas;  // Measurements in x
-    Array1D yMeas;  // Measurements in y
-    Array1D xErr;  // Error in x measurement
-    Array1D yErr;  // Error in y measurement
-    Array2D design;  // Design matrix
-    std::size_t index;  // Next index to add
-};
-
-
-}  // anonymous namespace
-
-
-
 template<>
 DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     int distortionOrder,
@@ -268,8 +164,8 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<bool, 1, 1> const& useForWavelength,
-    bool fitStatic,
+    ndarray::Array<bool, 1, 1> const& isLine,
+    ndarray::Array<double, 1, 1> const& slope,
     double threshold
 ) {
     using Array1D = DoubleDistortion::Array1D;
@@ -280,7 +176,7 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     utils::checkSize(yMeas.size(), length, "yMeas");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
-    utils::checkSize(useForWavelength.getNumElements(), length, "useForWavelength");
+    utils::checkSize(isLine.getNumElements(), length, "isLine");
 
     double const xCenter = range.getCenterX();
     ndarray::Array<bool, 1, 1> onLeftCcd = ndarray::allocate(length);
@@ -297,7 +193,8 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yMeas, onLeftCcd),
         utils::arraySelect(xErr, onLeftCcd),
         utils::arraySelect(yErr, onLeftCcd),
-        fitStatic,
+        utils::arraySelect(isLine, onLeftCcd),
+        utils::arraySelect(slope, onLeftCcd),
         threshold
     );
     auto const right = PolynomialDistortion::fit(
@@ -309,7 +206,8 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yMeas, onRightCcd),
         utils::arraySelect(xErr, onRightCcd),
         utils::arraySelect(yErr, onRightCcd),
-        fitStatic,
+        utils::arraySelect(isLine, onRightCcd),
+        utils::arraySelect(slope, onRightCcd),
         threshold
     );
 

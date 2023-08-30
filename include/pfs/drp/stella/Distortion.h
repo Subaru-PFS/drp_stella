@@ -133,7 +133,8 @@ class AnalyticDistortion : public Distortion {
     /// @param yMeas : Measured y position
     /// @param xErr : Error in measured x position
     /// @param yErr : Error in measured y position
-    /// @param fitStatic : fit static features?
+    /// @param isLine : Is this a line measurement? Otherwise, it's a trace.
+    /// @param slope : Slope (dx/dy) at the point (only used if isLine is true)
     /// @param threshold : eigenvalue threshold for matrix solving
     /// @returns design matrix
     static Derived fit(
@@ -145,8 +146,8 @@ class AnalyticDistortion : public Distortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
-        ndarray::Array<bool, 1, 1> const& useForWavelength,
-        bool fitStatic=true,
+        ndarray::Array<bool, 1, 1> const& isLine,
+        ndarray::Array<double, 1, 1> const& slope,
         double threshold=1.0e-6
     );
 
