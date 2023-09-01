@@ -367,14 +367,13 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         if self.debugInfo.doWritePrior:
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/prior-{pfsMerged.filename}.pickle",
-                fiberId=pfsConfigCorr.fiberId,
                 prior=bbPdfs,
             )
 
         pfsConfig = selectPfsConfig(
             pfsConfig,
             "FITBBSED_FAILED",
-            [(bbPdf is not None and np.all(np.isfinite(bbPdf))) for bbPdf in bbPdfs],
+            [((fiberId in bbPdfs) and np.all(np.isfinite(bbPdfs[fiberId]))) for fiberId in pfsConfig.fiberId],
         )
 
         # Extract just those fibers from pfsMerged
@@ -399,12 +398,12 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         if self.debugInfo.doWriteCrossCorr:
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/crossCorr-{pfsMerged.filename}.pickle",
-                fiberId=pfsConfigCorr.fiberId,
-                crossCorr=[record.crossCorr for record in radialVelocities],
+                crossCorr={fiberId: record.crossCorr for fiberId, record in radialVelocities.items()},
             )
 
         flag = self.fitFlagNames.add("ESTIMATERADIALVELOCITY_FAILED")
-        for fiberId, velocity in zip(pfsConfig.fiberId, radialVelocities):
+        for fiberId in pfsConfig.fiberId:
+            velocity = radialVelocities.get(fiberId)
             if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
                 fitFlag[fiberId] = flag
 
@@ -413,23 +412,32 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         bestParams = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
-        for fiberId, param in zip(pfsConfig.fiberId, bestParams):
+        for fiberId in pfsConfig.fiberId:
+            param = bestParams.get(fiberId)
             if param is None or not param.success:
                 if fitFlag.get(fiberId, 0) == 0:
                     fitFlag[fiberId] = flag
 
         self.log.info("Making reference spectra by interpolation")
         bestModels = self.makeReferenceSpectra(
-            pfsConfig, [(p.param if p is not None else None) for p in bestParams]
+            pfsConfig, {fiberId: p.param for fiberId, p in bestParams.items()}
         )
 
+        if not bestModels:
+            raise RuntimeError("Fitting none of FLUXSTD succeeded.")
+
         flag = self.fitFlagNames.add("MAKEREFERENCESPECTRA_FAILED")
-        for fiberId, bestModel in zip(pfsConfig.fiberId, bestModels):
+        for fiberId in pfsConfig.fiberId:
+            bestModel = bestModels.get(fiberId)
             if bestModel is None:
                 if fitFlag.get(fiberId, 0) == 0:
                     fitFlag[fiberId] = flag
 
-        wavelength = bestModels[0].spectrum.wavelength
+        # We want a `wavelength` array. Any one in `bestModels` will do.
+        for bestModel in bestModels.values():
+            wavelength = bestModel.spectrum.wavelength
+            break
+
         flux = np.full(shape=(len(originalFiberId), len(wavelength)), fill_value=np.nan, dtype=np.float32)
         fitParams = np.full(
             shape=(len(originalFiberId),),
@@ -448,8 +456,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
 
-        for fiberId, bestModel, velocity in zip(pfsConfig.fiberId, bestModels, radialVelocities):
+        for fiberId, bestModel in bestModels.items():
             if fitFlag.get(fiberId, 0) == 0:
+                velocity = radialVelocities[fiberId]
                 index = fiberIdToIndex[fiberId]
                 flux[index, :] = bestModel.spectrum.flux
                 fitParams["teff"][index] = bestModel.param.teff
@@ -483,8 +492,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         pfsConfig: PfsConfig,
         pfsMerged: PfsFiberArraySet,
         pfsMergedLsf: LsfDict,
-        bbPdfs: Sequence[Union[NDArray[np.float64], None]],
-    ) -> List[Union[Struct, None]]:
+        bbPdfs: Dict[int, NDArray[np.float64]],
+    ) -> Dict[int, Struct]:
         """Estimate the radial velocity for each fiber in ``pfsMerged``.
 
         Parameters
@@ -496,16 +505,16 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             It must have been whitened.
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
-        bbPdfs : `List[Optional[numpy.array]]`
-            `bbPdfs[i]`, if not None, is the probability distribution
-            of `pfsConfig.fiberId[i]` being of each model type,
+        bbPdfs : `Dict[int, NDArray[np.float64]]`
+            ``bbPdfs[fiberId]``, if exists, is the probability distribution
+            of the fiber ``fiberId`` being of each model type,
             determined by broad-band photometries.
 
         Returns
         -------
-        radialVelocities : `List[Optional[lsst.pipe.base.Struct]]`
-            Radial velocity for each fiber.
-            Each element, if not None, has ``velocity``, ``error``,
+        radialVelocities : `Dict[int, lsst.pipe.base.Struct]`
+            Mapping from ``fiberId`` to radial velocity.
+            Each value has ``velocity``, ``error``,
             ``crossCorr``, and ``fail`` as its member.
             See ``EstimateRadialVelocityTask``.
         """
@@ -513,16 +522,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         # This model is used as the reference for cross-correlation calculation
         bestModels = self.findRoughlyBestModel(bbPdfs)
 
-        radialVelocities: List[Union[Struct, None]] = []
-        for iFiber, (spectrum, model) in enumerate(zip(fibers(pfsConfig, pfsMerged), bestModels)):
-            if model.spectrum is None:
-                radialVelocities.append(None)
+        radialVelocities: Dict[int, Struct] = {}
+        for iFiber, spectrum in enumerate(fibers(pfsConfig, pfsMerged)):
+            fiberId = pfsConfig.fiberId[iFiber]
+            model = bestModels.get(fiberId)
+            if model is None or model.spectrum is None:
                 continue
-            modelSpectrum = convolveLsf(
-                model.spectrum, pfsMergedLsf[pfsConfig.fiberId[iFiber]], spectrum.wavelength
-            )
+            modelSpectrum = convolveLsf(model.spectrum, pfsMergedLsf[fiberId], spectrum.wavelength)
             modelSpectrum = self.computeContinuum(modelSpectrum, mode="model").whiten(modelSpectrum)
-            radialVelocities.append(self.estimateRadialVelocity.run(spectrum, modelSpectrum))
+            radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
 
         return radialVelocities
 
@@ -599,9 +607,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         pfsConfig: PfsConfig,
         obsSpectra: PfsFiberArraySet,
         pfsMergedLsf: LsfDict,
-        radialVelocities: Sequence[Union[Struct, None]],
-        priorPdfs: Sequence[Union[NDArray[np.float64], None]],
-    ) -> List[Union[Struct, None]]:
+        radialVelocities: Dict[int, Struct],
+        priorPdfs: Dict[int, NDArray[np.float64]],
+    ) -> Dict[int, Struct]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -613,23 +621,20 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             Continuum-subtracted observed spectra
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
-        radialVelocities : `list` of `Optional[lsst.pipe.base.Struct]`
-            Radial velocity for each fiber.
-            Each element, if not None, has ``velocity``, ``error``, and ``fail``
+        radialVelocities : `Dict[int, lsst.pipe.base.Struct]`
+            Mapping from ``fiberId`` to radial velocity.
+            Each value, has ``velocity``, ``error``, and ``fail``
             as its member. See ``EstimateRadialVelocityTask``.
-        priorPdfs : `list` of `numpy.array` of `float`
-            For each ``priorPdfs[iSpectrum]`` in ``priorPdfs``,
-            ``priorPdfs[iSpectrum][iSED]`` is the prior probability of the SED ``iSED``
-            matching the spectrum ``pfsConfig.fiberId[iSpectrum]``.
-            ``priorPdfs[iSpectrum]`` can be ``None``,
-            in which case the corresponding return value will be ``None``.
+        priorPdfs : `Dict[int, NDArray[np.float64]]`
+            For each ``priorPdfs[fiberId]`` in ``priorPdfs``,
+            ``priorPdfs[fiberId][iSED]`` is the prior probability of the SED ``iSED``
+            matching the spectrum ``fiberId``.
 
         Returns
         -------
-        bestParams : `list` of `Struct|None`
-            ``bestParams[iSpectrum]`` is the best-fit parameters for
-            ``pfsConfig.fiberId[iSpectrum]``. Each element ``bestParams[iSpectrum]``,
-            if not None, consists of the following members:
+        bestParams : `Dict[int, Struct]`
+            ``bestParams[fiberId]`` is the best-fit parameters for ``fiberId``.
+            Each element ``bestParams[fiberId]``, consists of the following members:
 
               - param : `ModelParam`
                 Best-fit parameter.
@@ -701,12 +706,16 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             )
             modelInterpolator = self.modelInterpolator
 
-        bestParams = [None] * len(priorPdfs)
+        bestParams: Dict[int, Struct] = {}
 
-        for iFiber, (obsSpectrum, velocity, priorPdf) in enumerate(
-            zip(fibers(pfsConfig, obsSpectra), radialVelocities, priorPdfs)
-        ):
+        for iFiber, obsSpectrum in enumerate(fibers(pfsConfig, obsSpectra)):
+            fiberId = pfsConfig.fiberId[iFiber]
+            velocity = radialVelocities.get(fiberId)
+            priorPdf = priorPdfs.get(fiberId)
+
             if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
+                continue
+            if priorPdf is None or not np.all(np.isfinite(priorPdf)):
                 continue
 
             beta = velocity.velocity / const.c.to("km/s").value
@@ -745,7 +754,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
                 model = modelInterpolator.interpolate(*param)
                 model.wavelength = model.wavelength * doppler
-                model = convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength)
+                model = convolveLsf(model, pfsMergedLsf[fiberId], obsSpectrum.wavelength)
                 model = model.resample(obsSpectrum.wavelength)
                 modelContinuum = self.computeContinuum(model, mode="observed")
                 model = modelContinuum.whiten(model)
@@ -761,7 +770,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             param = xToParam(result.x)
             chisq = objective(result.x, returnChisq=True)
 
-            bestParams[iFiber] = Struct(
+            bestParams[fiberId] = Struct(
                 param=ModelParam(*param),
                 chi2=chisq.chi2,
                 dof=chisq.dof,
@@ -775,9 +784,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         pfsConfig: PfsConfig,
         obsSpectra: PfsFiberArraySet,
         pfsMergedLsf: LsfDict,
-        radialVelocities: Sequence[Union[Struct, None]],
-        priorPdfs: Sequence[Union[NDArray[np.float64], None]],
-    ) -> List[Union[Struct, None]]:
+        radialVelocities: Dict[int, Struct],
+        priorPdfs: Dict[int, NDArray[np.float64]],
+    ) -> Dict[int, Struct]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
 
@@ -795,66 +804,74 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             Continuum-subtracted observed spectra
         pfsMergedLsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
             Combined line-spread functions indexed by fiberId.
-        radialVelocities : `list` of `Optional[lsst.pipe.base.Struct]`
-            Radial velocity for each fiber.
+        radialVelocities : `Dict[int, lsst.pipe.base.Struct]`
+            Mapping from ``fiberId`` to radial velocity.
             Each element, if not None, has ``velocity``, ``error``, and ``fail``
             as its member. See ``EstimateRadialVelocityTask``.
-        priorPdfs : `list` of `numpy.array` of `float`
-            For each ``priorPdfs[iSpectrum]`` in ``priorPdfs``,
-            ``priorPdfs[iSpectrum][iSED]`` is the prior probability of the SED ``iSED``
-            matching the spectrum ``pfsConfig.fiberId[iSpectrum]``.
-            ``priorPdfs[iSpectrum]`` can be ``None``,
-            in which case the corresponding return value will be ``None``.
+        priorPdfs : `Dict[int, NDArray[np.float64]]`
+            For each ``priorPdfs[fiberId]`` in ``priorPdfs``,
+            ``priorPdfs[fiberId][iSED]`` is the prior probability of the SED ``iSED``
+            matching the spectrum ``fiberId``.
 
         Returns
         -------
-        bestParams : `list` of `Struct|None`
-            ``bestParams[iSpectrum]`` is the best-fit parameters for
-            ``pfsConfig.fiberId[iSpectrum]``. Each element ``bestParams[iSpectrum]``,
-            if not None, consists of the following members:
+        bestParams : `Dict[int, Struct]`
+            ``bestParams[fiberId]`` is the best-fit parameters for ``fiberId``.
+            Each element ``bestParams[fiberId]``, consists of the following members:
 
               - param : `ModelParam`
                 Best-fit parameter.
               - success : `bool`
                 True if optimization has succeeded.
         """
-        nFibers = len(priorPdfs)
-        nModels = len(self.fluxModelSet.parameters)
-        relativePriors = np.full(shape=(nModels, nFibers), fill_value=np.nan, dtype=float)
-        for iFiber, pdf in enumerate(priorPdfs):
-            if pdf is not None:
-                relativePriors[:, iFiber] = pdf / np.max(pdf)
+        # Get the list of valid fiberIds
+        fiberIds: List[int] = []
+        for fiberId in pfsConfig.fiberId:
+            velocity = radialVelocities.get(fiberId)
+            priorPdf = priorPdfs.get(fiberId)
 
-        # prepare an array of chi-squares.
-        chisqLists: List[Union[ChisqList, None]] = []
-        for pdf in priorPdfs:
-            if pdf is None:
-                chisqLists.append(None)
+            if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
+                continue
+            if priorPdf is None or not np.all(np.isfinite(priorPdf)):
                 continue
 
+            fiberIds.append(fiberId)
+
+        nFibers = len(fiberIds)
+        nModels = len(self.fluxModelSet.parameters)
+        relativePriors = np.full(shape=(nModels, nFibers), fill_value=np.nan, dtype=float)
+        for iFiber, fiberId in enumerate(fiberIds):
+            pdf = priorPdfs[fiberId]
+            relativePriors[:, iFiber] = pdf / np.max(pdf)
+
+        # prepare arrays of chi-squares.
+        chisqLists: Dict[int, ChisqList] = {}
+        for fiberId in fiberIds:
             chisq = np.full(
                 shape=(len(self.fluxModelSet.parameters),),
                 fill_value=np.inf,
                 dtype=float,
             )
-            chisqLists.append(ChisqList(chisq, 0))
+            chisqLists[fiberId] = ChisqList(chisq, 0)
 
-        averageLsf = getAverageLsf([pfsMergedLsf[fiberId] for fiberId in pfsConfig.fiberId])
+        averageLsf = getAverageLsf([pfsMergedLsf[fiberId] for fiberId in fiberIds])
 
         # `fibers()` is not very fast.
         # We don't want to call it redundantly in the inner loop below.
-        obsSpectrumList = list(fibers(pfsConfig, obsSpectra))
+        obsSpectrums = {
+            fiberId: spectrum for fiberId, spectrum in zip(pfsConfig.fiberId, fibers(pfsConfig, obsSpectra))
+        }
 
         for iModel, (param, priorPdf) in enumerate(zip(self.fluxModelSet.parameters, relativePriors)):
             # These things will be created afterward when they are actually required.
             model: Union[PfsSimpleSpectrum, None] = None
             modelContinuum: Union["Continuum", None] = None
 
-            for iFiber, (obsSpectrum, velocity, prior) in enumerate(
-                zip(obsSpectrumList, radialVelocities, priorPdf)
-            ):
-                if velocity is None or velocity.fail or not np.isfinite(velocity.velocity):
-                    continue
+            for iFiber, fiberId in enumerate(fiberIds):
+                velocity = radialVelocities[fiberId]
+                obsSpectrum = obsSpectrums[fiberId]
+                prior = priorPdf[iFiber]
+
                 if not (prior >= self.config.priorCutoff):
                     continue
                 if model is None:
@@ -869,23 +886,25 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
 
                 convolvedModel = self.downsampleModel(
-                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
+                    convolveLsf(model, pfsMergedLsf[fiberId], obsSpectrum.wavelength),
                     obsSpectrum,
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
                 chisq = calculateSpecChiSquareWithVelocity(
                     obsSpectrum, convolvedModel, velocity.velocity, self.getBadMask()
                 )
-                chisqLists[iFiber].chisq[iModel] = chisq.chi2
-                # `chisq.dof` depends only on `iFiber`, so we can overwrite it
-                chisqLists[iFiber].dof = chisq.dof
+                chisqLists[fiberId].chisq[iModel] = chisq.chi2
+                # `chisq.dof` depends only on `fiberId`, so we can overwrite it
+                chisqLists[fiberId].dof = chisq.dof
 
         # Output best-fit model spectra in the state they were
         # when they were compared to the whitened observed spectra
         if self.debugInfo.doWriteWhitenedFlux:
-            whitenedModels = []
-            for iFiber, (obsSpectrum, velocity) in enumerate(zip(obsSpectrumList, radialVelocities)):
-                iModel = np.argmin(chisqLists[iFiber].chisq)
+            whitenedModels = {}
+            for fiberId in fiberIds:
+                velocity = radialVelocities[fiberId]
+                obsSpectrum = obsSpectrums[fiberId]
+                iModel = np.argmin(chisqLists[fiberId].chisq)
                 param = self.fluxModelSet.parameters[iModel]
                 model = self.fluxModelSet.getSpectrum(
                     teff=param["teff"], logg=param["logg"], m=param["m"], alpha=param["alpha"]
@@ -896,7 +915,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 )
                 modelContinuum = self.computeContinuum(convolvedModel, mode="downsampled")
                 convolvedModel = self.downsampleModel(
-                    convolveLsf(model, pfsMergedLsf[pfsConfig.fiberId[iFiber]], obsSpectrum.wavelength),
+                    convolveLsf(model, pfsMergedLsf[fiberId], obsSpectrum.wavelength),
                     obsSpectrum,
                 )
                 convolvedModel = modelContinuum.whiten(convolvedModel)
@@ -909,69 +928,55 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 )
                 convolvedModel.flux[...] = shifted.flux
                 convolvedModel.mask[...] = shifted.mask
-                whitenedModels.append(convolvedModel)
+                whitenedModels[fiberId] = convolvedModel
 
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
                 whitenedModel=whitenedModels,
             )
 
         if self.debugInfo.doWriteChisq:
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/chisq-{obsSpectra.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
                 chisq=chisqLists,
             )
 
         # Posterior PDF
-        pdfs: List[Union[NDArray[np.float64], None]] = []
-        for prior, chisq in zip(priorPdfs, chisqLists):
-            if (prior is None) or (chisq is None):
-                pdfs.append(None)
-            else:
-                pdfs.append(chisq.toProbability(prior=prior))
+        pdfs = {fiberId: chisqLists[fiberId].toProbability(prior=priorPdfs[fiberId]) for fiberId in fiberIds}
 
         if self.debugInfo.doWritePosterior:
             debugging.writeExtraData(
                 f"fitPfsFluxReference-output/posterior-{obsSpectra.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
                 posterior=pdfs,
             )
 
         bestParams = self.findSubgridPeak(pdfs)
-        return [(Struct(param=param, success=True) if param is not None else None) for param in bestParams]
+        return {fiberId: Struct(param=param, success=True) for fiberId, param in bestParams.items()}
 
-    def findRoughlyBestModel(
-        self, pdfs: Sequence[Union[NDArray[np.float64], None]]
-    ) -> List[Union[Struct, None]]:
+    def findRoughlyBestModel(self, pdfs: Dict[int, NDArray[np.float64]]) -> Dict[int, Struct]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
-        for ``pdf`` in ``pdfs``.
+        for ``pdf`` in ``pdfs.values()``.
 
         Parameters
         ----------
-        pdfs : `list` of `numpy.array` of `float`
-            For each ``pdfs[iSpectrum]`` in ``pdfs``,
-            ``pdfs[iSpectrum][iSED]`` is the probability of the SED ``iSED``
-            matching the spectrum ``iSpectrum``.
-            ``pdfs[iSpectrum]`` can be ``None``.
+        pdfs : `Dict[int, NDArray[np.float64]]`
+            For each ``pdfs[fiberId]`` in ``pdfs``,
+            ``pdfs[fiberId][iSED]`` is the probability of the SED ``iSED``
+            matching the spectrum ``fiberId``.
 
         Returns
         -------
-        models : `list` of `Optional[lsst.pipe.base.Struct]`
-            The members of each element are:
+        models : `Dict[int, lsst.pipe.base.Struct]`
+            Mapping from ``fiberId`` to a structure whose members are:
 
-            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
-                Spectrum.
-            param : `ModelParam`
-                Parameter of ``spectrum``.
+              - spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
+                    Spectrum.
+              - param : `ModelParam`
+                    Parameter of ``spectrum``.
         """
         onePlusEpsilon = float(np.nextafter(np.float32(1), np.float32(2)))
-        models: List[Union[Struct, None]] = []
-        for pdf in pdfs:
-            if pdf is None:
-                models.append(Struct(spectrum=None, param=None))
-                continue
+        models: Dict[int, Struct] = {}
+        for fiberId, pdf in pdfs.items():
             if np.max(pdf) <= np.min(pdf) * onePlusEpsilon:
                 # If the PDF is uniform, we ourselves choose a parameter set
                 # because this one is better than
@@ -981,14 +986,13 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 self.log.warn("findRoughlyBestModel: Probability distribution is uniform.")
             else:
                 param = ModelParam.fromDict(self.fluxModelSet.parameters[np.argmax(pdf)])
+
             model = self.fluxModelSet.getSpectrum(**param.toDict())
-            models.append(Struct(spectrum=model, param=param))
+            models[fiberId] = Struct(spectrum=model, param=param)
 
         return models
 
-    def findSubgridPeak(
-        self, pdfs: Sequence[Union[NDArray[np.float64], None]]
-    ) -> List[Union["ModelParam", None]]:
+    def findSubgridPeak(self, pdfs: Dict[int, NDArray[np.float64]]) -> Dict[int, "ModelParam"]:
         """Get ``argmax(pdf)`` for ``pdf`` in ``pdfs`` to subgrid precision.
 
         A smooth surface is fit to the ``pdf``,
@@ -996,17 +1000,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        pdfs : `list` of `numpy.array` of `float`
-            For each ``pdfs[iSpectrum]`` in ``pdfs``,
-            ``pdfs[iSpectrum][iSED]`` is the probability of the SED ``iSED``
-            matching the spectrum ``iSpectrum``.
-            ``pdfs[iSpectrum]`` can be ``None``.
+        pdfs : `Dict[int, NDArray[np.float64]]`
+            For each ``pdfs[fiberId]`` in ``pdfs``,
+            ``pdfs[fiberId][iSED]`` is the probability of the SED ``iSED``
+            matching the spectrum ``fiberId``.
 
         Returns
         -------
-        params : `list` of `Optional[ModelParam]`
-            Each element, if not None, is the best-fit parameter
-            for the corresponding spectrum.
+        params : `Dict[int, ModelParam]`
+            Mapping from ``fiberId`` to the best-fit parameter for the spectrum.
         """
         paramNames = ["teff", "logg", "m"]
         fixedParamNames = ["alpha"]
@@ -1026,11 +1028,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         paramCatalog = self.fluxModelSet.parameters
 
-        outputParams: List[Union[Struct, None]] = []
-        for pdf in pdfs:
-            if pdf is None:
-                outputParams.append(None)
-                continue
+        outputParams: Dict[int, ModelParam] = {}
+        for fiberId, pdf in pdfs.items():
 
             # Rough peak
             peakParam = paramCatalog[np.argmax(pdf)]
@@ -1123,7 +1122,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             if bestParam is None:
                 bestParam = tuple(peakParam[name] for name in paramNames + fixedParamNames)
 
-            outputParams.append(ModelParam(*bestParam))
+            outputParams[fiberId] = ModelParam(*bestParam)
 
         return outputParams
 
@@ -1160,9 +1159,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         return spectra
 
     def makeReferenceSpectra(
-        self, pfsConfig: PfsConfig, params: Sequence[Union["ModelParam", None]]
-    ) -> List[Union[Struct, None]]:
-        """Get the model spectrum corresponding to each ``param`` in ``params``.
+        self, pfsConfig: PfsConfig, params: Dict[int, "ModelParam"]
+    ) -> Dict[int, Struct]:
+        """Get the model spectrum corresponding to each ``param`` in ``params.values()``.
 
         The returned spectra are affected by galactic extinction
         and their flux values agree with ``pfsConfig.psfFlux``.
@@ -1171,29 +1170,30 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         ----------
         pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
             Configuration of the PFS top-end.
-        params : `list` of `Union[ModelParam, None]` of `float`
-            Each ``params[iSpectrum]`` in ``params``, if not None,
-            is the parameter for ``pfsConfig.fiberId[iSpectrum]``.
+        params : `Dict[int, ModelParam]`
+            Each ``params[fiberId]`` in ``params``, if not None,
+            is the parameter for ``fiberId``.
 
         Returns
         -------
-        models : `list` of `Optional[lsst.pipe.base.Struct]`
-            The members of each element are:
+        models : `Dict[int, Struct]`
+            Mapping from ``fiberId`` to a structure whose members are:
 
-            spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
-                Spectrum.
-            param : `ModelParam`
-                Parameter of ``spectrum``.
-            fluxScalingChi2 : `float`
-                chi^2 of flux scaling problem.
-            fluxScalingDof  : `int`
-                Degree of freedom of flux scaling problem.
+              - spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
+                    Spectrum.
+              - param : `ModelParam`
+                    Parameter of ``spectrum``.
+              - fluxScalingChi2 : `float`
+                    chi^2 of flux scaling problem.
+              - fluxScalingDof  : `int`
+                    Degree of freedom of flux scaling problem.
         """
-        bestModels = []
+        bestModels: Dict[int, Struct] = {}
 
-        for param, fiberConfig in zip(params, fiberConfigs(pfsConfig)):
+        for fiberConfig in fiberConfigs(pfsConfig):
+            fiberId = int(fiberConfig.fiberId)
+            param = params.get(fiberId)
             if param is None:
-                bestModels.append(None)
                 continue
 
             model = Struct()
@@ -1208,7 +1208,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             model.spectrum = scaled.spectrum
             model.fluxScalingChi2 = scaled.chi2
             model.fluxScalingDof = scaled.dof
-            bestModels.append(model)
+            bestModels[fiberId] = model
 
         return bestModels
 

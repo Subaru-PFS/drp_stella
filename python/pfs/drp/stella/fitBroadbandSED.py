@@ -13,7 +13,7 @@ from .utils import debugging
 import numpy
 import numpy.lib.recfunctions
 
-from typing import List, Union
+from typing import Dict
 from typing import Sequence
 
 try:
@@ -56,9 +56,7 @@ class FitBroadbandSEDTask(Task):
         self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def runDataRef(
-        self, dataRef: lsst.daf.persistence.ButlerDataRef
-    ) -> List[Union[NDArray[numpy.float64], None]]:
+    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> Dict[int, NDArray[numpy.float64]]:
         """For each spectrum,
         calculate probabilities of model SEDs matching the spectrum.
 
@@ -72,16 +70,16 @@ class FitBroadbandSEDTask(Task):
 
         Returns
         -------
-        broadbandPDF : `list` of `numpy.array` of `float`
-            ``broadbandPDF[iSpectrum][iSED]`` is the normalized probability
-            of the SED ``iSED`` matching the spectrum ``iSpectrum``.
-            If the targetType of ``iSpectrum`` is not ``TargetType.FLUXSTD``,
-            ``broadbandPDF[iSpectrum]`` is None.
+        broadbandPDF : `Dict[int, NDArray[numpy.float64]]`
+            ``broadbandPDF[fiberId][iSED]`` is the normalized probability
+            of the SED ``iSED`` matching the spectrum ``fiberId``.
+            If the targetType of ``fiberId`` is not ``TargetType.FLUXSTD``,
+            ``broadbandPDF[fiberId]`` does not exist.
         """
         pfsConfig = dataRef.get("pfsConfig")
         return self.run(pfsConfig)
 
-    def run(self, pfsConfig: PfsConfig) -> List[Union[NDArray[numpy.float64], None]]:
+    def run(self, pfsConfig: PfsConfig) -> Dict[int, NDArray[numpy.float64]]:
         """For each spectrum,
         calculate probabilities of model SEDs matching the spectrum.
 
@@ -95,11 +93,11 @@ class FitBroadbandSEDTask(Task):
 
         Returns
         -------
-        broadbandPDF : `list` of `numpy.array` of `float`
-            ``broadbandPDF[iSpectrum][iSED]`` is the normalized probability
-            of the SED ``iSED`` matching the spectrum ``iSpectrum``.
-            If the targetType of ``iSpectrum`` is not ``TargetType.FLUXSTD``,
-            ``broadbandPDF[iSpectrum]`` is None.
+        broadbandPDF : `Dict[int, NDArray[numpy.float64]]`
+            ``broadbandPDF[fiberId][iSED]`` is the normalized probability
+            of the SED ``iSED`` matching the spectrum ``fiberId``.
+            If the targetType of ``fiberId`` is not ``TargetType.FLUXSTD``,
+            ``broadbandPDF[fiberId]`` does not exist.
         """
         if self.config.broadbandFluxType == "fiber":
             broadbandFlux = pfsConfig.fiberFlux
@@ -116,23 +114,20 @@ class FitBroadbandSEDTask(Task):
                 f" ('{self.config.broadbandFluxType}')"
             )
 
-        chisqs: List[Union[ChisqList, None]] = []
-        for targetType, filterNames, bbFlux, bbFluxErr in zip(
-            pfsConfig.targetType, pfsConfig.filterNames, broadbandFlux, broadbandFluxErr
+        chisqs: Dict[ChisqList] = {}
+        for fiberId, targetType, filterNames, bbFlux, bbFluxErr in zip(
+            pfsConfig.fiberId, pfsConfig.targetType, pfsConfig.filterNames, broadbandFlux, broadbandFluxErr
         ):
             if targetType == TargetType.FLUXSTD:
-                chisqs.append(self.getChisq(filterNames, bbFlux, bbFluxErr))
-            else:
-                chisqs.append(None)
+                chisqs[fiberId] = self.getChisq(filterNames, bbFlux, bbFluxErr)
 
         if self.debugInfo.doWriteChisq:
             debugging.writeExtraData(
                 f"fitBroadbandSED-output/chisq-{pfsConfig.filename}.pickle",
-                fiberId=pfsConfig.fiberId,
                 chisq=chisqs,
             )
 
-        return [(chisq.toProbability() if chisq is not None else None) for chisq in chisqs]
+        return {fiberId: chisq.toProbability() for fiberId, chisq in chisqs.items()}
 
     def getChisq(
         self, filterNames: Sequence[str], bbFlux: Sequence[float], bbFluxErr: Sequence[float]
