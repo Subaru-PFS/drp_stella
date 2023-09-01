@@ -561,7 +561,7 @@ class FitDistortedDetectorMapTask(Task):
                 continue
 
             # If all measurements were rejected in previous fits, restore all measurements, just for this.
-            if not np.any(use & thisFiber):
+            if not np.any(use & thisFiber & notTrace):
                 use[thisFiber] = np.isfinite(dx[thisFiber]) & np.isfinite(dy[thisFiber])
                 use[thisFiber] &= np.isfinite(xErr[thisFiber]) & np.isfinite(yErr[thisFiber])
 
