@@ -157,6 +157,18 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         default="psf",
         optional=False,
     )
+    minTeff = Field(
+        doc="FLUXSTD target gets fitted only if effective temperature, in K, from broadband fluxes"
+        " is above this value.",
+        dtype=float,
+        default=5600,
+    )
+    maxTeff = Field(
+        doc="FLUXSTD target gets fitted only if effective temperature, in K, from broadband fluxes"
+        " is below this value.",
+        dtype=float,
+        default=7900,
+    )
     minimizationMethod = Field(
         dtype=str,
         default="Powell",
@@ -374,6 +386,19 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             pfsConfig,
             "FITBBSED_FAILED",
             [((fiberId in bbPdfs) and np.all(np.isfinite(bbPdfs[fiberId]))) for fiberId in pfsConfig.fiberId],
+        )
+
+        paramsFromBB = self.findRoughlyBestModel(bbPdfs, paramOnly=True)
+        pfsConfig = selectPfsConfig(
+            pfsConfig,
+            "FITBBSED_TEFF_OUTOFRANGE",
+            [
+                (
+                    (fiberId in paramsFromBB)
+                    and self.config.minTeff <= paramsFromBB[fiberId].param.teff <= self.config.maxTeff
+                )
+                for fiberId in pfsConfig.fiberId
+            ],
         )
 
         # Extract just those fibers from pfsMerged
@@ -955,7 +980,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         bestParams = self.findSubgridPeak(pdfs)
         return {fiberId: Struct(param=param, success=True) for fiberId, param in bestParams.items()}
 
-    def findRoughlyBestModel(self, pdfs: Dict[int, NDArray[np.float64]]) -> Dict[int, Struct]:
+    def findRoughlyBestModel(
+        self, pdfs: Dict[int, NDArray[np.float64]], *, paramOnly: bool = False
+    ) -> Dict[int, Struct]:
         """Get the model spectrum corresponding to ``argmax(pdf)``
         for ``pdf`` in ``pdfs.values()``.
 
@@ -965,6 +992,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             For each ``pdfs[fiberId]`` in ``pdfs``,
             ``pdfs[fiberId][iSED]`` is the probability of the SED ``iSED``
             matching the spectrum ``fiberId``.
+        paramOnly : `bool`
+            If True, the values of the returned dict, which are of `Struct` type,
+            have ``param`` member only.
 
         Returns
         -------
@@ -973,6 +1003,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
               - spectrum : `pfs.drp.stella.datamodel.pfsFiberArray.PfsSimpleSpectrum`
                     Spectrum.
+                    This member does not exist if ``paramOnly`` is ``True``.
               - param : `ModelParam`
                     Parameter of ``spectrum``.
         """
@@ -989,8 +1020,11 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             else:
                 param = ModelParam.fromDict(self.fluxModelSet.parameters[np.argmax(pdf)])
 
-            model = self.fluxModelSet.getSpectrum(**param.toDict())
-            models[fiberId] = Struct(spectrum=model, param=param)
+            if paramOnly:
+                models[fiberId] = Struct(param=param)
+            else:
+                model = self.fluxModelSet.getSpectrum(**param.toDict())
+                models[fiberId] = Struct(spectrum=model, param=param)
 
         return models
 
