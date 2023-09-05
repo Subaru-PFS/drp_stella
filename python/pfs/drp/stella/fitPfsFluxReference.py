@@ -718,6 +718,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             if priorPdf is None or not np.all(np.isfinite(priorPdf)):
                 continue
 
+            self.log.info("Fitting a model to spectrum: fiberId=%d", fiberId)
+
             beta = velocity.velocity / const.c.to("km/s").value
             doppler = np.sqrt((1.0 + beta) / (1.0 - beta))
 
