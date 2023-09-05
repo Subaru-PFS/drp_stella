@@ -211,6 +211,13 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         " Number of PCA components to use during fitting."
         " The final products are made of all components regardless of this setting.",
     )
+    paramMargin = ListField(
+        dtype=float,
+        default=[100, 0, 0, 0],
+        doc="A model parameter (teff, logg, m, alpha) is considered valid"
+        " if it is in the domain and it is this much away from the boundary of the domain"
+        " in each dimension",
+    )
 
     def setDefaults(self) -> None:
         super().setDefaults()
@@ -440,6 +447,13 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         for fiberId in pfsConfig.fiberId:
             param = bestParams.get(fiberId)
             if param is None or not param.success:
+                if fitFlag.get(fiberId, 0) == 0:
+                    fitFlag[fiberId] = flag
+
+        flag = self.fitFlagNames.add("FITMODELS_OUTOFRANGE")
+        for fiberId in pfsConfig.fiberId:
+            param = bestParams.get(fiberId)
+            if param is not None and param.success and not self.isParamInDomain(param.param):
                 if fitFlag.get(fiberId, 0) == 0:
                     fitFlag[fiberId] = flag
 
@@ -1345,6 +1359,28 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         wavelengthNew = np.linspace(minWavelength, maxWavelength, num=lenNew, endpoint=True)
         return model.resample(wavelengthNew)
 
+    def isParamInDomain(self, param: "ModelParam") -> bool:
+        """
+        Is a model parameter contained in the (hypothetical) domain
+        where model spectra are defined?
+
+        Parameters
+        ----------
+        param : `ModelParam`
+            parameter to test
+
+        Returns
+        -------
+        contained : `bool`
+            True if the model parameter is contained in the domain.
+        """
+        point = np.asarray(dataclasses.astuple(param), dtype=float)
+        domain = np.lib.recfunctions.structured_to_unstructured(
+            self.fluxModelSet.parameters[["teff", "logg", "m", "alpha"]]
+        ).astype(float)
+        margin = np.asarray(self.config.paramMargin, dtype=float)
+        return isPointContainedInDomain(point, domain, margin)
+
 
 @dataclasses.dataclass
 class ModelParam:
@@ -1681,6 +1717,70 @@ def dopplerShift(
     mask = interpolateMask(wavelength0, mask0, shiftedWavelength)
 
     return Struct(flux=flux, mask=mask)
+
+
+def isPointContainedInDomain(
+    point: NDArray[np.float64], domain: NDArray[np.float64], margin: NDArray[np.float64]
+) -> bool:
+    """Is a point in d-D space contained in a domain?
+
+    The "domain" is a hypothetical region in which a given finite set of points
+    are scattered. Not the domain itself but the scattered points are given.
+
+    The domain is expected not to be convex at all.
+    No algorithms for convex polygons are applicable.
+    We define that a point is in the domain in the following way.
+    (Explanation is done with d (= number of dimensions) = 4)
+
+    "The k-th orthant around a point T = (t_0, t_1, t_2, t_3) with margin m
+    = (m_1, m_2, m_3, m_4)" (0 <= k <= 15) is the set of points x
+    = (x_0, x_1, x_2, x_3) such that
+        - if a_i = 0, then x_i <= t_i - m_i
+        - if a_i = 1, then x_i >= t_i + m_i
+    for i = 0, 1, 2, 3; where k = a_0 a_1 a_2 a_3 in the binary notation.
+
+    "A point P is in the domain defined by D, a finite set of points,
+    with margin m" if:
+        There exist 16 points T_{0}, ..., T_{15} in D such that
+        P is in the k-th orthant around T_{k} with margin m, for k = 0,...,15.
+
+    Parameters
+    ----------
+    point : `numpy.ndarray of `float`
+        Point in a d-D space. Shape (d,).
+    domain: `numpy.ndarray of `float`
+        Finite set of points that define a domain. Shape (N, d).
+    margin : `numpy.ndarray of `float`
+        Margin. Shape (d,).
+
+    Returns
+    -------
+    contained : `bool`
+        True if the ``point`` is contained in ``domain`` with margin ``m``.
+    """
+    n, dimensions = domain.shape
+
+    xMinusT = np.asarray(point, dtype=domain.dtype).reshape(1, dimensions) - domain
+
+    # ray[i, j, k] will eventually be a boolean value.
+    # If it is True, then, as for the j-th dimension, the point P is in a ray
+    # toward -oo (k=0) or +oo (k=1) starting at the point T_{i} of the finite
+    # set ``domain``, and the distance between P and T_{i} is larger than ``margin``.
+    ray = np.empty(shape=(n, dimensions, 2), dtype=domain.dtype)
+    ray[:] = xMinusT.reshape(n, dimensions, 1)
+    ray[:, :, 0] *= -1.0
+    ray = ray >= np.asarray(margin, dtype=domain.dtype).reshape(1, dimensions, 1)
+
+    # From this on, ray[i, 2*j + k] has the same meaning as previous ray[i, j, k]
+    ray = ray.reshape(n, -1)
+
+    charToK = {"0": 0, "1": 1}
+    for a in range(2**dimensions, 2 ** (dimensions + 1)):
+        index = [2 * j + charToK[c] for j, c in enumerate(bin(a)[3:])]
+        if not np.any(np.all(ray[:, index], axis=(1,))):
+            return False
+
+    return True
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:
