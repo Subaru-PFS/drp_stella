@@ -496,18 +496,17 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
 
         for fiberId, bestModel in bestModels.items():
-            if fitFlag.get(fiberId, 0) == 0:
-                velocity = radialVelocities[fiberId]
-                index = fiberIdToIndex[fiberId]
-                flux[index, :] = bestModel.spectrum.flux
-                fitParams["teff"][index] = bestModel.param.teff
-                fitParams["logg"][index] = bestModel.param.logg
-                fitParams["m"][index] = bestModel.param.m
-                fitParams["alpha"][index] = bestModel.param.alpha
-                fitParams["radial_velocity"][index] = velocity.velocity
-                fitParams["radial_velocity_err"][index] = velocity.error
-                fitParams["flux_scaling_chi2"][index] = bestModel.fluxScalingChi2
-                fitParams["flux_scaling_dof"][index] = bestModel.fluxScalingDof
+            velocity = radialVelocities[fiberId]
+            index = fiberIdToIndex[fiberId]
+            flux[index, :] = bestModel.spectrum.flux
+            fitParams["teff"][index] = bestModel.param.teff
+            fitParams["logg"][index] = bestModel.param.logg
+            fitParams["m"][index] = bestModel.param.m
+            fitParams["alpha"][index] = bestModel.param.alpha
+            fitParams["radial_velocity"][index] = velocity.velocity
+            fitParams["radial_velocity_err"][index] = velocity.error
+            fitParams["flux_scaling_chi2"][index] = bestModel.fluxScalingChi2
+            fitParams["flux_scaling_dof"][index] = bestModel.fluxScalingDof
 
         fitFlagArray = np.zeros(shape=(len(originalFiberId),), dtype=np.int32)
 
