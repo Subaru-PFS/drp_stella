@@ -28,10 +28,9 @@ from .referenceLine import *
 from .arcLine import *
 from .centroidImage import *
 from .DoubleDetectorMapContinued import *
-from .DoubleDistortion import *
-from .PolynomialDetectorMapContinued import *
-from .PolynomialDistortion import *
 from .DistortionContinued import *
+from .PolynomialDetectorMapContinued import *
+from .PolynomialDistortionContinued import *
 from .DoubleDistortionContinued import *
 from .MultipleDistortionsDetectorMapContinued import *
 from .RotScaleDistortionContinued import *
