@@ -213,6 +213,7 @@ class ReduceArcTask(CmdLineTask):
             detectorMap = results.detectorMap
             lines = results.lines
             dataRef.put(lines, "arcLines")
+            dataRef.put(spectra, "pfsArm")
 
         return Struct(
             spectra=spectra,
