@@ -620,6 +620,21 @@ class FitDistortedDetectorMapTask(Task):
             spatial[ii] = spatialFiber
             spectral[ii] = spectralFiber
 
+        if noMeasurements:
+            self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
+                          len(noMeasurements), sorted(noMeasurements))
+            badFibers = np.isin(detectorMap.fiberId, noMeasurements)
+            goodFibers = ~badFibers
+            spatial[badFibers] = np.mean(spatial[goodFibers])
+            spectral[badFibers] = np.mean(spectral[goodFibers])
+
+            for ff, spatialFiber, spectralFiber in zip(
+                detectorMap.fiberId[badFibers], spatial[badFibers], spectral[badFibers]
+            ):
+                choose = lines.fiberId == ff
+                fit[choose, 0] = xy[choose, 0] + spatialFiber
+                fit[choose, 1] = xy[choose, 1] + spectralFiber
+
         result = calculateFitStatistics(
             fit, lines, use, 2*(numFibers - len(noMeasurements)), (sysErr, sysErr)
         )
@@ -628,8 +643,6 @@ class FitDistortedDetectorMapTask(Task):
             result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
             use.sum(), select.sum()
         )
-        self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
-                      len(noMeasurements), sorted(noMeasurements))
         self.log.debug("Spatial offsets: %s", spatial)
         self.log.debug("Spectral offsets: %s", spectral)
 
