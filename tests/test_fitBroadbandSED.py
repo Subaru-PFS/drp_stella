@@ -21,9 +21,8 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
         self.fitBroadbandSED = FitBroadbandSEDTask(config=FitBroadbandSEDConfig())
 
     def testRun(self):
-        """Test run() method
-        """
-        random = numpy.random.RandomState(0xfeed5eed)
+        """Test run() method"""
+        random = numpy.random.RandomState(0xFEED5EED)
         filters = ["g_hsc", "r2_hsc", "i2_hsc", "z_hsc", "y_hsc"]
 
         trueSEDIndices = numpy.arange(len(self.fitBroadbandSED.fluxLibrary))[::5]
@@ -46,8 +45,8 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
             fiberFluxErr.append(selectedFluxErrs)
 
         allPatches = [
-            f"{x},{y}" for x, y in numpy.broadcast(numpy.arange(32).reshape(-1, 1),
-                                                   numpy.arange(32).reshape(1, -1))
+            f"{x},{y}"
+            for x, y in numpy.broadcast(numpy.arange(32).reshape(-1, 1), numpy.arange(32).reshape(1, -1))
         ]
         allPatches = numpy.array(allPatches, dtype=(str, 8))
 
@@ -88,10 +87,10 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
 
         pdfs = self.fitBroadbandSED.run(pfsConfig)
 
-        self.assertEqual(len(pdfs), nFibers)
-
-        for trueSED, targetType, fiberFlux, pdf \
-                in zip(trueSEDIndices, pfsConfig.targetType, pfsConfig.fiberFlux, pdfs):
+        for trueSED, targetType, fiberFlux, fiberId in zip(
+            trueSEDIndices, pfsConfig.targetType, pfsConfig.fiberFlux, pfsConfig.fiberId
+        ):
+            pdf = pdfs.get(fiberId)
             if TargetType(targetType) == TargetType.FLUXSTD:
                 if len(fiberFlux) >= 3:
                     # If three or more bands are available,
