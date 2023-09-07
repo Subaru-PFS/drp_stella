@@ -130,6 +130,8 @@ def calculateFitStatistics(
         Number of parameters in fit.
     selection : `numpy.ndarray` of `bool`
         Selection used in calculating statistics.
+    isTrace : `numpy.ndarray` of `bool`
+        Selection of trace points, which have no reliable wavelength.
     soften : `tuple` (`float`, `float`), optional
         Systematic error in x and y that was applied to measured errors
         (pixels) in chi^2 calculation.
@@ -223,7 +225,7 @@ def calculateFitStatistics(
 
     return Struct(xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, num=num,
-                  numParameters=numParameters, selection=xSelection, soften=soften,
+                  numParameters=numParameters, selection=xSelection, isTrace=isTrace, soften=soften,
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
@@ -1246,12 +1248,12 @@ class FitDistortedDetectorMapTask(Task):
         ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
         xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
         yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
-        keep = (xResid < self.config.rejection) & (yResid < self.config.rejection)
+        keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
         minKeepFrac = 1.0 - self.config.maxRejectionFrac
         if keep.sum() < minKeepFrac*fitStats.selection.sum():
             xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
             yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
-            keep = (xResid < xResidLimit) & (yResid < yResidLimit)
+            keep = (xResid < xResidLimit) & ((yResid < yResidLimit) | fitStats.isTrace)
             self.log.debug(
                 "Standard rejection limit (%f) too severe; using %f, %f",
                 self.config.rejection,
