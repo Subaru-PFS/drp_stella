@@ -19,7 +19,8 @@ __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
-    pass
+    def setDefaults(self):
+        self.exclusionRadius = 4.0
 
 
 class AdjustDetectorMapTask(FitDistortedDetectorMapTask):

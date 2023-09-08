@@ -315,7 +315,7 @@ class FitDistortedDetectorMapConfig(Config):
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
-    exclusionRadius = Field(dtype=float, default=4,
+    exclusionRadius = Field(dtype=float, default=0,
                             doc="Exclusion radius to apply to reference lines (pixels)")
     doRejectBadLines = Field(dtype=bool, default=False,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
