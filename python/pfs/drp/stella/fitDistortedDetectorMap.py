@@ -167,12 +167,11 @@ def calculateFitStatistics(
     xResid = (lines.x - xModel)
     yResid = (lines.y - yModel)
 
-    xSelection = selection & np.isfinite(xResid) & (np.isfinite(yResid) | isTrace)
-    ySelection = xSelection & isLine
+    xSelection = selection & np.isfinite(xResid)
+    ySelection = xSelection & np.isfinite(yResid) & isLine
     del selection
     xNum = xSelection.sum()
     yNum = ySelection.sum()
-    num = xNum + yNum
 
     xRobustRms = robustRms(xResid[xSelection]) if xNum > 0 else np.nan
     yRobustRms = robustRms(yResid[ySelection]) if yNum > 0 else np.nan
@@ -189,7 +188,6 @@ def calculateFitStatistics(
         yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
 
     chi2 = np.sum(xResid2/xErr2) + np.sum(yResid2/yErr2)
-    dof = num - numParameters
 
     def calculateSoftening(residuals, errors, dof):
         """Calculate systematic error that softens chi^2/dof to 1
@@ -230,7 +228,8 @@ def calculateFitStatistics(
             chi2 : `float`
                 chi^2/dof - 1
             """
-            return np.sum(residuals2/(soften**2 + errors2))/dof - 1
+            with np.errstate(invalid="ignore"):
+                return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
         if softenChi2(0.0) < 0:
             return 0.0
@@ -238,9 +237,13 @@ def calculateFitStatistics(
             return np.nan
         return scipy.optimize.bisect(softenChi2, 0.0, maxSoften)
 
-    dimDof = num - numParameters/2  # Assume equipartition of number of parameters between dimensions
-    xSoften = calculateSoftening(xResid[xSelection], lines.xErr[xSelection], dimDof)
-    ySoften = calculateSoftening(yResid[ySelection], lines.yErr[ySelection], dimDof)
+    num = xNum + yNum
+    dof = num - numParameters
+    # Assume equipartition of number of parameters between dimensions
+    xDof = xNum - numParameters/2
+    yDof = yNum - numParameters/2
+    xSoften = calculateSoftening(xResid[xSelection], lines.xErr[xSelection], xDof)
+    ySoften = calculateSoftening(yResid[ySelection], lines.yErr[ySelection], yDof)
 
     return Struct(xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, num=num,
