@@ -82,6 +82,25 @@ class ArcLineResidualsSet(Table):
     DamdClass = LineResiduals
 
 
+def getDescriptionCounts(description, good: np.ndarray) -> str:
+    """Provide a list of counts of different species
+
+    Parameters
+    ----------
+    description : `np.ndarray` of `str`
+        Line descriptions.
+    good : `numpy.ndarray` of `bool`
+        Boolean array indicating which lines are good.
+
+    Returns
+    -------
+    counts : `str`
+        String with counts of different species.
+    """
+    counts = Counter(description[good])
+    return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+
+
 def calculateFitStatistics(
     fit: np.ndarray,
     lines: ArcLineSet,
@@ -462,8 +481,7 @@ class FitDistortedDetectorMapTask(Task):
         def getCounts():
             """Provide a list of counts of different species"""
             if self.log.isEnabledFor(self.log.DEBUG):
-                counts = Counter(lines.description[good])
-                return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+                return getDescriptionCounts(lines.description, good)
             return ""
 
         isTrace = lines.description == "Trace"
@@ -639,9 +657,10 @@ class FitDistortedDetectorMapTask(Task):
             fit, lines, use, 2*(numFibers - len(noMeasurements)), (sysErr, sysErr)
         )
         self.log.info(
-            "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d/%d lines",
+            "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
+            "from %d/%d lines (%s)",
             result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
-            use.sum(), select.sum()
+            use.sum(), select.sum(), getDescriptionCounts(lines.description, select)
         )
         self.log.debug("Spatial offsets: %s", spatial)
         self.log.debug("Spectral offsets: %s", spectral)
@@ -933,19 +952,21 @@ class FitDistortedDetectorMapTask(Task):
 
         result = self.fitModel(bbox, lines, used, weights, DistortionClass=DistortionClass)
         self.log.info("Final fit: "
-                      "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines",
+                      "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines (%s)",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                      result.xSoften, result.ySoften, used.sum(), numGood - numReserved)
+                      result.xSoften, result.ySoften, used.sum(), numGood - numReserved,
+                      getDescriptionCounts(lines.description, used))
         fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
         soften = (self.config.soften, self.config.soften)
         reservedStats = calculateFitStatistics(
             fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
         )
         self.log.info("Fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%.1f%%)",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%.1f%%) (%s)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum(), reserved.sum()/numGood*100)
+                      reserved.sum(), reserved.sum()/numGood*100,
+                      getDescriptionCounts(lines.description, reserved))
         self.log.debug("    Final fit model: %s", result.distortion)
 
         soften = (result.xSoften, result.ySoften)
@@ -954,18 +975,19 @@ class FitDistortedDetectorMapTask(Task):
         else:
             result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
             self.log.info("Softened fit: "
-                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
+                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                           result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                          result.xSoften, result.ySoften, select.sum())
+                          result.xSoften, result.ySoften, used.sum(),
+                          getDescriptionCounts(lines.description, used))
 
         reservedStats = calculateFitStatistics(
             fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
         )
         self.log.info("Softened fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum())
+                      reserved.sum(), getDescriptionCounts(lines.description, reserved))
         self.log.debug("    Softened fit model: %s", result.distortion)
 
         result.reserved = reserved
@@ -1208,16 +1230,20 @@ class FitDistortedDetectorMapTask(Task):
         results = calculateFitStatistics(
             fitPosition, lines, selection, numParameters, soften, detectorMap=detectorMap
         )
-        self.log.info("Final result: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
+        self.log.info("Final result: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
                       results.chi2, results.dof, results.xRms, results.yRms,
-                      results.xSoften, results.ySoften, results.selection.sum())
+                      results.xSoften, results.ySoften, results.selection.sum(),
+                      getDescriptionCounts(lines.description, results.selection))
 
         for descr in sorted(set(lines.description)):
             choose = selection & (lines.description == descr)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
-            self.log.info("Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
-                          descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
-                          stats.xSoften, stats.ySoften, stats.selection.sum())
+            self.log.info(
+                "Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
+                descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
+                stats.xSoften, stats.ySoften, stats.selection.sum(),
+                getDescriptionCounts(lines.description, stats.selection),
+            )
 
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
         for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
@@ -1227,7 +1253,7 @@ class FitDistortedDetectorMapTask(Task):
                           "from %d lines (%s)",
                           ff, stats.chi2, stats.dof, stats.xRms, stats.yRms,
                           stats.xSoften, stats.ySoften, stats.selection.sum(),
-                          ", ".join(f"{cc[1]} {cc[0]}" for cc in Counter(lines.description[choose]).items()))
+                          getDescriptionCounts(lines.description, stats.selection))
 
         if self.log.isEnabledFor(self.log.DEBUG):
             good = self.getGoodLines(lines) & (lines.description != "Trace")
@@ -1236,9 +1262,10 @@ class FitDistortedDetectorMapTask(Task):
                 description = ", ".join(set(lines.description[choose]))
                 stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
                 self.log.info("Stats for wavelength=%f (%s): chi2=%f dof=%d xRMS=%f yRMS=%f "
-                              "xSoften=%f ySoften=%f from %d fibers",
+                              "xSoften=%f ySoften=%f from %d fibers (%s)",
                               wl, description, stats.chi2, stats.dof, stats.xRms, stats.yRms,
-                              stats.xSoften, stats.ySoften, stats.selection.sum())
+                              stats.xSoften, stats.ySoften, stats.selection.sum(),
+                              getDescriptionCounts(lines.description, stats.selection))
 
         return results
 
