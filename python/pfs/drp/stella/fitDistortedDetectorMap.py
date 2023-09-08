@@ -395,6 +395,10 @@ class FitDistortedDetectorMapTask(Task):
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
+            if self.config.doSlitOffsets:
+                self.initializeSlitOffsets(base, residuals, dispersion)
+                residuals = self.calculateBaseResiduals(base, lines)
+
             weights = self.calculateWeights(lines)
             results = self.fitDistortion(
                 bbox, residuals, weights, dispersion, seed=visitInfo.id, DistortionClass=DistortionClass
@@ -513,6 +517,43 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("%d good lines after %.2f nm exclusion zone (%s)",
                            good.sum(), exclusionRadius, getCounts())
         return good
+
+    def initializeSlitOffsets(
+        self,
+        detectorMap: DetectorMap,
+        lines: ArcLineResidualsSet,
+        dispersion: float,
+    ) -> None:
+        """Initialize slit offsets for base detectorMap
+
+        We initialize the slit offsets for all fibers to the median of the
+        residuals. This especially allows a better fit in the spectral
+        dimension.
+
+        The detectorMap is modified in-place.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
+        lines : `ArcLineResidualsSet`
+            Line residuals.
+        dispersion : `float`
+            Dispersion (nm/pixel) to use for applying exclusion zone.
+        """
+        numFibers = len(detectorMap)
+        good = self.getGoodLines(lines, dispersion)
+        notTrace = lines.description != "Trace"
+
+        dx = np.median(lines.x[good])
+        if np.any(notTrace):
+            dy = np.median(lines.y[good & notTrace])
+        else:
+            dy = 0.0
+
+        detectorMap.setSlitOffsets(
+            np.full(numFibers, dx, dtype=float), np.full(numFibers, dy, dtype=float)
+        )
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
         """Measure slit offsets for base detectorMap
