@@ -1702,7 +1702,9 @@ class FitDistortedDetectorMapTask(Task):
                     if np.any(rejected):
                         axes[1].scatter(lines.xOrig[rejected], lines.yOrig[rejected], marker=".",
                                         color=cmap(residNorm(dx[rejected])))
-                axes[2].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
+                axes[2].scatter(
+                    dx[select], lines.yOrig[select], marker=".", color=cmap(fiberNorm(ff)), alpha=0.2
+                )
             addColorbar(fig, axes[0], cmap, residNorm, "x residual (pixels)")
             addColorbar(fig, axes[1], cmap, residNorm, "x residual (pixels)")
             addColorbar(fig, axes[2], cmap, fiberNorm, "fiberId")
