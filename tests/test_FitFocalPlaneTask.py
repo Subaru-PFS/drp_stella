@@ -61,9 +61,12 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         pmRa = np.full(shape=self.numFibers, fill_value=0.0, dtype=np.float32)
         pmDec = np.full(shape=self.numFibers, fill_value=0.0, dtype=np.float32)
         parallax = np.full(shape=self.numFibers, fill_value=1e-5, dtype=np.float32)
+        proposalId = np.full(self.numFibers, "S24B-001QN")
+        obCode = np.array([f"obcode_{fibid:04d}" for fibid in range(self.numFibers)])
         self.pfsConfig = PfsConfig(123456789, 54321, 0.0, 0.0, 0.0, "brn", fiberId, tract, patch,
                                    radec, radec, catId, objId, targetType, fiberStatus,
                                    epoch, pmRa, pmDec, parallax,
+                                   proposalId, obCode,
                                    flux, flux, flux, flux, flux, flux, filterNames, position, position, None)
 
     def fit(self, **kwargs) -> FocalPlaneFunction:
