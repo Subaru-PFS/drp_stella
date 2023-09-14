@@ -73,6 +73,8 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
             pmRa=random.uniform(low=0, high=100, size=nFibers),  # mas/yr
             pmDec=random.uniform(low=0, high=100, size=nFibers),  # mas/yr
             parallax=random.uniform(low=1e-5, high=10, size=nFibers),  # mas
+            proposalId=numpy.full(nFibers, "S24B-001QN"),
+            obCode=numpy.array([f"obcode_{fibid:04d}" for fibid in range(nFibers)]),
             fiberFlux=fiberFlux,
             psfFlux=fiberFlux,
             totalFlux=fiberFlux,

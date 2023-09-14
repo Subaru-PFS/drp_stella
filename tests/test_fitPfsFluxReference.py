@@ -191,6 +191,9 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         pmDec = np.full(shape=fiberId.shape, fill_value=0.0, dtype=np.float32)
         parallax = np.full(shape=fiberId.shape, fill_value=1e-5, dtype=np.float32)
 
+        proposalId = np.full(fiberId.shape, "S24B-001QN")
+        obCode = np.array([f"obcode_{fibid:04d}" for fibid in range(len(ra))])
+
         fiberFlux = np.copy(flux)
         psfFlux = np.copy(flux)
         totalFlux = np.copy(flux)
@@ -224,6 +227,8 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             pmRa,
             pmDec,
             parallax,
+            proposalId,
+            obCode,
             fiberFlux,
             psfFlux,
             totalFlux,
