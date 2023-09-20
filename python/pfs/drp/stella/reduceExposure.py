@@ -45,6 +45,7 @@ from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
 from .background import DichroicBackgroundTask
 from .arcLine import ArcLineSet
+from .utils.sysUtils import metadataToHeader, getPfsVersions
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -289,6 +290,11 @@ class ReduceExposureTask(CmdLineTask):
                 skyImage = skyResults.imageList[0]
                 sky2d = skyResults.sky2d
 
+        metadata = exposure.getMetadata()
+        versions = getPfsVersions()
+        for key, value in versions.items():
+            metadata.set(key, value)
+
         results = Struct(
             exposure=exposure,
             fiberTraces=fiberTraces,
@@ -395,7 +401,9 @@ class ReduceExposureTask(CmdLineTask):
             sensorRef.put(results.sky2d, "sky2d")
 
         if self.config.doWriteArm:
-            sensorRef.put(results.spectra.toPfsArm(sensorRef.dataId), "pfsArm")
+            pfsArm = results.spectra.toPfsArm(sensorRef.dataId)
+            pfsArm.metadata.update(metadataToHeader(results.exposure.getMetadata()))
+            sensorRef.put(pfsArm, "pfsArm")
             if results.lines is not None:
                 sensorRef.put(results.lines, "arcLines")
 
