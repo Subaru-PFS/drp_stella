@@ -19,7 +19,9 @@ def addTraceLambdaToArclines(als, detectorMap):
     """
 
     als.lam = detectorMap.findWavelength(als.fiberId, als.y)
-    als.lamErr = als.yErr*als.lam/als.y
+    with np.testing.suppress_warnings() as suppress:
+        suppress.filter(RuntimeWarning, "divide by zero encountered in true_divide")
+        als.lamErr = als.yErr*als.lam/als.y
     als.tracePos = detectorMap.findPoint(als.fiberId, als.wavelength)[:, 0]
 
     return als
@@ -86,7 +88,8 @@ def plotArcResiduals(als,
                      hexBin=False,
                      gridsize=100,
                      linewidths=None,
-                     nsigma=0):
+                     nsigma=0,
+                     figure=None):
 
     """
 
@@ -101,14 +104,18 @@ def plotArcResiduals(als,
         dispersion = detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
 
     ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
-    with np.testing.suppress_warnings() as suppress:
-        suppress.filter(RuntimeWarning, "invalid value encountered in less")
-        ll = np.logical_and(ll, als.lamErr < lamErrMax)
+    if lamErrMax > 0:
+        with np.testing.suppress_warnings() as suppress:
+            suppress.filter(RuntimeWarning, "invalid value encountered in less")
+            ll = np.logical_and(ll, als.lamErr < lamErrMax)
+    else:
+        # for some reason als.lam == als.wavelength for some lines with "good" fits
+        ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
 
     fiberIds = np.array(sorted(set(als.fiberId)))
     nFiber = len(fiberIds)
 
-    fig, axs = plt.subplots(2, 1, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
+    fig, axs = plt.subplots(2, 1, num=figure, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
     axs = axs.flatten()
 
     for iax, plotWavelength in enumerate([True, False]):
@@ -171,7 +178,7 @@ def plotArcResiduals(als,
         plt.title(f"rms = {rms:.3f}" +
                   (f" (soften = {soften}{yUnit})" if showChi else yUnit) +
                   (f" (clipped {nsigma} sigma)" if nsigma > 0 else "") + f" correction: {fiddle}",
-                  color="white" if hexBin else "black", y=0.90)
+                  color="red", y=0.90)
 
     nFiber = len(set(als.fiberId))
 
@@ -184,10 +191,10 @@ def plotArcResiduals(als,
 
 
 def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
-                       maxCentroidErr=0.1, maxDetectorMapError=1,
+                       maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0,
                        drawQuiver=True, arrowSize=0.1,
                        vmin=None, vmax=None, percentiles=[25, 75],
-                       hexBin=False, gridsize=100, linewidths=None):
+                       hexBin=False, gridsize=100, linewidths=None, figure=None):
     """
     arrowSize: characteristic arrow length in pixels
     """
@@ -201,6 +208,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
         ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < maxCentroidErr)
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
+        if minSN > 0:
+            ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     indices = len(als.fiberId)//2
     dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
@@ -211,12 +220,12 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         dz[ll] -= fit
 
     if drawQuiver:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 1, num=figure)
         plt.sca(ax)
 
         Q = plt.quiver(als.x[ll], als.y[ll], dx[ll], dy[ll], alpha=0.5,
-                       angles='xy', scale_units='xy', scale=arrowSize*100/detectorMap.getBBox().getHeight())
-        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize} pixels")
+                       angles='xy', scale_units='xy', scale=arrowSize*20/detectorMap.getBBox().getHeight())
+        plt.quiverkey(Q, 0.1, 1.075, arrowSize, label=f"{arrowSize:.2g} pixels")
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -229,7 +238,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
         plt.gca().set_aspect('equal')
     else:
-        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, gridspec_kw=dict(wspace=0.0))
+        fig, axs = plt.subplots(1, 2, num=figure, sharex=True, sharey=True, gridspec_kw=dict(wspace=0.0))
 
         v0, v1 = np.percentile(np.concatenate((dx, dy)), percentiles)
         if vmin is None:
@@ -409,7 +418,7 @@ class PlotArcLines:
                               scale=self.arrowSize*100/detectorMap.getBBox().getHeight())
                 self._pobj = [Q]
 
-                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize} pixels")
+                ax.quiverkey(Q, 0.9, 1.075 - 0.1, self.arrowSize, label=f"{self.arrowSize:.2g} pixels")
 
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")

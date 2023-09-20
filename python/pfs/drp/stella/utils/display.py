@@ -189,6 +189,12 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
             plt.legend(fontsize=8, loc=(1.01, 0.0), ncol=2)
 
 
+def findLine(lines, wavelength, minIntensity=10):
+    i = np.argmin(np.abs(lines.wavelength - wavelength))
+
+    return lines.data.iloc[i]
+
+
 try:
     from lsst.display.matplotlib import DisplayImpl
 except ImportError:
@@ -196,7 +202,9 @@ except ImportError:
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
 
-    def addPfsCursor(disp, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
+    def addPfsCursor(disp, detectorMap=None, pfsConfig=None, lineList=None, mtpDetails=(True, False, True),
+                     showIntensity=False,
+                     replaceCallback=False):
         """Add PFS specific information to an afwDisplay.Display
 
         Requires that the detectorMap be provided, and must be
@@ -212,6 +220,11 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
             [0]: Show MTPID
             [1]: Show holes for A, BA, BC, and C connectors
             [2]: Show cobraId (or -SuNSSId)
+
+        if lineList is not None, report details of lines near the cursor
+
+        if replaceCallback is True, use this callback instead of the previous one
+        (this removes all callbacks; caveat emptor)
 
         Assumes matplotlib.  N.b. this will be easier in the next
         release of display_matplotlib
@@ -251,11 +264,14 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
 
         ax = axes[0]
 
-        if ax.format_coord is None or \
+        if replaceCallback or ax.format_coord is None or \
            ax.format_coord.__doc__ is None or "PFS" not in ax.format_coord.__doc__:
 
             if pfsConfig:
                 fiberIds = fiberids.FiberIds()
+
+            if replaceCallback:
+                ax.format_coord = lambda x, y : ""
 
             def pfs_format_coord(x, y, disp_impl=disp._impl,
                                  old_format_coord=ax.format_coord):
@@ -273,13 +289,27 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                         except RuntimeError:
                             pass            # fiber isn't in pfsConfig
 
-                    msg += f"FiberId {fidStr}    {detMap.findWavelength(fid, y):8.3f}nm" + " "
+                    lam = detMap.findWavelength(fid, y)
+                    msg += f"FiberId {fidStr}    {lam:8.3f}nm" + " "
+
+                    if lineList:
+                        line = findLine(lineList, lam)
+                        if np.abs(line.wavelength - lam) < 0.25:
+                            transition = line.transition
+                            if transition == "UNKNOWN":
+                                transition = f"[{line.wavelength:.3f}nm]"
+
+                            if showIntensity:
+                                transition += f" I={line.intensity:.0f}"
+
+                            msg += f"{line.description}{' ' if transition else ''}{transition} "
 
                 return msg + old_format_coord(x, y)
 
             ax.format_coord = pfs_format_coord
 else:
-    def addPfsCursor(display, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
+    def addPfsCursor(display, detectorMap=None, pfsConfig=None, lineList=None,
+                     mtpDetails=(True, False, True)):
         """Add PFS specific information to an afwDisplay.Display display
 
         Returns the callback function

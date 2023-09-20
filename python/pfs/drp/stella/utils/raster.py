@@ -37,14 +37,16 @@ def raDecStrToDeg(ra, dec):
 
 class Dither:
     """Information associated with a dithered PFS exposure"""
-    def __init__(self, dataId, ra, dec, fluxes, pfsConfig, md):
+    def __init__(self, dataId, ra, dec, pa, fluxes, pfsConfig, md, drot=(None, None)):
         self.visit = dataId["visit"]
         self.dataId = dataId.copy()
         self.ra = ra
         self.dec = dec
+        self.pa = pa
         self.fluxes = fluxes
         self.pfsConfig = pfsConfig
         self.md = md
+        self.drot = drot
 
 
 def concatenateDithers(butler, dithers):
@@ -53,6 +55,7 @@ def concatenateDithers(butler, dithers):
         assert d.visit == d0.visit
         assert d.ra == d0.ra
         assert d.dec == d0.dec
+        assert d.pa == d0.pa
 
     n = sum([len(d.fluxes) for d in dithers])
     fluxes = np.empty(n)
@@ -71,7 +74,7 @@ def concatenateDithers(butler, dithers):
 
     pfsConfig = pfsConfig[np.logical_and(keep, pfsConfig.targetType != TargetType.ENGINEERING)]
 
-    return Dither(d0.dataId, d0.ra, d0.dec, fluxes, pfsConfig, d0.md)
+    return Dither(d0.dataId, d0.ra, d0.dec, d0.pa, fluxes, pfsConfig, d0.md)
 
 
 def getWindowedSpectralRange(row0, nrows, butler=None, dataId=None, detectorMap=None, pfsConfig=None):
@@ -218,12 +221,14 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
     fluxes[np.isnan(pfsConfig.pfiNominal.T[0])] = np.NaN
 
     ra, dec = raDecStrToDeg(md['RA_CMD'], md['DEC_CMD'])
+    pa = md['INST-PA']
 
-    return Dither(dataId, ra, dec, fluxes, pfsConfig, md)
+    return Dither(dataId, ra, dec, pa, fluxes, pfsConfig, md)
 
 
 def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
                     usePFImm=False, subtractBkgd=True, setUnimagedPixelsToNaN=False,
+                    useInitialPointing=False, skipFirstDither=False,
                     extinction=None,
                     icrosstalk=None):
     """
@@ -234,6 +239,7 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
     pixelScale: size of pixels, arcsec
     R: radius of fibre, microns
     fiberIds: only make images for these fibers
+    skipFirstDither: use first dither for geometry, but omit its photons from the raster image
     usePFImm: make image in microns on PFI.  In this case, replace "arcsec" in side/pixelScale by "micron"
     subtractBkgd: subtract an estimate of the background
     extinction: dict of extinction values for each visit in dithers
@@ -259,6 +265,7 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
         for i, d in enumerate(dithers):
             ra = d.ra
             dec = d.dec
+            pa = d.pa
             md = d.md
             pfsConfig = d.pfsConfig
 
@@ -266,7 +273,6 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             boresight = [[ra], [dec]]
 
             altitude = md['ALTITUDE']
-            pa = md['INST-PA']
             utc = f"{md['DATE-OBS']} {md['UT']}"
 
             try:
@@ -290,10 +296,12 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
 
     R_micron = R                        # R in microns, before mapping to arcsec on PFI
     size = None
+    altitude0 = None
     for d in dithers:
         fluxes = d.fluxes
         ra = d.ra
         dec = d.dec
+        pa = d.pa
         md = d.md
         pfsConfig = d.pfsConfig
 
@@ -313,8 +321,20 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
         boresight = [[ra], [dec]]
 
         altitude = md['ALTITUDE']
-        pa = md['INST-PA']
         utc = f"{md['DATE-OBS']} {md['UT']}"
+
+        #
+        # Use this initial altitude/utc for coordinate transforms?
+        #
+        if useInitialPointing:
+            if altitude0 is None:
+                altitude0 = altitude
+                utc0 = utc
+                pa0 = pa
+
+            altitude = altitude0
+            utc = utc0
+            pa = pa0
 
         hexapod_sx, hexapod_sy = md["W_M2OFF1"], md["W_M2OFF2"]
         hexapod_sx0, hexapod_sy0 = -1.6, -2.5  # as per Yuki Moritani
@@ -373,6 +393,9 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
             weights = np.zeros_like(images)
 
             visitImage = np.full_like(images[0], 0)
+
+            if skipFirstDither:
+                continue
 
         if usePFImm:
             dx, dy = 1e3*(x - x0), 1e3*(y - y0)   # microns
@@ -832,6 +855,38 @@ def getDitherRaDec(opdb, visit):
         print(f"getDitherRaDec: detected multiple dither_XXX values for visit {visit}:\n", tmp)
 
     return tmp.dither_ra[0], tmp.dither_dec[0], tmp
+
+
+def getGuideError(opdb, visit):
+    """Return the AG's guide error estimate for a visit
+    opdb: connection to the opdb
+    visit: desired visit
+
+    Returns:  delta(altitude), delta(azimuth), delta(insrot) all in arcseconds
+    """
+
+    with opdb:
+        tmp = pd_read_sql(f'''
+           SELECT
+               agc_exposure.pfs_visit_id,
+               -- avg(agc_exposure.altitude) AS altitude,
+               -- avg(agc_exposure.azimuth) AS azimuth,
+               -- avg(agc_exposure.insrot) AS insrot,
+               min(guide_delta_insrot) as guide_delta_insrot,
+               min(guide_delta_az) as guide_delta_azimuth,
+               min(guide_delta_el) as guide_delta_altitude
+           FROM agc_exposure
+           JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+           JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+           WHERE
+               agc_exposure.pfs_visit_id = {visit} AND
+               agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+           GROUP BY agc_exposure.pfs_visit_id -- agc_exposure.agc_exposure_id
+           ''', opdb)
+
+    tmp.reset_index(drop=True)
+
+    return tmp.guide_delta_altitude[0], tmp.guide_delta_azimuth[0], tmp.guide_delta_insrot[0]
 
 
 def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=False):
