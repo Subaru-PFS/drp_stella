@@ -9,6 +9,8 @@ __all__ = ("PfsFiberArraySet",)
 
 
 class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
+    _ylabel = "flux"                    # y-axis label for plots, overridden in derived classes such as pfsArm
+
     @property
     def spectrograph(self):
         """Return spectrograph number"""
@@ -101,7 +103,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
 
         axes.set_xlabel(xLabel)
-        axes.set_ylabel("Flux")
+        axes.set_ylabel(self._ylabel)
 
         if show:
             figure.show()
