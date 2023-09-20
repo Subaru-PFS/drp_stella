@@ -46,6 +46,7 @@ from .blackSpotCorrection import BlackSpotCorrectionTask
 from .background import DichroicBackgroundTask
 from .arcLine import ArcLineSet
 
+
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 
