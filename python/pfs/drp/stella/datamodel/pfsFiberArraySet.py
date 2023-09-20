@@ -86,7 +86,12 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))
         for ff, cc in zip(fiberId, colors):
-            index = np.where(self.fiberId == ff)[0][0]
+            index = np.where(self.fiberId == ff)[0]
+            if len(index) == 0:
+                print(f"Unable to find fiberId {ff}")
+                continue
+
+            index = index[0]
             good = ((self.mask[index] & ignorePixelMask) == 0)
             lam = wavelength if usePixels else wavelength[index]
             flux = self.flux[index][good]
