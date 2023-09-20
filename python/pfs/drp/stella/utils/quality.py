@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import lsst.daf.persistence as dafPersist
 
+from .guiders import pd_read_sql
 from .stability import addTraceLambdaToArclines
+
 
 __all__ = ["momentsToABT", "showImageQuality"]
 
@@ -194,3 +197,239 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     plt.suptitle(f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}", **kwargs)
 
     return alsCache
+
+
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#
+# Look at cobra convergence
+#
+def getCobraDesignForVisit(opdb, pfs_visit_id):
+    with opdb:
+        tmp = pd_read_sql(f'''
+            SELECT DISTINCT
+                cobra_target.pfs_visit_id,
+                cobra_target.cobra_id,
+                pfi_nominal_x_mm,
+                pfi_nominal_y_mm,
+                center_x_mm as cobra_center_x_mm,
+                center_y_mm as cobra_center_y_mm,
+                motor_theta_length_mm,
+                motor_phi_length_mm
+            FROM cobra_target
+            JOIN cobra_geometry on cobra_geometry.cobra_id = cobra_target.cobra_id
+            WHERE
+              cobra_target.pfs_visit_id = {pfs_visit_id} OR
+              cobra_target.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                           pfs_visit_id = {pfs_visit_id})
+            ''', opdb)
+    return tmp
+
+
+def getConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
+    with opdb:
+        tmp = pd_read_sql(f'''
+            SELECT DISTINCT
+                mcs_exposure.mcs_frame_id, mcs_data.spot_id, cobra_match.cobra_id, cobra_match.iteration,
+                pfi_center_x_mm, pfi_center_y_mm, pfi_target_x_mm, pfi_target_y_mm
+            FROM mcs_exposure
+            JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
+            JOIN cobra_match ON cobra_match.spot_id = mcs_data.spot_id AND
+                                cobra_match.mcs_frame_id = mcs_exposure.mcs_frame_id
+            JOIN cobra_target ON cobra_target.pfs_visit_id = cobra_match.pfs_visit_id AND
+                                 cobra_target.cobra_id = cobra_match.cobra_id AND
+                                 cobra_target.iteration = cobra_match.iteration
+            WHERE
+              mcs_exposure.pfs_visit_id = {pfs_visit_id} OR
+              mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                           pfs_visit_id = {pfs_visit_id})
+            ''', opdb)
+
+    if calculateMean:
+        grouped = tmp.groupby("cobra_id")
+        tmp = grouped.agg(
+            pfi_center_x_mm_mean=("pfi_center_x_mm", "mean"),
+            pfi_center_y_mm_mean=("pfi_center_y_mm", "mean"),
+        ).merge(tmp, on="cobra_id")
+
+    return tmp
+
+
+def getFiducialConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
+    with opdb:
+        tmp = pd_read_sql(f'''
+            SELECT DISTINCT
+                mcs_exposure.mcs_frame_id,
+                mcs_data.spot_id, fiducial_fiber_match.fiducial_fiber_id, fiducial_fiber_match.iteration,
+                mcs_exposure.taken_at,
+                mcs_center_x_pix, mcs_center_y_pix, mcs_exposure.altitude, mcs_exposure.insrot
+                --
+                -- replace previous line with this one when mm centres are available
+                --   pfi_center_x_mm, pfi_center_y_mm
+            FROM mcs_exposure
+            JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
+            JOIN fiducial_fiber_match ON fiducial_fiber_match.spot_id = mcs_data.spot_id AND
+                                fiducial_fiber_match.mcs_frame_id = mcs_exposure.mcs_frame_id
+            WHERE
+                mcs_exposure.pfs_visit_id = {pfs_visit_id} OR
+                mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                             pfs_visit_id = {pfs_visit_id})
+            ''', opdb)
+
+    if "pfi_center_x_mm" in tmp:
+        print("No need to calculate pfi_center_x_mm in getFiducialConvergenceForVisit")
+    else:
+        from pfs.utils.coordinates.transform import makePfiTransform
+        with opdb:
+            tmp2 = pd_read_sql(f'''
+                SELECT -- DISTINCT
+                    *
+                FROM mcs_pfi_transformation
+                WHERE
+                   mcs_frame_id IN ({", ".join([str(frame_id) for frame_id in tmp.mcs_frame_id.unique()])})
+                ''', opdb)
+
+        tmp["pfi_center_x_mm"] = np.empty(len(tmp))
+        tmp["pfi_center_y_mm"] = np.empty(len(tmp))
+
+        for mcs_frame_id in tmp.mcs_frame_id.unique():
+            ai = tmp[tmp.mcs_frame_id == mcs_frame_id]
+            mpt = makePfiTransform(tmp2.camera_name.iloc[0], altitude=ai.altitude.unique()[0],
+                                   insrot=ai.insrot.unique()[0])
+            assert ai.altitude.nunique() == 1
+
+            mcs_pfi_transformation = tmp2[tmp2.mcs_frame_id == mcs_frame_id]
+
+            args = []
+            for p in ["x0", "y0", "theta", "dscale", "scale2"]:   # order must match mcsDistort.setArgs order
+                args.append(mcs_pfi_transformation[p].iloc[0])
+
+            mpt.mcsDistort.setArgs(args)
+            mcs_center_x_mm, mcs_center_y_mm = mpt.mcsToPfi(tmp.mcs_center_x_pix, tmp.mcs_center_y_pix)
+
+            ll = tmp.mcs_frame_id == mcs_frame_id
+            for xy in ["x", "y"]:
+                tmp[f"pfi_center_{xy}_mm"] = np.where(ll, (mcs_center_x_mm if xy == "x" else mcs_center_y_mm),
+                                                      tmp[f"pfi_center_{xy}_mm"])
+
+        del tmp["mcs_center_x_pix"]
+        del tmp["mcs_center_y_pix"]
+
+    if calculateMean:
+        grouped = tmp.groupby("fiducial_fiber_id")
+        tmp = grouped.agg(
+            pfi_center_x_mm_mean=("pfi_center_x_mm", "mean"),
+            pfi_center_y_mm_mean=("pfi_center_y_mm", "mean"),
+        ).merge(tmp, on="fiducial_fiber_id")
+
+    return tmp
+
+
+#
+# Done with code to read opdb.  On to work
+#
+def prepConvergenceData(cobraData, cobraIds, maxError, maxFinalError, relativeToTarget,
+                        nIteration=5):
+    if cobraIds is None:
+        tmp = cobraData
+    else:
+        tmp = cobraData[cobraData.isin(dict(cobra_id=cobraIds)).cobra_id]
+
+    tmp = tmp.copy()
+
+    if relativeToTarget:
+        tmp["dx_mm"] = tmp.pfi_center_x_mm - tmp.pfi_target_x_mm
+        tmp["dy_mm"] = tmp.pfi_center_y_mm - tmp.pfi_target_y_mm
+    else:
+        tmp["dx_mm"] = tmp.pfi_center_x_mm - tmp.pfi_center_x_mm_mean
+        tmp["dy_mm"] = tmp.pfi_center_y_mm - tmp.pfi_center_y_mm_mean
+
+    tmp["dr_mm"] = np.hypot(tmp.dx_mm, tmp.dy_mm)
+
+    if maxError > 0:
+        grouped = tmp.groupby("cobra_id")
+        tmp = grouped.agg(
+            dr_mm_mean=("dr_mm", "mean"),
+            dr_mm_max=("dr_mm", "max"),
+        ).join(tmp.set_index('cobra_id'), on="cobra_id")
+
+        tmp = tmp[tmp.dr_mm_max < maxError*1e-3]
+
+    if maxFinalError > 0:
+        ll = tmp.iteration == nIteration - 1
+        tmp2 = pd.DataFrame(dict(cobra_id=tmp.cobra_id, dr_mm_final=tmp.dr_mm[ll]))
+        tmp = tmp.join(tmp2.set_index('cobra_id'), on="cobra_id")
+        tmp = tmp[tmp.dr_mm_final < maxFinalError*1e-3]
+
+    return tmp
+
+
+def showCobraConvergence(cobraData, cobraIds, fiducialData=None, fiducialIds=None, relativeToTarget=False,
+                         iteration0=0,
+                         keyLength=10,
+                         maxError=25,
+                         maxFinalError=0,
+                         fiducialColor="#c0c0c0",
+                         title="",
+                         figure=None):
+    """
+    pandas dataframe as returned by getConvergenceForVisit()
+    relativeToTarget: show position relative to target, rather than mean, position
+    keyLength:  Length of arrow in the key, in microns
+    maxError:  Ignore cobras with a maximum error larger than this (microns)
+    maxFinalError:  Ignore cobras with a final error larger than this (microns)
+    title: Extra string to add to title
+    figure: matplotlib.Figure to use; or None
+    """
+    allCobraData = cobraData
+
+    iterations = cobraData.iteration.unique()[iteration0:]
+    nIteration = len(iterations)
+
+    cobraData = prepConvergenceData(cobraData, cobraIds, maxError, maxFinalError, relativeToTarget,
+                                    nIteration=nIteration)
+    if fiducialData is not None:
+        fiducialData = prepConvergenceData(fiducialData, fiducialIds, maxError, maxFinalError,
+                                           relativeToTarget=False, nIteration=nIteration)
+
+    ny = int(np.sqrt(nIteration))
+    nx = nIteration//ny
+    if nx*ny < nIteration:
+        ny += 1
+
+    fig, axs = plt.subplots(ny, nx, num=figure, sharex=True, sharey=True, squeeze=False)
+    axs = axs.flatten()
+
+    for ax, iteration in zip(axs, iterations):
+        plt.sca(ax)
+
+        ll = cobraData.iteration == iteration
+
+        qlen = 1e-3*keyLength  # in mm
+        kwargs = dict(scale_units='xy', scale=qlen*1e-2)
+        Q = plt.quiver(cobraData.pfi_center_x_mm_mean[ll], cobraData.pfi_center_y_mm_mean[ll],
+                       cobraData.dx_mm[ll], cobraData.dy_mm[ll], **kwargs)
+        plt.quiverkey(Q, 0.2, 0.95, qlen, f"{keyLength} micron", color='red')
+
+        if fiducialData is not None:
+            ll = fiducialData.iteration == iteration
+            plt.quiver(fiducialData.pfi_center_x_mm_mean[ll], fiducialData.pfi_center_y_mm_mean[ll],
+                       fiducialData.dx_mm[ll], fiducialData.dy_mm[ll], color=fiducialColor, **kwargs)
+
+        plt.plot([0], [0], '+', color='red')
+
+        ll = allCobraData.iteration == iteration
+        plt.plot(allCobraData.pfi_center_x_mm_mean[ll], allCobraData.pfi_center_y_mm_mean[ll], '.',
+                 alpha=0.05, color='gray', zorder=-1)
+
+        plt.text(0.9, 0.9, f"{iteration}", transform=ax.transAxes, ha="center")
+
+        plt.xlabel("x (mm)")
+        plt.ylabel("y (mm)")
+
+        ax.set_aspect(1)
+        ax.label_outer()
+
+    for i in range(nIteration, nx*ny):
+        axs[i].set_axis_off()
+
+    plt.suptitle(title)
