@@ -23,7 +23,7 @@ agcCameraCenters = {
     4: (-122.58, -211.67),              # noqa E201, E241
     5: ( 119.23, -209.79),              # noqa E201, E241
 }
-
+3
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
 # Communicate with the DB
@@ -239,6 +239,48 @@ def readAgcDataFromOpdb(opdb, visits, butler=None, dataId=None):
         agcData["inst_pa"] = inst_pa
 
     return agcData
+
+
+def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords=True):
+    """Query the database for the properties of stars measured by the AGC code
+
+    N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
+    """
+    with opdb:
+        tmp = pd_read_sql(f'''
+           SELECT
+               agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
+               agc_match.guide_star_id, agc_match.agc_camera_id,
+               agc_match.flags as agc_match_flags,
+               agc_nominal_x_mm, agc_nominal_y_mm,
+               CASE
+                   WHEN sps_exposure.pfs_visit_id IS NULL THEN 2
+                   WHEN (agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND
+                                                       sps_exposure.time_exp_end) THEN 1
+                   ELSE 0
+               END AS shutter_open,
+               image_moment_00_pix, centroid_x_pix, centroid_y_pix,
+               central_image_moment_20_pix,
+               central_image_moment_11_pix,
+               central_image_moment_02_pix,
+               peak_pixel_x_pix, peak_pixel_y_pix,
+               peak_intensity, background,
+               estimated_magnitude
+           FROM agc_exposure
+           JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
+           JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+                             agc_match.agc_camera_id = agc_data.agc_camera_id AND
+                             agc_match.spot_id = agc_data.spot_id
+           JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+           LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+           WHERE
+               agc_exposure.pfs_visit_id = {pfs_visit_id}
+           ''', opdb)
+
+    if flipToHardwareCoords:
+        tmp.agc_nominal_y_mm *= -1
+
+    return tmp
 
 
 def readTelStatus(opdb, pfs_visit_id):
