@@ -12,6 +12,8 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
+from lsst.obs.pfs.utils import getLamps
+
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from pfs.drp.stella.gen3 import DatasetRefList, zipDatasetRefs
@@ -205,6 +207,10 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         if self.config.doSubtractSky1d:
             # Do sky subtraction arm by arm for now; alternatives involve changing the run() API
             for ss in allSpectra:
+                if getLamps(ss.metadata):
+                    self.log.warn("Skipping sky subtraction for lamp exposure")
+                    sky1d.append(None)
+                    continue
                 sky1d.append(self.skySubtraction(ss, pfsConfig))
 
         spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
@@ -290,7 +296,8 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         expSpecRefList[0][0].put(results.pfsMergedLsf, "pfsMergedLsf")
         if results.sky1d is not None:
             for sky1d, ref in zip(results.sky1d, sum(expSpecRefList, [])):
-                ref.put(sky1d, "sky1d")
+                if sky1d is not None:
+                    ref.put(sky1d, "sky1d")
 
         results.pfsConfig = pfsConfig
         return results
