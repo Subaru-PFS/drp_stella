@@ -1,9 +1,11 @@
 from collections import defaultdict
 from datetime import datetime
+import functools
 
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
+import lsst.log
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 from .reduceExposure import ReduceExposureTask
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
@@ -24,6 +26,7 @@ class ReduceArcConfig(pexConfig.Config):
     fitDetectorMap = pexConfig.ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
     doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
                                           doc="Write an updated detectorMap?")
+    arcLines = pexConfig.Field(dtype=str, optional=True, doc="Filename for merged arc line list")
 
     def setDefaults(self):
         super().setDefaults()
@@ -54,26 +57,41 @@ class ReduceArcRunner(TaskRunner):
             arm = dataRef.dataId["arm"]
             groupedResults[(spectrograph, arm)].append(Struct(dataRef=dataRef, result=rr))
 
-        gatherResults = []
-        if self.config.doUpdateDetectorMap:
-            for results in groupedResults.values():
-                dataRefList = [rr.dataRef for rr in results]
-                task.verify(dataRefList)
-                dataRef = task.reduceDataRefs(dataRefList)
-                final = None
-                exitStatus = 0
-                if len(results) > 0:
-                    exitStatus = max(rr.result.exitStatus for rr in results if rr is not None)
-                if len(results) == 0:
-                    task.log.fatal("No results for %s." % (dataRef.dataId,))
-                elif exitStatus > 0:
-                    task.log.fatal("Failed to process at least one of the components for %s" %
-                                   (dataRef.dataId,))
-                else:
-                    final = task.gather(dataRefList, [rr.result.result for rr in results])
-                gatherResults.append(Struct(result=final, exitStatus=exitStatus))
-        else:
+        if not self.config.doUpdateDetectorMap:
             task.log.info("Not writing an updated DetectorMap")
+            return []
+
+        gatherJobs = []
+        for results in groupedResults.values():
+            dataRefList = [rr.dataRef for rr in results]
+            task.verify(dataRefList)
+            dataRef = task.reduceDataRefs(dataRefList)
+            exitStatus = 0
+            if len(results) > 0:
+                exitStatus = max(rr.result.exitStatus for rr in results if rr is not None)
+            if len(results) == 0:
+                task.log.fatal("No results for %s." % (dataRef.dataId,))
+            elif exitStatus > 0:
+                task.log.fatal("Failed to process at least one of the components for %s" %
+                               (dataRef.dataId,))
+            else:
+                gatherJobs.append([task, dataRefList, [rr.result.result for rr in results]])
+
+        if self.numProcesses > 1:
+            import multiprocessing
+            from lsst.pipe.base.cmdLineTask import _runPool
+            pool = multiprocessing.Pool(processes=self.numProcesses, maxtasksperchild=1)
+            mapFunc = functools.partial(_runPool, pool, self.timeout)
+            task.log.info("Running gather stage in parallel with %d processes", self.numProcesses)
+        else:
+            pool = None
+            mapFunc = map
+
+        gatherResults = [Struct(result=rr, exitStatus=0) for rr in mapFunc(self.runGather, gatherJobs)]
+
+        if pool is not None:
+            pool.close()
+            pool.join()
 
         return gatherResults
 
@@ -88,6 +106,26 @@ class ReduceArcRunner(TaskRunner):
         """
         result = super().__call__(args)
         return Struct(**{key: value for key, value in result.getDict().items() if key != "dataRef"})
+
+    def runGather(self, args):
+        """Run the gather stage
+
+        Parameters
+        ----------
+        args : `list`
+            List of arguments for ``ReduceArcTask.gather``.
+
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+            Result from ``ReduceArcTask.gather``.
+        """
+        task, dataRefList, results = args
+        dataId = dataRefList[0].dataId
+        camera = f"{dataId['arm']}{dataId['spectrograph']}"
+        lsst.log.MDC("LABEL", camera)
+        task.log.info("Gathering results for %s", camera)
+        return task.gather(dataRefList, results)
 
 
 class ReduceArcTask(CmdLineTask):
@@ -174,6 +212,8 @@ class ReduceArcTask(CmdLineTask):
             exposure = results.exposure
             detectorMap = results.detectorMap
             lines = results.lines
+            dataRef.put(lines, "arcLines")
+            dataRef.put(spectra, "pfsArm")
 
         return Struct(
             spectra=spectra,
@@ -210,7 +250,8 @@ class ReduceArcTask(CmdLineTask):
         spatialOffsets = oldDetMap.getSpatialOffsets()
         spectralOffsets = oldDetMap.getSpectralOffsets()
 
-        dataRef.put(lines, "arcLines")
+        if self.config.arcLines is not None:
+            lines.writeFits(self.config.arcLines)
 
         detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
                                               oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap

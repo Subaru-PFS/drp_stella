@@ -16,7 +16,7 @@ namespace {
 
 void declarePolynomialDistortion(py::module & mod) {
     using Class = PolynomialDistortion;
-    auto cls = python::wrapDistortion<Class>(mod, "PolynomialDistortion");
+    auto cls = python::wrapAnalyticDistortion<Class>(mod, "PolynomialDistortion");
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
             "distortionOrder"_a, "range"_a, "coeff"_a);
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,

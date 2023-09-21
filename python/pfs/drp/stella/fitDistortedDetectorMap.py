@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict, Counter
-from typing import Optional, Type
+from typing import Optional, Tuple, Type
 
 import numpy as np
 import scipy.optimize
@@ -13,9 +13,10 @@ from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable, Column
-from pfs.drp.stella import DetectorMap
-from pfs.drp.stella import DoubleDetectorMap, DoubleDistortion
-from pfs.drp.stella import PolynomialDetectorMap, PolynomialDistortion
+from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
+from pfs.drp.stella import DoubleDistortion
+from pfs.drp.stella import PolynomialDistortion
+from .DistortionContinued import Distortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
@@ -31,34 +32,37 @@ class LineResiduals(PfsTable):
 
     Parameters
     ----------
-    fiberId : `np.array` of `int`
+    fiberId : `np.ndarray` of `int`
         Fiber identifiers.
-    wavelength : `np.array` of `float`
+    wavelength : `np.ndarray` of `float`
         Reference line wavelengths (nm).
-    x, y : `np.array` of `float`
+    x, y : `np.ndarray` of `float`
         Differential positions relative to an external detectorMap.
-    xErr, yErr : `np.array` of `float`
+    xErr, yErr : `np.ndarray` of `float`
         Errors in measured positions.
-    flux : `np.array` of `float`
+    flux : `np.ndarray` of `float`
         Measured fluxes (arbitrary units).
-    fluxErr : `np.array` of `float`
+    fluxErr : `np.ndarray` of `float`
         Errors in measured fluxes (arbitrary units).
-    flag : `np.array` of `bool`
+    flag : `np.ndarray` of `bool`
         Measurement flags (``True`` indicates an error in measurement).
-    status : `np.array` of `int`
+    status : `np.ndarray` of `int`
         Flags whether the lines are fitted, clipped or reserved etc.
-    description : `np.array` of `str`
+    description : `np.ndarray` of `str`
         Line descriptions (e.g., ionic species)
-    xOrig, yOrig : `np.array` of `float`
+    xOrig, yOrig : `np.ndarray` of `float`
         Original measured positions (pixels).
-    xBase, yBase : `np.array` of `float`
+    xBase, yBase : `np.ndarray` of `float`
         Expected position from base detectorMap.
+    slope : `np.ndarray` of `float`
+        (Inverse) slope of trace, dx/dy (pixels/pixel).
     """
     schema = ArcLineSet.DamdClass.schema + [
         Column("xOrig", np.float64, "Original measured x position (pixels)", np.nan),
         Column("yOrig", np.float64, "Original measured y position (pixels)", np.nan),
         Column("xBase", np.float64, "Expected x position from base detectorMap (pixels)", np.nan),
         Column("yBase", np.float64, "Expected y position from base detectorMap (pixels)", np.nan),
+        Column("slope", np.float64, "Inverse slope of trace, dx/dy (pixels/pixel)", np.nan),
     ]
     fitsExtName = "RESID"
 
@@ -78,7 +82,34 @@ class ArcLineResidualsSet(Table):
     DamdClass = LineResiduals
 
 
-def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.0), maxSoften=1.0, **kwargs):
+def getDescriptionCounts(description, good: np.ndarray) -> str:
+    """Provide a list of counts of different species
+
+    Parameters
+    ----------
+    description : `np.ndarray` of `str`
+        Line descriptions.
+    good : `numpy.ndarray` of `bool`
+        Boolean array indicating which lines are good.
+
+    Returns
+    -------
+    counts : `str`
+        String with counts of different species.
+    """
+    counts = Counter(description[good])
+    return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+
+
+def calculateFitStatistics(
+    fit: np.ndarray,
+    lines: ArcLineSet,
+    selection: np.ndarray,
+    numParameters: int,
+    soften: Tuple[float, float] = (0.0, 0.0),
+    maxSoften: float = 1.0,
+    **kwargs,
+):
     """Calculate statistics of the distortion fit
 
     Parameters
@@ -118,6 +149,8 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
         Number of parameters in fit.
     selection : `numpy.ndarray` of `bool`
         Selection used in calculating statistics.
+    isTrace : `numpy.ndarray` of `bool`
+        Selection of trace points, which have no reliable wavelength.
     soften : `tuple` (`float`, `float`), optional
         Systematic error in x and y that was applied to measured errors
         (pixels) in chi^2 calculation.
@@ -125,15 +158,20 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
         Calculated systematic errors required to soften errors to attain
         chi^2/dof = 1.
     """
-    xResid = (lines.x - fit[:, 0])
-    yResid = (lines.y - fit[:, 1])
+    isTrace = lines.description == "Trace"
+    isLine = ~isTrace
 
-    xSelection = selection & np.isfinite(xResid) & np.isfinite(yResid)
-    ySelection = xSelection & (lines.description != "Trace")
+    xModel = fit[:, 0]
+    yModel = fit[:, 1]
+
+    xResid = (lines.x - xModel)
+    yResid = (lines.y - yModel)
+
+    xSelection = selection & np.isfinite(xResid)
+    ySelection = xSelection & np.isfinite(yResid) & isLine
     del selection
     xNum = xSelection.sum()
     yNum = ySelection.sum()
-    num = xNum + yNum
 
     xRobustRms = robustRms(xResid[xSelection]) if xNum > 0 else np.nan
     yRobustRms = robustRms(yResid[ySelection]) if yNum > 0 else np.nan
@@ -150,7 +188,6 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
         yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
 
     chi2 = np.sum(xResid2/xErr2) + np.sum(yResid2/yErr2)
-    dof = num - numParameters
 
     def calculateSoftening(residuals, errors, dof):
         """Calculate systematic error that softens chi^2/dof to 1
@@ -191,7 +228,8 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
             chi2 : `float`
                 chi^2/dof - 1
             """
-            return np.sum(residuals2/(soften**2 + errors2))/dof - 1
+            with np.errstate(invalid="ignore"):
+                return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
         if softenChi2(0.0) < 0:
             return 0.0
@@ -199,13 +237,17 @@ def calculateFitStatistics(fit, lines, selection, numParameters, soften=(0.0, 0.
             return np.nan
         return scipy.optimize.bisect(softenChi2, 0.0, maxSoften)
 
-    dimDof = num - numParameters/2  # Assume equipartition of number of parameters between dimensions
-    xSoften = calculateSoftening(xResid[xSelection], lines.xErr[xSelection], dimDof)
-    ySoften = calculateSoftening(yResid[ySelection], lines.yErr[ySelection], dimDof)
+    num = xNum + yNum
+    dof = num - numParameters
+    # Assume equipartition of number of parameters between dimensions
+    xDof = xNum - numParameters/2
+    yDof = yNum - numParameters/2
+    xSoften = calculateSoftening(xResid[xSelection], lines.xErr[xSelection], xDof)
+    ySoften = calculateSoftening(yResid[ySelection], lines.yErr[ySelection], yDof)
 
     return Struct(xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, num=num,
-                  numParameters=numParameters, selection=xSelection, soften=soften,
+                  numParameters=numParameters, selection=xSelection, isTrace=isTrace, soften=soften,
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
@@ -273,7 +315,7 @@ class FitDistortedDetectorMapConfig(Config):
     weightings = DictField(keytype=str, itemtype=float, default={},
                            doc="Weightings to apply to different species. Default weighting is 1.0.")
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
-    exclusionRadius = Field(dtype=float, default=4,
+    exclusionRadius = Field(dtype=float, default=0,
                             doc="Exclusion radius to apply to reference lines (pixels)")
     doRejectBadLines = Field(dtype=bool, default=False,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
@@ -351,18 +393,21 @@ class FitDistortedDetectorMapTask(Task):
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
         else:
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
-        DetectorMap = self.getDetectorMapClass(dataId["arm"])
-        Distortion = self.getDistortionClass(dataId["arm"])
+        dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
+        DistortionClass = self.getDistortionClass(dataId["arm"])
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
+            if self.config.doSlitOffsets:
+                self.initializeSlitOffsets(base, residuals, dispersion)
+                residuals = self.calculateBaseResiduals(base, lines)
+
             weights = self.calculateWeights(lines)
-            dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
             results = self.fitDistortion(
-                bbox, residuals, weights, dispersion, seed=visitInfo.id, Distortion=Distortion
+                bbox, residuals, weights, dispersion, seed=visitInfo.id, DistortionClass=DistortionClass
             )
             reserved = results.reserved
-            detectorMap = DetectorMap(base, results.distortion, visitInfo, metadata)
+            detectorMap = MultipleDistortionsDetectorMap(base, [results.distortion], visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
                 detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
@@ -380,7 +425,8 @@ class FitDistortedDetectorMapTask(Task):
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
         if self.debugInfo.finalResiduals:
-            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved)
+            self.plotResiduals(residuals, results.xResid, results.yResid, results.selection, results.reserved,
+                               dispersion)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, detectorMap)
@@ -408,21 +454,6 @@ class FitDistortedDetectorMapTask(Task):
         """
         filename = self.config.base % dataId
         return DetectorMap.readFits(filename)
-
-    def getDetectorMapClass(self, arm: str) -> Type[DetectorMap]:
-        """Return the class to use for the detectorMap
-
-        Parameters
-        ----------
-        arm : `str`
-            Spectrograph arm in use (one of ``b``, ``r``, ``n``, ``m``).
-
-        Returns
-        -------
-        detectorMapClass : `type`
-            Class to use for the detectorMap.
-        """
-        return PolynomialDetectorMap if arm == "n" else DoubleDetectorMap
 
     def getDistortionClass(self, arm: str) -> Type:
         """Return the class to use for the distortion
@@ -457,8 +488,7 @@ class FitDistortedDetectorMapTask(Task):
         def getCounts():
             """Provide a list of counts of different species"""
             if self.log.isEnabledFor(self.log.DEBUG):
-                counts = Counter(lines.description[good])
-                return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+                return getDescriptionCounts(lines.description, good)
             return ""
 
         isTrace = lines.description == "Trace"
@@ -490,6 +520,43 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug("%d good lines after %.2f nm exclusion zone (%s)",
                            good.sum(), exclusionRadius, getCounts())
         return good
+
+    def initializeSlitOffsets(
+        self,
+        detectorMap: DetectorMap,
+        lines: ArcLineResidualsSet,
+        dispersion: float,
+    ) -> None:
+        """Initialize slit offsets for base detectorMap
+
+        We initialize the slit offsets for all fibers to the median of the
+        residuals. This especially allows a better fit in the spectral
+        dimension.
+
+        The detectorMap is modified in-place.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
+        lines : `ArcLineResidualsSet`
+            Line residuals.
+        dispersion : `float`
+            Dispersion (nm/pixel) to use for applying exclusion zone.
+        """
+        numFibers = len(detectorMap)
+        good = self.getGoodLines(lines, dispersion)
+        notTrace = lines.description != "Trace"
+
+        dx = np.median(lines.x[good])
+        if np.any(notTrace):
+            dy = np.median(lines.y[good & notTrace])
+        else:
+            dy = 0.0
+
+        detectorMap.setSlitOffsets(
+            np.full(numFibers, dx, dtype=float), np.full(numFibers, dy, dtype=float)
+        )
 
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
         """Measure slit offsets for base detectorMap
@@ -532,9 +599,11 @@ class FitDistortedDetectorMapTask(Task):
         isTrace = lines.description == "Trace"
         notTrace = ~isTrace
 
-        xy[notTrace] = detectorMap.findPoint(fiberId[notTrace], lines.wavelength[notTrace])
-        xy[isTrace, 0] = detectorMap.getXCenter(fiberId[isTrace], lines.y[isTrace])
-        xy[isTrace, 1] = lines.y[isTrace]
+        if np.any(notTrace):
+            xy[notTrace] = detectorMap.findPoint(fiberId[notTrace], lines.wavelength[notTrace])
+        if np.any(isTrace):
+            xy[isTrace, 0] = detectorMap.getXCenter(fiberId[isTrace], lines.y[isTrace])
+            xy[isTrace, 1] = lines.y[isTrace]
         dx = xy[:, 0] - lines.x
         dy = xy[:, 1] - lines.y
         xErr = np.hypot(lines.xErr, sysErr)
@@ -543,74 +612,100 @@ class FitDistortedDetectorMapTask(Task):
 
         use = select & np.isfinite(dx) & np.isfinite(dy) & np.isfinite(xErr) & np.isfinite(yErr)
 
-        # Check for fibers that have all measurements rejected in previous fits.
-        # For those fibers, restore all measurements, just for this exercise.
-        for ff in set(fiberId):
+        spatial = np.zeros(numFibers, dtype=float)
+        spectral = np.zeros(numFibers, dtype=float)
+
+        noMeasurements = set()
+        for ii, ff in enumerate(detectorMap.getFiberId()):
             thisFiber = fiberId == ff
-            if not np.any(use & thisFiber):
+
+            if not np.any(thisFiber):
+                self.log.debug("No measurements for fiberId=%d", ff)
+                noMeasurements.add(ff)
+                continue
+
+            # If all measurements were rejected in previous fits, restore all measurements, just for this.
+            if not np.any(use & thisFiber & notTrace):
                 use[thisFiber] = np.isfinite(dx[thisFiber]) & np.isfinite(dy[thisFiber])
                 use[thisFiber] &= np.isfinite(xErr[thisFiber]) & np.isfinite(yErr[thisFiber])
 
-        for ii in range(self.config.iterations):
-            spatial = np.zeros(numFibers, dtype=float)
-            spectral = np.zeros(numFibers, dtype=float)
-            noMeasurements = set()
-            for jj, ff in enumerate(detectorMap.getFiberId()):
-                choose = use & (fiberId == ff)
-                if not np.any(choose & notTrace):
-                    noMeasurements.add(ff)
-                    continue
+            choose = use & thisFiber
+            numChoose = choose.sum()
+
+            chooseFiber = np.ones(numChoose, dtype=bool)
+            notTraceFiber = notTrace[choose]
+            linesFiber = lines[choose]
+            xyFiber = xy[choose]
+            fitFiber = fit[choose]
+            dxFiber = dx[choose]
+            dyFiber = dy[choose]
+            xErrFiber = xErr[choose]
+            yErrFiber = yErr[choose]
+            weightsFiber = weights[choose]
+
+            for jj in range(self.config.iterations):
+                yChoose = chooseFiber & notTraceFiber
+                if not np.any(yChoose):
+                    break
+
                 # Robust measurement
-                spatial[jj] = -np.median(dx[choose])
-                spectral[jj] = -np.median(dy[choose & notTrace])
-                fit[choose, 0] = xy[choose, 0] + spatial[jj]
-                fit[choose, 1] = xy[choose, 1] + spectral[jj]
+                spatialFiber = -np.median(dxFiber)
+                spectralFiber = -np.median(dyFiber[yChoose])
 
-            result = calculateFitStatistics(fit, lines, use, 2*(numFibers - len(noMeasurements)),
-                                            (sysErr, sysErr))
-            self.log.debug(
-                "Slit offsets iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f from %d/%d lines",
-                ii, result.chi2, result.dof, result.xRms, result.yRms, use.sum(), select.sum()
-            )
-            self.log.debug("Unable to measure slit offsets for %d fiberIds: %s",
-                           len(noMeasurements), sorted(noMeasurements))
-            self.log.debug("Spatial offsets: %s", spatial)
-            self.log.debug("Spectral offsets: %s", spectral)
+                fitFiber[:, 0] = xyFiber[:, 0] + spatialFiber
+                fitFiber[:, 1] = xyFiber[:, 1] + spectralFiber
 
-            newUse = select & self.rejectOutliers(result, xErr, yErr)
+                result = calculateFitStatistics(fitFiber, linesFiber, chooseFiber, 2, (sysErr, sysErr))
+                newChooseFiber = chooseFiber & self.rejectOutliers(result, xErrFiber, yErrFiber)
 
-            self.log.debug("Rejecting %d/%d lines in iteration %d", use.sum() - newUse.sum(), use.sum(), ii)
-            if np.all(newUse == use):
-                # Converged
-                break
-            use = newUse
+                if np.all(newChooseFiber == chooseFiber):
+                    # Converged
+                    break
+                chooseFiber = newChooseFiber
 
-        # Final fit, with more precise measurement
-        spatial = np.zeros(numFibers, dtype=float)
-        spectral = np.zeros(numFibers, dtype=float)
-        fit = np.zeros_like(xy)
-        noMeasurements = set()
-        for jj, ff in enumerate(detectorMap.getFiberId()):
-            choose = use & (fiberId == ff)
-            yChoose = choose & notTrace
-            if not np.any(choose) or not np.any(yChoose):
+            # Final fit, with more precise measurement
+            yChoose = chooseFiber & notTraceFiber
+            if not np.any(yChoose):
                 noMeasurements.add(ff)
                 continue
             with np.errstate(divide="ignore"):
-                spatial[jj] = -np.average(dx[choose], weights=(weights[choose]/xErr[choose])**2)
-                spectral[jj] = -np.average(dy[yChoose], weights=(weights[yChoose]/yErr[yChoose])**2)
-                fit[choose, 0] = xy[choose, 0] + spatial[jj]
-                fit[choose, 1] = xy[choose, 1] + spectral[jj]
+                spatialFiber = -np.average(
+                    dxFiber[chooseFiber], weights=(weightsFiber[chooseFiber]/xErrFiber[chooseFiber])**2
+                )
+                spectralFiber = -np.average(
+                    dyFiber[yChoose], weights=(weightsFiber[yChoose]/yErrFiber[yChoose])**2
+                )
 
-        result = calculateFitStatistics(fit, lines, use, 2*(numFibers - len(noMeasurements)),
-                                        (sysErr, sysErr))
-        self.log.info(
-            "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d/%d lines",
-            result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
-            use.sum(), select.sum()
+            fit[choose, 0] = xy[choose, 0] + spatialFiber
+            fit[choose, 1] = xy[choose, 1] + spectralFiber
+            use[choose] = chooseFiber
+            spatial[ii] = spatialFiber
+            spectral[ii] = spectralFiber
+
+        if noMeasurements:
+            self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
+                          len(noMeasurements), sorted(noMeasurements))
+            badFibers = np.isin(detectorMap.fiberId, noMeasurements)
+            goodFibers = ~badFibers
+            spatial[badFibers] = np.mean(spatial[goodFibers])
+            spectral[badFibers] = np.mean(spectral[goodFibers])
+
+            for ff, spatialFiber, spectralFiber in zip(
+                detectorMap.fiberId[badFibers], spatial[badFibers], spectral[badFibers]
+            ):
+                choose = lines.fiberId == ff
+                fit[choose, 0] = xy[choose, 0] + spatialFiber
+                fit[choose, 1] = xy[choose, 1] + spectralFiber
+
+        result = calculateFitStatistics(
+            fit, lines, use, 2*(numFibers - len(noMeasurements)), (sysErr, sysErr)
         )
-        self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
-                      len(noMeasurements), sorted(noMeasurements))
+        self.log.info(
+            "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
+            "from %d/%d lines (%s)",
+            result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
+            use.sum(), select.sum(), getDescriptionCounts(lines.description, select)
+        )
         self.log.debug("Spatial offsets: %s", spatial)
         self.log.debug("Spectral offsets: %s", spectral)
 
@@ -680,11 +775,19 @@ class FitDistortedDetectorMapTask(Task):
         residuals : `ArcLineResidualsSet`
             Arc line position residuals.
         """
-        points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        isTrace = lines.description == "Trace"
+        isLine = ~isTrace
+        points = np.full((len(lines), 2), np.nan, dtype=float)
+        points[isLine] = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
+        points[:, 0][isTrace] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+        points[:, 1][isTrace] = lines.y[isTrace]
         xx = lines.x
         yy = lines.y
+
         dx = lines.x - points[:, 0]
         dy = lines.y - points[:, 1]
+
+        slope = detectorMap.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
 
         if self.debugInfo.baseResiduals:
             import matplotlib.pyplot as plt
@@ -747,6 +850,7 @@ class FitDistortedDetectorMapTask(Task):
             y=dy,
             xOrig=xx,
             yOrig=yy,
+            slope=slope,
             xBase=points[:, 0],
             yBase=points[:, 1],
             xErr=lines.xErr,
@@ -786,7 +890,7 @@ class FitDistortedDetectorMapTask(Task):
                 weights[selectSpecies] = self.config.weightings[species]
         return weights
 
-    def fitDistortion(self, bbox, lines, weights, dispersion, seed=0, fitStatic=True, Distortion=None):
+    def fitDistortion(self, bbox, lines, weights, dispersion, seed=0, DistortionClass=None):
         """Fit a distortion model
 
         Parameters
@@ -800,17 +904,16 @@ class FitDistortedDetectorMapTask(Task):
             the measurement errors, and should be the square root of the usual
             weighting applied to the Fisher matrix.
         dispersion : `float`
-            Wavelength dispersion (nm/pixel); for interpreting RMS in logging.
+            Wavelength dispersion (nm/pixel); for interpreting RMS in logging
+            and plotting.
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
-        fitStatic : `bool`, optional
-            Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        DistortionClass : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
         -------
-        distortion : Distortion
+        distortion : DistortionClass
             Model that was fit to the data.
         xResid, yResid : `numpy.ndarray` of `float`
             Fit residual in x,y for each of the ``lines`` (pixels).
@@ -831,10 +934,11 @@ class FitDistortedDetectorMapTask(Task):
         FittingError
             If the data is not of sufficient quality to fit.
         """
-        if Distortion is None:
-            Distortion = DoubleDistortion
+        if DistortionClass is None:
+            DistortionClass = DoubleDistortion
         good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
+        isLine = lines.description != "Trace"
 
         rng = np.random.RandomState(seed)
         numReserved = int(self.config.reserveFraction*numGood + 0.5)
@@ -851,8 +955,11 @@ class FitDistortedDetectorMapTask(Task):
 
         used = good & ~reserved
         result = None
+        if self.debugInfo.residuals:
+            self.plotResiduals(lines, lines.x, lines.y, used, reserved, dispersion)
+
         for ii in range(self.config.iterations):
-            result = self.fitModel(bbox, lines, used, weights, fitStatic=fitStatic, Distortion=Distortion)
+            result = self.fitModel(bbox, lines, used, weights, DistortionClass=DistortionClass)
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion, used.sum(),
@@ -862,14 +969,14 @@ class FitDistortedDetectorMapTask(Task):
             if self.debugInfo.plot:
                 self.plotModel(lines, used, result)
             if self.debugInfo.residuals:
-                self.plotResiduals(lines, result.xResid, result.yResid, used, reserved)
+                self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
                 newUsed = good & ~reserved
                 if self.config.doSlitOffsets:
                     # There may be fiber-specific offsets, so do rejection for individual fibers
                     for fiberId in set(lines.fiberId[used]):
                         choose = used & (lines.fiberId == fiberId)
-                        yChoose = choose & (lines.description != "Trace")
+                        yChoose = choose & isLine
                         dx = np.median(result.xResid[choose]) if np.any(choose) else np.nan
                         dy = np.median(result.yResid[yChoose]) if np.any(yChoose) else np.nan
                         newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
@@ -887,42 +994,44 @@ class FitDistortedDetectorMapTask(Task):
                 break
             used = newUsed
 
-        result = self.fitModel(bbox, lines, used, weights, fitStatic=fitStatic, Distortion=Distortion)
+        result = self.fitModel(bbox, lines, used, weights, DistortionClass=DistortionClass)
         self.log.info("Final fit: "
-                      "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines",
+                      "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines (%s)",
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                      result.xSoften, result.ySoften, used.sum(), numGood - numReserved)
-        reservedStats = calculateFitStatistics(result.distortion(lines.xBase, lines.yBase), lines, reserved,
-                                               result.distortion.getNumParameters(),
-                                               (self.config.soften, self.config.soften),
-                                               distortion=result.distortion)
+                      result.xSoften, result.ySoften, used.sum(), numGood - numReserved,
+                      getDescriptionCounts(lines.description, used))
+        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
+        soften = (self.config.soften, self.config.soften)
+        reservedStats = calculateFitStatistics(
+            fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
+        )
         self.log.info("Fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%.1f%%)",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%.1f%%) (%s)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum(), reserved.sum()/numGood*100)
+                      reserved.sum(), reserved.sum()/numGood*100,
+                      getDescriptionCounts(lines.description, reserved))
         self.log.debug("    Final fit model: %s", result.distortion)
 
         soften = (result.xSoften, result.ySoften)
         if not np.all(np.isfinite(soften)):
             self.log.warn("Non-finite softening, probably a bad fit")
         else:
-            result = self.fitModel(
-                bbox, lines, used, weights, soften, fitStatic=fitStatic, Distortion=Distortion
-            )
+            result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
             self.log.info("Softened fit: "
-                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
+                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                           result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                          result.xSoften, result.ySoften, select.sum())
+                          result.xSoften, result.ySoften, used.sum(),
+                          getDescriptionCounts(lines.description, used))
 
-        reservedStats = calculateFitStatistics(result.distortion(lines.xBase, lines.yBase), lines, reserved,
-                                               result.distortion.getNumParameters(), soften,
-                                               distortion=result.distortion)
+        reservedStats = calculateFitStatistics(
+            fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
+        )
         self.log.info("Softened fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum())
+                      reserved.sum(), getDescriptionCounts(lines.description, reserved))
         self.log.debug("    Softened fit model: %s", result.distortion)
 
         result.reserved = reserved
@@ -931,10 +1040,10 @@ class FitDistortedDetectorMapTask(Task):
         if self.debugInfo.distortion:
             self.plotDistortion(result.distortion, lines, used)
         if self.debugInfo.residuals:
-            self.plotResiduals(lines, result.xResid, result.yResid, used, reserved)
+            self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
         return result
 
-    def fitModel(self, bbox, lines, select, weights, soften=None, fitStatic=True, Distortion=None):
+    def fitModel(self, bbox, lines, select, weights, soften=None, DistortionClass=None):
         """Fit a model to the arc lines
 
         Parameters
@@ -952,14 +1061,12 @@ class FitDistortedDetectorMapTask(Task):
         soften : `tuple` (`float`, `float`), optional
             Systematic error in x and y to add in quadrature to measured errors
             (pixels).
-        fitStatic : `bool`, optional
-            Fit static components to the distortion model?
-        Distortion : subclass of `pfs.drp.stella.BaseDistortion`
+        DistortionClass : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion. If ``None``, uses `DoubleDistortion`.
 
         Returns
         -------
-        distortion : `pfs.drp.stella.DoubleDistortion`
+        distortion : DistortionClass
             Distortion model that was fit to the data.
         xResid, yResid : `numpy.ndarray` of `float`
             Fit residual in x,y for each of the ``lines`` (pixels).
@@ -981,8 +1088,8 @@ class FitDistortedDetectorMapTask(Task):
         if numWavelengths < self.config.minNumWavelengths:
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
-        if Distortion is None:
-            Distortion = DoubleDistortion
+        if DistortionClass is None:
+            DistortionClass = DoubleDistortion
         if soften is None:
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften
@@ -991,16 +1098,124 @@ class FitDistortedDetectorMapTask(Task):
         yy = lines.y[select].astype(float)
         xBase = lines.xBase[select]
         yBase = lines.yBase[select]
+        slope = lines.slope[select]
         with np.errstate(invalid="ignore", divide="ignore"):
             xErr = np.hypot(lines.xErr[select].astype(float), xSoften)/weights[select]
             yErr = np.where(lines.description[select] == "Trace", np.inf,
                             np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select])
 
-        distortion = Distortion.fit(self.config.order, Box2D(bbox), xBase, yBase,
-                                    xx, yy, xErr, yErr, fitStatic, self.config.lsqThreshold)
+        isLine = lines.description != "Trace"
+        distortion = self.fitModelImpl(
+            Box2D(bbox), xBase, yBase, xx, yy, xErr, yErr, slope, isLine[select], DistortionClass
+        )
+        fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, lines.slope, isLine)
 
-        return calculateFitStatistics(distortion(lines.xBase, lines.yBase), lines, select,
-                                      distortion.getNumParameters(), soften, distortion=distortion)
+        return calculateFitStatistics(
+            fit, lines, select, distortion.getNumParameters(), soften, True, distortion=distortion
+        )
+
+    def fitModelImpl(
+        self,
+        bbox: Box2D,
+        xBase: np.ndarray,
+        yBase: np.ndarray,
+        xMeas: np.ndarray,
+        yMeas: np.ndarray,
+        xErr: np.ndarray,
+        yErr: np.ndarray,
+        slope: np.ndarray,
+        isLine: np.ndarray,
+        DistortionClass: Type[Distortion],
+    ) -> Distortion:
+        """Implementation for fitting the distortion model
+
+        We've gathered and formatted all the data; this method encapsulates the
+        actual fitting, allowing it to be easily overridden by subclasses.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2D`
+            Bounding box for detector.
+        xBase, yBase : `numpy.ndarray` of `float`
+            Base position for each line (pixels).
+        xMeas, yMeas : `numpy.ndarray` of `float`
+            Measured position for each line (pixels).
+        xErr, yErr : `numpy.ndarray` of `float`
+            Error in measured position for each line (pixels).
+        slope : `numpy.ndarray` of `float`
+            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
+            lines where ``isLine`` is `False`.
+        isLine : `numpy.ndarray` of `bool`
+            Is this point a line? Otherwise, it's a trace.
+        DistortionClass : subclass of `pfs.drp.stella.Distortion`
+            Class to use for distortion.
+
+        Returns
+        -------
+        distortion : `pfs.drp.stella.Distortion`
+            Distortion model that was fit to the data.
+        """
+        return DistortionClass.fit(
+            self.config.order,
+            bbox,
+            xBase,
+            yBase,
+            xMeas,
+            yMeas,
+            xErr,
+            yErr,
+            isLine,
+            slope,
+            self.config.lsqThreshold
+        )
+
+    def evaluateModel(
+        self,
+        distortion: Distortion,
+        xBase: np.ndarray,
+        yBase: np.ndarray,
+        slope: np.ndarray,
+        isLine: np.ndarray,
+    ) -> np.ndarray:
+        """Evaluate the distortion model
+
+        When fitting distortions, the trace positions are calculated with a
+        guessed wavelength, so the model spectral distortion needs to be
+        converted into spatial distortion, which requires that the ``lines``
+        includes a ``slope`` field.
+
+        Parameters
+        ----------
+        distortion : `Distortion`
+            Distortion model to evaluate.
+        xBase, yBase : `numpy.ndarray` of `float`
+            Base position for each line (pixels).
+        slope : `numpy.ndarray` of `float`
+            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
+            lines where ``isLine`` is `False`.
+        isLine : `numpy.ndarray` of `bool`
+            Is this point a line? Otherwise, it's a trace.
+
+        Returns
+        -------
+        fit : `numpy.ndarray` of `float`, shape ``(N, 2)``
+            Fitted position for each line (pixels).
+        """
+        fit = distortion(xBase, yBase)
+
+        if not np.all(isLine):
+            # If dy from the distortion model is positive, the observed position of
+            # a line with the corresponding wavelength would be at larger y. That
+            # means that the wavelength we're using for the trace sample is smaller
+            # than what it should be. That means that the magnitude of the dx should
+            # be smaller. Hence we subtract the correction.
+            isTrace = ~isLine
+            xModel = fit[:, 0]
+            yModel = fit[:, 1]
+            xModel[isTrace] -= slope[isTrace]*yModel[isTrace]
+            yModel[isTrace] = 0.0
+
+        return fit
 
     def measureQuality(self, lines: ArcLineSet, detectorMap: DetectorMap, selection, numParameters) -> Struct:
         """Measure and log fit quality information
@@ -1044,21 +1259,35 @@ class FitDistortedDetectorMapTask(Task):
         xSoften, ySoften : `float`
             Calculated systematic errors required to soften errors to attain
             chi^2/dof = 1.
+        detectorMap : `DetectorMap`
+            DetectorMap used to calculate fit statistics.
         """
-        fitPosition = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        isTrace = lines.description == "Trace"
+        isLine = ~isTrace
+        fitPosition = np.full((len(lines), 2), np.nan, dtype=float)
+        if np.any(isLine):
+            fitPosition[isLine] = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
+        if np.any(isTrace):
+            fitPosition[isTrace, 0] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+            fitPosition[isTrace, 1] = np.nan
         soften = (self.config.soften, self.config.soften)
-        results = calculateFitStatistics(fitPosition, lines, selection, numParameters, soften,
-                                         detectorMap=detectorMap)
-        self.log.info("Final result: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
+        results = calculateFitStatistics(
+            fitPosition, lines, selection, numParameters, soften, detectorMap=detectorMap
+        )
+        self.log.info("Final result: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
                       results.chi2, results.dof, results.xRms, results.yRms,
-                      results.xSoften, results.ySoften, results.selection.sum())
+                      results.xSoften, results.ySoften, results.selection.sum(),
+                      getDescriptionCounts(lines.description, results.selection))
 
         for descr in sorted(set(lines.description)):
             choose = selection & (lines.description == descr)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
-            self.log.info("Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines",
-                          descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
-                          stats.xSoften, stats.ySoften, stats.selection.sum())
+            self.log.info(
+                "Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
+                descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
+                stats.xSoften, stats.ySoften, stats.selection.sum(),
+                getDescriptionCounts(lines.description, stats.selection),
+            )
 
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
         for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
@@ -1068,7 +1297,7 @@ class FitDistortedDetectorMapTask(Task):
                           "from %d lines (%s)",
                           ff, stats.chi2, stats.dof, stats.xRms, stats.yRms,
                           stats.xSoften, stats.ySoften, stats.selection.sum(),
-                          ", ".join(f"{cc[1]} {cc[0]}" for cc in Counter(lines.description[choose]).items()))
+                          getDescriptionCounts(lines.description, stats.selection))
 
         if self.log.isEnabledFor(self.log.DEBUG):
             good = self.getGoodLines(lines) & (lines.description != "Trace")
@@ -1077,9 +1306,10 @@ class FitDistortedDetectorMapTask(Task):
                 description = ", ".join(set(lines.description[choose]))
                 stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
                 self.log.info("Stats for wavelength=%f (%s): chi2=%f dof=%d xRMS=%f yRMS=%f "
-                              "xSoften=%f ySoften=%f from %d fibers",
+                              "xSoften=%f ySoften=%f from %d fibers (%s)",
                               wl, description, stats.chi2, stats.dof, stats.xRms, stats.yRms,
-                              stats.xSoften, stats.ySoften, stats.selection.sum())
+                              stats.xSoften, stats.ySoften, stats.selection.sum(),
+                              getDescriptionCounts(lines.description, stats.selection))
 
         return results
 
@@ -1102,12 +1332,12 @@ class FitDistortedDetectorMapTask(Task):
         ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
         xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
         yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
-        keep = (xResid < self.config.rejection) & (yResid < self.config.rejection)
+        keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
         minKeepFrac = 1.0 - self.config.maxRejectionFrac
         if keep.sum() < minKeepFrac*fitStats.selection.sum():
             xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
             yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
-            keep = (xResid < xResidLimit) & (yResid < yResidLimit)
+            keep = (xResid < xResidLimit) & ((yResid < yResidLimit) | fitStats.isTrace)
             self.log.debug(
                 "Standard rejection limit (%f) too severe; using %f, %f",
                 self.config.rejection,
@@ -1290,7 +1520,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Parameters
         ----------
-        distortion : `pfs.drp.stella.BaseDistortion`
+        distortion : `pfs.drp.stella.Distortion`
             Distortion model.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
@@ -1381,7 +1611,7 @@ class FitDistortedDetectorMapTask(Task):
         fig.suptitle("Distortion field")
         plt.show()
 
-    def plotResiduals(self, lines, dx, dy, used, reserved):
+    def plotResiduals(self, lines, dx, dy, used, reserved, dispersion):
         """Plot fit residuals
 
         We plot the x and y residuals as a function of fiberId,wavelength
@@ -1396,12 +1626,14 @@ class FitDistortedDetectorMapTask(Task):
             Flags indicating which of the ``lines`` were used in the fit.
         reserved : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` were reserved from the fit.
+        dispersion : `float`
+            Wavelength dispersion (nm/pixel).
         """
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
 
-        good = self.getGoodLines(lines) & np.isfinite(dx) & np.isfinite(dy)
+        good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
@@ -1470,7 +1702,9 @@ class FitDistortedDetectorMapTask(Task):
                     if np.any(rejected):
                         axes[1].scatter(lines.xOrig[rejected], lines.yOrig[rejected], marker=".",
                                         color=cmap(residNorm(dx[rejected])))
-                axes[2].plot(dx[select], lines.yOrig[select], ls="-", color=cmap(fiberNorm(ff)), alpha=0.2)
+                axes[2].scatter(
+                    dx[select], lines.yOrig[select], marker=".", color=cmap(fiberNorm(ff)), alpha=0.2
+                )
             addColorbar(fig, axes[0], cmap, residNorm, "x residual (pixels)")
             addColorbar(fig, axes[1], cmap, residNorm, "x residual (pixels)")
             addColorbar(fig, axes[2], cmap, fiberNorm, "fiberId")

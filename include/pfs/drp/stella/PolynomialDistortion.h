@@ -9,7 +9,7 @@
 #include "lsst/afw/table/io/Persistable.h"
 
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
-#include "pfs/drp/stella/BaseDistortion.h"
+#include "pfs/drp/stella/Distortion.h"
 
 namespace pfs {
 namespace drp {
@@ -23,7 +23,7 @@ namespace stella {
 /// The model parameters are:
 /// * xCoeff, yCoeff: 2D polynomial distortion field coefficients.
 class PolynomialDistortion :
-  public BaseDistortion<PolynomialDistortion>, public lsst::afw::table::io::Persistable {
+  public AnalyticDistortion<PolynomialDistortion> {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
@@ -65,12 +65,6 @@ class PolynomialDistortion :
     /// @return dx,dy distortion for detector
     virtual lsst::geom::Point2D evaluate(lsst::geom::Point2D const& xy) const override;
     //@}
-
-    /// Zero out low-order coefficients
-    virtual PolynomialDistortion removeLowOrder(int order) const override;
-
-    /// Merge distortions using low-order coefficients from another distortion
-    virtual PolynomialDistortion merge(PolynomialDistortion const& other) const override;
 
     //@{
     /// Accessors

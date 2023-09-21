@@ -83,6 +83,7 @@ class ReduceExposureConfig(Config):
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
+    doSubtractSpectra = Field(dtype=bool, default=False, doc="Subtract extracted spectra from exposure?")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     doWriteCalexp = Field(dtype=bool, default=True, doc="Write corrected frame?")
@@ -309,6 +310,12 @@ class ReduceExposureTask(CmdLineTask):
             fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
             spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
             original = spectra
+
+            if self.config.doSubtractSpectra:
+                self.log.info("Subtracting spectra from exposure")
+                sub = exposure.clone()
+                sub.maskedImage -= spectra.makeImage(maskedImage.getBBox(), fiberTraces)
+                sensorRef.put(sub, "subtracted")
 
             if self.config.doSubtractContinuum:
                 continua = self.fitContinuum.run(spectra, refLines)

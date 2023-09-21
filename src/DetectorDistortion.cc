@@ -13,7 +13,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/DetectorDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -28,18 +28,21 @@ DetectorDistortion::DetectorDistortion(
     DetectorDistortion::Array1D const& xDistortion,
     DetectorDistortion::Array1D const& yDistortion,
     DetectorDistortion::Array1D const& rightCcd
-) : BaseDistortion<DetectorDistortion>(order, range,
+) : AnalyticDistortion<DetectorDistortion>(order, range,
                                        joinCoefficients(order, xDistortion, yDistortion, rightCcd)),
     _xDistortion(xDistortion, range),
     _yDistortion(yDistortion, range),
     _rightCcd()
 {
+    utils::checkSize(xDistortion.size(), getNumDistortionForOrder(order), "xDistortion");
+    utils::checkSize(yDistortion.size(), getNumDistortionForOrder(order), "yDistortion");
+    utils::checkSize(rightCcd.size(), 6UL, "rightCcd");
     _rightCcd.setParameterVector(ndarray::asEigenArray(rightCcd));
 }
 
 
 template<>
-std::size_t BaseDistortion<DetectorDistortion>::getNumParametersForOrder(int order) {
+std::size_t AnalyticDistortion<DetectorDistortion>::getNumParametersForOrder(int order) {
     return 2*DetectorDistortion::getNumDistortionForOrder(order) + 6;
 }
 
@@ -100,37 +103,6 @@ lsst::geom::Point2D DetectorDistortion::evaluate(
 }
 
 
-DetectorDistortion DetectorDistortion::removeLowOrder(int order) const {
-    Array1D xDistortion = getXCoefficients();
-    Array1D yDistortion = getYCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-    xDistortion[ndarray::view(0, num)] = 0.0;
-    yDistortion[ndarray::view(0, num)] = 0.0;
-    
-    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
-}
-
-
-DetectorDistortion DetectorDistortion::merge(DetectorDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xDistortion = getXCoefficients();
-    Array1D yDistortion = getYCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xDistortion[ndarray::view(0, numOther)] = other.getXCoefficients();
-    yDistortion[ndarray::view(0, numOther)] = other.getYCoefficients();
-
-    return DetectorDistortion(getOrder(), getRange(), xDistortion, yDistortion, getRightCcdCoefficients());
-}
-
-
 ndarray::Array<double, 1, 1> DetectorDistortion::getXCoefficients() const {
     return ndarray::copy(utils::vectorToArray(getXDistortion().getParameters()));
 }
@@ -177,7 +149,7 @@ std::ostream& operator<<(std::ostream& os, DetectorDistortion const& model) {
 
 
 template<>
-DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
+DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -186,7 +158,8 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    bool fitStatic,
+    ndarray::Array<bool, 1, 1> const& isLine,  // unused: new feature in deprecated class
+    ndarray::Array<double, 1, 1> const& slope,  // unused: new feature in deprecated class
     double threshold
 ) {
     std::size_t const length = xx.size();
@@ -197,7 +170,7 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     utils::checkSize(yErr.size(), length, "yErr");
 
     std::size_t const numDistortion = DetectorDistortion::getNumDistortionForOrder(distortionOrder);
-    std::size_t const numTerms = numDistortion + (fitStatic ? 3 : 0);
+    std::size_t const numTerms = numDistortion + 3;
     ndarray::Array<double, 2, 1> design = ndarray::allocate(length, numTerms);
     DetectorDistortion::Polynomial const poly(distortionOrder, range);
     double const xCenter = range.getCenterX();
@@ -205,14 +178,10 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
         auto const terms = poly.getDFuncDParameters(xx[ii], yy[ii]);
         assert(terms.size() == numDistortion);
         std::copy(terms.begin(), terms.end(), design[ii].begin());
-        if (fitStatic) {
-            if (xx[ii] > xCenter) {
-                design[ii][numTerms - 3] = 1.0;
-                design[ii][numTerms - 2] = xx[ii];
-                design[ii][numTerms - 1] = yy[ii];
-            } else {
-                design[ii][ndarray::view(numTerms - 3, numTerms)] = 0.0;
-            }
+        if (xx[ii] > xCenter) {
+            design[ii][numTerms - 3] = 1.0;
+            design[ii][numTerms - 2] = xx[ii];
+            design[ii][numTerms - 1] = yy[ii];
         }
     }
 
@@ -223,13 +192,9 @@ DetectorDistortion BaseDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> xCoeff = copy(xSolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> yCoeff = copy(ySolution[ndarray::view(0, numDistortion)]);
     ndarray::Array<double, 1, 1> rightCcd;
-    if (fitStatic) {
-        rightCcd = DetectorDistortion::makeRightCcdCoefficients(xSolution[numTerms - 3],
-        ySolution[numTerms - 3], xSolution[numTerms - 2], xSolution[numTerms - 1],
-        ySolution[numTerms - 2], ySolution[numTerms - 1]);
-    } else {
-        rightCcd = utils::arrayFilled<double, 1, 1>(6, 0);
-    }
+    rightCcd = DetectorDistortion::makeRightCcdCoefficients(xSolution[numTerms - 3],
+    ySolution[numTerms - 3], xSolution[numTerms - 2], xSolution[numTerms - 1],
+    ySolution[numTerms - 2], ySolution[numTerms - 1]);
     return DetectorDistortion(distortionOrder, range, xCoeff, yCoeff, rightCcd);
 }
 
@@ -326,7 +291,7 @@ DetectorDistortion::Factory registration("DetectorDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<DetectorDistortion>;
+template class AnalyticDistortion<DetectorDistortion>;
 
 
 }}}  // namespace pfs::drp::stella

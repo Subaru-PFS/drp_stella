@@ -143,6 +143,36 @@ DetectorMap::Array1D DetectorMap::getDispersion(
 }
 
 
+double DetectorMap::getSlope(int fiberId, double row) const {
+    double const x0 = getXCenter(fiberId, row - 0.5);
+    double const x1 = getXCenter(fiberId, row + 0.5);
+    return x1 - x0;
+}
+
+
+DetectorMap::Array1D DetectorMap::getSlope(
+    FiberIds const& fiberId,
+    Array1D const& row,
+    ndarray::Array<bool, 1, 1> const& calculate
+) const {
+    std::size_t const num = fiberId.size();
+    utils::checkSize(row.size(), num, "fiberId vs row");
+    bool const haveCalculate = !calculate.isEmpty();
+    if (haveCalculate) {
+        utils::checkSize(calculate.size(), num, "fiberId vs calculate");
+    }
+    Array1D slope = ndarray::allocate(num);
+    for (std::size_t ii = 0; ii < num; ++ii) {
+        if (haveCalculate && !calculate[ii]) {
+            slope[ii] = std::numeric_limits<double>::quiet_NaN();
+            continue;
+        }
+        slope[ii] = getSlope(fiberId[ii], row[ii]);
+    }
+    return slope;
+}
+
+
 DetectorMap::Array2D DetectorMap::getXCenter() const {
     Array2D xCenter = ndarray::allocate(getNumFibers(), _bbox.getHeight());
     for (std::size_t ii = 0; ii < getNumFibers(); ++ii) {

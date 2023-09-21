@@ -14,7 +14,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/PolynomialDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -36,13 +36,13 @@ PolynomialDistortion::PolynomialDistortion(
     lsst::geom::Box2D const& range,
     PolynomialDistortion::Array1D const& xCoeff,
     PolynomialDistortion::Array1D const& yCoeff
-) : BaseDistortion<PolynomialDistortion>(order, range, joinCoefficients(order, xCoeff, yCoeff)),
+) : AnalyticDistortion<PolynomialDistortion>(order, range, joinCoefficients(order, xCoeff, yCoeff)),
     _xPoly(xCoeff, range),
     _yPoly(yCoeff, range)
 {}
 
 
-template<> std::size_t BaseDistortion<PolynomialDistortion>::getNumParametersForOrder(int order) {
+template<> std::size_t AnalyticDistortion<PolynomialDistortion>::getNumParametersForOrder(int order) {
     return 2*PolynomialDistortion::getNumDistortionForOrder(order);
 }
 
@@ -93,38 +93,6 @@ lsst::geom::Point2D PolynomialDistortion::evaluate(
 }
 
 
-PolynomialDistortion PolynomialDistortion::removeLowOrder(int order) const {
-    Array1D xCoeff = getXCoefficients();
-    Array1D yCoeff = getYCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-
-    xCoeff[ndarray::view(0, num)] = 0.0;
-    yCoeff[ndarray::view(0, num)] = 0.0;
-
-    return PolynomialDistortion(getOrder(), getRange(), xCoeff, yCoeff);
-}
-
-
-PolynomialDistortion PolynomialDistortion::merge(PolynomialDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xCoeff = getXCoefficients();
-    Array1D yCoeff = getYCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xCoeff[ndarray::view(0, numOther)] = other.getXCoefficients();
-    yCoeff[ndarray::view(0, numOther)] = other.getYCoefficients();
-
-    return PolynomialDistortion(getOrder(), getRange(), xCoeff, yCoeff);
-}
-
-
 namespace {
 
 
@@ -171,54 +139,79 @@ struct FitData {
     // @param range : Box enclosing all x,y coordinates.
     // @param order : Polynomial order.
     // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t length_) :
+    FitData(lsst::geom::Box2D const& range, int order, std::size_t numLines_, std::size_t numTraces_) :
         poly(order, range),
-        length(length_),
-        xMeas(ndarray::allocate(length)),
-        yMeas(ndarray::allocate(length)),
-        xErr(ndarray::allocate(length)),
-        yErr(ndarray::allocate(length)),
-        design(ndarray::allocate(length_, poly.getNParameters())),
-        index(0)
-        {}
+        numLines(numLines_),
+        numTraces(numTraces_),
+        length(2*numLines + numTraces),
+        measurements(ndarray::allocate(length)),
+        errors(ndarray::allocate(length)),
+        design(ndarray::allocate(length, 2*poly.getNParameters())),
+        index(0) {
+        design.deep() = 0.0;
+    }
 
     // Add a point to the design matrix
     //
     // @param xy : Point at which to evaluate the polynomial
     // @param meas : Measured value
     // @param err : Error in measured value
-    void add(lsst::geom::Point2D const& xy, lsst::geom::Point2D const& meas, lsst::geom::Point2D const& err) {
+    // @param isLine : True if this is a line measurement
+    // @param slope : Slope of the trace
+    void add(
+        lsst::geom::Point2D const& xy,
+        lsst::geom::Point2D const& meas,
+        lsst::geom::Point2D const& err,
+        bool isLine,
+        double slope
+    ) {
         std::size_t const ii = index++;
         assert(ii < length);
 
         auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
         assert (terms.size() == poly.getNParameters());
-        std::copy(terms.begin(), terms.end(), design[ii].begin());
 
-        xMeas[ii] = meas.getX();
-        yMeas[ii] = meas.getY();
-        xErr[ii] = err.getX();
-        yErr[ii] = err.getY();
+        // x part of the design matrix
+        std::copy(terms.begin(), terms.end(), design[ii].begin());
+        measurements[ii] = meas.getX();
+        errors[ii] = err.getX();
+
+        // y part of the design matrix
+        if (isLine) {
+            // For a line, the y part is independent of the x part.
+            std::size_t const jj = index++;
+            assert(jj < length);
+            std::copy(terms.begin(), terms.end(), design[jj].begin() + poly.getNParameters());
+            measurements[jj] = meas.getY();
+            errors[jj] = err.getY();
+        } else {
+            // For a trace, the y part is linked to the x part by the slope.
+            auto lhs = design[ii][ndarray::view(poly.getNParameters(), 2*poly.getNParameters())];
+            ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(utils::vectorToArray(terms));
+        }
     }
 
     // Solve the least-squares problem
     //
     // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
     // @return Solutions in x and y.
-    std::pair<Array1D, Array1D> getSolution(double threshold=1.0e-6) const {
-        assert(index == length);
+    std::pair<Array1D, Array1D> getSolution(
+        double threshold=1.0e-6
+    ) const {
+        assert(index == length);  // everything got added
+        auto solution = math::solveLeastSquaresDesign(design, measurements, errors, threshold);
         return std::make_pair(
-            math::solveLeastSquaresDesign(design, xMeas, xErr, threshold),
-            math::solveLeastSquaresDesign(design, yMeas, yErr, threshold)
+            solution[ndarray::view(0, poly.getNParameters())],
+            solution[ndarray::view(poly.getNParameters(), 2*poly.getNParameters())]
         );
     }
 
     PolynomialDistortion::Polynomial poly;  // Polynomial used for calculating design
+    std::size_t numLines;  // Number of lines
+    std::size_t numTraces;  // Number of traces
     std::size_t length;  // Number of measurements
-    Array1D xMeas;  // Measurements in x
-    Array1D yMeas;  // Measurements in y
-    Array1D xErr;  // Error in x measurement
-    Array1D yErr;  // Error in y measurement
+    Array1D measurements;  // Measurements
+    Array1D errors;  // Errors in measurements
     Array2D design;  // Design matrix
     std::size_t index;  // Next index to add
 };
@@ -229,7 +222,7 @@ struct FitData {
 
 
 template<>
-PolynomialDistortion BaseDistortion<PolynomialDistortion>::fit(
+PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -238,7 +231,8 @@ PolynomialDistortion BaseDistortion<PolynomialDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    bool fitStatic,
+    ndarray::Array<bool, 1, 1> const& isLine,
+    ndarray::Array<double, 1, 1> const& slope,
     double threshold
 ) {
     using Array1D = PolynomialDistortion::Array1D;
@@ -250,10 +244,18 @@ PolynomialDistortion BaseDistortion<PolynomialDistortion>::fit(
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
 
-    FitData fit(range, distortionOrder, length);
+    std::size_t const numLines = std::count(isLine.begin(), isLine.end(), true);
+    std::size_t const numTraces = length - numLines;
+
+    FitData fit(range, distortionOrder, numLines, numTraces);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        fit.add(lsst::geom::Point2D(xx[ii], yy[ii]), lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
-                 lsst::geom::Point2D(xErr[ii], yErr[ii]));
+        fit.add(
+            lsst::geom::Point2D(xx[ii], yy[ii]),
+            lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
+            lsst::geom::Point2D(xErr[ii], yErr[ii]),
+            isLine[ii],
+            slope[ii]
+        );
     }
 
     auto const solution = fit.getSolution(threshold);
@@ -333,7 +335,7 @@ PolynomialDistortion::Factory registration("PolynomialDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<PolynomialDistortion>;
+template class AnalyticDistortion<PolynomialDistortion>;
 
 
 }}}  // namespace pfs::drp::stella

@@ -250,8 +250,7 @@ class PolynomialDetectorMapTestCase(lsst.utils.tests.TestCase):
         task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm="n", spectrograph=1)  # arm=n triggers PolynomialDetectorMap
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
-        assert isinstance(detMap, PolynomialDetectorMap), type(detMap)
-        self.assertFloatsAlmostEqual(detMap.distortion.getCoefficients(), 0.0, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(detMap.distortions[-1].getCoefficients(), 0.0, atol=1.0e-6)
         self.assertFloatsAlmostEqual(detMap.getSpatialOffsets(), 0.0, atol=1.0e-6)
         self.assertFloatsAlmostEqual(detMap.getSpectralOffsets(), 0.0, atol=1.0e-6)
 

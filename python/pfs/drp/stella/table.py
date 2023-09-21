@@ -116,6 +116,17 @@ class Table:
             DataFrame({name: np.array(columns[name], dtype=dtype) for name, dtype in cls._schema.items()})
         )
 
+    @classmethod
+    def fromMultiple(cls: Type[SubTable], *tables: "Table") -> SubTable:
+        """Construct from multiple tables
+
+        Parameters
+        ----------
+        *tables : `Table`
+            Tables to concatenate.
+        """
+        return cls(concat([tt.data for tt in tables]))
+
     def toDataFrame(self) -> DataFrame:
         """Convert to a `pandas.DataFrame`"""
         return self.data

@@ -167,6 +167,28 @@ std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 }
 
 
+std::map<int, ndarray::Array<double, 2, 2>> extractTraceData(
+    std::map<int, std::vector<std::shared_ptr<TracePeak>>> const& peaks
+) {
+    std::map<int, ndarray::Array<double, 2, 2>> result;
+    for (auto const& item : peaks) {
+        int const fiberId = item.first;
+        auto const& fiberPeaks = item.second;
+        ndarray::Array<double, 2, 2> data = ndarray::allocate(fiberPeaks.size(), 5);
+        for (std::size_t ii = 0; ii < fiberPeaks.size(); ++ii) {
+            auto const& peak = *fiberPeaks[ii];
+            data[ii][0] = peak.span.getY();
+            data[ii][1] = peak.peak;
+            data[ii][2] = peak.peakErr;
+            data[ii][3] = peak.flux;
+            data[ii][4] = peak.fluxErr;
+        }
+        result[fiberId] = std::move(data);
+    }
+    return result;
+}
+
+
 namespace {
 
 /// Convolve a pixel along the row
@@ -290,10 +312,19 @@ ndarray::Array<T, 2, 1> medianFilterColumns(
     for (int yy = 0; yy < height; ++yy) {
         int const yLow = std::max(0, yy - halfHeight);
         int const yHigh = std::min(height, yy + halfHeight + 1);  // exclusive
+        std::size_t const num = yHigh - yLow;
+        ndarray::Array<T, 1, 1> values = ndarray::allocate(num);
         for (int xx = 0; xx < width; ++xx) {
-            result[yy][xx] = math::calculateMedian(
-                image[ndarray::view(yLow, yHigh)(xx)], mask[ndarray::view(yLow, yHigh)(xx)]
-            );
+            std::size_t index = 0;
+            for (int ii = yLow; ii < yHigh; ++ii) {
+                if (mask[ii][xx]) {
+                    continue;
+                }
+                values[index] = image[ii][xx];
+                ++index;
+            }
+            assert(index <= num);
+            result[yy][xx] = math::calculateMedian(values[ndarray::view(0, index)]);
         }
     }
 

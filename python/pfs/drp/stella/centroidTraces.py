@@ -9,10 +9,10 @@ from lsst.afw.display import Display
 from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
+from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak, extractTraceData
 from pfs.drp.stella.images import convolveImage
 from .DetectorMapContinued import DetectorMap
-from .arcLine import ArcLine, ArcLineSet
+from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineSource, ReferenceLineStatus
 from .utils.psf import fwhmToSigma
 
@@ -181,11 +181,28 @@ def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak
         line.
     """
     lines = []
-    for fiberId in traces:
-        row = np.array([tt.row for tt in traces[fiberId]], dtype=float)
-        wavelength = detectorMap.findWavelength(fiberId, row)
-        lines.extend([ArcLine(fiberId, wl, tt.peak, yy, tt.peakErr, spectralError, np.nan, np.nan, np.nan,
-                              tt.flux, tt.fluxErr, np.nan, False, ReferenceLineStatus.GOOD, "Trace",
-                              "UNKNOWN", ReferenceLineSource.NONE) for
-                      wl, yy, tt in zip(wavelength, row, traces[fiberId])])
-    return ArcLineSet.fromRows(lines)
+    data = extractTraceData(traces)
+    for fiberId in data:
+        dd = data[fiberId]
+        num = len(dd)
+        nan = np.full(num, np.nan, dtype=float)
+        lines.append(ArcLineSet.fromColumns(
+            fiberId=np.full(num, fiberId, dtype=int),
+            wavelength=detectorMap.findWavelength(fiberId, dd[:, 0].astype(np.float32)),
+            x=dd[:, 1],
+            y=dd[:, 0],
+            xErr=dd[:, 2],
+            yErr=np.full(num, spectralError, dtype=float),
+            xx=nan,
+            yy=nan,
+            xy=nan,
+            flux=dd[:, 3],
+            fluxErr=dd[:, 4],
+            fluxNorm=nan,
+            flag=np.full(num, False, dtype=bool),
+            status=np.full(num, ReferenceLineStatus.GOOD, dtype=int),
+            description=["Trace"]*num,
+            transition=np.full(num, "UNKNOWN", dtype=str),
+            source=np.full(num, ReferenceLineSource.NONE, dtype=int),
+        ))
+    return ArcLineSet.fromMultiple(*lines)

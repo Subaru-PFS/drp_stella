@@ -23,9 +23,11 @@ void wrapDistortionBasedDetectorMap(py::module & mod, const char* name) {
                      "visitInfo"_a=DetectorMap::VisitInfo(lsst::daf::base::PropertyList()),
                      "metadata"_a=nullptr);
     cls.def("getBase", &Class::getBase);
-    cls.def("getDistortion", &Class::getDistortion);
+    cls.def("getDistortion", &Class::getDistortion, py::return_value_policy::reference_internal);
     cls.def_property_readonly("base", &Class::getBase);
-    cls.def_property_readonly("distortion", &Class::getDistortion);
+    cls.def_property_readonly(
+        "distortion", &Class::getDistortion, py::return_value_policy::reference_internal
+    );
 
     cls.def(py::pickle(
         [](Class const& self) {

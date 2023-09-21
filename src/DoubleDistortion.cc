@@ -14,7 +14,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/DoubleDistortion.h"
-#include "pfs/drp/stella/impl/BaseDistortion.h"
+#include "pfs/drp/stella/impl/Distortion.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -55,19 +55,39 @@ DoubleDistortion::DoubleDistortion(
     DoubleDistortion::Array1D const& yLeft,
     DoubleDistortion::Array1D const& xRight,
     DoubleDistortion::Array1D const& yRight
-) : BaseDistortion<DoubleDistortion>(order, range, joinCoefficients(order, xLeft, yLeft, xRight, yRight)),
+) : AnalyticDistortion<DoubleDistortion>(
+        order,
+        range,
+        joinCoefficients(order, xLeft, yLeft, xRight, yRight)
+    ),
     _left(order, leftRange(range), xLeft, yLeft),
     _right(order, rightRange(range), xRight, yRight)
 {}
 
 
-template<> std::size_t BaseDistortion<DoubleDistortion>::getNumParametersForOrder(int order) {
+template<> std::size_t AnalyticDistortion<DoubleDistortion>::getNumParametersForOrder(int order) {
     return 4*DoubleDistortion::getNumDistortionForOrder(order);
 }
 
 
-DoubleDistortion::Array2D
-DoubleDistortion::splitCoefficients(
+DoubleDistortion::DoubleDistortion(
+    int order,
+    lsst::geom::Box2D const& range,
+    Array2D const& coeff
+) : DoubleDistortion(
+    order,
+    range,
+    coeff[ndarray::view(0)],
+    coeff[ndarray::view(1)],
+    coeff[ndarray::view(2)],
+    coeff[ndarray::view(3)]
+) {
+    utils::checkSize(coeff.getShape()[0], 4UL, "coefficients");
+    utils::checkSize(coeff.getShape()[1], getNumDistortionForOrder(order), "coefficients vs order");
+}
+
+
+DoubleDistortion::Array2D DoubleDistortion::splitCoefficients(
     int order,
     ndarray::Array<double, 1, 1> const& coeff
 ) {
@@ -122,46 +142,6 @@ lsst::geom::Point2D DoubleDistortion::evaluate(
 }
 
 
-DoubleDistortion DoubleDistortion::removeLowOrder(int order) const {
-    Array1D xLeft = getXLeftCoefficients();
-    Array1D yLeft = getYLeftCoefficients();
-    Array1D xRight = getXRightCoefficients();
-    Array1D yRight = getYRightCoefficients();
-
-    std::size_t const num = std::min(getNumDistortion(), getNumDistortionForOrder(order));
-
-    xLeft[ndarray::view(0, num)] = 0.0;
-    yLeft[ndarray::view(0, num)] = 0.0;
-    xRight[ndarray::view(0, num)] = 0.0;
-    yRight[ndarray::view(0, num)] = 0.0;
-
-    return DoubleDistortion(getOrder(), getRange(), xLeft, yLeft, xRight, yRight);
-}
-
-
-DoubleDistortion DoubleDistortion::merge(DoubleDistortion const& other) const {
-    if (other.getRange() != getRange()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Range mismatch");
-    }
-    if (other.getOrder() >= getOrder()) {
-        return other;
-    }
-
-    Array1D xLeft = getXLeftCoefficients();
-    Array1D yLeft = getYLeftCoefficients();
-    Array1D xRight = getXRightCoefficients();
-    Array1D yRight = getYRightCoefficients();
-
-    std::size_t const numOther = other.getNumDistortion();
-    xLeft[ndarray::view(0, numOther)] = other.getXLeftCoefficients();
-    yLeft[ndarray::view(0, numOther)] = other.getYLeftCoefficients();
-    xRight[ndarray::view(0, numOther)] = other.getXRightCoefficients();
-    yRight[ndarray::view(0, numOther)] = other.getYRightCoefficients();
-
-    return DoubleDistortion(getOrder(), getRange(), xLeft, yLeft, xRight, yRight);
-}
-
-
 std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model) {
     os << "DoubleDistortion(";
     os << "order=" << model.getOrder() << ", ";
@@ -174,79 +154,8 @@ std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model) {
 }
 
 
-namespace {
-
-// Structure to aid in fitting a polynomial distortion
-//
-// We calculate the design matrix one point at a time and then solve.
-struct FitData {
-    using Array1D = ndarray::Array<double, 1, 1>;
-    using Array2D = ndarray::Array<double, 2, 1>;
-
-    // Ctor
-    //
-    // @param range : Box enclosing all x,y coordinates.
-    // @param order : Polynomial order.
-    // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t length_) :
-        poly(order, range),
-        length(length_),
-        xMeas(ndarray::allocate(length)),
-        yMeas(ndarray::allocate(length)),
-        xErr(ndarray::allocate(length)),
-        yErr(ndarray::allocate(length)),
-        design(ndarray::allocate(length_, poly.getNParameters())),
-        index(0)
-        {}
-
-    // Add a point to the design matrix
-    //
-    // @param xy : Point at which to evaluate the polynomial
-    // @param meas : Measured value
-    // @param err : Error in measured value
-    void add(lsst::geom::Point2D const& xy, lsst::geom::Point2D const& meas, lsst::geom::Point2D const& err) {
-        std::size_t const ii = index++;
-        assert(ii < length);
-
-        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
-        assert (terms.size() == poly.getNParameters());
-        std::copy(terms.begin(), terms.end(), design[ii].begin());
-
-        xMeas[ii] = meas.getX();
-        yMeas[ii] = meas.getY();
-        xErr[ii] = err.getX();
-        yErr[ii] = err.getY();
-    }
-
-    // Solve the least-squares problem
-    //
-    // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
-    // @return Solutions in x and y.
-    std::pair<Array1D, Array1D> getSolution(double threshold=1.0e-6) const {
-        assert(index == length);
-        return std::make_pair(
-            math::solveLeastSquaresDesign(design, xMeas, xErr, threshold),
-            math::solveLeastSquaresDesign(design, yMeas, yErr, threshold)
-        );
-    }
-
-    DoubleDistortion::Polynomial poly;  // Polynomial used for calculating design
-    std::size_t length;  // Number of measurements
-    Array1D xMeas;  // Measurements in x
-    Array1D yMeas;  // Measurements in y
-    Array1D xErr;  // Error in x measurement
-    Array1D yErr;  // Error in y measurement
-    Array2D design;  // Design matrix
-    std::size_t index;  // Next index to add
-};
-
-
-}  // anonymous namespace
-
-
-
 template<>
-DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
+DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     int distortionOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
@@ -255,7 +164,8 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    bool fitStatic,
+    ndarray::Array<bool, 1, 1> const& isLine,
+    ndarray::Array<double, 1, 1> const& slope,
     double threshold
 ) {
     using Array1D = DoubleDistortion::Array1D;
@@ -266,6 +176,7 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
     utils::checkSize(yMeas.size(), length, "yMeas");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
+    utils::checkSize(isLine.getNumElements(), length, "isLine");
 
     double const xCenter = range.getCenterX();
     ndarray::Array<bool, 1, 1> onLeftCcd = ndarray::allocate(length);
@@ -282,7 +193,8 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yMeas, onLeftCcd),
         utils::arraySelect(xErr, onLeftCcd),
         utils::arraySelect(yErr, onLeftCcd),
-        fitStatic,
+        utils::arraySelect(isLine, onLeftCcd),
+        utils::arraySelect(slope, onLeftCcd),
         threshold
     );
     auto const right = PolynomialDistortion::fit(
@@ -294,7 +206,8 @@ DoubleDistortion BaseDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yMeas, onRightCcd),
         utils::arraySelect(xErr, onRightCcd),
         utils::arraySelect(yErr, onRightCcd),
-        fitStatic,
+        utils::arraySelect(isLine, onRightCcd),
+        utils::arraySelect(slope, onRightCcd),
         threshold
     );
 
@@ -385,7 +298,7 @@ DoubleDistortion::Factory registration("DoubleDistortion");
 
 
 // Explicit instantiation
-template class BaseDistortion<DoubleDistortion>;
+template class AnalyticDistortion<DoubleDistortion>;
 
 
 }}}  // namespace pfs::drp::stella
