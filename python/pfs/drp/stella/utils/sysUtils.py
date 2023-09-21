@@ -35,7 +35,8 @@ def getPfsVersions(prefix="VERSION_"):
                          ("drp_stella", "pfs.drp.stella"),
                          ):
         importlib.import_module(module + ".version")
-        versions[prefix + name] = sys.modules[module + ".version"].__version__
+        key = (prefix + name).upper()
+        versions[key] = sys.modules[module + ".version"].__version__
     return versions
 
 
