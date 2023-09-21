@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import warnings
 import numpy as np
 
 import lsstDebug
@@ -306,7 +307,9 @@ def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> T
     xWide[select] = xMasked
     yWide[select] = yMasked
 
-    xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
-    yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action='ignore', message='All-NaN slice encountered')
+        xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
+        yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
 
     return xBinned, yBinned
