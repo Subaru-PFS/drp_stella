@@ -14,8 +14,7 @@ from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable, Column
 from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
-from pfs.drp.stella import DoubleDistortion
-from pfs.drp.stella import PolynomialDistortion
+from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
 from .DistortionContinued import Distortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -468,7 +467,7 @@ class FitDistortedDetectorMapTask(Task):
         distortionClass : `type`
             Class to use for the distortion.
         """
-        return PolynomialDistortion if arm == "n" else DoubleDistortion
+        return PolynomialDistortion if arm == "n" else MosaicPolynomialDistortion
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -909,7 +908,8 @@ class FitDistortedDetectorMapTask(Task):
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
+            Class to use for distortion. If ``None``, uses
+            `MosaicPolynomialDistortion`.
 
         Returns
         -------
@@ -935,7 +935,7 @@ class FitDistortedDetectorMapTask(Task):
             If the data is not of sufficient quality to fit.
         """
         if DistortionClass is None:
-            DistortionClass = DoubleDistortion
+            DistortionClass = MosaicPolynomialDistortion
         good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
         isLine = lines.description != "Trace"
@@ -1062,7 +1062,8 @@ class FitDistortedDetectorMapTask(Task):
             Systematic error in x and y to add in quadrature to measured errors
             (pixels).
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
+            Class to use for distortion. If ``None``, uses
+            `MosaicPolynomialDistortion`.
 
         Returns
         -------
@@ -1089,7 +1090,7 @@ class FitDistortedDetectorMapTask(Task):
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
         if DistortionClass is None:
-            DistortionClass = DoubleDistortion
+            DistortionClass = MosaicPolynomialDistortion
         if soften is None:
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften
