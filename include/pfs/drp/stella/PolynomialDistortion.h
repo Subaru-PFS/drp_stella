@@ -100,11 +100,6 @@ class PolynomialDistortion :
     std::string getPythonModule() const { return "pfs.drp.stella"; }
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
 
-  private:
-    // Calculation parameters
-    Polynomial _xPoly;  // distortion polynomial in x
-    Polynomial _yPoly;  // distortion polynomial in y
-
     /// Split single coefficients array into xCoeff, yCoeff arrays
     ///
     /// @param order : Distortion order
@@ -139,6 +134,10 @@ class PolynomialDistortion :
     ) : PolynomialDistortion(order, range, coeff[ndarray::view(0)], coeff[ndarray::view(1)])
     {}
 
+  private:
+    // Calculation parameters
+    Polynomial _xPoly;  // distortion polynomial in x
+    Polynomial _yPoly;  // distortion polynomial in y
 };
 
 
