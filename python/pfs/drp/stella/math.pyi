@@ -1,4 +1,4 @@
-from typing import overload, Tuple, Union
+from typing import overload, Optional, Tuple, Union
 import numpy as np
 from lsst.afw.math import (
     PolynomialFunction1D,
@@ -46,7 +46,12 @@ def evaluateAffineTransform(
     transform: AffineTransform, x: np.ndarray, y: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]: ...
 def solveLeastSquaresDesign(
-    design: np.ndarray, meas: np.ndarray, err: np.ndarray, threshold: float = 1.0e-6
+    design: np.ndarray,
+    meas: np.ndarray,
+    err: np.ndarray,
+    threshold: float = 1.0e-6,
+    forced: Optional[np.ndarray] = None,
+    params: Optional[np.ndarray] = None,
 ) -> np.ndarray: ...
 @overload
 def calculateMedian(values: np.ndarray, mask: np.ndarray) -> float: ...
