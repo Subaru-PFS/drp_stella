@@ -394,12 +394,12 @@ class FitDistortedDetectorMapTask(Task):
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         DistortionClass = self.getDistortionClass(dataId["arm"])
+        if self.config.doSlitOffsets:
+            residuals = self.calculateBaseResiduals(base, lines)
+            self.initializeSlitOffsets(base, residuals, dispersion)
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
-            if self.config.doSlitOffsets:
-                self.initializeSlitOffsets(base, residuals, dispersion)
-                residuals = self.calculateBaseResiduals(base, lines)
 
             weights = self.calculateWeights(lines)
             results = self.fitDistortion(
