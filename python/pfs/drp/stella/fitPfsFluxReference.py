@@ -745,6 +745,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             modelInterpolator = self.modelInterpolator
 
         bestParams: Dict[int, Struct] = {}
+        whitenedModels: Dict[int, PfsSimpleSpectrum] = {}
 
         for iFiber, obsSpectrum in enumerate(fibers(pfsConfig, obsSpectra)):
             fiberId = pfsConfig.fiberId[iFiber]
@@ -783,12 +784,15 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                     chi square. (returned only if ``returnChisq=True``)
                 dof : `int`
                     degree of freedom. (returned only if ``returnChisq=True``)
+                whitenedModel : `PfsSimpleSpectrum|None`
+                    Best model, whitened.
+                    (returned only if ``returnChisq=True``)
                 """
                 param = xToParam(x)
                 prior = float(priorPdfInterp(param))  # array of length 1 => scalar
                 if prior <= 0:
                     if returnChisq:
-                        return Struct(chi2=np.inf, dof=0)
+                        return Struct(chi2=np.inf, dof=0, whitenedModel=None)
                     else:
                         return np.inf
 
@@ -799,7 +803,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 modelContinuum = self.computeContinuum(model, mode="observed")
                 model = modelContinuum.whiten(model)
                 chisq = calculateSpecChiSquare(obsSpectrum, model, self.getBadMask())
+
                 if returnChisq:
+                    chisq.whitenedModel = model
                     return chisq
                 else:
                     return chisq.chi2 - 2 * math.log(prior)
@@ -815,6 +821,14 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 chi2=chisq.chi2,
                 dof=chisq.dof,
                 success=result.success and math.isfinite(chisq.chi2),
+            )
+            if chisq.whitenedModel is not None:
+                whitenedModels[fiberId] = chisq.whitenedModel
+
+        if self.debugInfo.doWriteWhitenedFlux:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
+                whitenedModel=whitenedModels,
             )
 
         return bestParams
