@@ -258,10 +258,14 @@ struct FitData {
     // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
     // @return Solutions in x and y.
     std::tuple<Array1D, Array1D, Array1D> getSolution(
-        double threshold=1.0e-6
+        double threshold=1.0e-6,
+        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
     ) const {
         assert(index == length);  // everything got added
-        auto solution = math::solveLeastSquaresDesign(design, measurements, errors, threshold);
+        auto solution = math::solveLeastSquaresDesign(
+            design, measurements, errors, threshold, forced, params
+        );
 
         std::size_t const nPolyParams = poly.getNParameters();
         std::size_t const affineStart = 2*nPolyParams;
@@ -308,7 +312,9 @@ MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<bool, 1, 1> const& isLine,
     ndarray::Array<double, 1, 1> const& slope,
-    double threshold
+    double threshold,
+    ndarray::Array<bool, 1, 1> const& forced,
+    ndarray::Array<double, 1, 1> const& params
 ) {
     using Array1D = MosaicPolynomialDistortion::Array1D;
     using Array2D = MosaicPolynomialDistortion::Array2D;
@@ -333,7 +339,7 @@ MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
         );
     }
 
-    auto const solution = fit.getSolution(threshold);
+    auto const solution = fit.getSolution(threshold, forced, params);
     return MosaicPolynomialDistortion(
         distortionOrder, range, std::get<0>(solution), std::get<1>(solution), std::get<2>(solution)
     );

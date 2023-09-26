@@ -80,7 +80,10 @@ RotScaleDistortion RotScaleDistortion::fit(
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<double, 1, 1> const& slope,
-    ndarray::Array<bool, 1, 1> const& isLine
+    ndarray::Array<bool, 1, 1> const& isLine,
+    double threshold,
+    ndarray::Array<bool, 1, 1> const& forced,
+    ndarray::Array<double, 1, 1> const& params
 ) {
     using Array1D = RotScaleDistortion::Array1D;
     using Array2D = RotScaleDistortion::Array2D;
@@ -143,7 +146,7 @@ RotScaleDistortion RotScaleDistortion::fit(
     }
     assert(index == length + numLines);
 
-    auto solution = math::solveLeastSquaresDesign(design, measurements, errors);
+    auto solution = math::solveLeastSquaresDesign(design, measurements, errors, threshold, forced, params);
 
 #if 0
     double const rot = std::asin(solution[OFFDIAG]*norm);
@@ -319,7 +322,10 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<double, 1, 1> const& slope,
-    ndarray::Array<bool, 1, 1> const& isLine
+    ndarray::Array<bool, 1, 1> const& isLine,
+    double threshold,
+    ndarray::Array<bool, 1, 1> const& forced,
+    ndarray::Array<double, 1, 1> const& params
 ) {
 
     using Array1D = DoubleRotScaleDistortion::Array1D;
@@ -347,7 +353,10 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
         utils::arraySelect(xErr, onLeftCcd),
         utils::arraySelect(yErr, onLeftCcd),
         utils::arraySelect(slope, onLeftCcd),
-        utils::arraySelect(isLine, onLeftCcd)
+        utils::arraySelect(isLine, onLeftCcd),
+        threshold,
+        forced.isEmpty() ? forced : forced[ndarray::view(0, 4)],
+        params.isEmpty() ? params : params[ndarray::view(0, 4)]
     );
     auto const right = RotScaleDistortion::fit(
         rightRange(range),
@@ -358,7 +367,10 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
         utils::arraySelect(xErr, onRightCcd),
         utils::arraySelect(yErr, onRightCcd),
         utils::arraySelect(slope, onRightCcd),
-        utils::arraySelect(isLine, onRightCcd)
+        utils::arraySelect(isLine, onRightCcd),
+        threshold,
+        forced.isEmpty() ? forced : forced[ndarray::view(4, 8)],
+        params.isEmpty() ? params : params[ndarray::view(4, 8)]
     );
 
     return DoubleRotScaleDistortion(range, left.getParameters(), right.getParameters());

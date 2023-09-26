@@ -148,7 +148,9 @@ class AnalyticDistortion : public Distortion {
         Array1D const& yErr,
         ndarray::Array<bool, 1, 1> const& isLine,
         ndarray::Array<double, 1, 1> const& slope,
-        double threshold=1.0e-6
+        double threshold=1.0e-6,
+        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
     );
 
     //@{

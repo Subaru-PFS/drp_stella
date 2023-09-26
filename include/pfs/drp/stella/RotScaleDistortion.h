@@ -119,6 +119,10 @@ class RotScaleDistortion : public Distortion {
     /// @param yErr : Error in measured y distortion
     /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param isLine : Is this a line? Otherwise it's a trace
+    /// @param threshold : Least-squares solving threshold
+    /// @param forced : Whether to force a parameter to the provided value
+    /// @param params : Values of parameters to be forced (only those parameters for
+    ///     which forced is true are used)
     /// @returns distortion object
     static RotScaleDistortion fit(
         lsst::geom::Box2D const& range,
@@ -129,7 +133,10 @@ class RotScaleDistortion : public Distortion {
         Array1D const& xErr,
         Array1D const& yErr,
         Array1D const& slope,
-        ndarray::Array<bool, 1, 1> const& isLine
+        ndarray::Array<bool, 1, 1> const& isLine,
+        double threshold=1.0e-6,
+        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
     );
 
     class Factory;
@@ -240,6 +247,10 @@ class DoubleRotScaleDistortion : public Distortion {
     /// @param yErr : Error in measured y distortion
     /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param isLine : Is this a line? Otherwise it's a trace
+    /// @param threshold : Least-squares solving threshold
+    /// @param forced : Whether to force a parameter to the provided value
+    /// @param params : Values of parameters to be forced (only those parameters for
+    ///     which forced is true are used)
     /// @returns distortion object
     static DoubleRotScaleDistortion fit(
         lsst::geom::Box2D const& range,
@@ -250,7 +261,10 @@ class DoubleRotScaleDistortion : public Distortion {
         Array1D const& xErr,
         Array1D const& yErr,
         Array1D const& slope,
-        ndarray::Array<bool, 1, 1> const& isLine
+        ndarray::Array<bool, 1, 1> const& isLine,
+        double threshold=1.0e-6,
+        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
     );
 
     class Factory;
