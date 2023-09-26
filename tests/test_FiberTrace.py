@@ -262,7 +262,6 @@ class BoxcarFiberTraceTestCase(lsst.utils.tests.TestCase):
         badBitmask = 0x0
         config = SyntheticConfig()
         image = lsst.afw.image.makeMaskedImage(makeSyntheticFlat(config, flux=flux, addNoise=False, rng=rng))
-        image.writeFits("image.fits")
         detMap = makeSyntheticDetectorMap(config)
         sigma = fwhmToSigma(config.fwhm)
         factor = erf(radius/sigma/np.sqrt(2))
