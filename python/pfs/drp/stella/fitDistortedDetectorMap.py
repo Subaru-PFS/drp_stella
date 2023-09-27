@@ -705,11 +705,15 @@ class FitDistortedDetectorMapTask(Task):
             result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
             use.sum(), select.sum(), getDescriptionCounts(lines.description, select)
         )
+
+        self.log.debug("Median slit offset changes: %f,%f", np.median(spatial), np.median(spectral))
+        spatial += detectorMap.getSpatialOffsets()
+        spectral += detectorMap.getSpectralOffsets()
         self.log.debug("Spatial offsets: %s", spatial)
         self.log.debug("Spectral offsets: %s", spectral)
 
-        detectorMap.setSlitOffsets(detectorMap.getSpatialOffsets() + spatial,
-                                   detectorMap.getSpectralOffsets() + spectral)
+        detectorMap.setSlitOffsets(spatial, spectral)
+
         return result
 
     def updateTraceWavelengths(self, lines: ArcLineSet, detectorMap: DetectorMap) -> bool:
