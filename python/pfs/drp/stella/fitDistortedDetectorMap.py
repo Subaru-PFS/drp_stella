@@ -330,6 +330,8 @@ class FitDistortedDetectorMapConfig(Config):
         doc=("Forced parameters for fitting. Length must correspond to model. If empty, and 'forced'"
              " is set for that parameter, it defaults to zero."),
     )
+    spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
+    spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -569,6 +571,12 @@ class FitDistortedDetectorMapTask(Task):
             np.full(numFibers, dx, dtype=float), np.full(numFibers, dy, dtype=float)
         )
 
+        # Set forced offsets
+        if set(self.config.spatialOffsets.keys()) != set(self.config.spectralOffsets.keys()):
+            raise RuntimeError("Must specify spatial and spectral offsets for the same fibers")
+        for ff in set(self.config.spatialOffsets.keys()).intersection(set(detectorMap.fiberId)):
+            detectorMap.setSlitOffsets(ff, self.config.spatialOffsets[ff], self.config.spectralOffsets[ff])
+
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
         """Measure slit offsets for base detectorMap
 
@@ -628,6 +636,15 @@ class FitDistortedDetectorMapTask(Task):
 
         noMeasurements = set()
         for ii, ff in enumerate(detectorMap.getFiberId()):
+            haveSpatial = ff in self.config.spatialOffsets
+            haveSpectral = ff in self.config.spectralOffsets
+            if haveSpatial != haveSpectral:
+                raise RuntimeError(f"Must specify both spatial and spectral offsets for fiberId={ff}")
+            if haveSpatial:
+                # Nothing else to do. The slit offsets have already been applied in initializeSlitOffsets;
+                # this method is merely refining the offsets, and the forced offsets shouldn't be refined.
+                continue
+
             thisFiber = fiberId == ff
 
             if not np.any(thisFiber):
