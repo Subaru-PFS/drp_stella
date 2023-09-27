@@ -318,6 +318,18 @@ class FitDistortedDetectorMapConfig(Config):
                             doc="Exclusion radius to apply to reference lines (pixels)")
     doRejectBadLines = Field(dtype=bool, default=False,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
+    forced = ListField(
+        dtype=bool,
+        default=[],
+        doc=("Array indicating which model parameters are to be forced. Length must correspond to model."
+             " If empty, no parameters are forced."),
+    )
+    parameters = ListField(
+        dtype=float,
+        default=[],
+        doc=("Forced parameters for fitting. Length must correspond to model. If empty, and 'forced'"
+             " is set for that parameter, it defaults to zero."),
+    )
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -1171,7 +1183,9 @@ class FitDistortedDetectorMapTask(Task):
             yErr,
             isLine,
             slope,
-            self.config.lsqThreshold
+            self.config.lsqThreshold,
+            self.config.forced or None,
+            self.config.parameters or None,
         )
 
     def evaluateModel(

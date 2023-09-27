@@ -213,4 +213,9 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         distortion : `pfs.drp.stella.Distortion`
             Distortion model that was fit to the data.
         """
-        return DistortionClass.fit(bbox, xBase, yBase, xMeas, yMeas, xErr, yErr, slope, isLine)
+        threshold = self.config.lsqThreshold
+        forced = self.config.forced or None
+        parameters = self.config.parameters or None
+        return DistortionClass.fit(
+            bbox, xBase, yBase, xMeas, yMeas, xErr, yErr, slope, isLine, threshold, forced, parameters
+        )
