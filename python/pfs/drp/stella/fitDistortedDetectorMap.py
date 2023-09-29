@@ -743,6 +743,19 @@ class FitDistortedDetectorMapTask(Task):
 
         detectorMap.setSlitOffsets(spatial, spectral)
 
+        if self.debugInfo.slitOffsets:
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(ncols=2)
+            axes[0].plot(detectorMap.fiberId, spatial, "ko")
+            axes[0].set_xlabel("fiberId")
+            axes[0].set_ylabel("Spatial offset (pixels)")
+            axes[0].set_title("Spatial offsets")
+            axes[1].plot(detectorMap.fiberId, spectral, "ko")
+            axes[1].set_xlabel("fiberId")
+            axes[1].set_ylabel("Spectral offset (pixels)")
+            axes[1].set_title("Spectral offsets")
+            plt.show()
+
         return result
 
     def updateTraceWavelengths(self, lines: ArcLineSet, detectorMap: DetectorMap) -> bool:
@@ -1670,6 +1683,45 @@ class FitDistortedDetectorMapTask(Task):
         from matplotlib.colors import Normalize
 
         good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
+
+        fig, axes = plt.subplots(ncols=2)
+
+        notTrace = lines.description != "Trace"
+        fiberId = sorted(set(lines.fiberId[good]))
+        numFibers = len(fiberId)
+        spatial = np.full(numFibers, np.nan, dtype=float)
+        spectral = np.full(numFibers, np.nan, dtype=float)
+        for ii, ff in enumerate(fiberId):
+            choose = good & (lines.fiberId == ff)
+            spatial[ii] = np.median(dx[choose])
+            spectral[ii] = np.median(dy[choose & notTrace])
+
+        axes[0].scatter(fiberId, spatial, marker=".", color="b", label="dx")
+        axes[0].scatter(fiberId, spectral, marker=".", color="r", label="dy")
+        axes[0].legend()
+        axes[0].set_xlabel("fiberId")
+        axes[0].set_ylabel("Median residual (pixels)")
+
+        counts = Counter(lines.wavelength[good & notTrace])
+        threshold = 0.7*numFibers
+        wavelengths = [wl for wl, count in counts.items() if count > threshold]
+        numLines = len(wavelengths)
+
+        spatial = np.full(numLines, np.nan, dtype=float)
+        spectral = np.full(numLines, np.nan, dtype=float)
+        for ii, wl in enumerate(wavelengths):
+            choose = good & (lines.wavelength == wl)
+            spatial[ii] = np.median(dx[choose])
+            spectral[ii] = np.median(dy[choose])
+
+        axes[1].scatter(wavelengths, spatial, marker=".", color="b", label="dx")
+        axes[1].scatter(wavelengths, spectral, marker=".", color="r", label="dy")
+        axes[1].legend()
+        axes[1].set_xlabel("Wavelength (nm)")
+        axes[1].set_ylabel("Median residual (pixels)")
+        axes[1].set_xlim(lines.wavelength.min(), lines.wavelength.max())
+
+        fig.tight_layout()
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values
