@@ -79,8 +79,8 @@ RotScaleDistortion RotScaleDistortion::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<double, 1, 1> const& slope,
     ndarray::Array<bool, 1, 1> const& isLine,
+    ndarray::Array<double, 1, 1> const& slope,
     double threshold,
     ndarray::Array<bool, 1, 1> const& forced,
     ndarray::Array<double, 1, 1> const& params
@@ -321,8 +321,8 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<double, 1, 1> const& slope,
     ndarray::Array<bool, 1, 1> const& isLine,
+    ndarray::Array<double, 1, 1> const& slope,
     double threshold,
     ndarray::Array<bool, 1, 1> const& forced,
     ndarray::Array<double, 1, 1> const& params
@@ -352,8 +352,8 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
         utils::arraySelect(yMeas, onLeftCcd),
         utils::arraySelect(xErr, onLeftCcd),
         utils::arraySelect(yErr, onLeftCcd),
-        utils::arraySelect(slope, onLeftCcd),
         utils::arraySelect(isLine, onLeftCcd),
+        utils::arraySelect(slope, onLeftCcd),
         threshold,
         forced.isEmpty() ? forced : forced[ndarray::view(0, 4)],
         params.isEmpty() ? params : params[ndarray::view(0, 4)]
@@ -366,8 +366,8 @@ DoubleRotScaleDistortion DoubleRotScaleDistortion::fit(
         utils::arraySelect(yMeas, onRightCcd),
         utils::arraySelect(xErr, onRightCcd),
         utils::arraySelect(yErr, onRightCcd),
-        utils::arraySelect(slope, onRightCcd),
         utils::arraySelect(isLine, onRightCcd),
+        utils::arraySelect(slope, onRightCcd),
         threshold,
         forced.isEmpty() ? forced : forced[ndarray::view(4, 8)],
         params.isEmpty() ? params : params[ndarray::view(4, 8)]

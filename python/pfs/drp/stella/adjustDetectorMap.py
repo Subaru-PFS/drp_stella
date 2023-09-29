@@ -217,5 +217,16 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         forced = self.config.forced or None
         parameters = self.config.parameters or None
         return DistortionClass.fit(
-            bbox, xBase, yBase, xMeas, yMeas, xErr, yErr, slope, isLine, threshold, forced, parameters
+            bbox,
+            xBase,
+            yBase,
+            xMeas,
+            yMeas,
+            xErr,
+            yErr,
+            isLine,
+            slope,
+            threshold,
+            forced,
+            parameters,
         )

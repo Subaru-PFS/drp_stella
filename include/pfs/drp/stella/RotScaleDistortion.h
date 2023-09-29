@@ -117,8 +117,8 @@ class RotScaleDistortion : public Distortion {
     /// @param yMeas : Measured distortion in y position
     /// @param xErr : Error in measured x distortion
     /// @param yErr : Error in measured y distortion
-    /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param isLine : Is this a line? Otherwise it's a trace
+    /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param threshold : Least-squares solving threshold
     /// @param forced : Whether to force a parameter to the provided value
     /// @param params : Values of parameters to be forced (only those parameters for
@@ -132,8 +132,8 @@ class RotScaleDistortion : public Distortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
-        Array1D const& slope,
         ndarray::Array<bool, 1, 1> const& isLine,
+        Array1D const& slope,
         double threshold=1.0e-6,
         ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
         ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
@@ -245,8 +245,8 @@ class DoubleRotScaleDistortion : public Distortion {
     /// @param yMeas : Measured distortion in y position
     /// @param xErr : Error in measured x distortion
     /// @param yErr : Error in measured y distortion
-    /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param isLine : Is this a line? Otherwise it's a trace
+    /// @param slope : (Inverse) slope of trace (dx/dy; pixels per pixel)
     /// @param threshold : Least-squares solving threshold
     /// @param forced : Whether to force a parameter to the provided value
     /// @param params : Values of parameters to be forced (only those parameters for
@@ -260,8 +260,8 @@ class DoubleRotScaleDistortion : public Distortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
-        Array1D const& slope,
         ndarray::Array<bool, 1, 1> const& isLine,
+        Array1D const& slope,
         double threshold=1.0e-6,
         ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
         ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
