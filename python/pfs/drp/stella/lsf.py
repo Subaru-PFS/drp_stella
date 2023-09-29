@@ -737,12 +737,13 @@ class ExtractionLsf(Lsf):
         """
         detMap = self.psf.getDetectorMap()
         xx = detMap.getXCenter(self.fiberId, yy)
-        psfImage = self.psf.computeKernelImage(Point2D(xx, yy)).convertF()
+        psfImage = MaskedImageF(self.psf.computeKernelImage(Point2D(xx, yy)).convertF())
+        psfImage.variance.set(1.0)
         xy0 = psfImage.getXY0()
         psfImage.setXY0(xy0 + Extent2I(int(xx + 0.5), int(yy + 0.5)))  # So extraction works properly
         traces = FiberTraceSet(1)
         traces.add(self.fiberTrace)
-        spectra = traces.extractSpectra(MaskedImageF(psfImage))
+        spectra = traces.extractSpectra(psfImage)
         assert len(spectra) == 1
         return Kernel1D(spectra[0].spectrum, -xy0.getY())
 
@@ -773,11 +774,12 @@ class ExtractionLsf(Lsf):
         """
         detMap = self.psf.getDetectorMap()
         xx = detMap.getXCenter(self.fiberId, yy)
-        psfImage = self.psf.computeImage(Point2D(xx, yy)).convertF()
+        psfImage = MaskedImageF(self.psf.computeImage(Point2D(xx, yy)).convertF())
+        psfImage.variance.set(1.0)
         psfBox = psfImage.getBBox()
         traces = FiberTraceSet(1)
         traces.add(self.fiberTrace)
-        spectra = traces.extractSpectra(MaskedImageF(psfImage))
+        spectra = traces.extractSpectra(psfImage)
         assert len(spectra) == 1
         array = np.zeros(self.length)
         yMin = max(psfBox.getMinY(), 0)

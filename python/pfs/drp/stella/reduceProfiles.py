@@ -188,10 +188,10 @@ class ReduceProfilesTask(CmdLineTask):
         profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
         normList = [self.processExposure(ref) for ref in normRefList]
-        normExp = self.combine([norm.exposureList[0] for norm in normList])
+        normExp = self.combine([norm.exposure for norm in normList])
 
         if self.config.doAdjustDetectorMap:
-            detectorMap = normList[0].detectorMapList[0]
+            detectorMap = normList[0].detectorMap
             traces = self.centroidTraces.run(normExp, detectorMap, normList[0].pfsConfig)
             lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
             detectorMap = self.adjustDetectorMap.run(
@@ -234,8 +234,8 @@ class ReduceProfilesTask(CmdLineTask):
         if all(dataRef.datasetExists(name) for name in require):
             self.log.info("Reading existing data for %s", dataRef.dataId)
             return Struct(
-                exposureList=[dataRef.get("calexp")],
-                detectorMapList=[dataRef.get("detectorMap_used")],
+                exposure=dataRef.get("calexp"),
+                detectorMap=dataRef.get("detectorMap_used"),
                 pfsConfig=dataRef.get("pfsConfig"),
             )
         return self.reduceExposure.runDataRef(dataRef)
