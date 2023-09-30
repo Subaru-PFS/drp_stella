@@ -7,7 +7,7 @@ import lsst.afw.fits
 
 from pfs.datamodel.utils import astropyHeaderFromDict
 
-__all__ = ["headerToMetadata", "getPfsVersions"]
+__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions"]
 
 
 def getPfsVersions(prefix="VERSION_"):
@@ -35,7 +35,8 @@ def getPfsVersions(prefix="VERSION_"):
                          ("drp_stella", "pfs.drp.stella"),
                          ):
         importlib.import_module(module + ".version")
-        versions[prefix + name] = sys.modules[module + ".version"].__version__
+        key = (prefix + name).upper()
+        versions[key] = sys.modules[module + ".version"].__version__
     return versions
 
 
@@ -64,3 +65,22 @@ def headerToMetadata(header):
     ff = lsst.afw.fits.MemFileManager(size)
     ff.setData(ss, size)
     return ff.readMetadata(0)
+
+
+def metadataToHeader(metadata):
+    """Convert LSST metadata to FITS header dict
+
+    Parameters
+    ----------
+    metadata : `lsst.daf.base.PropertyList`
+        LSST metadata object.
+
+    Returns
+    -------
+    header : `dict`
+        FITS header.
+    """
+    header = {}
+    for key in metadata.names():
+        header[key] = metadata.get(key)
+    return header
