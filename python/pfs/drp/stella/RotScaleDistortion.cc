@@ -22,7 +22,8 @@ auto declareRotScaleDistortion(py::module & mod, char const* name) {
     cls.def("getRange", &Class::getRange);
     cls.def("getParameters", &Class::getParameters);
     cls.def_static("fit", &Class::fit, "range"_a, "x"_a, "y"_a, "xMeas"_a, "yMeas"_a,
-                   "xErr"_a, "yErr"_a, "slope"_a, "isLine"_a);
+                   "xErr"_a, "yErr"_a, "isLine"_a, "slope"_a, "threshold"_a=1.0e-6,
+                   "forced"_a=nullptr, "params"_a=nullptr);
     lsst::utils::python::addOutputOp(cls, "__str__");
     lsst::utils::python::addOutputOp(cls, "__repr__");
     return cls;

@@ -166,7 +166,9 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<bool, 1, 1> const& isLine,
     ndarray::Array<double, 1, 1> const& slope,
-    double threshold
+    double threshold,
+    ndarray::Array<bool, 1, 1> const& forced,
+    ndarray::Array<double, 1, 1> const& params
 ) {
     using Array1D = DoubleDistortion::Array1D;
     using Array2D = DoubleDistortion::Array2D;
@@ -184,6 +186,8 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     ndarray::Array<bool, 1, 1> onRightCcd = ndarray::allocate(length);
     asEigenArray(onRightCcd) = asEigenArray(xx) >= xCenter;
 
+    std::size_t const numDistortion = DoubleDistortion::getNumDistortionForOrder(distortionOrder);
+
     auto const left = PolynomialDistortion::fit(
         distortionOrder,
         leftRange(range),
@@ -195,7 +199,9 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yErr, onLeftCcd),
         utils::arraySelect(isLine, onLeftCcd),
         utils::arraySelect(slope, onLeftCcd),
-        threshold
+        threshold,
+        forced.isEmpty() ? forced : forced[ndarray::view(0, 2*numDistortion)],
+        params.isEmpty() ? params : params[ndarray::view(0, 2*numDistortion)]
     );
     auto const right = PolynomialDistortion::fit(
         distortionOrder,
@@ -208,7 +214,9 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
         utils::arraySelect(yErr, onRightCcd),
         utils::arraySelect(isLine, onRightCcd),
         utils::arraySelect(slope, onRightCcd),
-        threshold
+        threshold,
+        forced.isEmpty() ? forced : forced[ndarray::view(2*numDistortion, 4*numDistortion)],
+        params.isEmpty() ? params : params[ndarray::view(2*numDistortion, 4*numDistortion)]
     );
 
     return DoubleDistortion(distortionOrder, range, left.getXCoefficients(), left.getYCoefficients(),

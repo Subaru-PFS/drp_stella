@@ -76,14 +76,21 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
         return std::make_shared<NormalizedPolynomial1<T>>(this->getParameters(), getMin(), getMax());
     }
 
+    //@{
     /// Return the bounds of input coordinates used for normalization
     double getMin() const { return _min; }
     double getMax() const { return _max; }
+    //@}
+
+    /// Normalize input coordinate
+    double normalize(double x) const {
+        return (x - _offset)*_scale;
+    }
 
     //@{
     /// Evaluate at coordinates
     T operator()(double x) const noexcept override {
-        return lsst::afw::math::PolynomialFunction1<T>::operator()((x - _offset)*_scale);
+        return lsst::afw::math::PolynomialFunction1<T>::operator()(normalize(x));
     }
     ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 1> const& x) const noexcept {
         ndarray::Array<T, 1, 1> result = ndarray::allocate(x.size());
@@ -189,13 +196,19 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     /// Return the bounds of input coordinates used for normalization
     lsst::geom::Box2D getXYRange() const { return _range; }
 
+    /// Normalize input coordinates
+    lsst::geom::Point2D normalize(lsst::geom::Point2D const& xy) const {
+        return lsst::geom::Point2D(
+            (xy.getX() - _xOffset)*_xScale,
+            (xy.getY() - _yOffset)*_yScale
+        );
+    }
+
     //@{
     /// Evaluate at coordinates
     T operator()(double x, double y) const noexcept override {
-        return lsst::afw::math::PolynomialFunction2<T>::operator()(
-            (x - _xOffset)*_xScale,
-            (y - _yOffset)*_yScale
-        );
+        auto const norm = normalize(lsst::geom::Point2D(x, y));
+        return lsst::afw::math::PolynomialFunction2<T>::operator()(norm.getX(), norm.getY());
     }
     ndarray::Array<double, 1, 1> operator()(
         ndarray::Array<double, 1, 1> const& x,

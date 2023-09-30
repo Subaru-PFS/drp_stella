@@ -14,8 +14,7 @@ from lsst.geom import Box2D
 
 from pfs.datamodel.pfsTable import PfsTable, Column
 from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
-from pfs.drp.stella import DoubleDistortion
-from pfs.drp.stella import PolynomialDistortion
+from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
 from .DistortionContinued import Distortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -319,6 +318,20 @@ class FitDistortedDetectorMapConfig(Config):
                             doc="Exclusion radius to apply to reference lines (pixels)")
     doRejectBadLines = Field(dtype=bool, default=False,
                              doc="Reject reference lines for all fibers that have a bad mean residual?")
+    forced = ListField(
+        dtype=bool,
+        default=[],
+        doc=("Array indicating which model parameters are to be forced. Length must correspond to model."
+             " If empty, no parameters are forced."),
+    )
+    parameters = ListField(
+        dtype=float,
+        default=[],
+        doc=("Forced parameters for fitting. Length must correspond to model. If empty, and 'forced'"
+             " is set for that parameter, it defaults to zero."),
+    )
+    spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
+    spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -395,12 +408,12 @@ class FitDistortedDetectorMapTask(Task):
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         DistortionClass = self.getDistortionClass(dataId["arm"])
+        if self.config.doSlitOffsets:
+            residuals = self.calculateBaseResiduals(base, lines)
+            self.initializeSlitOffsets(base, residuals, dispersion)
         for ii in range(self.config.traceIterations):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
-            if self.config.doSlitOffsets:
-                self.initializeSlitOffsets(base, residuals, dispersion)
-                residuals = self.calculateBaseResiduals(base, lines)
 
             weights = self.calculateWeights(lines)
             results = self.fitDistortion(
@@ -468,7 +481,7 @@ class FitDistortedDetectorMapTask(Task):
         distortionClass : `type`
             Class to use for the distortion.
         """
-        return PolynomialDistortion if arm == "n" else DoubleDistortion
+        return PolynomialDistortion if arm == "n" else MosaicPolynomialDistortion
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -558,6 +571,12 @@ class FitDistortedDetectorMapTask(Task):
             np.full(numFibers, dx, dtype=float), np.full(numFibers, dy, dtype=float)
         )
 
+        # Set forced offsets
+        if set(self.config.spatialOffsets.keys()) != set(self.config.spectralOffsets.keys()):
+            raise RuntimeError("Must specify spatial and spectral offsets for the same fibers")
+        for ff in set(self.config.spatialOffsets.keys()).intersection(set(detectorMap.fiberId)):
+            detectorMap.setSlitOffsets(ff, self.config.spatialOffsets[ff], self.config.spectralOffsets[ff])
+
     def measureSlitOffsets(self, detectorMap, lines, select, weights):
         """Measure slit offsets for base detectorMap
 
@@ -617,6 +636,15 @@ class FitDistortedDetectorMapTask(Task):
 
         noMeasurements = set()
         for ii, ff in enumerate(detectorMap.getFiberId()):
+            haveSpatial = ff in self.config.spatialOffsets
+            haveSpectral = ff in self.config.spectralOffsets
+            if haveSpatial != haveSpectral:
+                raise RuntimeError(f"Must specify both spatial and spectral offsets for fiberId={ff}")
+            if haveSpatial:
+                # Nothing else to do. The slit offsets have already been applied in initializeSlitOffsets;
+                # this method is merely refining the offsets, and the forced offsets shouldn't be refined.
+                continue
+
             thisFiber = fiberId == ff
 
             if not np.any(thisFiber):
@@ -685,7 +713,7 @@ class FitDistortedDetectorMapTask(Task):
         if noMeasurements:
             self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
                           len(noMeasurements), sorted(noMeasurements))
-            badFibers = np.isin(detectorMap.fiberId, noMeasurements)
+            badFibers = np.isin(detectorMap.fiberId, np.array(list(noMeasurements)))
             goodFibers = ~badFibers
             spatial[badFibers] = np.mean(spatial[goodFibers])
             spectral[badFibers] = np.mean(spectral[goodFibers])
@@ -706,11 +734,28 @@ class FitDistortedDetectorMapTask(Task):
             result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
             use.sum(), select.sum(), getDescriptionCounts(lines.description, select)
         )
+
+        self.log.debug("Median slit offset changes: %f,%f", np.median(spatial), np.median(spectral))
+        spatial += detectorMap.getSpatialOffsets()
+        spectral += detectorMap.getSpectralOffsets()
         self.log.debug("Spatial offsets: %s", spatial)
         self.log.debug("Spectral offsets: %s", spectral)
 
-        detectorMap.setSlitOffsets(detectorMap.getSpatialOffsets() + spatial,
-                                   detectorMap.getSpectralOffsets() + spectral)
+        detectorMap.setSlitOffsets(spatial, spectral)
+
+        if self.debugInfo.slitOffsets:
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(ncols=2)
+            axes[0].plot(detectorMap.fiberId, spatial, "ko")
+            axes[0].set_xlabel("fiberId")
+            axes[0].set_ylabel("Spatial offset (pixels)")
+            axes[0].set_title("Spatial offsets")
+            axes[1].plot(detectorMap.fiberId, spectral, "ko")
+            axes[1].set_xlabel("fiberId")
+            axes[1].set_ylabel("Spectral offset (pixels)")
+            axes[1].set_title("Spectral offsets")
+            plt.show()
+
         return result
 
     def updateTraceWavelengths(self, lines: ArcLineSet, detectorMap: DetectorMap) -> bool:
@@ -909,7 +954,8 @@ class FitDistortedDetectorMapTask(Task):
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
+            Class to use for distortion. If ``None``, uses
+            `MosaicPolynomialDistortion`.
 
         Returns
         -------
@@ -935,7 +981,7 @@ class FitDistortedDetectorMapTask(Task):
             If the data is not of sufficient quality to fit.
         """
         if DistortionClass is None:
-            DistortionClass = DoubleDistortion
+            DistortionClass = MosaicPolynomialDistortion
         good = self.getGoodLines(lines, dispersion)
         numGood = good.sum()
         isLine = lines.description != "Trace"
@@ -1062,7 +1108,8 @@ class FitDistortedDetectorMapTask(Task):
             Systematic error in x and y to add in quadrature to measured errors
             (pixels).
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
-            Class to use for distortion. If ``None``, uses `DoubleDistortion`.
+            Class to use for distortion. If ``None``, uses
+            `MosaicPolynomialDistortion`.
 
         Returns
         -------
@@ -1089,7 +1136,7 @@ class FitDistortedDetectorMapTask(Task):
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
         if DistortionClass is None:
-            DistortionClass = DoubleDistortion
+            DistortionClass = MosaicPolynomialDistortion
         if soften is None:
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften
@@ -1166,7 +1213,9 @@ class FitDistortedDetectorMapTask(Task):
             yErr,
             isLine,
             slope,
-            self.config.lsqThreshold
+            self.config.lsqThreshold,
+            self.config.forced or None,
+            self.config.parameters or None,
         )
 
     def evaluateModel(
@@ -1634,6 +1683,45 @@ class FitDistortedDetectorMapTask(Task):
         from matplotlib.colors import Normalize
 
         good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
+
+        fig, axes = plt.subplots(ncols=2)
+
+        notTrace = lines.description != "Trace"
+        fiberId = sorted(set(lines.fiberId[good]))
+        numFibers = len(fiberId)
+        spatial = np.full(numFibers, np.nan, dtype=float)
+        spectral = np.full(numFibers, np.nan, dtype=float)
+        for ii, ff in enumerate(fiberId):
+            choose = good & (lines.fiberId == ff)
+            spatial[ii] = np.median(dx[choose])
+            spectral[ii] = np.median(dy[choose & notTrace])
+
+        axes[0].scatter(fiberId, spatial, marker=".", color="b", label="dx")
+        axes[0].scatter(fiberId, spectral, marker=".", color="r", label="dy")
+        axes[0].legend()
+        axes[0].set_xlabel("fiberId")
+        axes[0].set_ylabel("Median residual (pixels)")
+
+        counts = Counter(lines.wavelength[good & notTrace])
+        threshold = 0.7*numFibers
+        wavelengths = [wl for wl, count in counts.items() if count > threshold]
+        numLines = len(wavelengths)
+
+        spatial = np.full(numLines, np.nan, dtype=float)
+        spectral = np.full(numLines, np.nan, dtype=float)
+        for ii, wl in enumerate(wavelengths):
+            choose = good & (lines.wavelength == wl)
+            spatial[ii] = np.median(dx[choose])
+            spectral[ii] = np.median(dy[choose])
+
+        axes[1].scatter(wavelengths, spatial, marker=".", color="b", label="dx")
+        axes[1].scatter(wavelengths, spectral, marker=".", color="r", label="dy")
+        axes[1].legend()
+        axes[1].set_xlabel("Wavelength (nm)")
+        axes[1].set_ylabel("Median residual (pixels)")
+        axes[1].set_xlim(lines.wavelength.min(), lines.wavelength.max())
+
+        fig.tight_layout()
 
         def calculateNormalization(values, nSigma=4.0):
             """Calculate normalization to apply to values

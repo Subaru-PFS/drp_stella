@@ -160,7 +160,9 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<bool, 1, 1> const& isLine,  // unused: new feature in deprecated class
     ndarray::Array<double, 1, 1> const& slope,  // unused: new feature in deprecated class
-    double threshold
+    double threshold,
+    ndarray::Array<bool, 1, 1> const& forced,  // unused: new feature in deprecated class
+    ndarray::Array<double, 1, 1> const& params  // unused: new feature in deprecated class
 ) {
     std::size_t const length = xx.size();
     utils::checkSize(yy.size(), length, "y");

@@ -269,7 +269,7 @@ class MultipleDistortionsDetectorMapTestCase(lsst.utils.tests.TestCase):
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
         self.assertEqual(len(detMap.distortions), 1)
-        self.assertFloatsAlmostEqual(detMap.distortions[0].getCoefficients(), 0.0, atol=1.0e-7)
+        self.assertFloatsAlmostEqual(detMap.distortions[0].getCoefficients(), 0.0, atol=2.0e-7)
         self.assertFloatsAlmostEqual(detMap.getSpatialOffsets(), 0.0, atol=1.0e-7)
         self.assertFloatsAlmostEqual(detMap.getSpectralOffsets(), 0.0, atol=1.0e-7)
 

@@ -11,7 +11,7 @@ from .DoubleDetectorMapContinued import DoubleDetectorMap
 from .DistortedDetectorMapContinued import DistortedDetectorMap
 from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
 from .PolynomialDetectorMapContinued import PolynomialDetectorMap
-from .RotScaleDistortionContinued import RotScaleDistortion, DoubleRotScaleDistortion
+from .RotScaleDistortionContinued import RotScaleDistortion
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
@@ -115,7 +115,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         distortionClass : `type`
             Class to use for the distortion.
         """
-        return RotScaleDistortion if arm == "n" else DoubleRotScaleDistortion
+        return RotScaleDistortion
 
     def getBaseDetectorMap(self, detectorMap, arm: str):
         """Get detectorMap to use as a base
@@ -213,4 +213,20 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         distortion : `pfs.drp.stella.Distortion`
             Distortion model that was fit to the data.
         """
-        return DistortionClass.fit(bbox, xBase, yBase, xMeas, yMeas, xErr, yErr, slope, isLine)
+        threshold = self.config.lsqThreshold
+        forced = self.config.forced or None
+        parameters = self.config.parameters or None
+        return DistortionClass.fit(
+            bbox,
+            xBase,
+            yBase,
+            xMeas,
+            yMeas,
+            xErr,
+            yErr,
+            isLine,
+            slope,
+            threshold,
+            forced,
+            parameters,
+        )

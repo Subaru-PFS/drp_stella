@@ -22,12 +22,17 @@ namespace math {
 /// @param design : Design matrix of the equation
 /// @param meas : Measurements
 /// @param err : Measurement errors
+/// @param forced : Whether to force a parameter to the provided value
+/// @param params : Values of parameters to be forced (only those parameters fo
+///     which forced is true are used)
 /// @return equation solution
 ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     ndarray::Array<double, 2, 1> const& design,
     ndarray::Array<double, 1, 1> const& meas,
     ndarray::Array<double, 1, 1> const& err=ndarray::Array<double, 1, 1>(),
-    double threshold = 1.0e-6
+    double threshold = 1.0e-6,
+    ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
+    ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
 );
 
 

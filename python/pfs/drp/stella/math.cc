@@ -172,7 +172,7 @@ PYBIND11_PLUGIN(math) {
             "poly"_a, "x"_a, "y"_a);
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
     mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
-            "err"_a, "threshold"_a=1.0e-6);
+            "err"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr, "params"_a=nullptr);
     declareMatrixTriplets(mod);
     declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
     declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
