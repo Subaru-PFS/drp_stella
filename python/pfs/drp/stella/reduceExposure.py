@@ -79,7 +79,7 @@ class ReduceExposureConfig(Config):
     measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
     gaussianLsfWidth = DictField(keytype=str, itemtype=float,
                                  doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
-                                 default=dict(b=0.21, r=0.27, m=0.16, n=0.24))
+                                 default=dict(b=0.081, r=0.109, m=0.059, n=0.109))
     doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
