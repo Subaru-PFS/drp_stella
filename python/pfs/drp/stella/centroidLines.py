@@ -76,7 +76,7 @@ class CentroidLinesTask(Task):
         self.description = self.schema.addField("description", type=str, size=128, doc="Line description")
         self.ignore = self.schema.addField("ignore", type="Flag", doc="Ignore line?")
         self.status = self.schema.addField("status", type=np.int32, doc="Line status flags")
-        self.transition = self.schema.addField("transition", type=str, size=128, doc="Line transition")
+        self.transition = self.schema.addField("transition", type=str, size=256, doc="Line transition")
         self.source = self.schema.addField("source", type=np.int32, doc="Source of line information")
         self.centroider = SdssCentroidAlgorithm(self.config.centroider.makeControl(), self.centroidName,
                                                 self.schema)
