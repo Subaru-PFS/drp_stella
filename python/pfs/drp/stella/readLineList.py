@@ -34,7 +34,7 @@ class ReadLineListConfig(Config):
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
-                                        'sky': 'skyLines.txt'})
+                                        'sky': 'skyLines-ragnar.txt'})
     assumeSky = Field(dtype=bool, default=False,
                       doc="Assume that we're looking at sky even if lamps claim to be active?")
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
@@ -254,7 +254,7 @@ class ReadLineListTask(Task):
                 else:
                     self.log.info("No lamps on; assuming sky.")
                 lamps = {"sky"}
-                lampElements = {"OI", "NaI", "OH", "O2"}
+                lampElements = None
             else:
                 self.log.warning('No lamp information can be found in the metadata')
         return Struct(lamps=lamps, lampElements=lampElements)
