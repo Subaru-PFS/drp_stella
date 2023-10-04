@@ -33,7 +33,7 @@ class ReadLineListConfig(Config):
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
-                                        'sky': 'skyLines.txt'})
+                                        'sky': 'skyLines-ckj.txt'})
     assumeSky = Field(dtype=bool, default=False,
                       doc="Assume that we're looking at sky even if lamps claim to be active?")
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
