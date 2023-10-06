@@ -99,14 +99,14 @@ class SwathProfileBuilder {
 
     // Accumulate the data from a single image
     //
-    // @param image : Image to accumulate (we don't use the mask or variance for this part)
+    // @param image : Image to accumulate
     // @param centers : Fiber centers for each row, fiber
     // @param spectra : Spectrum for each fiber
     // @param yMin : Minimum row to accumulate
     // @param yMax : Maximum row to accumulate
     // @param rejected : Rejected pixels
     void accumulateImage(
-        lsst::afw::image::Image<float> const& image,
+        lsst::afw::image::MaskedImage<float> const& image,
         ndarray::Array<double, 2, 1> const& centers,
         ndarray::Array<float, 2, 1> const& spectra,
         int yMin,
@@ -127,7 +127,8 @@ class SwathProfileBuilder {
     // Accumulate the data from a single pixel
     //
     // @param xx : Column of pixel
-    // @param iter : Iterator to pixel
+    // @param iter : Iterator to pixel (we only use the image and variance; the
+    //     mask is applied through the 'rejected' parameter)
     // @param centers : Fiber centers in this row for each fiber
     // @param norm : Spectrum values in this row for each fiber
     // @param left : Index of first fiber to consider (inclusive)
@@ -136,7 +137,7 @@ class SwathProfileBuilder {
     void accumulatePixel(
         int xx,
         int yy,
-        typename lsst::afw::image::Image<float>::x_iterator iter,
+        typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
         std::size_t right,
@@ -146,7 +147,9 @@ class SwathProfileBuilder {
         assert(norm.size() == centers.size());
         assert(std::size_t(xx) < rejected.size());
         if (rejected[xx]) return;
-        double const pixelValue = *iter;
+        float const pixelValue = iter.image();
+        assert(iter.variance() > 0);
+        float const invVariance = 1.0/iter.variance();
 
         // Iterate over fibers of interest
 #if 1
@@ -161,17 +164,16 @@ class SwathProfileBuilder {
             std::size_t const iUpper = iLower + 1;
             double const iUpperModel = iModel*(1.0 - iLowerFrac);
 
-            _matrix.add(iLower, iLower, std::pow(iLowerModel, 2));
-            _matrix.add(iUpper, iUpper, std::pow(iUpperModel, 2));
-            _matrix.add(iLower, iUpper, iLowerModel*iUpperModel);
-
-            // Add symmetric elements
-            _matrix.add(iUpper, iLower, iLowerModel*iUpperModel);
+            _matrix.add(iLower, iLower, std::pow(iLowerModel, 2)*invVariance);
+            _matrix.add(iUpper, iUpper, std::pow(iUpperModel, 2)*invVariance);
+            double const offDiag = iLowerModel*iUpperModel*invVariance;
+            _matrix.add(iLower, iUpper, offDiag);
+            _matrix.add(iUpper, iLower, offDiag);  // symmetric
 
             _isZero[iLower] &= iLowerFrac == 0;
             _isZero[iUpper] &= iLowerFrac == 1;
-            _vector[iLower] += iLowerModel*pixelValue;
-            _vector[iUpper] += iUpperModel*pixelValue;
+            _vector[iLower] += iLowerModel*pixelValue*invVariance;
+            _vector[iUpper] += iUpperModel*pixelValue*invVariance;
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jModel = norm[jj];
@@ -183,16 +185,21 @@ class SwathProfileBuilder {
                 std::size_t const jUpper = jLower + 1;
                 double const jUpperModel = jModel*(1.0 - jLowerFrac);
 
-                _matrix.add(iLower, jLower, iLowerModel*jLowerModel);
-                _matrix.add(iLower, jUpper, iLowerModel*jUpperModel);
-                _matrix.add(iUpper, jLower, iUpperModel*jLowerModel);
-                _matrix.add(iUpper, jUpper, iUpperModel*jUpperModel);
+                double const ll = iLowerModel*jLowerModel*invVariance;
+                double const lu = iLowerModel*jUpperModel*invVariance;
+                double const uu = iUpperModel*jUpperModel*invVariance;
+                double const ul = iUpperModel*jLowerModel*invVariance;
+
+                _matrix.add(iLower, jLower, ll);
+                _matrix.add(iLower, jUpper, lu);
+                _matrix.add(iUpper, jLower, ul);
+                _matrix.add(iUpper, jUpper, uu);
 
                 // Add symmetric elements
-                _matrix.add(jLower, iLower, iLowerModel*jLowerModel);
-                _matrix.add(jUpper, iLower, iLowerModel*jUpperModel);
-                _matrix.add(jLower, iUpper, iUpperModel*jLowerModel);
-                _matrix.add(jUpper, iUpper, iUpperModel*jUpperModel);
+                _matrix.add(jLower, iLower, ll);
+                _matrix.add(jUpper, iLower, lu);
+                _matrix.add(jLower, iUpper, ul);
+                _matrix.add(jUpper, iUpper, uu);
             }
         }
 #else
@@ -203,16 +210,17 @@ class SwathProfileBuilder {
             if (iModel == 0) continue;
             std::size_t const iPixel = getProfileNearest(ii, xx, centers[ii]);
 
-            _matrix.add(iPixel, iPixel, std::pow(iModel, 2));
+            _matrix.add(iPixel, iPixel, std::pow(iModel, 2)*invVariance);
             _isZero[iPixel] = false;
-            _vector[iPixel] += iModel*pixelValue;
+            _vector[iPixel] += iModel*pixelValue*invVariance;
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jModel = norm[jj];
                 if (jModel == 0) continue;
                 std::size_t const jPixel = getProfileNearest(jj, xx, centers[jj]);
-                _matrix.add(iPixel, jPixel, iModel*jModel);
-                _matrix.add(jPixel, iPixel, iModel*jModel);  // symmetric
+                double const offDiag = iModel*jModel*invVariance;
+                _matrix.add(iPixel, jPixel, offDiag);
+                _matrix.add(jPixel, iPixel, offDiag);
 
                 _isZero[jPixel] = false;
             }
@@ -614,8 +622,7 @@ fitSwathProfiles(
         LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: iteration %d", yMin, yMax, iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-            builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax,
-                                    rejected[ii]);
+            builder.accumulateImage(images[ii], centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
         }
         auto const solution = builder.solve(matrixTol);
 
@@ -631,7 +638,7 @@ fitSwathProfiles(
     LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: final iteration", yMin, yMax);
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-        builder.accumulateImage(*images[ii].getImage(), centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
+        builder.accumulateImage(images[ii], centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
     }
     auto const solution = builder.solve(matrixTol);
 
