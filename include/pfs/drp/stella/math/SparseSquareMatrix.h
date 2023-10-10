@@ -25,16 +25,15 @@ namespace math {
 template <typename ElemT=double, typename IndexT=std::ptrdiff_t>
 class MatrixTriplets {
   public:
-    using Map = std::unordered_map<IndexT, ElemT>;  // column --> value
+    using Map = std::map<IndexT, ElemT>;  // column --> value; std::map is faster than std::unordered_map
     using List = std::vector<Map>;  // row --> (column, value)
 
     /// Ctor
     ///
     /// @param numCols : number of columns
     /// @param numRows : number of rows
-    /// @param nonZeroPerRow : Estimated mean number of non-zero entries per row
-    MatrixTriplets(IndexT numRows, IndexT numCols, float nonZeroPerRow=2.0)
-      : _numRows(numRows), _numCols(numCols), _numNonZero(std::ceil(nonZeroPerRow)) {
+    MatrixTriplets(IndexT numRows, IndexT numCols)
+      : _numRows(numRows), _numCols(numCols) {
         if (numRows < 0) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of rows is negative");
         }
@@ -78,9 +77,9 @@ class MatrixTriplets {
 
     /// Clear the list of triplets
     void clear() {
-        _triplets.clear();
+        _triplets.resize(_numRows);
         for (IndexT ii = 0; ii < _numRows; ++ii) {
-            _triplets.emplace_back(_numNonZero);
+            _triplets[ii].clear();
         }
     }
 
@@ -197,7 +196,6 @@ class MatrixTriplets {
 
     IndexT _numRows;  ///< Number of rows
     IndexT _numCols;  ///< Number of columns
-    std::size_t _numNonZero;  ///< Number of non-zero elements per row
     List _triplets;  ///< Triplets
 };
 
@@ -221,10 +219,9 @@ class SparseSquareMatrix {
     /// The matrix is initialised to zero.
     ///
     /// @param num : Number of columns/rows
-    /// @param nonZeroPerRow : Estimated mean number of non-zero entries per row
-    SparseSquareMatrix(std::size_t num, float nonZeroPerRow=2.0)
+    SparseSquareMatrix(std::size_t num)
       : _num(num),
-        _triplets(num, num, nonZeroPerRow)
+        _triplets(num, num)
        {
         if (num < 0) {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Number of columns is negative");
