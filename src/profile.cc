@@ -166,9 +166,7 @@ class SwathProfileBuilder {
 
             _matrix.add(iLower, iLower, std::pow(iLowerModel, 2)*invVariance);
             _matrix.add(iUpper, iUpper, std::pow(iUpperModel, 2)*invVariance);
-            double const offDiag = iLowerModel*iUpperModel*invVariance;
-            _matrix.add(iLower, iUpper, offDiag);
-            _matrix.add(iUpper, iLower, offDiag);  // symmetric
+            _matrix.add(iLower, iUpper, iLowerModel*iUpperModel*invVariance);
 
             _isZero[iLower] &= iLowerFrac == 0;
             _isZero[iUpper] &= iLowerFrac == 1;
@@ -185,21 +183,10 @@ class SwathProfileBuilder {
                 std::size_t const jUpper = jLower + 1;
                 double const jUpperModel = jModel*(1.0 - jLowerFrac);
 
-                double const ll = iLowerModel*jLowerModel*invVariance;
-                double const lu = iLowerModel*jUpperModel*invVariance;
-                double const uu = iUpperModel*jUpperModel*invVariance;
-                double const ul = iUpperModel*jLowerModel*invVariance;
-
-                _matrix.add(iLower, jLower, ll);
-                _matrix.add(iLower, jUpper, lu);
-                _matrix.add(iUpper, jLower, ul);
-                _matrix.add(iUpper, jUpper, uu);
-
-                // Add symmetric elements
-                _matrix.add(jLower, iLower, ll);
-                _matrix.add(jUpper, iLower, lu);
-                _matrix.add(jLower, iUpper, ul);
-                _matrix.add(jUpper, iUpper, uu);
+                _matrix.add(iLower, jLower, iLowerModel*jLowerModel*invVariance);
+                _matrix.add(iLower, jUpper, iLowerModel*jUpperModel*invVariance);
+                _matrix.add(iUpper, jLower, iUpperModel*jLowerModel*invVariance);
+                _matrix.add(iUpper, jUpper, iUpperModel*jUpperModel*invVariance);
             }
         }
 #else
@@ -218,9 +205,7 @@ class SwathProfileBuilder {
                 double const jModel = norm[jj];
                 if (jModel == 0) continue;
                 std::size_t const jPixel = getProfileNearest(jj, xx, centers[jj]);
-                double const offDiag = iModel*jModel*invVariance;
-                _matrix.add(iPixel, jPixel, offDiag);
-                _matrix.add(jPixel, iPixel, offDiag);
+                _matrix.add(iPixel, jPixel, iModel*jModel*invVariance);
 
                 _isZero[jPixel] = false;
             }
@@ -289,6 +274,9 @@ class SwathProfileBuilder {
     //@{
     // Solve the matrix equation
     void solve(ndarray::Array<double, 1, 1> & solution, float matrixTol=1.0e-4) {
+        // Add in the symmetric elements that we didn't bother to accumulate
+        _matrix.symmetrize();
+
         // Deal with singular values
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (_isZero[ii]) {

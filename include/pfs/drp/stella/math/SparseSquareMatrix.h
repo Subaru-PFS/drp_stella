@@ -2,6 +2,8 @@
 #define PFS_DRP_STELLA_MATH_SparseSquareMatrix_H
 
 #include <vector>
+#include <map>
+#include <set>
 
 #include "ndarray_fwd.h"
 #include "ndarray/eigen.h"
@@ -96,6 +98,10 @@ class MatrixTriplets {
         Triplet(Triplet &&) = default;
         Triplet & operator=(Triplet const&) = default;
         Triplet & operator=(Triplet &&) = default;
+
+        bool operator<(Triplet const& other) const {
+            return (this->row() < other.row() || (this->row() == other.row() && this->col() < other.col()));
+        }
     };
 
 
@@ -309,6 +315,19 @@ class SparseSquareMatrix {
     /// Reset the matrix to zero
     void reset() {
         _triplets.clear();
+    }
+
+    /// Add symmetric elements to the matrix
+    void symmetrize() {
+        std::set<typename MatrixTriplets<ElemT, IndexT>::Triplet> offDiag;
+        for (auto const& triplet : _triplets) {
+            if (triplet.row() != triplet.col()) {
+                offDiag.insert(triplet);
+            }
+        }
+        for (auto const& triplet : offDiag) {
+            add(triplet.col(), triplet.row(), triplet.value());
+        }
     }
 
     /// Return the triplets
