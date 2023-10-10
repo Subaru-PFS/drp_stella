@@ -107,7 +107,7 @@ void declareMatrixTriplets(py::module & mod) {
     using IndexT = std::ptrdiff_t;
     using Class = MatrixTriplets<ElemT, IndexT>;
     py::class_<Class> cls(mod, "MatrixTriplets");
-    cls.def(py::init<IndexT, IndexT, float>(), "numRows"_a, "numCols"_a, "nonZeroPerRow"_a=2.0);
+    cls.def(py::init<IndexT, IndexT>(), "numRows"_a, "numCols"_a);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
     cls.def("add", &Class::add, "row"_a, "col"_a, "value"_a);
@@ -131,7 +131,7 @@ template <bool symmetric>
 void declareSparseSquareMatrix(py::module & mod, char const* name) {
     using Class = SparseSquareMatrix<symmetric>;
     py::class_<Class> cls(mod, name);
-    cls.def(py::init<std::size_t, float>(), "size"_a, "nonZeroPerRow"_a=2.0);
+    cls.def(py::init<std::size_t>(), "size"_a);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
     cls.def("add", &Class::add, "row"_a, "col"_a, "value"_a);

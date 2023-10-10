@@ -82,7 +82,7 @@ class SwathProfileBuilder {
         _profileCenter((radius + 1)*oversample + 0.5),
         _numFibers(numFibers),
         _numParameters(numFibers*_profileSize),
-        _matrix(_numParameters, calculateNonZeroPerCol(numFibers, radius, oversample, width)),
+        _matrix(_numParameters),
         _vector(ndarray::allocate(_numParameters)),
         _isZero(ndarray::allocate(_numParameters)) {
             reset();
@@ -297,9 +297,6 @@ class SwathProfileBuilder {
             }
         }
 
-        LOGL_DEBUG(_log, "Solving matrix equation of %ld parameters with %ld non-zero elements",
-                   _numParameters, _matrix.getTriplets().size());
-
         solution.deep() = std::numeric_limits<double>::quiet_NaN();
 
         // Solve the matrix equation
@@ -432,39 +429,6 @@ class SwathProfileBuilder {
         if (std::abs(diff) > rejThreshold) {
             rejected[xx] = true;
         }
-    }
-
-    // Calculate the number of non-zero pixels per column
-    //
-    // @param numFibers : Number of fibers
-    // @param radius : Radius of profile
-    // @param oversample : Oversampling factor
-    // @param width : Width of image
-    // @return Number of non-zero pixels per column
-    static float calculateNonZeroPerCol(int numFibers, int radius, float oversample, int width) {
-        std::size_t const profileSize = 2*std::size_t((radius + 1)*oversample + 0.5) + 1;
-
-        float const spacing = float(width)/numFibers;  // guess at space between fibers
-        float const meanOverlap = 2*(radius + 1)/spacing;
-
-        // We can assume that each pixel in the profile is going to overlap with another pixel from a
-        // different fiber (otherwise, why are you using this expensive fitting method?). Each pixel
-        // is subdivided into 'oversample' parts, and each of those can overlap with the 'oversample'
-        // parts of another pixel, so we get oversample^2 cross terms. Dividing by the number of terms
-        // per fiber, we're left with simply the oversampling.
-        // We get that for each fiber that we overlap with to.
-        float const interFiberCrossTerms = oversample*meanOverlap;
-
-        // For each pixel in the oversampled profile, we get cross terms from the linear interpolation
-        float const intraFiberCrossTerms = 2*profileSize;
-
-        // And there's the diagonal
-        float const diagonal = profileSize;
-
-        // Add a fiddle factor for buffering
-        float const fiddle = 4;
-
-        return fiddle*(interFiberCrossTerms + intraFiberCrossTerms + diagonal)/profileSize;
     }
 
   private:
@@ -611,8 +575,6 @@ fitSwathProfiles(
             }
         }
     }
-
-    LOGL_DEBUG(_log, "Guestimating %f non-zero matrix elements per column", SwathProfileBuilder::calculateNonZeroPerCol(fiberIds.size(), radius, oversample, width));
 
     SwathProfileBuilder builder{fiberIds.size(), oversample, radius, width};
 
