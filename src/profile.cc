@@ -70,12 +70,10 @@ class SwathProfileBuilder {
     // @param numFibers : Number of fibers
     // @param oversample : Oversampling factor
     // @param radius : Radius of fiber profile, in pixels
-    // @param width : Image width, in pixels (for memory allocation estimation)
     SwathProfileBuilder(
         std::size_t numFibers,
         int oversample,
-        int radius,
-        int width
+        int radius
     ) : _oversample(oversample),
         _radius(radius),
         _profileSize(2*std::size_t((radius + 1)*oversample + 0.5) + 1),
@@ -564,7 +562,7 @@ fitSwathProfiles(
         }
     }
 
-    SwathProfileBuilder builder{fiberIds.size(), oversample, radius, width};
+    SwathProfileBuilder builder{fiberIds.size(), oversample, radius};
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
