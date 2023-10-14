@@ -12,6 +12,20 @@ namespace drp {
 namespace stella {
 
 
+/// Results from fitProfiles
+struct FitProfilesResults {
+    ndarray::Array<double, 3, 1> profiles; ///< Fiber profiles: 1d profile per fiber per swath
+    ndarray::Array<bool, 3, 1> masks; ///< Mask for profiles
+    std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds; ///< Background images
+
+    FitProfilesResults(
+        ndarray::Array<double, 3, 1> const& profiles_,
+        ndarray::Array<bool, 3, 1> const& masks_,
+        std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> const& backgrounds_
+    ) : profiles(profiles_), masks(masks_), backgrounds(backgrounds_) {}
+};
+
+
 /// Fit multiple fiber profiles for a swath
 ///
 /// We perform a simultaneous fit of fiber profiles to multiple images.
@@ -20,26 +34,25 @@ namespace stella {
 /// @param centers : Fiber centers for each row, fiber, image.
 /// @param spectra : Fiber spectra for each row, fiber, image.
 /// @param fiberIds : Fiber IDs
-/// @param yMin : Minimum row to fit
-/// @param yMax : Maximum row to fit
+/// @param ySwaths : y positions of swath centers
 /// @param badBitMask : Mask bits to ignore
 /// @param oversample : Oversampling factor
 /// @param radius : Radius of fiber profile
+/// @param bgSize : Size of background super-pixels
 /// @param rejIter : Number of rejection iterations
 /// @param rejThresh : Rejection threshold (sigma)
 /// @param matrixTol : Matrix solver tolerance
 /// @return fiber profiles and mask
-std::pair<ndarray::Array<double, 2, 1>, ndarray::Array<bool, 2, 1>>
-fitSwathProfiles(
+FitProfilesResults fitProfiles(
     std::vector<lsst::afw::image::MaskedImage<float>> const& images,
     std::vector<ndarray::Array<double, 2, 1>> const& centers,
     std::vector<ndarray::Array<float, 2, 1>> const& spectra,
     ndarray::Array<int, 1, 1> const& fiberIds,
-    int yMin,
-    int yMax,
+    ndarray::Array<float, 1, 1> const& ySwaths,
     lsst::afw::image::MaskPixel badBitMask,
     int oversample,
     int radius,
+    lsst::geom::Extent2I const& bgSize,
     int rejIter=1,
     float rejThresh=4.0,
     float matrixTol=1e-4

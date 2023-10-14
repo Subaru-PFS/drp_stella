@@ -11,6 +11,7 @@
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 #include "pfs/drp/stella/utils/math.h"
+#include "pfs/drp/stella/backgroundIndices.h"
 
 namespace pfs {
 namespace drp {
@@ -67,58 +68,72 @@ class SwathProfileBuilder {
 
     // Constructor
     //
+    // @param numImages : Number of images
     // @param numFibers : Number of fibers
+    // @param ySwaths : y positions of swath centers
     // @param oversample : Oversampling factor
     // @param radius : Radius of fiber profile, in pixels
+    // @param dims : Dimensions of image
+    // @param bgNum : Number of background pixels in each dimension
     SwathProfileBuilder(
+        std::size_t numImages,
         std::size_t numFibers,
+        ndarray::Array<float, 1, 1> const& ySwaths,
         int oversample,
-        int radius
-    ) : _oversample(oversample),
+        int radius,
+        lsst::geom::Extent2I const& dims,
+        lsst::geom::Extent2I const& bgSize
+    ) : _ySwaths(ySwaths),
+        _oversample(oversample),
         _radius(radius),
         _profileSize(2*std::size_t((radius + 1)*oversample + 0.5) + 1),
         _profileCenter((radius + 1)*oversample + 0.5),
+        _numImages(numImages),
         _numFibers(numFibers),
-        _numParameters(numFibers*_profileSize),
+        _dims(dims),
+        _bgSize(bgSize),
+        _numProfileParameters(numFibers*_profileSize),
+        _numSwathsParameters(_numProfileParameters*ySwaths.size()),
+        _numBackgroundParameters(getNumBackgroundIndices(dims, bgSize)),
+        _numParameters(_numSwathsParameters + numImages*_numBackgroundParameters),
+        _bgIndex(calculateBackgroundIndices(dims, bgSize, _numSwathsParameters)),
         _matrix(_numParameters),
-        _vector(ndarray::allocate(_numParameters)),
-        _isZero(ndarray::allocate(_numParameters)) {
+        _vector(ndarray::allocate(_numParameters)) {
             reset();
         }
 
     std::size_t getNumParameters() const { return _numParameters; }
 
-    // Reset for a new swath
+    // Reset for a new iteration
     void reset() {
         _matrix.reset();
         _vector.deep() = 0;
-        _isZero.deep() = true;
     }
 
     // Accumulate the data from a single image
     //
+    // @param imageIndex : Index of image
     // @param image : Image to accumulate
     // @param centers : Fiber centers for each row, fiber
     // @param spectra : Spectrum for each fiber
-    // @param yMin : Minimum row to accumulate
-    // @param yMax : Maximum row to accumulate
     // @param rejected : Rejected pixels
     void accumulateImage(
+        std::size_t imageIndex,
         lsst::afw::image::MaskedImage<float> const& image,
         ndarray::Array<double, 2, 1> const& centers,
         ndarray::Array<float, 2, 1> const& spectra,
-        int yMin,
-        int yMax,
         ndarray::Array<bool, 2, 1> const& rejected
     ) {
         assert(centers.getShape() == spectra.getShape());
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
-        assert(rejected.getShape()[0] == std::size_t(yMax - yMin));
-        std::size_t ii = 0;
-        for (int yy = yMin; yy < yMax; ++yy, ++ii) {
+        assert(rejected.getShape()[0] == std::size_t(image.getHeight()));
+
+        std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional background offset
+        for (int yy = 0; yy < image.getHeight(); ++yy) {
+            auto const swathInterp = getSwathInterpolation(yy);
             iterateRow(image, yy, centers[ndarray::view()(yy)],
                        bind_method<void>(*this, &SwathProfileBuilder::accumulatePixel),
-                       spectra[ndarray::view()(yy)], rejected[ii]);
+                       spectra[ndarray::view()(yy)], rejected[yy], swathInterp, bgOffset);
         }
     }
 
@@ -132,6 +147,8 @@ class SwathProfileBuilder {
     // @param left : Index of first fiber to consider (inclusive)
     // @param right : Index of last fiber to consider (exclusive)
     // @param rejected : Rejected pixels for this row
+    // @param swathInterp : Swath interpolation for this row
+    // @param bgOffset : Offset into the background parameters
     void accumulatePixel(
         int xx,
         int yy,
@@ -140,7 +157,9 @@ class SwathProfileBuilder {
         std::size_t left,
         std::size_t right,
         ndarray::ArrayRef<float, 1, 0> const& norm,
-        ndarray::ArrayRef<bool, 1, 1> const& rejected
+        ndarray::ArrayRef<bool, 1, 1> const& rejected,
+        std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
+        std::size_t bgOffset
     ) {
         assert(norm.size() == centers.size());
         assert(std::size_t(xx) < rejected.size());
@@ -149,67 +168,60 @@ class SwathProfileBuilder {
         assert(iter.variance() > 0);
         float const invVariance = 1.0/iter.variance();
 
+        auto const bgIndex = bgOffset + _bgIndex[yy][xx];
+        _matrix.add(bgIndex, bgIndex, invVariance);
+        _vector[bgIndex] += pixelValue*invVariance;
+
         // Iterate over fibers of interest
-#if 1
-        // Linear interpolation
         for (std::size_t ii = left; ii < right; ++ii) {
-            double const iModel = norm[ii];
-            if (iModel == 0) continue;
-            std::size_t iLower;
-            double iLowerFrac;
-            std::tie(iLower, iLowerFrac) = getProfileInterpolation(ii, xx, centers[ii]);
-            double const iLowerModel = iModel*iLowerFrac;
-            std::size_t const iUpper = iLower + 1;
-            double const iUpperModel = iModel*(1.0 - iLowerFrac);
+            double const iNorm = norm[ii];
+            if (iNorm == 0) continue;
 
-            _matrix.add(iLower, iLower, std::pow(iLowerModel, 2)*invVariance);
-            _matrix.add(iUpper, iUpper, std::pow(iUpperModel, 2)*invVariance);
-            _matrix.add(iLower, iUpper, iLowerModel*iUpperModel*invVariance);
+            // We're doing two interpolations here: one in the spatial dimension (profile)
+            // and one in the spectral dimension (swath). That means we have four
+            // diagonal elements to add to the matrix, and six off-diagonal elements
+            // (plus six symmetric off-diagonal elements that will get filled in later).
+            auto const iInterp = getSwathProfileInterpolation(swathInterp, ii, xx, centers[ii], iNorm);
+            std::array<std::size_t, 4> const iIndex = iInterp.first;
+            std::array<double, 4> const iValue = iInterp.second;
 
-            _isZero[iLower] &= iLowerFrac == 0;
-            _isZero[iUpper] &= iLowerFrac == 1;
-            _vector[iLower] += iLowerModel*pixelValue*invVariance;
-            _vector[iUpper] += iUpperModel*pixelValue*invVariance;
+            _matrix.add(iIndex[0], iIndex[0], std::pow(iValue[0], 2)*invVariance);
+            _matrix.add(iIndex[1], iIndex[1], std::pow(iValue[1], 2)*invVariance);
+            _matrix.add(iIndex[2], iIndex[2], std::pow(iValue[2], 2)*invVariance);
+            _matrix.add(iIndex[3], iIndex[3], std::pow(iValue[3], 2)*invVariance);
+
+            _vector[iIndex[0]] += iValue[0]*pixelValue*invVariance;
+            _vector[iIndex[1]] += iValue[1]*pixelValue*invVariance;
+            _vector[iIndex[2]] += iValue[2]*pixelValue*invVariance;
+            _vector[iIndex[3]] += iValue[3]*pixelValue*invVariance;
+
+            _matrix.add(iIndex[0], iIndex[1], iValue[0]*iValue[1]*invVariance);
+            _matrix.add(iIndex[0], iIndex[2], iValue[0]*iValue[2]*invVariance);
+            _matrix.add(iIndex[0], iIndex[3], iValue[0]*iValue[3]*invVariance);
+            _matrix.add(iIndex[1], iIndex[2], iValue[1]*iValue[2]*invVariance);
+            _matrix.add(iIndex[1], iIndex[3], iValue[1]*iValue[3]*invVariance);
+            _matrix.add(iIndex[2], iIndex[3], iValue[2]*iValue[3]*invVariance);
+
+            _matrix.add(iIndex[0], bgIndex, iValue[0]*invVariance);
+            _matrix.add(iIndex[1], bgIndex, iValue[1]*invVariance);
+            _matrix.add(iIndex[2], bgIndex, iValue[2]*invVariance);
+            _matrix.add(iIndex[3], bgIndex, iValue[3]*invVariance);
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
-                double const jModel = norm[jj];
-                if (jModel == 0) continue;
-                std::size_t jLower;
-                double jLowerFrac;
-                std::tie(jLower, jLowerFrac) = getProfileInterpolation(jj, xx, centers[jj]);
-                double const jLowerModel = jModel*jLowerFrac;
-                std::size_t const jUpper = jLower + 1;
-                double const jUpperModel = jModel*(1.0 - jLowerFrac);
+                double const jNorm = norm[jj];
+                if (jNorm == 0) continue;
 
-                _matrix.add(iLower, jLower, iLowerModel*jLowerModel*invVariance);
-                _matrix.add(iLower, jUpper, iLowerModel*jUpperModel*invVariance);
-                _matrix.add(iUpper, jLower, iUpperModel*jLowerModel*invVariance);
-                _matrix.add(iUpper, jUpper, iUpperModel*jUpperModel*invVariance);
+                auto const jInterp = getSwathProfileInterpolation(swathInterp, jj, xx, centers[jj], jNorm);
+                std::array<std::size_t, 4> const jIndex = jInterp.first;
+                std::array<double, 4> const jValue = jInterp.second;
+
+                for (int iTerm = 0; iTerm < 4; ++iTerm) {
+                    for (int jTerm = 0; jTerm < 4; ++jTerm) {
+                        _matrix.add(iIndex[iTerm], jIndex[jTerm], iValue[iTerm]*jValue[jTerm]*invVariance);
+                    }
+                }
             }
         }
-#else
-        // Nearest-neighbour interpolation
-        // This is much simpler than linear interpolation, but it is subject to imprecisions
-        for (std::size_t ii = left; ii < right; ++ii) {
-            double const iModel = norm[ii];
-            if (iModel == 0) continue;
-            std::size_t const iPixel = getProfileNearest(ii, xx, centers[ii]);
-
-            _matrix.add(iPixel, iPixel, std::pow(iModel, 2)*invVariance);
-            _isZero[iPixel] = false;
-            _vector[iPixel] += iModel*pixelValue*invVariance;
-
-            for (std::size_t jj = ii + 1; jj < right; ++jj) {
-                double const jModel = norm[jj];
-                if (jModel == 0) continue;
-                std::size_t const jPixel = getProfileNearest(jj, xx, centers[jj]);
-                _matrix.add(iPixel, jPixel, iModel*jModel*invVariance);
-
-                _isZero[jPixel] = false;
-            }
-        }
-#endif
-
     }
 
     // Iterate over a row of an image, calling a function for each pixel
@@ -250,10 +262,10 @@ class SwathProfileBuilder {
 
         // Iterate over pixels in the row
         std::size_t left = 0;  // fiber index of lower bound of consideration for this pixel (inclusive)
-        std::size_t right = 1;  // fiber index of upper bound of consideration for this pixel (exclusive)
-        int xx = lower[0];  // column for pixel of interest
-        auto const stop = image.row_begin(yy) + upper[_numFibers - 1];
-        for (auto ptr = image.row_begin(yy) + xx; ptr != stop; ++ptr, ++xx) {
+        std::size_t right = 0;  // fiber index of upper bound of consideration for this pixel (exclusive)
+        int xx = 0;  // column for pixel of interest
+        auto const stop = image.row_end(yy);
+        for (auto ptr = image.row_begin(yy); ptr != stop; ++ptr, ++xx) {
             // Which fibers are we dealing with?
             // pixel:                X
             // fiber 0: |-----------|
@@ -275,9 +287,17 @@ class SwathProfileBuilder {
         // Add in the symmetric elements that we didn't bother to accumulate
         _matrix.symmetrize();
 
-        // Deal with singular values
+        // Detect and deal with singular values
+        ndarray::Array<bool, 1, 1> isZero = ndarray::allocate(getNumParameters());
+        isZero.deep() = true;
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
-            if (_isZero[ii]) {
+            for (std::size_t jj = 0; jj < getNumParameters(); ++jj) {
+                if (_matrix.get(ii, jj) != 0.0) {
+                    isZero[ii] = false;
+                    break;
+                }
+            }
+            if (isZero[ii]) {
                 _matrix.add(ii, ii, 1.0);
                 assert(_vector[ii] == 0.0);  // or we've done something wrong
             }
@@ -298,7 +318,7 @@ class SwathProfileBuilder {
         _matrix.solve(solution, _vector, solver);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
-            if (_isZero[ii]) {
+            if (isZero[ii]) {
                 solution[ii] = std::numeric_limits<double>::quiet_NaN();
             }
         }
@@ -310,57 +330,60 @@ class SwathProfileBuilder {
     }
     //@}
 
-    // Repackage the solution into a 2-d array
+    // Repackage the solution into a format that is useful for the user
     //
     // @param solution : Solution array
-    // @return profile and mask arrays
+    // @return results struct
     auto repackageSolution(ndarray::Array<double, 1, 1> const& solution) {
         // Repackage the solution
-        ndarray::Array<double, 2, 1> profile = ndarray::allocate(_numFibers, _profileSize);
-        ndarray::Array<bool, 2, 1> mask = ndarray::allocate(_numFibers, _profileSize);
+        ndarray::Array<double, 3, 1> profiles = ndarray::allocate(_numFibers, _ySwaths.size(), _profileSize);
+        ndarray::Array<bool, 3, 1> masks = ndarray::allocate(_numFibers, _ySwaths.size(), _profileSize);
         std::size_t index = 0;
-        for (std::size_t ff = 0; ff < _numFibers; ++ff) {
-            for (std::size_t pp = 0; pp < _profileSize; ++pp, ++index) {
-                if (_isZero[index]) {
-                    profile[ff][pp] = NAN;
-                    mask[ff][pp] = true;
-                } else {
-                    profile[ff][pp] = solution[index];
-                    mask[ff][pp] = false;
+        for (std::size_t ss = 0; ss < _ySwaths.size(); ++ss) {
+            for (std::size_t ff = 0; ff < _numFibers; ++ff) {
+                for (std::size_t pp = 0; pp < _profileSize; ++pp, ++index) {
+                    profiles[ff][ss][pp] = solution[index];
+                    masks[ff][ss][pp] = std::isnan(solution[index]);
                 }
             }
         }
-        return std::make_pair(profile, mask);
+
+        std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds{_numImages};
+        for (std::size_t ii = 0; ii < _numImages; ++ii) {
+            std::size_t const offset = _numSwathsParameters + ii*_numBackgroundParameters;
+            backgrounds[ii] = makeBackgroundImage(_dims, _bgSize, solution, offset);
+        }
+
+        return FitProfilesResults(profiles, masks, backgrounds);
     }
 
     // Reject pixels that are too far from the model
     //
     // @param solution : Solution array
+    // @param imageIndex : Index of image to fit
     // @param image : Image to fit (mask is unused: we use the rejected array instead)
     // @param centers : Fiber centers for each row, fiber
     // @param spectra : Spectra for each row, fiber
-    // @param yMin : Minimum row to fit
-    // @param yMax : Maximum row to fit (exclusive)
     // @param rejected : Array of pixels to reject (true=rejected)
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
     void reject(
         ndarray::Array<double, 1, 1> const& solution,
+        std::size_t imageIndex,
         lsst::afw::image::MaskedImage<float> const& image,
         ndarray::Array<double, 2, 1> const& centers,
         ndarray::Array<float, 2, 1> const& spectra,
-        int yMin,
-        int yMax,
         ndarray::Array<bool, 2, 1> rejected,
         float rejThreshold
     ) const {
         assert(centers.getShape() == spectra.getShape());
-        assert(rejected.getShape()[0] == std::size_t(yMax - yMin));
+        assert(rejected.getShape()[0] == std::size_t(image.getHeight()));
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
-        std::size_t ii = 0;
-        for (int yy = yMin; yy < yMax; ++yy, ++ii) {
+        std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional offset for background
+        for (int yy = 0; yy < image.getHeight(); ++yy) {
+            auto const swathInterp = getSwathInterpolation(yy);
             iterateRow(image, yy, centers[ndarray::view()(yy)],
-                       bind_method<void>(*this, &SwathProfileBuilder::applyPixelRejection),
-                       rejected[ii], spectra[ndarray::view()(yy)], solution, rejThreshold);
+                       bind_method<void>(*this, &SwathProfileBuilder::applyPixelRejection), rejected[yy],
+                       spectra[ndarray::view()(yy)], solution, rejThreshold, swathInterp, bgOffset);
         }
     }
 
@@ -375,6 +398,8 @@ class SwathProfileBuilder {
     // @param norm : Normalization for each fiber
     // @param solution : Solution array
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
+    // @param swathInterp : Swath interpolation for this row
+    // @param bgOffset : Offset into the background parameters
     void applyPixelRejection(
         int xx,
         int yy,
@@ -385,31 +410,31 @@ class SwathProfileBuilder {
         ndarray::ArrayRef<bool, 1, 1> & rejected,
         ndarray::ArrayRef<float, 1, 0> const& norm,
         ndarray::Array<double, 1, 1> const& solution,
-        float rejThreshold
+        float rejThreshold,
+        std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
+        std::size_t bgOffset
     ) const {
         assert(centers.size() == norm.size());
         assert(std::size_t(xx) < rejected.size());
         float const image = iter.image();
         float const variance = iter.variance();
         double model = 0.0;
-        for (std::size_t ii = left; ii < right; ++ii) {
-            double const iModel = norm[ii];
-            if (iModel == 0) continue;
 
-#if 1
-            // Linear interpolation
-            std::size_t iLower;
-            double iLowerFrac;
-            std::tie(iLower, iLowerFrac) = getProfileInterpolation(ii, xx, centers[ii]);
-            double const iLowerModel = iModel*iLowerFrac;
-            std::size_t const iUpper = iLower + 1;
-            double const iUpperModel = iModel*(1.0 - iLowerFrac);
-            model += iLowerModel*solution[iLower] + iUpperModel*solution[iUpper];
-#else
-            // Nearest neighbor interpolation
-            std::size_t const iPixel = getProfileNearest(ii, xx, centers[ii]);
-            model += iModel*solution[iPixel];
-#endif
+        auto const bgIndex = bgOffset + _bgIndex[yy][xx];
+        model += solution[bgIndex];
+
+        for (std::size_t ii = left; ii < right; ++ii) {
+            double const iNorm = norm[ii];
+            if (iNorm == 0) continue;
+
+            auto const iInterp = getSwathProfileInterpolation(swathInterp, ii, xx, centers[ii], iNorm);
+            std::array<std::size_t, 4> const iIndex = iInterp.first;
+            std::array<double, 4> const iValue = iInterp.second;
+
+            model += solution[iIndex[0]]*iValue[0];
+            model += solution[iIndex[1]]*iValue[1];
+            model += solution[iIndex[2]]*iValue[2];
+            model += solution[iIndex[3]]*iValue[3];
         }
         float const diff = (image - model)/std::sqrt(variance);
         if (std::abs(diff) > rejThreshold) {
@@ -419,12 +444,21 @@ class SwathProfileBuilder {
 
   private:
     // Indices:
-    // profile[fiberIndex=0, position=0]
+    // profile[swath=0, fiberIndex=0, position=0]
     // ...
-    // profile[fiberIndex=0, position=profileSize-1]
-    // profile[fiberIndex=1, position=0]
+    // profile[swath=0, fiberIndex=0, position=profileSize-1]
+    // profile[swath=0, fiberIndex=1, position=0]
     // ... ...
-    // profile[fiberIndex=numFibers-1, position=profileSize-1]
+    // profile[swath=0, fiberIndex=numFibers-1, position=profileSize-1]
+    // profile[swath=1, fiberIndex=0, position=0]
+    // ... ...
+    // profile[swath=numSwaths-1, fiberIndex=numFibers-1, position=profileSize-1]
+    // background[image=0, superpixel=0]
+    // ...
+    // background[image=0, superpixel=numBackground]
+    // background[image=1, superpixel=0]
+    // ...
+    // background[image=numImages-1, superpixel=numBackground]
 
     // Convert pixel --> index
     //
@@ -458,7 +492,7 @@ class SwathProfileBuilder {
         return profilePosition;
     }
 
-    // Linear interpolation between pixels: more accurate, but lots slower
+    // Linear interpolation between pixels
     std::pair<std::size_t, double> getProfileInterpolation(
         std::size_t fiberIndex,
         int xx,
@@ -475,50 +509,120 @@ class SwathProfileBuilder {
         return std::make_pair(index, frac);
     }
 
-    // Nearest-neighbor interpolation
-    //
-    // Given a fiber (with associated center) and the pixel column, return the
-    // appropriate model index.
-    std::size_t getProfileNearest(
-        std::size_t fiberIndex,
-        int xx,
-        double center
-    ) const {
-        //          X
-        // |-1-|-2-|-3-|-4-|-5-|
-        double const actual = (xx - center)*_oversample;
-        std::size_t const position = std::round(actual) + _profileCenter;
-        return getProfileIndex(fiberIndex, position);
+    // Get index for a profile within a swath
+    std::size_t getSwathProfileIndex(std::size_t swathIndex, std::size_t profileIndex) const {
+        assert(swathIndex < _ySwaths.size());
+        assert(profileIndex < _numProfileParameters);
+        return swathIndex*_numProfileParameters + profileIndex;
     }
 
+    // Linear interpolation between swaths
+    //
+    // Given a row, return the swath indices and linear interpolation factors.
+    std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> getSwathInterpolation(
+        int yy
+    ) const {
+        std::size_t const last = _ySwaths.size() - 1;
+        if (yy <= _ySwaths[0]) {
+            return std::make_pair(std::make_pair(0UL, 1.0), std::make_pair(0UL, 0.0));
+        }
+        if (yy >= _ySwaths[last]) {
+            return std::make_pair(std::make_pair(last, 1.0), std::make_pair(last, 0.0));
+        }
+        std::size_t nextIndex = 0;
+        while (_ySwaths[nextIndex] < yy && nextIndex < last) {
+            ++nextIndex;
+        }
+        std::size_t const prevIndex = std::max(0UL, nextIndex - 1);
+
+        double const yPrev = _ySwaths[prevIndex];
+        double const yNext = _ySwaths[nextIndex];
+        double const nextWeight = (yy - yPrev)/(yNext - yPrev);
+        double const prevWeight = 1.0 - nextWeight;
+
+        return std::make_pair(
+            std::make_pair(prevIndex, prevWeight),
+            std::make_pair(nextIndex, nextWeight)
+        );
+    }
+
+    // Linear interpolation between swaths and profiles
+    //
+    // Given a row, return the swath and profile indices and linear interpolation factors.
+    // Since there are two linear interpolations (one in the spatial dimension across the
+    // profile, and one in the spectral dimension across the swaths), we return four indices
+    // and factors.
+    std::pair<std::array<std::size_t, 4>, std::array<double, 4>> getSwathProfileInterpolation(
+        std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
+        std::size_t fiberIndex,
+        int xx,
+        double center,
+        double model
+    ) const {
+        std::array<std::size_t, 4> indices;
+        std::array<double, 4> weights;
+
+        // Interpolation over swaths
+        std::size_t const prevSwath = swathInterp.first.first;
+        double const prevSwathFrac = swathInterp.first.second;
+        std::size_t const nextSwath = swathInterp.second.first;
+        double const nextSwathFrac = swathInterp.second.second;
+
+        // Interpolation over profile
+        std::size_t prevPosition;
+        double prevPositionFrac;
+        std::tie(prevPosition, prevPositionFrac) = getProfileInterpolation(fiberIndex, xx, center);
+        std::size_t const nextPosition = prevPosition + 1;
+        double const nextPositionFrac = 1.0 - prevPositionFrac;
+
+        indices[0] = getSwathProfileIndex(prevSwath, prevPosition);
+        indices[1] = getSwathProfileIndex(prevSwath, nextPosition);
+        indices[2] = getSwathProfileIndex(nextSwath, prevPosition);
+        indices[3] = getSwathProfileIndex(nextSwath, nextPosition);
+
+        weights[0] = prevSwathFrac*prevPositionFrac*model;
+        weights[1] = prevSwathFrac*nextPositionFrac*model;
+        weights[2] = nextSwathFrac*prevPositionFrac*model;
+        weights[3] = nextSwathFrac*nextPositionFrac*model;
+
+        return std::make_pair(indices, weights);
+    }
+
+
+    ndarray::Array<float, 1, 1> const& _ySwaths;  // y positions of swath centers
     int _oversample;  // oversampling factor for profiles
     int _radius;  // radius of profiles
     std::size_t _profileSize;  // size of profiles = 2*radius*oversample + 1
     std::size_t _profileCenter;  // index of center of profile = radius*oversample
+    std::size_t _numImages;  // number of images
     std::size_t _numFibers;  // number of fibers
-    std::size_t _numParameters;  // number of parameters = profileSize*numFibers
+    lsst::geom::Extent2I _dims;  // dimensions of image
+    lsst::geom::Extent2I _bgSize;  // size of background super-pixels (in regular pixels)
+    std::size_t _numProfileParameters;  // number of parameters for profiles per swath
+    std::size_t _numSwathsParameters;  // number of parameters for profiles for all swaths
+    std::size_t _numBackgroundParameters;  // number of parameters for background per image
+    std::size_t _numParameters;  // total number of parameters
+    ndarray::Array<int, 2, 1> _bgIndex;  // index of background super-pixel for each pixel
     // We use a non-symmetric matrix because the conjugate gradient solver
     // doesn't work with a self-adjoint view. So we just add the symmetric
     // elements manually.
     math::NonsymmetricSparseSquareMatrix _matrix;  // least-squares (Fisher) matrix
     ndarray::Array<double, 1, 1> _vector;  // least-squares (right-hand side) vector
-    ndarray::Array<bool, 1, 1> _isZero;  // any zero matrix elements for this parameter?
 };
 
 }  // anonymous namespace
 
 
-std::pair<ndarray::Array<double, 2, 1>, ndarray::Array<bool, 2, 1>>
-fitSwathProfiles(
+FitProfilesResults fitProfiles(
     std::vector<lsst::afw::image::MaskedImage<float>> const& images,
     std::vector<ndarray::Array<double, 2, 1>> const& centers,
     std::vector<ndarray::Array<float, 2, 1>> const& spectra,
     ndarray::Array<int, 1, 1> const& fiberIds,
-    int yMin,
-    int yMax,
+    ndarray::Array<float, 1, 1> const& yKnots,
     lsst::afw::image::MaskPixel badBitMask,
     int oversample,
     int radius,
+    lsst::geom::Extent2I const& bgSize,
     int rejIter,
     float rejThresh,
     float matrixTol
@@ -534,6 +638,7 @@ fitSwathProfiles(
     utils::checkSize(spectra.size(), num, "images vs spectra");
     auto const dims = images[0].getDimensions();
     int const width = dims.getX();
+    int const height = dims.getY();
     for (std::size_t ii = 1; ii < num; ++ii) {
         if (images[ii].getDimensions() != dims) {
             throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Image dimension mismatch");
@@ -542,18 +647,12 @@ fitSwathProfiles(
             throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Centers dimension mismatch");
         }
     }
-    if (yMax < yMin) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "No pixels to fit");
-    }
-    if (yMin < 0 || yMin >= images[0].getHeight() || yMax < 0 || yMax >= images[0].getHeight()) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "yMin/yMax outside of image");
-    }
 
     // Reject pixels based on mask
-    ndarray::Array<bool, 3, 1> rejected = ndarray::allocate(num, yMax - yMin, width);
+    ndarray::Array<bool, 3, 1> rejected = ndarray::allocate(num, height, width);
     for (std::size_t ii = 0; ii < num; ++ii) {
         std::size_t jj = 0;
-        for (int yy = yMin; yy < yMax; ++yy, ++jj) {
+        for (int yy = 0; yy < height; ++yy, ++jj) {
             auto mask = images[ii].getMask()->row_begin(yy);
             auto rej = rejected[ii][jj].begin();
             for (int xx = 0; xx < width; ++xx, ++mask, ++rej) {
@@ -562,31 +661,30 @@ fitSwathProfiles(
         }
     }
 
-    SwathProfileBuilder builder{fiberIds.size(), oversample, radius};
+    SwathProfileBuilder builder{images.size(), fiberIds.size(), yKnots, oversample, radius, dims, bgSize};
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
         builder.reset();
-        LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: iteration %d", yMin, yMax, iter);
+        LOGL_DEBUG(_log, "Fitting profiles: iteration %d", iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-            builder.accumulateImage(images[ii], centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
+            builder.accumulateImage(ii, images[ii], centers[ii], spectra[ii], rejected[ii]);
         }
         auto const solution = builder.solve(matrixTol);
 
         // Reject bad pixels
-        LOGL_DEBUG(_log, "Rejecting pixels for rows %d-%d: iteration %d", yMin, yMax, iter);
+        LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
-            builder.reject(solution, images[ii], centers[ii], spectra[ii], yMin, yMax,
-                           rejected[ii], rejThresh);
+            builder.reject(solution, ii, images[ii], centers[ii], spectra[ii],  rejected[ii], rejThresh);
         }
     }
     // Final solution after iteration
     builder.reset();
-    LOGL_DEBUG(_log, "Fitting profile for rows %d-%d: final iteration", yMin, yMax);
+    LOGL_DEBUG(_log, "Fitting profiles: final iteration");
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-        builder.accumulateImage(images[ii], centers[ii], spectra[ii], yMin, yMax, rejected[ii]);
+        builder.accumulateImage(ii, images[ii], centers[ii], spectra[ii], rejected[ii]);
     }
     auto const solution = builder.solve(matrixTol);
 
