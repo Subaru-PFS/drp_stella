@@ -4,12 +4,13 @@ import numpy as np
 
 from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
 from lsst.daf.base import PropertyList
+from lsst.geom import Extent2I
 
 from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTraceSet
 from .spline import SplineD
-from .profile import fitSwathProfiles
+from .profile import fitProfiles
 
 if TYPE_CHECKING:
     import matplotlib
@@ -183,21 +184,48 @@ class FiberProfileSet:
         # Minimum of four bounds produces two swaths, so we can interpolate.
         numSwaths = max(4, int(np.ceil(2*height/swathSize)))
         bounds = np.linspace(0, height - 1, numSwaths, dtype=int)
+        ySwaths = 0.5*(bounds[:-2] + bounds[2:])
 
-        profileList = defaultdict(list)  # List of profiles as a function of fiberId
-        yProfile = []  # List of mean row
-        for yMin, yMax in zip(bounds[:-2], bounds[2:]):
-            profiles, masks = fitSwathProfiles(imageList, centerList, normList, fiberId.astype(np.int32),
-                                               yMin, yMax, badBitmask, oversample, radius, rejIter, rejThresh,
-                                               matrixTol)
-            yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
-            for ff, pp, mm in zip(fiberId, profiles, masks):
-                pp = np.ma.MaskedArray(pp, mm)
-                profileList[ff].append(pp/np.ma.average(pp, axis=0)/oversample)
 
-        return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
-                                     np.ma.masked_array(profileList[ff])) for
-                    ff in fiberId}, identity, visitInfo, metadata)
+
+        bgSize = Extent2I(70, 70)  # XXXXX testing
+
+
+
+        results = fitProfiles(
+            imageList,
+            centerList,
+            normList,
+            fiberId.astype(np.int32),
+            ySwaths.astype(np.float32),
+            badBitmask,
+            oversample,
+            radius,
+            bgSize,
+            rejIter,
+            rejThresh,
+            matrixTol,
+        )
+
+        profiles = {
+            ff: np.ma.MaskedArray(results.profiles[ii], results.masks[ii]) for ii, ff in enumerate(fiberId)
+        }
+        for pp in profiles.values():
+            pp /= np.ma.average(pp, axis=1)[:, np.newaxis]
+
+        for image, bg in zip(imageList, results.backgrounds):
+            from lsst.afw.math import BackgroundMI
+            from lsst.afw.image import makeMaskedImage
+            bgModel = BackgroundMI(image.getBBox(), makeMaskedImage(bg))
+            bgModel.getBackgroundControl().setUndersampleStyle("REDUCE_INTERP_ORDER")
+            image -= bgModel.getImageF()
+
+        return cls(
+            {ff: FiberProfile(radius, oversample, ySwaths, profiles[ff]) for ff in fiberId},
+            identity,
+            visitInfo,
+            metadata,
+        )
 
     @property
     def fiberId(self):
