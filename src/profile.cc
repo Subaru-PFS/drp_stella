@@ -166,11 +166,12 @@ class SwathProfileBuilder {
         if (rejected[xx]) return;
         float const pixelValue = iter.image();
         assert(iter.variance() > 0);
-        float const invVariance = 1.0/iter.variance();
+        double const invVariance = 1.0/iter.variance();
+        double const pixelTimesInvVariance = pixelValue*invVariance;
 
         auto const bgIndex = bgOffset + _bgIndex[yy][xx];
         _matrix.add(bgIndex, bgIndex, invVariance);
-        _vector[bgIndex] += pixelValue*invVariance;
+        _vector[bgIndex] += pixelTimesInvVariance;
 
         // Iterate over fibers of interest
         for (std::size_t ii = left; ii < right; ++ii) {
@@ -185,27 +186,32 @@ class SwathProfileBuilder {
             std::array<std::size_t, 4> const iIndex = iInterp.first;
             std::array<double, 4> const iValue = iInterp.second;
 
-            _matrix.add(iIndex[0], iIndex[0], std::pow(iValue[0], 2)*invVariance);
-            _matrix.add(iIndex[1], iIndex[1], std::pow(iValue[1], 2)*invVariance);
-            _matrix.add(iIndex[2], iIndex[2], std::pow(iValue[2], 2)*invVariance);
-            _matrix.add(iIndex[3], iIndex[3], std::pow(iValue[3], 2)*invVariance);
+            double const iValue0TimesInvVariance = iValue[0]*invVariance;
+            double const iValue1TimesInvVariance = iValue[1]*invVariance;
+            double const iValue2TimesInvVariance = iValue[2]*invVariance;
+            double const iValue3TimesInvVariance = iValue[3]*invVariance;
 
-            _vector[iIndex[0]] += iValue[0]*pixelValue*invVariance;
-            _vector[iIndex[1]] += iValue[1]*pixelValue*invVariance;
-            _vector[iIndex[2]] += iValue[2]*pixelValue*invVariance;
-            _vector[iIndex[3]] += iValue[3]*pixelValue*invVariance;
+            _matrix.add(iIndex[0], iIndex[0], iValue[0]*iValue0TimesInvVariance);
+            _matrix.add(iIndex[1], iIndex[1], iValue[1]*iValue1TimesInvVariance);
+            _matrix.add(iIndex[2], iIndex[2], iValue[2]*iValue2TimesInvVariance);
+            _matrix.add(iIndex[3], iIndex[3], iValue[3]*iValue3TimesInvVariance);
 
-            _matrix.add(iIndex[0], iIndex[1], iValue[0]*iValue[1]*invVariance);
-            _matrix.add(iIndex[0], iIndex[2], iValue[0]*iValue[2]*invVariance);
-            _matrix.add(iIndex[0], iIndex[3], iValue[0]*iValue[3]*invVariance);
-            _matrix.add(iIndex[1], iIndex[2], iValue[1]*iValue[2]*invVariance);
-            _matrix.add(iIndex[1], iIndex[3], iValue[1]*iValue[3]*invVariance);
-            _matrix.add(iIndex[2], iIndex[3], iValue[2]*iValue[3]*invVariance);
+            _vector[iIndex[0]] += iValue[0]*pixelTimesInvVariance;
+            _vector[iIndex[1]] += iValue[1]*pixelTimesInvVariance;
+            _vector[iIndex[2]] += iValue[2]*pixelTimesInvVariance;
+            _vector[iIndex[3]] += iValue[3]*pixelTimesInvVariance;
 
-            _matrix.add(iIndex[0], bgIndex, iValue[0]*invVariance);
-            _matrix.add(iIndex[1], bgIndex, iValue[1]*invVariance);
-            _matrix.add(iIndex[2], bgIndex, iValue[2]*invVariance);
-            _matrix.add(iIndex[3], bgIndex, iValue[3]*invVariance);
+            _matrix.add(iIndex[0], iIndex[1], iValue[0]*iValue1TimesInvVariance);
+            _matrix.add(iIndex[0], iIndex[2], iValue[0]*iValue2TimesInvVariance);
+            _matrix.add(iIndex[0], iIndex[3], iValue[0]*iValue3TimesInvVariance);
+            _matrix.add(iIndex[1], iIndex[2], iValue[1]*iValue2TimesInvVariance);
+            _matrix.add(iIndex[1], iIndex[3], iValue[1]*iValue3TimesInvVariance);
+            _matrix.add(iIndex[2], iIndex[3], iValue[2]*iValue3TimesInvVariance);
+
+            _matrix.add(iIndex[0], bgIndex, iValue0TimesInvVariance);
+            _matrix.add(iIndex[1], bgIndex, iValue1TimesInvVariance);
+            _matrix.add(iIndex[2], bgIndex, iValue2TimesInvVariance);
+            _matrix.add(iIndex[3], bgIndex, iValue3TimesInvVariance);
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jNorm = norm[jj];
@@ -215,6 +221,7 @@ class SwathProfileBuilder {
                 std::array<std::size_t, 4> const jIndex = jInterp.first;
                 std::array<double, 4> const jValue = jInterp.second;
 
+                // Expecting the optimizer will unroll this
                 for (int iTerm = 0; iTerm < 4; ++iTerm) {
                     for (int jTerm = 0; jTerm < 4; ++jTerm) {
                         _matrix.add(iIndex[iTerm], jIndex[jTerm], iValue[iTerm]*jValue[jTerm]*invVariance);
