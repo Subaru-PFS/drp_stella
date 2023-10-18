@@ -271,6 +271,20 @@ class SparseSquareMatrix {
         _triplets.add(ii, jj, value);
     }
 
+    /// Add all entries in another matrix to this one
+    void add(SparseSquareMatrix const& other) {
+        if (other._num != _num) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Matrices have different sizes");
+        }
+        for (auto const& triplet : other._triplets) {
+            add(triplet.row(), triplet.col(), triplet.value());
+        }
+    }
+    SparseSquareMatrix & operator+=(SparseSquareMatrix const& other) {
+        add(other);
+        return *this;
+    }
+
     /// Retrieve an entry from the matrix
     ElemT get(IndexT ii, IndexT jj) {
         if (symmetric && jj < ii) {

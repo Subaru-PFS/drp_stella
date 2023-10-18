@@ -1,3 +1,5 @@
+#include <omp.h>
+
 #include "ndarray.h"
 
 #include "lsst/log/Log.h"
@@ -23,38 +25,36 @@ namespace {
 LOG_LOGGER _log = LOG_GET("pfs.drp.stella.profile");
 
 
-// The following is used to represent bound methods as a callable
-template<typename ReturnT, class ClassT, typename... Args>
-struct BoundMethod {
-    using Function = ReturnT (ClassT::*)(Args...);
-    BoundMethod(ClassT & obj_, Function func_) : obj(obj_), func(func_) {}
-    ClassT & obj;
-    Function func;
-    ReturnT operator()(Args&... args) const { return (obj.*func)(args...); }
-};
-template<typename ReturnT, class ClassT, typename... Args>
-struct BoundConstMethod {
-    using Function = ReturnT (ClassT::*)(Args...) const;
-    BoundConstMethod(ClassT const& obj_, Function func_) : obj(obj_), func(func_) {}
-    ClassT const& obj;
-    Function func;
-    ReturnT operator()(Args&... args) const { return (obj.*func)(args...); }
-};
+// The matrix equation we're solving for the profiles
+struct ProfileEquation {
+    // We use a non-symmetric matrix because the conjugate gradient solver
+    // doesn't work with a self-adjoint view. So we just add the symmetric
+    // elements manually.
+    math::NonsymmetricSparseSquareMatrix matrix;  // least-squares (Fisher) matrix
+    ndarray::Array<double, 1, 1> vector;  // least-squares (right-hand side) vector
 
-template<typename ReturnT, class ClassT, class... Args>
-BoundMethod<ReturnT, ClassT, Args...> bind_method(
-    ClassT & obj,
-    ReturnT (ClassT::* func)(Args...)
-) {
-    return BoundMethod<ReturnT, ClassT, Args...>(obj, func);
-}
-template<typename ReturnT, class ClassT, class... Args>
-BoundConstMethod<ReturnT, ClassT, Args...> bind_method(
-    ClassT const& obj,
-    ReturnT (ClassT::* func)(Args...) const
-) {
-    return BoundConstMethod<ReturnT, ClassT, Args...>(obj, func);
-}
+    ProfileEquation(std::size_t numParameters) :
+        matrix(numParameters), vector(ndarray::allocate(numParameters)) {
+        reset();
+    }
+
+    ProfileEquation(ProfileEquation const& other) = delete;
+    ProfileEquation(ProfileEquation && other) = default;
+    ProfileEquation & operator=(ProfileEquation const& other) = delete;
+    ProfileEquation & operator=(ProfileEquation && other) = default;
+    ~ProfileEquation() = default;
+
+    void reset() {
+        matrix.reset();
+        vector.deep() = 0;
+    }
+
+    ProfileEquation & operator+=(ProfileEquation const& other) {
+        matrix += other.matrix;
+        asEigenArray(vector) += asEigenArray(other.vector);
+        return *this;
+    }
+};
 
 
 // Class to support the simultaneous fit of multiple fiber profiles
@@ -96,19 +96,10 @@ class SwathProfileBuilder {
         _numSwathsParameters(_numProfileParameters*ySwaths.size()),
         _numBackgroundParameters(getNumBackgroundIndices(dims, bgSize)),
         _numParameters(_numSwathsParameters + numImages*_numBackgroundParameters),
-        _bgIndex(calculateBackgroundIndices(dims, bgSize, _numSwathsParameters)),
-        _matrix(_numParameters),
-        _vector(ndarray::allocate(_numParameters)) {
-            reset();
-        }
+        _bgIndex(calculateBackgroundIndices(dims, bgSize, _numSwathsParameters))
+        {}
 
     std::size_t getNumParameters() const { return _numParameters; }
-
-    // Reset for a new iteration
-    void reset() {
-        _matrix.reset();
-        _vector.deep() = 0;
-    }
 
     // Accumulate the data from a single image
     //
@@ -120,20 +111,37 @@ class SwathProfileBuilder {
     void accumulateImage(
         std::size_t imageIndex,
         lsst::afw::image::MaskedImage<float> const& image,
+        ProfileEquation & equation,
         ndarray::Array<double, 2, 1> const& centers,
         ndarray::Array<float, 2, 1> const& spectra,
         ndarray::Array<bool, 2, 1> const& rejected
-    ) {
+    ) const {
         assert(centers.getShape() == spectra.getShape());
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
         assert(rejected.getShape()[0] == std::size_t(image.getHeight()));
 
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional background offset
+
+
+//        #pragma omp declare reduction(equation_add:ProfileEquation:omp_out += omp_in)
+//        #pragma omp parallel for firstprivate(equation) reduction(equation_add:equation)
         for (int yy = 0; yy < image.getHeight(); ++yy) {
+            ndarray::ArrayRef<float, 1, 0> const norm = spectra[ndarray::view()(yy)];
+            ndarray::ArrayRef<bool, 1, 0> const rej = rejected[ndarray::view(yy)];
             auto const swathInterp = getSwathInterpolation(yy);
-            iterateRow(image, yy, centers[ndarray::view()(yy)],
-                       bind_method<void>(*this, &SwathProfileBuilder::accumulatePixel),
-                       spectra[ndarray::view()(yy)], rejected[yy], swathInterp, bgOffset);
+            iterateRow(
+                image, yy, centers[ndarray::view()(yy)],
+                [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+                    ndarray::ArrayRef<double, 1, 0> const& centers,
+                    std::size_t left,
+                    std::size_t right
+                ) {
+                    accumulatePixel(
+                        xx, yy, iter, centers, left, right,
+                        equation, norm, rej, swathInterp, bgOffset
+                    );
+                }
+            );
         }
     }
 
@@ -152,15 +160,16 @@ class SwathProfileBuilder {
     void accumulatePixel(
         int xx,
         int yy,
-        typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+        typename lsst::afw::image::MaskedImage<float>::x_iterator & iter,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
         std::size_t right,
+        ProfileEquation & equation,
         ndarray::ArrayRef<float, 1, 0> const& norm,
-        ndarray::ArrayRef<bool, 1, 1> const& rejected,
+        ndarray::ArrayRef<bool, 1, 0> const& rejected,
         std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
         std::size_t bgOffset
-    ) {
+    ) const {
         assert(norm.size() == centers.size());
         assert(std::size_t(xx) < rejected.size());
         if (rejected[xx]) return;
@@ -170,8 +179,8 @@ class SwathProfileBuilder {
         double const pixelTimesInvVariance = pixelValue*invVariance;
 
         auto const bgIndex = bgOffset + _bgIndex[yy][xx];
-        _matrix.add(bgIndex, bgIndex, invVariance);
-        _vector[bgIndex] += pixelTimesInvVariance;
+        equation.matrix.add(bgIndex, bgIndex, invVariance);
+        equation.vector[bgIndex] += pixelTimesInvVariance;
 
         // Iterate over fibers of interest
         for (std::size_t ii = left; ii < right; ++ii) {
@@ -191,27 +200,27 @@ class SwathProfileBuilder {
             double const iValue2TimesInvVariance = iValue[2]*invVariance;
             double const iValue3TimesInvVariance = iValue[3]*invVariance;
 
-            _matrix.add(iIndex[0], iIndex[0], iValue[0]*iValue0TimesInvVariance);
-            _matrix.add(iIndex[1], iIndex[1], iValue[1]*iValue1TimesInvVariance);
-            _matrix.add(iIndex[2], iIndex[2], iValue[2]*iValue2TimesInvVariance);
-            _matrix.add(iIndex[3], iIndex[3], iValue[3]*iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[0], iIndex[0], iValue[0]*iValue0TimesInvVariance);
+            equation.matrix.add(iIndex[1], iIndex[1], iValue[1]*iValue1TimesInvVariance);
+            equation.matrix.add(iIndex[2], iIndex[2], iValue[2]*iValue2TimesInvVariance);
+            equation.matrix.add(iIndex[3], iIndex[3], iValue[3]*iValue3TimesInvVariance);
 
-            _vector[iIndex[0]] += iValue[0]*pixelTimesInvVariance;
-            _vector[iIndex[1]] += iValue[1]*pixelTimesInvVariance;
-            _vector[iIndex[2]] += iValue[2]*pixelTimesInvVariance;
-            _vector[iIndex[3]] += iValue[3]*pixelTimesInvVariance;
+            equation.vector[iIndex[0]] += iValue[0]*pixelTimesInvVariance;
+            equation.vector[iIndex[1]] += iValue[1]*pixelTimesInvVariance;
+            equation.vector[iIndex[2]] += iValue[2]*pixelTimesInvVariance;
+            equation.vector[iIndex[3]] += iValue[3]*pixelTimesInvVariance;
 
-            _matrix.add(iIndex[0], iIndex[1], iValue[0]*iValue1TimesInvVariance);
-            _matrix.add(iIndex[0], iIndex[2], iValue[0]*iValue2TimesInvVariance);
-            _matrix.add(iIndex[0], iIndex[3], iValue[0]*iValue3TimesInvVariance);
-            _matrix.add(iIndex[1], iIndex[2], iValue[1]*iValue2TimesInvVariance);
-            _matrix.add(iIndex[1], iIndex[3], iValue[1]*iValue3TimesInvVariance);
-            _matrix.add(iIndex[2], iIndex[3], iValue[2]*iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[0], iIndex[1], iValue[0]*iValue1TimesInvVariance);
+            equation.matrix.add(iIndex[0], iIndex[2], iValue[0]*iValue2TimesInvVariance);
+            equation.matrix.add(iIndex[0], iIndex[3], iValue[0]*iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[1], iIndex[2], iValue[1]*iValue2TimesInvVariance);
+            equation.matrix.add(iIndex[1], iIndex[3], iValue[1]*iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[2], iIndex[3], iValue[2]*iValue3TimesInvVariance);
 
-            _matrix.add(iIndex[0], bgIndex, iValue0TimesInvVariance);
-            _matrix.add(iIndex[1], bgIndex, iValue1TimesInvVariance);
-            _matrix.add(iIndex[2], bgIndex, iValue2TimesInvVariance);
-            _matrix.add(iIndex[3], bgIndex, iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[0], bgIndex, iValue0TimesInvVariance);
+            equation.matrix.add(iIndex[1], bgIndex, iValue1TimesInvVariance);
+            equation.matrix.add(iIndex[2], bgIndex, iValue2TimesInvVariance);
+            equation.matrix.add(iIndex[3], bgIndex, iValue3TimesInvVariance);
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jNorm = norm[jj];
@@ -224,7 +233,9 @@ class SwathProfileBuilder {
                 // Expecting the optimizer will unroll this
                 for (int iTerm = 0; iTerm < 4; ++iTerm) {
                     for (int jTerm = 0; jTerm < 4; ++jTerm) {
-                        _matrix.add(iIndex[iTerm], jIndex[jTerm], iValue[iTerm]*jValue[jTerm]*invVariance);
+                        equation.matrix.add(
+                            iIndex[iTerm], jIndex[jTerm], iValue[iTerm]*jValue[jTerm]*invVariance
+                        );
                     }
                 }
             }
@@ -237,14 +248,12 @@ class SwathProfileBuilder {
     // @param yy : Row to iterate over
     // @param centers : Fiber centers in this row for each fiber
     // @param func : Function to call for each pixel
-    // @param args : Arguments to pass to func
-    template<typename ImageT, typename Function, class... Args>
+    template<typename ImageT, typename Function>
     void iterateRow(
         ImageT const& image,
         int yy,
         ndarray::ArrayRef<double, 1, 0> const& centers,
-        Function func,
-        Args... args
+        Function func
     ) const {
         int const width = image.getWidth();
         int const height = image.getHeight();
@@ -284,29 +293,29 @@ class SwathProfileBuilder {
             while (left < _numFibers && xx >= upper[left]) ++left;
             while (right < _numFibers && xx >= lower[right]) ++right;
 
-            func(xx, yy, ptr, centers, left, right, args...);
+            func(xx, yy, ptr, centers, left, right);
         }
     }
 
     //@{
     // Solve the matrix equation
-    void solve(ndarray::Array<double, 1, 1> & solution, float matrixTol=1.0e-4) {
+    void solve(ndarray::Array<double, 1, 1> & solution, ProfileEquation & equation, float matrixTol=1.0e-4) {
         // Add in the symmetric elements that we didn't bother to accumulate
-        _matrix.symmetrize();
+        equation.matrix.symmetrize();
 
         // Detect and deal with singular values
         ndarray::Array<bool, 1, 1> isZero = ndarray::allocate(getNumParameters());
         isZero.deep() = true;
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             for (std::size_t jj = 0; jj < getNumParameters(); ++jj) {
-                if (_matrix.get(ii, jj) != 0.0) {
+                if (equation.matrix.get(ii, jj) != 0.0) {
                     isZero[ii] = false;
                     break;
                 }
             }
             if (isZero[ii]) {
-                _matrix.add(ii, ii, 1.0);
-                assert(_vector[ii] == 0.0);  // or we've done something wrong
+                equation.matrix.add(ii, ii, 1.0);
+                assert(equation.vector[ii] == 0.0);  // or we've done something wrong
             }
         }
 
@@ -322,7 +331,7 @@ class SwathProfileBuilder {
         Solver solver;
         solver.setMaxIterations(getNumParameters()*10);
         solver.setTolerance(matrixTol);
-        _matrix.solve(solution, _vector, solver);
+        equation.matrix.solve(solution, equation.vector, solver);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
             if (isZero[ii]) {
@@ -330,9 +339,9 @@ class SwathProfileBuilder {
             }
         }
     }
-    ndarray::Array<double, 1, 1> solve(float matrixTol=1.0e-4) {
+    ndarray::Array<double, 1, 1> solve(ProfileEquation & equation, float matrixTol=1.0e-4) {
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(_numParameters);
-        solve(solution, matrixTol);
+        solve(solution, equation, matrixTol);
         return solution;
     }
     //@}
@@ -387,10 +396,21 @@ class SwathProfileBuilder {
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional offset for background
         for (int yy = 0; yy < image.getHeight(); ++yy) {
+            ndarray::ArrayRef<bool, 1, 0> rej = rejected[yy];
+            ndarray::ArrayRef<float, 1, 0> const norm = spectra[ndarray::view()(yy)];
             auto const swathInterp = getSwathInterpolation(yy);
-            iterateRow(image, yy, centers[ndarray::view()(yy)],
-                       bind_method<void>(*this, &SwathProfileBuilder::applyPixelRejection), rejected[yy],
-                       spectra[ndarray::view()(yy)], solution, rejThreshold, swathInterp, bgOffset);
+            iterateRow(
+                image, yy, centers[ndarray::view()(yy)],
+                [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+                    ndarray::ArrayRef<double, 1, 0> const& centers,
+                    std::size_t left, std::size_t right
+                ) {
+                    applyPixelRejection(
+                        xx, yy, iter, centers, left, right,
+                        rej, norm, solution, rejThreshold, swathInterp, bgOffset
+                    );
+                }
+            );
         }
     }
 
@@ -410,14 +430,14 @@ class SwathProfileBuilder {
     void applyPixelRejection(
         int xx,
         int yy,
-        typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+        typename lsst::afw::image::MaskedImage<float>::x_iterator & iter,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
         std::size_t right,
-        ndarray::ArrayRef<bool, 1, 1> & rejected,
+        ndarray::ArrayRef<bool, 1, 0> & rejected,
         ndarray::ArrayRef<float, 1, 0> const& norm,
         ndarray::Array<double, 1, 1> const& solution,
-        float rejThreshold,
+        float const& rejThreshold,
         std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
         std::size_t bgOffset
     ) const {
@@ -610,11 +630,6 @@ class SwathProfileBuilder {
     std::size_t _numBackgroundParameters;  // number of parameters for background per image
     std::size_t _numParameters;  // total number of parameters
     ndarray::Array<int, 2, 1> _bgIndex;  // index of background super-pixel for each pixel
-    // We use a non-symmetric matrix because the conjugate gradient solver
-    // doesn't work with a self-adjoint view. So we just add the symmetric
-    // elements manually.
-    math::NonsymmetricSparseSquareMatrix _matrix;  // least-squares (Fisher) matrix
-    ndarray::Array<double, 1, 1> _vector;  // least-squares (right-hand side) vector
 };
 
 }  // anonymous namespace
@@ -672,28 +687,28 @@ FitProfilesResults fitProfiles(
 
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
-        builder.reset();
         LOGL_DEBUG(_log, "Fitting profiles: iteration %d", iter);
+        ProfileEquation equation{builder.getNumParameters()};
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-            builder.accumulateImage(ii, images[ii], centers[ii], spectra[ii], rejected[ii]);
+            builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
         }
-        auto const solution = builder.solve(matrixTol);
+        auto const solution = builder.solve(equation, matrixTol);
 
         // Reject bad pixels
         LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
-            builder.reject(solution, ii, images[ii], centers[ii], spectra[ii],  rejected[ii], rejThresh);
+            builder.reject(solution, ii, images[ii], centers[ii], spectra[ii], rejected[ii].shallow(), rejThresh);
         }
     }
     // Final solution after iteration
-    builder.reset();
     LOGL_DEBUG(_log, "Fitting profiles: final iteration");
+    ProfileEquation equation{builder.getNumParameters()};
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-        builder.accumulateImage(ii, images[ii], centers[ii], spectra[ii], rejected[ii]);
+        builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
     }
-    auto const solution = builder.solve(matrixTol);
+    auto const solution = builder.solve(equation, matrixTol);
 
     return builder.repackageSolution(solution);
 }
