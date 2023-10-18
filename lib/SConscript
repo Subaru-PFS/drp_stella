@@ -1,6 +1,10 @@
 # -*- python -*-
-from lsst.sconsUtils import scripts
+from lsst.sconsUtils import scripts, env
 sources = Glob("#src/*.cc")
 sources += Glob("#src/utils/*.cc")
 sources += Glob("#src/math/*.cc")
+
+env.Append(CXXFLAGS="-fopenmp")
+env.Append(LINKFLAGS="-fopenmp")
+
 scripts.BasicSConscript.lib(src=sources)
