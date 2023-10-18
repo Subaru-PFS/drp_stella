@@ -188,7 +188,7 @@ class FiberProfileSet:
 
 
 
-        bgSize = Extent2I(70, 70)  # XXXXX testing
+        bgSize = Extent2I(512, 512)  # XXXXX testing
 
 
 

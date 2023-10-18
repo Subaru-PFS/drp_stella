@@ -404,7 +404,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.synth = SyntheticConfig()
         self.synth.height = 1024
-        self.synth.width = 128
+        self.synth.width = 256
         self.synth.separation = 19.876
         self.synth.fwhm = 3.21
         self.synth.slope = 0.04321  # Larger than default, to get more sampling of sub-pixel positions
@@ -595,16 +595,16 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         xx = np.linspace(-1, 1, self.synth.width)
         bg = 100#*np.exp(-0.5*xx**2/0.4**2)
 
-        exp1.image.array += bg
-        exp2.image.array += bg
-        exp3.image.array += bg
-        exp4.image.array += bg
+        exp1.image.array += 0.7*bg
+        exp2.image.array += 0.9*bg
+        exp3.image.array += 1.1*bg
+        exp4.image.array += 1.3*bg
 
         # exp1.writeFits("exp.fits")
 
 
-#        self.task.config.profileRejIter = 0
-#        self.task.config.extractIter = 0
+        self.task.config.profileRejIter = 0
+        self.task.config.extractIter = 0
 
 
         detMap = makeSyntheticDetectorMap(self.synth)
@@ -612,20 +612,16 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
             [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
         )
 
-        exp1.writeFits("exp.fits")
+        exp1.writeFits("exp1.fits")
+        exp2.writeFits("exp2.fits")
+        exp3.writeFits("exp3.fits")
+        exp4.writeFits("exp4.fits")
 
         figAxes = results.profiles.plot(4, 3, show=False)
         for fig, ax in figAxes.values():
             ax.semilogy()
-            ax.set_ylim(1.0e-4, 1.0e1)
+            ax.set_ylim(1.0e-6, 1.0e1)
         plt.show()
-
-
-        # Verification method (which involves extracting spectra) assumes that the background is zero
-        # exp1.image.array -= bg
-        # exp2.image.array -= bg
-        # exp3.image.array -= bg
-        # exp4.image.array -= bg
 
 
         # Large chi^2 value for spectra here is a little concerning, but I'm not sure how to avoid it.

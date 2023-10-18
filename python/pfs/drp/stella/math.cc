@@ -134,7 +134,13 @@ void declareSparseSquareMatrix(py::module & mod, char const* name) {
     cls.def(py::init<std::size_t>(), "size"_a);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
-    cls.def("add", &Class::add, "row"_a, "col"_a, "value"_a);
+    cls.def(
+        "add",
+        py::overload_cast<typename Class::IndexT, typename Class::IndexT, typename Class::ElemT>(&Class::add),
+        "row"_a, "col"_a, "value"_a
+    );
+    cls.def("add", py::overload_cast<Class const&>(&Class::add), "rhs"_a);
+    cls.def("__iadd__", &Class::operator+=, "rhs"_a);
     cls.def(
         "solve",
         py::overload_cast<ndarray::Array<double, 1, 1> const&, bool>(&Class::template solve<>, py::const_),
