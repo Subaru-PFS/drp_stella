@@ -1,6 +1,6 @@
 import matplotlib
 from lsst.afw.display.interface import Display
-#matplotlib.use("Agg")  # noqa E402: disable showing plots
+matplotlib.use("Agg")  # noqa E402: disable showing plots
 import matplotlib.pyplot as plt  # noqa E402: import after code
 
 import itertools  # noqa E402: import after code
@@ -603,8 +603,8 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         # exp1.writeFits("exp.fits")
 
 
-        self.task.config.profileRejIter = 0
-        self.task.config.extractIter = 0
+#        self.task.config.profileRejIter = 0
+#        self.task.config.extractIter = 0
 
 
         detMap = makeSyntheticDetectorMap(self.synth)

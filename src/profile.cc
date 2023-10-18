@@ -122,13 +122,14 @@ class SwathProfileBuilder {
 
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional background offset
 
-
-//        #pragma omp declare reduction(equation_add:ProfileEquation:omp_out += omp_in)
-//        #pragma omp parallel for firstprivate(equation) reduction(equation_add:equation)
+        #pragma omp declare reduction(+:ProfileEquation:omp_out += omp_in) \
+            initializer(omp_priv = ProfileEquation(omp_orig.vector.size()))
+        #pragma omp parallel for reduction(+:equation) schedule(guided)
         for (int yy = 0; yy < image.getHeight(); ++yy) {
             ndarray::ArrayRef<float, 1, 0> const norm = spectra[ndarray::view()(yy)];
             ndarray::ArrayRef<bool, 1, 0> const rej = rejected[ndarray::view(yy)];
             auto const swathInterp = getSwathInterpolation(yy);
+            ProfileEquation eqn(_numParameters);
             iterateRow(
                 image, yy, centers[ndarray::view()(yy)],
                 [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
@@ -137,11 +138,11 @@ class SwathProfileBuilder {
                     std::size_t right
                 ) {
                     accumulatePixel(
-                        xx, yy, iter, centers, left, right,
-                        equation, norm, rej, swathInterp, bgOffset
+                        xx, yy, iter, centers, left, right, eqn, norm, rej, swathInterp, bgOffset
                     );
                 }
             );
+            equation += eqn;
         }
     }
 
