@@ -126,22 +126,55 @@ class SwathProfileBuilder {
             initializer(omp_priv = ProfileEquation(omp_orig.vector.size()))
         #pragma omp parallel for reduction(+:equation) schedule(guided)
         for (int yy = 0; yy < image.getHeight(); ++yy) {
-            ndarray::ArrayRef<float, 1, 0> const norm = spectra[ndarray::view()(yy)];
-            ndarray::ArrayRef<bool, 1, 0> const rej = rejected[ndarray::view(yy)];
-            auto const swathInterp = getSwathInterpolation(yy);
+            // Protect ndarray reference counting
+            // These are declared as pointers because I need to create them in the critical block
+            // (which has its own scope, so anything declared inside doesn't exist outside), but they have
+            // no default constructor so I can't declare them as values outside the critical block.
+            // Also, I need to control when they are destructed, and declaring them as values would
+            // cause them to be destructed outside a critical block.
+            std::unique_ptr<ndarray::ArrayRef<double, 1, 0> const> cen;
+            std::unique_ptr<ndarray::ArrayRef<float, 1, 0> const> norm;
+            std::unique_ptr<ndarray::ArrayRef<bool, 1, 0> const> rej;
+            #pragma omp critical  // protect ndarray reference counting
+            {
+                cen = std::make_unique<ndarray::ArrayRef<double, 1, 0>>(centers[ndarray::view()(yy)]);
+                norm = std::make_unique<ndarray::ArrayRef<float, 1, 0>>(spectra[ndarray::view()(yy)]);
+                rej = std::make_unique<ndarray::ArrayRef<bool, 1, 0>>(rejected[yy]);
+            }
+
             ProfileEquation eqn(_numParameters);
-            iterateRow(
-                image, yy, centers[ndarray::view()(yy)],
-                [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
-                    ndarray::ArrayRef<double, 1, 0> const& centers,
-                    std::size_t left,
-                    std::size_t right
-                ) {
-                    accumulatePixel(
-                        xx, yy, iter, centers, left, right, eqn, norm, rej, swathInterp, bgOffset
-                    );
-                }
-            );
+
+            // Can't allow exceptions to leak out of the parallel region (they would also get around
+            // our ndarray reference counting protection), so catch them here.
+            try {
+                auto const swathInterp = getSwathInterpolation(yy);
+                iterateRow(
+                    image, yy, *cen,
+                    [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+                        ndarray::ArrayRef<double, 1, 0> const& centers,
+                        std::size_t left,
+                        std::size_t right
+                    ) {
+                        accumulatePixel(
+                            xx, yy, iter, centers, left, right, eqn, *norm, *rej, swathInterp, bgOffset
+                        );
+                    }
+                );
+            } catch (std::exception const& exc) {
+                std::cerr << "Caught exception: " << exc.what() << std::endl;
+                std::terminate();
+            } catch (...) {
+                std::cerr << "Caught unknown exception" << std::endl;
+                std::terminate();
+            }
+
+            #pragma omp critical  // protect ndarray reference counting
+            {
+                cen.reset();
+                norm.reset();
+                rej.reset();
+            }
+
             equation += eqn;
         }
     }
