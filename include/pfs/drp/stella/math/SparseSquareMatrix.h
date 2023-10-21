@@ -280,8 +280,22 @@ class SparseSquareMatrix {
             add(triplet.row(), triplet.col(), triplet.value());
         }
     }
+    /// Subtract all entries in another matrix from this one
+    void subtract(SparseSquareMatrix const& other) {
+        if (other._num != _num) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Matrices have different sizes");
+        }
+        for (auto const& triplet : other._triplets) {
+            add(triplet.row(), triplet.col(), -triplet.value());
+        }
+    }
+
     SparseSquareMatrix & operator+=(SparseSquareMatrix const& other) {
         add(other);
+        return *this;
+    }
+    SparseSquareMatrix & operator-=(SparseSquareMatrix const& other) {
+        subtract(other);
         return *this;
     }
 
