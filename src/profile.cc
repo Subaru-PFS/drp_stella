@@ -54,7 +54,15 @@ struct ProfileEquation {
         asEigenArray(vector) += asEigenArray(other.vector);
         return *this;
     }
+
+    ProfileEquation & operator-=(ProfileEquation const& other) {
+        matrix -= other.matrix;
+        asEigenArray(vector) -= asEigenArray(other.vector);
+        return *this;
+    }
 };
+#pragma omp declare reduction(+:ProfileEquation:omp_out += omp_in) \
+    initializer(omp_priv = ProfileEquation(omp_orig.vector.size()))
 
 
 // Class to support the simultaneous fit of multiple fiber profiles
@@ -122,8 +130,6 @@ class SwathProfileBuilder {
 
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional background offset
 
-        #pragma omp declare reduction(+:ProfileEquation:omp_out += omp_in) \
-            initializer(omp_priv = ProfileEquation(omp_orig.vector.size()))
         #pragma omp parallel for reduction(+:equation) schedule(guided)
         for (int yy = 0; yy < image.getHeight(); ++yy) {
             // Protect ndarray reference counting
@@ -334,9 +340,6 @@ class SwathProfileBuilder {
     //@{
     // Solve the matrix equation
     void solve(ndarray::Array<double, 1, 1> & solution, ProfileEquation & equation, float matrixTol=1.0e-4) {
-        // Add in the symmetric elements that we didn't bother to accumulate
-        equation.matrix.symmetrize();
-
         // Detect and deal with singular values
         ndarray::Array<bool, 1, 1> isZero = ndarray::allocate(getNumParameters());
         isZero.deep() = true;
@@ -416,7 +419,7 @@ class SwathProfileBuilder {
     // @param spectra : Spectra for each row, fiber
     // @param rejected : Array of pixels to reject (true=rejected)
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
-    void reject(
+    ProfileEquation reject(
         ndarray::Array<double, 1, 1> const& solution,
         std::size_t imageIndex,
         lsst::afw::image::MaskedImage<float> const& image,
@@ -429,23 +432,57 @@ class SwathProfileBuilder {
         assert(rejected.getShape()[0] == std::size_t(image.getHeight()));
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional offset for background
+
+        ProfileEquation equation(_numParameters);
+
+        #pragma omp parallel for reduction(+:equation) schedule(guided)
         for (int yy = 0; yy < image.getHeight(); ++yy) {
-            ndarray::ArrayRef<bool, 1, 0> rej = rejected[yy];
-            ndarray::ArrayRef<float, 1, 0> const norm = spectra[ndarray::view()(yy)];
+            // Protect ndarray reference counting
+            std::unique_ptr<ndarray::ArrayRef<double, 1, 0> const> cen;
+            std::unique_ptr<ndarray::ArrayRef<float, 1, 0> const> norm;
+            std::unique_ptr<ndarray::ArrayRef<bool, 1, 0>> rej;
+            #pragma omp critical
+            {
+                cen = std::make_unique<ndarray::ArrayRef<double, 1, 0>>(centers[ndarray::view()(yy)]);
+                norm = std::make_unique<ndarray::ArrayRef<float, 1, 0>>(spectra[ndarray::view()(yy)]);
+                rej = std::make_unique<ndarray::ArrayRef<bool, 1, 0>>(rejected[yy]);
+            }
+
+            ProfileEquation eqn(_numParameters);
             auto const swathInterp = getSwathInterpolation(yy);
-            iterateRow(
-                image, yy, centers[ndarray::view()(yy)],
-                [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
-                    ndarray::ArrayRef<double, 1, 0> const& centers,
-                    std::size_t left, std::size_t right
-                ) {
-                    applyPixelRejection(
-                        xx, yy, iter, centers, left, right,
-                        rej, norm, solution, rejThreshold, swathInterp, bgOffset
-                    );
-                }
-            );
+            try {
+                iterateRow(
+                    image, yy, *cen,
+                    [&](int xx, int yy, typename lsst::afw::image::MaskedImage<float>::x_iterator iter,
+                        ndarray::ArrayRef<double, 1, 0> const& centers,
+                        std::size_t left, std::size_t right
+                    ) {
+                        applyPixelRejection(
+                            xx, yy, iter, *cen, left, right,
+                            eqn, *rej, *norm, solution, rejThreshold, swathInterp, bgOffset
+                        );
+                    }
+                );
+            } catch (std::exception const& exc) {
+                std::cerr << "Caught exception: " << exc.what() << std::endl;
+                std::terminate();
+            } catch (...) {
+                std::cerr << "Caught unknown exception" << std::endl;
+                std::terminate();
+            }
+
+            #pragma omp critical  // protect ndarray reference counting
+            {
+                cen.reset();
+                norm.reset();
+                rej.reset();
+            }
+
+            equation += eqn;
         }
+
+        equation.matrix.symmetrize();
+        return equation;
     }
 
     // Test a single pixel for rejection
@@ -468,6 +505,7 @@ class SwathProfileBuilder {
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
         std::size_t right,
+        ProfileEquation & equation,
         ndarray::ArrayRef<bool, 1, 0> & rejected,
         ndarray::ArrayRef<float, 1, 0> const& norm,
         ndarray::Array<double, 1, 1> const& solution,
@@ -477,6 +515,12 @@ class SwathProfileBuilder {
     ) const {
         assert(centers.size() == norm.size());
         assert(std::size_t(xx) < rejected.size());
+
+        if (rejected[xx]) {
+            // Already rejected; nothing to do
+            return;
+        }
+
         float const image = iter.image();
         float const variance = iter.variance();
         double model = 0.0;
@@ -499,6 +543,10 @@ class SwathProfileBuilder {
         }
         float const diff = (image - model)/std::sqrt(variance);
         if (std::abs(diff) > rejThreshold) {
+            // Figure out this pixel's contribution, so we can subtract it
+            accumulatePixel(
+                xx, yy, iter, centers, left, right, equation, norm, rejected, swathInterp, bgOffset
+            );
             rejected[xx] = true;
         }
     }
@@ -718,30 +766,31 @@ FitProfilesResults fitProfiles(
     }
 
     SwathProfileBuilder builder{images.size(), fiberIds.size(), yKnots, oversample, radius, dims, bgSize};
-
-    for (int iter = 0; iter < rejIter; ++iter) {
-        // Solve for the profiles
-        LOGL_DEBUG(_log, "Fitting profiles: iteration %d", iter);
-        ProfileEquation equation{builder.getNumParameters()};
-        for (std::size_t ii = 0; ii < images.size(); ++ii) {
-            LOGL_DEBUG(_log, "    Accumulating image %d", ii);
-            builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
-        }
-        auto const solution = builder.solve(equation, matrixTol);
-
-        // Reject bad pixels
-        LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
-        for (std::size_t ii = 0; ii < images.size(); ++ii) {
-            builder.reject(solution, ii, images[ii], centers[ii], spectra[ii], rejected[ii].shallow(), rejThresh);
-        }
-    }
-    // Final solution after iteration
-    LOGL_DEBUG(_log, "Fitting profiles: final iteration");
+    LOGL_DEBUG(_log, "Building least-squares equation...");
     ProfileEquation equation{builder.getNumParameters()};
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
         builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
     }
+    // Add in the symmetric elements that we didn't bother to accumulate
+    equation.matrix.symmetrize();
+
+    for (int iter = 0; iter < rejIter; ++iter) {
+        // Solve for the profiles
+        LOGL_DEBUG(_log, "Solving profiles: iteration %d", iter);
+        auto const solution = builder.solve(equation, matrixTol);
+
+        // Reject bad pixels
+        LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
+        for (std::size_t ii = 0; ii < images.size(); ++ii) {
+            equation -= builder.reject(
+                solution, ii, images[ii], centers[ii], spectra[ii], rejected[ii].shallow(), rejThresh
+            );
+        }
+    }
+
+    // Final solution after iteration
+    LOGL_DEBUG(_log, "Solving profiles: final");
     auto const solution = builder.solve(equation, matrixTol);
 
     return builder.repackageSolution(solution);
