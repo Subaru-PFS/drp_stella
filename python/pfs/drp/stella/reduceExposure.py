@@ -115,6 +115,12 @@ class ReduceExposureConfig(Config):
             self.doAdjustDetectorMap = False
             self.doMeasureLines = False
             self.isr.overscanFitType = "MEDIAN"
+
+        if self.targetType[0] == '[' and self.targetType[-1] == ']':  # command line string line [A, B]
+            targetType = "".join(self.targetType[1:-1])
+            self.targetType = []
+            for tt in targetType.split(','):
+                self.targetType.append(tt.lstrip().rstrip())
         super().validate()
 
 
