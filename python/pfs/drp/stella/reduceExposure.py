@@ -29,6 +29,7 @@ from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
 from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
+from . import FiberTrace, FiberTraceSet
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -72,6 +73,9 @@ class ReduceExposureConfig(Config):
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
+    doBoxcarExtraction = Field(dtype=bool, default=False, doc="Extract with a boxcar of width boxcarWidth")
+    boxcarWidth = Field(dtype=int, default=5,
+                        doc="Extract with a boxcar of width boxcarWidth if doBoxcarExtraction is True")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -227,6 +231,7 @@ class ReduceExposureTask(CmdLineTask):
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
         """
+
         self.log.info("Processing %s", sensorRef.dataId)
 
         pfsConfig = sensorRef.get("pfsConfig")
@@ -240,11 +245,13 @@ class ReduceExposureTask(CmdLineTask):
         lsf = None
         skyImage = None
         sky2d = None
+
+        boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
         if self.config.useCalexp:
             if sensorRef.datasetExists("calexp"):
                 self.log.info("Reading existing calexp for %s", sensorRef.dataId)
                 exposure = sensorRef.get("calexp")
-                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig, boxcarWidth)
                 detectorMap = calibs.detectorMap
                 fiberTraces = calibs.fiberTraces
                 psf = exposure.getPsf()
@@ -261,7 +268,7 @@ class ReduceExposureTask(CmdLineTask):
             if self.config.doSkySwindle:
                 self.skySwindle(sensorRef, exposure.image)
 
-            calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+            calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig, boxcarWidth)
 
             if self.config.doBackground:
                 bg = self.background.run(
@@ -442,7 +449,7 @@ class ReduceExposureTask(CmdLineTask):
         with astropy.io.fits.open(filename) as fits:
             image.array -= fits["SKY"].data
 
-    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig):
+    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig, boxcarWidth=0):
         """Provide suitable spectral calibrations
 
         Parameters
@@ -453,6 +460,8 @@ class ReduceExposureTask(CmdLineTask):
             Image of spectra. Required for measuring a slit offset.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration. Required for measuring a slit offset.
+        boxcarWidth: `int`
+            Width of boxcar extraction; use fiberProfiles if <= 0
 
         Returns
         -------
@@ -461,7 +470,7 @@ class ReduceExposureTask(CmdLineTask):
         fiberProfiles : `pfs.drp.stella.FiberProfileSet`
             Profile for each fiber.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Trace for each fiber.
+            Trace for each fiber (defined as a boxcar if boxcarWidth > 0).
         refLines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines.
         lines : `pfs.drp.stella.ArcLineSet`
@@ -504,15 +513,25 @@ class ReduceExposureTask(CmdLineTask):
             (self.config.doAdjustDetectorMap and len(refLines) > 0) or
             self.config.doExtractSpectra
         ):
-            fiberProfiles = sensorRef.get("fiberProfiles")
-            haveProfiles = set(fiberProfiles.fiberId)
-            missingProfiles = need - haveProfiles
-            if missingProfiles:
-                uri = sensorRef.getUri("fiberProfiles")
-                raise RuntimeError(
-                    f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
-                )
-            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+            if boxcarWidth <= 0:
+                fiberProfiles = sensorRef.get("fiberProfiles")
+                haveProfiles = set(fiberProfiles.fiberId)
+                missingProfiles = need - haveProfiles
+                if missingProfiles:
+                    uri = sensorRef.getUri("fiberProfiles")
+                    raise RuntimeError(
+                        f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
+                    )
+                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+            else:
+                dims = detectorMap.getBBox().getDimensions()
+
+                fiberTraces = FiberTraceSet(len(detectorMap))
+                for fid in detectorMap.fiberId:
+                    if fid in fiberId:
+                        centers = detectorMap.getXCenter(fid)
+
+                        fiberTraces.add(FiberTrace.boxcar(fid, dims, boxcarWidth/2, centers))
 
         lines = ArcLineSet.empty()
         traces = None
