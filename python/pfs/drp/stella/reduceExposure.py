@@ -19,6 +19,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+import os
 from datetime import datetime
 import numpy as np
 import lsstDebug
@@ -294,6 +295,17 @@ class ReduceExposureTask(CmdLineTask):
         versions = getPfsVersions()
         for key, value in versions.items():
             metadata.set(key, value)
+
+        # Lookup the real CALIB directory, for provenance
+        mapperArgs = sensorRef.getButler()._repos._all[0].repoArgs.mapperArgs
+        if mapperArgs is None:
+            calibRoot = os.path.join(sensorRef.getButler()._repos._all[-1].repoArgs.root, "CALIB")
+        else:
+            calibRoot = mapperArgs.get('calibRoot', 'unknown')
+
+        calibRoot = os.path.realpath(calibRoot)  # Resolve symbolic links
+
+        metadata["CALIBROOT"] = calibRoot
 
         results = Struct(
             exposure=exposure,
