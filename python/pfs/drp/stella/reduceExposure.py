@@ -562,7 +562,7 @@ class ReduceExposureTask(CmdLineTask):
                         sensorRef.dataId["arm"],
                         seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
                     ).detectorMap
-                except FittingError as exc:
+                except (FittingError, RuntimeError) as exc:
                     if self.config.requireAdjustDetectorMap:
                         raise
                     self.log.warn("DetectorMap adjustment failed: %s", exc)
