@@ -55,12 +55,14 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
     return norm
 
 
-def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=True,
+def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, labelLines=True,
                           fiberIndex=None, fig=None, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object
 
     spec : `pfsArm` or `pfsMerged` or `pfsObject`
        set of spectra
+    detMap: `DetectorMap` or None
+       detector map associated with spec; used to draw wavelength scale for lines for pfsArms
     vmin : `float` or None
        minimum value to display
     vmax : `float` or None
@@ -158,6 +160,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
     ax.get_cursor_data = lambda ev: None  # disabled
 
     if not isinstance(spec, PfsArm):
+        fiberIdBar = None
         xlabel = "wavelength (nm)"
         # Only show wavelengths for which we have data; especially interesting
         # if we only merged e.g. b and r
@@ -165,7 +168,8 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         ll = np.where(have_data > 0, spec.wavelength[0], np.NaN)
         plt.xlim(np.nanmin(ll), np.nanmax(ll))
     else:
-        xlabel = f"approximate wavelength for fiber {spec.fiberId[ibar]} (INDEX {ibar}) (nm)"
+        fiberIdBar = spec.fiberId[ibar]
+        xlabel = f"approximate wavelength for fiber {fiberIdBar} (INDEX {ibar}) (nm)"
 
     mainAx.set_xlabel(xlabel)
     plt.ylabel("fiber INDEX")
@@ -179,9 +183,16 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         for ll in lines:
             lam = ll.wavelength
             if lam0 < lam < lam1:
+                if detMap is None or fiberIdBar is None:
+                    plotLam = lam
+                else:
+                    row = detMap.findPoint(fiberIdBar, lam)[1]
+                    x0, x1 = ax.get_xlim()
+                    plotLam = x0 + (x1 - x0)*row/flux.shape[1]
+
                 lab = ll.description
                 color = colors.get(lab, f"C{len(colors)}" if labelLines else 'black')
-                plt.axvline(lam, color=color, label=None if lab in labels else lab, alpha=1)
+                plt.axvline(plotLam, color=color, label=None if lab in labels else lab, alpha=1)
                 colors[lab] = color
                 labels[lab] = True
 
