@@ -183,6 +183,12 @@ def setCalibHeader(header: dafBase.PropertyList, calibName: str, visitList: Iter
         username = None
     header.set("CALIB_CREATION_USER", username if username else "unknown user")
 
+    # Clobber any existing CALIB_INPUT_*
+    names = list(header.names())
+    for key in names:
+        if key.startswith("CALIB_INPUT_"):
+            header.remove(key)
+    # Set new CALIB_INPUT_*
     for ii, vv in enumerate(sorted(set(visitList))):
         header.set(f"CALIB_INPUT_{ii}", vv)
 
