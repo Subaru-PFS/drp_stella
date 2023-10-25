@@ -122,8 +122,13 @@ class MeasureApertureCorrectionsTask(Task):
         wavelength = detectorMap.getWavelength()
         minWavelength = wavelength.min()
         maxWavelength = wavelength.max()
-        apCorr = self.fit.run(corrections, pfsConfig, minWavelength=minWavelength,
-                              maxWavelength=maxWavelength)
+        try:
+            apCorr = self.fit.run(corrections, pfsConfig, minWavelength=minWavelength,
+                                  maxWavelength=maxWavelength)
+        except RuntimeError as e:
+            self.log.warn("Unable to measure aperture correction: %s", e)
+            apCorr = None               # will set all fluxes and flux errors to NaN
+            self.log.info("Setting all line fluxes to NaN")
 
         # Apply aperture corrections.
         self.apply(lines, apCorr, pfsConfig)
@@ -282,10 +287,13 @@ class MeasureApertureCorrectionsTask(Task):
         for fiberId in set(lines.fiberId):
             select = lines.fiberId == fiberId
             wavelength = lines.wavelength[select]
-            result = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
-                                                 lines.flux[select], lines.fluxErr[select])
-            lookup[fiberId] = {wl: (flux, fluxErr) for
-                               wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
+            if apCorr is None:
+                lookup[fiberId] = {wl: (np.NaN, np.NaN) for wl in wavelength}
+            else:
+                result = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
+                                                     lines.flux[select], lines.fluxErr[select])
+                lookup[fiberId] = {wl: (flux, fluxErr) for
+                                   wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
 
         values = np.array([lookup[ll.fiberId][ll.wavelength] for ll in lines])
         lines.flux[:] = values[:, 0]
