@@ -7,7 +7,7 @@ from lsst.daf.base import PropertyList
 
 from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
-from .FiberTraceSetContinued import FiberTraceSet
+from .FiberTraceSetContinued import FiberTrace, FiberTraceSet
 from .spline import SplineD
 from .profile import fitSwathProfiles
 
@@ -249,7 +249,7 @@ class FiberProfileSet:
         """
         return self.visitInfo
 
-    def makeFiberTracesFromDetectorMap(self, detectorMap):
+    def makeFiberTracesFromDetectorMap(self, detectorMap, boxcarWidth=0):
         """Construct fiber traces using the detectorMap
 
         Parameters
@@ -257,15 +257,32 @@ class FiberProfileSet:
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength to x,y. This is used to provide the
             xCenter of the trace as a function of detector row.
+        boxcarWidth: `int`
+            Width of boxcar extraction; use fiberProfiles if <= 0
 
         Returns
         -------
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         """
-        rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
-        centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
-        return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
+        if boxcarWidth <= 0:
+            rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
+            centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
+            return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
+        else:
+            dims = detectorMap.getBBox().getDimensions()
+
+            fiberTraces = FiberTraceSet(len(detectorMap))
+            for fiberId in detectorMap.fiberId:
+                if fiberId in self.fiberId:
+                    centers = detectorMap.getXCenter(fiberId)
+
+                    ft = FiberTrace.boxcar(fiberId, dims, boxcarWidth/2, centers)
+                    norm = self.fiberProfiles[fiberId].norm
+                    ft.trace.image.array *= norm.reshape((1, len(norm))).T
+                    fiberTraces.add(ft)
+
+            return fiberTraces
 
     def makeFiberTraces(self, dimensions, centers):
         """Construct fiber traces

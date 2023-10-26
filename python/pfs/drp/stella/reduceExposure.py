@@ -29,7 +29,6 @@ from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
 from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
-from . import FiberTrace, FiberTraceSet
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -519,8 +518,8 @@ class ReduceExposureTask(CmdLineTask):
             (self.config.doAdjustDetectorMap and len(refLines) > 0) or
             self.config.doExtractSpectra
         ):
+            fiberProfiles = sensorRef.get("fiberProfiles")
             if boxcarWidth <= 0:
-                fiberProfiles = sensorRef.get("fiberProfiles")
                 haveProfiles = set(fiberProfiles.fiberId)
                 missingProfiles = need - haveProfiles
                 if missingProfiles:
@@ -528,16 +527,8 @@ class ReduceExposureTask(CmdLineTask):
                     raise RuntimeError(
                         f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
                     )
-                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
-            else:
-                dims = detectorMap.getBBox().getDimensions()
 
-                fiberTraces = FiberTraceSet(len(detectorMap))
-                for fid in detectorMap.fiberId:
-                    if fid in fiberId:
-                        centers = detectorMap.getXCenter(fid)
-
-                        fiberTraces.add(FiberTrace.boxcar(fid, dims, boxcarWidth/2, centers))
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         lines = ArcLineSet.empty()
         traces = None
@@ -588,7 +579,7 @@ class ReduceExposureTask(CmdLineTask):
 
                 if fiberProfiles is not None:
                     # make fiberTraces with new detectorMap
-                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         sensorRef.put(detectorMap, "detectorMap_used")
 
