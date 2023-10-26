@@ -498,13 +498,12 @@ class ReduceExposureTask(CmdLineTask):
 
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
-        # Check that the calibs have the expected number of fibers
+        # Check that the detectorMap includes all the expected fibers
         select = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD,
                                         targetType=[TargetType.fromString(tt) for
                                                     tt in self.config.targetType],
                                         spectrograph=sensorRef.dataId["spectrograph"])
-        fiberId = pfsConfig.fiberId[select]
-        need = set(fiberId)
+        need = set(pfsConfig.fiberId[select])
         haveDetMap = set(detectorMap.fiberId)
         missingDetMap = need - haveDetMap
         if missingDetMap:
@@ -547,6 +546,7 @@ class ReduceExposureTask(CmdLineTask):
 
             if self.config.doAdjustDetectorMap:
                 if self.debugInfo.detectorMap:
+                    fiberId = pfsConfig.fiberId[select]  # a set of fibres to display
                     display = Display(frame=1)
                     display.mtv(exposure)
                     detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
