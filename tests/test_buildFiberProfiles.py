@@ -1,6 +1,6 @@
 import matplotlib
 from lsst.afw.display.interface import Display
-matplotlib.use("Agg")  # noqa E402: disable showing plots
+#matplotlib.use("Agg")  # noqa E402: disable showing plots
 import matplotlib.pyplot as plt  # noqa E402: import after code
 
 import itertools  # noqa E402: import after code
@@ -578,6 +578,8 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         """
         self.synth.separation = separation
 
+        self.synth.width = 60  # XXX numFibers=1
+
         scale1 = np.full(self.synth.numFibers, 0.01)
         scale1[0::4] = 1
         scale2 = np.full(self.synth.numFibers, 0.02)
@@ -593,29 +595,32 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp4 = self.makeContinuumExposure(scale4)
 
         xx = np.linspace(-1, 1, self.synth.width)
-        bg = 100#*np.exp(-0.5*xx**2/0.4**2)
+        bg = 0#*np.exp(-0.5*xx**2/0.4**2)
 
         exp1.image.array += 0.7*bg
         exp2.image.array += 0.9*bg
         exp3.image.array += 1.1*bg
         exp4.image.array += 1.3*bg
 
-        # exp1.writeFits("exp.fits")
+        exp1.writeFits("exp.fits")
 
 
-#        self.task.config.profileRejIter = 0
-#        self.task.config.extractIter = 0
+        self.task.config.profileRejIter = 1
+        self.task.config.extractIter = 1
 
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(
-            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
+#            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
+            [exp1], self.identity, [detMap]
         )
 
         exp1.writeFits("exp1.fits")
         exp2.writeFits("exp2.fits")
         exp3.writeFits("exp3.fits")
         exp4.writeFits("exp4.fits")
+
+        print(results.profiles[0].calculateStatistics())
 
         figAxes = results.profiles.plot(4, 3, show=False)
         for fig, ax in figAxes.values():

@@ -207,6 +207,13 @@ class FiberProfileSet:
             matrixTol,
         )
 
+        # import matplotlib.pyplot as plt
+        # plt.plot(results.profiles[0][0])
+        # plt.figure()
+        # plt.plot(normList[0][0])
+        # plt.show()
+        # breakpoint()
+
         profiles = {
             ff: np.ma.MaskedArray(results.profiles[ii], results.masks[ii]) for ii, ff in enumerate(fiberId)
         }
