@@ -18,11 +18,15 @@ def addTraceLambdaToArclines(als, detectorMap):
     detectorMap
     """
 
-    als.lam = detectorMap.findWavelength(als.fiberId, als.y)
+    als.data["lam"] = detectorMap.findWavelength(als.fiberId, als.y)
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "divide by zero encountered in true_divide")
-        als.lamErr = als.yErr*als.lam/als.y
-    als.tracePos = detectorMap.findPoint(als.fiberId, als.wavelength)[:, 0]
+        als.data["lamErr"] = als.yErr*als.data.lam/als.y
+    als.data["tracePos"] = detectorMap.findPoint(als.fiberId, als.wavelength)[:, 0]
+
+    als.tracePos = als.data["tracePos"]
+    als.lam = als.data["lam"]
+    als.lamErr = als.data["lamErr"]
 
     return als
 
@@ -67,7 +71,7 @@ def fitResiduals(fiberId, y, dz, fitType="linear", genericName=False):
         fit = np.empty_like(dz)
         for i, fid in enumerate(fiberIds):
             ind = np.where(fiberId == fid)[0]
-            fit[ind] = np.median(dz[ind])
+            fit[ind] = np.nanmedian(dz[ind])
 
         name = r"$median_{fiber}$"
     else:
@@ -81,8 +85,11 @@ def plotArcResiduals(als,
                      title="",
                      fitType="mean",
                      plotWavelength=True,
+                     byRow=True,        # plot dx and dy against row, not column
                      usePixels=True,    # report wavelength residuals in pixels, not nm
+                     isQuartz=False,    # It's a quartz exposure, not an arc
                      showChi=False,
+                     vmin=-0.3, vmax=0.3,
                      soften=0,
                      lamErrMax=0,
                      hexBin=False,
@@ -104,21 +111,23 @@ def plotArcResiduals(als,
         dispersion = detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
 
     ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
-    if lamErrMax > 0:
-        with np.testing.suppress_warnings() as suppress:
-            suppress.filter(RuntimeWarning, "invalid value encountered in less")
-            ll = np.logical_and(ll, als.lamErr < lamErrMax)
-    else:
-        # for some reason als.lam == als.wavelength for some lines with "good" fits
-        ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
+    if not isQuartz:
+        if lamErrMax > 0:
+            with np.testing.suppress_warnings() as suppress:
+                suppress.filter(RuntimeWarning, "invalid value encountered in less")
+                ll = np.logical_and(ll, als.lamErr < lamErrMax)
+        else:
+            # for some reason als.lam == als.wavelength for some lines with "good" fits
+            ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
 
     fiberIds = np.array(sorted(set(als.fiberId)))
     nFiber = len(fiberIds)
 
-    fig, axs = plt.subplots(2, 1, num=figure, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
+    fig, axs = plt.subplots(1 if isQuartz else 2, 1,
+                            num=figure, squeeze=False, sharex=False, gridspec_kw=dict(hspace=0.2))
     axs = axs.flatten()
 
-    for iax, plotWavelength in enumerate([True, False]):
+    for iax, plotWavelength in enumerate([False] if isQuartz else [True, False]):
         plt.sca(axs[iax])
 
         if plotWavelength:
@@ -127,7 +136,7 @@ def plotArcResiduals(als,
             dy = als.lamErr
             yUnit = "nm"
         else:
-            x = als.y
+            x = als.y if byRow else als.x
             y = als.tracePos - als.x
             dy = als.xErr
             yUnit = "pixel"
@@ -142,36 +151,51 @@ def plotArcResiduals(als,
             dy /= dispersion
             yUnit = "pixel"
 
-        xlim = plt.xlim(0.95*x[ll].min(), 1.05*x[ll].max())
+        if sum(ll) == 0:
+            xlim = (np.NaN, np.NaN)
+        else:
+            xlim = plt.xlim(0.95*np.nanmin(x[ll]), 1.05*np.nanmax(x[ll]))
 
         if usePixels and not showChi:
-            ylim = plt.ylim(0.3*(np.array([-1, 1])) + np.nanmedian(y))
+            ylim = plt.ylim(np.array([vmin, vmax]) + np.nanmedian(y))
         elif plotWavelength:
             ylim = plt.ylim((4 if showChi else 0.03)*(np.array([-1, 1])) + np.nanmedian(y))
         else:
-            ylim = (np.nanmin(y), np.nanmax(y))
+            ylim = plt.ylim(np.nanmin(y), np.nanmax(y))
 
         if hexBin:
+            cmap = plt.matplotlib.cm.get_cmap().copy()
+            cmap.set_bad(color='black')
             plt.hexbin(x[ll], y[ll], extent=(xlim[0], xlim[1], ylim[0], ylim[1]), bins='log',
-                       gridsize=gridsize, linewidths=linewidths)
+                       gridsize=gridsize, linewidths=linewidths, cmap=cmap)
             plt.axhline(0, color="white", alpha=0.5)
         else:
-            color = plt.cm.Spectral(np.linspace(0.0, 1, max(als.fiberId) + 1))
-            plt.scatter(x[ll], y[ll], c=color[als.fiberId[ll]], marker='o',
+            if plotWavelength:
+                colorvec = als.fiberId
+            else:
+                colorvec = als.x if byRow else als.y
+                colorvec = 255*(colorvec - np.nanmin(colorvec))/(np.nanmax(colorvec) - np.nanmin(colorvec))
+                colorvec = np.where(np.isnan(colorvec), 0, colorvec.astype(int))
+
+            color = plt.cm.Spectral(np.linspace(0.0, 1, max(colorvec) + 1))
+            plt.scatter(x[ll], y[ll], c=color[colorvec], marker='o',
                         alpha=max(0.1, 0.9 - 0.35*nFiber/250), edgecolors='none')
             plt.axhline(0, color="black", zorder=-1)
 
-        clippedL = ll
-        if nsigma > 0:
-            for i in range(2):
-                q1, q3 = np.percentile(y[clippedL], [25, 75])
-                rms = 0.741*(q3 - q1)
-                clippedL = np.logical_and(ll, y < nsigma*rms)
+        if sum(ll) == 0:
+            rms = np.NaN
+        else:
+            clippedL = ll
+            if nsigma > 0:
+                for i in range(2):
+                    q1, q3 = np.nanpercentile(y[clippedL], [25, 75])
+                    rms = 0.741*(q3 - q1)
+                    clippedL = np.logical_and(ll, y < nsigma*rms)
 
-        q1, q3 = np.percentile(y[clippedL], [25, 75])
-        rms = 0.741*(q3 - q1)
+            q1, q3 = np.nanpercentile(y[clippedL], [25, 75])
+            rms = 0.741*(q3 - q1)
 
-        plt.xlabel("wavelength (nm)" if iax == 0 else "row (pixel)")
+        plt.xlabel("wavelength (nm)" if plotWavelength else ("row" if byRow else "column") + " (pixel)")
         plt.ylabel(r"$\chi$" if showChi else
                    f"(measured - true) {f'wavelength ({yUnit})' if plotWavelength else 'position (pixels)'}")
 
@@ -182,8 +206,12 @@ def plotArcResiduals(als,
 
     nFiber = len(set(als.fiberId))
 
-    plt.suptitle(f"{title}   {nFiber} fibers, %s < {lamErrMax} {sum(ll/nFiber):.0f} lines" %
-                 (r'$\sigma_\lambda$',), y=0.92)
+    title = f"{title}   {nFiber} fibers, %s < {lamErrMax} {sum(ll/nFiber):.0f} lines" % \
+        (r'$\sigma_\lambda$',)
+    if isQuartz:
+        plt.title(f"{axs[0].get_title()}\n{title}", color='black')
+    else:
+        plt.suptitle(title, y=0.81)
 
     return fig
 
@@ -192,30 +220,39 @@ def plotArcResiduals(als,
 
 def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
                        maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0,
+                       isQuartz=False,  # It's a quartz exposure, not an arc
                        drawQuiver=True, arrowSize=0.1,
                        vmin=None, vmax=None, percentiles=[25, 75],
                        hexBin=False, gridsize=100, linewidths=None, figure=None):
     """
+    fitType: "linear", "mean", "median" "per fiber"
     arrowSize: characteristic arrow length in pixels
     """
     indices = len(als.fiberId)//2
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices],
-                                                              als.wavelength[indices])
     dx = als.tracePos - als.x
+    if isQuartz:
+        dy = np.zeros_like(dx)
+    else:
+        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices],
+                                                                  als.wavelength[indices])
 
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "invalid value encountered in less")
         ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
-        ll = np.logical_and(ll, np.hypot(als.xErr, als.yErr) < maxCentroidErr)
+        ll = np.logical_and(ll, als.xErr if isQuartz else np.hypot(als.xErr, als.yErr) < maxCentroidErr)
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
         if minSN > 0:
             ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     indices = len(als.fiberId)//2
-    dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
     dx = als.tracePos - als.x
+    if isQuartz:
+        dy = np.zeros_like(dx)
+    else:
+        dy = (als.lam - als.wavelength)/detectorMap.getDispersion(als.fiberId[indices],
+                                                                  als.wavelength[indices])
 
-    for dz in [dx, dy]:
+    for dz in [dx] if isQuartz else [dx, dy]:
         fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], dz[ll], fitType=fitType, genericName=True)
         dz[ll] -= fit
 
@@ -238,7 +275,10 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
         plt.gca().set_aspect('equal')
     else:
-        fig, axs = plt.subplots(1, 2, num=figure, sharex=True, sharey=True, gridspec_kw=dict(wspace=0.0))
+        fig, axs = plt.subplots(1, 1 if isQuartz else 2,
+                                num=figure, sharex=True, sharey=True, squeeze=False,
+                                gridspec_kw=dict(wspace=0.0))
+        axs = axs.flatten()
 
         v0, v1 = np.percentile(np.concatenate((dx, dy)), percentiles)
         if vmin is None:
@@ -254,7 +294,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
             norm = mplColors.Normalize(vmin, vmax)
 
             if hexBin:
-                plt.hexbin(als.x[ll], als.y[ll], dz[ll], norm=norm, gridsize=250 if False else 100)
+                plt.hexbin(als.x[ll], als.y[ll], dz[ll], norm=norm, gridsize=gridsize)
             else:
                 plt.scatter(als.x[ll], als.y[ll], c=dz[ll], s=3, vmin=vmin, vmax=vmax)
 
@@ -271,10 +311,14 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
 
             ax.format_coord = pfs_format_coord
 
-        cax = fig.add_axes([0.915, 0.243, 0.02, 0.505])
+        cax = None if isQuartz else fig.add_axes([0.915, 0.243, 0.02, 0.505])
         plt.colorbar(cax=cax)
 
-    plt.suptitle(f"{title}  " + (f"correction: {fitName}" if fitName else ""), y=0.92 if drawQuiver else 0.81)
+    title = f"{title}" + (f"  correction: {fitName}" if fitName else "")
+    if isQuartz:
+        plt.title(f"{axs[0].get_title()}\n{title}", color='black')
+    else:
+        plt.suptitle(title, y=0.92 if drawQuiver else 0.81)
 
     return fig
 
