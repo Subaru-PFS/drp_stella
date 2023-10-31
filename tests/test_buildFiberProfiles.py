@@ -607,7 +607,8 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
 
         self.task.config.profileRejIter = 1
         self.task.config.extractIter = 1
-
+        self.task.config.profileRadius = 5
+        self.task.config.profileOversample = 2
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(

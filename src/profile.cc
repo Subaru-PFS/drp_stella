@@ -110,8 +110,17 @@ class SwathProfileBuilder {
         _numBackgroundParameters(getNumBackgroundIndices(dims, bgSize)),
         _numParameters(_numSwathsParameters + numImages*_numBackgroundParameters + 1),
         _iGaussian(_numParameters - 1),
+//        _gaussian(ndarray::allocate(_profileSize + oversample)),
         _bgIndex(calculateBackgroundIndices(dims, bgSize, _numSwathsParameters))
-        {}
+        {
+#if 0
+            double invSigma = 1.0/sigma;
+            for (std::size_t ii = -(radius + 1); ii <= radius + 1; ++ii) {
+                double const xx = (ii - _profileCenter)/_oversample;
+                _gaussian[ii] = std::exp(-0.5*std::pow(xx*invSigma, 2));
+            }
+#endif
+        }
 
     std::size_t getNumParameters() const { return _numParameters; }
 
@@ -219,9 +228,14 @@ class SwathProfileBuilder {
         assert(norm.size() == centers.size());
         assert(std::size_t(xx) < rejected.size());
         if (rejected[xx]) return;
+
+
+        // if (yy < 497 || yy > 519) return;
+
+
         float const pixelValue = iter.image();
         assert(iter.variance() > 0);
-        double const invVariance = 1.0/iter.variance();
+        double const invVariance = 1.0; // /iter.variance();
         double const pixelTimesInvVariance = pixelValue*invVariance;
         double const diffValue = (pixelValue - (iter + 1).image())*invVariance;
 
@@ -239,8 +253,7 @@ class SwathProfileBuilder {
             double const iNorm = norm[ii];
             if (iNorm == 0) continue;
 
-            double const gaussian = _gaussian(xx - centers[ii]);
-            double const normGaussian = iNorm*gaussian;
+            double const normGaussian = iNorm*_gaussian(xx - centers[ii]);
             gTerm += normGaussian;
             ggTerm += std::pow(normGaussian, 2);
 //            dgTerm += normGaussian - iNorm*_gaussian(xx + 1 - centers[ii]);
@@ -269,27 +282,32 @@ class SwathProfileBuilder {
             int const prevPosition = std::get<2>(iInterp);
             int const nextPosition = prevPosition + 1;
 
-            double const dgTerm = iNorm*(_gaussian(xx - centers[ii]) - _gaussian(xx + 1 - centers[ii]));
+            if (yy == 512) std::cerr << "xx=" << xx << " ii=" << ii << " dx=" << (xx - centers[ii]) << " " << iIndex[0] << "," << iValue[0] << " " << iIndex[1] << "," << iValue[1] << " " << iIndex[2] << "," << iValue[2] << " " << iIndex[3] << "," << iValue[3] << std::endl;
 
-            equation.matrix.add(iIndex[0], _iGaussian, iValue[0]*dgTerm);
-            equation.matrix.add(iIndex[1], _iGaussian, iValue[1]*dgTerm);
-            equation.matrix.add(iIndex[2], _iGaussian, iValue[2]*dgTerm);
-            equation.matrix.add(iIndex[3], _iGaussian, iValue[3]*dgTerm);
+#if 0
+            gTerm += iNorm*iValue[0]*_gaussian[iIndex[0]];
+            gTerm += iNorm*iValue[1]*_gaussian[iIndex[1]];
+            gTerm += iNorm*iValue[2]*_gaussian[iIndex[2]];
+            gTerm += iNorm*iValue[3]*_gaussian[iIndex[3]];
 
-            double const iValue0Squared = std::pow(iValue[0], 2)*invVariance;
-            double const iValue1Squared = std::pow(iValue[1], 2)*invVariance;
-            double const iValue2Squared = std::pow(iValue[2], 2)*invVariance;
-            double const iValue3Squared = std::pow(iValue[3], 2)*invVariance;
+            ggTerm += std::pow(iNorm*iValue[0]*_gaussian[iIndex[0]], 2);
+            ggTerm += std::pow(iNorm*iValue[1]*_gaussian[iIndex[1]], 2);
+            ggTerm += std::pow(iNorm*iValue[2]*_gaussian[iIndex[2]], 2);
+            ggTerm += std::pow(iNorm*iValue[3]*_gaussian[iIndex[3]], 2);
+#endif
 
-            double const iValue0TimesInvVariance = iValue[0]*invVariance;
-            double const iValue1TimesInvVariance = iValue[1]*invVariance;
-            double const iValue2TimesInvVariance = iValue[2]*invVariance;
-            double const iValue3TimesInvVariance = iValue[3]*invVariance;
+            // dgTerm here for now since we're only dealing with a single fiber
+            double const dgTerm = iNorm*(_gaussian(xx - centers[ii]) - _gaussian(xx - centers[ii] + 1));
 
-            equation.matrix.add(iIndex[0], iIndex[0], 2*iValue0Squared);
-            equation.matrix.add(iIndex[1], iIndex[1], 2*iValue1Squared);
-            equation.matrix.add(iIndex[2], iIndex[2], 2*iValue2Squared);
-            equation.matrix.add(iIndex[3], iIndex[3], 2*iValue3Squared);
+            equation.matrix.add(iIndex[0], _iGaussian, iValue[0]*dgTerm*invVariance);
+            equation.matrix.add(iIndex[1], _iGaussian, iValue[1]*dgTerm*invVariance);
+            equation.matrix.add(iIndex[2], _iGaussian, iValue[2]*dgTerm*invVariance);
+            equation.matrix.add(iIndex[3], _iGaussian, iValue[3]*dgTerm*invVariance);
+
+            equation.matrix.add(iIndex[0], iIndex[0], 2*std::pow(iValue[0], 2)*invVariance);
+            equation.matrix.add(iIndex[1], iIndex[1], 2*std::pow(iValue[1], 2)*invVariance);
+            equation.matrix.add(iIndex[2], iIndex[2], 2*std::pow(iValue[2], 2)*invVariance);
+            equation.matrix.add(iIndex[3], iIndex[3], 2*std::pow(iValue[3], 2)*invVariance);
 
             equation.vector[iIndex[0]] += iValue[0]*diffValue;
             equation.vector[iIndex[1]] += iValue[1]*diffValue;
@@ -297,20 +315,20 @@ class SwathProfileBuilder {
             equation.vector[iIndex[3]] += iValue[3]*diffValue;
 
             if (prevPosition + _oversample < _profileSize) {
-                equation.matrix.add(iIndex[0], iIndex[0] + _oversample, -iValue0Squared);
-                equation.matrix.add(iIndex[2], iIndex[2] + _oversample, -iValue2Squared);
+                equation.matrix.add(iIndex[0], iIndex[0] + _oversample, -2*std::pow(iValue[0], 2)*invVariance);
+                equation.matrix.add(iIndex[2], iIndex[2] + _oversample, -2*std::pow(iValue[2], 2)*invVariance);
             }
             if (nextPosition + _oversample < _profileSize) {
-                equation.matrix.add(iIndex[1], iIndex[1] + _oversample, -iValue1Squared);
-                equation.matrix.add(iIndex[3], iIndex[3] + _oversample, -iValue3Squared);
+                equation.matrix.add(iIndex[1], iIndex[1] + _oversample, -2*std::pow(iValue[1], 2)*invVariance);
+                equation.matrix.add(iIndex[3], iIndex[3] + _oversample, -2*std::pow(iValue[3], 2)*invVariance);
             }
 
-            equation.matrix.add(iIndex[0], iIndex[1], 2*iValue[0]*iValue1TimesInvVariance);
-            equation.matrix.add(iIndex[0], iIndex[2], 2*iValue[0]*iValue2TimesInvVariance);
-            equation.matrix.add(iIndex[0], iIndex[3], 2*iValue[0]*iValue3TimesInvVariance);
-            equation.matrix.add(iIndex[1], iIndex[2], 2*iValue[1]*iValue2TimesInvVariance);
-            equation.matrix.add(iIndex[1], iIndex[3], 2*iValue[1]*iValue3TimesInvVariance);
-            equation.matrix.add(iIndex[2], iIndex[3], 2*iValue[2]*iValue3TimesInvVariance);
+            equation.matrix.add(iIndex[0], iIndex[1], 2*iValue[0]*iValue[1]*invVariance);
+            equation.matrix.add(iIndex[0], iIndex[2], 2*iValue[0]*iValue[2]*invVariance);
+            equation.matrix.add(iIndex[0], iIndex[3], 2*iValue[0]*iValue[3]*invVariance);
+            equation.matrix.add(iIndex[1], iIndex[2], 2*iValue[1]*iValue[2]*invVariance);
+            equation.matrix.add(iIndex[1], iIndex[3], 2*iValue[1]*iValue[3]*invVariance);
+            equation.matrix.add(iIndex[2], iIndex[3], 2*iValue[2]*iValue[3]*invVariance);
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jNorm = norm[jj];
@@ -365,8 +383,12 @@ class SwathProfileBuilder {
                                   "fiberIds aren't sorted from left to right");
             }
             lower[fiberIndex] = std::max(0, int(std::ceil(centers[fiberIndex] - _radius - 1)));
-            upper[fiberIndex] = std::min(width - 1, int(std::floor(centers[fiberIndex] + _radius)));
+            upper[fiberIndex] = std::min(width - 1, int(std::floor(centers[fiberIndex] + _radius) + 1));
         }
+//        std::cerr << "y=" << yy << " centers=" << centers << " lower=" << lower << " upper=" << upper << std::endl;
+        // if (yy == 512) std::cerr << "Lower: " << lower << std::endl;
+        // if (yy == 512) std::cerr << "Upper: " << upper << std::endl;
+        // if (yy == 512) std::cerr << "Centers: " << centers << std::endl;
 
         // Iterate over pixels in the row
         std::size_t left = 0;  // fiber index of lower bound of consideration for this pixel (inclusive)
@@ -459,6 +481,8 @@ class SwathProfileBuilder {
         std::size_t index = 0;
 
         profiles.deep() = 0.0;
+        masks.deep() = false;
+
         double const norm = solution[_iGaussian];
 
         for (std::size_t ss = 0; ss < _ySwaths.size(); ++ss) {
@@ -467,14 +491,24 @@ class SwathProfileBuilder {
                 for (std::size_t pp = 0; pp < _profileSize; ++pp, ++index, xx += 1) {
                     double const value = solution[index];
                     profiles[ff][ss][pp] += norm*_gaussian(xx/_oversample) + value;
+                    std::cerr << "xx=" << xx << " " << norm*_gaussian(xx/_oversample) << " " << value << " " << profiles[ff][ss][pp] << std::endl;
                     assert(pp + _oversample < profileSize);
                     profiles[ff][ss][pp + _oversample] -= value;
                     bool const isMasked = std::isnan(solution[index]);
-                    masks[ff][ss][pp] = isMasked;
-                    masks[ff][ss][pp + _oversample] = isMasked;
+                    masks[ff][ss][pp] |= isMasked;
+                    masks[ff][ss][pp + _oversample] |= isMasked;
+                }
+                // Add the extra pixel at the end
+                for (std::size_t pp = _profileSize; pp < profileSize; ++pp, xx += 1) {
+                    profiles[ff][ss][pp] += norm*_gaussian(xx/_oversample);
+                    std::cerr << "xx=" << xx << " " << norm*_gaussian(xx/_oversample) << " " << profiles[ff][ss][pp] << std::endl;
                 }
             }
         }
+
+        std::cerr << "Solution:" << std::endl;
+        std::cerr << solution[ndarray::view(0, _profileSize)] << std::endl;
+        std::cerr << solution[ndarray::view(_profileSize, _numSwathsParameters)] << std::endl;
 
         std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds{_numImages};
         for (std::size_t ii = 0; ii < _numImages; ++ii) {
@@ -659,6 +693,7 @@ class SwathProfileBuilder {
 
         modelImage(xx, yy) = model;
 
+#if 0
         float const diff = (image - model)/std::sqrt(variance);
         if (std::abs(diff) > rejThreshold) {
             // Figure out this pixel's contribution, so we can subtract it
@@ -667,6 +702,7 @@ class SwathProfileBuilder {
             );
             rejected[xx] = true;
         }
+#endif
     }
 
   private:
@@ -757,6 +793,11 @@ class SwathProfileBuilder {
         int yy
     ) const {
         std::size_t const last = _ySwaths.size() - 1;
+
+        // XXX testing that nearest neighbour swaths don't interact
+        return std::make_pair(std::make_pair(0UL, 1.0), std::make_pair(0UL, 0.0));
+
+
         if (yy <= _ySwaths[0]) {
             return std::make_pair(std::make_pair(0UL, 1.0), std::make_pair(0UL, 0.0));
         }
@@ -834,9 +875,11 @@ class SwathProfileBuilder {
         return std::make_tuple(indices, weights, prevPosition);
     }
 
+#if 1
     double _gaussian(double x) const {
         return std::exp(-0.5*std::pow(x*_invSigma, 2));
     }
+#endif
 
     ndarray::Array<float, 1, 1> const& _ySwaths;  // y positions of swath centers
     int const _oversample;  // oversampling factor for profiles
@@ -853,6 +896,7 @@ class SwathProfileBuilder {
     std::size_t const _numBackgroundParameters;  // number of parameters for background per image
     std::size_t const _numParameters;  // total number of parameters
     std::size_t const _iGaussian;  // index of Gaussian term
+//    ndarray::Array<double, 1, 1> _gaussian;  // Gaussian profile
     ndarray::Array<int, 2, 1> const _bgIndex;  // index of background super-pixel for each pixel
 };
 
