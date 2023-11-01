@@ -245,7 +245,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
             ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     indices = len(als.fiberId)//2
-    dx = als.tracePos - als.x
+    dx = (als.tracePos - als.x).to_numpy()
     if isQuartz:
         dy = np.zeros_like(dx)
     else:
