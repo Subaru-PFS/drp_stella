@@ -77,7 +77,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         if numGoodLines < needNumLines:
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
-        for ii in range(self.config.traceIterations):
+        for ii in range(self.config.traceIterations or 1):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
@@ -85,10 +85,17 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
                 detectorMap.bbox, residuals, weights, dispersion, seed=seed, DistortionClass=DistortionClass
             )
             detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
+
+            numParameters = fit.numParameters
+            if self.config.doSlitOffsets:
+                for _ in range(self.config.slitOffsetIterations):
+                    offsets = self.measureSlitOffsets(detectorMap, lines, fit.selection, weights)
+                numParameters += offsets.numParameters
+
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
 
-        results = self.measureQuality(lines, detectorMap, fit.selection, fit.numParameters)
+        results = self.measureQuality(lines, detectorMap, fit.selection, numParameters)
         results.detectorMap = detectorMap
 
         lines.status[fit.selection] |= ReferenceLineStatus.DETECTORMAP_USED
