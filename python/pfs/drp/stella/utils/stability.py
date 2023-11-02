@@ -141,7 +141,7 @@ def plotArcResiduals(als,
             dy = als.xErr
             yUnit = "pixel"
 
-        fit, fiddle = fitResiduals(als.fiberId[ll], als.y[ll], y[ll], fitType=fitType)
+        fit, fiddle = fitResiduals(als.fiberId[ll], als.y[ll], y[ll].to_numpy(), fitType=fitType)
         y[ll] -= fit
 
         if showChi:
@@ -245,7 +245,7 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
             ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     indices = len(als.fiberId)//2
-    dx = (als.tracePos - als.x).to_numpy()
+    dx = als.tracePos - als.x
     if isQuartz:
         dy = np.zeros_like(dx)
     else:
@@ -253,7 +253,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
                                                                   als.wavelength[indices])
 
     for dz in [dx] if isQuartz else [dx, dy]:
-        fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], dz[ll], fitType=fitType, genericName=True)
+        fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], dz.to_numpy()[ll],
+                                    fitType=fitType, genericName=True)
         dz[ll] -= fit
 
     if drawQuiver:
