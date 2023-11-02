@@ -411,7 +411,7 @@ class FitDistortedDetectorMapTask(Task):
         if self.config.doSlitOffsets:
             residuals = self.calculateBaseResiduals(base, lines)
             self.initializeSlitOffsets(base, residuals, dispersion)
-        for ii in range(self.config.traceIterations):
+        for ii in range(self.config.traceIterations or 1):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
 
@@ -672,13 +672,17 @@ class FitDistortedDetectorMapTask(Task):
             weightsFiber = weights[choose]
 
             for jj in range(self.config.iterations):
-                yChoose = chooseFiber & notTraceFiber
-                if not np.any(yChoose):
+                if not np.any(chooseFiber):
                     break
+
+                yChoose = chooseFiber & notTraceFiber
 
                 # Robust measurement
                 spatialFiber = -np.median(dxFiber)
-                spectralFiber = -np.median(dyFiber[yChoose])
+                if np.any(yChoose):
+                    spectralFiber = -np.median(dyFiber[yChoose])
+                else:
+                    spectralFiber = 0.0
 
                 fitFiber[:, 0] = xyFiber[:, 0] + spatialFiber
                 fitFiber[:, 1] = xyFiber[:, 1] + spectralFiber
@@ -692,17 +696,20 @@ class FitDistortedDetectorMapTask(Task):
                 chooseFiber = newChooseFiber
 
             # Final fit, with more precise measurement
-            yChoose = chooseFiber & notTraceFiber
-            if not np.any(yChoose):
+            if not np.any(chooseFiber):
                 noMeasurements.add(ff)
                 continue
+            yChoose = chooseFiber & notTraceFiber
             with np.errstate(divide="ignore"):
                 spatialFiber = -np.average(
                     dxFiber[chooseFiber], weights=(weightsFiber[chooseFiber]/xErrFiber[chooseFiber])**2
                 )
-                spectralFiber = -np.average(
-                    dyFiber[yChoose], weights=(weightsFiber[yChoose]/yErrFiber[yChoose])**2
-                )
+                if np.any(yChoose):
+                    spectralFiber = -np.average(
+                        dyFiber[yChoose], weights=(weightsFiber[yChoose]/yErrFiber[yChoose])**2
+                    )
+                else:
+                    spectralFiber = 0.0
 
             fit[choose, 0] = xy[choose, 0] + spatialFiber
             fit[choose, 1] = xy[choose, 1] + spectralFiber
@@ -1023,10 +1030,14 @@ class FitDistortedDetectorMapTask(Task):
                     for fiberId in set(lines.fiberId[used]):
                         choose = used & (lines.fiberId == fiberId)
                         yChoose = choose & isLine
-                        dx = np.median(result.xResid[choose]) if np.any(choose) else np.nan
-                        dy = np.median(result.yResid[yChoose]) if np.any(yChoose) else np.nan
-                        newUsed[choose] &= ((np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection) &
-                                            (np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection))
+                        if not np.any(choose):
+                            continue
+                        dx = np.median(result.xResid[choose])
+                        newUsed[choose] &= np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection
+                        if not np.any(yChoose):
+                            continue
+                        dy = np.median(result.yResid[yChoose])
+                        newUsed[choose] &= np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection
                 else:
                     keep = self.rejectOutliers(result, xErr, yErr)
                     if self.config.doRejectBadLines:

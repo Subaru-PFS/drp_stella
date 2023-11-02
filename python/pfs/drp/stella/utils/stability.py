@@ -22,7 +22,7 @@ def addTraceLambdaToArclines(als, detectorMap):
     with np.testing.suppress_warnings() as suppress:
         suppress.filter(RuntimeWarning, "divide by zero encountered in true_divide")
         als.data["lamErr"] = als.yErr*als.data.lam/als.y
-    als.data["tracePos"] = detectorMap.findPoint(als.fiberId, als.wavelength)[:, 0]
+    als.data["tracePos"] = detectorMap.getXCenter(als.fiberId, als.y)
 
     als.tracePos = als.data["tracePos"]
     als.lam = als.data["lam"]
