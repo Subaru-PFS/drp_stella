@@ -547,6 +547,8 @@ class ReduceExposureTask(CmdLineTask):
                     if self.config.requireAdjustDetectorMap:
                         raise
                     self.log.warn("DetectorMap adjustment failed: %s", exc)
+                except RuntimeError as exc:
+                    self.log.warn("DetectorMap adjustment failed: %s", exc)
 
                 if self.debugInfo.detectorMap:
                     detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
