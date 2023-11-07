@@ -404,7 +404,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.synth = SyntheticConfig()
         self.synth.height = 1024
-        self.synth.width = 256
+        self.synth.width = 128
         self.synth.separation = 19.876
         self.synth.fwhm = 3.21
         self.synth.slope = 0.04321  # Larger than default, to get more sampling of sub-pixel positions
@@ -578,7 +578,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         """
         self.synth.separation = separation
 
-        self.synth.width = 60  # XXX numFibers=1
+#        self.synth.width = 60  # XXX numFibers=1
 
         scale1 = np.full(self.synth.numFibers, 0.01)
         scale1[0::4] = 1
@@ -605,15 +605,15 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp1.writeFits("exp.fits")
 
 
-        self.task.config.profileRejIter = 1
-        self.task.config.extractIter = 1
-        self.task.config.profileRadius = 5
+        self.task.config.profileRejIter = 0
+        self.task.config.extractIter = 3
+        self.task.config.profileRadius = 15
         self.task.config.profileOversample = 2
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(
-#            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
-            [exp1], self.identity, [detMap]
+            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
+#            [exp1], self.identity, [detMap]
         )
 
         exp1.writeFits("exp1.fits")
