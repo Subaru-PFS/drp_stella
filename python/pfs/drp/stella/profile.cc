@@ -23,7 +23,7 @@ PYBIND11_PLUGIN(profile) {
     cls.def_readonly("backgrounds", &FitProfilesResults::backgrounds);
 
     mod.def("fitProfiles", &fitProfiles, "images"_a, "centers"_a, "spectra"_a, "fiberId"_a,
-            "ySwaths"_a, "badBitMask"_a, "oversample"_a, "radius"_a, "bgSize"_a,
+            "ySwaths"_a, "badBitMask"_a, "oversample"_a, "radius"_a, "sigma"_a, "bgSize"_a,
             "rejIter"_a=1, "rejThresh"_a=4.0, "matrixTol"_a=1e-4);
     mod.def("fitAmplitudes", &fitAmplitudes, "image"_a, "centers"_a, "sigma"_a,
             "badBitMask"_a=0, "maxSigma"_a=4.0);

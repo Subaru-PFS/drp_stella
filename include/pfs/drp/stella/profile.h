@@ -38,6 +38,7 @@ struct FitProfilesResults {
 /// @param badBitMask : Mask bits to ignore
 /// @param oversample : Oversampling factor
 /// @param radius : Radius of fiber profile
+/// @param sigma : Estimate of gaussian sigma of fiber profile
 /// @param bgSize : Size of background super-pixels
 /// @param rejIter : Number of rejection iterations
 /// @param rejThresh : Rejection threshold (sigma)
@@ -52,6 +53,7 @@ FitProfilesResults fitProfiles(
     lsst::afw::image::MaskPixel badBitMask,
     int oversample,
     int radius,
+    float sigma,
     lsst::geom::Extent2I const& bgSize,
     int rejIter=1,
     float rejThresh=4.0,

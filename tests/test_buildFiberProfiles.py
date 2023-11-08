@@ -425,7 +425,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         self.config.centerFit.order = 2
         self.config.rowFwhm = self.synth.fwhm
         self.config.columnFwhm = self.synth.fwhm
-        self.config.extractFwhm = 0.5*self.synth.fwhm
+        self.config.extractFwhm = 1.0*self.synth.fwhm
         self.config.doBlindFind = False
         self.config.profileRadius = 10  # Very broad!
         self.task = BuildFiberProfilesTask(config=self.config)
@@ -578,15 +578,18 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         """
         self.synth.separation = separation
 
+        self.synth.readnoise = 1.0
+        self.synth.gain = 0
+
 #        self.synth.width = 60  # XXX numFibers=1
 
-        scale1 = np.full(self.synth.numFibers, 0.01)
+        scale1 = np.full(self.synth.numFibers, 0.0)
         scale1[0::4] = 1
-        scale2 = np.full(self.synth.numFibers, 0.02)
+        scale2 = np.full(self.synth.numFibers, 0.0)
         scale2[1::4] = 1
-        scale3 = np.full(self.synth.numFibers, 0.03)
+        scale3 = np.full(self.synth.numFibers, 0.0)
         scale3[2::4] = 1
-        scale4 = np.full(self.synth.numFibers, 0.04)
+        scale4 = np.full(self.synth.numFibers, 0.0)
         scale4[3::4] = 1
 
         exp1 = self.makeContinuumExposure(scale1)
@@ -605,7 +608,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp1.writeFits("exp.fits")
 
 
-        self.task.config.profileRejIter = 0
+        self.task.config.profileRejIter = 1
         self.task.config.extractIter = 3
         self.task.config.profileRadius = 15
         self.task.config.profileOversample = 2

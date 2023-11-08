@@ -93,6 +93,7 @@ class FiberProfileSet:
         normList: Iterable[Any],
         radius: int,
         oversample: int,
+        sigma: float,
         swathSize: float,
         rejIter: int = 1,
         rejThresh: float = 4.0,
@@ -126,6 +127,8 @@ class FiberProfileSet:
             is measured for.
         oversample : `int`
             Oversample factor for the profile.
+        sigma : `float`
+            Estimate of Gaussian sigma of the profiles.
         swathSize : `float`
             Desired size of swath, in number of rows. The actual swath size used
             will be slightly different, to fit the total number of rows.
@@ -201,6 +204,7 @@ class FiberProfileSet:
             badBitmask,
             oversample,
             radius,
+            sigma,
             bgSize,
             rejIter,
             rejThresh,

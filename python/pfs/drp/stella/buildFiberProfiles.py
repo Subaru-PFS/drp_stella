@@ -48,7 +48,7 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
-    profileTol = Field(dtype=float, default=1.0e-4, doc="Tolerance for matrix inversion when fitting profile")
+    profileTol = Field(dtype=float, default=1.0e-8, doc="Tolerance for matrix inversion when fitting profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
 
@@ -215,10 +215,27 @@ class BuildFiberProfilesTask(Task):
             prof = FiberProfile.makeGaussian(fwhmToSigma(self.config.extractFwhm), image.getHeight(),
                                              self.config.profileRadius, self.config.profileOversample)
             badBitMask = image.mask.getPlaneBitMask(self.config.mask)
-            for ii, ff in enumerate(sorted(centers.keys())):
-                centersArray[ii] = centers[ff](rows)
-                spectrum = prof.extractSpectrum(image, detectorMap, ff, badBitMask)
-                norm[ii] = spectrum.flux
+            if False:
+                for ii, ff in enumerate(sorted(centers.keys())):
+                    centersArray[ii] = centers[ff](rows)
+                    spectrum = prof.extractSpectrum(image, detectorMap, ff, badBitMask)
+                    norm[ii] = spectrum.flux
+            else:
+                profiles = FiberProfileSet.makeEmpty(
+                    identity, exposureList[0].getInfo().getVisitInfo(), exposureList[0].getMetadata()
+                )
+                for jj, ff in enumerate(sorted(centers.keys())):
+                    centersArray[jj] = centers[ff](rows)
+                    profiles[ff] = prof
+                norm[:] = profiles.extractSpectra(image, detectorMap, badBitMask).getAllFluxes()
+
+                # import matplotlib.pyplot as plt
+                # for jj, nn in enumerate(norm):
+                #     plt.plot(nn, label=str(jj))
+                # plt.show()
+
+                # norm[norm < 100] = 0.0
+                # norm[norm > 100] = 1e5
 
             centersList.append(centersArray)
             normList.append(norm)
@@ -226,6 +243,7 @@ class BuildFiberProfilesTask(Task):
         if fibers is None:
             raise RuntimeError("No fibers")
         fiberId = np.array(list(sorted(fibers)), dtype=int)
+        sigma = fwhmToSigma(self.config.extractFwhm)
 
         self.log.info("Starting initial profile extraction...")
         profiles = FiberProfileSet.fromImages(
@@ -236,6 +254,7 @@ class BuildFiberProfilesTask(Task):
             normList,
             self.config.profileRadius,
             self.config.profileOversample,
+            sigma,
             self.config.profileSwath,
             self.config.profileRejIter,
             self.config.profileRejThresh,
@@ -254,7 +273,7 @@ class BuildFiberProfilesTask(Task):
             # Generate profiles with which to measure the flux
             # These are Gaussian approximations to the profiles we've measured, to remove any nastiness in the
             # measured profiles that might slow down convergence.
-            if False:
+            if True:
                 fluxProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
                 width = np.array([profiles[ff].calculateStatistics().width for ff in profiles])
                 select = np.isfinite(width) & (width > 0)
@@ -272,6 +291,15 @@ class BuildFiberProfilesTask(Task):
                     imageList[jj], detectorMapList[jj], badBitMask
                 ).getAllFluxes()
 
+                # import matplotlib.pyplot as plt
+                # for jj, nn in enumerate(norm):
+                #     plt.plot(nn, label=str(jj))
+                # plt.show()
+
+                # norm[norm < 100] = 0.0
+                # norm[norm > 100] = 1e5
+
+
             self.log.info("Starting profile extraction iteration %d...", ii + 1)
             profiles = FiberProfileSet.fromImages(
                 identity,
@@ -281,6 +309,7 @@ class BuildFiberProfilesTask(Task):
                 normList,
                 self.config.profileRadius,
                 self.config.profileOversample,
+                sigma,
                 self.config.profileSwath,
                 self.config.profileRejIter,
                 self.config.profileRejThresh,

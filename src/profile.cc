@@ -448,7 +448,7 @@ class SwathProfileBuilder {
         }
 
 
-#if 1
+#if 0
         {
             lsst::afw::image::Image<float> matrixImage(_numParameters, _numParameters);
             for (auto const& triplet : equation.matrix.getTriplets()) {
@@ -465,12 +465,18 @@ class SwathProfileBuilder {
         // We use a preconditioned conjugate gradient solver, which is much less
         // picky about the matrix being close to singular.
         using Matrix = math::NonsymmetricSparseSquareMatrix::Matrix;
+#if 0
         using Solver = Eigen::ConjugateGradient<
             Matrix, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>
         >;
+#else
+        using Solver = Eigen::SparseLU<Matrix>;
+#endif
         Solver solver;
-        solver.setMaxIterations(getNumParameters()*10);
+#if 0
+        solver.setMaxIterations(getNumParameters()*1000);
         solver.setTolerance(matrixTol);
+#endif
         equation.matrix.solve(solution, equation.vector, solver, true);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
@@ -690,20 +696,18 @@ class SwathProfileBuilder {
             auto const iInterp = getSwathProfileInterpolation(swathInterp, ii, xx, centers[ii], iNorm);
             std::array<std::size_t, 4> const iIndex = std::get<0>(iInterp);
             std::array<double, 4> const iValue = std::get<1>(iInterp);
-            int const prevIndex = std::get<2>(iInterp);
-            int const nextIndex = prevIndex + 1;
+            int const prevPosition = std::get<2>(iInterp);
+            int const nextPosition = prevPosition + 1;
 
             model += solution[iIndex[0]]*iValue[0];
             model += solution[iIndex[1]]*iValue[1];
             model += solution[iIndex[2]]*iValue[2];
             model += solution[iIndex[3]]*iValue[3];
 
-            if (prevIndex > _oversample) {
+            if (prevPosition > _oversample) {
                 model -= solution[iIndex[0] - _oversample]*iValue[0];
-                model -= solution[iIndex[2] - _oversample]*iValue[2];
-            }
-            if (nextIndex > _oversample) {
                 model -= solution[iIndex[1] - _oversample]*iValue[1];
+                model -= solution[iIndex[2] - _oversample]*iValue[2];
                 model -= solution[iIndex[3] - _oversample]*iValue[3];
             }
         }
@@ -907,7 +911,7 @@ class SwathProfileBuilder {
     ndarray::Array<float, 1, 1> const& _ySwaths;  // y positions of swath centers
     int const _oversample;  // oversampling factor for profiles
     int const _radius;  // radius of profiles
-    float const _invSigma;  // Gaussian sigma
+    double const _invSigma;  // Gaussian sigma
     std::size_t const _profileSize;  // size of profiles = 2*radius*oversample + 1
     std::size_t const _profileCenter;  // index of center of profile = radius*oversample
     std::size_t const _numImages;  // number of images
@@ -935,6 +939,7 @@ FitProfilesResults fitProfiles(
     lsst::afw::image::MaskPixel badBitMask,
     int oversample,
     int radius,
+    float sigma,
     lsst::geom::Extent2I const& bgSize,
     int rejIter,
     float rejThresh,
@@ -973,8 +978,6 @@ FitProfilesResults fitProfiles(
             }
         }
     }
-
-    float const sigma = 1.2;
 
     SwathProfileBuilder builder{
         images.size(), fiberIds.size(), yKnots, oversample, radius, sigma, dims, bgSize
