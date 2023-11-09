@@ -266,6 +266,7 @@ class SparseSquareMatrix {
 #endif
         if (symmetric && jj < ii) {
             // we work with the upper triangle
+            assert(false);
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
         _triplets.add(ii, jj, value);
@@ -303,6 +304,7 @@ class SparseSquareMatrix {
     ElemT get(IndexT ii, IndexT jj) {
         if (symmetric && jj < ii) {
             // we work with the upper triangle
+            assert(false);
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
         return _triplets.get(ii, jj);

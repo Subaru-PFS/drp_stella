@@ -57,7 +57,9 @@ def makeSpectrumImage(spectrum, dims, traceCenters, traceOffsets, fwhm):
     for row, (spec, offset) in enumerate(zip(spectrum, traceOffsets)):
         profile = np.zeros_like(xx)
         for center in traceCenters:
-            pp = (np.exp(-0.5*((xx - center - offset)/sigma)**2)).astype(np.float32)
+            rr = (xx - center - offset)/sigma
+#            pp = (np.exp(-0.5*((xx - center - offset)/sigma)**2)).astype(np.float32)
+            pp = (1 + rr**2 + rr**4/2 +rr**6/12)**-1
             profile += pp/pp.sum()
         image.array[row] = spec*profile
 

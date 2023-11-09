@@ -234,8 +234,10 @@ class BuildFiberProfilesTask(Task):
                 #     plt.plot(nn, label=str(jj))
                 # plt.show()
 
+                # print("HACKING SPECTRA")
                 # norm[norm < 100] = 0.0
                 # norm[norm > 100] = 1e5
+                # print(norm)
 
             centersList.append(centersArray)
             normList.append(norm)
@@ -296,8 +298,10 @@ class BuildFiberProfilesTask(Task):
                 #     plt.plot(nn, label=str(jj))
                 # plt.show()
 
-                # norm[norm < 100] = 0.0
-                # norm[norm > 100] = 1e5
+                # print("HACKING SPECTRA")
+                # for norm in normList:
+                #     norm[norm < 100] = 0.0
+                #     norm[norm > 100] = 1e5
 
 
             self.log.info("Starting profile extraction iteration %d...", ii + 1)

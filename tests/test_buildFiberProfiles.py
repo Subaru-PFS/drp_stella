@@ -578,10 +578,13 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         """
         self.synth.separation = separation
 
-        self.synth.readnoise = 1.0
-        self.synth.gain = 0
+#        self.synth.readnoise = 1.0
+#        self.synth.gain = 0
 
 #        self.synth.width = 60  # XXX numFibers=1
+#        self.synth.width = 70  # XXX numFibers=2
+#        self.synth.width = 73  # XXX numFibers=3
+        self.synth.width = 78  # XXX numFibers=4
 
         scale1 = np.full(self.synth.numFibers, 0.0)
         scale1[0::4] = 1
@@ -605,13 +608,10 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp3.image.array += 1.1*bg
         exp4.image.array += 1.3*bg
 
-        exp1.writeFits("exp.fits")
-
-
         self.task.config.profileRejIter = 1
-        self.task.config.extractIter = 3
-        self.task.config.profileRadius = 15
-        self.task.config.profileOversample = 2
+#        self.task.config.extractIter = 3
+#        self.task.config.profileRadius = 15
+#        self.task.config.profileOversample = 5
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(
@@ -627,9 +627,9 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         print(results.profiles[0].calculateStatistics())
 
         figAxes = results.profiles.plot(4, 3, show=False)
-        for fig, ax in figAxes.values():
-            ax.semilogy()
-            ax.set_ylim(1.0e-6, 1.0e1)
+        # for fig, ax in figAxes.values():
+        #     ax.semilogy()
+        #     ax.set_ylim(1.0e-9, 1.0e1)
         plt.show()
 
 
