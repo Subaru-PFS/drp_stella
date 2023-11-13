@@ -235,9 +235,8 @@ class BuildFiberProfilesTask(Task):
                 # plt.show()
 
                 # print("HACKING SPECTRA")
-                # norm[norm < 100] = 0.0
-                # norm[norm > 100] = 1e5
-                # print(norm)
+                # norm[norm < 2000] = 0.0
+                # norm[norm > 2000] = 1e5
 
             centersList.append(centersArray)
             normList.append(norm)
@@ -284,6 +283,30 @@ class BuildFiberProfilesTask(Task):
                     fluxProfiles[ff] = FiberProfile.makeGaussian(
                         sigma, image.getHeight(), self.config.profileRadius, self.config.profileOversample
                     )
+            elif False:
+                # Force profiles to be monotonic decreasing, non-negative and symmetric
+                for ff in profiles:
+                    profileCenter = (self.config.profileRadius + 1)*self.config.profileOversample
+                    for pp in profiles[ff].profiles:
+                        before = pp.copy()
+                        left = pp[:profileCenter]
+                        right = pp[profileCenter + 1:]
+
+                        left[:] = np.minimum.accumulate(left[::-1])[::-1]
+                        right[:] = np.minimum.accumulate(right)
+                        pp[pp < 0] = 0.0
+
+                        average = 0.5*(left + right[::-1])
+                        left[:] = average
+                        right[:] = average[::-1]
+
+                        # import matplotlib.pyplot as plt
+                        # plt.plot(before, label="before")
+                        # plt.plot(pp, label="after")
+                        # plt.legend()
+                        # plt.show()
+
+                fluxProfiles = profiles
             else:
                 fluxProfiles = profiles
 
@@ -300,8 +323,8 @@ class BuildFiberProfilesTask(Task):
 
                 # print("HACKING SPECTRA")
                 # for norm in normList:
-                #     norm[norm < 100] = 0.0
-                #     norm[norm > 100] = 1e5
+                #     norm[norm < 2000] = 0.0
+                #     norm[norm > 2000] = 1e5
 
 
             self.log.info("Starting profile extraction iteration %d...", ii + 1)
@@ -323,9 +346,9 @@ class BuildFiberProfilesTask(Task):
                 exposureList[0].getMetadata(),
             )
 
-            if self.debugInfo.plotProfile:
-                for pp in profiles:
-                    pp.plot()
+            # if self.debugInfo.plotProfile:
+            #     for pp in profiles:
+            #         pp.plot()
 
         return Struct(profiles=profiles, centers=centersList, norm=normList)
 

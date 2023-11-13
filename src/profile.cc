@@ -32,7 +32,8 @@ struct ProfileEquation {
     // We use a non-symmetric matrix because the conjugate gradient solver
     // doesn't work with a self-adjoint view. So we just add the symmetric
     // elements manually.
-    math::SymmetricSparseSquareMatrix matrix;  // least-squares (Fisher) matrix
+    using Matrix = math::NonsymmetricSparseSquareMatrix;
+    Matrix matrix;  // least-squares (Fisher) matrix
     ndarray::Array<double, 1, 1> vector;  // least-squares (right-hand side) vector
 
     ProfileEquation(std::size_t numParameters) :
@@ -56,6 +57,15 @@ struct ProfileEquation {
     }
 
     void addOffDiagonal(std::size_t ii, std::size_t jj, double value) {
+        if (value == 0) return;
+        assert(ii != jj);
+        if (std::is_same<Matrix, math::NonsymmetricSparseSquareMatrix>::value) {
+            matrix.add(ii, jj, value);
+//            if (ii != jj) {
+                matrix.add(jj, ii, value);
+//            }
+            return;
+        }
         std::size_t const first = std::min(ii, jj);
         std::size_t const second = std::max(ii, jj);
         matrix.add(first, second, value);
@@ -127,13 +137,7 @@ class SwathProfileBuilder {
 //        _gaussian(ndarray::allocate(_profileSize + oversample)),
         _bgIndex(calculateBackgroundIndices(dims, bgSize, _numSwathsParameters))
         {
-#if 0
-            double invSigma = 1.0/sigma;
-            for (std::size_t ii = -(radius + 1); ii <= radius + 1; ++ii) {
-                double const xx = (ii - _profileCenter)/_oversample;
-                _gaussian[ii] = std::exp(-0.5*std::pow(xx*invSigma, 2));
-            }
-#endif
+            std::cerr << "profileSize=" << _profileSize << std::endl;
         }
 
     std::size_t getNumParameters() const { return _numParameters; }
@@ -274,8 +278,8 @@ class SwathProfileBuilder {
             dgTerm += normGaussian - iNorm*_gaussian(xx - centers[ii] + 1);
         }
 
-        equation.addDiagonal(_iGaussian, ggTerm*invVariance);
-        equation.addVector(_iGaussian, gTerm*pixelTimesInvVariance);
+       equation.addDiagonal(_iGaussian, std::pow(gTerm, 2)*invVariance);
+       equation.addVector(_iGaussian, gTerm*pixelTimesInvVariance);
 #if 0
         equation.addOffDiagonal(_iGaussian, bgIndex, gTerm*invVariance);
 #endif
@@ -301,24 +305,38 @@ class SwathProfileBuilder {
 
             bool const notEnd = nextPosition + _oversample < _profileSize;
 
+//            equation.addDiagonal(_iGaussian, std::pow(_gaussian(xx - centers[ii])*iNorm,2)*invVariance);
+//            equation.addVector(_iGaussian, iNorm*_gaussian(xx - centers[ii])*pixelTimesInvVariance);
+
             for (int iTerm = 0; iTerm < 4; ++iTerm) {
                 std::size_t const iIndexPlus = iIndex[iTerm] + _oversample;
 
                 equation.addOffDiagonal(iIndex[iTerm], _iGaussian, iValue[iTerm]*dgTerm*invVariance);
-                equation.addDiagonal(iIndex[iTerm], 2*std::pow(iValue[iTerm], 2)*invVariance);
+
+                double const value = std::pow(iValue[iTerm], 2)*invVariance;
+                equation.addDiagonal(iIndex[iTerm], 2*value);
+                if (notEnd) {
+                    equation.addOffDiagonal(iIndex[iTerm], iIndexPlus, -value);
+                }
                 equation.addVector(iIndex[iTerm], iValue[iTerm]*diffValue);
 
-                for (int jTerm = iTerm; jTerm < 4; ++jTerm) {
+                for (int jTerm = iTerm + 1; jTerm < 4; ++jTerm) {
                     double const value = iValue[iTerm]*iValue[jTerm]*invVariance;
                     equation.addOffDiagonal(iIndex[iTerm], iIndex[jTerm], 2*value);
+
                     if (notEnd) {
                         std::size_t const jIndexPlus = iIndex[jTerm] + _oversample;
                         equation.addOffDiagonal(iIndexPlus, iIndex[jTerm], -value);
                         equation.addOffDiagonal(iIndex[iTerm], jIndexPlus, -value);
-                        equation.addOffDiagonal(iIndexPlus, jIndexPlus, 2*value);
+#if 0
+                        equation.addOffDiagonal(iIndexPlus, jIndexPlus, 2*value);  // removing this makes things work for a single fiber
+#endif
                     }
                 }
             }
+
+//            bool const debugging = (yy == 512 && xx == 37);
+//            if (debugging) std::cerr << norm << std::endl;
 
             for (std::size_t jj = ii + 1; jj < right; ++jj) {
                 double const jNorm = norm[jj];
@@ -327,21 +345,33 @@ class SwathProfileBuilder {
                 auto const jInterp = getSwathProfileInterpolation(swathInterp, jj, xx, centers[jj], jNorm);
                 std::array<std::size_t, 4> const jIndex = std::get<0>(jInterp);
                 std::array<double, 4> const jValue = std::get<1>(jInterp);
+                int const jNextPosition = std::get<2>(jInterp) + 1;
+                bool const jNotEnd = jNextPosition + _oversample < _profileSize;
 
                 for (int iTerm = 0; iTerm < 4; ++iTerm) {
                     std::size_t const iIndexPlus = iIndex[iTerm] + _oversample;
                     for (int jTerm = 0; jTerm < 4; ++jTerm) {
                         double const value = iValue[iTerm]*jValue[jTerm]*invVariance;
 
-                        // if (yy == 512 && ii == 0 && jj == 1) std::cerr << "x=" << xx << " bgOffset=" << bgOffset << " i=" << ii << " j=" << jj << " " << iIndex[iTerm] << " " << jIndex[jTerm] << " " << iValue[iTerm] << " " << jValue[jTerm] << " " << value << std::endl;
+//                        if (debugging) std::cerr << "iTerm=" << iTerm << " jTerm=" << jTerm << " iIndex=" << iIndex[iTerm] << " jIndex=" << jIndex[jTerm] << " iNorm=" << iNorm << " jNorm=" << jNorm << " iValue=" << iValue[iTerm] << " jValue=" << jValue[jTerm] << " value=" << value << std::endl;
+
+                        std::size_t const jIndexPlus = jIndex[jTerm] + _oversample;
 
                         equation.addOffDiagonal(iIndex[iTerm], jIndex[jTerm], 2*value);
+#if 1
                         if (notEnd) {
-                            std::size_t const jIndexPlus = jIndex[jTerm] + _oversample;
                             equation.addOffDiagonal(iIndexPlus, jIndex[jTerm], -value);
+                        }
+                        if (jNotEnd) {
                             equation.addOffDiagonal(iIndex[iTerm], jIndexPlus, -value);
+                        }
+#endif
+
+#if 0
+                        if (notEnd && jNotEnd) {
                             equation.addOffDiagonal(iIndexPlus, jIndexPlus, 2*value);
                         }
+#endif
                     }
                 }
             }
@@ -429,7 +459,7 @@ class SwathProfileBuilder {
         }
 
 
-#if 0
+#if 1
         {
             lsst::afw::image::Image<float> matrixImage(_numParameters, _numParameters);
             for (auto const& triplet : equation.matrix.getTriplets()) {
@@ -445,17 +475,19 @@ class SwathProfileBuilder {
         // Solve the matrix equation
         // We use a preconditioned conjugate gradient solver, which is much less
         // picky about the matrix being close to singular.
-        using Matrix = math::SymmetricSparseSquareMatrix::Matrix;
+        using Matrix = ProfileEquation::Matrix::Matrix;
 #if 0
         using Solver = Eigen::ConjugateGradient<
             Matrix, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>
         >;
-        solver.setMaxIterations(getNumParameters()*1000);
-        solver.setTolerance(matrixTol);
 #else
-        using Solver = Eigen::SparseLU<Matrix>;
+        using Solver = math::SymmetricSparseSquareMatrix::DefaultSolver;
 #endif
         Solver solver;
+#if 0
+        solver.setMaxIterations(getNumParameters()*1000);
+        solver.setTolerance(matrixTol);
+#endif
         equation.matrix.solve(solution, equation.vector, solver, true);
 
         for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
@@ -508,9 +540,10 @@ class SwathProfileBuilder {
             }
         }
 
-        // std::cerr << "Solution:" << std::endl;
-        // std::cerr << solution[ndarray::view(0, _profileSize)] << std::endl;
-        // std::cerr << solution[ndarray::view(_profileSize, _numSwathsParameters)] << std::endl;
+        std::cerr << "Solution:" << std::endl;
+        std::cerr << solution[ndarray::view(0, _profileSize)] << std::endl;
+        std::cerr << solution[ndarray::view(_numSwathsParameters, _numParameters)] << std::endl;
+        std::cerr << 1.0/_invSigma << std::endl;
 
         std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds{_numImages};
         for (std::size_t ii = 0; ii < _numImages; ++ii) {
@@ -683,7 +716,7 @@ class SwathProfileBuilder {
             model += solution[iIndex[2]]*iValue[2];
             model += solution[iIndex[3]]*iValue[3];
 
-            if (prevPosition > _oversample) {
+            if (prevPosition >= _oversample) {
                 model -= solution[iIndex[0] - _oversample]*iValue[0];
                 model -= solution[iIndex[1] - _oversample]*iValue[1];
                 model -= solution[iIndex[2] - _oversample]*iValue[2];
@@ -770,7 +803,7 @@ class SwathProfileBuilder {
         double const diff = actual - truncated;
         double const frac = 1 - diff;
 
-#if 0
+#if 1
         // Nearest-neighbour
         return std::make_pair(index, frac > 0.5 ? 1.0 : 0.0);
 #endif
@@ -793,7 +826,7 @@ class SwathProfileBuilder {
         int yy
     ) const {
 
-#if 0
+#if 1
         // Single swath, to simplify the matrix
         return std::make_pair(std::make_pair(0UL, 1.0), std::make_pair(0UL, 0.0));
 #endif

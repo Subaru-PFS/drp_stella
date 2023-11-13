@@ -506,9 +506,18 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(fiberProfiles), self.synth.numFibers)
         self.assertFloatsEqual(fiberProfiles.fiberId, sorted(self.synth.fiberId))
 
-        # for fiberId in fiberProfiles:
-        #     fiberProfiles[fiberId].plot()
-        # plt.close("all")
+        for fiberId in fiberProfiles:
+            fig, axes = fiberProfiles[fiberId].plot(show=False)
+            centers = detMap.getXCenter(fiberId)
+            xx = np.arange(self.synth.width)
+            ff = fiberProfiles[fiberId].profiles[0].sum()
+            for ii, cen in enumerate(centers):
+                dx = xx - cen
+                select = np.abs(dx) < self.config.profileRadius
+                values = image.image.array[ii][select]
+                axes[0][0].plot(dx[select], values*ff/values.sum()/self.config.profileOversample)
+            plt.show()
+        plt.close("all")
 
         if display:
             Display(backend=display, frame=1).mtv(image, title="Image")
@@ -516,7 +525,12 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
 
         traces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(image, badBitMask)
+
         model = spectra.makeImage(image.getBBox(), traces)
+
+        image.writeFits("image.fits")
+        model.writeFits("model.fits")
+
         image -= model
         image.image.array /= np.sqrt(image.variance.array)
         image.writeFits("chi2.fits")
@@ -582,17 +596,17 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
 #        self.synth.gain = 0
 
 #        self.synth.width = 60  # XXX numFibers=1
-#        self.synth.width = 70  # XXX numFibers=2
+        self.synth.width = 70  # XXX numFibers=2
 #        self.synth.width = 73  # XXX numFibers=3
-        self.synth.width = 78  # XXX numFibers=4
+#        self.synth.width = 78  # XXX numFibers=4
 
-        scale1 = np.full(self.synth.numFibers, 0.0)
+        scale1 = np.full(self.synth.numFibers, 0.00)
         scale1[0::4] = 1
-        scale2 = np.full(self.synth.numFibers, 0.0)
+        scale2 = np.full(self.synth.numFibers, 0.03)
         scale2[1::4] = 1
-        scale3 = np.full(self.synth.numFibers, 0.0)
+        scale3 = np.full(self.synth.numFibers, 0.04)
         scale3[2::4] = 1
-        scale4 = np.full(self.synth.numFibers, 0.0)
+        scale4 = np.full(self.synth.numFibers, 0.05)
         scale4[3::4] = 1
 
         exp1 = self.makeContinuumExposure(scale1)
@@ -609,14 +623,14 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp4.image.array += 1.3*bg
 
         self.task.config.profileRejIter = 1
-#        self.task.config.extractIter = 3
+        self.task.config.extractIter = 17
 #        self.task.config.profileRadius = 15
-#        self.task.config.profileOversample = 5
+        self.task.config.profileOversample = 2
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(
-            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
-#            [exp1], self.identity, [detMap]
+#            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
+            [exp1, exp2], self.identity, [detMap, detMap]
         )
 
         exp1.writeFits("exp1.fits")
