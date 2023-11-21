@@ -223,10 +223,15 @@ class FiberProfile:
                     r"$\sigma = %.1f$" % rms,
                 ))
 
-            xx = np.linspace(self.index[0], self.index[-1], self.index.size*10)
-            spline = SplineD(self.index, prof, SplineD.InterpolationTypes.NATURAL)
+            if isinstance(prof, np.ma.MaskedArray):
+                good = ~prof.mask
+            else:
+                good = np.ones_like(prof, dtype=bool)
 
-            ax.plot(self.index, prof, 'k.')
+            xx = np.linspace(self.index[0], self.index[-1], self.index.size*10)
+            spline = SplineD(self.index[good], prof[good], SplineD.InterpolationTypes.NATURAL)
+
+            ax.plot(self.index[good], prof[good], 'k.')
             ax.plot(xx, spline(xx), 'k:')
             if annotate:
                 ax.plot(self.index, np.exp(-0.5*((self.index - mean)/rms)**2)/rms/np.sqrt(2*np.pi), 'r-')
