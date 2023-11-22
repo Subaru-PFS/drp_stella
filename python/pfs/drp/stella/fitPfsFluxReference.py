@@ -49,7 +49,7 @@ import dataclasses
 import math
 
 from typing import Literal, overload
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 from typing import Generator, Mapping, Sequence
 
 try:
@@ -733,7 +733,10 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         param4d = np.lib.recfunctions.structured_to_unstructured(
             self.fluxModelSet.parameters[["teff", "logg", "m", "alpha"]]
         ).astype(float)
-        triangulation = scipy.spatial.Delaunay(param4d)
+
+        minX = paramToX(np.min(param4d, axis=(0,)))
+        maxX = paramToX(np.max(param4d, axis=(0,)))
+        bounds = list(zip(minX, maxX))
 
         if hasattr(self.modelInterpolator, "getSmallerInterpolator"):
             modelInterpolator = self.modelInterpolator.getSmallerInterpolator(self.config.numPCAComponents)
@@ -761,7 +764,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
             beta = velocity.velocity / const.c.to("km/s").value
             doppler = np.sqrt((1.0 + beta) / (1.0 - beta))
 
-            priorPdfInterp = scipy.interpolate.LinearNDInterpolator(triangulation, priorPdf, fill_value=0.0)
+            teffList, prior1dList = marginalizePdf(param4d, priorPdf, axis=(1, 2, 3))
+            teffList = teffList.reshape(-1)  # Shape (N, 1) => (N,)
+            prior1d = scipy.interpolate.Akima1DInterpolator(teffList, prior1dList)
 
             def objective(x: NDArray, returnChisq=False) -> Union[float, Struct]:
                 """Objective function to minimize.
@@ -784,8 +789,8 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
                 dof : `int`
                     degree of freedom. (returned only if ``returnChisq=True``)
                 """
-                param = xToParam(x)
-                prior = float(priorPdfInterp(param))  # array of length 1 => scalar
+                param = xToParam(x)  # Note: param = (teff, logg, m, alpha)
+                prior = prior1d(param[0])
                 if prior <= 0:
                     if returnChisq:
                         return Struct(chi2=np.inf, dof=0)
@@ -806,7 +811,9 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
             x0 = paramToX(param4d[np.argmax(priorPdf)])
 
-            result = scipy.optimize.minimize(objective, x0, method=self.config.minimizationMethod)
+            result = scipy.optimize.minimize(
+                objective, x0, bounds=bounds, method=self.config.minimizationMethod
+            )
             param = xToParam(result.x)
             chisq = objective(result.x, returnChisq=True)
 
@@ -1359,8 +1366,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         return model.resample(wavelengthNew)
 
     def isParamInDomain(self, param: "ModelParam") -> bool:
-        """
-        Is a model parameter contained in the (hypothetical) domain
+        """Is a model parameter contained in the (hypothetical) domain
         where model spectra are defined?
 
         Parameters
@@ -1780,6 +1786,55 @@ def isPointContainedInDomain(
             return False
 
     return True
+
+
+def marginalizePdf(
+    x: NDArray[np.float64], pdf: NDArray[np.float64], axis: Union[int, Tuple[int]]
+) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Marginalize ``axis`` of an N-D probability density ``pdf``.
+
+    Marginalized PDF is computed as if``x`` is arranged like a grid.
+    Otherwise, this function still returns something like a probability density,
+    but it is not strictly correct.
+
+    Parameters
+    ----------
+    x : `NDArray[np.float64]`
+        Sampling points of ``pdf``. Shape (M, N)
+    pdf : `NDArray[np.float64]`
+        ``pdf`` at ``x``. Shape (M,)
+    axis : `int|Tuple[int]`
+        Axis to marginalize.
+
+    Returns
+    -------
+    y : `NDArray[np.float64]`
+        Sampling points of ``marginalizedPdf``. Shape (P, Q)
+    marginalizedPdf : `NDArray[np.float64]`
+        ``pdf`` at ``x``. Shape (P,)
+    """
+    if not isinstance(axis, tuple):
+        axis = (axis,)
+
+    nSamples, nAxes = x.shape
+
+    axisSetToKeep = set(range(nAxes))
+    axisSetToKeep.difference_update(axis)
+    axisListToKeep = np.array(sorted(axisSetToKeep), dtype=int)
+
+    xToKeep = x[:, axisListToKeep]
+    sums = {}
+
+    for i in range(nSamples):
+        y = tuple(xToKeep[i])
+        p = pdf[i]
+        sums[y] = sums.get(y, 0.0) + p
+
+    keyValueList = sorted(sums.items())
+    y = np.array([key for key, value in keyValueList], dtype=float)
+    marginalizedPdf = np.array([value for key, value in keyValueList], dtype=float)
+
+    return y, marginalizedPdf
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:
