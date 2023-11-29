@@ -16,7 +16,7 @@ from lsst.pipe.base import (
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 import lsst.daf.persistence
-from lsst.pex.config import Field, ConfigurableField
+from lsst.pex.config import Field, ListField, ConfigurableField
 
 from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
@@ -54,6 +54,18 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
     fitFocalPlane = ConfigurableField(target=FitFocalPlaneTask, doc="Fit flux calibration model")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
+    doAdjustCalibVectors = Field(
+        dtype=bool,
+        default=True,
+        doc="Adjust heights of calib vectors to each other before fitting a function to them.",
+    )
+    adjustCalibVectorsRangeStart = Field(
+        dtype=float, default=600, doc="Start of wavelength range to use for height adjustment [nm]."
+    )
+    adjustCalibVectorsRangeStop = Field(
+        dtype=float, default=700, doc="Stop of wavelength range to use for height adjustment [nm]."
+    )
+    badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
 
 
 class FitFluxCalTask(CmdLineTask, PipelineTask):
@@ -280,6 +292,9 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
 
+        if self.config.doAdjustCalibVectors:
+            self.adjustCalibVectors(calibVectors)
+
         # TODO: Smooth the flux calibration vectors.
 
         if self.debugInfo.doWriteCalibVector:
@@ -297,6 +312,34 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
 
         fluxStdConfig = pfsConfig[np.isin(pfsConfig.fiberId, pfsFluxReference.fiberId)]
         return self.fitFocalPlane.run(calibVectors, fluxStdConfig)
+
+    def adjustCalibVectors(self, calibVectors: PfsMerged) -> None:
+        """Adjust heights of calib vectors (observed spectra) / (reference spectra)
+        to each other.
+
+        Parameters
+        ----------
+        calibVectors : `PfsMerged`
+            Calib vectors.
+        """
+        badMask = calibVectors.flags.get(*(m for m in self.config.badMask if m in calibVectors.flags))
+        n = len(calibVectors)
+        heights = np.empty(shape=(n,), dtype=float)
+        for i in range(n):
+            selection = (
+                (self.config.adjustCalibVectorsRangeStart <= calibVectors.wavelength[i, :])
+                & (calibVectors.wavelength[i, :] <= self.config.adjustCalibVectorsRangeStop)
+                & (0 == (calibVectors.mask[i, :] & badMask))
+            )
+            heights[i] = np.nanmedian(calibVectors.flux[i, selection])
+
+        # We use the highest calib vector as the reference to which the other
+        # calib vectors are adjusted, for we assume that the fiber of the
+        # highest calib vector was positioned better than any other fiber.
+        reference = np.nanmax(heights)
+
+        multiplier = (reference / heights).reshape(-1, 1)
+        calibVectors *= multiplier
 
     def forceSpectrumToBePersistable(self, spectrum: PfsFiberArray) -> None:
         """Force ``spectrum`` to be able to be written to file.
