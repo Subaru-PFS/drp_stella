@@ -49,7 +49,7 @@ class BuildFiberProfilesConfig(Config):
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
     profileTol = Field(dtype=float, default=1.0e-8, doc="Tolerance for matrix inversion when fitting profile")
-    extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
+    extractFwhm = Field(dtype=float, default=3.0, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
 
 
@@ -228,6 +228,7 @@ class BuildFiberProfilesTask(Task):
                     centersArray[jj] = centers[ff](rows)
                     profiles[ff] = prof
                 norm[:] = profiles.extractSpectra(image, detectorMap, badBitMask).getAllFluxes()
+                print("Image", ii, " spectra:", np.median(norm, axis=1))
 
                 # import matplotlib.pyplot as plt
                 # for jj, nn in enumerate(norm):
@@ -274,31 +275,30 @@ class BuildFiberProfilesTask(Task):
             # Generate profiles with which to measure the flux
             # These are Gaussian approximations to the profiles we've measured, to remove any nastiness in the
             # measured profiles that might slow down convergence.
-            if True:
+            if False:
                 fluxProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
                 width = np.array([profiles[ff].calculateStatistics().width for ff in profiles])
                 select = np.isfinite(width) & (width > 0)
-                sigma = np.median(np.sqrt(width[select]))
+#                sigma = np.median(np.sqrt(width[select]))
                 for ff in profiles:
                     fluxProfiles[ff] = FiberProfile.makeGaussian(
                         sigma, image.getHeight(), self.config.profileRadius, self.config.profileOversample
                     )
-            elif False:
+            elif True:
                 # Force profiles to be monotonic decreasing, non-negative and symmetric
                 for ff in profiles:
                     profileCenter = (self.config.profileRadius + 1)*self.config.profileOversample
                     for pp in profiles[ff].profiles:
                         before = pp.copy()
-                        left = pp[:profileCenter]
-                        right = pp[profileCenter + 1:]
+                        left = pp[:profileCenter][::-1].copy()
+                        right = pp[profileCenter + 1:].copy()
 
-                        left[:] = np.minimum.accumulate(left[::-1])[::-1]
+                        left[:] = np.minimum.accumulate(left)
                         right[:] = np.minimum.accumulate(right)
                         pp[pp < 0] = 0.0
-
-                        average = 0.5*(left + right[::-1])
+                        average = 0.5*(left + right)
                         left[:] = average
-                        right[:] = average[::-1]
+                        right[:] = average
 
                         # import matplotlib.pyplot as plt
                         # plt.plot(before, label="before")
@@ -315,6 +315,7 @@ class BuildFiberProfilesTask(Task):
                 normList[jj] = fluxProfiles.extractSpectra(
                     imageList[jj], detectorMapList[jj], badBitMask
                 ).getAllFluxes()
+                print("Image", jj, " spectra:", np.median(normList[jj], axis=1))
 
                 # import matplotlib.pyplot as plt
                 # for jj, nn in enumerate(norm):

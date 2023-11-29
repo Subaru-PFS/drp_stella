@@ -258,7 +258,11 @@ class FiberProfile:
         """
         colorList = ["r", "g", "b", "c", "m", "y", "k", "tab:orange", "tab:purple", "tab:brown"]
         for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
-            axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
+            if isinstance(prof, np.ma.MaskedArray):
+                good = ~prof.mask
+            else:
+                good = np.ones_like(prof, dtype=bool)
+            axes.plot(self.index[good], prof[good], ls="-", label=f"y={yy}", color=color)
 
     def calculateStatistics(self):
         """Calculate statistics about this fiber profile"""

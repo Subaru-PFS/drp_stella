@@ -17,12 +17,14 @@ struct FitProfilesResults {
     ndarray::Array<double, 3, 1> profiles; ///< Fiber profiles: 1d profile per fiber per swath
     ndarray::Array<bool, 3, 1> masks; ///< Mask for profiles
     std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds; ///< Background images
+//    std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> models; ///< Model images
 
     FitProfilesResults(
         ndarray::Array<double, 3, 1> const& profiles_,
         ndarray::Array<bool, 3, 1> const& masks_,
         std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> const& backgrounds_
-    ) : profiles(profiles_), masks(masks_), backgrounds(backgrounds_) {}
+//        std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> const& models_
+    ) : profiles(profiles_), masks(masks_), backgrounds(backgrounds_) {} // , models(models_) {}
 };
 
 

@@ -532,6 +532,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         model.writeFits("model.fits")
 
         image -= model
+        image.writeFits("residual.fits")
         image.image.array /= np.sqrt(image.variance.array)
         image.writeFits("chi2.fits")
         select = (image.mask.array & badBitMask) == 0
@@ -594,19 +595,20 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
 
 #        self.synth.readnoise = 1.0
 #        self.synth.gain = 0
+#        self.synth.slope = 0
 
 #        self.synth.width = 60  # XXX numFibers=1
-        self.synth.width = 70  # XXX numFibers=2
+#        self.synth.width = 70  # XXX numFibers=2
 #        self.synth.width = 73  # XXX numFibers=3
-#        self.synth.width = 78  # XXX numFibers=4
+        self.synth.width = 78  # XXX numFibers=4
 
-        scale1 = np.full(self.synth.numFibers, 0.00)
+        scale1 = np.full(self.synth.numFibers, 0.01)
         scale1[0::4] = 1
-        scale2 = np.full(self.synth.numFibers, 0.03)
+        scale2 = np.full(self.synth.numFibers, 0.02)
         scale2[1::4] = 1
-        scale3 = np.full(self.synth.numFibers, 0.04)
+        scale3 = np.full(self.synth.numFibers, 0.03)
         scale3[2::4] = 1
-        scale4 = np.full(self.synth.numFibers, 0.05)
+        scale4 = np.full(self.synth.numFibers, 0.04)
         scale4[3::4] = 1
 
         exp1 = self.makeContinuumExposure(scale1)
@@ -623,14 +625,15 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         exp4.image.array += 1.3*bg
 
         self.task.config.profileRejIter = 1
-        self.task.config.extractIter = 17
-#        self.task.config.profileRadius = 15
-        self.task.config.profileOversample = 2
+        self.task.config.extractIter = 5
+        self.task.config.extractFwhm = 3.5
+        self.task.config.profileRadius = 10
+        self.task.config.profileOversample = 5
 
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple(
-#            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
-            [exp1, exp2], self.identity, [detMap, detMap]
+            [exp1, exp2, exp3, exp4], self.identity, [detMap, detMap, detMap, detMap]
+#            [exp1, exp2], self.identity, [detMap, detMap]
         )
 
         exp1.writeFits("exp1.fits")
