@@ -20,7 +20,7 @@ namespace drp {
 namespace stella {
 
 
-#pragma GCC optimize("O0")
+//#pragma GCC optimize("O0")
 
 namespace {
 
@@ -259,7 +259,7 @@ class SwathProfileBuilder {
         double const diffValue = (pixelValue - nextIter.image());
         double const invDiffVariance = 1.0; // /(iter.variance() + nextIter.variance());
 
-#if 0
+#if 1
         auto const bgIndex = bgOffset + _bgIndex[yy][xx];
         equation.addDiagonal(bgIndex, invVariance);
         equation.addVector(bgIndex, pixelValue*invVariance);
@@ -278,7 +278,7 @@ class SwathProfileBuilder {
 
         equation.addDiagonal(_iGaussian, std::pow(gTerm, 2)*invVariance);
         equation.addVector(_iGaussian, gTerm*pixelTimesInvVariance);
-#if 0
+#if 1
         equation.addOffDiagonal(_iGaussian, bgIndex, gTerm*invVariance);
 #endif
 
@@ -382,7 +382,7 @@ class SwathProfileBuilder {
     // @param func : Function to call for each pixel
     template<typename ImageT, typename Function>
     void iterateRow(
-        ImageT const& image,
+        ImageT & image,
         int yy,
         ndarray::ArrayRef<double, 1, 0> const& centers,
         Function func,
@@ -440,7 +440,7 @@ class SwathProfileBuilder {
     // Solve the matrix equation
     void solve(ndarray::Array<double, 1, 1> & solution, ProfileEquation & equation, float matrixTol=1.0e-4) {
 
-#if 1
+#if 0
         {
             lsst::afw::image::Image<float> matrixImage(_numParameters, _numParameters);
             for (auto const& triplet : equation.matrix.getTriplets()) {
@@ -505,39 +505,55 @@ class SwathProfileBuilder {
     //
     // @param solution : Solution array
     // @return results struct
-    auto repackageSolution(ndarray::Array<double, 1, 1> const& solution) {
+    auto repackageSolution(
+        ndarray::Array<double, 1, 1> const& solution,
+        ProfileEquation & equation,
+        std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> const& models
+    ) const {
         // Repackage the solution
         std::size_t const profileSize = _profileSize + _oversample;  // Add the extra pixel
         ndarray::Array<double, 3, 1> profiles = ndarray::allocate(_numFibers, _ySwaths.size(), profileSize);
         ndarray::Array<bool, 3, 1> masks = ndarray::allocate(_numFibers, _ySwaths.size(), profileSize);
+        ndarray::Array<double, 3, 1> errors = ndarray::allocate(_numFibers, _ySwaths.size(), profileSize);
         std::size_t index = 0;
 
         profiles.deep() = 0.0;
         masks.deep() = false;
+        errors.deep() = 0.0;
 
         double const norm = solution[_iGaussian];
+        double const normErr2 = equation.matrix.get(_iGaussian, _iGaussian);
 
         for (std::size_t ss = 0; ss < _ySwaths.size(); ++ss) {
             for (std::size_t ff = 0; ff < _numFibers; ++ff) {
                 double xx = -double(_profileCenter);
                 for (std::size_t pp = 0; pp < _profileSize; ++pp, ++index, xx += 1) {
                     double const value = solution[index];
-                    double const gg = norm*_gaussian(xx/_oversample);
+                    double const err2 = equation.matrix.get(index, index);
+                    double const gaussian = _gaussian(xx/_oversample);;
+                    double const gg = norm*gaussian;
                     profiles[ff][ss][pp] += gg + value;
-//                    if (ss == 0 && ff == 0) std::cerr << "pp=" << pp << " xx=" << xx << " " << gg << " " << value << " " << profiles[ff][ss][pp] << std::endl;
                     assert(pp + _oversample < profileSize);
                     profiles[ff][ss][pp + _oversample] -= value;
                     bool const isMasked = std::isnan(solution[index]);
                     masks[ff][ss][pp] |= isMasked;
                     masks[ff][ss][pp + _oversample] |= isMasked;
+                    errors[ff][ss][pp] += normErr2*std::pow(gaussian, 2) + err2;
+                    errors[ff][ss][pp + _oversample] += err2;
                 }
                 // Add the extra pixel at the end
                 for (std::size_t pp = _profileSize; pp < profileSize; ++pp, xx += 1) {
-                    profiles[ff][ss][pp] += norm*_gaussian(xx/_oversample);
-//                    std::cerr << "xx=" << xx << " " << norm*_gaussian(xx/_oversample) << " " << profiles[ff][ss][pp] << std::endl;
+                    double const gaussian = _gaussian(xx/_oversample);
+                    profiles[ff][ss][pp] += norm*gaussian;
+                    errors[ff][ss][pp] += normErr2*std::pow(gaussian, 2);
+                }
+                // We've accumulated the error^2 as the error; take the sqrt
+                for (std::size_t pp = 0; pp < profileSize; ++pp) {
+                    errors[ff][ss][pp] = std::sqrt(errors[ff][ss][pp]);
                 }
             }
         }
+
 
 #if 0
         std::cerr << "Solution:" << std::endl;
@@ -557,22 +573,129 @@ class SwathProfileBuilder {
             backgrounds[ii] = makeBackgroundImage(_dims, _bgSize, sanitized, offset);
         }
 
-        return FitProfilesResults(profiles, masks, backgrounds);
+        return FitProfilesResults(profiles, masks, errors, backgrounds, models);
+    }
+
+    // Construct model image
+    //
+    // @param model : Model image (modified)
+    // @param solution : Solution array
+    // @param imageIndex : Index of image to fit
+    // @param centers : Fiber centers for each row, fiber
+    // @param spectra : Spectra for each row, fiber
+    void makeModelImage(
+        lsst::afw::image::Image<float> & model,
+        ndarray::Array<double, 1, 1> const& solution,
+        std::size_t imageIndex,
+        ndarray::Array<double, 2, 1> const& centers,
+        ndarray::Array<float, 2, 1> const& spectra
+    ) const {
+        assert(centers.getShape() == spectra.getShape());
+        std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional offset for background
+
+        model = 0.0;
+
+        #pragma omp parallel for schedule(guided)
+        for (int yy = 0; yy < model.getHeight(); ++yy) {
+            // Protect ndarray reference counting
+            std::unique_ptr<ndarray::ArrayRef<double, 1, 0> const> cen;
+            std::unique_ptr<ndarray::ArrayRef<float, 1, 0> const> norm;
+            #pragma omp critical
+            {
+                cen = std::make_unique<ndarray::ArrayRef<double, 1, 0>>(centers[ndarray::view()(yy)]);
+                norm = std::make_unique<ndarray::ArrayRef<float, 1, 0>>(spectra[ndarray::view()(yy)]);
+            }
+
+            auto const swathInterp = getSwathInterpolation(yy);
+            try {
+                iterateRow(
+                    model, yy, *cen,
+                    [&](int xx, int yy, typename lsst::afw::image::Image<float>::x_iterator iter,
+                        ndarray::ArrayRef<double, 1, 0> const& centers,
+                        std::size_t left, std::size_t right
+                    ) {
+                        makeModelPixel(
+                            xx, yy, iter, *cen, left, right,
+                            *norm, solution, swathInterp, bgOffset
+                        );
+                    }
+                );
+            } catch (std::exception const& exc) {
+                std::cerr << "Caught exception: " << exc.what() << std::endl;
+                std::terminate();
+            } catch (...) {
+                std::cerr << "Caught unknown exception" << std::endl;
+                std::terminate();
+            }
+
+            #pragma omp critical  // protect ndarray reference counting
+            {
+                cen.reset();
+                norm.reset();
+            }
+        }
+    }
+
+    // Calculate a single pixel of the model
+    //
+    // @param xx : Column of pixel
+    // @param iter : Iterator to pixel
+    // @param centers : Fiber centers for each row, fiber
+    // @param left : Fiber index of lower bound of consideration for this pixel (inclusive)
+    // @param right : Fiber index of upper bound of consideration for this pixel (exclusive)
+    // @param norm : Normalization for each fiber
+    // @param solution : Solution array
+    // @param swathInterp : Swath interpolation for this row
+    // @param bgOffset : Offset into the background parameters
+    void makeModelPixel(
+        int xx,
+        int yy,
+        typename lsst::afw::image::Image<float>::x_iterator & iter,
+        ndarray::ArrayRef<double, 1, 0> const& centers,
+        std::size_t left,
+        std::size_t right,
+        ndarray::ArrayRef<float, 1, 0> const& norm,
+        ndarray::Array<double, 1, 1> const& solution,
+        std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
+        std::size_t bgOffset
+    ) const {
+        assert(centers.size() == norm.size());
+
+        auto next = iter + 1;
+
+        std::size_t const bgIndex = bgOffset + _bgIndex[yy][xx];
+        *iter += solution[bgIndex];
+
+        for (std::size_t ii = left; ii < right; ++ii) {
+            double const iNorm = norm[ii];
+            if (iNorm == 0) continue;
+            *iter += iNorm*_gaussian(xx - centers[ii])*solution[_iGaussian];
+
+            auto const iInterp = getSwathProfileInterpolation(swathInterp, ii, xx, centers[ii], iNorm);
+            std::array<std::size_t, 4> const iIndex = std::get<0>(iInterp);
+            std::array<double, 4> const iValue = std::get<1>(iInterp);
+
+            for (int iTerm = 0; iTerm < 4; ++iTerm) {
+                double const value = iValue[iTerm]*solution[iIndex[iTerm]];
+                *iter += value;
+                *next -= value;
+            }
+        }
     }
 
     // Reject pixels that are too far from the model
     //
-    // @param solution : Solution array
     // @param imageIndex : Index of image to fit
     // @param image : Image to fit (mask is unused: we use the rejected array instead)
+    // @param model : Model image
     // @param centers : Fiber centers for each row, fiber
     // @param spectra : Spectra for each row, fiber
     // @param rejected : Array of pixels to reject (true=rejected)
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
     ProfileEquation reject(
-        ndarray::Array<double, 1, 1> const& solution,
         std::size_t imageIndex,
         lsst::afw::image::MaskedImage<float> const& image,
+        lsst::afw::image::Image<float> const& model,
         ndarray::Array<double, 2, 1> const& centers,
         ndarray::Array<float, 2, 1> const& spectra,
         ndarray::Array<bool, 2, 1> rejected,
@@ -582,9 +705,6 @@ class SwathProfileBuilder {
         assert(rejected.getShape()[0] == std::size_t(image.getHeight()));
         assert(rejected.getShape()[1] == std::size_t(image.getWidth()));
         std::size_t const bgOffset = imageIndex*_numBackgroundParameters;  // additional offset for background
-
-        lsst::afw::image::Image<float> model{image.getBBox()};
-        model = 0.0;
 
         ProfileEquation equation(_numParameters);
 
@@ -612,7 +732,7 @@ class SwathProfileBuilder {
                     ) {
                         applyPixelRejection(
                             xx, yy, iter, *cen, left, right,
-                            eqn, *rej, *norm, solution, rejThreshold, swathInterp, bgOffset, model
+                            model, eqn, *rej, *norm, rejThreshold, swathInterp, bgOffset
                         );
                     }
                 );
@@ -634,22 +754,7 @@ class SwathProfileBuilder {
             equation += eqn;
         }
 
-        {
-            std::ostringstream filename;
-            filename << "model-" << imageIndex << ".fits";
-            model.writeFits(filename.str());
-        }
-        for (int yy = 0; yy < image.getHeight(); ++yy) {
-            for (int xx = 0; xx < image.getWidth(); ++xx) {
-                model(xx, yy) = (*image.getImage())(xx, yy) - model(xx, yy);
-            }
-        }
-        {
-            std::ostringstream filename;
-            filename << "resid-" << imageIndex << ".fits";
-            model.writeFits(filename.str());
-        }
-
+#if 1
         std::size_t numRejected = 0;
         for (int yy = 0; yy < image.getHeight(); ++yy) {
             for (int xx = 0; xx < image.getWidth(); ++xx) {
@@ -657,6 +762,7 @@ class SwathProfileBuilder {
             }
         }
         std::cerr << "Image " << imageIndex << ": " << numRejected << " pixels rejected" << std::endl;
+#endif
 
 //        equation.matrix.symmetrize();
         return equation;
@@ -671,7 +777,6 @@ class SwathProfileBuilder {
     // @param right : Fiber index of upper bound of consideration for this pixel (exclusive)
     // @param rejected : Array of pixels to reject (true=rejected)
     // @param norm : Normalization for each fiber
-    // @param solution : Solution array
     // @param rejThreshold : Threshold for rejecting pixels (in sigma)
     // @param swathInterp : Swath interpolation for this row
     // @param bgOffset : Offset into the background parameters
@@ -682,14 +787,13 @@ class SwathProfileBuilder {
         ndarray::ArrayRef<double, 1, 0> const& centers,
         std::size_t left,
         std::size_t right,
+        lsst::afw::image::Image<float> const& model,
         ProfileEquation & equation,
         ndarray::ArrayRef<bool, 1, 0> & rejected,
         ndarray::ArrayRef<float, 1, 0> const& norm,
-        ndarray::Array<double, 1, 1> const& solution,
         float const& rejThreshold,
         std::pair<std::pair<std::size_t, double>, std::pair<std::size_t, double>> const& swathInterp,
-        std::size_t bgOffset,
-        lsst::afw::image::Image<float> & modelImage
+        std::size_t bgOffset
     ) const {
         assert(centers.size() == norm.size());
         assert(std::size_t(xx) < rejected.size());
@@ -699,41 +803,8 @@ class SwathProfileBuilder {
             return;
         }
 
-        double model = 0.0;
-
-        float const image = iter.image();
-        float const variance = iter.variance();
-        auto const bgIndex = bgOffset + _bgIndex[yy][xx];
-        model += solution[bgIndex];
-
-        for (std::size_t ii = left; ii < right; ++ii) {
-            double const iNorm = norm[ii];
-            if (iNorm == 0) continue;
-            model = iNorm*_gaussian(xx - centers[ii])*solution[_iGaussian];
-
-            auto const iInterp = getSwathProfileInterpolation(swathInterp, ii, xx, centers[ii], iNorm);
-            std::array<std::size_t, 4> const iIndex = std::get<0>(iInterp);
-            std::array<double, 4> const iValue = std::get<1>(iInterp);
-            std::array<int, 4> const iPosition = std::get<2>(iInterp);
-            int const prevPosition = iPosition[0];
-
-            model += solution[iIndex[0]]*iValue[0];
-            model += solution[iIndex[1]]*iValue[1];
-            model += solution[iIndex[2]]*iValue[2];
-            model += solution[iIndex[3]]*iValue[3];
-
-            if (prevPosition >= _oversample) {
-                model -= solution[iIndex[0] - _oversample]*iValue[0];
-                model -= solution[iIndex[1] - _oversample]*iValue[1];
-                model -= solution[iIndex[2] - _oversample]*iValue[2];
-                model -= solution[iIndex[3] - _oversample]*iValue[3];
-            }
-        }
-
-        modelImage(xx, yy) = model;
-
 #if 0
-        float const diff = (image - model)/std::sqrt(variance);
+        float const diff = (image - value)/std::sqrt(variance);
         if (std::abs(diff) > rejThreshold) {
             // Figure out this pixel's contribution, so we can subtract it
             accumulatePixel(
@@ -1016,6 +1087,12 @@ FitProfilesResults fitProfiles(
         }
     }
 
+    std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> models;
+    models.reserve(num);
+    for (std::size_t ii = 0; ii < num; ++ii) {
+        models.push_back(std::make_shared<lsst::afw::image::Image<float>>(images[ii].getBBox()));
+    }
+
     SwathProfileBuilder builder{
         images.size(), fiberIds.size(), yKnots, oversample, radius, sigma, dims, bgSize
     };
@@ -1036,8 +1113,9 @@ FitProfilesResults fitProfiles(
         // Reject bad pixels
         LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
+            builder.makeModelImage(*models[ii], solution, ii, centers[ii], spectra[ii]);
             equation -= builder.reject(
-                solution, ii, images[ii], centers[ii], spectra[ii], rejected[ii].shallow(), rejThresh
+                ii, images[ii], *models[ii], centers[ii], spectra[ii], rejected[ii].shallow(), rejThresh
             );
         }
     }
@@ -1045,8 +1123,10 @@ FitProfilesResults fitProfiles(
     // Final solution after iteration
     LOGL_DEBUG(_log, "Solving profiles: final");
     auto const solution = builder.solve(equation, matrixTol);
-
-    return builder.repackageSolution(solution);
+    for (std::size_t ii = 0; ii < images.size(); ++ii) {
+        builder.makeModelImage(*models[ii], solution, ii, centers[ii], spectra[ii]);
+    }
+    return builder.repackageSolution(solution, equation, models);
 }
 
 

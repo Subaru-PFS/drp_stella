@@ -236,7 +236,7 @@ class FiberProfileSet:
             identity,
             visitInfo,
             metadata,
-        )
+        ), results
 
     @property
     def fiberId(self):

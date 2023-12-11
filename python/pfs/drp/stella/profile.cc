@@ -20,7 +20,9 @@ PYBIND11_PLUGIN(profile) {
     py::class_<FitProfilesResults> cls(mod, "FitProfilesResults");
     cls.def_readonly("profiles", &FitProfilesResults::profiles);
     cls.def_readonly("masks", &FitProfilesResults::masks);
+    cls.def_readonly("errors", &FitProfilesResults::errors);
     cls.def_readonly("backgrounds", &FitProfilesResults::backgrounds);
+    cls.def_readonly("models", &FitProfilesResults::models);
 
     mod.def("fitProfiles", &fitProfiles, "images"_a, "centers"_a, "spectra"_a, "fiberId"_a,
             "ySwaths"_a, "badBitMask"_a, "oversample"_a, "radius"_a, "sigma"_a, "bgSize"_a,
