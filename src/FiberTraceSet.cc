@@ -6,6 +6,7 @@
 #include "pfs/drp/stella/FiberTraceSet.h"
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
+#include "pfs/drp/stella/backgroundIndices.h"
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -74,31 +75,36 @@ void FiberTraceSet<ImageT, MaskT, VarianceT >::sortTracesByXCenter()
     _traces = std::move(sorted);
 }
 
+//#pragma GCC optimize("O0")
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
     MaskT badBitMask,
-    float minFracMask
+    float minFracMask,
+    lsst::geom::Extent2I const& bgSize
 ) const {
-    std::size_t const num = size();
-    std::size_t const height = image.getHeight();
-    std::size_t const width = image.getWidth();
-    SpectrumSet result{num, height};
+    std::size_t const numFibers = size();
+    auto const dims = image.getDimensions();
+    int const height = image.getHeight();
+    int const width = image.getWidth();
+    SpectrumSet result{numFibers, std::size_t(height)};
     MaskT const require = image.getMask()->getPlaneBitMask(fiberMaskPlane);
-    std::ptrdiff_t const x0 = image.getX0();
     std::ptrdiff_t const y0 = image.getY0();
+    std::size_t const numBackground = getNumBackgroundIndices(dims, bgSize);
+    bool const doBackground = (numBackground > 0);
+    ndarray::Array<int, 2, 1> const bgIndices = doBackground ?
+        calculateBackgroundIndices(dims, bgSize, numFibers*height) : ndarray::Array<int, 2, 1>();
 
-    ndarray::Array<bool, 1, 1> useTrace = ndarray::allocate(num);  // trace overlaps this row?
-    ndarray::Array<MaskT, 1, 1> maskResult = ndarray::allocate(num);  // mask value for each trace
-    ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares: model dot data
+    ndarray::Array<bool, 1, 1> useTrace = ndarray::allocate(numFibers);  // trace overlaps this row?
+    ndarray::Array<MaskT, 1, 1> maskResult = ndarray::allocate(numFibers);  // mask value for each trace
 
     // This is a version of the least-squares matrix used for calculating the covariances.
     // We use a symmetric tridiagonal matrix (represented by diagonal and off-diagonal arrays) because
     // we don't care about anything further than that. The matrix is calculated using inverse variance
     // weights, so we can get the covariance.
-    ndarray::Array<double, 1, 1> diagonalWeighted = ndarray::allocate(num);  // diagonal of weighted LS
-    ndarray::Array<double, 1, 1> offDiagWeighted = ndarray::allocate(num - 1);  // off-diagonal of weighted LS
+    ndarray::Array<double, 1, 1> diagonalWeighted = ndarray::allocate(numFibers);  // diagonal of weighted LS
+    ndarray::Array<double, 1, 1> offDiagWeighted = ndarray::allocate(numFibers - 1);  // off-diagonal of WLS
     math::SymmetricTridiagonalWorkspace<double> solutionWorkspace, inversionWorkspace;
 
     auto const& dataImage = *image.getImage();
@@ -111,192 +117,221 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     // Initialize results, in case we miss anything
     for (auto & spectrum : result) {
         spectrum->getSpectrum().deep() = 0.0;
-        spectrum->getMask().getArray().deep() = spectrum->getMask().getPlaneBitMask("NO_DATA");
+        spectrum->getMask().getArray().deep() = 0;
         spectrum->getCovariance().deep() = 0.0;
         spectrum->getNorm().deep() = 0.0;
     }
 
+    std::size_t const num = numFibers*height + numBackground;  // total number of parameters
+
+    using Matrix = math::SymmetricSparseSquareMatrix;
+    Matrix matrix{num};  // least-squares matrix: model dot model
+    ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares vector: model dot data
+    vector.deep() = 0.0;
+
+    ndarray::Array<int, 1, 1> lower = ndarray::allocate(numFibers);  // lower bound pixel in trace (inclusive)
+    ndarray::Array<int, 1, 1> upper = ndarray::allocate(numFibers);  // upper bound pixel in trace (inclusive)
+    for (std::size_t ii = 0; ii < numFibers; ++ii) {
+        auto const& box = _traces[ii]->getTrace().getBBox();
+        lower[ii] = box.getMinX();
+        upper[ii] = box.getMaxX();
+        if (ii > 0 && (lower[ii] < lower[ii - 1] || upper[ii] < upper[ii - 1])) {
+            throw LSST_EXCEPT(
+                lsst::pex::exceptions::InvalidParameterError,
+                "Traces are not sorted by x-center; use method sortTracesByXCenter()"
+            );
+        }
+    }
+
+    ndarray::Array<bool, 1, 1> nonZero(num);  // Is this parameter non-zero?
+    nonZero.deep() = false;
+
     // yData is the position on the image (and therefore the extracted spectrum)
     // yActual is the position on the trace
     std::ptrdiff_t yActual = y0;
-    for (std::size_t yData = 0; yData < height; ++yData, ++yActual) {
+    for (int yData = 0; yData < height; ++yData, ++yActual) {
          // Determine which traces are relevant for this row
-        for (std::size_t ii = 0; ii < num; ++ii) {
+        for (std::size_t ii = 0; ii < numFibers; ++ii) {
             auto const& box = _traces[ii]->getTrace().getBBox();
             useTrace[ii] = (yActual >= box.getMinY() && yActual <= box.getMaxY());
-            maskResult[ii] = noData;
+            maskResult[ii] = 0;
 
             if (useTrace[ii]) {
                 std::size_t const yy = yData - box.getMinY();
                 auto const& trace = ndarray::asEigenArray(_traces[ii]->getTrace().getImage()->getArray()[yy]);
                 result[ii]->getNorm()[yData] = trace.template cast<double>().sum();
                 if (result[ii]->getNorm()[yData] == 0) {
+                    std::cerr << "Zero norm: " << ii << " " << yData << std::endl;
                     useTrace[ii] = false;
                     maskResult[ii] |= badFiberTrace;
                 }
             }
         }
 
-        // Construct least-squares matrix and vector
-        math::SymmetricSparseSquareMatrix matrix{num};  // least-squares matrix: model dot model
-        vector.deep() = 0.0;
+        // Construct least-squares matrix and vector for error estimation
         diagonalWeighted.deep() = 0.0;
         offDiagWeighted.deep() = 0.0;
 
-        for (std::size_t ii = 0; ii < num; ++ii) {
-            if (!useTrace[ii]) {
-                matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
-                diagonalWeighted[ii] = 1.0;
-                continue;
+        std::size_t left = 0;  // index of left-most fiber for pixel (inclusive)
+        std::size_t right = 0;  // index of right-most fiber for pixel (exclusive)
+        for (int xData = 0; xData < width; ++xData) {
+            while (left < numFibers && xData >= upper[left]) {
+                ++left;
+            }
+            while (right < numFibers && xData >= lower[right]) {
+                ++right;
             }
 
-            // Here we calculate two versions of the matrix diagonal: one
-            // without weighting and another with weighting by the inverse
-            // variance. This allows us to use the un-weighted matrix for
-            // solving for the fluxes without a bias (same reason we don't
-            // weight by the variance when doing PSF photometry) and the inverse
-            // of the weighted matrix diagonal to get an estimate of the
-            // variance.
-            double model2 = 0.0;  // model^2
-            double model2Weighted = 0.0;  // model^2/sigma^2
-            double modelData = 0.0;  // model dot data
-            auto const& iTrace = _traces[ii]->getTrace();
-            auto const iyModel = yActual - iTrace.getBBox().getMinY();
-            assert(iTrace.getBBox().getMinX() >= 0 && iTrace.getBBox().getMinY() >= 0);
-            std::size_t const ixMin = iTrace.getBBox().getMinX();
-            std::size_t const ixMax = iTrace.getBBox().getMaxX();
-            auto const& iModelImage = *iTrace.getImage();
-            auto const& iModelMask = *iTrace.getMask();
-            double const iNorm = result[ii]->getNorm()[yData];
-            maskResult[ii] = 0;
-            std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), x0);
-            for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
-                 xModel < std::size_t(iTrace.getWidth()) && xData < width;
-                 ++xModel, ++xData) {
-                if (!(iModelMask(xModel, iyModel) & require)) continue;
-                double const modelValue = iModelImage(xModel, iyModel)/iNorm;
-                MaskT const maskValue = dataMask(xData, yData);
-                ImageT const imageValue = dataImage(xData, yData);
-                VarianceT const varianceValue = dataVariance(xData, yData);
-                if (modelValue > minFracMask) {
+            MaskT const maskValue = dataMask(xData, yData);
+            ImageT const imageValue = dataImage(xData, yData);
+            VarianceT const varianceValue = dataVariance(xData, yData);
+
+            // We don't immediately move on to the next pixel if the pixel is masked, because we
+            // want to accumulate the mask values for the traces that overlap this pixel.
+            bool const isBad = ((maskValue & badBitMask) || !std::isfinite(imageValue) ||
+                                 !std::isfinite(varianceValue) || varianceValue <= 0);
+
+            std::size_t const bgIndex = doBackground ? bgIndices[yData][xData] : 0;
+            if (doBackground && !isBad) {
+                matrix.add(bgIndex, bgIndex, 1.0);
+                nonZero[bgIndex] = true;
+                vector[bgIndex] += imageValue;
+            }
+
+            std::size_t iIndex = yData*numFibers + left;
+            for (std::size_t ii = left; ii < right; ++ii, ++iIndex) {
+                if (!useTrace[ii]) {
+//                    matrix.add(iIndex, iIndex, 1.0);  // to avoid making the matrix singular
+                    diagonalWeighted[ii] = 1.0;
+                    continue;
+                }
+
+                auto const& iTrace = _traces[ii]->getTrace();
+                int const ixModel = xData - iTrace.getBBox().getMinX();
+                auto const iyModel = yActual - iTrace.getBBox().getMinY();
+                assert(iTrace.getBBox().getMinX() >= 0 && iTrace.getBBox().getMinY() >= 0);
+                auto const& iModelImage = *iTrace.getImage();
+                auto const& iModelMask = *iTrace.getMask();
+                double const iNorm = result[ii]->getNorm()[yData];
+                double const iModelValue = iModelImage(ixModel, iyModel)/iNorm;
+                if (!(iModelMask(ixModel, iyModel) & require)) continue;
+                if (iModelValue > minFracMask) {
                     maskResult[ii] |= maskValue;
                 }
-                if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue) ||
-                    varianceValue <= 0) {
-                    continue;
-                }
-                double const m2 = std::pow(modelValue, 2);
-                model2 += m2;
-                model2Weighted += m2/varianceValue;
-                modelData += modelValue*imageValue;
-            }
-
-            if (model2 == 0.0 || model2Weighted == 0.0) {
-                useTrace[ii] = false;
-                matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
-                diagonalWeighted[ii] = 1.0;
-                maskResult[ii] |= noData | badFiberTrace;
-                continue;
-            }
-
-            matrix.add(ii, ii, model2);
-            diagonalWeighted[ii] = model2Weighted;
-            vector[ii] = modelData;
-
-            if (ii >= num - 1) {
-                continue;
-            }
-
-            for (std::size_t jj = ii + 1; jj < num; ++jj) {
-                if (!useTrace[jj]) {
+                if (isBad) {
                     continue;
                 }
 
-                auto const& jTrace = _traces[jj]->getTrace();
-                auto const& jModelImage = *jTrace.getImage();
-                auto const& jModelMask = *jTrace.getMask();
-                double const jNorm = result[jj]->getNorm()[yData];
-
-                // Determine overlap
-                assert(jTrace.getBBox().getMinX() >= 0 && jTrace.getBBox().getMinY() >= 0);
-                std::size_t const jxMin = jTrace.getBBox().getMinX();
-                std::size_t const jxMax = jTrace.getBBox().getMaxX();
-                std::size_t const jyModel = yData - jTrace.getBBox().getMinY();
-                //   |----------------|
-                // ixMin            ixMax
-                //            |----------------|
-                //          jxMin            jxMax
-                std::size_t const overlapMin = std::max(ixMin, jxMin);
-                std::size_t const overlapMax = std::min(ixMax, jxMax);
-                std::size_t const overlapStart = std::max(std::ptrdiff_t(overlapMin), x0);
-
-                if (overlapMax < overlapMin) {
-                    // No more overlaps
-                    break;
+                double const model2 = std::pow(iModelValue, 2);
+                matrix.add(iIndex, iIndex, model2);
+                if (model2 != 0.0) {
+                    nonZero[iIndex] = true;
+                }
+                vector[iIndex] += iModelValue*imageValue;
+                diagonalWeighted[ii] += model2/varianceValue;
+                if (doBackground) {
+                    matrix.add(iIndex, bgIndex, iModelValue);
+                    if (iModelValue != 0.0) {
+                        nonZero[iIndex] = true;
+                        nonZero[bgIndex] = true;
+                    }
                 }
 
-                // Accumulate in overlap
-                double modelModel = 0.0;  // model_i dot model_j
-                double modelModelWeighted = 0.0;  // model_i dot model_j/sigma^2
-                bool accumulateWeighted = (jj == ii + 1);  // do we want to calculate modelModelWeighted?
-                for (std::size_t xData = overlapStart - x0,
-                        xi = overlapStart - ixMin, xj = overlapStart - jxMin;
-                        xData <= overlapMax - x0;
-                        ++xData, ++xi, ++xj) {
-                    if (!(iModelMask(xi, iyModel) & require)) continue;
-                    if (!(jModelMask(xj, jyModel) & require)) continue;
-                    MaskT const maskValue = dataMask(xData, yData);
-                    ImageT const imageValue = dataImage(xData, yData);
-                    VarianceT const varianceValue = dataVariance(xData, yData);
-                    if ((maskValue & badBitMask) || !std::isfinite(imageValue) ||
-                        !std::isfinite(varianceValue) || varianceValue == 0) {
+                for (std::size_t jj = ii + 1, jIndex = iIndex + 1; jj < right; ++jj, ++jIndex) {
+                    if (!useTrace[jj]) {
                         continue;
                     }
-                    double const iModel = iModelImage(xi, iyModel)/iNorm;
-                    double const jModel = jModelImage(xj, jyModel)/jNorm;
-                    double const mm = iModel*jModel;
-                    modelModel += mm;
-                    if (accumulateWeighted) {
-                        modelModelWeighted += mm/varianceValue;
+                    auto const& jTrace = _traces[jj]->getTrace();
+                    int const jxModel = xData - jTrace.getBBox().getMinX();
+                    auto const jyModel = yActual - jTrace.getBBox().getMinY();
+                    auto const& jModelImage = *jTrace.getImage();
+                    auto const& jModelMask = *jTrace.getMask();
+                    double const jNorm = result[jj]->getNorm()[yData];
+                    double const jModelValue = jModelImage(jxModel, jyModel)/jNorm;
+                    if (!(jModelMask(jxModel, jyModel) & require)) continue;
+
+                    double const modelModel = iModelValue*jModelValue;
+                    matrix.add(iIndex, jIndex, modelModel);
+                    if (modelModel != 0.0) {
+                        nonZero[iIndex] = true;
+                        nonZero[jIndex] = true;
                     }
-                }
-                matrix.add(ii, jj, modelModel);
-                if (accumulateWeighted) {
-                    offDiagWeighted[ii] = modelModelWeighted;
+                    if (jj == ii + 1) {
+                        offDiagWeighted[ii] += modelModel/varianceValue;
+                    }
                 }
             }
         }
 
-        // Solve least-squares and set results
-        ndarray::Array<double, 1, 1> solution = matrix.solve(vector);
+        for (std::size_t ii = 0; ii < numFibers; ++ii) {
+            if (diagonalWeighted[ii] == 0.0) {
+                diagonalWeighted[ii] = 1.0;  // to avoid making the matrix singular
+                maskResult[ii] |= badFiberTrace;
+            }
+        }
 
+        // Variances are measured row by row
         ndarray::Array<double, 1, 1> variance;
         ndarray::Array<double, 1, 1> covariance;
         std::tie(variance, covariance) = math::invertSymmetricTridiagonal(diagonalWeighted, offDiagWeighted,
                                                                           inversionWorkspace);
-        for (std::size_t ii = 0; ii < num; ++ii) {
-            auto value = solution[ii];
+        for (std::size_t ii = 0; ii < numFibers; ++ii) {
             auto varResult = variance[ii];
-            auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
+            auto covarResult1 = (ii < numFibers - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
             auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
-            if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult)) {
-                value = 0.0;
+            if (!useTrace[ii] || !std::isfinite(varResult)) {
                 maskResult[ii] |= noData;
+                if (!useTrace[ii]) {
+                    maskResult[ii] |= badFiberTrace;
+                }
+                std::cerr << "Bad trace: " << yData << " " << ii << " " << useTrace[ii] << " " << varResult << " " << maskResult[ii] << std::endl;
                 varResult = 0.0;
                 covarResult1 = 0.0;
                 covarResult2 = 0.0;
             }
-            result[ii]->getSpectrum()[yData] = value;
-            result[ii]->getMask()(yData, 0) = maskResult[ii];
+            result[ii]->getMask()(yData, 0) |= maskResult[ii];
             result[ii]->getCovariance()[0][yData] = varResult;
             result[ii]->getCovariance()[1][yData] = covarResult1;
             result[ii]->getCovariance()[2][yData] = covarResult2;
         }
     }
 
+    // Detect bad rows
+    ndarray::Array<bool, 1, 1> badRow = ndarray::allocate(num);
     for (std::size_t ii = 0; ii < num; ++ii) {
+        if (!nonZero[ii]) {
+            std::cerr << "Bad row: " << ii << std::endl;
+            assert(vector[ii] == 0.0);
+            matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
+        }
+    }
+
+    // Solve least-squares and set results
+    using Solver = Eigen::SimplicialLDLT<Matrix::Matrix, Eigen::Upper, Eigen::NaturalOrdering<typename Matrix::IndexT>>;
+
+    ndarray::Array<double, 1, 1> solution = matrix.solve<Solver>(vector);
+
+    for (int yData = 0; yData < height; ++yData) {
+        for (std::size_t ii = 0, iIndex = yData*numFibers; ii < numFibers; ++ii, ++iIndex) {
+            double const value = solution[iIndex];
+            bool const isBad = !nonZero[iIndex];
+            result[ii]->getSpectrum()[yData] = value;
+            if (!std::isfinite(value) || isBad) {
+                result[ii]->getMask()(yData, 0) |= noData;
+                std::cerr << "Bad value: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
+            }
+            if (result[ii]->getNorm()[yData] == 0) {
+                result[ii]->getMask()(yData, 0) |= badFiberTrace;
+                std::cerr << "Bad norm: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
+            }
+        }
+    }
+
+    for (std::size_t ii = 0; ii < numFibers; ++ii) {
         result[ii]->setFiberId(_traces[ii]->getFiberId());
     }
+
+   std::cerr << "Background: " << solution[ndarray::view(numFibers*height, num)] << std::endl;
 
     return result;
 }

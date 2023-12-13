@@ -132,7 +132,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         expectFlux = np.zeros(self.synthConfig.height, dtype=np.float32)
         expectFlux[middle:] = self.flux
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
-        expectMask[:middle] = trace.trace.mask.getPlaneBitMask("NO_DATA")
+        expectMask[:middle] = trace.trace.mask.getPlaneBitMask(("NO_DATA", "BAD_FIBERTRACE"))
         self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
 
         # End is missing
@@ -143,7 +143,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         expectFlux = np.zeros(self.synthConfig.height, dtype=np.float32)
         expectFlux[:middle] = self.flux
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
-        expectMask[middle:] = trace.trace.mask.getPlaneBitMask("NO_DATA")
+        expectMask[middle:] = trace.trace.mask.getPlaneBitMask(("NO_DATA", "BAD_FIBERTRACE"))
         self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
 
     def testSingular(self):
@@ -169,6 +169,12 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.fiberTraces[index].trace.image.array[row, :] = 1000.0
         self.fiberTraces[index].trace.mask.array[row, :] = 0
         spectra = self.fiberTraces.extractSpectra(self.image)
+
+        print(expectFlux[row], expectMask[row])
+        print(spectra[index].flux[row], spectra[index].mask.array[0, row])
+        print(spectra[index].norm[row])
+        print()
+
         self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
 
     def testMinFracMask(self):
@@ -209,6 +215,16 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         # With bad pixel at fraction=0.5 and minFracMask = 0.7 --> unmasked
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.7)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+
+    def testBackground(self):
+        """Test extraction with a background"""
+        background = 123.45
+        bad = 0x0
+        minFracMask = 0.0
+        bgSize = Extent2I(self.synthConfig.width//2, self.synthConfig.height//2)
+        self.image.image += background
+        spectra = self.fiberTraces.extractSpectra(self.image, bad, minFracMask, bgSize)
+        self.assertSpectra(spectra)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

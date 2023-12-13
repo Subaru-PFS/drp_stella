@@ -1,5 +1,6 @@
 #include "ndarray.h"
 
+#include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/backgroundIndices.h"
 
 namespace pfs {
@@ -35,6 +36,9 @@ int getNumBackgroundIndices(
     lsst::geom::Extent2I const& dims,
     lsst::geom::Extent2I const& bgSize
 ) {
+    if (bgSize.getX() <= 0 || bgSize.getY() <= 0) {
+        return 0;
+    }
     int const xNum = std::ceil(dims.getX()/float(bgSize.getX()));
     int const yNum = std::ceil(dims.getY()/float(bgSize.getY()));
     return xNum*yNum;
@@ -46,6 +50,12 @@ ndarray::Array<int, 2, 1> calculateBackgroundIndices(
     lsst::geom::Extent2I const& bgSize,
     int indexOffset
 ) {
+    if (bgSize.getX() <= 0 || bgSize.getY() <= 0) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "Background size must be positive"
+        );
+    }
     ndarray::Array<int, 2, 1> result = ndarray::allocate(dims.getY(), dims.getX());
 
     ndarray::Array<int, 1, 1> xIndex = getBackgroundIndices1d(dims.getX(), bgSize.getX());

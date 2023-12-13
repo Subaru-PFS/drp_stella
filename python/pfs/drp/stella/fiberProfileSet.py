@@ -327,7 +327,7 @@ class FiberProfileSet:
             traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
         return traces
 
-    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0):
+    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.0, bgSize=None):
         """Extract spectra from an image
 
         Parameters
@@ -345,7 +345,8 @@ class FiberProfileSet:
             Extracted spectra.
         """
         traces = self.makeFiberTracesFromDetectorMap(detectorMap)
-        return traces.extractSpectra(maskedImage, badBitMask)
+        traces.sortTracesByXCenter()
+        return traces.extractSpectra(maskedImage, badBitMask, minFracMask, bgSize)
 
     @classmethod
     def fromPfsFiberProfiles(cls, pfsFiberProfiles):
@@ -510,10 +511,10 @@ class FiberProfileSet:
         import matplotlib.pyplot as plt
 
         stats = {fiberId: self[fiberId].calculateStatistics() for fiberId in self}
-        centroids = np.array([stats[fiberId].centroid for fiberId in stats]).flatten()
-        widths = np.array([stats[fiberId].width for fiberId in stats]).flatten()
-        minimums = np.array([stats[fiberId].min for fiberId in stats]).flatten()
-        maximums = np.array([stats[fiberId].max for fiberId in stats]).flatten()
+        centroids = np.concatenate([stats[fiberId].centroid for fiberId in stats])
+        widths = np.concatenate([stats[fiberId].width for fiberId in stats])
+        minimums = np.concatenate([stats[fiberId].min for fiberId in stats])
+        maximums = np.concatenate([stats[fiberId].max for fiberId in stats])
 
         fig, axes = plt.subplots(nrows=2, ncols=2)
 
