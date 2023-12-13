@@ -224,12 +224,12 @@ class FiberProfileSet:
         for pp in profiles.values():
             pp /= np.ma.average(pp, axis=1)[:, np.newaxis]
 
-        for image, bg in zip(imageList, results.backgrounds):
-            from lsst.afw.math import BackgroundMI
-            from lsst.afw.image import makeMaskedImage
-            bgModel = BackgroundMI(image.getBBox(), makeMaskedImage(bg))
-            bgModel.getBackgroundControl().setUndersampleStyle("REDUCE_INTERP_ORDER")
-            image -= bgModel.getImageF()
+#        for image, bg in zip(imageList, results.backgrounds):
+#            from lsst.afw.math import BackgroundMI
+#            from lsst.afw.image import makeMaskedImage
+#            bgModel = BackgroundMI(image.getBBox(), makeMaskedImage(bg))
+#            bgModel.getBackgroundControl().setUndersampleStyle("REDUCE_INTERP_ORDER")
+#            image -= bgModel.getImageF()
 
         return cls(
             {ff: FiberProfile(radius, oversample, ySwaths, profiles[ff]) for ff in fiberId},

@@ -395,6 +395,12 @@ class SwathProfileBuilder {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Row not in image");
         }
 
+
+
+        if (yy < 2000 || yy > 2500) return;
+
+
+
         // Determine position and bounds of each fiber
         ndarray::Array<int, 1, 1> lower = ndarray::allocate(_numFibers);  // inclusive
         ndarray::Array<int, 1, 1> upper = ndarray::allocate(_numFibers);  // exclusive
@@ -569,8 +575,18 @@ class SwathProfileBuilder {
 
         std::vector<std::shared_ptr<lsst::afw::image::Image<float>>> backgrounds{_numImages};
         for (std::size_t ii = 0; ii < _numImages; ++ii) {
-            std::size_t const offset = _numSwathsParameters + ii*_numBackgroundParameters;
-            backgrounds[ii] = makeBackgroundImage(_dims, _bgSize, sanitized, offset);
+            auto const dims = models[ii]->getDimensions();
+            std::size_t const bgOffset = ii*_numBackgroundParameters;
+            auto bg = std::make_shared<lsst::afw::image::Image<float>>(dims);
+            for (int yy = 0; yy < dims.getY(); ++yy) {
+                for (int xx = 0; xx < dims.getX(); ++xx) {
+                    std::size_t index = _bgIndex[yy][xx] + bgOffset;
+                    (*bg)(xx, yy) = solution[index];
+                }
+            }
+            backgrounds[ii] = bg;
+            // std::size_t const offset = _numSwathsParameters + ii*_numBackgroundParameters;
+            // backgrounds[ii] = makeBackgroundImage(_dims, _bgSize, sanitized, offset);
         }
 
         return FitProfilesResults(profiles, masks, errors, backgrounds, models);
