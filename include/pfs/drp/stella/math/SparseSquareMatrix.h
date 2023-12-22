@@ -60,6 +60,12 @@ class MatrixTriplets {
         return num;
     }
 
+    /// Get the number of non-zero matrix elements in a row
+    std::size_t size(IndexT row) const {
+        _checkIndex(row, 0);
+        return _triplets[row].size();
+    }
+
     //@{
     /// Add a matrix element
     ///
@@ -77,8 +83,23 @@ class MatrixTriplets {
     }
     //@}
 
+    /// Remove a matrix element
+    ///
+    /// If the element exists, the value is removed.
+    ElemT remove(IndexT row, IndexT col) {
+        _checkIndex(row, col);
+        Map & map = _triplets[row];
+        auto iter = map.find(col);
+        if (iter == map.end()) {
+            return 0.0;
+        }
+        ElemT value = iter->second;
+        map.erase(iter);
+        return value;
+    }
+
     /// Get a matrix element
-    ElemT get(IndexT row, IndexT col) {
+    ElemT get(IndexT row, IndexT col) const {
         _checkIndex(row, col);
         auto const& map = _triplets[row];
         auto iter = map.find(col);
@@ -217,6 +238,88 @@ class MatrixTriplets {
 };
 
 
+namespace detail {
+
+template <bool symmetric>
+struct SparseMatrixFactorization {
+    template <class Matrix, class Solver>
+    void operator()(Matrix const& matrix, Solver & solver) const;
+};
+
+template <>
+template <class Matrix, class Solver>
+void SparseMatrixFactorization<true>::operator()(Matrix const& matrix, Solver & solver) const {
+    solver.compute(matrix.template selfadjointView<Eigen::Upper>());
+}
+
+template <>
+template <class Matrix, class Solver>
+void SparseMatrixFactorization<false>::operator()(Matrix const& matrix, Solver & solver) const {
+    solver.compute(matrix);
+}
+
+
+template <bool symmetric>
+struct SparseMatrixMultiplication {
+    template <class Matrix>
+    Eigen::VectorXd operator()(Matrix const& matrix, Eigen::VectorXd const& vector) const;
+};
+
+template <>
+template <class Matrix>
+Eigen::VectorXd SparseMatrixMultiplication<true>::operator()(
+    Matrix const& matrix, Eigen::VectorXd const& vector
+) const {
+    return matrix.template selfadjointView<Eigen::Upper>() * vector;
+}
+
+template <>
+template <class Matrix>
+Eigen::VectorXd SparseMatrixMultiplication<false>::operator()(
+    Matrix const& matrix,
+    Eigen::VectorXd const& vector
+) const {
+    return matrix * vector;
+}
+
+}  // namespace detail
+
+
+template <bool symmetric, class Matrix, class Solver>
+void solveSparseMatrix(
+    Matrix & matrix,
+    ndarray::Array<double, 1, 1> const& rhs,
+    ndarray::Array<double, 1, 1> & solution,
+    Solver & solver,
+    bool debug=false
+) {
+    matrix.makeCompressed();
+
+    if (debug) {
+        // Save in a form that can be read by Eigen tools
+        Eigen::saveMarket(matrix, "matrix.mtx");
+        Eigen::saveMarketVector(ndarray::asEigenMatrix(rhs), "matrix_b.mtx");
+    }
+
+    detail::SparseMatrixFactorization<symmetric>()(matrix, solver);
+    if (solver.info() != Eigen::Success) {
+        std::ostringstream os;
+        os << "Sparse matrix decomposition failed: " << solver.info();
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, os.str());
+    }
+    ndarray::asEigenMatrix(solution) = solver.solve(ndarray::asEigenMatrix(rhs));
+    if (solver.info() != Eigen::Success) {
+        std::ostringstream os;
+        os << "Sparse matrix solving failed: " << solver.info();
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, os.str());
+    }
+
+    if (debug) {
+        Eigen::saveMarketVector(ndarray::asEigenMatrix(solution), "solution.mtx");
+    }
+}
+
+
 /// Sparse representation of a square matrix
 ///
 /// Used for solving matrix problems.
@@ -251,8 +354,11 @@ class SparseSquareMatrix {
     SparseSquareMatrix & operator=(SparseSquareMatrix const&) = delete;
     SparseSquareMatrix & operator=(SparseSquareMatrix &&) = default;
 
+    //@{
     /// Get the number of entries
     std::size_t size() const { return _triplets.size(); }
+    std::size_t size(IndexT ii) const { return _triplets.size(ii); }
+    //@}
 
     /// Add an entry to the matrix
     void add(IndexT ii, IndexT jj, ElemT value) {
@@ -291,6 +397,11 @@ class SparseSquareMatrix {
         }
     }
 
+    /// Remove an entry from the matrix
+    ElemT remove(IndexT ii, IndexT jj) {
+        return _triplets.remove(ii, jj);
+    }
+
     SparseSquareMatrix & operator+=(SparseSquareMatrix const& other) {
         add(other);
         return *this;
@@ -301,7 +412,7 @@ class SparseSquareMatrix {
     }
 
     /// Retrieve an entry from the matrix
-    ElemT get(IndexT ii, IndexT jj) {
+    ElemT get(IndexT ii, IndexT jj) const {
         if (symmetric && jj < ii) {
             // we work with the upper triangle
             assert(false);
@@ -335,30 +446,11 @@ class SparseSquareMatrix {
         utils::checkSize(rhs.size(), std::size_t(_num), "rhs");
         Matrix matrix{_num, _num};
         matrix.setFromTriplets(_triplets.begin(), _triplets.end());
-        matrix.makeCompressed();
 
-        if (debug) {
-            // Save in a form that can be read by Eigen tools
-            Eigen::saveMarket(matrix, "matrix.mtx");
-            Eigen::saveMarketVector(ndarray::asEigenMatrix(rhs), "matrix_b.mtx");
-        }
+        // Eigen::VectorXd const vector = ndarray::asEigenMatrix(rhs);
+        // Eigen::VectorXd soln = ndarray::asEigenMatrix(solution);
 
-        _compute(solver, matrix);
-        if (solver.info() != Eigen::Success) {
-            std::ostringstream os;
-            os << "Sparse matrix decomposition failed: " << solver.info();
-            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, os.str());
-        }
-        ndarray::asEigenMatrix(solution) = solver.solve(ndarray::asEigenMatrix(rhs));
-        if (solver.info() != Eigen::Success) {
-            std::ostringstream os;
-            os << "Sparse matrix solving failed: " << solver.info();
-            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, os.str());
-        }
-
-        if (debug) {
-            Eigen::saveMarketVector(ndarray::asEigenMatrix(solution), "solution.mtx");
-        }
+        solveSparseMatrix<symmetric>(matrix, rhs, solution, solver, debug);
     }
     //@}
 
@@ -383,12 +475,15 @@ class SparseSquareMatrix {
     /// Return the triplets
     MatrixTriplets<ElemT, IndexT> const& getTriplets() const { return _triplets; }
 
+    /// Return the Eigen representation of the matrix
+    Matrix getEigen() const {
+        Matrix matrix{_num, _num};
+        matrix.setFromTriplets(_triplets.begin(), _triplets.end());
+        matrix.makeCompressed();
+        return matrix;
+    }
+
   protected:
-
-    /// Compute the solution factorization
-    template <class Solver>
-    void _compute(Solver & solver, Matrix const& matrix) const;
-
     IndexT _num;  ///< Number of rows/columns
     MatrixTriplets<ElemT, IndexT> _triplets;  ///< Non-zero matrix elements (i,j,value)
 };
@@ -396,19 +491,6 @@ class SparseSquareMatrix {
 
 using NonsymmetricSparseSquareMatrix = SparseSquareMatrix<false>;  // more explicit
 using SymmetricSparseSquareMatrix = SparseSquareMatrix<true>;  // more explicit
-
-
-// Specialisations
-template <>
-template <class Solver>
-void SparseSquareMatrix<true>::_compute(Solver & solver, Matrix const& matrix) const {
-    solver.compute(matrix.selfadjointView<Eigen::Upper>());
-}
-template <>
-template <class Solver>
-void SparseSquareMatrix<false>::_compute(Solver & solver, Matrix const& matrix) const {
-    solver.compute(matrix);
-}
 
 
 }}}}  // namespace pfs::drp::stella::math

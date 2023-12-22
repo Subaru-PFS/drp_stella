@@ -248,7 +248,7 @@ class BuildFiberProfilesTask(Task):
         sigma = fwhmToSigma(self.config.extractFwhm)
 
         self.log.info("Starting initial profile extraction...")
-        profiles = FiberProfileSet.fromImages(
+        profiles, results = FiberProfileSet.fromImages(
             identity,
             imageList,
             fiberId,
@@ -329,7 +329,7 @@ class BuildFiberProfilesTask(Task):
 
 
             self.log.info("Starting profile extraction iteration %d...", ii + 1)
-            profiles = FiberProfileSet.fromImages(
+            profiles, results = FiberProfileSet.fromImages(
                 identity,
                 imageList,
                 fiberId,

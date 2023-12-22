@@ -344,6 +344,8 @@ class FiberProfileSet:
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
+        if bgSize is None:
+            bgSize = Extent2I(0, 0)
         traces = self.makeFiberTracesFromDetectorMap(detectorMap)
         traces.sortTracesByXCenter()
         return traces.extractSpectra(maskedImage, badBitMask, minFracMask, bgSize)

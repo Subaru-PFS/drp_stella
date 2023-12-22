@@ -5,7 +5,7 @@
 
 #include "pfs/drp/stella/FiberTraceSet.h"
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
-#include "pfs/drp/stella/math/SparseSquareMatrix.h"
+#include "pfs/drp/stella/math/LeastSquaresEquation.h"
 #include "pfs/drp/stella/backgroundIndices.h"
 
 namespace pfs { namespace drp { namespace stella {
@@ -122,12 +122,8 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         spectrum->getNorm().deep() = 0.0;
     }
 
-    std::size_t const num = numFibers*height + numBackground;  // total number of parameters
-
-    using Matrix = math::SymmetricSparseSquareMatrix;
-    Matrix matrix{num};  // least-squares matrix: model dot model
-    ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares vector: model dot data
-    vector.deep() = 0.0;
+    std::ptrdiff_t const num = numFibers*height + numBackground;  // total number of parameters
+    math::LeastSquaresEquation equation{num};
 
     ndarray::Array<int, 1, 1> lower = ndarray::allocate(numFibers);  // lower bound pixel in trace (inclusive)
     ndarray::Array<int, 1, 1> upper = ndarray::allocate(numFibers);  // upper bound pixel in trace (inclusive)
@@ -142,9 +138,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             );
         }
     }
-
-    ndarray::Array<bool, 1, 1> nonZero(num);  // Is this parameter non-zero?
-    nonZero.deep() = false;
 
     // yData is the position on the image (and therefore the extracted spectrum)
     // yActual is the position on the trace
@@ -193,15 +186,13 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 
             std::size_t const bgIndex = doBackground ? bgIndices[yData][xData] : 0;
             if (doBackground && !isBad) {
-                matrix.add(bgIndex, bgIndex, 1.0);
-                nonZero[bgIndex] = true;
-                vector[bgIndex] += imageValue;
+                equation.addDiagonal(bgIndex, 1.0);
+                equation.addVector(bgIndex, imageValue);
             }
 
             std::size_t iIndex = yData*numFibers + left;
             for (std::size_t ii = left; ii < right; ++ii, ++iIndex) {
                 if (!useTrace[ii]) {
-//                    matrix.add(iIndex, iIndex, 1.0);  // to avoid making the matrix singular
                     diagonalWeighted[ii] = 1.0;
                     continue;
                 }
@@ -223,18 +214,11 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 }
 
                 double const model2 = std::pow(iModelValue, 2);
-                matrix.add(iIndex, iIndex, model2);
-                if (model2 != 0.0) {
-                    nonZero[iIndex] = true;
-                }
-                vector[iIndex] += iModelValue*imageValue;
+                equation.addDiagonal(iIndex, model2);
+                equation.addVector(iIndex, iModelValue*imageValue);
                 diagonalWeighted[ii] += model2/varianceValue;
                 if (doBackground) {
-                    matrix.add(iIndex, bgIndex, iModelValue);
-                    if (iModelValue != 0.0) {
-                        nonZero[iIndex] = true;
-                        nonZero[bgIndex] = true;
-                    }
+                    equation.addOffDiagonal(iIndex, bgIndex, iModelValue);
                 }
 
                 for (std::size_t jj = ii + 1, jIndex = iIndex + 1; jj < right; ++jj, ++jIndex) {
@@ -251,11 +235,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                     if (!(jModelMask(jxModel, jyModel) & require)) continue;
 
                     double const modelModel = iModelValue*jModelValue;
-                    matrix.add(iIndex, jIndex, modelModel);
-                    if (modelModel != 0.0) {
-                        nonZero[iIndex] = true;
-                        nonZero[jIndex] = true;
-                    }
+                    equation.addOffDiagonal(iIndex, jIndex, modelModel);
                     if (jj == ii + 1) {
                         offDiagWeighted[ii] += modelModel/varianceValue;
                     }
@@ -296,33 +276,29 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         }
     }
 
-    // Detect bad rows
-    ndarray::Array<bool, 1, 1> badRow = ndarray::allocate(num);
-    for (std::size_t ii = 0; ii < num; ++ii) {
-        if (!nonZero[ii]) {
-            std::cerr << "Bad row: " << ii << std::endl;
-            assert(vector[ii] == 0.0);
-            matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
-        }
-    }
+    auto const nonZero = equation.makeNonSingular();
 
     // Solve least-squares and set results
-    using Solver = Eigen::SimplicialLDLT<Matrix::Matrix, Eigen::Upper, Eigen::NaturalOrdering<typename Matrix::IndexT>>;
+    using Solver = Eigen::SimplicialLDLT<
+        math::LeastSquaresEquation::SparseMatrix,
+        Eigen::Upper,
+        Eigen::NaturalOrdering<typename math::LeastSquaresEquation::IndexT>
+    >;
 
-    ndarray::Array<double, 1, 1> solution = matrix.solve<Solver>(vector);
+    ndarray::Array<double, 1, 1> solution = equation.solve<Solver>();
 
     for (int yData = 0; yData < height; ++yData) {
         for (std::size_t ii = 0, iIndex = yData*numFibers; ii < numFibers; ++ii, ++iIndex) {
             double const value = solution[iIndex];
-            bool const isBad = !nonZero[iIndex];
+            bool const isBad = nonZero.find(iIndex) != nonZero.end();
             result[ii]->getSpectrum()[yData] = value;
             if (!std::isfinite(value) || isBad) {
                 result[ii]->getMask()(yData, 0) |= noData;
-                std::cerr << "Bad value: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
+//                std::cerr << "Bad value: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
             }
             if (result[ii]->getNorm()[yData] == 0) {
                 result[ii]->getMask()(yData, 0) |= badFiberTrace;
-                std::cerr << "Bad norm: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
+//                std::cerr << "Bad norm: " << ii << " " << yData << " " << value << " " << result[ii]->getMask()(yData, 0) << std::endl;
             }
         }
     }
@@ -331,7 +307,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         result[ii]->setFiberId(_traces[ii]->getFiberId());
     }
 
-   std::cerr << "Background: " << solution[ndarray::view(numFibers*height, num)] << std::endl;
+    std::cerr << "Background: " << solution[ndarray::view(numFibers*height, num)] << std::endl;
 
     return result;
 }

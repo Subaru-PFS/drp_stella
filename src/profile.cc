@@ -10,7 +10,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 
 #include "pfs/drp/stella/profile.h"
-#include "pfs/drp/stella/math/SparseSquareMatrix.h"
+#include "pfs/drp/stella/math/LeastSquaresEquation.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/backgroundIndices.h"
@@ -19,7 +19,6 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
-
 //#pragma GCC optimize("O0")
 
 namespace {
@@ -27,71 +26,24 @@ namespace {
 LOG_LOGGER _log = LOG_GET("pfs.drp.stella.profile");
 
 
-// The matrix equation we're solving for the profiles
-struct ProfileEquation {
-    // We use a non-symmetric matrix because the conjugate gradient solver
-    // doesn't work with a self-adjoint view. So we just add the symmetric
-    // elements manually.
-    using Matrix = math::NonsymmetricSparseSquareMatrix;
-    Matrix matrix;  // least-squares (Fisher) matrix
-    ndarray::Array<double, 1, 1> vector;  // least-squares (right-hand side) vector
-
-    ProfileEquation(std::size_t numParameters) :
-        matrix(numParameters), vector(ndarray::allocate(numParameters)) {
-        reset();
+template <class Class, typename Method>
+struct BoundMethod {
+    Class * self;
+    Method method;
+    BoundMethod(Class * self_, Method method_) : self(self_), method(method_) {}
+    template <typename... Args>
+    auto operator()(Args&&... args) const {
+        return (self->*method)(std::forward<Args>(args)...);
     }
-
-    ProfileEquation(ProfileEquation const& other) = delete;
-    ProfileEquation(ProfileEquation && other) = default;
-    ProfileEquation & operator=(ProfileEquation const& other) = delete;
-    ProfileEquation & operator=(ProfileEquation && other) = default;
-    ~ProfileEquation() = default;
-
-    void reset() {
-        matrix.reset();
-        vector.deep() = 0;
-    }
-
-    void addDiagonal(std::size_t ii, double value) {
-        matrix.add(ii, ii, value);
-    }
-
-    void addOffDiagonal(std::size_t ii, std::size_t jj, double value) {
-        if (value == 0) return;
-
-        // if ((ii == 41 && jj == 43) || (ii == 43 && jj == 41)) {
-        //     std::cerr << "DEBUG!" << std::endl;
-        // }
-
-        assert(ii != jj);
-        if (std::is_same<Matrix, math::NonsymmetricSparseSquareMatrix>::value) {
-            matrix.add(ii, jj, value);
-            matrix.add(jj, ii, value);
-            return;
-        }
-        std::size_t const first = std::min(ii, jj);
-        std::size_t const second = std::max(ii, jj);
-        matrix.add(first, second, value);
-    }
-
-    void addVector(std::size_t ii, double value) {
-        vector[ii] += value;
-    }
-
-    ProfileEquation & operator+=(ProfileEquation const& other) {
-        matrix += other.matrix;
-        asEigenArray(vector) += asEigenArray(other.vector);
-        return *this;
-    }
-
-    ProfileEquation & operator-=(ProfileEquation const& other) {
-        matrix -= other.matrix;
-        asEigenArray(vector) -= asEigenArray(other.vector);
-        return *this;
+    template <typename... Args>
+    auto operator()(Args&&... args) {
+        return (self->*method)(std::forward<Args>(args)...);
     }
 };
-#pragma omp declare reduction(+:ProfileEquation:omp_out += omp_in) \
-    initializer(omp_priv = ProfileEquation(omp_orig.vector.size()))
+template <class Class, typename Method>
+BoundMethod<Class, Method> bindMethod(Class * self, Method method) {
+    return BoundMethod<Class, Method>(self, method);
+}
 
 
 // Class to support the simultaneous fit of multiple fiber profiles
@@ -102,6 +54,7 @@ struct ProfileEquation {
 // needs to supply the spectrum of each fiber.
 class SwathProfileBuilder {
   public:
+    using ProfileEquation = math::LeastSquaresEquation;
 
     // Constructor
     //
@@ -301,7 +254,7 @@ class SwathProfileBuilder {
             // if (yy == 123) std::cerr << "xx=" << xx << " ii=" << ii << " dx=" << (xx - centers[ii]) << " " << iIndex[0] << "," << iValue[0] << " " << iIndex[1] << "," << iValue[1] << " " << iIndex[2] << "," << iValue[2] << " " << iIndex[3] << "," << iValue[3] << " " << gTerm << " " << gDiffTerm << " " << std::endl;
 
             bool const iNotBegin = iPosition[0] >= _oversample;
-            bool const iNotEnd = iPosition[1] + _oversample < _profileSize;
+            bool const iNotEnd = iPosition[1] + _oversample < int(_profileSize);
 
             for (int iTerm = 0; iTerm < 4; ++iTerm) {
                 std::size_t const iIndexPlus = iIndex[iTerm] + _oversample;
@@ -344,7 +297,7 @@ class SwathProfileBuilder {
                 std::array<int, 4> const jPosition = std::get<2>(jInterp);
 
                 bool const jBegin = jPosition[0] < _oversample;
-                bool const jNotEnd = jPosition[1] + _oversample < _profileSize;
+                bool const jNotEnd = jPosition[1] + _oversample < int(_profileSize);
 
                 for (int iTerm = 0; iTerm < 4; ++iTerm) {
                     std::size_t const iIndexPlus = iIndex[iTerm] + _oversample;
@@ -397,7 +350,7 @@ class SwathProfileBuilder {
 
 
 
-        if (yy < 2000 || yy > 2500) return;
+//        if (yy < 2000 || yy > 2500) return;
 
 
 
@@ -447,58 +400,40 @@ class SwathProfileBuilder {
     void solve(ndarray::Array<double, 1, 1> & solution, ProfileEquation & equation, float matrixTol=1.0e-4) {
 
 #if 0
-        {
-            lsst::afw::image::Image<float> matrixImage(_numParameters, _numParameters);
-            for (auto const& triplet : equation.matrix.getTriplets()) {
-                assert(triplet.col() < _numParameters && triplet.row() < _numParameters);
-                matrixImage(triplet.col(), triplet.row()) = triplet.value();
-            }
-            matrixImage.writeFits("matrix.fits");
-        }
+        equation.writeFits("equation.fits");
 #endif
 
-        // Detect and deal with singular values
-        ndarray::Array<bool, 1, 1> isZero = ndarray::allocate(getNumParameters());
-        isZero.deep() = true;
-        for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
-            for (std::size_t jj = ii; jj < getNumParameters(); ++jj) {
-                if (equation.matrix.get(ii, jj) != 0.0) {
-                    isZero[ii] = false;
-                    break;
-                }
-            }
-            if (isZero[ii]) {
-                equation.addDiagonal(ii, 1.0);
-                assert(equation.vector[ii] == 0.0);  // or we've done something wrong
-            }
-        }
 
-        solution.deep() = std::numeric_limits<double>::quiet_NaN();
+        auto const zeros = equation.makeNonSingular();  // adds diagonal elements to make matrix non-singular
 
         // Solve the matrix equation
         // We use a preconditioned conjugate gradient solver, which is much less
         // picky about the matrix being close to singular.
-        using Matrix = ProfileEquation::Matrix::Matrix;
-#if 1
+        using Matrix = ProfileEquation::SparseMatrix;
+#if 0
         using Solver = Eigen::ConjugateGradient<
             Matrix, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>
         >;
 #else
-        using Solver = math::SymmetricSparseSquareMatrix::DefaultSolver;
+        using Solver = math::LeastSquaresEquation::DefaultSolver;
 #endif
         Solver solver;
-#if 1
+#if 0
         solver.setMaxIterations(getNumParameters()*10);
         solver.setTolerance(matrixTol);
 #endif
-        equation.matrix.solve(solution, equation.vector, solver, true);
 
-        for (std::size_t ii = 0; ii < getNumParameters(); ++ii) {
-            if (isZero[ii]) {
-                solution[ii] = std::numeric_limits<double>::quiet_NaN();
-                equation.addDiagonal(ii, -1.0);
-            }
-        }
+#if 0
+        equation.solve(solution, solver, true);
+#else
+        solution.deep() = equation.solveConstrained(
+            bindMethod(this, &SwathProfileBuilder::_monotonicNonZero)
+        );
+#endif
+
+        // Undo the adding of diagonal elements in "equation.makeNonSingular()"
+        // in case we want to use the matrix again.
+        equation.undoMakeNonSingular(zeros);
     }
     ndarray::Array<double, 1, 1> solve(ProfileEquation & equation, float matrixTol=1.0e-4) {
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(_numParameters);
@@ -506,6 +441,81 @@ class SwathProfileBuilder {
         return solution;
     }
     //@}
+
+    // Proximal operator to enforce monotonic decreasing and non-zero profiles
+    void _monotonicNonZero(ndarray::Array<double, 1, 1> & solution) {
+        // Normalisation
+        double const norm = solution[_iGaussian];
+        if (norm <= 0) {
+            // We're supposed to simply adjust the solution vector, but if we're
+            // finding a non-positive normalisation, then there's something
+            // seriously wrong.
+            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Normalisation term is not positive");
+        }
+
+        // Background levels: must be non-negative
+        std::size_t const bgStart = _numSwathsParameters;
+        std::size_t const bgEnd = bgStart + _numImages*_numBackgroundParameters;
+        for (std::size_t ii = bgStart; ii < bgEnd; ++ii) {
+            solution[ii] = std::max(0.0, solution[ii]);
+        }
+
+        // Profiles
+        // We want the profile values to be non-negative and monotonic decreasing
+        // from the center. However, the solution values are the difference
+        // not only between the Gaussian and the actual profile, but also
+        // between neighbouring pixels (separated by _oversample).
+        // So we calculate the profiles from the solution, adjust the profiles,
+        // and then calculate the solution from the adjusted profiles.
+        std::size_t const profileSize = _profileSize + _oversample;  // Add the extra pixel
+
+        // XXX this can be pre-computed
+        Eigen::MatrixXd coeffToPixels{profileSize, _profileSize};
+        coeffToPixels.setZero();
+        for (std::size_t ii = 0; ii < _profileSize; ++ii) {
+            coeffToPixels(ii, ii) = 1.0;
+            coeffToPixels(ii + _oversample, ii) = -1.0;
+        }
+        // Note that there is no proper inverse of coeffToPixels, because it is not square.
+        // However, we can use the pseudo-inverse to transform back from pixels to coefficients.
+        Eigen::MatrixXd pixelsToCoeff = coeffToPixels.completeOrthogonalDecomposition().pseudoInverse();
+
+        ndarray::Array<double, 1, 1> const profile = ndarray::allocate(profileSize);
+        ndarray::Array<double, 1, 1> const corrected = ndarray::allocate(profileSize);
+        ndarray::Array<double, 1, 1> const gaussian = ndarray::allocate(profileSize);
+        double xx = -double(_profileCenter);
+        for (std::size_t pp = 0; pp < profileSize; ++pp, xx += 1) {
+            gaussian[pp] = norm*_gaussian(xx/_oversample);
+        }
+        std::size_t const halfSize = (_radius + 1)*_oversample;
+        assert(profileSize == 2*halfSize + 1);
+        std::size_t index = 0;
+        for (std::size_t ss = 0; ss < _ySwaths.size(); ++ss) {
+            for (std::size_t ff = 0; ff < _numFibers; ++ff, index += _profileSize) {
+                // Calculate the profile
+                ndarray::asEigenMatrix(profile) = coeffToPixels*ndarray::asEigenMatrix(solution[ndarray::view(index, index + _profileSize)]);
+                profile.deep() += gaussian;
+                if (profile[_profileCenter] <= 0) {
+                    // If the center pixel is non-positive, then the whole profile is bad.
+                    solution[ndarray::view(index, index + _profileSize)] = 0.0;
+                    continue;
+                }
+
+                // Construct a version that is monotonic decreasing and non-negative
+                corrected[_profileCenter] = profile[_profileCenter];
+                for (int rr = 1, left = _profileCenter - 1, right = _profileCenter + 1;
+                     rr <= (_radius + 1)*_oversample; ++rr, --left, ++right) {
+                        corrected[left] = std::max(0.0, std::min(profile[left], corrected[left + 1]));
+                        corrected[right] = std::max(0.0, std::min(profile[right], corrected[right - 1]));
+                }
+
+                // Set the solution
+                corrected.deep() -= gaussian;
+                ndarray::asEigenMatrix(solution[ndarray::view(index, index + _profileSize)]) =
+                    pixelsToCoeff*ndarray::asEigenMatrix(corrected);
+            }
+        }
+    }
 
     // Repackage the solution into a format that is useful for the user
     //
@@ -528,14 +538,14 @@ class SwathProfileBuilder {
         errors.deep() = 0.0;
 
         double const norm = solution[_iGaussian];
-        double const normErr2 = equation.matrix.get(_iGaussian, _iGaussian);
+        double const normErr2 = equation.getMatrix().get(_iGaussian, _iGaussian);
 
         for (std::size_t ss = 0; ss < _ySwaths.size(); ++ss) {
             for (std::size_t ff = 0; ff < _numFibers; ++ff) {
                 double xx = -double(_profileCenter);
                 for (std::size_t pp = 0; pp < _profileSize; ++pp, ++index, xx += 1) {
                     double const value = solution[index];
-                    double const err2 = equation.matrix.get(index, index);
+                    double const err2 = equation.getMatrix().get(index, index);
                     double const gaussian = _gaussian(xx/_oversample);;
                     double const gg = norm*gaussian;
                     profiles[ff][ss][pp] += gg + value;
@@ -561,7 +571,7 @@ class SwathProfileBuilder {
         }
 
 
-#if 0
+#if 1
         std::cerr << "Solution:" << std::endl;
         std::cerr << solution[ndarray::view(0, _profileSize)] << std::endl;
         std::cerr << solution[ndarray::view(_numSwathsParameters, _numParameters)] << std::endl;
@@ -1113,7 +1123,7 @@ FitProfilesResults fitProfiles(
         images.size(), fiberIds.size(), yKnots, oversample, radius, sigma, dims, bgSize
     };
     LOGL_DEBUG(_log, "Building least-squares equation...");
-    ProfileEquation equation{builder.getNumParameters()};
+    math::LeastSquaresEquation equation{std::ptrdiff_t(builder.getNumParameters())};
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
         builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
