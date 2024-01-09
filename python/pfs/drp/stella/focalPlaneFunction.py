@@ -401,9 +401,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             for wl, resamp in zip(wavelengths, doResample)
         ]
         variances = [
-            interpolateVariance(self.wavelength, self.variance, wl)
-            if resamp
-            else self.variance
+            interpolateVariance(self.wavelength, self.variance, wl) if resamp else self.variance
             for wl, resamp in zip(wavelengths, doResample)
         ]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
