@@ -28,7 +28,7 @@ namespace math {
 template <typename Matrix>
 std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue(
     Matrix const& matrix,
-    double tolerance=1.0e-6,
+    double tolerance=1.0e-4,
     std::size_t maxIterations=100,
     ndarray::Array<double, 1, 1> & eigenvector=ndarray::Array<double, 1, 1>()
 );
@@ -134,21 +134,32 @@ class LeastSquaresEquation {
 
     //@{
     /// Solve the equation
+    ///
+    /// When the solver is not specified, the Solver is the first template
+    /// parameter.
+    template <int uplo=0, class Solver=DefaultSolver>
+    Vector solve(Vector & solution, Solver & solver, bool makeSymmetric=false) {
+        _matrix.solve<uplo, Solver>(_vector, solution, solver, makeSymmetric);
+        return solution;
+    }
     template <class Solver, int uplo=0>
-    void solve(Vector & solution, Solver & solver, bool makeSymmetric=false, bool debug=false) {
-        utils::checkSize(solution.size(), std::size_t(_num), "solution");
-        SparseMatrix matrix = _matrix.getEigen<uplo>(makeSymmetric);
-        solveSparseMatrix<>(matrix, _vector, solution, solver, debug);
-    }
-    template <int uplo=0, class Solver=DefaultSolver>
-    void solve(Vector & solution, bool makeSymmetric=false, bool debug=false) {
+    Vector solve(Vector & solution, bool makeSymmetric=false) {
         Solver solver;
-        solve<Solver, uplo>(solution, solver, makeSymmetric, debug);
+        return solve<uplo>(solution, solver, makeSymmetric);
     }
     template <int uplo=0, class Solver=DefaultSolver>
-    Vector solve(bool makeSymmetric=false, bool debug=false) {
+    Vector solve(Vector & solution, bool makeSymmetric=false) {
+        return solve<Solver, uplo>(solution, makeSymmetric);
+    }
+    template <class Solver, int uplo=0>
+    Vector solve(bool makeSymmetric=false) {
         Vector solution = ndarray::allocate(_num);
-        solve<uplo>(solution, makeSymmetric, debug);
+        return solve<Solver, uplo>(solution, makeSymmetric);
+    }
+    template <int uplo=0, class Solver=DefaultSolver>
+    Vector solve(Solver & solver, bool makeSymmetric=false) {
+        Vector solution = ndarray::allocate(_num);
+        solve<uplo, Solver>(solution, solver, makeSymmetric);
         return solution;
     }
     //@}
@@ -167,8 +178,8 @@ class LeastSquaresEquation {
             std::size_t maxIterations_=1000,
             double armijoMultiplier_=0.5,
             double powerIterationMultiplier_=0.9,
-            double powerIterationTolerance_=1.0e-4,
-            std::size_t powerIterationMaxIterations_=100
+            double powerIterationTolerance_=1.0e-3,
+            std::size_t powerIterationMaxIterations_=1000
         ) : tolerance(tolerance_),
             maxIterations(maxIterations_),
             armijoMultiplier(armijoMultiplier_),
@@ -213,9 +224,19 @@ class LeastSquaresEquation {
         bool makeSymmetric=false,
         SolveConstrainedControl const& ctrl=SolveConstrainedControl()
     ) {
+
+
+        writeFits("equation.fits");
+
+        std::cerr << "Solving constrained problem..." << std::endl;
         SparseMatrix matrix = _matrix.getEigen<uplo>(makeSymmetric);
+        matrix.makeCompressed();
+        Eigen::saveMarket(matrix, "matrixToSolve.mtx");
+
+        std::cerr << "Wrote matrixToSolve.mtx" << std::endl;
+
         Vector solution = ndarray::allocate(_num);
-        solve<Solver>(solution, solver, false);  // makeSymmetric=false because we've already done it, above
+        solveSparseMatrix(matrix, _vector, solution, solver);
         proxOperator(solution);
         std::pair<double, Vector> eigen = calculateLargestEigenvalue(
             matrix, ctrl.powerIterationTolerance, ctrl.powerIterationMaxIterations, solution
@@ -250,6 +271,7 @@ class LeastSquaresEquation {
             }
             retry = false;
 
+            std::cerr << "solveConstrained " << iter << ": " << diff.squaredNorm() << " vs " << std::pow(ctrl.tolerance, 2) << std::endl;
             if (diff.squaredNorm() < std::pow(ctrl.tolerance, 2)) {
                 converged = true;
                 std::cerr << "solveConstrained converged after " << iter << " iterations" << std::endl;
@@ -263,6 +285,18 @@ class LeastSquaresEquation {
             );
         }
         return solution;
+    }
+
+    /// Write to files
+    ///
+    /// This is intended for debugging, as writing the matrix involves
+    /// constructing the Eigen version and writing that.
+    ///
+    /// The filenames are "matrix.mtx" for the matrix and and "matrix_b.mtx"
+    /// for the vector; this is the format used by Eigen's command-line solver.
+    void write(bool makeSymmetric=false) {
+        _matrix.write("matrix.mtx", makeSymmetric);
+        Eigen::saveMarketVector(ndarray::asEigenArray(_vector), "matrix_b.mtx");
     }
 
     /// Write the equation to a FITS file

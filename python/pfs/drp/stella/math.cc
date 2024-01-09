@@ -144,22 +144,18 @@ void declareSparseSquareMatrix(py::module & mod) {
     cls.def("__iadd__", &Class::operator+=, "rhs"_a);
     cls.def(
         "solve",
-        py::overload_cast<ndarray::Array<double, 1, 1> const&, bool, bool>(
-            &Class::template solve<>, py::const_
-        ),
+        py::overload_cast<ndarray::Array<double, 1, 1> const&, bool>(&Class::template solve<>, py::const_),
         "rhs"_a,
-        "makeSymmetric"_a=false,
-        "debug"_a=false
+        "makeSymmetric"_a=false
     );
     cls.def(
         "solve",
-        py::overload_cast<ndarray::Array<double, 1, 1> &, ndarray::Array<double, 1, 1> const&, bool, bool>(
+        py::overload_cast<ndarray::Array<double, 1, 1> &, ndarray::Array<double, 1, 1> const&, bool>(
             &Class::template solve<>, py::const_
         ),
         "solution"_a,
         "rhs"_a,
-        "makeSymmetric"_a=false,
-        "debug"_a=false
+        "makeSymmetric"_a=false
     );
     cls.def("reset", &Class::reset);
     cls.def("getTriplets", &Class::getTriplets);

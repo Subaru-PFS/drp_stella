@@ -398,11 +398,10 @@ class SwathProfileBuilder {
     //@{
     // Solve the matrix equation
     void solve(ndarray::Array<double, 1, 1> & solution, ProfileEquation & equation, float matrixTol=1.0e-4) {
-
+        std::cerr << "Solving equation..." << std::endl;
 #if 0
         equation.writeFits("equation.fits");
 #endif
-
 
         auto const zeros = equation.makeNonSingular();  // adds diagonal elements to make matrix non-singular
 
@@ -410,7 +409,7 @@ class SwathProfileBuilder {
         // We use a preconditioned conjugate gradient solver, which is much less
         // picky about the matrix being close to singular.
         using Matrix = ProfileEquation::SparseMatrix;
-#if 0
+#if 1
         using Solver = Eigen::ConjugateGradient<
             Matrix, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<double>
         >;
@@ -418,17 +417,27 @@ class SwathProfileBuilder {
         using Solver = math::LeastSquaresEquation::DefaultSolver;
 #endif
         Solver solver;
-#if 0
+#if 1
         solver.setMaxIterations(getNumParameters()*10);
         solver.setTolerance(matrixTol);
 #endif
 
 #if 0
-        equation.solve(solution, solver, true);
+        equation.solve(solution, solver, true, false);
 #else
-        solution.deep() = equation.solveConstrained(
-            bindMethod(this, &SwathProfileBuilder::_monotonicNonZero), solver
-        );
+        math::LeastSquaresEquation::SolveConstrainedControl ctrl;
+        equation.write();
+        std::cerr << "Solving constrained problem" << std::endl;
+        try {
+            solution.deep() = equation.solveConstrained(
+                bindMethod(this, &SwathProfileBuilder::_monotonicNonZero), solver, true, ctrl
+            );
+        } catch (lsst::pex::exceptions::RuntimeError const& exc) {
+            std::cerr << "Caught exception: " << exc.what() << std::endl;
+            std::cerr << solver.error() << " " << solver.iterations() << std::endl;
+            std::cerr << solver.tolerance() << " " << solver.maxIterations() << std::endl;
+            throw;
+        }
 #endif
 
         // Undo the adding of diagonal elements in "equation.makeNonSingular()"
@@ -444,6 +453,7 @@ class SwathProfileBuilder {
 
     // Proximal operator to enforce monotonic decreasing and non-zero profiles
     void _monotonicNonZero(ndarray::Array<double, 1, 1> & solution) {
+        std::cerr << "Applying monotonic non-zero constraint" << std::endl;
         // Normalisation
         double const norm = solution[_iGaussian];
         if (norm <= 0) {
@@ -1123,9 +1133,11 @@ FitProfilesResults fitProfiles(
         images.size(), fiberIds.size(), yKnots, oversample, radius, sigma, dims, bgSize
     };
     LOGL_DEBUG(_log, "Building least-squares equation...");
+    std::cerr << "Building least-squares equation..." << std::endl;
     math::LeastSquaresEquation equation{std::ptrdiff_t(builder.getNumParameters())};
     for (std::size_t ii = 0; ii < images.size(); ++ii) {
         LOGL_DEBUG(_log, "    Accumulating image %d", ii);
+        std::cerr << "    Accumulating image " << ii << std::endl;
         builder.accumulateImage(ii, images[ii], equation, centers[ii], spectra[ii], rejected[ii]);
     }
     // Add in the symmetric elements that we didn't bother to accumulate
@@ -1134,10 +1146,12 @@ FitProfilesResults fitProfiles(
     for (int iter = 0; iter < rejIter; ++iter) {
         // Solve for the profiles
         LOGL_DEBUG(_log, "Solving profiles: iteration %d", iter);
+        std::cerr << "Solving profiles: iteration " << iter << std::endl;
         auto const solution = builder.solve(equation, matrixTol);
 
         // Reject bad pixels
         LOGL_DEBUG(_log, "Rejecting pixels: iteration %d", iter);
+        std::cerr << "Rejecting pixels: iteration " << iter << std::endl;
         for (std::size_t ii = 0; ii < images.size(); ++ii) {
             builder.makeModelImage(*models[ii], solution, ii, centers[ii], spectra[ii]);
             equation -= builder.reject(

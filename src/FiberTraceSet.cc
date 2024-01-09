@@ -277,15 +277,16 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     }
 
     auto const nonZero = equation.makeNonSingular();
+    assert(equation.getEmptyRows().size() == 0);
 
     // Solve least-squares and set results
     using Solver = Eigen::SimplicialLDLT<
         math::LeastSquaresEquation::SparseMatrix,
-        Eigen::Upper,
+        Eigen::Lower | Eigen::Upper,
         Eigen::NaturalOrdering<typename math::LeastSquaresEquation::IndexT>
     >;
 
-    ndarray::Array<double, 1, 1> solution = equation.solve<Eigen::Upper, Solver>();
+    ndarray::Array<double, 1, 1> solution = equation.solve<Solver>(true);
 
     for (int yData = 0; yData < height; ++yData) {
         for (std::size_t ii = 0, iIndex = yData*numFibers; ii < numFibers; ++ii, ++iIndex) {

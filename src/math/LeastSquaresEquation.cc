@@ -94,7 +94,7 @@ std::set<LeastSquaresEquation::IndexT> LeastSquaresEquation::getEmptyRows() cons
 
 
 std::set<LeastSquaresEquation::IndexT> LeastSquaresEquation::makeNonSingular(double value) {
-    std::set<IndexT> empty;
+    std::set<IndexT> empty = getEmptyRows();
     for (IndexT ii : empty) {
         if (_vector[ii] != 0.0) {
             throw LSST_EXCEPT(

@@ -136,7 +136,6 @@ class MatrixTriplets {
         }
     };
 
-
     class Iterator {
       public:
         using ListIterator = typename List::const_iterator;
@@ -161,11 +160,6 @@ class MatrixTriplets {
             ++_mapIter;
             _ensureExists();
             return *this;
-        }
-        Iterator operator++(int) {
-            Iterator tmp = *this;
-            ++(*this);
-            return tmp;
         }
 
         value_type operator*() const {
@@ -216,7 +210,7 @@ class MatrixTriplets {
       public:
         SymmetricIterator(IndexT row, List const& triplets) : Iterator(row, triplets), _symmetric(false) {}
 
-        Iterator& operator++() {
+        SymmetricIterator& operator++() {
             if (isDiagonal() || _symmetric) {
                 ++this->_mapIter;
                 this->_ensureExists();
@@ -227,7 +221,15 @@ class MatrixTriplets {
             return *this;
         }
 
-        bool operator==(Iterator const& other) const {
+        typename Iterator::value_type operator*() const {
+            return Triplet(row(), col(), this->value());
+        }
+        typename Iterator::pointer operator->() const {
+            this->_current = **this;
+            return &this->_current;
+        }
+
+        bool operator==(SymmetricIterator const& other) const {
             return (this->_listIter == other._listIter &&
                     (this->_listIter == this->_triplets.end() || this->_mapIter == other._mapIter) &&
                     (_symmetric == other._symmetric));
@@ -279,7 +281,7 @@ namespace detail {
 template <int uplo>
 struct SparseMatrixView {
     template <class Matrix>
-    Matrix get(Matrix const& matrix) const {
+    auto get(Matrix const& matrix) const {
         return matrix.template selfadjointView<Eigen::UpLoType(uplo)>();
     }
 };
@@ -287,7 +289,7 @@ struct SparseMatrixView {
 
 template <>
 template <class Matrix>
-Matrix SparseMatrixView<0>::get(Matrix const& matrix) const {
+auto SparseMatrixView<0>::get(Matrix const& matrix) const {
     return matrix;
 }
 
@@ -339,21 +341,12 @@ Eigen::VectorXd SparseMatrixMultiplication<false>::operator()(
 
 
 template <class Matrix, class Solver>
-void solveSparseMatrix(
+ndarray::Array<double, 1, 1> solveSparseMatrix(
     Matrix const& matrix,
     ndarray::Array<double, 1, 1> const& rhs,
     ndarray::Array<double, 1, 1> & solution,
-    Solver & solver,
-    bool debug=false
+    Solver & solver
 ) {
-//    matrix.makeCompressed();
-
-    if (debug) {
-        // Save in a form that can be read by Eigen tools
-        Eigen::saveMarket(matrix, "matrix.mtx");
-        Eigen::saveMarketVector(ndarray::asEigenMatrix(rhs), "matrix_b.mtx");
-    }
-
     solver.compute(matrix);
     if (solver.info() != Eigen::Success) {
         std::ostringstream os;
@@ -366,10 +359,7 @@ void solveSparseMatrix(
         os << "Sparse matrix solving failed: " << solver.info();
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, os.str());
     }
-
-    if (debug) {
-        Eigen::saveMarketVector(ndarray::asEigenMatrix(solution), "solution.mtx");
-    }
+    return solution;
 }
 
 
@@ -464,35 +454,59 @@ class SparseSquareMatrix {
     /// Solve the matrix equation
     template <int uplo=0, class Solver=DefaultSolver>
     ndarray::Array<ElemT, 1, 1> solve(
-        ndarray::Array<ElemT, 1, 1> const& rhs,
-        bool makeSymmetric=false,
-        bool debug=false
-    ) const {
-        ndarray::Array<ElemT, 1, 1> solution = ndarray::allocate(_num);
-        solve<uplo, Solver>(solution, rhs, makeSymmetric, debug);
-        return solution;
-    }
-    template <int uplo=0, class Solver=DefaultSolver>
-    void solve(
-        ndarray::Array<ElemT, 1, 1> & solution,
-        ndarray::Array<ElemT, 1, 1> const& rhs,
-        bool makeSymmetric=false,
-        bool debug=false
-    ) const {
-        Solver solver;
-        solve<Solver, uplo>(solution, rhs, solver, makeSymmetric, debug);
-    }
-    template <class Solver, int uplo=0>
-    void solve(
         ndarray::Array<ElemT, 1, 1> & solution,
         ndarray::Array<ElemT, 1, 1> const& rhs,
         Solver & solver,
-        bool makeSymmetric=false,
-        bool debug=false
+        bool makeSymmetric=false
     ) const {
         utils::checkSize(rhs.size(), std::size_t(_num), "rhs");
-        solveSparseMatrix(getEigen<uplo>(makeSymmetric), rhs, solution, solver, debug);
+        return solveSparseMatrix(getEigen<uplo>(makeSymmetric), rhs, solution, solver);
     }
+
+    template <class Solver, int uplo=0>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> & solution,
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false
+    ) const {
+        Solver solver;
+        return solve<uplo, Solver>(solution, rhs, solver, makeSymmetric);
+    }
+    template <int uplo=0, class Solver=DefaultSolver>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> & solution,
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false
+    ) const {
+        return solve<Solver, uplo>(solution, rhs, makeSymmetric);
+    }
+
+    template <int uplo=0, class Solver=DefaultSolver>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        Solver & solver,
+        bool makeSymmetric=false
+    ) const {
+        ndarray::Array<ElemT, 1, 1> solution = ndarray::allocate(_num);
+        return solve<uplo, Solver>(solution, rhs, solver, makeSymmetric);
+    }
+
+    template <int uplo=0, class Solver=DefaultSolver>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false
+    ) const {
+        Solver solver;
+        return solve<uplo, Solver>(rhs, solver, makeSymmetric);
+    }
+    template <class Solver, int uplo=0>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false
+    ) {
+        return solve<uplo, Solver>(rhs, makeSymmetric);
+    }
+
     //@}
 
     /// Reset the matrix to zero
@@ -518,14 +532,24 @@ class SparseSquareMatrix {
 
     /// Return the Eigen representation of the matrix
     template <int uplo=0>
-    Matrix getEigen(bool makeSymmetric=false) const {
+    auto getEigen(bool makeSymmetric=false) const {
         Matrix matrix{_num, _num};
         if (makeSymmetric) {
+            std::cerr << "Making symmetric eigen matrix" << std::endl;
             matrix.setFromTriplets(_triplets.beginSymmetric(), _triplets.endSymmetric());
         } else {
             matrix.setFromTriplets(_triplets.begin(), _triplets.end());
         }
+        matrix.makeCompressed();
         return detail::SparseMatrixView<uplo>().get(matrix);
+    }
+
+    /// Write the matrix to file
+    ///
+    /// This is intended for debugging, as it constructs the Eigen version and
+    /// writes from that.
+    void write(std::string const& filename, bool makeSymmetric=false) {
+        Eigen::saveMarket(getEigen<0>(makeSymmetric), filename);
     }
 
   protected:
