@@ -285,7 +285,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         Eigen::NaturalOrdering<typename math::LeastSquaresEquation::IndexT>
     >;
 
-    ndarray::Array<double, 1, 1> solution = equation.solve<Solver>();
+    ndarray::Array<double, 1, 1> solution = equation.solve<Eigen::Upper, Solver>();
 
     for (int yData = 0; yData < height; ++yData) {
         for (std::size_t ii = 0, iIndex = yData*numFibers; ii < numFibers; ++ii, ++iIndex) {

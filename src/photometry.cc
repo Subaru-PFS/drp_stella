@@ -151,7 +151,7 @@ lsst::afw::table::BaseCatalog photometer(
         std::size_t const blendSize = indices.size();
 
         // Generate least-squares equations
-        math::SymmetricSparseSquareMatrix matrix{blendSize};
+        math::SparseSquareMatrix matrix{blendSize};
         ndarray::Array<double, 1, 1> vector = ndarray::allocate(blendSize);
         ndarray::Array<double, 1, 1> errors = ndarray::allocate(blendSize);
         vector.deep() = 0.0;
@@ -231,7 +231,7 @@ lsst::afw::table::BaseCatalog photometer(
         }
 
         // Solve least-squares equation and extract output
-        auto const solution = matrix.solve(vector);
+        auto const solution = matrix.solve<Eigen::Upper>(vector);
 
         for (std::size_t ii = 0; ii < blendSize; ++ii) {
             auto & row = catalog[indices[ii]];

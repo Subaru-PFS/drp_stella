@@ -188,7 +188,7 @@ class MatrixTriplets {
         IndexT col() const { return _mapIter->first; }
         ElemT value() const { return _mapIter->second; }
 
-      private:
+      protected:
 
         // Ensure that the iterators point to a valid entry (or the end)
         void _ensureExists() {
@@ -208,8 +208,44 @@ class MatrixTriplets {
         mutable value_type _current;
     };
 
+    // Iterator that produces symmetric elements in the process
+    //
+    // For non-diagonal elements, this produces first the original value and
+    // then the symmetric value.
+    class SymmetricIterator : public Iterator {
+      public:
+        SymmetricIterator(IndexT row, List const& triplets) : Iterator(row, triplets), _symmetric(false) {}
+
+        Iterator& operator++() {
+            if (isDiagonal() || _symmetric) {
+                ++this->_mapIter;
+                this->_ensureExists();
+                _symmetric = false;
+            } else {
+                _symmetric = true;
+            }
+            return *this;
+        }
+
+        bool operator==(Iterator const& other) const {
+            return (this->_listIter == other._listIter &&
+                    (this->_listIter == this->_triplets.end() || this->_mapIter == other._mapIter) &&
+                    (_symmetric == other._symmetric));
+        }
+
+        IndexT row() const { return _symmetric ? this->_mapIter->first : this->_row; }
+        IndexT col() const { return _symmetric ? this->_row : this->_mapIter->first; }
+
+        bool isDiagonal() const { return this->_row == this->_mapIter->first; }
+
+      protected:
+        bool _symmetric;
+    };
+
     Iterator begin() const { return Iterator(0, _triplets); }
     Iterator end() const { return Iterator(_numRows, _triplets); }
+    SymmetricIterator beginSymmetric() const { return SymmetricIterator(0, _triplets); }
+    SymmetricIterator endSymmetric() const { return SymmetricIterator(_numRows, _triplets); }
 
     /// Convert to a classic list of Eigen triplets
     std::vector<Eigen::Triplet<ElemT, IndexT>> getEigen() const {
@@ -240,7 +276,24 @@ class MatrixTriplets {
 
 namespace detail {
 
-template <bool symmetric>
+template <int uplo>
+struct SparseMatrixView {
+    template <class Matrix>
+    Matrix get(Matrix const& matrix) const {
+        return matrix.template selfadjointView<Eigen::UpLoType(uplo)>();
+    }
+};
+
+
+template <>
+template <class Matrix>
+Matrix SparseMatrixView<0>::get(Matrix const& matrix) const {
+    return matrix;
+}
+
+
+#if 0
+template <Eigen::UpLoType>
 struct SparseMatrixFactorization {
     template <class Matrix, class Solver>
     void operator()(Matrix const& matrix, Solver & solver) const;
@@ -248,7 +301,7 @@ struct SparseMatrixFactorization {
 
 template <>
 template <class Matrix, class Solver>
-void SparseMatrixFactorization<true>::operator()(Matrix const& matrix, Solver & solver) const {
+void SparseMatrixFactorization<Eigen::Upper>::operator()(Matrix const& matrix, Solver & solver) const {
     solver.compute(matrix.template selfadjointView<Eigen::Upper>());
 }
 
@@ -258,8 +311,7 @@ void SparseMatrixFactorization<false>::operator()(Matrix const& matrix, Solver &
     solver.compute(matrix);
 }
 
-
-template <bool symmetric>
+template <bool useUpperView>
 struct SparseMatrixMultiplication {
     template <class Matrix>
     Eigen::VectorXd operator()(Matrix const& matrix, Eigen::VectorXd const& vector) const;
@@ -281,19 +333,20 @@ Eigen::VectorXd SparseMatrixMultiplication<false>::operator()(
 ) const {
     return matrix * vector;
 }
+#endif
 
 }  // namespace detail
 
 
-template <bool symmetric, class Matrix, class Solver>
+template <class Matrix, class Solver>
 void solveSparseMatrix(
-    Matrix & matrix,
+    Matrix const& matrix,
     ndarray::Array<double, 1, 1> const& rhs,
     ndarray::Array<double, 1, 1> & solution,
     Solver & solver,
     bool debug=false
 ) {
-    matrix.makeCompressed();
+//    matrix.makeCompressed();
 
     if (debug) {
         // Save in a form that can be read by Eigen tools
@@ -301,7 +354,7 @@ void solveSparseMatrix(
         Eigen::saveMarketVector(ndarray::asEigenMatrix(rhs), "matrix_b.mtx");
     }
 
-    detail::SparseMatrixFactorization<symmetric>()(matrix, solver);
+    solver.compute(matrix);
     if (solver.info() != Eigen::Success) {
         std::ostringstream os;
         os << "Sparse matrix decomposition failed: " << solver.info();
@@ -323,16 +376,12 @@ void solveSparseMatrix(
 /// Sparse representation of a square matrix
 ///
 /// Used for solving matrix problems.
-template <bool symmetric=false>
 class SparseSquareMatrix {
   public:
     using ElemT = double;
     using IndexT = std::ptrdiff_t;  // must be signed
     using Matrix = Eigen::SparseMatrix<ElemT, 0, IndexT>;
-    using DefaultSolver = Eigen::SparseQR<
-        typename SparseSquareMatrix<symmetric>::Matrix,
-        Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>
-    >;
+    using DefaultSolver = Eigen::SparseQR<Matrix, Eigen::NaturalOrdering<IndexT>>;
 
     /// Ctor
     ///
@@ -370,11 +419,6 @@ class SparseSquareMatrix {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j is out of range");
         }
 #endif
-        if (symmetric && jj < ii) {
-            // we work with the upper triangle
-            assert(false);
-            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
-        }
         _triplets.add(ii, jj, value);
     }
 
@@ -413,44 +457,41 @@ class SparseSquareMatrix {
 
     /// Retrieve an entry from the matrix
     ElemT get(IndexT ii, IndexT jj) const {
-        if (symmetric && jj < ii) {
-            // we work with the upper triangle
-            assert(false);
-            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
-        }
         return _triplets.get(ii, jj);
     }
 
     //@{
     /// Solve the matrix equation
-    template <class Solver=DefaultSolver>
-    ndarray::Array<ElemT, 1, 1> solve(ndarray::Array<ElemT, 1, 1> const& rhs, bool debug=false) const {
+    template <int uplo=0, class Solver=DefaultSolver>
+    ndarray::Array<ElemT, 1, 1> solve(
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false,
+        bool debug=false
+    ) const {
         ndarray::Array<ElemT, 1, 1> solution = ndarray::allocate(_num);
-        solve<Solver>(solution, rhs, debug);
+        solve<uplo, Solver>(solution, rhs, makeSymmetric, debug);
         return solution;
     }
-    template <class Solver=DefaultSolver>
+    template <int uplo=0, class Solver=DefaultSolver>
     void solve(
-        ndarray::Array<ElemT, 1, 1> & solution, ndarray::Array<ElemT, 1, 1> const& rhs, bool debug=false
+        ndarray::Array<ElemT, 1, 1> & solution,
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        bool makeSymmetric=false,
+        bool debug=false
     ) const {
         Solver solver;
-        solve(solution, rhs, solver, debug);
+        solve<Solver, uplo>(solution, rhs, solver, makeSymmetric, debug);
     }
-    template <class Solver>
+    template <class Solver, int uplo=0>
     void solve(
         ndarray::Array<ElemT, 1, 1> & solution,
         ndarray::Array<ElemT, 1, 1> const& rhs,
         Solver & solver,
+        bool makeSymmetric=false,
         bool debug=false
     ) const {
         utils::checkSize(rhs.size(), std::size_t(_num), "rhs");
-        Matrix matrix{_num, _num};
-        matrix.setFromTriplets(_triplets.begin(), _triplets.end());
-
-        // Eigen::VectorXd const vector = ndarray::asEigenMatrix(rhs);
-        // Eigen::VectorXd soln = ndarray::asEigenMatrix(solution);
-
-        solveSparseMatrix<symmetric>(matrix, rhs, solution, solver, debug);
+        solveSparseMatrix(getEigen<uplo>(makeSymmetric), rhs, solution, solver, debug);
     }
     //@}
 
@@ -476,21 +517,21 @@ class SparseSquareMatrix {
     MatrixTriplets<ElemT, IndexT> const& getTriplets() const { return _triplets; }
 
     /// Return the Eigen representation of the matrix
-    Matrix getEigen() const {
+    template <int uplo=0>
+    Matrix getEigen(bool makeSymmetric=false) const {
         Matrix matrix{_num, _num};
-        matrix.setFromTriplets(_triplets.begin(), _triplets.end());
-        matrix.makeCompressed();
-        return matrix;
+        if (makeSymmetric) {
+            matrix.setFromTriplets(_triplets.beginSymmetric(), _triplets.endSymmetric());
+        } else {
+            matrix.setFromTriplets(_triplets.begin(), _triplets.end());
+        }
+        return detail::SparseMatrixView<uplo>().get(matrix);
     }
 
   protected:
     IndexT _num;  ///< Number of rows/columns
     MatrixTriplets<ElemT, IndexT> _triplets;  ///< Non-zero matrix elements (i,j,value)
 };
-
-
-using NonsymmetricSparseSquareMatrix = SparseSquareMatrix<false>;  // more explicit
-using SymmetricSparseSquareMatrix = SparseSquareMatrix<true>;  // more explicit
 
 
 }}}}  // namespace pfs::drp::stella::math

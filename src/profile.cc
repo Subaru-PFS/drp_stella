@@ -427,7 +427,7 @@ class SwathProfileBuilder {
         equation.solve(solution, solver, true);
 #else
         solution.deep() = equation.solveConstrained(
-            bindMethod(this, &SwathProfileBuilder::_monotonicNonZero)
+            bindMethod(this, &SwathProfileBuilder::_monotonicNonZero), solver
         );
 #endif
 

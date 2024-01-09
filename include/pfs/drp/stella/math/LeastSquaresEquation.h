@@ -25,7 +25,7 @@ namespace math {
 /// @param maxIterations : Maximum number of iterations
 /// @param eigenvector : Initial guess for eigenvector
 /// @return largest eigenvalue and eigenvector
-template <bool symmetric, typename Matrix>
+template <typename Matrix>
 std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue(
     Matrix const& matrix,
     double tolerance=1.0e-6,
@@ -37,7 +37,7 @@ std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue(
 // A matrix equation, Mx = v
 class LeastSquaresEquation {
   public:
-    using Matrix = SparseSquareMatrix<true>;
+    using Matrix = SparseSquareMatrix;
     using IndexT = Matrix::IndexT;
     using ElemT = Matrix::ElemT;
     using Vector = ndarray::Array<ElemT, 1, 1>;
@@ -116,9 +116,6 @@ class LeastSquaresEquation {
     /// construct the original equation.
     LeastSquaresEquation & operator-=(LeastSquaresEquation const& other);
 
-    /// Calculate the sparse matrix
-    SparseMatrix calculateEigenMatrix() const;
-
     /// Get a list of empty rows
     std::set<IndexT> getEmptyRows() const;
 
@@ -137,24 +134,48 @@ class LeastSquaresEquation {
 
     //@{
     /// Solve the equation
-    template <class Solver>
-    void solve(Vector & solution, Solver & solver, bool debug=false) {
+    template <class Solver, int uplo=0>
+    void solve(Vector & solution, Solver & solver, bool makeSymmetric=false, bool debug=false) {
         utils::checkSize(solution.size(), std::size_t(_num), "solution");
-        SparseMatrix matrix = calculateEigenMatrix();
-        solveSparseMatrix<true>(matrix, _vector, solution, solver, debug);
+        SparseMatrix matrix = _matrix.getEigen<uplo>(makeSymmetric);
+        solveSparseMatrix<>(matrix, _vector, solution, solver, debug);
     }
-    template <class Solver=DefaultSolver>
-    void solve(Vector & solution, bool debug=false) {
+    template <int uplo=0, class Solver=DefaultSolver>
+    void solve(Vector & solution, bool makeSymmetric=false, bool debug=false) {
         Solver solver;
-        solve(solution, solver, debug);
+        solve<Solver, uplo>(solution, solver, makeSymmetric, debug);
     }
-    template <class Solver=DefaultSolver>
-    Vector solve(bool debug=false) {
+    template <int uplo=0, class Solver=DefaultSolver>
+    Vector solve(bool makeSymmetric=false, bool debug=false) {
         Vector solution = ndarray::allocate(_num);
-        solve(solution, debug);
+        solve<uplo>(solution, makeSymmetric, debug);
         return solution;
     }
     //@}
+
+    /// Control parameters for solveConstrained
+    struct SolveConstrainedControl {
+        double tolerance;  ///< Tolerance for convergence
+        std::size_t maxIterations;  ///< Maximum number of iterations
+        double armijoMultiplier;  ///< Multiplier for Armijo condition
+        double powerIterationMultiplier;  ///< Multiplier for step size
+        double powerIterationTolerance;  ///< Tolerance for power iteration method
+        std::size_t powerIterationMaxIterations;  ///< Maximum number of iterations for power iteration method
+
+        SolveConstrainedControl(
+            double tolerance_=1.0e-4,
+            std::size_t maxIterations_=1000,
+            double armijoMultiplier_=0.5,
+            double powerIterationMultiplier_=0.9,
+            double powerIterationTolerance_=1.0e-4,
+            std::size_t powerIterationMaxIterations_=100
+        ) : tolerance(tolerance_),
+            maxIterations(maxIterations_),
+            armijoMultiplier(armijoMultiplier_),
+            powerIterationMultiplier(powerIterationMultiplier_),
+            powerIterationTolerance(powerIterationTolerance_),
+            powerIterationMaxIterations(powerIterationMaxIterations_) {}
+    };
 
     /// Solve a constrained equation using the Proximal Gradient Method
     ///
@@ -172,31 +193,34 @@ class LeastSquaresEquation {
     /// modify its values so that it satisfies the constraints.
     ///
     /// @param proxOperator : Functor that projects the solution onto the constrained space
-    /// @param tolerance : Tolerance for convergence
-    /// @param maxIterations : Maximum number of iterations
-    /// @param armijoMultiplier : Multiplier for Armijo condition
-    /// @param powerIterationMultiplier : Multiplier for step size
-    /// @param powerIterationTolerance : Tolerance for power iteration method
-    /// @param powerIterationMaxIterations : Maximum number of iterations for power iteration method
+    /// @param solver : Eigen solver to use
+    /// @param makeSymmetric : Make the matrix symmetric before solving?
+    /// @param control : Control parameters
     /// @return solution vector
-    template <class Callable, class Solver=DefaultSolver>
+    template <class Callable, int uplo=0>
     Vector solveConstrained(
         Callable proxOperator,
-        double tolerance=1.0e-4,
-        std::size_t maxIterations=1000,
-        double armijoMultiplier=0.5,
-        double powerIterationMultiplier=0.9,
-        double powerIterationTolerance=1.0e-4,
-        std::size_t powerIterationMaxIterations=100
+        bool makeSymmetric=false,
+        SolveConstrainedControl const& ctrl=SolveConstrainedControl()
     ) {
-        SparseMatrix matrix = calculateEigenMatrix();
-        detail::SparseMatrixMultiplication<true> const multiplier;
-        Vector solution = solve<Solver>();
+        DefaultSolver solver;
+        return solveConstrained<Callable, uplo>(proxOperator, solver, makeSymmetric, ctrl);
+    }
+    template <class Callable, int uplo=0, class Solver>
+    Vector solveConstrained(
+        Callable proxOperator,
+        Solver & solver,
+        bool makeSymmetric=false,
+        SolveConstrainedControl const& ctrl=SolveConstrainedControl()
+    ) {
+        SparseMatrix matrix = _matrix.getEigen<uplo>(makeSymmetric);
+        Vector solution = ndarray::allocate(_num);
+        solve<Solver>(solution, solver, false);  // makeSymmetric=false because we've already done it, above
         proxOperator(solution);
-        std::pair<double, Vector> eigen = calculateLargestEigenvalue<true>(
-            matrix, powerIterationTolerance, powerIterationMaxIterations, solution
+        std::pair<double, Vector> eigen = calculateLargestEigenvalue(
+            matrix, ctrl.powerIterationTolerance, ctrl.powerIterationMaxIterations, solution
         );
-        double step = powerIterationMultiplier / eigen.first;
+        double step = ctrl.powerIterationMultiplier / eigen.first;
 
         Eigen::VectorXd last{_num};
         Eigen::VectorXd next = ndarray::asEigenMatrix(solution);
@@ -205,28 +229,28 @@ class LeastSquaresEquation {
         bool retry = false;
         bool converged = false;
 
-        for (std::size_t iter = 0; iter < maxIterations; ++iter) {
+        for (std::size_t iter = 0; iter < ctrl.maxIterations; ++iter) {
             if (!retry) {
                 last = next;
-                gradient = multiplier(matrix, next) - ndarray::asEigenMatrix(_vector);
+                gradient = matrix * next - ndarray::asEigenMatrix(_vector);
             }
             next = last - step*gradient;
             proxOperator(solution);
 
             diff = next - last;
-            double const armijoLeft = diff.dot(multiplier(matrix, diff));
+            double const armijoLeft = diff.dot(matrix * diff);
             double const armijoRight = diff.squaredNorm()/step;
             std::cerr << "solveConstrained: armijoLeft = " << armijoLeft
                       << ", armijoRight = " << armijoRight << std::endl;
             if (armijoLeft > armijoRight) {
-                step *= armijoMultiplier;
+                step *= ctrl.armijoMultiplier;
                 std::cerr << "solveConstrained: retrying with step = " << step << std::endl;
                 retry = true;
                 continue;
             }
             retry = false;
 
-            if (diff.squaredNorm() < std::pow(tolerance, 2)) {
+            if (diff.squaredNorm() < std::pow(ctrl.tolerance, 2)) {
                 converged = true;
                 std::cerr << "solveConstrained converged after " << iter << " iterations" << std::endl;
                 break;
@@ -248,11 +272,12 @@ class LeastSquaresEquation {
 
   protected:
     IndexT _num;  ///< Number of parameters
-    SymmetricSparseSquareMatrix _matrix;  ///< least-squares (Fisher/Hessian) matrix
+    SparseSquareMatrix _matrix;  ///< least-squares (Fisher/Hessian) matrix
     Vector _vector;  ///< least-squares (right-hand side) vector
 };
 #pragma omp declare reduction(+:LeastSquaresEquation:omp_out += omp_in) \
     initializer(omp_priv = LeastSquaresEquation(omp_orig.size()))
+
 
 }}}}  // namespace pfs::drp::stella::math
 

@@ -14,13 +14,4 @@ namespace stella {
 namespace math {
 
 
-// Explicit instantiation
-#define INSTANTIATE(SYMMETRIC) \
-template ndarray::Array<typename SparseSquareMatrix<SYMMETRIC>::ElemT, 1, 1> \
-SparseSquareMatrix<SYMMETRIC>::solve(ndarray::Array<ElemT, 1, 1> const&, bool) const; \
-
-INSTANTIATE(true);
-INSTANTIATE(false);
-
-
 }}}}  // namespace pfs::drp::stella::math

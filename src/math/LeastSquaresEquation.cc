@@ -7,14 +7,13 @@ namespace stella {
 namespace math {
 
 
-template <bool symmetric, typename Matrix>
+template <typename Matrix>
 std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue(
     Matrix const& matrix,
     double tolerance,
     std::size_t maxIterations,
     ndarray::Array<double, 1, 1> & eigenvector
 ) {
-    detail::SparseMatrixMultiplication<symmetric> const multiplier;
     auto const size = matrix.rows();
     if (matrix.cols() != size) {
         // Don't want to have to worry about left eigenvectors vs right eigenvectors
@@ -32,18 +31,19 @@ std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue(
     bool converged = false;
     for (std::size_t iter = 0; iter < maxIterations; ++iter) {
         last = next;
-        next = multiplier(matrix, last);
+        next = matrix * last;
         next /= next.norm();
         if ((next - last).squaredNorm() < std::pow(tolerance, 2)) {
             converged = true;
-            std::cerr << "calculateLargestEigenvalue converged after " << iter << " iterations" << std::endl;
+            std::cerr << "calculateLargestEigenvalue converged after " << iter << " iterations: ";
             break;
         }
     }
     if (!converged) {
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Power iteration method failed to converge");
     }
-    double const eigenvalue = next.dot(multiplier(matrix, next)) / next.squaredNorm();
+    double const eigenvalue = next.dot(matrix * next) / next.squaredNorm();
+    std::cerr << "eigenvalue = " << eigenvalue << std::endl;
     return std::make_pair(eigenvalue, eigenvector);
 }
 
@@ -73,14 +73,14 @@ LeastSquaresEquation & LeastSquaresEquation::operator-=(LeastSquaresEquation con
     return *this;
 }
 
-
+#if 0
 LeastSquaresEquation::SparseMatrix LeastSquaresEquation::calculateEigenMatrix() const {
     SparseMatrix matrix(_num, _num);
     matrix.setFromTriplets(_matrix.getTriplets().begin(), _matrix.getTriplets().end());
     matrix.makeCompressed();
     return matrix;
 }
-
+#endif
 
 std::set<LeastSquaresEquation::IndexT> LeastSquaresEquation::getEmptyRows() const {
     std::set<IndexT> empty;
@@ -127,16 +127,12 @@ void LeastSquaresEquation::writeFits(std::string const& filename) const {
 
 
 // Explicit instantiation
-#define INSTANTIATE(SYMMETRIC) \
-    template std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue<SYMMETRIC>( \
-        typename SparseSquareMatrix<SYMMETRIC>::Matrix const& matrix, \
-        double tolerance, \
-        std::size_t maxIterations, \
-        ndarray::Array<double, 1, 1> & eigenvector \
-    );
-
-
-INSTANTIATE(true);
+template std::pair<double, ndarray::Array<double, 1, 1>> calculateLargestEigenvalue<>(
+    typename SparseSquareMatrix::Matrix const& matrix,
+    double tolerance,
+    std::size_t maxIterations,
+    ndarray::Array<double, 1, 1> & eigenvector
+);
 
 
 }}}} // namespace pfs::drp::stella::math

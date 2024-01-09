@@ -128,10 +128,9 @@ void declareMatrixTriplets(py::module & mod) {
 }
 
 
-template <bool symmetric>
-void declareSparseSquareMatrix(py::module & mod, char const* name) {
-    using Class = SparseSquareMatrix<symmetric>;
-    py::class_<Class> cls(mod, name);
+void declareSparseSquareMatrix(py::module & mod) {
+    using Class = SparseSquareMatrix;
+    py::class_<Class> cls(mod, "SparseSquareMatrix");
     cls.def(py::init<std::size_t>(), "size"_a);
     cls.def("size", py::overload_cast<>(&Class::size, py::const_));
     cls.def("size", py::overload_cast<typename Class::IndexT>(&Class::size, py::const_));
@@ -145,17 +144,21 @@ void declareSparseSquareMatrix(py::module & mod, char const* name) {
     cls.def("__iadd__", &Class::operator+=, "rhs"_a);
     cls.def(
         "solve",
-        py::overload_cast<ndarray::Array<double, 1, 1> const&, bool>(&Class::template solve<>, py::const_),
+        py::overload_cast<ndarray::Array<double, 1, 1> const&, bool, bool>(
+            &Class::template solve<>, py::const_
+        ),
         "rhs"_a,
+        "makeSymmetric"_a=false,
         "debug"_a=false
     );
     cls.def(
         "solve",
-        py::overload_cast<ndarray::Array<double, 1, 1> &, ndarray::Array<double, 1, 1> const&, bool>(
+        py::overload_cast<ndarray::Array<double, 1, 1> &, ndarray::Array<double, 1, 1> const&, bool, bool>(
             &Class::template solve<>, py::const_
         ),
         "solution"_a,
         "rhs"_a,
+        "makeSymmetric"_a=false,
         "debug"_a=false
     );
     cls.def("reset", &Class::reset);
@@ -182,8 +185,7 @@ PYBIND11_PLUGIN(math) {
     mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
             "err"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr, "params"_a=nullptr);
     declareMatrixTriplets(mod);
-    declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
-    declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
+    declareSparseSquareMatrix(mod);
     return mod.ptr();
 }
 
