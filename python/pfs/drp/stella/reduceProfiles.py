@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, List
 
 import numpy as np
 
@@ -20,7 +20,7 @@ from . import FiberProfileSet
 
 
 class ReduceProfilesTaskRunner(TaskRunner):
-    """Split data by spectrograph arm and extract normalisation visit"""
+    """Split data by spectrograph arm and extract normalisation/dark visits"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         dataRefs = defaultdict(lambda: defaultdict(list))
@@ -37,6 +37,14 @@ class ReduceProfilesTaskRunner(TaskRunner):
                 raise RuntimeError(f"No profile inputs provided for norm {ref.dataId}")
             normRefs[spectrograph][arm].append(ref)
 
+        darkRefs = defaultdict(lambda: defaultdict(list))
+        for ref in parsedCmd.darkId.refList:
+            spectrograph = ref.dataId["spectrograph"]
+            arm = ref.dataId["arm"]
+            if spectrograph not in dataRefs or arm not in dataRefs[spectrograph]:
+                raise RuntimeError(f"No profile inputs provided for dark {ref.dataId}")
+            darkRefs[spectrograph][arm].append(ref)
+
         targets = []
         for spectrograph in dataRefs:
             for arm in dataRefs[spectrograph]:
@@ -44,7 +52,8 @@ class ReduceProfilesTaskRunner(TaskRunner):
                     raise RuntimeError(f"No norm provided for spectrograph={spectrograph} arm={arm}")
                 dataList = sorted(dataRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 normList = sorted(normRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
-                targets.append((dataList, dict(normRefList=normList, **kwargs)))
+                darkList = sorted(darkRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
+                targets.append((dataList, dict(normRefList=normList, darkRefList=darkList, **kwargs)))
         return targets
 
 
@@ -106,6 +115,7 @@ class ReduceProfilesConfig(Config):
         doc="Replace the profiles for these fibers",
     )
     replaceNearest = Field(dtype=int, default=2, doc="Replace profiles with average of this many near fibers")
+    darkDitherMax = Field(dtype=float, default=0.001, doc="Maximum distance for accepting dark dither")
 
     def setDefaults(self):
         super().setDefaults()
@@ -140,26 +150,33 @@ class ReduceProfilesTask(CmdLineTask):
                                help="identifiers for profile, e.g., --id visit=123^456 ccd=7")
         parser.add_id_argument("--normId", datasetType="raw",
                                help="identifiers for normalisation, e.g., --id visit=98 ccd=7")
+        parser.add_id_argument("--darkId", datasetType="raw",
+                               help="identifiers for dot-roach darks, e.g., --id visit=56 ccd=7")
         return parser
 
-    def runDataRef(self, dataRefList: Iterable[ButlerDataRef], normRefList: Iterable[ButlerDataRef]
-                   ) -> FiberProfileSet:
+    def runDataRef(
+        self,
+        dataRefList: Iterable[ButlerDataRef],
+        normRefList: Iterable[ButlerDataRef],
+        darkRefList: Iterable[ButlerDataRef],
+    ) -> FiberProfileSet:
         """Construct the ``fiberProfiles`` calib
 
         Parameters
         ----------
-        expRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
             Data references for exposures.
-        butler : `lsst.daf.persistence.Butler`
-            Data butler.
-        calibId : `dict`
-            Data identifier keyword-value pairs to use for the calib.
+        normRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for normalisation exposures.
+        darkRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for dark exposures.
         """
         if not dataRefList:
             raise RuntimeError("No input exposures")
         if not normRefList:
             raise RuntimeError("No normalisation exposures")
-        dataList = [self.processExposure(ref) for ref in dataRefList]
+        darkList = [self.processDark(ref) for ref in darkRefList]
+        dataList = [self.processExposure(ref, darkList) for ref in dataRefList]
 
         exposureList = [data.exposure for data in dataList]
         arm = dataRefList[0].dataId["arm"]
@@ -181,13 +198,22 @@ class ReduceProfilesTask(CmdLineTask):
         targetType = [TargetType.fromString(tt) for tt in self.config.targetType]
         for pfsConfig in pfsConfigList:
             fibers.update(pfsConfig.select(fiberStatus=fiberStatus, targetType=targetType).fiberId)
+
+        if darkList:
+            # Select only fibers that are not hidden (i.e., finite pfiCenter)
+            exposedFibers = set()
+            for pfsConfig in pfsConfigList:
+                hasFiniteCenter = np.logical_and.reduce(np.isfinite(pfsConfig.pfiCenter), axis=1)
+                exposedFibers.update(pfsConfig.fiberId[hasFiniteCenter])
+            fibers.intersection_update(exposedFibers)
+
         fiberId = np.array(list(sorted(fibers)))
         pfsConfigList = [pfsConfig.select(fiberId=fiberId) for pfsConfig in pfsConfigList]
 
         profiles = self.profiles.runMultiple(exposureList, identity, detectorMapList, pfsConfigList).profiles
         profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
-        normList = [self.processExposure(ref) for ref in normRefList]
+        normList = [self.processExposure(ref, darkList) for ref in normRefList]
         normExp = self.combine([norm.exposure for norm in normList])
 
         if self.config.doAdjustDetectorMap:
@@ -213,7 +239,25 @@ class ReduceProfilesTask(CmdLineTask):
 
         return profiles
 
-    def processExposure(self, dataRef: ButlerDataRef) -> Struct:
+    def getExposureDither(self, dataRef: ButlerDataRef) -> float:
+        """Get the dither for an exposure
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for exposure.
+
+        Returns
+        -------
+        dither : `float`
+            Dither for exposure.
+        """
+        results = dataRef.getButler().queryMetadata("raw", ("dither",), dataRef.dataId)
+        if len(results) != 1:
+            raise RuntimeError(f"Expected exactly one dither, got {results}")
+        return results[0]
+
+    def processExposure(self, dataRef: ButlerDataRef, darkList: List[Struct]) -> Struct:
         """Process an exposure
 
         We read existing data from the butler, if available. Otherwise, we
@@ -227,18 +271,65 @@ class ReduceProfilesTask(CmdLineTask):
         Returns
         -------
         data : `lsst.pipe.base.Struct`
-            Struct with ``exposureList``, ``detectorMapList``, and
-            ``pfsConfig``.
+            Struct with ``exposure``, ``detectorMap``, ``pfsConfig`` and
+            ``dither``.
         """
         require = ("calexp", "detectorMap_used")
         if all(dataRef.datasetExists(name) for name in require):
             self.log.info("Reading existing data for %s", dataRef.dataId)
-            return Struct(
+            data = Struct(
                 exposure=dataRef.get("calexp"),
                 detectorMap=dataRef.get("detectorMap_used"),
                 pfsConfig=dataRef.get("pfsConfig"),
             )
-        return self.reduceExposure.runDataRef(dataRef)
+        else:
+            data = self.reduceExposure.runDataRef(dataRef)
+
+        if not darkList:
+            self.log.warn("No darks provided; not performing dark subtraction")
+            return data
+
+        # Find the dark exposure with the closest dither
+        dither = self.getExposureDither(dataRef)
+        dark = min(darkList, key=lambda data: abs(data.dither - dither))
+        if abs(dark.dither - dither) > self.config.darkDitherMax:
+            raise RuntimeError(
+                f"No dark dithers close enough to {dither} (darkDitherMax={self.config.darkDitherMax})"
+            )
+        self.log.info(
+            "Using dark %d (dither=%f) for %d (dither=%f)",
+            dark.exposure.getInfo().getId(),
+            dark.dither,
+            data.exposure.getInfo().getId(),
+            dither,
+        )
+        darkTime = dark.exposure.getInfo().getVisitInfo().getExposureTime()
+        dataTime = data.exposure.getInfo().getVisitInfo().getExposureTime()
+        data.exposure.maskedImage.scaledMinus(dataTime/darkTime, dark.exposure.maskedImage)
+
+        return data
+
+    def processDark(self, dataRef: ButlerDataRef) -> Struct:
+        """Process a dot-roach dark exposure
+
+        We perform ISR only.
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for exposure.
+
+        Returns
+        -------
+        data : `lsst.pipe.base.Struct`
+            Struct with ``exposure`` and ``dither``.
+        """
+        dataset = "postISRCCD"
+        if dataRef.datasetExists(dataset):
+            exposure = dataRef.get(dataset)
+        else:
+            exposure = self.reduceExposure.isr.runDataRef(dataRef)
+        return Struct(exposure=exposure, dither=self.getExposureDither(dataRef))
 
     def write(self, dataRef: ButlerDataRef, profiles: FiberProfileSet, dataVisits: Iterable[int],
               normVisits: Iterable[int]):
