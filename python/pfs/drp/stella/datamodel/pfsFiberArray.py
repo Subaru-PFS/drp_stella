@@ -87,9 +87,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         with np.errstate(invalid="ignore"):
             self.flux *= rhs
             self.sky *= rhs
-            rhsSquared = rhs**2
-            for ii in range(3):
-                self.covar[:, ii, :]*rhsSquared
+            self.covar *= (rhs**2).reshape(1, -1)
         return self
 
     def __itruediv__(self, rhs: Union[float, np.ndarray]) -> "PfsFiberArray":
