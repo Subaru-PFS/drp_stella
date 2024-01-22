@@ -254,6 +254,8 @@ class FocalPlaneFunction(ABC):
             Function read from FITS file.
         """
         subs = {ss.DamdClass: ss for ss in subclasses(cls)}
+        if hasattr(cls, "DamdClass"):
+            subs[cls.DamdClass] = cls
         func = PfsFocalPlaneFunction.readFits(filename)
         return subs[type(func)](datamodel=func)
 
