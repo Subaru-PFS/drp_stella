@@ -215,10 +215,10 @@ class BuildFiberProfilesTask(Task):
             prof = FiberProfile.makeGaussian(fwhmToSigma(self.config.extractFwhm), image.getHeight(),
                                              self.config.profileRadius, self.config.profileOversample)
             badBitMask = image.mask.getPlaneBitMask(self.config.mask)
-            for ii, ff in enumerate(sorted(centers.keys())):
-                centersArray[ii] = centers[ff](rows)
+            for jj, ff in enumerate(sorted(centers.keys())):
+                centersArray[jj] = centers[ff](rows)
                 spectrum = prof.extractSpectrum(image, detectorMap, ff, badBitMask)
-                norm[ii] = spectrum.flux
+                norm[jj] = spectrum.flux
 
             centersList.append(centersArray)
             normList.append(norm)
@@ -227,7 +227,8 @@ class BuildFiberProfilesTask(Task):
             raise RuntimeError("No fibers")
         fiberId = np.array(list(sorted(fibers)), dtype=int)
 
-        self.log.info("Starting initial profile extraction...")
+        self.log.info("Starting initial profile extraction (sigma=%f)...",
+                      fwhmToSigma(self.config.extractFwhm))
         profiles = FiberProfileSet.fromImages(
             identity,
             imageList,
@@ -265,11 +266,10 @@ class BuildFiberProfilesTask(Task):
 
             for jj in range(num):
                 badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
-                normList[jj] = fluxProfiles.extractSpectra(
-                    imageList[jj], detectorMapList[jj], badBitMask
-                ).getAllFluxes()
+                spectra = fluxProfiles.extractSpectra(imageList[jj], detectorMapList[jj], badBitMask)
+                normList[jj] = spectra.getAllFluxes()
 
-            self.log.info("Starting profile extraction iteration %d...", ii + 1)
+            self.log.info("Starting profile extraction iteration %d (sigma=%f)...", ii + 1, sigma)
             profiles = FiberProfileSet.fromImages(
                 identity,
                 imageList,

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 
 from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
@@ -192,8 +192,7 @@ class FiberProfileSet:
                                                matrixTol)
             yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
             for ff, pp, mm in zip(fiberId, profiles, masks):
-                pp = np.ma.MaskedArray(pp, mm)
-                profileList[ff].append(pp/np.ma.average(pp, axis=0)/oversample)
+                profileList[ff].append(np.ma.MaskedArray(pp, mm))
 
         return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
                                      np.ma.masked_array(profileList[ff])) for
@@ -396,7 +395,13 @@ class FiberProfileSet:
         self.toPfsFiberProfiles().writeFits(filename)
 
     def plot(
-        self, rows: int = 10, cols: int = 10, fontsize: int = 6, show: bool = True
+        self,
+        rows: int = 10,
+        cols: int = 10,
+        *,
+        fontsize: int = 6,
+        show: bool = True,
+        fiberId: Optional[List[int]] = None,
     ) -> Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]]:
         """Plot the fiber profiles
 
@@ -408,6 +413,8 @@ class FiberProfileSet:
             Font size to use for fiberId label.
         show : `bool`, optional
             Show the plots?
+        fiberId : list of `int`, optional
+            Fiber identifiers to plot. If ``None``, plot all.
 
         Returns
         -------
@@ -418,7 +425,8 @@ class FiberProfileSet:
 
         figAxes: Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]] = {}
 
-        fiberId = list(sorted(self.fiberProfiles.keys()))
+        if not fiberId:
+            fiberId = list(sorted(self.fiberProfiles.keys(), reverse=True))
         while fiberId:
             fig, axes = plt.subplots(nrows=rows, ncols=cols, sharex=True, sharey=True, squeeze=False)
             fig.subplots_adjust(hspace=0, wspace=0)
@@ -437,7 +445,7 @@ class FiberProfileSet:
 
     def plotHistograms(
         self,
-        numBins=20,
+        numBins=50,
         show=True,
         centroidRange=(-0.2, 0.2),
         widthRange=(1.5, 4.0),
