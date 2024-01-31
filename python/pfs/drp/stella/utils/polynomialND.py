@@ -176,6 +176,55 @@ class NormalizedPolynomialND:
         else:
             return self._max
 
+    def getParams(self) -> np.ndarray:
+        """Get the parameters of this polynomial.
+
+        Returns
+        -------
+        params : `np.ndarray` of `float`, shape ``(nParams,)``
+            Parameters.
+        """
+        return self._params
+
+    @staticmethod
+    def getParamsFromLowerVariatePoly(params: np.ndarray, variables: List[Union[int, None]]) -> np.ndarray:
+        """Get the parameters for N-variate polynomial that is equal to the
+        M-variate polynomial whose parameters are ``params`` (N >= M).
+
+        Parameters
+        ----------
+        params : `np.ndarray`
+            Parameters for M-variate polynomial.
+        variables : `List[int|None]`
+            Mapping of variables from N-variate one to M-variate one.
+            ``i``-th variable of N-variate one is identified with
+            ``variables[i]``-th variable of M-variate one. If ``variables[i]``
+            is ``None``, then ``i``-th variable of N-variate one does not
+            appear in M-variate one.
+
+        Returns
+        -------
+        paramsN : `np.ndarray`
+            Parameters for N-variate polynomial.
+        """
+        nVarsM = max(i for i in variables if i is not None) + 1
+        nParamsM = len(params)
+        order = getPolynomialOrder(nVarsM, nParamsM)
+        nVarsN = len(variables)
+        nParamsN = math.comb(nVarsN + order, nVarsN)
+
+        exponentsM = getExponents(order, nVarsM)
+        exponentsN = getExponents(order, nVarsN)
+
+        exponentsN_inverse = {tuple(v): k for k, v in enumerate(exponentsN)}
+        paramsN = np.zeros(shape=(nParamsN,), dtype=float)
+        for indexM, exponsM in enumerate(exponentsM):
+            exponsN = tuple((exponsM[i] if i is not None else 0) for i in variables)
+            indexN = exponentsN_inverse[exponsN]
+            paramsN[indexN] = params[indexM]
+
+        return paramsN
+
 
 def getPolynomialOrder(nVars: int, nParams: int) -> int:
     """Find the ``order`` of an ``nVars``-variate polynomial

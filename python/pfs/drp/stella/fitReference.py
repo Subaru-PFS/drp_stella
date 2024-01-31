@@ -50,7 +50,7 @@ class TransmissionCurve:
         """
         return np.interp(wavelength, self.wavelength, self.transmission, 0.0, 0.0)
 
-    def integrate(self, spectrum=None):
+    def integrate(self, spectrum=None, quadpack=True):
         r"""Integrate the filter transmission curve for synthetic photometry
 
         The integral is:
@@ -65,36 +65,54 @@ class TransmissionCurve:
         ----------
         spectrum : `pfs.datamodel.PfsFiberArray`, optional
             Spectrum to integrate. If not provided, use unity.
+        quadpack : `bool`, optional
+            Whether to use QUADPACK (default: True).
+            If False, the integral is computed simply with the trapezoidal rule.
+            The return value is more predictable when this parameter is False.
         """
+        if quadpack:
+            def function(wavelength):
+                """The function we're integrating
 
-        def function(wavelength):
-            """The function we're integrating
+                The function is the product of the spectrum, the bandpass and an
+                extra wavelength term to account for photon counting.
+                """
+                ss = (
+                    np.interp(wavelength, spectrum.wavelength, spectrum.flux, 0.0, 0.0)
+                    if spectrum is not None else 1.0
+                )
+                ff = self.interpolate(wavelength)
+                return ss*ff/wavelength
 
-            The function is the product of the spectrum, the bandpass and an
-            extra wavelength term to account for photon counting.
-            """
-            ss = (np.interp(wavelength, spectrum.wavelength, spectrum.flux, 0.0, 0.0) if spectrum is not None
-                  else 1.0)
-            ff = self.interpolate(wavelength)
-            return ss*ff/wavelength
+            return scipy.integrate.quad(function, self.wavelength[0], self.wavelength[-1],
+                                        epsabs=0.0, epsrel=2.0e-3, limit=100)[0]
+        else:
+            if spectrum is not None:
+                y = spectrum.flux * self.interpolate(spectrum.wavelength) / spectrum.wavelength
+                x = spectrum.wavelength
+            else:
+                y = self.transmission / self.wavelength
+                x = self.wavelength
+            return 0.5 * np.sum((y[1:] + y[:-1]) * (x[1:] - x[:-1]))
 
-        return scipy.integrate.quad(function, self.wavelength[0], self.wavelength[-1],
-                                    epsabs=0.0, epsrel=2.0e-3, limit=100)[0]
-
-    def photometer(self, spectrum):
+    def photometer(self, spectrum, quadpack=True):
         """Measure flux with this filter.
 
         Parameters
         ----------
         spectrum : `pfs.datamodel.PfsSimpleSpectrum`
             Spectrum to integrate.
+        quadpack : `bool`
+            Whether to use QUADPACK (default: True).
+            If False, integrals are computed simply with the trapezoidal rule.
+            The return value is more predictable when this parameter is False.
 
         Returns
         -------
         flux : `float`
             Integrated flux.
         """
-        return self.integrate(spectrum) / self.integrate()
+        return self.integrate(spectrum, quadpack=quadpack) / self.integrate(quadpack=quadpack)
 
 
 class FilterCurve(TransmissionCurve):
