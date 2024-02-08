@@ -320,7 +320,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         Parameters
         ----------
         calibVectors : `PfsMerged`
-            Calib vectors.
+            Calib vectors. ``calibVectors.norm`` must be 1 (constant).
         """
         badMask = calibVectors.flags.get(*(m for m in self.config.badMask if m in calibVectors.flags))
         n = len(calibVectors)
@@ -340,6 +340,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
 
         multiplier = (reference / heights).reshape(-1, 1)
         calibVectors *= multiplier
+        calibVectors.norm[...] = 1.0
 
     def forceSpectrumToBePersistable(self, spectrum: PfsFiberArray) -> None:
         """Force ``spectrum`` to be able to be written to file.
