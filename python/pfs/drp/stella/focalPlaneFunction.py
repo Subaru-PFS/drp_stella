@@ -9,6 +9,7 @@ from pfs.datamodel import (
     PfsFocalPlaneFunction,
     PfsOversampledSpline,
     PfsPolynomialPerFiber,
+    PfsFluxCalib,
 )
 from pfs.datamodel.utils import subclasses
 from pfs.drp.stella.datamodel import PfsFiberArraySet
@@ -19,6 +20,10 @@ from scipy.stats import binned_statistic
 from .math import NormalizedPolynomial1D, calculateMedian, solveLeastSquaresDesign
 from .struct import Struct
 from .utils.math import robustRms
+from .utils.polynomialND import NormalizedPolynomialND
+
+from typing import Callable
+
 
 __all__ = (
     "FocalPlaneFunction",
@@ -26,6 +31,7 @@ __all__ = (
     "OversampledSpline",
     "BlockedOversampledSpline",
     "PolynomialPerFiber",
+    "FluxCalib",
 )
 
 
@@ -254,6 +260,8 @@ class FocalPlaneFunction(ABC):
             Function read from FITS file.
         """
         subs = {ss.DamdClass: ss for ss in subclasses(cls)}
+        if hasattr(cls, "DamdClass"):
+            subs[cls.DamdClass] = cls
         func = PfsFocalPlaneFunction.readFits(filename)
         return subs[type(func)](datamodel=func)
 
@@ -401,9 +409,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
             for wl, resamp in zip(wavelengths, doResample)
         ]
         variances = [
-            interpolateVariance(self.wavelength, self.variance, wl)
-            if resamp
-            else self.variance
+            interpolateVariance(self.wavelength, self.variance, wl) if resamp else self.variance
             for wl, resamp in zip(wavelengths, doResample)
         ]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
@@ -997,3 +1003,141 @@ class PolynomialPerFiber(FocalPlaneFunction):
         rms = np.array([np.full_like(wavelengths[ii], self.rms[ff]) for ii, ff in enumerate(fiberIds)])
         masks = ~np.isfinite(values) | ~np.isfinite(rms)
         return Struct(values=values, variances=rms**2, masks=masks)
+
+
+class FluxCalib(FocalPlaneFunction):
+    r"""Flux calibration vector such that pfsMerged divided by fluxCalib
+    will be the calibrated spectra.
+
+    This is the product of a ConstantFocalPlaneFunction ``h(\lambda)``
+    multiplied by the exponential of a trivariate polynomial
+    ``g(x, y, \lambda)``, where ``(x, y)`` is the fiber position.
+    ``h(\lambda)`` represents the average shape of flux calibration vectors
+    up to ``exp g(x, y, \lambda)``. ``exp g(x, y, \lambda)``, which is
+    expected to be almost independent of ``\lambda``, represents the overall
+    height of a flux calibration vector at ``(x, y)``. The height varies from
+    fiber to fiber (or, according to ``(x, y)``) because of imperfect fiber
+    positioning. ``g(x, y, \lambda)`` indeed depends slightly on ``\lambda``
+    because seeing depends on wavelength.
+
+    Parameters
+    ----------
+    polyParams : `numpy.ndarray` of `float`
+        Parameters used by ``NormalizedPolynomialND`` in ``drp_stella``.
+        These parameters define ``g(x, y, \lambda)``.
+    polyMin : `numpy.ndarray` of `float`, shape ``(3,)``
+        Vertex of the rectangular-parallelepipedal domain of the polynomial
+        at which ``(x, y, \lambda)`` are minimal.
+    polyMax : `numpy.ndarray` of `float`, shape ``(3,)``
+        Vertex of the rectangular-parallelepipedal domain of the polynomial
+        at which ``(x, y, \lambda)`` are maximal.
+    constantFocalPlaneFunction : `PfsConstantFocalPlaneFunction`
+        ``h(\lambda)`` as explaned above.
+    """
+
+    DamdClass = PfsFluxCalib
+
+    def __init__(self, *args, datamodel: Optional[PfsFluxCalib] = None, **kwargs):
+        super().__init__(*args, datamodel=datamodel, **kwargs)
+        self.constantFocalPlaneFunction = ConstantFocalPlaneFunction(
+            datamodel=self._damdObj.constantFocalPlaneFunction,
+        )
+
+    @classmethod
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        *,
+        robust: bool,
+        fitter: Callable,
+        **kwargs,
+    ) -> "FluxCalib":
+        """Fit a spectral function on the focal plane to arrays
+
+        We leave an actual fitting algorithm to``fitter`` argument
+        because the algorithm we currently have requires many things that
+        ``focalPlaneFunction.py`` should not know.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber identifiers.
+        wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Wavelength array. The wavelength array for all the inputs must be
+            identical.
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Values to fit.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Boolean array indicating values to ignore from the fit.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variance values to use in fit.
+        positions : `numpy.ndarray` of `float`, shape ``(N, 2)``
+            Focal-plane positions of fibers.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        fitter : `Callable`
+            A function that actually performs fitting.
+            This function is called like
+            ``fitter(fiberId, wavelengths, ..., positions, robust=robust, **kwargs)``
+            and returns an instance of `FluxCalib`.
+        **kwargs : `dict`
+            Fitting parameters.
+
+        Returns
+        -------
+        fit : `FluxCalib`
+            Function fit to input arrays.
+        """
+        return fitter(fiberId, wavelengths, values, masks, variances, positions, robust=robust, **kwargs)
+
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
+        """Evaluate the function at the provided positions
+
+        We interpolate the variance without doing any of the usual error
+        propagation. Since there is likely some amount of unknown covariance
+        (if only from resampling to a common wavelength scale), following the
+        usual error propagation formulae as if there is no covariance would
+        artificially suppress the noise estimates.
+
+        Parameters
+        ----------
+        wavelengths : `numpy.ndarray` of shape ``(N, M)``
+            Wavelength arrays.
+        fiberIds : `numpy.ndarray` of `int` of shape ``(N,)``
+            Fiber identifiers.
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Vector function evaluated at each position.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Indicates whether the value at each position is valid.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variances for each position.
+        """
+        assert len(wavelengths) == len(positions)
+        nFibers, nSamples = wavelengths.shape
+
+        poly = NormalizedPolynomialND(self.polyParams, self.polyMin, self.polyMax)
+
+        x = np.empty(shape=(nFibers, nSamples, 3), dtype=float)
+        x[:, :, :2] = positions.reshape(nFibers, 1, 2)
+        x[:, :, 2] = wavelengths
+
+        scales = np.exp(poly(x))
+
+        retvalue = self.constantFocalPlaneFunction.evaluate(wavelengths, fiberIds, positions)
+        retvalue.values *= scales
+        retvalue.variances *= np.square(scales)
+
+        return retvalue

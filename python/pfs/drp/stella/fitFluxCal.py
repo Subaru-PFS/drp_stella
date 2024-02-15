@@ -1,8 +1,11 @@
 from collections import defaultdict
+import dataclasses
+import logging
 import math
 
 from astropy import constants as const
 import numpy as np
+from scipy.optimize import minimize
 
 import lsstDebug
 from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
@@ -16,27 +19,592 @@ from lsst.pipe.base import (
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 import lsst.daf.persistence
-from lsst.pex.config import Field, ListField, ConfigurableField
+from lsst.pex.config import Field, ChoiceField, ListField, ConfigurableField
 
 from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
-from .fitFocalPlane import FitFocalPlaneTask
+from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
+from .fitReference import FilterCurve
 from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
-from .focalPlaneFunction import FocalPlaneFunction
+from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib
 from .gen3 import readDatasetRefs
 from .lsf import warpLsf, Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import getPfsVersions
 from .utils import debugging
+from .utils.polynomialND import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
-from typing import Iterable
-from typing import Dict, List
+from typing import Callable, Iterable
+from typing import Dict, List, Optional, Tuple, Union
+from typing import Literal
 
 __all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
+
+
+class MinimizationMonitor:
+    """Callback function for scipy.optimize.minimize().
+
+    Parameters
+    ----------
+    objective : `Callable[[np.ndarray], float]`
+        Objective function
+    tol : `float`
+        Tolerance. If stddev of objective's return values are less than
+        this much, relatively, then ``__call__()`` will raise StopIteration.
+        Disabled if not positive.
+    windowSize : `int`
+        Number of samples to use for calculating moving average.
+    log : `logging.Logger`, optional
+        Logger.
+    """
+
+    objective: Callable[[np.ndarray], float]
+    tol: float
+    windowSize: int
+    log: Union[logging.Logger, None]
+
+    fun: float
+    """The smallest objective value ever seen"""
+
+    x: np.ndarray
+    """The parameter of the objective when it is ``minFun``"""
+
+    window: np.ndarray
+    """Recent objective values"""
+
+    nCalls: int
+    """Number of calls ever made to ``self.__call__()``."""
+
+    def __init__(
+        self, objective, *, tol: float = -1, windowSize: int = 10, log: Union[logging.Logger, None] = None
+    ) -> None:
+        self.objective = objective
+        self.tol = tol
+        self.windowSize = windowSize
+        self.log = log
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset state"""
+        self.fun = np.inf
+        self.x = np.zeros(shape=())
+        self.window = np.zeros(shape=(self.windowSize,), dtype=float)
+        self.nCalls = 0
+
+    def __call__(self, xk) -> None:
+        """
+        Print ``self.objective(xk)`` to the logger if necessary,
+        and raises StopIteration if necessary.
+
+        Parameters
+        ----------
+        xk : `numpy.ndarray`
+            Parameter at which to evaluate objective.
+
+        Raises
+        ------
+        StopIteration
+            Raised if minimization should stop.
+        """
+        fun = self.objective(xk)
+        if fun < self.fun:
+            self.fun = fun
+            self.x = np.copy(xk)
+            if self.log is not None:
+                self.log.info("smallest objective ever found: %s", fun)
+
+        self.nCalls += 1
+        self.window[:-1] = self.window[1:]
+        self.window[-1] = fun
+
+        if not (self.tol > 0) or self.nCalls < self.windowSize:
+            return
+
+        mean = np.mean(self.window)
+        variance = np.var(self.window, ddof=1)
+        if variance < (self.tol * mean) ** 2:
+            if self.log is not None:
+                self.log.info("Minimization stops because var(objective) is small enough.")
+            raise StopIteration()
+
+
+@dataclasses.dataclass
+class PhotometryPair:
+    """Broadband photometry pair: a truth value (observed value) and a model
+    value to be fitted to the truth value.
+
+    Parameters
+    ----------
+    truth : `float`
+        True flux.
+    model : `float`
+        Model flux to be fitted to the truth.
+    error : `float`
+        Error, such that ``(truth - model)**2 / error**2`` will be chi^2.
+    filterName : `str`
+        Filter name.
+    """
+
+    truth: float
+    model: float
+    error: float
+    filterName: str
+
+
+class BroadbandFluxChi2:
+    """Chi^2 computed by comparing a spectrum with broadband fluxes.
+
+    Parameters
+    ----------
+    pfsConfig : `PfsConfig`
+        PFS fiber configuration.
+    pfsMerged : `PfsMerged`
+        Merged spectra.
+    broadbandFluxType : `Literal["fiber", "psf", "total"]`
+        Type of broadband flux to use.
+    """
+
+    def __init__(
+        self,
+        pfsConfig: PfsConfig,
+        pfsMerged: PfsMerged,
+        broadbandFluxType: Literal["fiber", "psf", "total"],
+    ) -> None:
+        self.obsSpectra: Dict[int, PfsSingle] = {
+            fiberId: pfsMerged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in pfsConfig.fiberId
+        }
+
+        if broadbandFluxType == "fiber":
+            bbFluxList = pfsConfig.fiberFlux
+            bbFluxErrList = pfsConfig.fiberFluxErr
+        elif broadbandFluxType == "psf":
+            bbFluxList = pfsConfig.psfFlux
+            bbFluxErrList = pfsConfig.psfFluxErr
+        elif broadbandFluxType == "total":
+            bbFluxList = pfsConfig.totalFlux
+            bbFluxErrList = pfsConfig.totalFluxErr
+        else:
+            raise ValueError(f"`broadbandFluxType` must be one of fiber|psf|total. ('{broadbandFluxType}')")
+
+        self.bbFlux: Dict[int, Tuple[float, float, str]] = {
+            fiberId: list(zip(bbFlux, bbFluxErr, filterNames))
+            for fiberId, bbFlux, bbFluxErr, filterNames in zip(
+                pfsConfig.fiberId, bbFluxList, bbFluxErrList, pfsConfig.filterNames
+            )
+        }
+
+        self.fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
+        self._filterCurves: Dict[str, FilterCurve] = {}
+
+    def __call__(self, fiberId: np.ndarray, fluxCalib: np.ndarray, *, save=False) -> float:
+        """Compute chi^2.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            List of fiber IDs.
+        fluxCalib : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Flux calibration vector, such that (observed flux) / (fluxCalib)
+            will be a calibrated flux.
+        save : `bool`
+            Save to ``self`` the results of photometering ``spectra/fluxCalib``.
+            The saved results will be used when you call ``self.rescaleFluxCalib()``
+            later.
+
+        Returns
+        -------
+        chi2 : float
+            Chi^2.
+        """
+        chi2 = 0.0
+        fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
+
+        for fId, calib in zip(fiberId, fluxCalib):
+            spectrum = self.obsSpectra[fId]
+            calibrated = PfsSingle(
+                spectrum.target,
+                spectrum.observations,
+                spectrum.wavelength,
+                np.copy(spectrum.flux),
+                np.copy(spectrum.mask),
+                np.copy(spectrum.sky),
+                np.copy(spectrum.covar),
+                np.copy(spectrum.covar2),
+                spectrum.flags,
+            )
+            isGood = (
+                np.isfinite(calibrated.flux)
+                & np.isfinite(calibrated.covar[0, :])
+                & np.isfinite(calib)
+                & (calib != 0)
+            )
+            calibrated.wavelength = calibrated.wavelength[isGood]
+            calibrated.flux = calibrated.flux[isGood]
+            calibrated.mask = calibrated.mask[isGood]
+            calibrated.sky = calibrated.sky[isGood]
+            calibrated.covar = calibrated.covar[:, isGood]
+            # (TODO: I don't know what to do with `spectrum.covar2`)
+            calib = calib[isGood]
+
+            calibrated /= calib
+            photometries: List[PhotometryPair] = []
+
+            for bbFlux, bbFluxErr, filterName in self.bbFlux[fId]:
+                if np.isfinite(bbFlux) and bbFluxErr > 0:
+                    photometry = self._getFilterCurve(filterName).photometer(calibrated, quadpack=False)
+                    relativeErr = (bbFlux - photometry) / bbFluxErr
+                    chi2 += relativeErr**2
+                    if save:
+                        photometries.append(
+                            PhotometryPair(
+                                truth=bbFlux, model=photometry, error=bbFluxErr, filterName=filterName
+                            )
+                        )
+
+            if save:
+                fiberIdToPhotometries[fId] = photometries
+
+        if save:
+            self.fiberIdToPhotometries = fiberIdToPhotometries
+
+        return chi2
+
+    def rescaleFluxCalib(self, fiberId: np.ndarray, scales: np.ndarray) -> float:
+        """Recompute chi^2, rescaling by ``scales`` the ``fluxCalib`` argument
+        of the last call to ``self.__call__(..., save=True)``
+
+        Note that model fluxes saved by ``self.__call__(..., save=True)``
+        are _divided_ (as opposed to "multiplied") by ``scales`` because
+        ``fluxCalib`` is to divide observed spectra.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            List of fiber IDs.
+        scales : `numpy.ndarray` of `float`, shape ``(N,)``
+            Scales by which to multiply ``fluxCalib``.
+
+        Returns
+        -------
+        chi2 : float
+            Chi^2.
+        """
+        chi2 = 0.0
+
+        for fId, scale in zip(fiberId, scales):
+            for pair in self.fiberIdToPhotometries[fId]:
+                relativeErr = (pair.truth - pair.model / scale) / pair.error
+                chi2 += relativeErr**2
+
+        return chi2
+
+    def rescaleFluxCalibEx(self, fiberId: np.ndarray, scales: np.ndarray, wavelengths: np.ndarray) -> float:
+        """Recompute chi^2, rescaling by ``scales`` the ``fluxCalib`` argument
+        of the last call to ``self.__call__(..., save=True)``
+
+        The rescaling is not mathematically exact, but is sufficiently accurate
+        for preliminary steps of minimization.
+
+        Note that model fluxes saved by ``self.__call__(..., save=True)``
+        are _divided_ (as opposed to "multiplied") by ``scales`` because
+        ``fluxCalib`` is to divide observed spectra.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            List of fiber IDs.
+        scales : `numpy.ndarray` of `float`, shape ``(N,M)``
+            Scales by which to multiply ``fluxCalib``.
+        wavelengths : `numpy.ndarray` of `float`, shape ``(N,M)``
+            wavelengths corresponding to ``scales``
+
+        Returns
+        -------
+        chi2 : float
+            Chi^2.
+        """
+        chi2 = 0.0
+
+        for fId, scale, wavelength in zip(fiberId, scales, wavelengths):
+            spectrum = self.obsSpectra[fId]
+            nSamples = len(scale)
+            scaleArray = PfsSingle(
+                spectrum.target,
+                spectrum.observations,
+                wavelength,
+                scale,
+                np.zeros(shape=(nSamples,)),
+                np.zeros(shape=(nSamples,)),
+                np.ones(
+                    shape=(
+                        3,
+                        nSamples,
+                    )
+                ),
+                np.ones_like(spectrum.covar2),
+                spectrum.flags,
+            )
+
+            for pair in self.fiberIdToPhotometries[fId]:
+                s = self._getFilterCurve(pair.filterName).photometer(scaleArray, quadpack=False)
+                relativeErr = (pair.truth - pair.model / s) / pair.error
+                chi2 += relativeErr**2
+
+        return chi2
+
+    def _getFilterCurve(self, filterName) -> FilterCurve:
+        """Get the transmission curve of ``filterName``
+
+        Calling this method is equivalent to calling the constructor of
+        `FilterCurve`. The only difference is that this method returns
+        a cached instance if it is available.
+
+        Parameters
+        ----------
+        filterName : `str`
+            Filter name.
+
+        Returns
+        -------
+        filterCurve : `FilterCurve`
+            Transmission curve.
+        """
+        instance = self._filterCurves.get(filterName)
+        if instance is None:
+            instance = self._filterCurves[filterName] = FilterCurve(filterName)
+        return instance
+
+
+def fitFluxCalibToArrays(
+    fiberId: np.ndarray,
+    wavelengths: np.ndarray,
+    values: np.ndarray,
+    masks: np.ndarray,
+    variances: np.ndarray,
+    positions: np.ndarray,
+    *,
+    robust: bool,
+    polyOrder: int,
+    fitPrecisely: bool,
+    scales: Optional[np.ndarray],
+    bbChi2: BroadbandFluxChi2,
+    tol: float,
+    log: Optional[logging.Logger],
+    **kwargs,
+) -> "FluxCalib":
+    """Fit `FluxCalib` to arrays
+
+    Parameters
+    ----------
+    fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+        Fiber identifiers.
+    wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
+        Wavelength array. The wavelength array for all the inputs must be
+        identical.
+    values : `numpy.ndarray` of `float`, shape ``(N, M)``
+        Values to fit.
+    masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+        Boolean array indicating values to ignore from the fit.
+    variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+        Variance values to use in fit.
+    positions : `numpy.ndarray` of `float`, shape ``(N, 2)``
+        Focal-plane positions of fibers.
+    robust : `bool`
+        Perform robust fit? A robust fit should provide an accurate answer
+        in the presense of outliers, even if the answer is less precise
+        than desired. A non-robust fit should provide the most precise
+        answer while assuming there are no outliers.
+    polyOrder : `int`
+        Order of the polynomial to be fitted so as to map ``positions``
+        to ``scales`` approximately.
+    fitPrecisely : `bool`
+        If False, skip time-consuming refinement phase of fitting.
+    scales : `numpy.ndarray` of `float`, shape ``(N,)``
+        Overall scale for each spectrum. The spectra are divided by
+        ``scales`` before being averaged.
+    bbChi2 : `BroadbandFluxChi2`
+        Function to compute how distant broadband fluxes will be from those
+        stored in ``pfsConfig``, when certain flux calib vectors are given.
+    tol : `float`
+        Tolerance of minimization.
+    log : `logging.Logger`, optional
+        Logger.
+    **kwargs : `dict`
+        Fitting parameters.
+
+    Returns
+    -------
+    fit : `FluxCalib`
+        Function fit to input arrays.
+    """
+    if scales is None:
+        scales = np.nanmean(values, axis=(1,))
+
+    constantFocalPlaneFunction = ConstantFocalPlaneFunction.fitArrays(
+        fiberId,
+        wavelengths,
+        values / scales.reshape(len(scales), 1),
+        masks,
+        variances / np.square(scales).reshape(len(scales), 1),
+        positions,
+        robust=robust,
+    )
+
+    averageCalibVector = constantFocalPlaneFunction.evaluate(wavelengths, fiberId, positions).values
+
+    # Save to `bbChi2` the result of photometries with the use of this
+    # average flux calibration vector.
+    bbChi2(fiberId, averageCalibVector, save=True)
+
+    posMin = np.min(positions, axis=(0,))
+    posMax = np.max(positions, axis=(0,))
+    wlMin = wavelengths[0, 0]
+    wlMax = wavelengths[0, -1]
+    polyMin = np.array(list(posMin) + [wlMin], dtype=float)
+    polyMax = np.array(list(posMax) + [wlMax], dtype=float)
+
+    # First, fit a function independent of \lambda.
+    def objective1(params: np.ndarray) -> float:
+        """Objective function to minimize.
+
+        Parameters
+        ----------
+        params : `numpy.ndarray`
+            Parameters of `NormalizedPolynomialND`.
+
+        Returns
+        -------
+        objective : `float`
+            Objective.
+        """
+        poly = NormalizedPolynomialND(params, posMin, posMax)
+        scales = np.exp(poly(positions))
+        return bbChi2.rescaleFluxCalib(fiberId, scales)
+
+    monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
+    params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
+
+    if log is not None:
+        log.info("Start phase-1 fitting...")
+
+    try:
+        result = minimize(objective1, params, callback=monitor1)
+        # TBD: Should we test whether minimization has succeeded?
+        params = result.x
+    except StopIteration:
+        # With old scipy, `StopIteration` raised by ``callback``
+        # is not caught by ``minimize()``. So we catch it for ourselves.
+        params = monitor1.x
+
+    # Second, fit a function dependent on \lambda, with approximate chi^2.
+
+    # Low resolution wavelength at which to evaluate the fitted polynomial.
+    lowResWL = np.linspace(wlMin, wlMax, num=int(round(wlMax - wlMin)))
+    # List of (x, y, lam) at which to evaluate the fitted polynomial.
+    polyArgs = np.empty(shape=(len(fiberId), len(lowResWL), 3), dtype=float)
+    polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
+    polyArgs[:, :, 2] = lowResWL.reshape(1, -1)
+
+    def objective2(params: np.ndarray) -> float:
+        """Objective function to minimize.
+
+        Parameters
+        ----------
+        params : `numpy.ndarray`
+            Parameters of `NormalizedPolynomialND`.
+
+        Returns
+        -------
+        objective : `float`
+            Objective.
+        """
+        poly = NormalizedPolynomialND(params, polyMin, polyMax)
+        scales = np.exp(poly(polyArgs))
+        return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2])
+
+    monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
+    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+
+    if log is not None:
+        log.info("Start phase-2 fitting...")
+
+    try:
+        result = minimize(objective2, params, callback=monitor2)
+        # TBD: Should we test whether minimization has succeeded?
+        params = result.x
+    except StopIteration:
+        # With old scipy, `StopIteration` raised by ``callback``
+        # is not caught by ``minimize()``. So we catch it for ourselves.
+        params = monitor2.x
+
+    if robust or not fitPrecisely:
+        # Phase-3 takes time. We skip it unless this is the last lap of
+        # a clipping loop (when robust=True), or unless fitPrecisely=True.
+        return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
+    # Third, fit a function dependent on \lambda, with accurate chi^2.
+
+    # List of (x, y, lam) at which to evaluate the fitted polynomial.
+    polyArgs = np.empty(shape=values.shape + (3,), dtype=float)
+    polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
+    polyArgs[:, :, 2] = wavelengths
+
+    def objective3(params: np.ndarray) -> float:
+        """Objective function to minimize.
+
+        Parameters
+        ----------
+        params : `numpy.ndarray`
+            Parameters of `NormalizedPolynomialND`.
+
+        Returns
+        -------
+        objective : `float`
+            Objective.
+        """
+        poly = NormalizedPolynomialND(params, polyMin, polyMax)
+        fluxCalib = np.exp(poly(polyArgs))
+        fluxCalib *= averageCalibVector
+        return bbChi2(fiberId, fluxCalib)
+
+    monitor3 = MinimizationMonitor(objective3, tol=tol, log=log)
+    if log is not None:
+        log.info("Start phase-3 fitting...")
+
+    try:
+        result = minimize(objective3, params, callback=monitor3)
+        # TBD: Should we test whether minimization has succeeded?
+        params = result.x
+    except StopIteration:
+        # With old scipy, `StopIteration` raised by ``callback``
+        # is not caught by ``minimize()``. So we catch it for ourselves.
+        params = monitor3.x
+
+    return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
+
+class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `FluxCalib`
+
+    The ``FluxCalib.fit`` method also needs ``scales`` and ``bbChi2``, ``tol``, ``log``
+    input parameters, but those can be determined from the data.
+    """
+
+    polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
+    fitPrecisely = Field(
+        dtype=bool, default=True, doc="If False, skip time-consuming refinement phase of fitting."
+    )
+
+
+class FitFluxCalibFocalPlaneFunctionTask(FitFocalPlaneTask):
+    """Fit a `FluxCalib`"""
+
+    ConfigClass = FitFluxCalibFocalPlaneFunctionConfig
+    Function = FluxCalib
 
 
 class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConnections):
@@ -51,14 +619,11 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
             "underestimated errors and excess rejection."
         ),
     )
-    fitFocalPlane = ConfigurableField(target=FitFocalPlaneTask, doc="Fit flux calibration model")
+    fitFocalPlane = ConfigurableField(
+        target=FitFluxCalibFocalPlaneFunctionTask, doc="Fit flux calibration model"
+    )
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
-    doAdjustCalibVectors = Field(
-        dtype=bool,
-        default=True,
-        doc="Adjust heights of calib vectors to each other before fitting a function to them.",
-    )
     adjustCalibVectorsRangeStart = Field(
         dtype=float, default=600, doc="Start of wavelength range to use for height adjustment [nm]."
     )
@@ -66,6 +631,22 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         dtype=float, default=700, doc="Stop of wavelength range to use for height adjustment [nm]."
     )
     badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
+    broadbandFluxType = ChoiceField(
+        doc="Type of broadband fluxes to use.",
+        dtype=str,
+        allowed={
+            "fiber": "Use `psfConfig.fiberFlux`.",
+            "psf": "Use `psfConfig.psfFlux`.",
+            "total": "Use `psfConfig.totalFlux`.",
+        },
+        default="psf",
+        optional=False,
+    )
+    minimizationTolerance = Field(
+        dtype=float,
+        default=1e-6,
+        doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
+    )
 
 
 class FitFluxCalTask(CmdLineTask, PipelineTask):
@@ -74,7 +655,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
     ConfigClass = FitFluxCalConfig
     _DefaultName = "fitFluxCal"
 
-    fitFocalPlane: FitFocalPlaneTask
+    fitFocalPlane: FitFluxCalibFocalPlaneFunctionTask
     fluxTable: FluxTableTask
 
     def __init__(self, *args, **kwargs) -> None:
@@ -91,7 +672,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         references: PfsFluxReference,
         pfsConfig: PfsConfig,
         pfsArmList: List[PfsArm],
-        sky1dList: Iterable[FocalPlaneFunction],
+        sky1dList: Iterable[FluxCalib],
     ) -> Struct:
         """Measure and apply the flux calibration
 
@@ -107,12 +688,12 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
             PFS fiber configuration.
         pfsArmList : iterable of `PfsArm`
             List of extracted spectra, for constructing the flux table.
-        sky1dList : iterable of `FocalPlaneFunction`
+        sky1dList : iterable of `FluxCalib`
             Corresponding list of 1d sky subtraction models.
 
         Returns
         -------
-        fluxCal : `FocalPlaneFunction`
+        fluxCal : `FluxCalib`
             Flux calibration solution.
         pfsCalibrated : `PfsCalibratedSpectra`
             Calibrated spectra.
@@ -198,7 +779,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        fluxCal : `pfs.drp.stella.FocalPlaneFunction`
+        fluxCal : `FluxCalib`
             Flux calibration.
         pfsCalibrated : `PfsCalibratedSpectra`
             Calibrated spectra.
@@ -237,7 +818,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         pfsMerged: PfsMerged,
         pfsMergedLsf: LsfDict,
         pfsFluxReference: PfsFluxReference,
-    ) -> FocalPlaneFunction:
+    ) -> FluxCalib:
         """Model flux calibration over the focal plane
 
         Parameters
@@ -253,7 +834,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
 
         Returns
         -------
-        fluxCal: `pfs.drp.stella.FocalPlaneFunction`
+        fluxCal: `FluxCalib`
             Flux calibration.
         """
         c = const.c.to("km/s").value
@@ -292,8 +873,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
 
-        if self.config.doAdjustCalibVectors:
-            self.adjustCalibVectors(calibVectors)
+        scales = self.getHeightsOfCalibVectors(calibVectors)
 
         # TODO: Smooth the flux calibration vectors.
 
@@ -311,16 +891,37 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
             calibVectors.flags.add(name)
 
         fluxStdConfig = pfsConfig[np.isin(pfsConfig.fiberId, pfsFluxReference.fiberId)]
-        return self.fitFocalPlane.run(calibVectors, fluxStdConfig)
+        fluxStdMerged = pfsMerged[np.isin(pfsMerged.fiberId, pfsFluxReference.fiberId)]
+        bbChi2 = BroadbandFluxChi2(
+            fluxStdConfig,
+            fluxStdMerged,
+            self.config.broadbandFluxType,
+        )
+        return self.fitFocalPlane.run(
+            calibVectors,
+            fluxStdConfig,
+            fitter=fitFluxCalibToArrays,
+            scales=scales,
+            bbChi2=bbChi2,
+            tol=self.config.minimizationTolerance,
+            log=self.log,
+        )
 
-    def adjustCalibVectors(self, calibVectors: PfsMerged) -> None:
-        """Adjust heights of calib vectors (observed spectra) / (reference spectra)
-        to each other.
+    def getHeightsOfCalibVectors(self, calibVectors: PfsMerged) -> np.ndarray:
+        """Get relative heights of calib vectors (observed spectra) / (reference spectra).
+
+        The "relative height" of a calib vector is the ratio of
+        (typical height of this calib vector) / (typical height of the highest calib vector).
 
         Parameters
         ----------
         calibVectors : `PfsMerged`
             Calib vectors. ``calibVectors.norm`` must be 1 (constant).
+
+        Returns
+        -------
+        heights : `numpy.ndarray`
+            Relative heights.
         """
         badMask = calibVectors.flags.get(*(m for m in self.config.badMask if m in calibVectors.flags))
         n = len(calibVectors)
@@ -337,10 +938,7 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
         # calib vectors are adjusted, for we assume that the fiber of the
         # highest calib vector was positioned better than any other fiber.
         reference = np.nanmax(heights)
-
-        multiplier = (reference / heights).reshape(-1, 1)
-        calibVectors *= multiplier
-        calibVectors.norm[...] = 1.0
+        return heights / reference
 
     def forceSpectrumToBePersistable(self, spectrum: PfsFiberArray) -> None:
         """Force ``spectrum`` to be able to be written to file.
