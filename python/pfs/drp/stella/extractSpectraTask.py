@@ -46,6 +46,7 @@ class ExtractSpectraTask(pipeBase.Task):
         fiberTraceSet: FiberTraceSet,
         detectorMap: Optional[DetectorMap] = None,
         fiberId: Optional[np.ndarray] = None,
+        isBoxcar: Optional[bool] = False
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -64,6 +65,8 @@ class ExtractSpectraTask(pipeBase.Task):
             and provide a rough wavelength calibration.
         fiberId : `numpy.ndarray` of `int`
             Fiber identifiers to include in output.
+        isBoxcar : `bool`
+            fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
 
         Returns
         -------
@@ -76,15 +79,28 @@ class ExtractSpectraTask(pipeBase.Task):
             display = afwDisplay.Display(frame=self.debugInfo.input_frame)
             fiberTraceSet.applyToMask(maskedImage.mask)
             display.mtv(maskedImage, "input")
+
         if self.config.fiberId:
+            fiberId = self.config.fiberId
+
+        if len(set(fiberId) ^ set(fiberTraceSet.fiberId)) != 0:  # i.e. we don't want all the traces
             # Extract only the fiberTraces we care about
-            num = sum(1 for ft in fiberTraceSet if ft.fiberId in self.config.fiberId)
+            num = sum(1 for ft in fiberTraceSet if ft.fiberId in fiberId)
             newTraces = drpStella.FiberTraceSet(num)
             for ft in fiberTraceSet:
-                if ft.fiberId in self.config.fiberId:
+                if ft.fiberId in fiberId:
                     newTraces.add(ft)
             fiberTraceSet = newTraces
-        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
+
+        if len(fiberTraceSet) != len(fiberId):
+            if len(fiberTraceSet) == 0:
+                raise RuntimeError("None of the desired fiberIds are in the fiberTraceSet")
+            else:
+                missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
+                raise RuntimeError(f"fiberIds {missing} are not in the fiberTraceSet")
+
+        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
+
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
 
@@ -98,6 +114,7 @@ class ExtractSpectraTask(pipeBase.Task):
         maskedImage: MaskedImage,
         fiberTraceSet: FiberTraceSet,
         detectorMap: Optional[DetectorMap] = None,
+        isBoxcar: Optional[bool] = False
     ) -> SpectrumSet:
         """Extract all spectra in the fiberTraceSet
 
@@ -111,6 +128,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Map of expected detector coordinates to fiber, wavelength.
             If provided, they will be used to normalise the spectrum
             and provide a rough wavelength calibration.
+        isBoxcar : `bool`
+            fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
 
         Returns
         -------
@@ -118,7 +137,15 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
+        if isBoxcar:
+            spectra = SpectrumSet(maskedImage.getHeight())
+            spectra.reserve(len(fiberTraceSet))
+            for ft in fiberTraceSet:
+                spectrum = ft.extractAperture(maskedImage, badBitMask)
+                spectra.add(spectrum)
+        else:
+            spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
+
         if detectorMap is not None:
             for spectrum in spectra:
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))

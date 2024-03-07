@@ -1,4 +1,5 @@
 import io
+import re
 import sys
 import importlib
 
@@ -7,7 +8,7 @@ import lsst.afw.fits
 
 from pfs.datamodel.utils import astropyHeaderFromDict
 
-__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions"]
+__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine"]
 
 
 def getPfsVersions(prefix="VERSION_"):
@@ -84,3 +85,32 @@ def metadataToHeader(metadata):
     for key in metadata.names():
         header[key] = metadata.get(key)
     return header
+
+
+def processConfigListFromCmdLine(cmdLineString):
+    """Handle setting lists of strings on the command line, converting a string to a list
+
+    E.g. "[AA, 'BB', CC]" -> ["AA", "BB", "CC"]  ("BB" is also supported)
+
+    Parameters
+    ----------
+    cmdLineString : `str`
+       The string to process
+
+    Returns
+    -------
+        The list if it fits the pattern, or the initial string otherwise
+    """
+    if cmdLineString and \
+       cmdLineString[0] == '[' and cmdLineString[-1] == ']':  # command line string line [A, B]
+        cmdLineString = "".join(cmdLineString[1:-1])
+        what = []
+        for el in cmdLineString.split(','):
+            mat = re.match(r"\s*[\"'](.*)[\"']\s*$", el)
+            if mat:
+                el = el.group(1)
+            what.append(el)
+
+        return what
+    else:
+        return cmdLineString

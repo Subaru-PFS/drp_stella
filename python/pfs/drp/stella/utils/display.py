@@ -397,7 +397,8 @@ def getCtypeFromReferenceLineDefault(line):
     return ctype
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, showLegend=True,
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None,
+                    showEngineering=False, showLegend=True,
                     lines=None, alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
 
@@ -435,6 +436,9 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     SuNSS = TargetType.SUNSS_IMAGING in pfsConfig.targetType
 
     showAll = False
+    if xcen is None and len(fiberIds) == 0:
+        xcen = 2000
+
     if xcen is None:
         if fiberIds is None:
             fiberIds = detMap.fiberId
@@ -460,7 +464,12 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         ls = '-'
         if fid in pfsConfig.fiberId:
             ind = pfsConfig.selectFiber([fid])
+            engineeringFiber = pfsConfig.targetType[ind] == TargetType.ENGINEERING
             imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
+
+            if engineeringFiber and not showEngineering:
+                continue
+
             if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
                 ls = ':'
                 color = 'cyan' if SuNSS and imagingFiber else 'magenta'

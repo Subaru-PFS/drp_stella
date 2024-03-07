@@ -80,18 +80,33 @@ def fitResiduals(fiberId, y, dz, fitType="linear", genericName=False):
     return fit, name
 
 
+def assembleTitle(title0, fitName, nFiber, nLine, lamErrMax, minSN):
+    title = f"{title0}" + (f"  correction: {fitName}" if fitName else "")
+
+    title += f"  {nFiber} fibers,"
+    if lamErrMax > 0:
+        title += f" %s < {lamErrMax}" % (r'$\sigma_\lambda$',)
+    if minSN > 0:
+        title += f" S/N > {minSN}"
+
+    title += f", {nLine} lines"
+
+    return title
+
+
 def plotArcResiduals(als,
                      detectorMap=None,
                      title="",
                      fitType="mean",
                      plotWavelength=True,
-                     byRow=True,        # plot dx and dy against row, not column
+                     byRow=None,        # plot dx and dy against row, not column.  True if byFiberId isn't set
+                     byFiberId=None,      # plot dx and dy against fiberId, not column (similar to row)
                      usePixels=True,    # report wavelength residuals in pixels, not nm
-                     isQuartz=False,    # It's a quartz exposure, not an arc
                      showChi=False,
                      vmin=-0.3, vmax=0.3,
-                     soften=0,
+                     soften=0,          # softening used for chi plots
                      lamErrMax=0,
+                     minSN=0,
                      hexBin=False,
                      gridsize=100,
                      linewidths=None,
@@ -110,15 +125,29 @@ def plotArcResiduals(als,
         indices = len(als.fiberId)//2
         dispersion = detectorMap.getDispersion(als.fiberId[indices], als.wavelength[indices])
 
+    if byRow is None:
+        if byFiberId is None:
+            byRow = True
+        else:
+            byRow = False
+            byFiberId = True
+    elif byRow and byFiberId:
+        print("Warning: ignoring byFiberId as byRow is True")
+
+    isQuartz = len(als.data[als.description != 'Trace']) == 0
+
     ll = (als.flag == False)   # centroider succeeded # noqa E712: als.flag is a numpy array
     if not isQuartz:
-        if lamErrMax > 0:
-            with np.testing.suppress_warnings() as suppress:
+        with np.testing.suppress_warnings() as suppress:
+            if lamErrMax > 0:
                 suppress.filter(RuntimeWarning, "invalid value encountered in less")
                 ll = np.logical_and(ll, als.lamErr < lamErrMax)
-        else:
-            # for some reason als.lam == als.wavelength for some lines with "good" fits
-            ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
+            else:
+                # for some reason als.lam == als.wavelength for some lines with "good" fits.  Traces??
+                ll &= (als.lam != als.wavelength) & (als.lamErr > 1e-3)
+
+            if minSN > 0:
+                ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
 
     fiberIds = np.array(sorted(set(als.fiberId)))
     nFiber = len(fiberIds)
@@ -136,12 +165,12 @@ def plotArcResiduals(als,
             dy = als.lamErr
             yUnit = "nm"
         else:
-            x = als.y if byRow else als.x
+            x = als.y if byRow else als.fiberId if byFiberId else als.x
             y = als.tracePos - als.x
             dy = als.xErr
             yUnit = "pixel"
 
-        fit, fiddle = fitResiduals(als.fiberId[ll], als.y[ll], y[ll], fitType=fitType)
+        fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], y[ll].to_numpy(), fitType=fitType)
         y[ll] -= fit
 
         if showChi:
@@ -153,6 +182,8 @@ def plotArcResiduals(als,
 
         if sum(ll) == 0:
             xlim = (np.NaN, np.NaN)
+        elif byFiberId:
+            xlim = plt.xlim(np.min(als.fiberId) - 1, np.max(als.fiberId) + 1)
         else:
             xlim = plt.xlim(0.95*np.nanmin(x[ll]), 1.05*np.nanmax(x[ll]))
 
@@ -178,7 +209,7 @@ def plotArcResiduals(als,
                 colorvec = np.where(np.isnan(colorvec), 0, colorvec.astype(int))
 
             color = plt.cm.Spectral(np.linspace(0.0, 1, max(colorvec) + 1))
-            plt.scatter(x[ll], y[ll], c=color[colorvec], marker='o',
+            plt.scatter(x[ll], y[ll], c=color[colorvec[ll]], marker='o',
                         alpha=max(0.1, 0.9 - 0.35*nFiber/250), edgecolors='none')
             plt.axhline(0, color="black", zorder=-1)
 
@@ -195,23 +226,23 @@ def plotArcResiduals(als,
             q1, q3 = np.nanpercentile(y[clippedL], [25, 75])
             rms = 0.741*(q3 - q1)
 
-        plt.xlabel("wavelength (nm)" if plotWavelength else ("row" if byRow else "column") + " (pixel)")
+        plt.xlabel("wavelength (nm)" if plotWavelength else ("fiberId" if byFiberId else
+                                                             ("row" if byRow else "column") + " (pixel)"))
         plt.ylabel(r"$\chi$" if showChi else
                    f"(measured - true) {f'wavelength ({yUnit})' if plotWavelength else 'position (pixels)'}")
 
         plt.title(f"rms = {rms:.3f}" +
                   (f" (soften = {soften}{yUnit})" if showChi else yUnit) +
-                  (f" (clipped {nsigma} sigma)" if nsigma > 0 else "") + f" correction: {fiddle}",
-                  color="red", y=0.90)
+                  (f" (clipped {nsigma} sigma)" if nsigma > 0 else ""), color="red", y=0.90)
 
     nFiber = len(set(als.fiberId))
+    nLine = sum(ll)//nFiber
+    title = assembleTitle(title, fitName, nFiber, nLine, lamErrMax, minSN)
 
-    title = f"{title}   {nFiber} fibers, %s < {lamErrMax} {sum(ll/nFiber):.0f} lines" % \
-        (r'$\sigma_\lambda$',)
     if isQuartz:
         plt.title(f"{axs[0].get_title()}\n{title}", color='black')
     else:
-        plt.suptitle(title, y=0.81)
+        plt.suptitle(title)
 
     return fig
 
@@ -219,8 +250,7 @@ def plotArcResiduals(als,
 
 
 def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
-                       maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0,
-                       isQuartz=False,  # It's a quartz exposure, not an arc
+                       maxCentroidErr=0.1, maxDetectorMapError=1, minSN=0, lamErrMax=0,
                        drawQuiver=True, arrowSize=0.1,
                        vmin=None, vmax=None, percentiles=[25, 75],
                        hexBin=False, gridsize=100, linewidths=None, figure=None):
@@ -228,6 +258,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
     fitType: "linear", "mean", "median" "per fiber"
     arrowSize: characteristic arrow length in pixels
     """
+    isQuartz = len(als.data[als.description != 'Trace']) == 0  # It's a quartz exposure, not an arc
+
     indices = len(als.fiberId)//2
     dx = als.tracePos - als.x
     if isQuartz:
@@ -243,6 +275,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         ll = np.logical_and(ll, np.hypot(dx, dy) < maxDetectorMapError)
         if minSN > 0:
             ll = np.logical_and(ll, als.intensityErr < als.intensity/minSN)
+        if lamErrMax > 0:
+            ll = np.logical_and(ll, als.lamErr < lamErrMax)
 
     indices = len(als.fiberId)//2
     dx = als.tracePos - als.x
@@ -253,7 +287,8 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
                                                                   als.wavelength[indices])
 
     for dz in [dx] if isQuartz else [dx, dy]:
-        fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], dz[ll], fitType=fitType, genericName=True)
+        fit, fitName = fitResiduals(als.fiberId[ll], als.y[ll], dz.to_numpy()[ll],
+                                    fitType=fitType, genericName=True)
         dz[ll] -= fit
 
     if drawQuiver:
@@ -314,7 +349,10 @@ def plotArcResiduals2D(als, detectorMap, title="", fitType="mean",
         cax = None if isQuartz else fig.add_axes([0.915, 0.243, 0.02, 0.505])
         plt.colorbar(cax=cax)
 
-    title = f"{title}" + (f"  correction: {fitName}" if fitName else "")
+    nFiber = len(set(als.fiberId))
+    nLine = sum(ll)//nFiber
+    title = assembleTitle(title, fitName, nFiber, nLine, lamErrMax, minSN)
+
     if isQuartz:
         plt.title(f"{axs[0].get_title()}\n{title}", color='black')
     else:

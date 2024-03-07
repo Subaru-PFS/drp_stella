@@ -14,6 +14,7 @@ from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from .blackSpotCorrection import BlackSpotCorrectionTask
 from . import FiberProfileSet
+from .utils import processConfigListFromCmdLine
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -71,6 +72,22 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         super().setDefaults()
         self.doCameraImage = False  # We don't produce 2D images
         self.adjustDetectorMap.minSignalToNoise = 0  # We don't measure S/N
+
+    def validate(self):
+        # Handle setting lists of strings on the command line
+        self.targetType = processConfigListFromCmdLine(self.targetType)
+
+        badTargetTypes = []
+        for tt in self.targetType:
+            try:
+                TargetType.fromString(tt)
+            except AttributeError:
+                badTargetTypes.append(tt)
+
+        if badTargetTypes:
+            raise ValueError(f"Unrecognised TargetTypes: {', '.join(badTargetTypes)}")
+
+        super().validate()
 
 
 class ConstructFiberProfilesTask(SpectralCalibTask):
