@@ -526,6 +526,9 @@ class ReduceExposureTask(CmdLineTask):
             kwargs.update(targetType=[TargetType.fromString(tt) for tt in self.config.targetType])
 
         select = pfsConfig.getSelection(**kwargs)
+        if not select.any():
+            raise RuntimeError(f"Selection {kwargs} returns no fibres for dataId "
+                               f"{'%(visit)d %(arm)s%(spectrograph)d}' % sensorRef.dataId}")
         need = set(pfsConfig.fiberId[select])
         haveDetMap = set(detectorMap.fiberId)
         missingDetMap = need - haveDetMap
