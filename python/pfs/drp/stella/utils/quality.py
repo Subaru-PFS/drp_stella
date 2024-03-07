@@ -7,7 +7,7 @@ from .guiders import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
-__all__ = ["momentsToABT", "showImageQuality"]
+__all__ = ["momentsToABT", "showImageQuality", "showCobraConvergence"]
 
 
 def momentsToABT(ixx, ixy, iyy):
@@ -32,7 +32,9 @@ def momentsToABT(ixx, ixy, iyy):
 def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
                      showFWHMHistogram=False, showFluxHistogram=False,
                      assembleSpectrograph=True,
-                     logScale=True, gridsize=100,
+                     minFluxPercentile=10,
+                     vmin=2.5, vmax=3.5,
+                     logScale=True, gridsize=100, stride=1,
                      butler=None, alsCache=None, figure=None):
     """
     Make QA plots for image quality
@@ -42,12 +44,15 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     showFWHM:    Show a 2-D image of the FWHM
     showFWHMHistogram:    Show a histogram of the FWHM
     showFluxHistogram:    Show a histogram of line fluxes
-    assembleSpectrograph: If true, and if more than one arm is present, arrange plots as brn columns
+    assembleSpectrograph: If true, merge visits and arrange plots as b[r,m]n columns
+    vmin, vmax:   Range for norm of FWHM plots (default: 2.0, 3.5)
+    minFluxPercentile: Minimum percentile of flux to include lines (per detector; default 10)
     logScale:    Show log histograme [default]
-    gridsize     Passed to hexbin (default: 100, the same as matplotlib)
-    butler       A butler to read data that isn't in the alsCache
-    alsCache     A dict to cache line shape data; returned by this function
-    figure       The figure to use; or None
+    gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
+    stride:      Stride when traversing fiberId (default: 1)
+    butler:      A butler to read data that isn't in the alsCache
+    alsCache:    A dict to cache line shape data; returned by this function
+    figure:      The figure to use; or None
 
     Typical usage would be something like:
 
@@ -72,27 +77,47 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram):
         showWhisker = True
 
+    if len(dataIds) == 0:
+        raise RuntimeError("Please provide some data for me to analyze")
+
     visits = sorted(set([dataId["visit"] for dataId in dataIds]))
     spectrographs = sorted(set([dataId["spectrograph"] for dataId in dataIds]))
-    arms = set([dataId["arm"] for dataId in dataIds])
-    if assembleSpectrograph and len(arms) > 1:
+    _arms = set([dataId["arm"] for dataId in dataIds])
+    arms = []
+    for a in "brmn":    # show the arms in this order
+        if a in _arms:
+            arms[0:0] = a
 
+    if assembleSpectrograph:
         ny = len(arms)
-        nx = len(spectrographs)*len(visits)
+        nx = len(spectrographs)
 
-        dataIds = []
-        for a in "nmrb":
-            if a in arms:
+        SMs = {}
+        for a in arms:
+            for s in spectrographs:
+                k = (a, s)
                 for v in visits:
-                    for s in spectrographs:
-                        dataIds.append(dict(visit=v, spectrograph=s, arm=a))
-        n = len(dataIds)
+                    if k not in SMs:
+                        SMs[k] = []
+
+                    if dict(visit=v, arm=a, spectrograph=s) in dataIds:
+                        SMs[k].append(v)
+
+        n = len(SMs)
     else:
         n = len(dataIds)
         ny = int(np.sqrt(n))
         nx = n//ny
         if nx*ny < n:
             ny += 1
+
+        SMs = {}
+        for dataId in dataIds:
+            v, s, a = dataId["visit"], dataId["spectrograph"], dataId["arm"]
+            k = (a, s)
+            if k not in SMs:
+                SMs[k] = []
+            SMs[k].append(v)
 
     fig, axs = plt.subplots(ny, nx, num=figure, sharex=True, sharey=True, squeeze=False, layout="constrained")
     axs = axs.flatten()
@@ -101,8 +126,10 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
         alsCache = {}
 
     for dataId in dataIds:
+        if dataId is None:
+            continue
         dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
-        if dataIdStr not in alsCache:
+        if dataIdStr not in alsCache or alsCache[dataIdStr] is None:
             if butler is None:
                 raise RuntimeError(f"I'm unable to read data for {dataIdStr} without a butler")
 
@@ -111,33 +138,84 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
             except dafPersist.NoResults:
                 detMap = butler.get("detectorMap", dataId)
 
-            alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('arcLines', dataId), detMap)
+            try:
+                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('arcLines', dataId), detMap)
+            except dafPersist.NoResults:
+                alsCache[dataIdStr] = None
 
-    for i, (ax, dataId) in enumerate(zip(axs, dataIds)):
+    # We need to fake SMs if we've been given a list of dataIds, but don't want to assemble
+    # them into a set of spectrographs
+    if assembleSpectrograph:
+        pass
+    else:
+        SMs = {}
+        for dataId in dataIds:
+            SMs[(dataId["arm"], dataId["spectrograph"], dataId["visit"])] = [dataId["visit"]]
+
+    C = None
+    for i, (ax, SM) in enumerate(zip(axs, SMs)):
         plt.sca(ax)
 
-        dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
+        a, s = SM[:2]
+        visits = SMs[SM]
+        if not visits:
+            ax.set_axis_off()
+            continue
+
+        v = visits[0]
+        dataIdStr = f"{v} {a}{s}"
         als = alsCache[dataIdStr]
+        if als is None:
+            continue
+
+        if len(visits) > 1:             # concatenate the sets of arcLines
+            als = als.data.copy()
+            for v in visits[1:]:
+                dataIdStr = f"{v} {a}{s}"
+                assert dataIdStr in alsCache
+
+                if alsCache[dataIdStr] is not None:
+                    als = pd.concat([als, alsCache[dataIdStr].data])
 
         ll = np.isfinite(als.xx + als.xy + als.yy)
+        if sum(ll) > 0:
+            traceOnly = False
+        else:
+            _ll = np.isfinite(als.xx)
+            if sum(_ll) > 0:            # we can use the trace widths
+                ll = _ll
+            traceOnly = True
 
-        a, b, theta = momentsToABT(als.xx, als.xy, als.yy)
-        r = np.sqrt(a*b)
-        fwhm = 2*np.sqrt(2*np.log(2))*r
+        if sum(ll) == 0:
+            ax.set_axis_off()
+            continue
+
+        if traceOnly:
+            a, b, theta = als.xx, np.NaN, np.NaN
+        else:
+            a, b, theta = momentsToABT(als.xx, als.xy, als.yy)
+            r = np.sqrt(a*b)
+            fwhm = 2*np.sqrt(2*np.log(2))*r
 
         if showWhisker or showFWHM:
-            q10 = np.nanpercentile(als.flux, [10])[0]
+            q10 = np.nanpercentile(als.flux, [minFluxPercentile])
+            if np.isnan(q10).any():     # nanpercentile returns NaN not [NaN] in case of problems grrr
+                q10 = [np.NaN]
+            q10 = q10[0]
 
-            ll = np.isfinite(als.xx + als.xy + als.yy)
+            ll = np.isfinite(als.xx if traceOnly else als.xx + als.xy + als.yy)
+            ll &= als.flag == False     # noqa: E712
             ll &= fwhm < 8
             ll &= als.flux > q10
-            ll &= (als.fiberId % 10) == 0
+            if stride > 1:
+                ll &= (als.fiberId % stride) == 0
+
+            norm = plt.Normalize(vmin, vmax)
 
             if showWhisker:
                 imageSize = 4096            # used in estimating scale
 
                 arrowSize = 4
-                norm = plt.Normalize(2, 4)
                 cmap = plt.colormaps["viridis"]
                 C = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 
@@ -148,7 +226,6 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
 
                 plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
             elif showFWHM:
-                norm = plt.Normalize(2.5, 3.5)
                 C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
             else:
                 raise RuntimeError("You can't get here")
@@ -174,7 +251,8 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
             if logScale:
                 plt.yscale("log")
 
-        plt.text(0.9, 1.02, dataIdStr, transform=ax.transAxes, ha='right')
+        txt = dataIdStr[-2:] if assembleSpectrograph else dataIdStr
+        plt.text(0.9, 1.02, txt, transform=ax.transAxes, ha='right')
 
     for i in range(n, nx*ny):
         axs[i].set_axis_off()
@@ -188,11 +266,14 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
         else:
             shrink = 1 if nx <= 2 else 0.93 if nx <= 4 else 0.85
 
-        fig.colorbar(C, shrink=shrink, label="FWHM (pixels)", ax=axs)
+        if C:
+            fig.colorbar(C, shrink=shrink, label="FWHM (pixels)", ax=axs)
 
     kwargs = {}
     if showWhisker and ny < nx:
         kwargs.update(y=0.76)
+    elif (showWhisker or showFWHM) and assembleSpectrograph:
+        kwargs.update(y=0.5 + (0.5/3)*ny)
 
     plt.suptitle(f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}", **kwargs)
 
