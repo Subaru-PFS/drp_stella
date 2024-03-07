@@ -107,9 +107,8 @@ class ReadLineListTask(Task):
 
         if len(self.config.lampElements) > 0:
             lampElements = set(self.config.lampElements)
-        else:
-            if lampInfoFromMetaData:
-                lampElements = lampInfoFromMetaData.lampElements
+        elif lampInfoFromMetaData:
+            lampElements = lampInfoFromMetaData.lampElements
 
         lines = ReferenceLineSet.empty()
         for ll in lightSources:
@@ -117,7 +116,8 @@ class ReadLineListTask(Task):
             if filename is not None:
                 lines.extend(ReferenceLineSet.fromLineList(filename))
 
-        lines = self.filterByLampElements(lines, lampElements)
+        if lampElements:
+            lines = self.filterByLampElements(lines, lampElements)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         self.filterDuplicates(lines)
