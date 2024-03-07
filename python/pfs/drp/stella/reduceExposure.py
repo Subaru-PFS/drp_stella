@@ -74,6 +74,9 @@ class ReduceExposureConfig(Config):
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
+    doBoxcarExtraction = Field(dtype=bool, default=False, doc="Extract with a boxcar of width boxcarWidth")
+    boxcarWidth = Field(dtype=float, default=5,
+                        doc="Extract with a boxcar of width boxcarWidth if doBoxcarExtraction is True")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -94,8 +97,10 @@ class ReduceExposureConfig(Config):
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
-    targetType = ListField(dtype=str, default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE"],
-                           doc="Target type for which to extract spectra")
+    targetType = ListField(dtype=str, default=["^ENGINEERING"],
+                           doc="""Target type for which to extract spectra
+N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` which is interpreted as
+"neither ENGINEERING nor UNASSIGNED"   (empty: `["^ENGINEERING"]`)""")
     windowed = Field(dtype=bool, default=False,
                      doc="Reduction of windowed data, for real-time acquisition? Implies "
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
@@ -116,6 +121,31 @@ class ReduceExposureConfig(Config):
 
         # Handle setting lists of strings on the command line
         self.targetType = processConfigListFromCmdLine(self.targetType)
+
+        #
+        # Parse the target types.  Note that types may start ^ to exclude that type
+        badTargetTypes = []
+        exclude = []                    # list of types to exclude
+        for tt in self.targetType:
+            if tt.startswith('^'):
+                exclude.append(tt[1:])
+                tt = tt[1:]
+            elif exclude and not tt.startswith('^'):
+                raise RuntimeError(f"If you exclude any type you must exclude all; saw {tt}")
+
+            try:
+                TargetType.fromString(tt)
+            except AttributeError:
+                badTargetTypes.append(tt)
+
+        if badTargetTypes:
+            raise ValueError(f"Unrecognised TargetTypes: {', '.join(badTargetTypes)}")
+
+        if exclude:
+            self.targetType = []
+            for tt in [str(_) for _ in TargetType]:
+                if tt not in exclude:
+                    self.targetType.append(tt)
 
         super().validate()
 
@@ -233,6 +263,7 @@ class ReduceExposureTask(CmdLineTask):
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
         """
+
         self.log.info("Processing %s", sensorRef.dataId)
 
         pfsConfig = sensorRef.get("pfsConfig")
@@ -246,17 +277,12 @@ class ReduceExposureTask(CmdLineTask):
         lsf = None
         skyImage = None
         sky2d = None
+
+        boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
         if self.config.useCalexp:
             if sensorRef.datasetExists("calexp"):
                 self.log.info("Reading existing calexp for %s", sensorRef.dataId)
                 exposure = sensorRef.get("calexp")
-                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
-                detectorMap = calibs.detectorMap
-                fiberTraces = calibs.fiberTraces
-                psf = exposure.getPsf()
-                lsf = sensorRef.get("pfsArmLsf")
-                refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
-                lines = sensorRef.get("arcLines") if sensorRef.datasetExists("arcLines") else None
             else:
                 self.log.warn("Not retrieving calexp, despite 'useCalexp' config, since it is missing")
 
@@ -267,34 +293,35 @@ class ReduceExposureTask(CmdLineTask):
             if self.config.doSkySwindle:
                 self.skySwindle(sensorRef, exposure.image)
 
-            calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+        calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig, boxcarWidth)
 
-            if self.config.doBackground:
-                bg = self.background.run(
-                    exposure.maskedImage, sensorRef.dataId["arm"], calibs.detectorMap, pfsConfig
-                )
-                sensorRef.put(bg, "background")
+        if self.config.doBackground:
+            bg = self.background.run(
+                exposure.maskedImage, sensorRef.dataId["arm"], calibs.detectorMap, pfsConfig
+            )
+            sensorRef.put(bg, "background")
 
-            if self.config.doMaskLines:
-                maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
-            if self.config.doRepair:
-                self.repairExposure(exposure)
+        if self.config.doMaskLines:
+            maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
+        if self.config.doRepair:
+            self.repairExposure(exposure)
 
-            detectorMap = calibs.detectorMap
-            fiberTraces = calibs.fiberTraces
-            refLines = calibs.refLines
-            lines = calibs.lines
-            apCorr = calibs.apCorr
-            psf = calibs.psf
-            lsf = calibs.lsf
+        detectorMap = calibs.detectorMap
+        fiberTraces = calibs.fiberTraces
+        refLines = calibs.refLines
+        lines = calibs.lines
+        apCorr = calibs.apCorr
+        pfsConfig = calibs.pfsConfig
+        psf = calibs.psf
+        lsf = calibs.lsf
 
-            if self.config.doSubtractSky2d:
-                self.log.warn("Performing 2D sky subtraction on single arm")
-                skyResults = self.subtractSky2d.run(
-                    [exposure], pfsConfig, [psf], [fiberTraces], [detectorMap], [lines], [apCorr]
-                )
-                skyImage = skyResults.imageList[0]
-                sky2d = skyResults.sky2d
+        if self.config.doSubtractSky2d:
+            self.log.warn("Performing 2D sky subtraction on single arm")
+            skyResults = self.subtractSky2d.run(
+                [exposure], pfsConfig, [psf], [fiberTraces], [detectorMap], [lines], [apCorr]
+            )
+            skyImage = skyResults.imageList[0]
+            sky2d = skyResults.sky2d
 
         metadata = exposure.getMetadata()
         versions = getPfsVersions()
@@ -320,7 +347,8 @@ class ReduceExposureTask(CmdLineTask):
             self.log.info("Extracting spectra from %(visit)d%(arm)s%(spectrograph)d", sensorRef.dataId)
             maskedImage = exposure.maskedImage
             fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
-            spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
+            spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId,
+                                              True if boxcarWidth > 0 else False).spectra
             original = spectra
 
             if self.config.doSubtractSpectra:
@@ -448,7 +476,7 @@ class ReduceExposureTask(CmdLineTask):
         with astropy.io.fits.open(filename) as fits:
             image.array -= fits["SKY"].data
 
-    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig):
+    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig, boxcarWidth=0):
         """Provide suitable spectral calibrations
 
         Parameters
@@ -459,6 +487,8 @@ class ReduceExposureTask(CmdLineTask):
             Image of spectra. Required for measuring a slit offset.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration. Required for measuring a slit offset.
+        boxcarWidth: `int`
+            Width of boxcar extraction; use fiberProfiles if <= 0
 
         Returns
         -------
@@ -467,7 +497,7 @@ class ReduceExposureTask(CmdLineTask):
         fiberProfiles : `pfs.drp.stella.FiberProfileSet`
             Profile for each fiber.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Trace for each fiber.
+            Trace for each fiber (defined as a boxcar if boxcarWidth > 0).
         refLines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines.
         lines : `pfs.drp.stella.ArcLineSet`
@@ -490,18 +520,20 @@ class ReduceExposureTask(CmdLineTask):
 
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
-        # Check that the calibs have the expected number of fibers
-        select = pfsConfig.getSelection(fiberStatus=FiberStatus.GOOD,
-                                        targetType=[TargetType.fromString(tt) for
-                                                    tt in self.config.targetType],
-                                        spectrograph=sensorRef.dataId["spectrograph"])
-        fiberId = pfsConfig.fiberId[select]
-        need = set(fiberId)
+        # Check that the detectorMap includes all the expected fibers
+        kwargs = dict(fiberStatus=FiberStatus.GOOD, spectrograph=sensorRef.dataId["spectrograph"])
+        if self.config.targetType:
+            kwargs.update(targetType=[TargetType.fromString(tt) for tt in self.config.targetType])
+
+        select = pfsConfig.getSelection(**kwargs)
+        need = set(pfsConfig.fiberId[select])
         haveDetMap = set(detectorMap.fiberId)
         missingDetMap = need - haveDetMap
         if missingDetMap:
             uri = sensorRef.getUri("detectorMap")
             raise RuntimeError(f"detectorMap ({uri}) does not include fibers: {list(sorted(missingDetMap))}")
+
+        pfsConfig = pfsConfig[select]
 
         fiberProfiles = None
         fiberTraces = None
@@ -510,15 +542,16 @@ class ReduceExposureTask(CmdLineTask):
             (self.config.doAdjustDetectorMap and len(refLines) > 0) or
             self.config.doExtractSpectra
         ):
-            fiberProfiles = sensorRef.get("fiberProfiles")
-            haveProfiles = set(fiberProfiles.fiberId)
-            missingProfiles = need - haveProfiles
-            if missingProfiles:
-                uri = sensorRef.getUri("fiberProfiles")
-                raise RuntimeError(
-                    f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
-                )
-            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+            if boxcarWidth <= 0 and sensorRef.datasetExists("fiberProfiles"):
+                fiberProfiles = sensorRef.get("fiberProfiles")
+
+            if fiberProfiles is None:
+                assert boxcarWidth > 0
+                fiberProfiles = FiberProfileSet.makeEmpty(None)
+                for fid in need:        # the Gaussian will be replaced by a boxcar, so params don't matter
+                    fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
+
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         lines = ArcLineSet.empty()
         traces = None
@@ -537,6 +570,7 @@ class ReduceExposureTask(CmdLineTask):
 
             if self.config.doAdjustDetectorMap:
                 if self.debugInfo.detectorMap:
+                    fiberId = pfsConfig.fiberId  # a set of fibres to display
                     display = Display(frame=1)
                     display.mtv(exposure)
                     detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
@@ -549,7 +583,7 @@ class ReduceExposureTask(CmdLineTask):
                         sensorRef.dataId["arm"],
                         seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
                     ).detectorMap
-                except FittingError as exc:
+                except (FittingError, RuntimeError) as exc:
                     if self.config.requireAdjustDetectorMap:
                         raise
                     self.log.warn("DetectorMap adjustment failed: %s", exc)
@@ -571,7 +605,7 @@ class ReduceExposureTask(CmdLineTask):
 
                 if fiberProfiles is not None:
                     # make fiberTraces with new detectorMap
-                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         sensorRef.put(detectorMap, "detectorMap_used")
 
@@ -599,7 +633,7 @@ class ReduceExposureTask(CmdLineTask):
                 sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
+                      pfsConfig=pfsConfig, refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
