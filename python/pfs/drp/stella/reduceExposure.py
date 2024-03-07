@@ -45,7 +45,9 @@ from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
 from .background import DichroicBackgroundTask
 from .arcLine import ArcLineSet
-from .utils.sysUtils import metadataToHeader, getPfsVersions
+from .fiberProfile import FiberProfile
+from .fiberProfileSet import FiberProfileSet
+from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -111,6 +113,10 @@ class ReduceExposureConfig(Config):
             self.doAdjustDetectorMap = False
             self.doMeasureLines = False
             self.isr.overscanFitType = "MEDIAN"
+
+        # Handle setting lists of strings on the command line
+        self.targetType = processConfigListFromCmdLine(self.targetType)
+
         super().validate()
 
 
