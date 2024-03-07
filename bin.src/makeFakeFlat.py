@@ -46,7 +46,7 @@ def makeFakeFlat(arm: str, spectrograph: int) -> ExposureF:
         calibDate="2000-01-01",
         calibTime="2000-01-01T00:00:00.0",
     )
-    setCalibHeader(header, "FLAT", [0], dataId)
+    setCalibHeader(header, "flat", [0], dataId)
     header.set("ARM", arm)
     header.set("SPECTROGRAPH", spectrograph)
     header.set("CALIB_INPUT_0", "FAKE")
