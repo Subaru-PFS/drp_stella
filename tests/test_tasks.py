@@ -41,6 +41,10 @@ class DummyDataRef:
         self.dataId = dict(visit=12345, arm="r", spectrograph=1, dateObs="2021-09-24",
                            taiObs="2021-09-24T19:58:59.0123456")
 
+    def datasetExists(self, name, **kwargs):
+        """Check if dataset exists"""
+        return name in self._inputs
+
     def get(self, name, **kwargs):
         """Get dataset from storage"""
         if name in self._inputs:
@@ -169,6 +173,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = True
         config.doSubtractSky2d = False
         config.doWriteCalexp = True
+        config.validate()
 
         task = ReduceExposureTask(config=config)
         task.log.setLevel(task.log.DEBUG)
