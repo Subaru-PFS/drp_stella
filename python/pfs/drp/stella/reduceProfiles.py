@@ -362,8 +362,6 @@ class ReduceProfilesTask(CmdLineTask):
 
         self.subtractDarks(data.exposure, data.detectorMap, darkList)
 
-        data.exposure.writeFits(f"input-{dataRef.dataId['visit']}.fits")
-
         return data
 
     def subtractDarks(
@@ -599,9 +597,6 @@ class ReduceProfilesTask(CmdLineTask):
         bgModel = self.background.run(exp).background
         bgImage = bgModel.getImage()
         bgImage /= self.getBackgroundScaling(exp.getInfo().getVisitInfo(), fiberId)
-
-        bgImage.writeFits("bgImage.fits")
-
         return bgImage
 
     def getBackgroundScaling(self, visitInfo: VisitInfo, fiberId: List[int]) -> float:
