@@ -61,8 +61,6 @@ class ReduceProfilesTaskRunner(TaskRunner):
         dataRefs = getDataRefs(parsedCmd.id.refList)
         normRefs = getDataRefs(parsedCmd.normId.refList, dataRefs, "norm")
         darkRefs = getDataRefs(parsedCmd.darkId.refList, dataRefs, "dark")
-        bgRefs = getDataRefs(parsedCmd.bgId.refList, dataRefs, "background")
-        bgDarkRefs = getDataRefs(parsedCmd.bgDarkId.refList, dataRefs, "background dark")
 
         targets = []
         for spectrograph in dataRefs:
@@ -72,13 +70,11 @@ class ReduceProfilesTaskRunner(TaskRunner):
                 dataList = sorted(dataRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 normList = sorted(normRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 darkList = sorted(darkRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
-                bgList = sorted(bgRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
-                bgDarkRefs = sorted(bgDarkRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 targetKwargs = dict(
                     normRefList=normList,
                     darkRefList=darkList,
-                    bgRefList=bgList,
-                    bgDarkRefList=bgDarkRefs,
+                    bgRefList=[],
+                    bgDarkRefList=[],
                     **kwargs,
                 )
                 targets.append((dataList, targetKwargs))
