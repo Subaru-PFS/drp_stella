@@ -117,7 +117,7 @@ class SyntheticConfig(Config):
     @property
     def fiberId(self):
         """Array of fiber identifiers"""
-        return np.arange(self.numFibers, dtype=np.int32)*10
+        return 1 + np.arange(self.numFibers, dtype=np.int32)*10
 
     @property
     def traceOffset(self):
