@@ -83,7 +83,8 @@ class ExtractSpectraTask(pipeBase.Task):
         if self.config.fiberId:
             fiberId = self.config.fiberId
 
-        if len(set(fiberId) ^ set(fiberTraceSet.fiberId)) != 0:  # i.e. we don't want all the traces
+        if fiberId is not None and \
+           len(set(fiberId) ^ set(fiberTraceSet.fiberId)) != 0:  # i.e. we don't want all the traces
             # Extract only the fiberTraces we care about
             num = sum(1 for ft in fiberTraceSet if ft.fiberId in fiberId)
             newTraces = drpStella.FiberTraceSet(num)
@@ -92,12 +93,12 @@ class ExtractSpectraTask(pipeBase.Task):
                     newTraces.add(ft)
             fiberTraceSet = newTraces
 
-        if len(fiberTraceSet) != len(fiberId):
+        if fiberId is not None and len(fiberTraceSet) != len(fiberId):
             if len(fiberTraceSet) == 0:
                 raise RuntimeError("None of the desired fiberIds are in the fiberTraceSet")
             else:
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
-                raise RuntimeError(f"fiberIds {missing} are not in the fiberTraceSet")
+                self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
 
