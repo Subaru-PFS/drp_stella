@@ -566,7 +566,6 @@ class ReduceExposureTask(CmdLineTask):
             if (
                 self.config.doForceTraces
                 or not lines
-                or "Continuum" in getLampElements(exposure.getMetadata())
             ):
                 traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
                 lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
