@@ -276,7 +276,12 @@ class FiberProfile:
         sigma = fwhmToSigma(fwhm)
         gaussian = np.exp(-0.5*(self.index/sigma)**2)
         if isinstance(self.profiles, np.ma.masked_array):
-            mask = Mask(np.where(self.profiles.mask, 0xFFFF, 0).astype(np.int32))
+            if isinstance(self.profiles.mask, np.bool_):
+                mask = Mask(
+                    np.full_like(self.profiles, 0xFFFF if self.profiles.mask else 0, dtype=np.int32)
+                )
+            else:
+                mask = Mask(np.where(self.profiles.mask, 0xFFFF, 0).astype(np.int32))
             image = makeMaskedImage(ImageF(self.profiles.data.astype(np.float32)), mask)
         else:
             image = makeMaskedImage(ImageF(self.profiles.astype(np.float32)))
