@@ -57,7 +57,7 @@ class FiberProfilesTestCase(lsst.utils.tests.TestCase):
             exposure, identity, detectorMap=detMap, pfsConfig=pfsConfig
         ).profiles
 
-        pp = profiles[20]
+        pp = profiles[21]
         print(pp.index)
         print(pp.profiles[0])
         pp.plot()

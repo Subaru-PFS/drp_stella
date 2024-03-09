@@ -63,7 +63,7 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
     def testGetitem(self):
         """Test __getitem__"""
         spectra = self.makeSpectra()
-        select = self.fiberId % 2 == 0
+        select = (self.fiberId - 1) % 2 == 0
         sub = spectra[select]
         self.assertEqual(len(sub), select.sum())
         for name in ("fiberId", "wavelength", "flux", "mask", "sky", "norm", "covar"):

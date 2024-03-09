@@ -525,7 +525,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
             Display(backend=display, frame=3).mtv(model, title="Model")
             Display(backend=display, frame=4).mtv(image, title="Chi image")
 
-        numSwaths = fiberProfiles[0].profiles.shape[0]
+        numSwaths = fiberProfiles[1].profiles.shape[0]
         numFibers = self.synth.numFibers
         numPixels = (2*self.config.profileRadius + 1)*self.config.profileOversample
 
