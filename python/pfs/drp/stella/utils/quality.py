@@ -358,6 +358,8 @@ def getFiducialConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
 
     if "pfi_center_x_mm" in tmp:
         print("No need to calculate pfi_center_x_mm in getFiducialConvergenceForVisit")
+    elif tmp.mcs_frame_id.nunique() == 0:
+        raise RuntimeError(f"No mcs_frame_ids are associated with pfs_visit_id {pfs_visit_id}")
     else:
         from pfs.utils.coordinates.transform import makePfiTransform
         with opdb:
