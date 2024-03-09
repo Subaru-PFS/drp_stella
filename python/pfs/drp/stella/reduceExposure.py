@@ -27,7 +27,6 @@ from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListFie
 from lsst.pipe.base import CmdLineTask, Struct
 from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
-from lsst.obs.pfs.utils import getLampElements
 from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask

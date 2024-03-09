@@ -1,7 +1,6 @@
 import lsstDebug
 from lsst.afw.display import Display
 from lsst.afw.image import ExposureF
-from lsst.obs.pfs.utils import getLampElements
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
 from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
