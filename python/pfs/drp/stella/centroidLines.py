@@ -42,7 +42,7 @@ class CentroidLinesConfig(Config):
     mask = ListField(
         dtype=str,
         default=["BAD", "SAT", "CR", "REFLINE", "NO_DATA"],
-        doc="Mask planes to ignore in trace removal",
+        doc="Mask planes to ignore in trace removal and peak finding",
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     shapes = ConfigField(dtype=ShapeConfig, doc="Shape measurement")
