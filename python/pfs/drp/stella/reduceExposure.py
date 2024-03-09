@@ -616,7 +616,7 @@ class ReduceExposureTask(CmdLineTask):
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
         else:
             psf = None
-            lsf = self.defaultLsf(sensorRef.dataId["arm"], detectorMap.fiberId, detectorMap)
+            lsf = self.defaultLsf(sensorRef.dataId["arm"], pfsConfig.fiberId, detectorMap)
 
         # Update photometry using best detectorMap, PSF
         apCorr = None
