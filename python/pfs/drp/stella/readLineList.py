@@ -111,10 +111,25 @@ class ReadLineListTask(Task):
             lampElements = lampInfoFromMetaData.lampElements
 
         lines = ReferenceLineSet.empty()
+        engineeringIlluminated = set()
+        scienceIlluminated = set()
         for ll in lightSources:
+            mat = re.search(r"^(.*)_eng$", ll)
+            if mat:
+                ll = mat.group(1)
+                engineeringIlluminated.add(ll)
+            else:
+                scienceIlluminated.add(ll)
+
             filename = self.config.lightSourceMap[ll]
             if filename is not None:
                 lines.extend(ReferenceLineSet.fromLineList(filename))
+
+        if engineeringIlluminated and scienceIlluminated:
+            diff = engineeringIlluminated.symmetric_difference(scienceIlluminated)
+            if diff:
+                self.log.warn("Both Engineering and Science fibres are illuminated but with different lamps: "
+                              "%s v. %s", engineeringIlluminated, scienceIlluminated)
 
         if lampElements:
             lines = self.filterByLampElements(lines, lampElements)
@@ -162,6 +177,10 @@ class ReadLineListTask(Task):
             return lines
         keep = []
         for component in sorted(lampElements):
+            mat = re.search(r"^(.*)_eng$", component)
+            if mat:
+                component = mat.group(1)
+
             if self._isSpeciesPattern.match(component):
                 # Component is a species. Perform a search for lines matching only this
                 keep += [ll for ll in lines if component == ll.description]
@@ -170,7 +189,8 @@ class ReadLineListTask(Task):
                 elementPattern = re.compile(f'^{component}[IVX]*$')
                 keep += [ll for ll in lines if elementPattern.match(ll.description)]
         speciesKept = {ll.description for ll in keep}
-        self.log.info("Filtered line lists, keeping species %s.", speciesKept)
+        self.log.info("Filtered line lists %s by %s, keeping species %s.",
+                      sorted({ll.description for ll in lines}), lampElements, speciesKept)
         return ReferenceLineSet.fromRows(keep)
 
     def filterByIntensity(self, lines):

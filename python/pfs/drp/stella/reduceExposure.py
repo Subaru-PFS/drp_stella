@@ -566,7 +566,6 @@ class ReduceExposureTask(CmdLineTask):
             if (
                 self.config.doForceTraces
                 or not lines
-                or "Continuum" in getLampElements(exposure.getMetadata())
             ):
                 traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
                 lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
@@ -617,7 +616,7 @@ class ReduceExposureTask(CmdLineTask):
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
         else:
             psf = None
-            lsf = self.defaultLsf(sensorRef.dataId["arm"], detectorMap.fiberId, detectorMap)
+            lsf = self.defaultLsf(sensorRef.dataId["arm"], pfsConfig.fiberId, detectorMap)
 
         # Update photometry using best detectorMap, PSF
         apCorr = None
