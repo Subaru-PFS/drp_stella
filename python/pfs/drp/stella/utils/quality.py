@@ -49,6 +49,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     minFluxPercentile: Minimum percentile of flux to include lines (per detector; default 10)
     logScale:    Show log histograme [default]
     gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
+                 If <= 0, use plt.scatter() instead
     stride:      Stride when traversing fiberId (default: 1)
     butler:      A butler to read data that isn't in the alsCache
     alsCache:    A dict to cache line shape data; returned by this function
@@ -226,7 +227,10 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
 
                 plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
             elif showFWHM:
-                C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
+                if gridsize <= 0:
+                    C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], s=5, norm=norm)
+                else:
+                    C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
             else:
                 raise RuntimeError("You can't get here")
 
@@ -270,10 +274,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
             fig.colorbar(C, shrink=shrink, label="FWHM (pixels)", ax=axs)
 
     kwargs = {}
-    if showWhisker and ny < nx:
+
+    if assembleSpectrograph:
+        kwargs.update(y={1: 1.0, 2: 0.8, 3: 1.0}.get(ny, 1))
+    elif showWhisker and ny < nx:
         kwargs.update(y=0.76)
-    elif (showWhisker or showFWHM) and assembleSpectrograph:
-        kwargs.update(y=0.5 + (0.5/3)*ny)
 
     plt.suptitle(f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}", **kwargs)
 
