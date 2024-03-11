@@ -542,7 +542,8 @@ class ReduceExposureTask(CmdLineTask):
         if (
             self.config.doMeasureLines or
             (self.config.doAdjustDetectorMap and len(refLines) > 0) or
-            self.config.doExtractSpectra
+            self.config.doExtractSpectra or
+            self.config.doMeasurePsf
         ):
             if boxcarWidth <= 0 and sensorRef.datasetExists("fiberProfiles"):
                 fiberProfiles = sensorRef.get("fiberProfiles")
@@ -553,7 +554,7 @@ class ReduceExposureTask(CmdLineTask):
                 for fid in need:        # the Gaussian will be replaced by a boxcar, so params don't matter
                     fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
 
-        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
+            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         lines = ArcLineSet.empty()
         traces = None
