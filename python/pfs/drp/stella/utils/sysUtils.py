@@ -13,7 +13,7 @@ from pfs.datamodel.utils import astropyHeaderFromDict
 from pfs.utils.coordinates.transform import makePfiTransform
 
 __all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine",
-           "pd_read_sql", "makePfiTransformFromOpdb"]
+           "pd_read_sql", "makePfiTransformFromOpdb", "DataId"]
 
 
 def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection,
@@ -180,3 +180,37 @@ def makePfiTransformFromOpdb(opdb, visitId, subVisitId=0):
     mpt.mcsDistort.setArgs([x0, y0, theta, dscale, scale2])
 
     return mpt
+
+
+class DataId(dict):
+    """A class to wrap a dataId dict, providing tab completion and a str method"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __str__(self):
+        return '%(visit)d %(arm)s%(spectrograph)d\n' % self
+
+    @property
+    def arm(self):
+        return self["arm"]
+
+    @arm.setter
+    def arm(self, value):
+        self["arm"] = value
+
+    @property
+    def spectrograph(self):
+        return self["spectrograph"]
+
+    @spectrograph.setter
+    def spectrograph(self, value):
+        self["spectrograph"] = value
+
+    @property
+    def visit(self):
+        return self["visit"]
+
+    @visit.setter
+    def visit(self, value):
+        self["visit"] = value
