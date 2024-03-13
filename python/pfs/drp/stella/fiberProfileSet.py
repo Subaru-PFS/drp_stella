@@ -254,7 +254,7 @@ class FiberProfileSet:
         """
         return self.visitInfo
 
-    def makeFiberTracesFromDetectorMap(self, detectorMap, boxcarWidth=0):
+    def makeFiberTracesFromDetectorMap(self, detectorMap, boxcarWidth=0, ignoreFiberId=[]):
         """Construct fiber traces using the detectorMap
 
         Parameters
@@ -264,15 +264,20 @@ class FiberProfileSet:
             xCenter of the trace as a function of detector row.
         boxcarWidth: `int`
             Width of boxcar extraction; use fiberProfiles if <= 0
+        ignoreFiberId: `list` of `int`
+            List (actually iterable) of fiberIds to ignore
 
         Returns
         -------
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         """
+        ignoreFiberId = set(ignoreFiberId)
+
         if boxcarWidth <= 0:
             rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
-            centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
+            centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for
+                       fiberId in self if fiberId not in ignoreFiberId}
             return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
         else:
             dims = detectorMap.getBBox().getDimensions()
@@ -280,7 +285,7 @@ class FiberProfileSet:
             fiberTraces = FiberTraceSet(len(detectorMap))
             norm = None
             for fiberId in detectorMap.fiberId:
-                if fiberId in self.fiberId:
+                if fiberId in self.fiberId and fiberId not in ignoreFiberId:
                     centers = detectorMap.getXCenter(fiberId)
 
                     if norm is None:
@@ -309,7 +314,8 @@ class FiberProfileSet:
         """
         traces = FiberTraceSet(len(self), self.metadata)
         for fiberId in self:
-            traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+            if fiberId in centers:
+                traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
         return traces
 
     def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.3):
