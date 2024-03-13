@@ -1,3 +1,4 @@
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -65,7 +66,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                      minFluxPercentile=10,
                      vmin=2.5, vmax=3.5,
                      logScale=True, gridsize=100, stride=1,
-                     butler=None, alsCache=None, title="", figure=None):
+                     butler=None, alsCache=None, title="%visits%", figure=None):
     """
     Make QA plots for image quality
 
@@ -79,12 +80,13 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     vmin, vmax:   Range for norm of FWHM plots (default: 2.0, 3.5)
     minFluxPercentile: Minimum percentile of flux to include lines (per detector; default 10)
     logScale:    Show log histograme [default]
-    gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
-                 If <= 0, use plt.scatter() instead
+    size:        Passed to hexbin (default: 100, the same as matplotlib)
+                 If <= 0, use plt.scatter() instead, with s=|size| if s < 0
     stride:      Stride when traversing fiberId (default: 1)
     useSN:       Use signal/noise rather than lg(flux) in showFWHMAgainstLambda plots
     butler:      A butler to read data that isn't in the alsCache
     alsCache:    A dict to cache line shape data; returned by this function
+    title:       The title; "%visits%" is replaced by the list of visits
     figure:      The figure to use; or None
 
     Typical usage would be something like:
@@ -258,8 +260,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
 
                 plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
             elif showFWHM:
-                if gridsize <= 0:
-                    C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], s=5, norm=norm)
+                if size <= 0:
+                    kwargs = {}
+                    if s < 0:
+                        kwargs["s"] = np.abs(size)
+                    C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], norm=norm, **kwargs)
                 else:
                     C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
             elif showFWHMAgainstLambda:
@@ -323,8 +328,8 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     elif showWhisker and ny < nx:
         kwargs.update(y=0.76)
 
-    if not title:
-        title = f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}"
+    title = re.sub("%visits%", f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}",
+                   title)
     plt.suptitle(title, **kwargs)
 
     return alsCache
