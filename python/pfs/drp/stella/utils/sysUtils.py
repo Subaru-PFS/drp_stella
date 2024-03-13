@@ -8,7 +8,8 @@ import lsst.afw.fits
 
 from pfs.datamodel.utils import astropyHeaderFromDict
 
-__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine"]
+__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine",
+           "DataId"]
 
 
 def getPfsVersions(prefix="VERSION_"):
@@ -114,3 +115,37 @@ def processConfigListFromCmdLine(cmdLineString):
         return what
     else:
         return cmdLineString
+
+
+class DataId(dict):
+    """A class to wrap a dataId dict, providing tab completion and a str method"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __str__(self):
+        return '%(visit)d %(arm)s%(spectrograph)d\n' % self
+
+    @property
+    def arm(self):
+        return self["arm"]
+
+    @arm.setter
+    def arm(self, value):
+        self["arm"] = value
+
+    @property
+    def spectrograph(self):
+        return self["spectrograph"]
+
+    @spectrograph.setter
+    def spectrograph(self, value):
+        self["spectrograph"] = value
+
+    @property
+    def visit(self):
+        return self["visit"]
+
+    @visit.setter
+    def visit(self, value):
+        self["visit"] = value
