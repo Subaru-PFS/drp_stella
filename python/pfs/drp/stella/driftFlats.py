@@ -1,52 +1,101 @@
+import warnings
 import numpy as np
 from scipy.optimize import brentq
 import matplotlib.pyplot as plt
 
 import lsst.afw.image as afwImage
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.drp.stella import DetectorMap, FiberProfile, FiberProfileSet, SpectrumSet
+from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from lsst.meas.algorithms.subtractBackground import SubtractBackgroundTask
 
 
 class DriftSet:
     """Handle a set of data used to generate a drift flat"""
-    
-    def __init__(self, name, home_visit, drift_visits, dxs=[(-150, 150)], ttype=TargetType.ENGINEERING):
+
+    def __init__(self, name, home_visit, drift_visits,
+                 dxs=[(-170, 40), (-40, 170)],
+                 dataIds=None,
+                 ttype=TargetType.ENGINEERING):
+        """
+        dataIds: the arm, spectrograph part of dataIds to process, e.g. ["b1", "r2", "n2", "r3"]
+        """
         self.name = name
         self.home_visit = home_visit
         self.drift_visits = drift_visits
         self.dxs = dxs
         self.ttype = ttype
-        self.xcs = None
-        self.fiberId = None
+        self.xcs = {}
+        self.fiberId = {}
         self.imageWidth = None
+
+        if dataIds is None:
+            dataIds = []
+            for a in "brn":
+                for s in [1, 2, 3, 4]:
+                    dataIds.append(self.key(a, s))
+        self.dataIds = dataIds
+
         # analysis arrays, indexed by the index into drift_visits
-        self.lefts = {}    # sets of left- and right-hand boundaries for each visit in self.drift_visits
-        self.rights = {}
-        self.driftedModels = {}
-        self.flats = {}
-        self.corrections = {}
-        self.profiles = {}
+        def makeDicts():
+            data = {}
+            for did in dataIds:
+                data[did] = {}
+
+            return data
+
+        self.lefts = makeDicts()          # sets of left-
+        self.rights = makeDicts()         # .   and right-hand boundaries for each visit in drift_visits
+        self.driftedModels = makeDicts()  # the models for each visit in drift_visits
+        self.flats = makeDicts()          # the flats for each visit in drift_visits
+        self.corrections = makeDicts()    # the per-visit flux correction for each visit in drift_visits
+        self.profiles = makeDicts()       # motion profiles for each fiber for each visit in drift_visits
+
+    @staticmethod
+    def key(dataId):
+        return f"{dataId['arm']}{dataId['spectrograph']}"
 
     def __len__(self):
         return len(self.drift_visits)
 
-#
-# E.g. 
-# driftSets = [DriftSet("ALF", 106654, [106638], [(-150, 150)]),
-#              DriftSet("Yuki-2024-03-10:2", 107396, [107417, 107418], [(-165, 35), (-35, 165)]),
-#             ]
-#
-# N.b. E.g. 
-# reduceExposure.py /work/drp --calib=/work/drp/CALIB --rerun=rhl/tmp \
-#       --id visit=107394..107396 \
-#        --config targetType=[ENGINEERING] isr.doDark=True isr.doIPC=False repair.doCosmicRay=False \
-#                 doBoxcarExtraction=True boxcarWidth=11 doMeasureLines=False doAdjustDetectorMap=False \
-#                 useCalexp=True
+    def __str__(self):
+        return f"\"{self.name}\" {self.home_visit} {self.drift_visits}"
 
-def driver(butler, driftSet, arm, spectrograph, step=0.5, doPlot=False):
+    def getVisits(self):
+        return [self.home_visit] + self.drift_visits
+
+    def getDataSets(self, getAll=False):
+        return [k for k, v in self.flats.items() if v or getAll]
+
+    def getArms(self, getAll=False):
+        return set({_[0] for _ in self.getDataSets(getAll)})
+
+    def getSpectrographs(self, getAll=False):
+        return set({int(_[1]) for _ in self.getDataSets(getAll)})
+
+    def __contains__(self, dataId):
+        return self.key(dataId) in self.getDataSets()
+
+
+def driver(butler, driftSet, arm, spectrograph, step=0.5, verbose=1, doPlot=False, doCalculateModel=True):
+    """
+    E.g.
+    driftSet = "Yuki-2024-03-11:SM2:1"
+    flat = driftFlats.driver(butler, driftSet, 'n', spectrograph=2)
+
+    N.b. E.g.
+    reduceExposure.py /work/drp --calib=/work/drp/CALIB --rerun=rhl/tmp \
+       --id visit=107478^107452^107465 \
+        --config targetType=[ENGINEERING] isr.doDark=True isr.doFlat=False \
+                 doBoxcarExtraction=True boxcarWidth=11 doMeasureLines=False doAdjustDetectorMap=False \
+                 useCalexp=True
+    """
+
     dataId = dict(visit=driftSet.home_visit, arm=arm, spectrograph=spectrograph)
+    key = driftSet.key(dataId)
+
+    if verbose:
+        print(f"read data for {'%(visit)d %(arm)s%(spectrograph)d' % dataId}")
 
     home = butler.get("calexp", dataId)
     homeDetMap = butler.get("detectorMap_used", dataId)
@@ -54,8 +103,11 @@ def driver(butler, driftSet, arm, spectrograph, step=0.5, doPlot=False):
                                                        targetType=driftSet.ttype)
     spec = butler.get("pfsArm", dataId)
 
-    print("buildFiberProfiles")
+    if verbose:
+        print("buildFiberProfiles")
     fiberProfiles, spectra = buildFiberProfiles(home, homeDetMap, pfsConfig, spec)
+    if verbose:
+        print("estimateScatteredLight")
     scatteredLight = estimateScatteredLight(home, homeDetMap, fiberProfiles, spectra)
 
     for vset in range(len(driftSet)):
@@ -65,27 +117,36 @@ def driver(butler, driftSet, arm, spectrograph, step=0.5, doPlot=False):
 
         exp.image -= scatteredLight
 
-        print(f"\t{vset} {dataId['visit']}  findSlitMotion")
-        findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles,
-                       doPlot=doPlot, title=f"{dataId}")
+        if verbose:
+            print(f"\t{vset} {dataId['visit']}  findSlitMotion")
+        findSlitMotion(driftSet, key, vset, exp, detMap, pfsConfig, fiberProfiles,
+                       verbose=verbose, doPlot=doPlot, title=f"{dataId}")
 
-        print(f"\t{vset} {dataId['visit']}  estimateTraceIllumination")
-        estimateTraceIllumination(driftSet, vset, exp, rowwidth=300)
+        if verbose:
+            print(f"\t{vset} {dataId['visit']}  estimateTraceIllumination")
+        estimateTraceIllumination(driftSet, key, vset, exp, rowwidth=300)
 
-        print(f"\t{vset} {dataId['visit']}  calculateModel")
-        calculateModel(driftSet, vset, home, homeDetMap, fiberProfiles, spectra, pfsConfig.fiberId, step,
-                       butler=butler, dataId=dataId)
+        if not doCalculateModel:
+            print(f"\t{vset} {dataId['visit']}  skipping calculateModel")
+        else:
+            print(f"\t{vset} {dataId['visit']}  calculateModel")
+            calculateModel(driftSet, key, vset, home, homeDetMap, fiberProfiles, spectra,
+                           pfsConfig.fiberId, step, verbose=verbose)
         #
         # Add the scattered light to the model
         #
-        driftedModel = driftSet.driftedModels[vset]
+        driftedModel = driftSet.driftedModels[key][vset]
         flux_drift = np.nansum(driftedModel.array)
         flux_home = np.nansum(home.image.array)
 
         driftedModel.array += scatteredLight.array*flux_drift/flux_home
 
         print(f"\t{vset} {dataId['visit']}  calculateOneDriftFlat")
-        calculateOneDriftFlat(driftSet, vset, exp)
+        calculateOneDriftFlat(driftSet, key, vset, exp)
+
+    flat, flats = mergeOneDriftFlats(driftSet, key, extra=15)
+
+    return flat
 
 
 def buildFiberProfiles(calexp, detMap, pfsConfig, spec):
@@ -146,8 +207,8 @@ class Profile:
         return self._n
 
 
-def findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles, rowwidth=200,
-                   doPlot=False, title=""):
+def findSlitMotion(driftSet, key, vset, exp, detMap, pfsConfig, fiberProfiles, rowwidth=200,
+                   verbose=0, doPlot=False, title=""):
     """Find the motion of the slit
 
     Supposed to be linear, but not well synchronised with the lamp turning on.
@@ -175,10 +236,10 @@ def findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles, rowwid
         plt.title(title)
 
     left, right = {}, {}
-    driftSet.lefts[vset], driftSet.rights[vset] = left, right
+    driftSet.lefts[key][vset], driftSet.rights[key][vset] = left, right
 
     for i, fid in enumerate(fiberProfiles.fiberId):
-        left[fid]  = np.NaN
+        left[fid] = np.NaN
         right[fid] = np.NaN
 
         fhole = pfsConfig.select(fiberId=fid).fiberHole[0]
@@ -188,7 +249,10 @@ def findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles, rowwid
         xc = detMap.getXCenter(fid, 2000)
         ixc = int(xc + 0.5)
 
-        lev = np.mean(profile[ixc - int(0.25*width):ixc + int(0.25*width)+1])
+        ixc0 = min([0, ixc - int(0.25*width)])
+        ixc1 = max([ixc + int(0.25*width)+1, driftSet.imageWidth])
+
+        lev = np.mean(profile[ixc0:ixc1])
 
         # Brent [a, b] for finding edges
         al, bl = max([0, xc + 1.05*dx[0]]), xc                                        # left side
@@ -204,10 +268,11 @@ def findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles, rowwid
             plt.plot([al, br], [prof.c, prof.c], color=f"C{i}")
 
         try:
-            left[fid]  = brentq(prof, al, bl) if al >= 0 else np.NaN            
+            left[fid]  = brentq(prof, al, bl) if al >= 0 else np.NaN  # noqa: E221
             right[fid] = brentq(prof, ar, br) if br < len(prof) - 1 else np.NaN
         except ValueError as e:
-            print(f"Failed for fiberId {fid}  (fiberHole {fhole}): {e}")
+            if verbose > 1:
+                print(f"Failed for fiberId {fid} (fiberHole {fhole}): {e}")
             continue
 
         if doPlot:
@@ -237,18 +302,21 @@ def findSlitMotion(driftSet, vset, exp, detMap, pfsConfig, fiberProfiles, rowwid
             dright[i] = drightbar
             right[fids[i]] = xc[i] + dright[i]
 
-    driftSet.xcs = xc
-    driftSet.fiberId = fids
+    driftSet.xcs[key] = xc
+    driftSet.fiberId[key] = fids
 
-    driftSet.profiles[vset] = profile
+    driftSet.profiles[key][vset] = profile
 
 
-def showTraceEdges(pfsConfig, driftSet, vset, doPlot=True, doPrint=True, title=""):
-    fids = driftSet.fiberId
-    left = driftSet.lefts[vset]
-    right = driftSet.rights[vset]
-    profile = driftSet.profiles[vset]
-    xc = driftSet.xcs
+def showTraceEdges(pfsConfig, driftSet, key, vset, doPlot=True, doPrint=True, title=""):
+    """
+    N.b. code duplication with the "real" code; refactor?
+    """
+    fids = driftSet.fiberId[key]
+    left = driftSet.lefts[key][vset]
+    right = driftSet.rights[key][vset]
+    profile = driftSet.profiles[key][vset]
+    xc = driftSet.xcs[key]
 
     dx = driftSet.dxs[vset]
     width = dx[1] - dx[0] + 1   # guess!
@@ -274,7 +342,10 @@ def showTraceEdges(pfsConfig, driftSet, vset, doPlot=True, doPrint=True, title="
             plt.axvline(xc[i], color=f"C{i}", label=f"{fid}", alpha=0.25)
 
             ixc = int(xc[i] + 0.5)
-            lev = np.mean(profile[ixc - int(0.25*width):ixc + int(0.25*width)+1])
+            ixc0 = min([0, ixc - int(0.25*width)])
+            ixc1 = max([ixc + int(0.25*width)+1, driftSet.imageWidth])
+
+            lev = np.mean(profile[ixc0:ixc1])
 
             al = max([0, xc[i] + 1.05*dx[0]])
             br = min([xc[i] + 1.05*dx[1], driftSet.imageWidth - 1])
@@ -289,16 +360,16 @@ def showTraceEdges(pfsConfig, driftSet, vset, doPlot=True, doPrint=True, title="
         plt.legend(ncol=2)
 
 
-def estimateTraceIllumination(driftSet, vset, exp, rowwidth=300):
+def estimateTraceIllumination(driftSet, key, vset, exp, rowwidth=300):
     """Estimate the correction to the effective illumination of each column
 
     We do this based on averaging the bands produced by the different fibres
     """
     profile = np.median(exp.image.array[2000-rowwidth//2:2000+rowwidth//2+1], axis=0)
 
-    fids = driftSet.fiberId
-    left = driftSet.lefts[vset]
-    right = driftSet.rights[vset]
+    fids = driftSet.fiberId[key]
+    left = driftSet.lefts[key][vset]
+    right = driftSet.rights[key][vset]
 
     width = []
     for fid in fids:
@@ -313,8 +384,6 @@ def estimateTraceIllumination(driftSet, vset, exp, rowwidth=300):
 
     correctionArr = np.full((len(fids), stripWidth), np.NaN)
     for i, fid in enumerate(fids):
-        #xc = detMap.getXCenter(fid, 2000)
-
         r0 = left[fid]
         r1 = r0 + stripWidth
 
@@ -338,18 +407,31 @@ def estimateTraceIllumination(driftSet, vset, exp, rowwidth=300):
         correctionArr[i, j0:j1] = pp
 
     correction = np.nanmedian(correctionArr, axis=0)
-    driftSet.corrections[vset] = correction
+
+    # Trim the left and right ends to be >= correction_min
+    correction_min = 0.99
+    for i in range(len(correction)):
+        if correction[i] >= correction_min:
+            i0 = i
+            break
+    for i in range(len(correction) - 1, 0, -1):
+        if correction[i] >= correction_min:
+            i1 = i
+            break
+
+    correction = correction[i0: i1 + 1]
+
+    driftSet.corrections[key][vset] = correction
 
 
-def calculateModel(driftSet, vset, calexp, detMap, fiberProfiles, spectra, fiberId, step=0.5,
-                   butler=None, dataId=None):
+def calculateModel(driftSet, key, vset, calexp, detMap, fiberProfiles, spectra, fiberId, step=0.5, verbose=0):
     """
     Calculate the model of the drifted fibres. This is the expensive step
 
 
     Note that we don't (now) assume that they move at a constant rate, but interpret the `correction` vector,
     derived from the column-to-column variation in brightness of the drift signal from each fibre,
-    as a measure of the position of the slit; this is used to calculate `dxs`.  
+    as a measure of the position of the slit; this is used to calculate `dxs`.
 
     It may be that in fact the light source is fluctuating, but this seems rather less likely, both a priori
     and because the pattern seems to be stable from run to run (check me!) and depend on the direction of
@@ -358,11 +440,11 @@ def calculateModel(driftSet, vset, calexp, detMap, fiberProfiles, spectra, fiber
     calexp: home_visit Exposure
     step:  pixels
 """
-    fids = driftSet.fiberId
-    correction = driftSet.corrections[vset]
-    left = driftSet.lefts[vset]
-    right = driftSet.rights[vset]
-    xc = driftSet.xcs
+    fids = driftSet.fiberId[key]
+    correction = driftSet.corrections[key][vset]
+    left = driftSet.lefts[key][vset]
+    right = driftSet.rights[key][vset]
+    xc = driftSet.xcs[key]
 
     ccorr = np.cumsum(2 - correction)  # i.e. flip the sign of (correction - 1)
     ccorr -= ccorr[0]
@@ -384,30 +466,22 @@ def calculateModel(driftSet, vset, calexp, detMap, fiberProfiles, spectra, fiber
         i_out = np.arange(0, len(dxs), step)
         dxs = np.interp(i_out, i_in, dxs)
 
-    spatialOffsets0 = detMap.getSpatialOffsets()
-    spectralOffsets0 = detMap.getSpectralOffsets()
+    spatialOffsets0 = detMap.getSpatialOffsets().copy()
+    spectralOffsets0 = detMap.getSpectralOffsets().copy()
 
     driftedModel = None
     for i, dx in enumerate(dxs):
-        print(f"\t\tdx: {dx:.1f} {int(100*i/(len(dxs) - 1))}%", end='\r', flush=True)
-        if butler is None:              # reset the DetectorMap; doesn't work (nor does detMap.clone())
-            detMap.setSlitOffsets(spatialOffsets0, spectralOffsets0)
-        else:
-            assert dataId is not None
-            detMap = butler.get("detectorMap_used", dataId)
+        if verbose:
+            print(f"\t\tdx: {dx:6.1f} {int(100*i/(len(dxs) - 1))}%", end='\r', flush=True)
+
+        detMap.setSlitOffsets(spatialOffsets0, spectralOffsets0)  # reset the DetectorMap
 
         bad = []
         for fid in fiberId:
-            if False and fid in [1303, 1953]:
-                continue
-
             if True:  # workaround inability to offset part of fibre off the chip
                 xCenter = detMap.getXCenter(fid) + dx
                 if np.min(xCenter) < 0 or np.max(xCenter) >= detMap.bbox.endX - 1:
                     bad.append(fid)
-                    if False and fid != 1953:
-                        print("RHL", bad)
-                        import pdb; pdb.set_trace() 
                 else:
                     detMap.setSlitOffsets(fid, detMap.getSpatialOffset(fid) + dx,
                                           detMap.getSpectralOffset(fid))
@@ -424,10 +498,11 @@ def calculateModel(driftSet, vset, calexp, detMap, fiberProfiles, spectra, fiber
         image = spectra.makeImage(calexp.getDimensions(), fts)
         if driftedModel is None:
             driftedModel = image
-            driftSet.driftedModels[vset] = driftedModel
+            driftSet.driftedModels[key][vset] = driftedModel
         else:
             driftedModel += image
 
+    detMap.setSlitOffsets(spatialOffsets0, spectralOffsets0)
     print("")
 
     driftedModel /= len(dxs)
@@ -435,127 +510,45 @@ def calculateModel(driftSet, vset, calexp, detMap, fiberProfiles, spectra, fiber
     driftedModel.array[driftedModel.array == 0] = np.NaN
 
 
-def calculateOneDriftFlat(driftSet, vset, exp):
+def calculateOneDriftFlat(driftSet, key, vset, exp):
     """Calculate the flat from a single drift exposure
     """
 
     flat = exp.clone()
-    driftSet.flats[vset] = flat
+    driftSet.flats[key][vset] = flat
 
-    driftedModel = driftSet.driftedModels[vset]
+    driftedModel = driftSet.driftedModels[key][vset]
 
     flat.image /= driftedModel
-    flat.image /= np.nanmedian(flat.image.array[:, np.nanmedian(driftedModel.array, axis=0) > 10])
+    flat.image /= np.nanmedian(flat.image.array)
 
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def mergeOneDriftFlats(driftSet, margin=3):
-    ncol = driftSet.imageWidth
-    nflat = len(driftSet.drift_visits)
-    overlaps = np.zeros((nflat, ncol), dtype=int)
-    fids = np.zeros_like(overlaps)
+def mergeOneDriftFlats(driftSet, key, extra=15):
+    nflat = len(driftSet.driftedModels[key])
 
-    for vs in range(nflat):
-        for i, (fid, l, r) in enumerate(zip(driftSet.lefts[vs],
-                                            driftSet.lefts[vs].values(), driftSet.rights[vs].values()), 1):
-            il, ir = int(l), int(r)
-            il = min(il + margin, ncol - 1)
-            ir = max(0, ir - margin)
-
-            overlaps[vs, il:ir+1] = 2**vs
-            fids[vs, il:ir+1] = fid
-
-            if False and vs == 0:
-                print(fid, il, ir)
-
-    overlaps = np.sum(overlaps, axis=0)
-
-    # ends of ranges of overlapping columns ("blocks") from the drift_visits
-    endblock = np.arange(1, ncol)[np.diff(overlaps) != 0]
-    endblock = np.append(endblock, ncol)
-
-    nblock = len(endblock)
-
-    # the median values in each vset for the range of columns in a block
-    block_data = np.empty((nflat, nblock))
-    block_fids = np.empty((nflat, nblock), dtype=int)
-    start_end = np.empty((2, nblock), dtype=int)
-
-    start = 0
-    for i, end in enumerate(endblock):
-        for vs in range(nflat):
-            im = driftSet.flats[vs].image.array[1000:3000, start:end]
-            block_data[vs, i] = np.nanmedian(im)
-
-            fid = set(fids[vs][start:end])
-            if len(fid) != 1:
-                if set(fid).difference({1618, 1638}):
-                    print(fid)
-
-            block_fids[vs, i] = list(fid)[0]
-            start_end[:, i] = (start, end)
-
-        start = end
-
-    if False:
-        for i, end in enumerate(endblock):
-            j = i//nflat
-            if len([_ for _ in block_fids[:, i] if _ > 0]) > 1:
-                start, end = start_end[:, i]
-                print(f"{j:3d} {start:4d}:{end:4d}  {block_fids[:, i]} {block_data[:, i]}")
-
-    flats = driftSet.flats.copy()
+    flats = driftSet.flats[key].copy()
     for i in range(nflat):
-        flats[i] = driftSet.flats[i].clone()
-
-    assert nflat == 2   # I haven't thought the general case through (yet?)
-
-    for i in range(1, nblock, 2):
-        j = i//2
-
-        if j%2 == 0:
-            vset = 1
-            factor = block_data[0, i]/block_data[1, i]
-        else:
-            vset = 0
-            factor = block_data[1, i]/block_data[0, i]
-
-        # Update the scaling for the flat from visits vset
-        for di in range(3):
-            if i + di < nblock:
-                block_data[vset, i + di] *= factor
-
-        i1 = i + 1 if i + 1 < nblock else i
-        i2 = i + 2 if i + 2 < nblock else i
-        fid = set([block_fids[:, i][vset], block_fids[:, i1][vset], block_fids[:, i2][vset]])
-        # handle the centre where multiple fibres overlap.  Or really, avoid the question
-        if fid.difference({1618, 1638}):
-            if 0 in fid:
-                continue
-            #assert len(fid) == 1, f"{fid} {block_fids[:, i][vset]}"
-        else:
-            fid = [block_fids[:, i][vset]]
-
-        fid = list(fid)[0]
-        assert fid == block_fids[:, i][vset], f"{j}: {fid} == {block_fids[:, i]}[0]"
-
-        start, end = int(driftSet.lefts[vset][fid]), int(driftSet.rights[vset][fid])
-        flats[vset].image.array[:, start:end] *= factor
+        flats[i] = driftSet.flats[key][i].clone()
 
     #  avoid extra pixels in the region near the left/right edges where the profile's rolling off
-    extra = 15
-    margin += extra                     # margin eats into the "flat topped" region
-    margin = 3 + extra
+
+    margin = 3
     for vset in range(nflat):
-        for l, r in zip(driftSet.lefts[vset].values(), driftSet.rights[vset].values()):
-            il = max([int(l) - extra, 0])
-            ir = min([int(r) + extra, driftSet.imageWidth - 1])
+        for left, right in zip(driftSet.lefts[key][vset].values(), driftSet.rights[key][vset].values()):
+            il, ir = int(left + margin), int(right - margin)
 
-            flats[vset].image.array[:, il:il + margin] = np.NaN
-            flats[vset].image.array[:, ir - margin:ir] = np.NaN
+            ile = max([il - extra, 0])
+            ire = min([ir + extra, driftSet.imageWidth - 1])
+            il = max([il, 0])
+            ir = min([ir, driftSet.imageWidth - 1])
 
-    flat = np.nanmedian(np.array([_.image.array for _ in flats.values()]), axis=0).astype(np.float32)
+            flats[vset].image.array[:, ile:il] = np.NaN
+            flats[vset].image.array[:, ir:ire] = np.NaN
 
-    return afwImage.ImageF(flat), flats, start_end, endblock, block_data
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)  # All-NaN slice encountered
+        flat = np.nanmedian(np.array([_.image.array for _ in flats.values()]), axis=0).astype(np.float32)
 
+    flat /= np.nanmedian(flat)
 
+    return afwImage.ImageF(flat), flats
