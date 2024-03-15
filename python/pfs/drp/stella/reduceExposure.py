@@ -311,7 +311,19 @@ class ReduceExposureTask(PipelineTask):
         spectralOffset = self.config.spectralOffset
         if spatialOffset != 0.0 or spectralOffset != 0.0:
             self.log.info("Adjusting detectorMap slit offset by %f,%f", spatialOffset, spectralOffset)
-            detectorMap.applySlitOffset(spatialOffset, spectralOffset)
+
+            if False:                    # runs afoul of PIPE2D-1396
+                detectorMap.applySlitOffset(spatialOffset, spectralOffset)
+            else:
+                bad = []
+                for fid in detectorMap.fiberId:
+                    xCenter = detectorMap.getXCenter(fid) + spatialOffset  # should check spectralOffset too
+                    if np.min(xCenter) < 0 or np.max(xCenter) >= detectorMap.bbox.endX - 1:
+                        bad.append(fid)
+                    else:
+                        detectorMap.setSlitOffsets(fid,
+                                                   detectorMap.getSpatialOffset(fid) + spatialOffset,
+                                                   detectorMap.getSpectralOffset(fid) + spectralOffset)
 
         check = self.checkPfsConfig(pfsConfig, detectorMap, spectrograph)
         pfsConfig = check.pfsConfig
