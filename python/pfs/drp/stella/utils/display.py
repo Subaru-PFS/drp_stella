@@ -7,6 +7,7 @@ import matplotlib.transforms as transforms
 import lsst.geom as geom
 import lsst.afw.detection as afwDetect
 import lsst.afw.display.utils as afwDisplayUtils
+import lsst.pex.exceptions as pexExceptions
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 from pfs.drp.stella.referenceLine import ReferenceLineStatus
@@ -525,7 +526,12 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         else:
             color = 'green' if SuNSS and imagingFiber else 'red'
 
-        fiberX = detMap.getXCenter(fid, height//2)
+        try:
+            fiberX = detMap.getXCenter(fid, height//2)
+        except pexExceptions.LengthError as e:
+            print(e)
+            continue
+
         if showAll or (fiberIds is not None and len(fiberIds) > 1) or np.abs(fiberX - xcen) < width/2:
             fiberX = detMap.getXCenter(fid)
             plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
