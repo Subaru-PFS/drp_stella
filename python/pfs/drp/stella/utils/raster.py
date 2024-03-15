@@ -951,7 +951,37 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
 
 
 class ShowCobra:
-    """Show a cobraId and possibly fiberId on right-click"""
+    """Show a cobraId and possibly other information on right-click
+
+    pfi is the "moduleXml" returned by the pfi_instdata butler.
+
+    Other information depends on whether the GrandFiberMap gfm and pfsConfig are provided:
+       from pfs.utils.fiberids import FiberIds
+       pbutler = pButler(configRoot=os.path.join(os.environ["PFS_INSTDATA_DIR"], "data"))
+
+       pfi = pbutler.get('moduleXml', moduleName='ALL', version='')
+       gfm = FiberIds()
+
+    gfm  pfsConfig  Show
+    No   No         cobraId
+    Yes  No         cobraId  fiberId  MTP
+    Yes  Yes        cobraId  fiberId  (ra, dec)
+
+
+    To debug callbacks, a class
+    class Event:
+        def __init__(self, x, y):
+            self.button = 3
+            self.xdata = x
+            self.ydata = y
+
+    is handy, and the ShowCobra callback records the current text (msg) and any exceptions:
+
+    callback = addCobraIdCallback(plt.gcf(), pfi, ...)
+
+    callback(Event(-101, -84))
+    callback.exception
+    """
 
     def __init__(self, ax, pfi, gfm=None, pfsConfig=None, textcolor='white', showMTP=False):
         self.ax = ax
@@ -1018,6 +1048,9 @@ class ShowCobra:
                         ll = self.pfsConfig.fiberId == self.fiberId
                         self.ra, self.dec = self.pfsConfig.ra[ll][0], self.pfsConfig.dec[ll][0]
                         self.msg += f" ({self.__alpha},{self.__delta})=({self.ra:7.4f}, {self.dec:7.4f})"
+                    else:
+                        MTP = self.gfm.fiberIdToMTP([self.fiberId], self.pfsConfig)[0][0]
+                        self.msg += f" MTP {MTP}"
 
                 self.circle = Circle((x, y), 2, facecolor=None, edgecolor=cobraColor, fill=False, alpha=1)
                 self.ax.add_patch(self.circle)
@@ -1031,7 +1064,10 @@ class ShowCobra:
 
 
 def addCobraIdCallback(fig, pfi, gfm=None, pfsConfig=None, textcolor='white', showMTP=False):
-    """Add a callback to """
+    """Add a callback to show e.g. the cobraId
+
+    See ShowCobra docs
+    """
 
     onclick = ShowCobra(fig.gca(), pfi, gfm, pfsConfig, textcolor=textcolor, showMTP=showMTP)
     fig.canvas.mpl_connect('button_press_event', onclick)
