@@ -271,7 +271,7 @@ def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords
     with opdb:
         tmp = pd_read_sql(f'''
            SELECT
-               agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
+               agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id, agc_exposure.agc_exptime,
                agc_match.guide_star_id, agc_match.agc_camera_id,
                agc_match.flags as agc_match_flags,
                agc_nominal_x_mm, agc_nominal_y_mm,
