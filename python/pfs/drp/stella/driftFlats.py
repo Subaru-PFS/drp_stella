@@ -477,17 +477,17 @@ def calculateModel(driftSet, key, vset, calexp, detMap, fiberProfiles, spectra, 
         detMap.setSlitOffsets(spatialOffsets0, spectralOffsets0)  # reset the DetectorMap
 
         bad = []
-        for fid in fiberId:
-            if True:  # workaround inability to offset part of fibre off the chip
+        if True:  # workaround inability to offset part of fibre off the chip; PIPE2D-1396
+            for fid in fiberId:
                 xCenter = detMap.getXCenter(fid) + dx
                 if np.min(xCenter) < 0 or np.max(xCenter) >= detMap.bbox.endX - 1:
                     bad.append(fid)
                 else:
                     detMap.setSlitOffsets(fid, detMap.getSpatialOffset(fid) + dx,
                                           detMap.getSpectralOffset(fid))
-            else:
-                detMap.setSlitOffsets(fid, detMap.getSpatialOffset(fid) + dx,
-                                      detMap.getSpectralOffset(fid))
+        else:
+            # NOT TESTED
+            detMap.setSlitOffsets(detMap.getSpatialOffsets() + dx, detMap.getSpectralOffsets())
 
         try:
             fts = fiberProfiles.makeFiberTracesFromDetectorMap(detMap, ignoreFiberId=bad)
