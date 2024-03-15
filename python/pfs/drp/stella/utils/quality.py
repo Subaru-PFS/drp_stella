@@ -502,7 +502,7 @@ def prepConvergenceData(cobraData, cobraIds, maxError, maxFinalError, relativeTo
 
 
 def showCobraConvergence(cobraData, cobraIds, fiducialData=None, fiducialIds=None, relativeToTarget=False,
-                         iteration0=0,
+                         iteration0=0, iterationN=-1,
                          keyLength=10,
                          maxError=25,
                          maxFinalError=0,
@@ -510,7 +510,10 @@ def showCobraConvergence(cobraData, cobraIds, fiducialData=None, fiducialIds=Non
                          title="",
                          figure=None):
     """
-    pandas dataframe as returned by getConvergenceForVisit()
+    cobraData: pandas dataframe as returned by getConvergenceForVisit()
+    cobraIds:
+    iteration0: start of range of iterations to use (default: 0)
+    iterationN: end of range of iterations to use (default: -1)
     relativeToTarget: show position relative to target, rather than mean, position
     keyLength:  Length of arrow in the key, in microns
     maxError:  Ignore cobras with a maximum error larger than this (microns)
@@ -520,7 +523,7 @@ def showCobraConvergence(cobraData, cobraIds, fiducialData=None, fiducialIds=Non
     """
     allCobraData = cobraData
 
-    iterations = cobraData.iteration.unique()[iteration0:]
+    iterations = cobraData.iteration.unique()[iteration0:iterationN]
     nIteration = len(iterations)
 
     cobraData = prepConvergenceData(cobraData, cobraIds, maxError, maxFinalError, relativeToTarget,
