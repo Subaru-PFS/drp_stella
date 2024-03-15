@@ -104,8 +104,10 @@ class ReduceExposureConfig(Config):
     doWriteCalexp = Field(dtype=bool, default=True, doc="Write corrected frame?")
     doWriteLsf = Field(dtype=bool, default=True, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
-    usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
-    useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
+    usePostIsrCcd = Field(dtype=bool, default=False,
+                          doc="Use existing postISRCCD, if available?  See also useCalexp")
+    useCalexp = Field(dtype=bool, default=False,
+                      doc="Use existing calexp, if available? N.b. overrides usePostIsrCcd")
     targetType = ListField(dtype=str, default=["^ENGINEERING"],
                            doc="""Target type for which to extract spectra
 N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` which is interpreted as
@@ -538,7 +540,19 @@ class ReduceExposureTask(CmdLineTask):
         spectralOffset = self.config.spectralOffset
         if spatialOffset != 0.0 or spectralOffset != 0.0:
             self.log.info("Adjusting detectorMap slit offset by %f,%f", spatialOffset, spectralOffset)
-            detectorMap.applySlitOffset(spatialOffset, spectralOffset)
+
+            if False:                    # runs afoul of PIPE2D-1396
+                detectorMap.applySlitOffset(spatialOffset, spectralOffset)
+            else:
+                bad = []
+                for fid in detectorMap.fiberId:
+                    xCenter = detectorMap.getXCenter(fid) + spatialOffset  # should check spectralOffset too
+                    if np.min(xCenter) < 0 or np.max(xCenter) >= detectorMap.bbox.endX - 1:
+                        bad.append(fid)
+                    else:
+                        detectorMap.setSlitOffsets(fid,
+                                                   detectorMap.getSpatialOffset(fid) + spatialOffset,
+                                                   detectorMap.getSpectralOffset(fid) + spectralOffset)
 
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
