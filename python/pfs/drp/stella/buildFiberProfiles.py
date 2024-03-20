@@ -51,6 +51,7 @@ class BuildFiberProfilesConfig(Config):
     profileTol = Field(dtype=float, default=1.0e-4, doc="Tolerance for matrix inversion when fitting profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
+    minFracMask = Field(dtype=float, default=0.1, doc="Minimum pixel fraction of profile to accumulate mask")
 
 
 class BuildFiberProfilesTask(Task):
@@ -196,7 +197,32 @@ class BuildFiberProfilesTask(Task):
             raise RuntimeError(f"Length mismatch for exposures ({len(imageList)}) and "
                                f"pfsConfigs ({len(pfsConfigList)})")
 
-        rows = np.arange(0, dims.getY(), dtype=float)
+        height = dims.getY()
+        rows = np.arange(0, height, dtype=float)
+
+        dummy = FiberProfile.makeGaussian(
+            fwhmToSigma(self.config.extractFwhm),
+            height,
+            self.config.profileRadius,
+            self.config.profileOversample,
+        )
+
+        def replaceBadFibers(fiberId: np.ndarray, profiles: FiberProfileSet, normList: List[np.ndarray]):
+            """Replace profiles of bad fibers
+
+            This works around inaccuracies in the pfsConfigs, where we're told
+            a fiber is illuminated when it's not, or vice versa.
+            """
+            for ii, ff in enumerate(fiberId):
+                maxFlux = max(np.nanmedian(nn[ii]) for nn in normList)
+                if maxFlux < self.config.findThreshold:
+                    self.log.info(
+                        "Replacing profile for fiber %d (maxFlux = %f < findThreshold = %f)",
+                        ff,
+                        maxFlux,
+                        self.config.findThreshold,
+                    )
+                    profiles[ff].profiles[:] = dummy.profiles[0, np.newaxis]
 
         centersList: List[np.ndarray] = []
         normList: List[np.ndarray] = []
@@ -210,15 +236,17 @@ class BuildFiberProfilesTask(Task):
                 fibers = set(centers.keys())
             elif set(centers.keys()) != fibers:
                 raise RuntimeError(f"FiberId mismatch: {set(centers.keys())} vs {fibers}")
-            centersArray = np.empty((len(centers), image.getHeight()), dtype=float)
+            centersArray = np.empty((len(centers), height), dtype=float)
             norm = np.zeros_like(centersArray, dtype=np.float32)
-            prof = FiberProfile.makeGaussian(fwhmToSigma(self.config.extractFwhm), image.getHeight(),
-                                             self.config.profileRadius, self.config.profileOversample)
             badBitMask = image.mask.getPlaneBitMask(self.config.mask)
-            for ii, ff in enumerate(sorted(centers.keys())):
-                centersArray[ii] = centers[ff](rows)
-                spectrum = prof.extractSpectrum(image, detectorMap, ff, badBitMask)
-                norm[ii] = spectrum.flux
+            for jj, ff in enumerate(sorted(centers.keys())):
+                centersArray[jj] = centers[ff](rows)
+                spectrum = dummy.extractSpectrum(image, detectorMap, ff, badBitMask, self.config.minFracMask)
+                flux = spectrum.flux
+                isBad = (spectrum.mask.array[0] & badBitMask) != 0
+                if np.any(isBad):
+                    flux[isBad] = np.interp(rows[isBad], rows[~isBad], flux[~isBad], 0.0, 0.0)
+                norm[jj] = flux
 
             centersList.append(centersArray)
             normList.append(norm)
@@ -227,7 +255,8 @@ class BuildFiberProfilesTask(Task):
             raise RuntimeError("No fibers")
         fiberId = np.array(list(sorted(fibers)), dtype=int)
 
-        self.log.info("Starting initial profile extraction...")
+        self.log.info("Starting initial profile extraction (sigma=%f)...",
+                      fwhmToSigma(self.config.extractFwhm))
         profiles = FiberProfileSet.fromImages(
             identity,
             imageList,
@@ -245,11 +274,14 @@ class BuildFiberProfilesTask(Task):
             exposureList[0].getMetadata(),
         )
 
+        replaceBadFibers(fiberId, profiles, normList)
+
         if self.debugInfo.plotProfile:
             for pp in profiles:
                 pp.plot()
 
         # Iterate with the revised profiles
+        fiberIndices = {ff: ii for ii, ff in enumerate(fiberId)}
         for ii in range(self.config.extractIter):
             # Generate profiles with which to measure the flux
             # These are Gaussian approximations to the profiles we've measured, to remove any nastiness in the
@@ -260,16 +292,22 @@ class BuildFiberProfilesTask(Task):
             sigma = np.median(np.sqrt(width[select]))
             for ff in profiles:
                 fluxProfiles[ff] = FiberProfile.makeGaussian(
-                    sigma, image.getHeight(), self.config.profileRadius, self.config.profileOversample
+                    sigma, height, self.config.profileRadius, self.config.profileOversample
                 )
 
             for jj in range(num):
                 badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
-                normList[jj] = fluxProfiles.extractSpectra(
-                    imageList[jj], detectorMapList[jj], badBitMask
-                ).getAllFluxes()
+                spectra = fluxProfiles.extractSpectra(
+                    imageList[jj], detectorMapList[jj], badBitMask, self.config.minFracMask
+                )
+                for ss in spectra:
+                    flux = ss.flux
+                    isBad = (ss.mask.array[0] & badBitMask) != 0
+                    if np.any(isBad):
+                        flux[isBad] = np.interp(rows[isBad], rows[~isBad], flux[~isBad], 0.0, 0.0)
+                    normList[jj][fiberIndices[ss.fiberId]] = flux
 
-            self.log.info("Starting profile extraction iteration %d...", ii + 1)
+            self.log.info("Starting profile extraction iteration %d (sigma=%f)...", ii + 1, sigma)
             profiles = FiberProfileSet.fromImages(
                 identity,
                 imageList,
@@ -286,6 +324,8 @@ class BuildFiberProfilesTask(Task):
                 exposureList[0].getInfo().getVisitInfo(),
                 exposureList[0].getMetadata(),
             )
+
+            replaceBadFibers(fiberId, profiles, normList)
 
             if self.debugInfo.plotProfile:
                 for pp in profiles:

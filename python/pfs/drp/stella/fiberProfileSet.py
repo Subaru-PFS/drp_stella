@@ -307,7 +307,7 @@ class FiberProfileSet:
             traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
         return traces
 
-    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0):
+    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.0):
         """Extract spectra from an image
 
         Parameters
@@ -318,6 +318,8 @@ class FiberProfileSet:
             Mapping from fiberId,wavelength to x,y.
         badBitMask : `int`
             Bitmask indicating bad pixels.
+        minFracMask : `float`
+            Minimum pixel fraction of profile to accumulate mask.
 
         Returns
         -------
@@ -325,7 +327,7 @@ class FiberProfileSet:
             Extracted spectra.
         """
         traces = self.makeFiberTracesFromDetectorMap(detectorMap)
-        return traces.extractSpectra(maskedImage, badBitMask)
+        return traces.extractSpectra(maskedImage, badBitMask, minFracMask)
 
     @classmethod
     def fromPfsFiberProfiles(cls, pfsFiberProfiles):
