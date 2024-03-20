@@ -42,11 +42,15 @@ class FiberProfile:
         self.radius = radius
         self.oversample = oversample
         self.rows = rows
-        self.profiles = profiles
+        self.profiles = np.ma.masked_invalid(profiles)
         profileSize = 2*int((radius + 1)*oversample + 0.5) + 1
         profileCenter = int((radius + 1)*oversample + 0.5)
         self.index = (np.arange(profileSize, dtype=int) - profileCenter)/self.oversample
         self.norm = norm
+
+    def copy(self) -> "FiberProfile":
+        """Return a copy"""
+        return self.__class__(self.radius, self.oversample, self.rows, self.profiles, self.norm)
 
     def __reduce__(self):
         """Pickling"""
