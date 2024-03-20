@@ -5,7 +5,14 @@
 #include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
+
+#define USE_SPLINE 1
+
+#ifdef USE_SPLINE
 #include "pfs/drp/stella/spline.h"
+#else
+#include "pfs/drp/stella/math/LinearInterpolation.h"
+#endif
 
 #include "pfs/drp/stella/FiberTrace.h"
 
@@ -64,7 +71,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     auto box = image.getBBox(lsst::afw::image::PARENT);
     box.clip(_trace.getBBox(lsst::afw::image::PARENT));
 
-    if (flux.size() < box.getMaxY()) {
+    if (flux.size() < std::size_t(box.getMaxY())) {
         std::ostringstream str;
         str << "Size of flux array (" << flux.size() << ") too small for box (" << box.getMaxY() << ")";
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, str.str());
@@ -132,17 +139,26 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     lsst::afw::image::MaskedImage<double> image{box};
     lsst::afw::image::MaskPixel const ftMask = 1 << image.getMask()->addMaskPlane(fiberMaskPlane);
 
-    // Set up profile splines
+    // Set up profile interpolation
     ndarray::Array<double, 1, 1> xProfile = utils::arange<double>(0.0, profileSize, 1.0);
     ndarray::asEigenArray(xProfile) = (ndarray::asEigenArray(xProfile) - profileCenter)/oversample;
-    std::vector<math::Spline<double>> splines;
-    splines.reserve(numSwaths);
+#ifdef USE_SPLINE
+    using Interpolator = math::Spline<double>;
+#else
+    using Interpolator = math::LinearInterpolator<double, 1, 1>;
+#endif
+    std::vector<Interpolator> interpolators;
+    interpolators.reserve(numSwaths);
     ndarray::Array<double, 1, 1> xLow = ndarray::allocate(numSwaths);
     ndarray::Array<double, 1, 1> xHigh = ndarray::allocate(numSwaths);
     for (std::size_t ii = 0; ii < numSwaths; ++ii) {
-        auto const xProf = utils::arraySelect(xProfile, good[ii].shallow());
-        splines.emplace_back(xProf, utils::arraySelect(profiles[ii].shallow(), good[ii].shallow()),
-                             math::Spline<double>::CUBIC_NATURAL);
+        ndarray::Array<double, 1, 1> const xProf = utils::arraySelect(xProfile, good[ii].shallow());
+        ndarray::Array<double, 1, 1> const yProf = utils::arraySelect(profiles[ii].shallow(), good[ii].shallow());
+#ifdef USE_SPLINE
+        interpolators.emplace_back(xProf, yProf);
+#else
+        interpolators.emplace_back(xProf, yProf, 0.0, 0.0);
+#endif
         xLow[ii] = xProf[0];
         xHigh[ii] = xProf[xProf.size() - 1];
     }
@@ -176,8 +192,8 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const prevHigh = xHigh[prevIndex];
         double const nextLow = xLow[nextIndex];
         double const nextHigh = xHigh[nextIndex];
-        auto const& prevSpline = splines[prevIndex];
-        auto const& nextSpline = splines[nextIndex];
+        auto const& prevInterp = interpolators[prevIndex];
+        auto const& nextInterp = interpolators[nextIndex];
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
@@ -190,12 +206,12 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         for (int xx = xStart; xx < xStop; ++xx, xRel += 1.0, ++imgIter, ++mskIter) {
                 bool const prevOk = xRel >= prevLow && xRel <= prevHigh;
                 bool const nextOk = xRel >= nextLow && xRel <= nextHigh;
-                double const prevValue = prevOk ? prevSpline(xRel) : 0.0;
+                double const prevValue = prevOk ? prevInterp(xRel) : 0.0;
                 double value;
                 if (nextIndex == prevIndex) {
                     value = prevValue;
                 } else {
-                    double const nextValue = nextOk ? nextSpline(xRel) : 0.0;
+                    double const nextValue = nextOk ? nextInterp(xRel) : 0.0;
                     value = prevValue*prevWeight + nextValue*nextWeight;
                 }
 
