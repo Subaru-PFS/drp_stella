@@ -520,7 +520,7 @@ class ReduceExposureTask(CmdLineTask):
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
 
         # Check that the detectorMap includes all the expected fibers
-        kwargs = dict(fiberStatus=FiberStatus.GOOD, spectrograph=sensorRef.dataId["spectrograph"])
+        kwargs = dict(spectrograph=sensorRef.dataId["spectrograph"])
         if self.config.targetType:
             kwargs.update(targetType=[TargetType.fromString(tt) for tt in self.config.targetType])
 
