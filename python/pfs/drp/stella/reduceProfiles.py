@@ -1,80 +1,83 @@
 from collections import defaultdict
-from typing import Iterable
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 
 from lsst.daf.persistence import ButlerDataRef
-from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, ListField, ChoiceField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
-from lsst.afw.image import Exposure, makeExposure
-from lsst.afw.math import StatisticsControl, stringToStatisticsProperty, statisticsStack
+from lsst.afw.image import Exposure
+from lsst.geom import Box2I
 
-from pfs.datamodel import FiberStatus, TargetType, CalibIdentity
-from .adjustDetectorMap import AdjustDetectorMapTask
+from pfs.datamodel import FiberStatus, TargetType, CalibIdentity, PfsConfig
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .reduceExposure import ReduceExposureTask
-from .centroidTraces import CentroidTracesTask, tracesToLines
-from .constructSpectralCalibs import setCalibHeader
-from .blackSpotCorrection import BlackSpotCorrectionTask
-from . import FiberProfileSet
+from .images import getIndices
+from .normalizeFiberProfiles import NormalizeFiberProfilesTask
+from . import DetectorMap, FiberProfileSet
+
+
+ButlerRefsDict = Dict[int, Dict[str, ButlerDataRef]]
+
+
+def getDataRefs(
+    refList: List[ButlerDataRef], checkRefs: Optional[ButlerRefsDict] = None, kind: Optional[str] = ""
+) -> ButlerRefsDict:
+    """Extract data reference lists indexed by spectrograph and arm
+
+    Parameters
+    ----------
+    refList : list of `lsst.daf.persistence.ButlerDataRef`
+        List of data references.
+    checkRefs : `ButlerRefsDict`, optional
+        Data references to check against. If the spectrograph and arm are not
+        present in ``checkRefs``, an exception is raised.
+    kind : `str`, optional
+        Kind of data reference (e.g., "norm", "dark", "background").
+
+    Returns
+    -------
+    dataRefs : `ButlerRefsDict`
+        Data references indexed by spectrograph and arm.
+    """
+    result = defaultdict(lambda: defaultdict(list))
+    for ref in refList:
+        spectrograph = ref.dataId["spectrograph"]
+        arm = ref.dataId["arm"]
+        if checkRefs and (spectrograph not in checkRefs or arm not in checkRefs[spectrograph]):
+            raise RuntimeError(f"No profile inputs provided for {kind} {ref.dataId}")
+        result[spectrograph][arm].append(ref)
+    return result
 
 
 class ReduceProfilesTaskRunner(TaskRunner):
-    """Split data by spectrograph arm and extract normalisation visit"""
+    """Split data by spectrograph arm and extract normalisation/dark visits"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        dataRefs = defaultdict(lambda: defaultdict(list))
-        for ref in parsedCmd.id.refList:
-            spectrograph = ref.dataId["spectrograph"]
-            arm = ref.dataId["arm"]
-            dataRefs[spectrograph][arm].append(ref)
-
-        normRefs = defaultdict(lambda: defaultdict(list))
-        for ref in parsedCmd.normId.refList:
-            spectrograph = ref.dataId["spectrograph"]
-            arm = ref.dataId["arm"]
-            if spectrograph not in dataRefs or arm not in dataRefs[spectrograph]:
-                raise RuntimeError(f"No profile inputs provided for norm {ref.dataId}")
-            normRefs[spectrograph][arm].append(ref)
+        dataRefs = getDataRefs(parsedCmd.id.refList)
+        normRefs = getDataRefs(parsedCmd.normId.refList, dataRefs, "norm")
+        darkRefs = getDataRefs(parsedCmd.darkId.refList, dataRefs, "dark")
 
         targets = []
         for spectrograph in dataRefs:
             for arm in dataRefs[spectrograph]:
-                if spectrograph not in normRefs or arm not in normRefs[spectrograph]:
-                    raise RuntimeError(f"No norm provided for spectrograph={spectrograph} arm={arm}")
                 dataList = sorted(dataRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 normList = sorted(normRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
-                targets.append((dataList, dict(normRefList=normList, **kwargs)))
+                darkList = sorted(darkRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
+                targetKwargs = dict(
+                    normRefList=normList,
+                    darkRefList=darkList,
+                    **kwargs,
+                )
+                targets.append((dataList, targetKwargs))
         return targets
-
-
-class CombineConfig(Config):
-    """Configuration for combining images"""
-    mask = ListField(dtype=str, default=["BAD", "SAT", "INTRP", "CR", "NO_DATA"],
-                     doc="Mask planes to reject from combination")
-    combine = ChoiceField(dtype=str, default="MEANCLIP",
-                          allowed=dict(MEAN="Sample mean", MEANCLIP="Clipped mean", MEDIAN="Sample median"),
-                          doc="Statistic to use for combination (from lsst.afw.math)")
-    rejThresh = Field(dtype=float, default=3.0, doc="Clipping threshold for combination")
-    rejIter = Field(dtype=int, default=3, doc="Clipping iterations for combination")
-    maxVisitsToCalcErrorFromInputVariance = Field(
-        dtype=int, default=2,
-        doc="Maximum number of visits to estimate variance from input variance, not per-pixel spread"
-    )
 
 
 class ReduceProfilesConfig(Config):
     """Configuration for FiberTrace construction"""
     reduceExposure = ConfigurableField(target=ReduceExposureTask, doc="Reduce single exposure")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
-    mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
-                     doc="Mask planes to exclude from fiberTrace")
-    combine = ConfigField(dtype=CombineConfig, doc="Combination configuration")
-    doAdjustDetectorMap = Field(dtype=bool, default=True, doc="Adjust detectorMap using trace positions?")
-    adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
-    centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
-    traceSpectralError = Field(dtype=float, default=1.0,
-                               doc="Error in the spectral dimension to give trace centroids (pixels)")
+    normalize = ConfigurableField(target=NormalizeFiberProfilesTask, doc="Normalize fiber profiles")
     fiberStatus = ListField(
         dtype=str,
         default=["GOOD", "BROKENFIBER", "BLACKSPOT"],
@@ -94,18 +97,9 @@ class ReduceProfilesConfig(Config):
         ],
         doc="Target type for which to build profiles",
     )
-    blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
-    replaceFibers = ListField(
-        dtype=int,
-        default=[
-            84,  # One of three in a row with bad cobras
-            85,  # One of three in a row with bad cobras
-            86,  # One of three in a row with bad cobras
-            114,  # Broken fiber; always blank
-        ],
-        doc="Replace the profiles for these fibers",
-    )
+    replaceFibers = ListField(dtype=int, default=[], doc="Replace the profiles for these fibers")
     replaceNearest = Field(dtype=int, default=2, doc="Replace profiles with average of this many near fibers")
+    darkFiberWidth = Field(dtype=int, default=3, doc="Width around fibers to measure dark subtraction")
 
     def setDefaults(self):
         super().setDefaults()
@@ -116,7 +110,27 @@ class ReduceProfilesConfig(Config):
         self.reduceExposure.doWriteArm = False
         self.profiles.doBlindFind = False  # We have good detectorMaps and pfsConfig, so we know what's where
         self.profiles.profileOversample = 3
-        self.adjustDetectorMap.minSignalToNoise = 0  # We don't measure S/N
+        self.profiles.profileRejIter = 0
+
+
+def getIlluminatedFibers(pfsConfig: PfsConfig, actual=True) -> np.ndarray:
+    """Return the list of illuminated fibers
+
+    Parameters
+    ----------
+    pfsConfig : `pfs.datamodel.PfsConfig`
+        Fiber configuration.
+    actual : `bool`, optional
+        Use actual fiber positions, rather than nominal/intended?
+
+    Returns
+    -------
+    fiberId : `numpy.ndarray` of `int`
+        List of fiber identifiers.
+    """
+    position = pfsConfig.pfiCenter if actual else pfsConfig.pfiNominal
+    select = np.logical_and.reduce(np.isfinite(position), axis=1)
+    return pfsConfig.fiberId[select]
 
 
 class ReduceProfilesTask(CmdLineTask):
@@ -129,9 +143,7 @@ class ReduceProfilesTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("reduceExposure")
         self.makeSubtask("profiles")
-        self.makeSubtask("centroidTraces")
-        self.makeSubtask("adjustDetectorMap")
-        self.makeSubtask("blackspots")
+        self.makeSubtask("normalize")
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
@@ -140,26 +152,32 @@ class ReduceProfilesTask(CmdLineTask):
                                help="identifiers for profile, e.g., --id visit=123^456 ccd=7")
         parser.add_id_argument("--normId", datasetType="raw",
                                help="identifiers for normalisation, e.g., --id visit=98 ccd=7")
+        parser.add_id_argument("--darkId", datasetType="raw",
+                               help="identifiers for dot-roach darks, e.g., --id visit=56 ccd=7")
         return parser
 
-    def runDataRef(self, dataRefList: Iterable[ButlerDataRef], normRefList: Iterable[ButlerDataRef]
-                   ) -> FiberProfileSet:
+    def runDataRef(
+        self,
+        dataRefList: Iterable[ButlerDataRef],
+        normRefList: Iterable[ButlerDataRef],
+        darkRefList: Iterable[ButlerDataRef],
+    ) -> FiberProfileSet:
         """Construct the ``fiberProfiles`` calib
 
         Parameters
         ----------
-        expRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
             Data references for exposures.
-        butler : `lsst.daf.persistence.Butler`
-            Data butler.
-        calibId : `dict`
-            Data identifier keyword-value pairs to use for the calib.
+        normRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for normalisation exposures.
+        darkRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for dark exposures.
         """
         if not dataRefList:
             raise RuntimeError("No input exposures")
-        if not normRefList:
-            raise RuntimeError("No normalisation exposures")
-        dataList = [self.processExposure(ref) for ref in dataRefList]
+
+        darkList = [self.processDark(ref) for ref in darkRefList]
+        dataList = [self.processExposure(ref, darkList) for ref in dataRefList]
 
         exposureList = [data.exposure for data in dataList]
         arm = dataRefList[0].dataId["arm"]
@@ -181,39 +199,41 @@ class ReduceProfilesTask(CmdLineTask):
         targetType = [TargetType.fromString(tt) for tt in self.config.targetType]
         for pfsConfig in pfsConfigList:
             fibers.update(pfsConfig.select(fiberStatus=fiberStatus, targetType=targetType).fiberId)
+
+        if darkList:
+            # Select only fibers that are not hidden (i.e., finite pfiCenter)
+            exposedFibers = set()
+            for pfsConfig in pfsConfigList:
+                hasFiniteCenter = np.logical_and.reduce(np.isfinite(pfsConfig.pfiCenter), axis=1)
+                exposedFibers.update(pfsConfig.fiberId[hasFiniteCenter])
+            fibers.intersection_update(exposedFibers)
+
+            # Remove fibers that are in the darks
+            darkFibers = set()
+            for dark in darkList:
+                hasFiniteCenter = np.logical_and.reduce(np.isfinite(dark.pfsConfig.pfiCenter), axis=1)
+                darkFibers.update(dark.pfsConfig.fiberId[hasFiniteCenter])
+            fibers.difference_update(darkFibers)
+
         fiberId = np.array(list(sorted(fibers)))
         pfsConfigList = [pfsConfig.select(fiberId=fiberId) for pfsConfig in pfsConfigList]
 
         profiles = self.profiles.runMultiple(exposureList, identity, detectorMapList, pfsConfigList).profiles
         profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
-        normList = [self.processExposure(ref) for ref in normRefList]
-        normExp = self.combine([norm.exposure for norm in normList])
-
-        if self.config.doAdjustDetectorMap:
-            detectorMap = normList[0].detectorMap
-            traces = self.centroidTraces.run(normExp, detectorMap, normList[0].pfsConfig)
-            lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
-            detectorMap = self.adjustDetectorMap.run(
-                detectorMap, lines, arm, normExp.visitInfo.id
-            ).detectorMap
-            normRefList[0].put(detectorMap, "detectorMap_used")
-
-        spectra = profiles.extractSpectra(
-            normExp.maskedImage, detectorMap, normExp.mask.getPlaneBitMask(self.config.mask)
-        )
-        self.blackspots.run(normList[0].pfsConfig, spectra)
-
-        for ss in spectra:
-            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) == 0
-            profiles[ss.fiberId].norm = np.where(good, ss.flux/ss.norm, np.nan)
-
-        self.write(dataRefList[0], profiles, [dataRef.dataId["visit"] for dataRef in dataRefList],
-                   [dataRef.dataId["visit"] for dataRef in normRefList])
+        dataVisits = [dataRef.dataId["visit"] for dataRef in dataRefList]
+        if normRefList:
+            self.normalize.run(profiles, normRefList, dataVisits)
+        else:
+            self.normalize.write(dataRefList[0], profiles, dataVisits, [])
 
         return profiles
 
-    def processExposure(self, dataRef: ButlerDataRef) -> Struct:
+    def processExposure(
+            self,
+            dataRef: ButlerDataRef,
+            darkList: Optional[List[Struct]] = None,
+    ) -> Struct:
         """Process an exposure
 
         We read existing data from the butler, if available. Otherwise, we
@@ -223,92 +243,142 @@ class ReduceProfilesTask(CmdLineTask):
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for exposure.
+        darkList : list of `lsst.pipe.base.Struct`
+            List of dark processing results.
 
         Returns
         -------
         data : `lsst.pipe.base.Struct`
-            Struct with ``exposureList``, ``detectorMapList``, and
-            ``pfsConfig``.
+            Struct with ``exposure``, ``detectorMap``, ``pfsConfig``.
         """
         require = ("calexp", "detectorMap_used")
         if all(dataRef.datasetExists(name) for name in require):
             self.log.info("Reading existing data for %s", dataRef.dataId)
-            return Struct(
+            data = Struct(
                 exposure=dataRef.get("calexp"),
                 detectorMap=dataRef.get("detectorMap_used"),
                 pfsConfig=dataRef.get("pfsConfig"),
             )
-        return self.reduceExposure.runDataRef(dataRef)
+        else:
+            data = self.reduceExposure.runDataRef(dataRef)
 
-    def write(self, dataRef: ButlerDataRef, profiles: FiberProfileSet, dataVisits: Iterable[int],
-              normVisits: Iterable[int]):
-        """Write outputs
+        data.pfsConfig = data.pfsConfig.select(spectrograph=dataRef.dataId["spectrograph"])
+
+        self.subtractDarks(data.exposure, data.detectorMap, darkList)
+
+        return data
+
+    def subtractDarks(
+        self,
+        exposure: Exposure,
+        detectorMap: DetectorMap,
+        darkList: List[Struct],
+    ) -> None:
+        """Subtract darks from an exposure
+
+        We subtract a linear combination of darks from the exposure.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure from which to subtract darks (modified).
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Detector map.
+        darkList : list of `lsst.pipe.base.Struct`
+            List of dark processing results.
+        """
+        if not darkList:
+            self.log.warn("No darks provided; not performing dark subtraction")
+            return
+
+        fiberId = set()
+        for dark in darkList:
+            fiberId.update(dark.fiberId)
+        fiberId.intersection_update(detectorMap.fiberId)
+
+        select = self.maskFibers(exposure.getBBox(), detectorMap, fiberId, self.config.darkFiberWidth)
+        dataArray = exposure.image.array[select]
+        darkArrays = [dark.exposure.image.array[select] for dark in darkList]
+
+        numDarks = len(darkList)
+        numParams = numDarks + 1  # darks plus background
+        bgIndex = numDarks
+        matrix = np.zeros((numParams, numParams), dtype=float)
+        vector = np.zeros(numParams, dtype=float)
+        for ii, iDark in enumerate(darkArrays):
+            vector[ii] = np.sum(iDark*dataArray)
+            matrix[ii, ii] = np.sum(iDark*iDark)
+            vector[bgIndex] = np.sum(dataArray)
+            matrix[bgIndex, bgIndex] = dataArray.size
+            matrix[ii, bgIndex] = matrix[bgIndex, ii] = np.sum(iDark)
+            for jj, jDark in enumerate(darkArrays[ii + 1:], ii + 1):
+                value = np.sum(iDark*jDark)
+                matrix[ii, jj] = value
+                matrix[jj, ii] = value
+
+        coeffs = np.linalg.solve(matrix, vector)
+        self.log.info("Dark coefficients: %s", coeffs)
+        for value, dark in zip(coeffs, darkList):
+            exposure.maskedImage.scaledMinus(value, dark.exposure.maskedImage)
+
+    def processDark(self, dataRef: ButlerDataRef) -> Struct:
+        """Process a dot-roach dark exposure
+
+        We perform ISR only.
 
         Parameters
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for output.
-        profiles : `pfs.drp.stella.FiberProfileSet`
-            Fiber profiles.
-        dataVisits : iterable of `int`
-            List of visits used to construct the fiber profiles.
-        normVisits : iterable of `int`
-            List of visits used to measure the normalisation.
-        """
-        self.log.info("Writing output for %s", dataRef.dataId)
-        visit0 = dataRef.dataId["visit"]
-
-        outputId = dict(
-            visit0=visit0,
-            calibDate=dataRef.dataId["dateObs"],
-            calibTime=dataRef.dataId["taiObs"],
-            arm=dataRef.dataId["arm"],
-            spectrograph=dataRef.dataId["spectrograph"],
-            ccd=dataRef.dataId["ccd"],
-            filter=dataRef.dataId["filter"],
-        )
-
-        setCalibHeader(profiles.metadata, "fiberProfiles", dataVisits, outputId)
-        for ii, vv in enumerate(sorted(set(normVisits))):
-            profiles.metadata.set(f"CALIB_NORM_{ii}", vv)
-
-        dataRef.put(profiles, "fiberProfiles", **outputId)
-
-    def combine(self, exposureList: Iterable[Exposure]) -> Exposure:
-        """Combine multiple exposures.
-
-        Parameters
-        ----------
-        exposureList : iterable of `lsst.afw.image.Exposure`
-            List of exposures to combine.
+            Data reference for exposure.
 
         Returns
         -------
-        combined : `lsst.afw.image.Exposure`
-            Combined exposure.
+        data : `lsst.pipe.base.Struct`
+            Struct with ``exposure`` and ``dither``.
         """
-        firstExp = exposureList[0]
-        if len(exposureList) == 1:
-            return firstExp  # That was easy!
-        dimensions = firstExp.getDimensions()
-        for exp in exposureList[1:]:
-            if exp.getDimensions() != dimensions:
-                raise RuntimeError(f"Dimension difference: {exp.getDimensions()} vs {dimensions}")
+        dataset = "postISRCCD"
+        if dataRef.datasetExists(dataset):
+            self.log.info("Reading existing data for %s", dataRef.dataId)
+            exposure = dataRef.get(dataset)
+        else:
+            exposure = self.reduceExposure.runIsr(dataRef)
+        if self.reduceExposure.config.doRepair:
+            self.reduceExposure.repairExposure(exposure)
 
-        config = self.config.combine
-        combineStat = stringToStatisticsProperty(config.combine)
-        ctrl = StatisticsControl(config.rejThresh, config.rejIter, firstExp.mask.getPlaneBitMask(config.mask))
-        numImages = len(exposureList)
-        if numImages < 1:
-            raise RuntimeError("No valid input data")
-        if numImages < self.config.combine.maxVisitsToCalcErrorFromInputVariance:
-            ctrl.setCalcErrorFromInputVariance(True)
+        pfsConfig = dataRef.get("pfsConfig").select(spectrograph=dataRef.dataId["spectrograph"])
+        fiberId = getIlluminatedFibers(pfsConfig)
 
-        # Combine images
-        combined = makeExposure(statisticsStack([exp.maskedImage for exp in exposureList], combineStat, ctrl))
-        combined.setMetadata(firstExp.getMetadata())
-        combined.getInfo().setVisitInfo(firstExp.getInfo().getVisitInfo())
-        return combined
+        return Struct(
+            exposure=exposure, pfsConfig=pfsConfig, fiberId=fiberId
+        )
+
+    def maskFibers(
+        self, bbox: Box2I, detectorMap: DetectorMap, fiberId: Iterable[int], radius: int
+    ) -> np.ndarray:
+        """Mask fibers in an image
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of image.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Detector map.
+        fiberId : iterable of `int`
+            Fiber identifiers.
+        radius : `int`
+            Radius of mask.
+
+        Returns
+        -------
+        mask : `numpy.ndarray` of `bool`
+            Mask: ``True`` means the pixel is near a fiber.
+        """
+        mask = np.zeros((bbox.getHeight(), bbox.getWidth()), dtype=bool)
+        xx, _ = getIndices(bbox, int)
+        for ff in fiberId:
+            xCenter = detectorMap.getXCenter(ff)
+            mask[np.abs(xx - xCenter[:, np.newaxis]) < radius] = True
+        return mask
 
     def _getConfigName(self):
         return None

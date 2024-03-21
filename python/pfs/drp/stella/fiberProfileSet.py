@@ -516,6 +516,36 @@ class FiberProfileSet:
 
         return fig, axes
 
+    def average(self, fiberId: Optional[Iterable[int]] = None) -> "FiberProfile":
+        """Return the average of the profiles
+
+        Parameters
+        ----------
+        fiberId : iterable of `int`, optional
+            Fiber identifiers to include. If ``None``, include all.
+
+        Returns
+        -------
+        average : `FiberProfile`
+            Average profile.
+        """
+        if fiberId is None:
+            fiberId = self.fiberId
+
+        radius = set(self[ff].radius for ff in fiberId)
+        if len(radius) != 1:
+            raise RuntimeError(f"Multiple radii: {radius}")
+        oversample = set(self[ff].oversample for ff in fiberId)
+        if len(oversample) != 1:
+            raise RuntimeError(f"Multiple oversamples: {oversample}")
+        shape = self[fiberId[0]].profiles.shape
+        for ff in fiberId[1:]:
+            if self[ff].profiles.shape != shape:
+                raise RuntimeError(f"Profile shape mismatch: {shape} vs {self[ff].profiles.shape}")
+
+        profiles = np.ma.masked_invalid([self[ff].profiles for ff in fiberId]).mean(axis=0)
+        return FiberProfile(radius.pop(), oversample.pop(), self[fiberId[0]].rows, profiles)
+
     def replaceFibers(self, replaceFibers: Iterable[int], nearest: int = 2):
         """Replace profiles of certain fibers
 
@@ -544,6 +574,4 @@ class FiberProfileSet:
         for fiberId in badFibers:
             indices = np.argpartition(np.abs(goodFibers - fiberId), np.arange(nearest))[:nearest]
             neighbors = goodFibers[indices]
-            shape = self[neighbors[0]].profiles.shape
-            assert all(self[ff].profiles.shape == shape for ff in neighbors)
-            self[fiberId].profiles = np.array([self[ff].profiles for ff in neighbors]).mean(axis=0)
+            self[fiberId] = self.average(neighbors)
