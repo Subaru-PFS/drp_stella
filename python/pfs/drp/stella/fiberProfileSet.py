@@ -305,6 +305,7 @@ class FiberProfileSet:
         traces = FiberTraceSet(len(self), self.metadata)
         for fiberId in self:
             traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+        traces.sortTracesByXCenter()
         return traces
 
     def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.0):
