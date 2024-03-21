@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 
 from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
@@ -417,7 +417,13 @@ class FiberProfileSet:
         self.toPfsFiberProfiles().writeFits(filename)
 
     def plot(
-        self, rows: int = 10, cols: int = 10, fontsize: int = 6, show: bool = True
+        self,
+        rows: int = 10,
+        cols: int = 10,
+        *,
+        fontsize: int = 4,
+        show: bool = True,
+        fiberId: Optional[List[int]] = None,
     ) -> Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]]:
         """Plot the fiber profiles
 
@@ -429,6 +435,8 @@ class FiberProfileSet:
             Font size to use for fiberId label.
         show : `bool`, optional
             Show the plots?
+        fiberId : list of `int`, optional
+            Fiber identifiers to plot. If ``None``, plot all.
 
         Returns
         -------
@@ -439,7 +447,8 @@ class FiberProfileSet:
 
         figAxes: Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]] = {}
 
-        fiberId = list(sorted(self.fiberProfiles.keys()))
+        if not fiberId:
+            fiberId = list(sorted(self.fiberProfiles.keys(), reverse=True))
         while fiberId:
             fig, axes = plt.subplots(nrows=rows, ncols=cols, sharex=True, sharey=True, squeeze=False)
             fig.subplots_adjust(hspace=0, wspace=0)
@@ -458,12 +467,17 @@ class FiberProfileSet:
 
     def plotHistograms(
         self,
-        numBins=20,
-        show=True,
+        numBins=50,
+        show=False,
         centroidRange=(-0.2, 0.2),
-        widthRange=(1.5, 4.0),
-        minRange=(-0.2, 0.05),
-        maxRange=(1.0, 3.0),
+        widthRange=(0.5, 4.0),
+        minRange=(-0.01, 0.01),
+        maxRange=(0.05, 0.3),
+        skewRange=(-1.0, 1.0),
+        r90Range=(1, 5),
+        wingFracRange=(0, 0.2),
+        variationRange=(0, 0.01),
+        fiberGridSize=100,
     ):
         """Plot histograms of statistics about the fiber profiles
 
@@ -481,40 +495,74 @@ class FiberProfileSet:
             Minimum and maximum minimum values to plot.
         maxRange : `tuple` of `float`, optional
             Minimum and maximum maximum values to plot.
+        skewRange : `tuple` of `float`, optional
+            Minimum and maximum skew values to plot.
+        r90Range : `tuple` of `float`, optional
+            Minimum and maximum r90 values to plot.
+        wingFracRange : `tuple` of `float`, optional
+            Minimum and maximum wingFrac values to plot.
+        variationRange : `tuple` of `float`, optional
+            Minimum and maximum variation values to plot.
 
         Returns
         -------
-        fig : `matplotlib.Figure`
-            Figure containing the histograms.
-        axes : `numpy.ndarray` of `matplotlib.Axes`
-            Axes containing the histograms.
+        figAxes : `list`
+            List of tuples of `matplotlib.Figure` and arrays of
+            `matplotlib.Axes`.
         """
         import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        from .fitDistortedDetectorMap import addColorbar
 
         stats = {fiberId: self[fiberId].calculateStatistics() for fiberId in self}
-        centroids = np.array([stats[fiberId].centroid for fiberId in stats]).flatten()
-        widths = np.array([stats[fiberId].width for fiberId in stats]).flatten()
-        minimums = np.array([stats[fiberId].min for fiberId in stats]).flatten()
-        maximums = np.array([stats[fiberId].max for fiberId in stats]).flatten()
+        fiberGridSize = min(fiberGridSize, len(stats))
 
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fiberId = np.concatenate([np.full_like(self[ff].rows, ff, dtype=int) for ff in stats])
+        rows = np.concatenate([self[ff].rows for ff in stats])
+        numRows = max(len(self[ff].rows) for ff in stats)
 
-        axes[0, 0].hist(centroids, bins=np.linspace(*centroidRange, numBins))
-        axes[0, 0].set_xlabel("centroid")
+        centroids = np.concatenate([stats[fiberId].centroid for fiberId in stats])
+        widths = np.concatenate([stats[fiberId].width for fiberId in stats])
+        minimums = np.concatenate([stats[fiberId].min for fiberId in stats])
+        maximums = np.concatenate([stats[fiberId].max for fiberId in stats])
+        skew = np.concatenate([stats[fiberId].skew for fiberId in stats])
+        r90 = np.concatenate([stats[fiberId].r90 for fiberId in stats])
+        wingFrac = np.concatenate([stats[fiberId].wingFrac for fiberId in stats])
+        variation = np.concatenate([stats[fiberId].variation for fiberId in stats])
 
-        axes[0, 1].hist(widths, bins=np.linspace(*widthRange, numBins))
-        axes[0, 1].set_xlabel("width")
+        figAxes = []
+        cmap = plt.get_cmap("viridis")
+        for name, values, valueRange, description in (
+            ("centroid", centroids, centroidRange, "Profile centroid calculated using quartic correction"),
+            ("width", widths, widthRange, "Square root of the profile second moment"),
+            ("min", minimums, minRange, "Minimum value of the profile"),
+            ("max", maximums, maxRange, "Maximum value of the profile"),
+            ("skew", skew, skewRange, "Third moment of the profile, normalised by the second moment"),
+            ("r90", r90, r90Range, "Half-width enclosing 90% of the profile flux"),
+            ("wingFrac", wingFrac, wingFracRange, "Fraction of the profile flux in the wings"),
+            ("variation", variation, variationRange, "RMS variation within the profile"),
+        ):
+            fig, axes = plt.subplots(ncols=2)
+            axes[0].hist(values, bins=np.linspace(*valueRange, numBins))
+            axes[0].semilogy()
+            axes[0].set_xlabel(name)
+            axes[0].set_ylabel("Count")
 
-        axes[1, 0].hist(minimums, bins=np.linspace(*minRange, numBins))
-        axes[1, 0].set_xlabel("min")
+            norm = Normalize(vmin=valueRange[0], vmax=valueRange[1])
+            axes[1].hexbin(rows, fiberId, values.T, gridsize=(numRows, fiberGridSize), cmap=cmap, norm=norm)
 
-        axes[1, 1].hist(maximums, bins=np.linspace(*maxRange, numBins))
-        axes[1, 1].set_xlabel("max")
+            axes[1].set_xlabel("row")
+            axes[1].set_ylabel("fiberId")
+            addColorbar(fig, axes[1], cmap, norm, name)
+
+            fig.suptitle(description)
+            fig.tight_layout()
+            figAxes.append((fig, axes))
 
         if show:
             plt.show()
 
-        return fig, axes
+        return figAxes
 
     def average(self, fiberId: Optional[Iterable[int]] = None) -> "FiberProfile":
         """Return the average of the profiles

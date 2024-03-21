@@ -28,7 +28,7 @@ class FiberProfile:
     radius : `int`
         Distance either side (i.e., a half-width) of the center the profile is
         measured for.
-    oversample : `float`
+    oversample : `int`
         Oversample factor for the profile.
     rows : array_like of `float`, shape ``(N,)``
         Average row value for the swath.
@@ -39,8 +39,8 @@ class FiberProfile:
         Normalisation for each spectral pixel.
     """
     def __init__(self, radius, oversample, rows, profiles, norm=None):
-        self.radius = radius
-        self.oversample = oversample
+        self.radius = int(radius)
+        self.oversample = int(oversample)
         self.rows = rows
         self.profiles = np.ma.masked_invalid(profiles)
         profileSize = 2*int((radius + 1)*oversample + 0.5) + 1
@@ -105,7 +105,7 @@ class FiberProfile:
         radius : `int`
             Distance either side (i.e., a half-width) of the center the profile
             is measured for.
-        oversample : `float`
+        oversample : `int`
             Oversample factor for the profile.
         swathSize : `float`
             Desired size of swath, in number of rows. The actual swath size used
@@ -259,7 +259,7 @@ class FiberProfile:
         for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
             axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
 
-    def calculateStatistics(self, fwhm: float = 1.5):
+    def calculateStatistics(self, fwhm: float = 1.5, wingRadius: float = 3):
         """Calculate statistics about this fiber profile
 
         Parameters
@@ -267,6 +267,8 @@ class FiberProfile:
         fwhm : `float`
             Full width a half maximum of the convolution to apply to the
             profile when centroiding.
+        wingRadius : `float`
+            Radius to consider as the wings of the profile.
         """
         from pfs.drp.stella.utils.psf import fwhmToSigma
         from pfs.drp.stella.traces import centroidPeak, TracePeak
@@ -298,12 +300,37 @@ class FiberProfile:
             centroid.append(peak.peak)
         centroid = np.interp(centroid, np.arange(self.index.size), self.index)
 
-        width = ((xx - centroid[:, np.newaxis])**2*self.profiles).sum(axis=1)/norm
+        width = np.sqrt(((xx - centroid[:, np.newaxis])**2*self.profiles).sum(axis=1)/norm)
+
+        # Measure radius containing 90% of the flux
+        centerIndex = (self.radius + 1)*self.oversample
+        assert self.index[centerIndex] == 0.0
+        fluxAtRadius = self.profiles[:, centerIndex:].copy()
+        fluxAtRadius[:, :] += self.profiles[:, :centerIndex + 1][:, ::-1]
+        cumulative = np.cumsum(fluxAtRadius, axis=1)
+        cumulative /= cumulative[:, -1][:, np.newaxis]
+        r90 = np.array([np.interp(0.9, ff, self.index[centerIndex:]) for ff in cumulative])
+
+        # Fraction of flux in the wings
+        wings = self.index[centerIndex:] > wingRadius
+        wingFrac = fluxAtRadius[:, wings].sum(axis=1)/fluxAtRadius.sum(axis=1)
+
+        # Symmetry
+        skew = ((xx - centroid[:, np.newaxis])**3*self.profiles).sum(axis=1)/norm/width**3
+
+        # Variation of profiles
+        average = self.profiles.mean(axis=0)
+        variation = np.sqrt(((self.profiles - average)**2).sum(axis=1)/self.profiles.count(axis=1))
+
         return Struct(
             centroid=centroid,
             width=width,
             min=self.profiles.min(axis=1),
             max=self.profiles.max(axis=1),
+            r90=r90,
+            wingFrac=wingFrac,
+            skew=skew,
+            variation=variation,
         )
 
     def __makeFiberTrace(self, dimensions, xCenter, fiberId):

@@ -1,6 +1,7 @@
 from typing import Iterable, List
 
 import numpy as np
+from scipy.signal import medfilt  # noqa: E402
 
 from lsst.pex.config import Config, ConfigurableField, Field, ListField
 from lsst.pipe.base import Task, Struct
@@ -65,6 +66,7 @@ class NormalizeFiberProfilesTask(Task):
             profiles[ss.fiberId].norm = np.where(good, ss.flux, np.nan)
 
         self.write(normRefList[0], profiles, visitList, [dataRef.dataId["visit"] for dataRef in normRefList])
+        self.plotProfiles(normRefList[0], profiles)
 
     def processExposure(self, dataRef: ButlerDataRef) -> Struct:
         """Process an exposure
@@ -129,8 +131,38 @@ class NormalizeFiberProfilesTask(Task):
 
         return Struct(exposure=combined, detectorMap=detectorMap, pfsConfig=dataList[0].pfsConfig)
 
-    def write(self, dataRef: ButlerDataRef, profiles: FiberProfileSet, dataVisits: Iterable[int],
-              normVisits: Iterable[int]):
+    def getOutputId(self, dataRef: ButlerDataRef, profiles: FiberProfileSet) -> dict:
+        """Get the output data identifier
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Example data reference.
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles.
+
+        Returns
+        -------
+        outputId : `dict`
+            Output data identifier.
+        """
+        return dict(
+            visit0=profiles.identity.visit0,
+            calibDate=profiles.identity.obsDate.split("T")[0],
+            calibTime=profiles.identity.obsDate,
+            arm=profiles.identity.arm,
+            spectrograph=profiles.identity.spectrograph,
+            ccd=dataRef.dataId["ccd"],
+            filter=profiles.identity.arm,
+        )
+
+    def write(
+        self,
+        dataRef: ButlerDataRef,
+        profiles: FiberProfileSet,
+        dataVisits: Iterable[int],
+        normVisits: Iterable[int],
+    ):
         """Write outputs
 
         Parameters
@@ -145,19 +177,68 @@ class NormalizeFiberProfilesTask(Task):
             List of visits used to measure the normalisation.
         """
         self.log.info("Writing output for %s", dataRef.dataId)
-
-        outputId = dict(
-            visit0=profiles.identity.visit0,
-            calibDate=profiles.identity.obsDate.split("T")[0],
-            calibTime=profiles.identity.obsDate,
-            arm=profiles.identity.arm,
-            spectrograph=profiles.identity.spectrograph,
-            ccd=dataRef.dataId["ccd"],
-            filter=profiles.identity.arm,
-        )
+        outputId = self.getOutputId(dataRef, profiles)
 
         setCalibHeader(profiles.metadata, "fiberProfiles", dataVisits, outputId)
         for ii, vv in enumerate(sorted(set(normVisits))):
             profiles.metadata.set(f"CALIB_NORM_{ii}", vv)
 
         dataRef.put(profiles, "fiberProfiles", **outputId)
+
+    def plotProfiles(self, dataRef: ButlerDataRef, profiles: FiberProfileSet):
+        """Plot fiber profiles
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for output.
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles.
+        """
+        import matplotlib.pyplot as plt
+        plt.switch_backend("agg")
+        from matplotlib.backends.backend_pdf import PdfPages  # noqa: E402
+
+        outputId = self.getOutputId(dataRef, profiles)
+        description = f"{profiles.identity.arm}{profiles.identity.spectrograph}"
+
+        filename = dataRef.get("fiberProfilesStats_filename", **outputId)[0]
+        with PdfPages(filename) as pdf:
+            figAxes = profiles.plotHistograms(show=False)
+            for fig, axes in figAxes:
+                pdf.savefig(fig)
+                plt.close(fig)
+
+        filename = dataRef.get("fiberProfilesPlots_filename", **outputId)[0]
+        with PdfPages(filename) as pdf:
+            figAxes = profiles.plot(show=False)
+            for ff in profiles:
+                fig, axes = figAxes[ff]
+                fig.suptitle(f"Fiber profiles for {description}")
+                axes.semilogy()
+                axes.set_ylim(3e-4, 5e-1)
+
+            figures = {id(fig): fig for fig, _ in figAxes.values()}
+            for ff in profiles:
+                fig, axes = figAxes[ff]
+                if id(fig) in figures:
+                    pdf.savefig(fig)
+                    del figures[id(fig)]
+                    plt.close(fig)
+
+            haveNorm = False
+            fig, axes = plt.subplots()
+            for ff in profiles:
+                if profiles[ff].norm is None:
+                    continue
+                axes.plot(profiles[ff].norm, label=str(ff))
+                haveNorm = True
+            if haveNorm:
+                axes.set_xlabel("Row (pixels)")
+                axes.set_ylabel("Flux (electrons)")
+                axes.set_title(f"{description} normalization")
+                axes.semilogy()
+                top = np.max([np.max(medfilt(np.nan_to_num(profiles[ff].norm), 15)) for ff in profiles])
+                axes.set_ylim(1, 2*top)
+                pdf.savefig(fig)
+            plt.close(fig)
