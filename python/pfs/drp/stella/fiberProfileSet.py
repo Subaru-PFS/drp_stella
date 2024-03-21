@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 
 from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo, MaskedImageF
@@ -418,7 +418,13 @@ class FiberProfileSet:
         self.toPfsFiberProfiles().writeFits(filename)
 
     def plot(
-        self, rows: int = 10, cols: int = 10, fontsize: int = 6, show: bool = True
+        self,
+        rows: int = 10,
+        cols: int = 10,
+        *,
+        fontsize: int = 4,
+        show: bool = True,
+        fiberId: Optional[List[int]] = None,
     ) -> Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]]:
         """Plot the fiber profiles
 
@@ -430,6 +436,8 @@ class FiberProfileSet:
             Font size to use for fiberId label.
         show : `bool`, optional
             Show the plots?
+        fiberId : list of `int`, optional
+            Fiber identifiers to plot. If ``None``, plot all.
 
         Returns
         -------
@@ -440,7 +448,8 @@ class FiberProfileSet:
 
         figAxes: Dict[int, Tuple["matplotlib.Figure", "matplotlib.Axes"]] = {}
 
-        fiberId = list(sorted(self.fiberProfiles.keys()))
+        if not fiberId:
+            fiberId = list(sorted(self.fiberProfiles.keys(), reverse=True))
         while fiberId:
             fig, axes = plt.subplots(nrows=rows, ncols=cols, sharex=True, sharey=True, squeeze=False)
             fig.subplots_adjust(hspace=0, wspace=0)
@@ -459,12 +468,12 @@ class FiberProfileSet:
 
     def plotHistograms(
         self,
-        numBins=20,
+        numBins=50,
         show=True,
         centroidRange=(-0.2, 0.2),
-        widthRange=(1.5, 4.0),
+        widthRange=(1.5, 5.0),
         minRange=(-0.2, 0.05),
-        maxRange=(1.0, 3.0),
+        maxRange=(0.0, 0.5),
     ):
         """Plot histograms of statistics about the fiber profiles
 
@@ -511,6 +520,8 @@ class FiberProfileSet:
 
         axes[1, 1].hist(maximums, bins=np.linspace(*maxRange, numBins))
         axes[1, 1].set_xlabel("max")
+
+        fig.tight_layout()
 
         if show:
             plt.show()
