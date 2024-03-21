@@ -193,7 +193,7 @@ class FiberProfileSet:
             yProfile.append(0.5*(yMin + yMax))  # XXX this doesn't account for masked rows
             for ff, pp, mm in zip(fiberId, profiles, masks):
                 pp = np.ma.MaskedArray(pp, mm)
-                profileList[ff].append(pp/np.ma.average(pp, axis=0)/oversample)
+                profileList[ff].append(pp/np.ma.sum(pp, axis=0))
 
         return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
                                      np.ma.masked_array(profileList[ff])) for
