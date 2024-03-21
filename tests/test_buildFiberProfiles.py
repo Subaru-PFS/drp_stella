@@ -405,7 +405,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         self.synth = SyntheticConfig()
         self.synth.height = 1024
         self.synth.width = 128
-        self.synth.separation = 19.876
+        self.synth.separation = 23.456
         self.synth.fwhm = 3.21
         self.synth.slope = 0.04321  # Larger than default, to get more sampling of sub-pixel positions
 
