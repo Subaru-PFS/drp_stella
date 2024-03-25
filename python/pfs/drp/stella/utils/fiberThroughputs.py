@@ -377,7 +377,7 @@ def throughputByVisit(cache, arms, what="flux", medianPerArm={}, figure=None, ti
                 perSpec[arm][iv][s] = np.nanmedian(c[pfsConfig.spectrograph == s])
 
     figure, axs = plt.subplots(len(arms), 1, num=figure, sharex=True, sharey=True, squeeze=False,
-                            layout="constrained")
+                               layout="constrained")
     axs = axs.flatten()
 
     def format_coord(x, y):
