@@ -1,6 +1,7 @@
 from typing import ClassVar, Optional, Type
 
 import numpy as np
+import scipy.signal
 
 from lsst.pex.config import Config, Field, ListField, makePropertySet
 from lsst.pipe.tasks.repair import RepairConfig, RepairTask
@@ -9,7 +10,6 @@ from lsst.afw.image import Exposure, Mask
 from lsst.afw.geom import SpanSet
 from lsst.geom import Point2I
 from lsst.meas.algorithms import findCosmicRays
-from .traces import medianFilterColumns
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet
 
@@ -92,7 +92,9 @@ class PfsRepairTask(RepairTask):
 
         # Median filter on columns with mask
         bad = (exposure.mask.array & exposure.mask.getPlaneBitMask(self.config.mask)) != 0
-        traces = medianFilterColumns(exposure.image.array, bad, self.config.halfHeight)
+        tmp = exposure.image.array.copy()
+        tmp[bad] = 1e10                 # n.b. we'll call np.minimum(), so these values will be ignored
+        traces = scipy.signal.medfilt2d(tmp, (self.config.halfHeight, 1))
 
         # Don't allow the result to exceed the actual value.
         # Negative values in the subtracted image mean a larger gradient,
