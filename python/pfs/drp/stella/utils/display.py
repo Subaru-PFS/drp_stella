@@ -397,64 +397,6 @@ def getCtypeFromReferenceLineDefault(line):
     return ctype
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, lines=None,
-                    alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
-    """Plot the detectorMap on a display
-
-    Parameters:
-      display: `lsst.afw.display.Display`
-         the Display to use
-      pfsConfig: `pfs.drp.stella.datamodel.PfsConfig`
-         describe the fibers in use
-      detMap: `pfs.drp.stella.DetectorMap`
-         The layout and wavelength solutions
-      width: `int`
-         The width (in pixels) of the fibres to label, centered on fiberLines
-      zoom: `int`
-         Zoom the display by this amount about fiberLines
-      xcen: `int`
-         Label fibres near this x-value
-      fiberIds: `list` of `int`
-         Label fibres near this set of fiberIds
-      lines: `pfs.drp.stella.referenceLine.ReferenceLineSet`
-         Lines to show on the display
-      alpha: `float`
-         The transparency to use when plotting traces/lines
-      getCtypeFromStatus: function returning `str`
-        Function called to return the name of a colour, given a
-        `pfs.drp.stella.referenceLine.ReferenceLineStatus`.  Return "IGNORE" to ignore the line;
-        default pfs.drp.utils.display.getCtypeFromStatusDefault
-
-    If xcen and fiberId are omitted, show all fibres in the pfsConfig
-    """
-
-    line.status == NOT_VISIBLE: GRAY
-                   BLEND: BLUE
-                   SUSPECT: YELLOW
-                   REJECTED: RED
-                   BROAD: CYAN
-    else: GREEN
-
-    N.b. returning "IGNORE" causes the line to be skipped
-    """
-
-    status = line.status
-    if status & ReferenceLineStatus.NOT_VISIBLE:
-        ctype = 'GRAY'
-    elif status & ReferenceLineStatus.BLEND:
-        ctype = 'BLUE'
-    elif status & ReferenceLineStatus.SUSPECT:
-        ctype = 'YELLOW'
-    elif status & ReferenceLineStatus.REJECTED:
-        ctype = 'RED'
-    elif status & ReferenceLineStatus.BROAD:
-        ctype = 'CYAN'
-    else:
-        ctype = 'GREEN'
-
-    return ctype
-
-
 def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None,
                     showEngineering=False, showLegend=True,
                     lines=None, alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
@@ -563,7 +505,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     #
     if lines:
         if fiberIds is None or len(fiberIds) == 0:
-            fiberIds = detMap.fibe
+            fiberIds = detMap.fiberId
             stride = len(fiberIds)//25 + 1
         else:
             stride = 1
@@ -592,11 +534,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
                 if i%stride != 0 and i not in (firstGood, lastGood):
                     continue
 
-                xc, yc = detMap.findPoint(fid, l.wavelength)
-
-                ctype = getCtypeFromReferenceLine(l)
-                if ctype == "IGNORE":
-                    continue
+                xc, yc = detMap.findPoint(fid, ll.wavelength)
 
                 if len(fiberIds) == 1:
                     display.dot('o', xc, yc, ctype=ctype)
