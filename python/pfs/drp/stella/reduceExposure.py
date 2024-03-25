@@ -282,6 +282,7 @@ class ReduceExposureTask(CmdLineTask):
             if sensorRef.datasetExists("calexp"):
                 self.log.info("Reading existing calexp for %s", sensorRef.dataId)
                 exposure = sensorRef.get("calexp")
+                exposure.mask &= ~exposure.mask.getPlaneBitMask("REFLINE")  # not related to ISR etc.
             else:
                 self.log.warn("Not retrieving calexp, despite 'useCalexp' config, since it is missing")
 

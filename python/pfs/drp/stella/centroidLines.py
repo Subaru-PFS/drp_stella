@@ -42,7 +42,7 @@ class CentroidLinesConfig(Config):
     mask = ListField(
         dtype=str,
         default=["BAD", "SAT", "CR", "REFLINE", "NO_DATA"],
-        doc="Mask planes to ignore in trace removal",
+        doc="Mask planes to ignore in trace removal and peak finding",
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     shapes = ConfigField(dtype=ShapeConfig, doc="Shape measurement")
@@ -166,7 +166,7 @@ class CentroidLinesTask(Task):
             convolved = self.convolveImage(exposure)
             catalog = self.makeCatalog(referenceLines, detectorMap, exposure.image, convolved, pfsConfig)
             self.measure(exposure, catalog, seed)
-            self.display(exposure, catalog, detectorMap)
+            self.display(exposure, catalog, detectorMap)  # arguably convolved would be more useful
         finally:
             if traces is not None:
                 exposure.image.array += traces
@@ -403,6 +403,7 @@ class CentroidLinesTask(Task):
             disp = Display(frame=self.debugInfo.frame or 1)
 
         if self.debugInfo.displayExposure:
+            disp.scale('asinh', 'zscale', Q=8)
             disp.mtv(exposure)
 
         badLine = ReferenceLineStatus.fromNames("NOT_VISIBLE", "BLEND", "SUSPECT", "REJECTED")
