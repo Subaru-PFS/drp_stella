@@ -57,15 +57,19 @@ def estimateFiberFluxes(butler, visits, windows=["b", "r"], cache={},
     verbose: `int`
         Be chatty if verbose > 0
     """
+    visit0 = visits[0]
+
     fluxes = cache.get("fluxes", {})
     pfsConfigs = cache.get("pfsConfigs", {})
     isWindowed = cache.get("isWindowed", {})
+    focusz = cache.get("focusz", {})
 
     # setup cache
     cache["fluxes"] = fluxes
     cache["pfsConfigs"] = pfsConfigs
     cache["isWindowed"] = isWindowed
     cache["visits"] = visits
+    cache["focusz"] = focusz
 
     dataId = dict()
     for window in windows:
@@ -76,10 +80,9 @@ def estimateFiberFluxes(butler, visits, windows=["b", "r"], cache={},
         except KeyError:
             fluxes[window] = {}
 
-        lam0, lam1 = windowDefinitions[window + ("w" if isWindowed[visits[1]] else "")]
-
         dataId["arm"] = arm
-        for i, v in enumerate(visits[::]):  # skip the non-variant visit
+        for i, v in enumerate(visits[1:] + [visit0]):  # we need to set visits[1] early
+            del i
             if v in fluxes[window]:
                 continue
 
@@ -87,12 +90,16 @@ def estimateFiberFluxes(butler, visits, windows=["b", "r"], cache={},
 
             dataId["visit"] = v
             pfsConfigs[v] = butler.get("pfsConfig", dataId).select(targetType=~TargetType.ENGINEERING)
-            if v not in isWindowed:
+            if v not in isWindowed or v not in focusz:
                 md = butler.get("raw_md", visit=v, arm=arm, spectrograph=1)  # SM1 arms all present in March
-                isWindowed[v] = md["W_CDROW0"] != 0
 
-            if isWindowed[visits[1]] and len(window) > 1:
+                isWindowed[v] = md["W_CDROW0"] != 0
+                focusz[v] = md["W_M2OFF3"]
+
+            if isWindowed[v] and len(window) > 1:
                 break
+
+            lam0, lam1 = windowDefinitions[window + ("w" if isWindowed[visits[1]] else "")]
 
             fluxes[window][v] = []
             for s in range(1, 5):
@@ -103,17 +110,21 @@ def estimateFiberFluxes(butler, visits, windows=["b", "r"], cache={},
                 # filter out not-GOOD and UNASSIGNED fibres
                 spec = butler.get("pfsArm", dataId)
                 spec.flux[(spec.mask & ~spec.flags["REFLINE"]) != 0] = np.NaN
-                fluxes[window][v].append(list(np.nanmedian(
-                    np.where((spec.wavelength > lam0) & (spec.wavelength < lam1), spec.flux, np.NaN),
-                    axis=1)))
+                with np.testing.suppress_warnings() as suppress:
+                    suppress.filter(RuntimeWarning, "All-NaN slice encountered")
+                    fluxes[window][v].append(list(np.nanmedian(
+                        np.where((spec.wavelength > lam0) & (spec.wavelength < lam1), spec.flux, np.NaN),
+                        axis=1)))
 
             pfsConfigs[v] = pfsConfigs[v]
             fluxes[window][v] = np.array(sum(fluxes[window][v], []))
 
+    cache["focusz"] = focusz
+
     return cache
 
 
-def plotVariantOffsets(cache, showHist, title="", figure=None):
+def plotVariantOffsets(cache, showHist=True, title="", figure=None):
 
     pfsConfigs = cache.get("pfsConfigs", {})
     visits = cache.get("visits", {})
@@ -156,7 +167,7 @@ def plotVariantOffsets(cache, showHist, title="", figure=None):
     plt.suptitle(title, y=0.8 if showHist else 0.95)
 
 
-def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
+def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
                        nbin=10, rmax=200, mag=None, filterName=None, magMin=None, magMax=None, cache={},
                        normPercentile=100, title="", figure=None):
     """
@@ -167,6 +178,10 @@ def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
     """
     pfsConfigs = cache.get("pfsConfigs", {})
     visits = cache.get("visits", {})
+    focusz = np.array(list(cache.get("focusz", {}).values()))
+    if len(focusz) == 0:
+        focusz = np.zeros(len(visits))
+
     visit0 = visits[0]
 
     pfsConfig0 = pfsConfigs[visit0]
@@ -276,13 +291,15 @@ def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
                     binnedFluxErrors[window][iv][i] = norm*np.std(II[isWindow])/np.sqrt(len(isWindow))
 
                 annularFlux = binnedFluxes[window][iv]*2*np.pi*binnedDs[window][iv]
-                ngood = sum(np.isfinite(annularFlux))
-                flux = np.trapz(annularFlux[:ngood], binnedDs[window][iv][:ngood])
-                rms[window][quadrant][iv] = \
-                    np.sqrt(np.trapz(annularFlux[:ngood]*binnedDs[window][iv][:ngood]**2,
-                                     binnedDs[window][iv][:ngood])/flux)
 
-                meanCenteredFlux[window][quadrant][iv] = np.nanmean(II[keep & (d < 1)])  # < 1 micron offset
+                good = np.isfinite(annularFlux + binnedDs[window][iv])
+                flux = np.trapz(annularFlux[good], binnedDs[window][iv][good])
+                rms[window][quadrant][iv] = \
+                    np.sqrt(np.trapz(annularFlux[good]*binnedDs[window][iv][good]**2,
+                                     binnedDs[window][iv][good])/flux)
+
+                meanCenteredFlux[window][quadrant][iv] = \
+                    np.nanmean(II[keep[ll] & (d[ll] < 10)])  # < 1 micron offset
 
             keep = _keep                # restore saved value
 
@@ -302,15 +319,16 @@ def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
             binnedFluxes[window][iv] *= norm
             binnedFluxErrors[window][iv] *= norm
 
-    # normalise the quadrants
-    for quadrant in quadrants:
-        meanCenteredFlux[window][quadrant] /= np.nanpercentile(meanCenteredFlux[window][quadrant],
-                                                               [normPercentile])[0]
+        # normalise the quadrants
+        for quadrant in quadrants:
+            meanCenteredFlux[window][quadrant] /= np.nanpercentile(meanCenteredFlux[window][quadrant],
+                                                                   [normPercentile])[0]
 
     for window in windows:
-        max0 = np.nanmax(binnedFluxes[window][:, 0])
-        binnedFluxes[window] /= max0
-        binnedFluxErrors[window] /= max0
+        if window in binnedFluxes:
+            max0 = np.nanmax(binnedFluxes[window][:, 0])
+            binnedFluxes[window] /= max0
+            binnedFluxErrors[window] /= max0
 
     nDither = len(visits[1:])
     ny = int(np.sqrt(nDither))
@@ -322,6 +340,11 @@ def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
     axs = axs.flatten()
 
     for window in windows:
+        if window not in binnedFluxes:
+            print(f"binnedFluxes are not available for window {window}")
+
+            continue
+
         for ax, (iv, v) in zip(axs, enumerate(visits[1:])):
             plt.sca(ax)
             color = bandToColor.get(window)
@@ -375,7 +398,13 @@ def plotRadialProfiles(focusz, windows=["b1", "b2", "r1", "r2"],
     return rms, meanCenteredFlux
 
 
-def plotRms(focusz, rms, byQuadrant=True, title="", figure=None):
+def plotRms(rms, windows=None, byQuadrant=True, title="", figure=None, cache={}):
+    visits = cache.get("visits", [])
+    focuszArr = cache.get("focusz", {})
+    focusz = np.full(len(visits), np.NaN)
+    for iv, v in enumerate(visits):
+        focusz[iv] = focuszArr[v]
+
     if byQuadrant:
         quadrants = ["NW", "NE", "SW", "SE"]
         figure, axs = plt.subplots(2, 2, num=figure, sharex=True, sharey=True, squeeze=False)
@@ -384,7 +413,8 @@ def plotRms(focusz, rms, byQuadrant=True, title="", figure=None):
         quadrants = [None]
         axs = [plt.gca()]
 
-    windows = list(rms)
+    if not windows:
+        windows = list(rms)
 
     for ax, quadrant in zip(axs, quadrants):
         plt.sca(ax)
@@ -409,9 +439,18 @@ def plotRms(focusz, rms, byQuadrant=True, title="", figure=None):
     plt.suptitle(title)
 
 
-def rmsFromCenteredFibers(windows, focusz, meanCenteredFlux, byQuadrant=True, title="", figure=None):
+def rmsFromCenteredFibers(meanCenteredFlux, windows=None, byQuadrant=True, cache={}, title="", figure=None):
     """
     """
+    visits = cache.get("visits", [])
+    focuszArr = cache.get("focusz", {})
+    focusz = np.full(len(visits), np.NaN)
+    for iv, v in enumerate(visits):
+        focusz[iv] = focuszArr[v]
+
+    if not windows:
+        windows = [el for el in meanCenteredFlux if el != "normPercentile"]
+
     if byQuadrant:
         quadrants = ["NW", "NE", "SW", "SE"]
         figure, axs = plt.subplots(2, 2, num=figure, sharex=True, sharey=True, squeeze=False)
@@ -426,6 +465,11 @@ def rmsFromCenteredFibers(windows, focusz, meanCenteredFlux, byQuadrant=True, ti
         plt.sca(ax)
 
         for window in windows:
+            if window not in meanCenteredFlux:
+                if quadrant == quadrants[0]:
+                    print(f"meanCenteredFlux is not available for window {window}")
+                continue
+
             meanFlux = meanCenteredFlux[window][quadrant]
 
             ifz = np.argsort(focusz[1:])
