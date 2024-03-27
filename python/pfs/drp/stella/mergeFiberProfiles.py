@@ -6,6 +6,7 @@ import numpy as np
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser
 from lsst.pex.config import Config, ConfigurableField, Field
 
+from pfs.datamodel import TargetType
 from .fiberProfileSet import FiberProfileSet
 from .normalizeFiberProfiles import NormalizeFiberProfilesTask
 
@@ -196,9 +197,11 @@ class MergeFiberProfilesTask(CmdLineTask):
 
         # Fill in missing fibers
         allFibers = set()
+        engFibers = set()
         for conf in pfsConfigs:
             allFibers.update(conf.fiberId)
-        missing = allFibers - set(merged)
+            engFibers.update(conf.select(targetType=TargetType.ENGINEERING).fiberId)
+        missing = allFibers - set(merged) - engFibers
         average = merged.average()
         for ff in missing:
             merged[ff] = average.copy()
