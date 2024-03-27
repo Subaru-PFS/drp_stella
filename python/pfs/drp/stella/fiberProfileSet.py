@@ -471,9 +471,13 @@ class FiberProfileSet:
         numBins=50,
         show=True,
         centroidRange=(-0.2, 0.2),
-        widthRange=(1.5, 5.0),
-        minRange=(-0.2, 0.05),
-        maxRange=(0.0, 0.5),
+        widthRange=(1.5, 7.0),
+        minRange=(-0.01, 0.01),
+        maxRange=(0.1, 0.3),
+        skewRange=(-0.75, 0.75),
+        r90Range=(1, 5),
+        wingFracRange=(0, 0.2),
+        variationRange=(0, 0.01),
     ):
         """Plot histograms of statistics about the fiber profiles
 
@@ -491,6 +495,14 @@ class FiberProfileSet:
             Minimum and maximum minimum values to plot.
         maxRange : `tuple` of `float`, optional
             Minimum and maximum maximum values to plot.
+        skewRange : `tuple` of `float`, optional
+            Minimum and maximum skew values to plot.
+        r90Range : `tuple` of `float`, optional
+            Minimum and maximum r90 values to plot.
+        wingFracRange : `tuple` of `float`, optional
+            Minimum and maximum wingFrac values to plot.
+        variationRange : `tuple` of `float`, optional
+            Minimum and maximum variation values to plot.
 
         Returns
         -------
@@ -502,24 +514,98 @@ class FiberProfileSet:
         import matplotlib.pyplot as plt
 
         stats = {fiberId: self[fiberId].calculateStatistics() for fiberId in self}
-        centroids = np.array([stats[fiberId].centroid for fiberId in stats]).flatten()
-        widths = np.array([stats[fiberId].width for fiberId in stats]).flatten()
-        minimums = np.array([stats[fiberId].min for fiberId in stats]).flatten()
-        maximums = np.array([stats[fiberId].max for fiberId in stats]).flatten()
 
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fiberId = np.concatenate([np.full_like(self[ff].rows, ff, dtype=int) for ff in stats])
+        rows = np.concatenate([self[ff].rows for ff in stats])
+        numRows = max(len(self[ff].rows) for ff in stats)
 
-        axes[0, 0].hist(centroids, bins=np.linspace(*centroidRange, numBins))
-        axes[0, 0].set_xlabel("centroid")
+        centroids = np.concatenate([stats[fiberId].centroid for fiberId in stats])
+        widths = np.concatenate([stats[fiberId].width for fiberId in stats])
+        minimums = np.concatenate([stats[fiberId].min for fiberId in stats])
+        maximums = np.concatenate([stats[fiberId].max for fiberId in stats])
+        skew = np.concatenate([stats[fiberId].skew for fiberId in stats])
+        r90 = np.concatenate([stats[fiberId].r90 for fiberId in stats])
+        wingFrac = np.concatenate([stats[fiberId].wingFrac for fiberId in stats])
+        variation = np.concatenate([stats[fiberId].variation for fiberId in stats])
 
-        axes[0, 1].hist(widths, bins=np.linspace(*widthRange, numBins))
-        axes[0, 1].set_xlabel("width")
+        def plotHexbin(ax, values, range, cmap="viridis"):
+            ax.hexbin(fiberId, rows, values, gridsize=numRows, cmap=cmap, vmin=range[0], vmax=range[1])
+            ax.set_xlabel("fiberId")
+            ax.set_ylabel("row")
 
-        axes[1, 0].hist(minimums, bins=np.linspace(*minRange, numBins))
-        axes[1, 0].set_xlabel("min")
+        fig, axes = plt.subplots(nrows=4, ncols=4)
 
-        axes[1, 1].hist(maximums, bins=np.linspace(*maxRange, numBins))
-        axes[1, 1].set_xlabel("max")
+        ax = axes[0, 0]
+        ax.hist(centroids, bins=np.linspace(*centroidRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("centroid")
+
+        ax = axes[0, 1]
+        plotHexbin(ax, centroids, centroidRange)
+        ax.set_title("centroid")
+
+        ax = axes[0, 2]
+        ax.hist(widths, bins=np.linspace(*widthRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("width")
+
+        ax = axes[0, 3]
+        plotHexbin(ax, widths, widthRange)
+        ax.set_title("width")
+
+        ax = axes[1, 0]
+        ax.hist(skew, bins=np.linspace(*skewRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("skew")
+
+        ax = axes[1, 1]
+        plotHexbin(ax, skew, skewRange)
+        ax.set_title("skew")
+
+        ax = axes[1, 2]
+        ax.hist(minimums, bins=np.linspace(*minRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("min")
+
+        ax = axes[1, 3]
+        plotHexbin(ax, minimums, minRange)
+        ax.set_title("min")
+
+        ax = axes[2, 0]
+        ax.hist(maximums, bins=np.linspace(*maxRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("max")
+
+        ax = axes[2, 1]
+        plotHexbin(ax, maximums, maxRange)
+        ax.set_title("max")
+
+        ax = axes[2, 2]
+        ax.hist(r90, bins=np.linspace(*r90Range, numBins))
+        ax.semilogy()
+        ax.set_xlabel("$r_{90}$")
+
+        ax = axes[2, 3]
+        plotHexbin(ax, r90, r90Range)
+        ax.set_title("$r_{90}$")
+
+        ax = axes[3, 0]
+        ax.hist(wingFrac, bins=np.linspace(*wingFracRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("wingFrac")
+
+        ax = axes[3, 1]
+        plotHexbin(ax, wingFrac, wingFracRange)
+        ax.set_title("wingFrac")
+
+        ax = axes[3, 2]
+        ax.hist(variation, bins=np.linspace(*variationRange, numBins))
+        ax.semilogy()
+        ax.set_xlabel("variation")
+
+        ax = axes[3, 3]
+        plotHexbin(ax, variation, variationRange)
+        ax.set_title("variation")
 
         fig.tight_layout()
 

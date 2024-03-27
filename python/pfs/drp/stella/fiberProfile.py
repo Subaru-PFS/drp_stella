@@ -259,7 +259,7 @@ class FiberProfile:
         for prof, yy, color in zip(self.profiles, self.rows, itertools.cycle(colorList)):
             axes.plot(self.index, prof, ls="-", label=f"y={yy}", color=color)
 
-    def calculateStatistics(self, fwhm: float = 1.5):
+    def calculateStatistics(self, fwhm: float = 1.5, wingRadius: float = 3):
         """Calculate statistics about this fiber profile
 
         Parameters
@@ -267,6 +267,8 @@ class FiberProfile:
         fwhm : `float`
             Full width a half maximum of the convolution to apply to the
             profile when centroiding.
+        wingRadius : `float`
+            Radius to consider as the wings of the profile.
         """
         from pfs.drp.stella.utils.psf import fwhmToSigma
         from pfs.drp.stella.traces import centroidPeak, TracePeak
@@ -309,8 +311,8 @@ class FiberProfile:
         cumulative /= cumulative[:, -1][:, np.newaxis]
         r90 = np.array([np.interp(0.9, ff, self.index[centerIndex:]) for ff in cumulative])
 
-        # Fraction of flux in the wings (radius > 3)
-        wings = self.index[centerIndex:] > 3
+        # Fraction of flux in the wings
+        wings = self.index[centerIndex:] > wingRadius
         wingFrac = fluxAtRadius[:, wings].sum(axis=1)/fluxAtRadius.sum(axis=1)
 
         # Symmetry
