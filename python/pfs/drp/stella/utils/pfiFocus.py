@@ -284,11 +284,14 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
 
                 for i in range(nbin):
                     isWindow = np.where(keep[ll] & (d[ll] > rbin[i]) & (d[ll] <= rbin[i + 1]))[0]
-                    binnedDs[window][iv][i] = np.mean(d[ll][isWindow])
-                    binnedDErrors[window][iv][i] = np.std(d[ll][isWindow])
-                    norm = 1/np.mean(I0[isWindow])   # flux in this annulus in visit0 (all fibres centred)
-                    binnedFluxes[window][iv][i] = norm*np.mean(II[isWindow])
-                    binnedFluxErrors[window][iv][i] = norm*np.std(II[isWindow])/np.sqrt(len(isWindow))
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        binnedDs[window][iv][i] = np.mean(d[ll][isWindow])
+                        binnedDErrors[window][iv][i] = np.std(d[ll][isWindow])
+                        norm = 1/np.mean(I0[isWindow])   # flux in this annulus in visit0 (all fibres centred)
+                        binnedFluxes[window][iv][i] = norm*np.mean(II[isWindow])
+                        binnedFluxErrors[window][iv][i] = norm*np.std(II[isWindow])/np.sqrt(len(isWindow))
 
                 annularFlux = binnedFluxes[window][iv]*2*np.pi*binnedDs[window][iv]
 
@@ -307,8 +310,6 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
                 norm = 1/np.nanmax(binnedFluxes[window][iv])
             else:
                 norm = 1/flux
-            if np.isnan(norm):
-                print(ngood, binnedFluxes[window][iv], binnedDs[window][iv])
 
             binnedFluxes[window][iv] *= norm
             binnedFluxErrors[window][iv] *= norm
