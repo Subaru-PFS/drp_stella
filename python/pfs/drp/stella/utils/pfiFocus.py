@@ -178,9 +178,7 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
     """
     pfsConfigs = cache.get("pfsConfigs", {})
     visits = cache.get("visits", {})
-    focusz = np.array(list(cache.get("focusz", {}).values()))
-    if len(focusz) == 0:
-        focusz = np.zeros(len(visits))
+    focuszDict = cache.get("focusz", {})
 
     visit0 = visits[0]
 
@@ -353,7 +351,7 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
             plt.errorbar(binnedDs[window][iv], binnedFluxes[window][iv],
                          xerr=binnedDErrors[window][iv], yerr=binnedFluxErrors[window][iv],
                          fmt='none', color=color)
-            plt.text(0.4, 0.95, f"{v}\n{focusz[iv + 1]:5.3f}mm", transform=ax.transAxes, ha='left', va='top')
+            plt.text(0.4, 0.95, f"{v}\n{focuszDict[v]:5.3f}mm", transform=ax.transAxes, ha='left', va='top')
 
             if window == windows[0]:
                 plt.axhline(0, color="black", alpha=0.2, zorder=-1)
@@ -401,10 +399,10 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
 
 def plotRms(rms, windows=None, byQuadrant=True, title="", figure=None, cache={}):
     visits = cache.get("visits", [])
-    focuszArr = cache.get("focusz", {})
+    focuszDict = cache.get("focusz", {})
     focusz = np.full(len(visits), np.NaN)
     for iv, v in enumerate(visits):
-        focusz[iv] = focuszArr[v]
+        focusz[iv] = focuszDict[v]
 
     if byQuadrant:
         quadrants = ["NW", "NE", "SW", "SE"]
@@ -444,10 +442,10 @@ def rmsFromCenteredFibers(meanCenteredFlux, windows=None, byQuadrant=True, cache
     """
     """
     visits = cache.get("visits", [])
-    focuszArr = cache.get("focusz", {})
+    focuszDict = cache.get("focusz", {})
     focusz = np.full(len(visits), np.NaN)
     for iv, v in enumerate(visits):
-        focusz[iv] = focuszArr[v]
+        focusz[iv] = focuszDict[v]
 
     if not windows:
         windows = [el for el in meanCenteredFlux if el != "normPercentile"]
