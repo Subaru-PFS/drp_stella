@@ -211,7 +211,7 @@ class MergeFiberProfilesTask(PipelineTask):
     """
 
     ConfigClass = MergeFiberProfilesConfig
-    _DefaultName = "mergeFiberProfiles"
+    _DefaultName = "mergeFiberProfilesGen3"
 
     def run(self, profiles):
         """Merge fiber profiles
