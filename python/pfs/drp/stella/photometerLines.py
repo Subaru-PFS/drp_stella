@@ -62,7 +62,9 @@ class PhotometerLinesTask(Task):
         self.makeSubtask("continuum")
         self.makeSubtask("apertureCorrection")
 
-    def run(self, exposure, referenceLines, detectorMap, pfsConfig, fiberTraces=None) -> Struct:
+    def run(
+        self, exposure, referenceLines, detectorMap, pfsConfig, fiberTraces=None, fiberNorms=None
+    ) -> Struct:
         """Photometer lines on an arc
 
         We perform a simultaneous fit of PSFs to each of the lines.
@@ -83,6 +85,8 @@ class PhotometerLinesTask(Task):
         fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
             Position and profile of fiber traces. Required for continuum
             subtraction and/or flux normalisation.
+        fiberNorms : `pfs.drp.stella.datamodel.PfsFiberNorms`, optional
+            Fiber normalizations.
 
         Returns
         -------
@@ -101,7 +105,7 @@ class PhotometerLinesTask(Task):
             phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
 
         if fiberTraces is not None:
-            self.addFluxNormalizations(phot.lines, fiberTraces)
+            self.addFluxNormalizations(phot.lines, fiberTraces, fiberNorms)
         else:
             self.log.warning("Not normalizing measured line fluxes")
         self.log.info("Photometered %d lines", len(phot.lines))
@@ -207,7 +211,7 @@ class PhotometerLinesTask(Task):
             raise RuntimeError(f"Unrecognised traces/profiles object: {tracesOrProfiles}")
         return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in norm}
 
-    def addFluxNormalizations(self, lines, tracesOrProfiles):
+    def addFluxNormalizations(self, lines, tracesOrProfiles, fiberNorms):
         """Add the trace normalization
 
         We provide the normalization, which is typically the extracted flux of
@@ -220,11 +224,15 @@ class PhotometerLinesTask(Task):
             applied.
         tracesOrProfiles : `FiberTraceSet` or `FiberProfilesSet`
             Fiber traces or fiber profiles, which contain the normalization.
+        fiberNorms : `pfs.drp.stella.datamodel.PfsFiberNorms`
+            Fiber normalizations.
         """
         interpolators = self.getNormalizations(tracesOrProfiles)
         lines.fluxNorm[:] = [
             interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for ll in lines
         ]
+        if fiberNorms is not None:
+            lines.fluxNorm[:] *= [fiberNorms.calculate(ll.fiberId, ll.y) for ll in lines]
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image

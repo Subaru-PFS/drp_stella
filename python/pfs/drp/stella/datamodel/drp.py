@@ -1,8 +1,15 @@
-import pfs.datamodel.drp
-from .pfsFiberArraySet import PfsFiberArraySet
-from .pfsFiberArray import PfsFiberArray, PfsSimpleSpectrum
+from functools import lru_cache
+from typing import overload, Optional
 
-__all__ = ("PfsArm", "PfsMerged", "PfsReference", "PfsSingle", "PfsObject")
+import numpy as np
+from numpy.typing import ArrayLike
+import pfs.datamodel.drp
+
+from .pfsFiberArray import PfsFiberArray, PfsSimpleSpectrum
+from .pfsFiberArraySet import PfsFiberArraySet
+from ..math import NormalizedPolynomial1D
+
+__all__ = ("PfsArm", "PfsMerged", "PfsReference", "PfsSingle", "PfsObject", "PfsFiberNorms")
 
 
 class PfsArm(pfs.datamodel.drp.PfsArm, PfsFiberArraySet):
@@ -28,3 +35,49 @@ class PfsSingle(pfs.datamodel.drp.PfsSingle, PfsFiberArray):
 class PfsObject(pfs.datamodel.drp.PfsObject, PfsFiberArray):
     _ylabel = "nJy"
     pass
+
+
+class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
+    @overload
+    def calculate(self, fiberId: int) -> np.ndarray:
+        ...
+
+    def calculate(self, fiberId: int, rows: Optional[ArrayLike] = None) -> ArrayLike:
+        """Calculate the normalization for a fiber
+
+        Parameters
+        ----------
+        fiberId : `int`
+            Fiber identifier.
+
+        norm : `numpy.ndarray` of `float`
+            Normalization for each spectral pixel.
+        """
+        poly = self.getPolynomial(fiberId)
+        if rows is None:
+            rows = np.arange(self.height, dtype=float)
+        return poly(rows)
+
+    @lru_cache(maxsize=1000)
+    def getPolynomial(self, fiberId: int) -> NormalizedPolynomial1D:
+        """Return the polynomial for a fiber
+
+        Parameters
+        ----------
+        fiberId : `int`
+            Fiber identifier.
+
+        Returns
+        -------
+        poly : `NormalizedPolynomial1D`
+            Normalized polynomial for the fiber.
+        """
+        coeff = self[fiberId]
+        return NormalizedPolynomial1D(coeff, 0, self.height)
+
+    def getMetadata(self):
+        """Return metadata
+
+        Required for recordCalibInputs.
+        """
+        return self.metadata

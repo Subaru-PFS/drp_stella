@@ -103,6 +103,7 @@ class ReduceProfilesConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
+        self.reduceExposure.doApplyFiberNorms = False
         self.reduceExposure.doMeasureLines = False
         self.reduceExposure.doMeasurePsf = False
         self.reduceExposure.doSubtractSky2d = False

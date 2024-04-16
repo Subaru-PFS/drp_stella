@@ -103,6 +103,7 @@ N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` whic
     windowed = Field(dtype=bool, default=False,
                      doc="Reduction of windowed data, for real-time acquisition? Implies "
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
+    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalizations?")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
     doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
@@ -348,7 +349,7 @@ class ReduceExposureTask(CmdLineTask):
             maskedImage = exposure.maskedImage
             fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
             spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId,
-                                              True if boxcarWidth > 0 else False).spectra
+                                              True if boxcarWidth > 0 else False, calibs.fiberNorms).spectra
             original = spectra
 
             if self.config.doSubtractSpectra:
@@ -612,6 +613,10 @@ class ReduceExposureTask(CmdLineTask):
 
         sensorRef.put(detectorMap, "detectorMap_used")
 
+        fiberNorms = None
+        if self.config.doApplyFiberNorms:
+            fiberNorms = sensorRef.get("fiberNorms")
+
         if self.config.doMeasurePsf:
             psf = self.measurePsf.runSingle(exposure, detectorMap)
             lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
@@ -623,7 +628,9 @@ class ReduceExposureTask(CmdLineTask):
         apCorr = None
         if self.config.doMeasureLines:
             notTrace = lines.description != "Trace"
-            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+            phot = self.photometerLines.run(
+                exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces, fiberNorms
+            )
             apCorr = phot.apCorr
 
             # Copy results to the one list of lines that we return
@@ -636,7 +643,8 @@ class ReduceExposureTask(CmdLineTask):
                 sensorRef.put(phot.apCorr, "apCorr")
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      pfsConfig=pfsConfig, refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
+                      pfsConfig=pfsConfig, refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf,
+                      fiberNorms=fiberNorms)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
