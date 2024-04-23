@@ -63,6 +63,8 @@ class ReduceProfilesTaskRunner(TaskRunner):
             for arm in dataRefs[spectrograph]:
                 dataList = sorted(dataRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 normList = sorted(normRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
+                if spectrograph not in normRefs or arm not in normRefs[spectrograph]:
+                    raise RuntimeError(f"No norm provided for spectrograph={spectrograph} arm={arm}")
                 darkList = sorted(darkRefs[spectrograph][arm], key=lambda ref: ref.dataId["visit"])
                 targetKwargs = dict(
                     normRefList=normList,
@@ -103,12 +105,13 @@ class ReduceProfilesConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
-        self.reduceExposure.doApplyFiberNorms = False
-        self.reduceExposure.doMeasureLines = False
-        self.reduceExposure.doMeasurePsf = False
-        self.reduceExposure.doSubtractSky2d = False
+        for base in (self.reduceExposure, self.normalize.reduceExposure):
+            base.doApplyFiberNorms = False
+            base.doMeasureLines = False
+            base.doMeasurePsf = False
+            base.doSubtractSky2d = False
+            base.doWriteArm = False
         self.reduceExposure.doExtractSpectra = False
-        self.reduceExposure.doWriteArm = False
         self.profiles.doBlindFind = False  # We have good detectorMaps and pfsConfig, so we know what's where
         self.profiles.profileOversample = 3
         self.profiles.profileRejIter = 0
