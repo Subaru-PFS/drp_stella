@@ -145,7 +145,8 @@ def estimateFiberThroughputs(butler, visits, arms="brn", what="flux",
 
             if not (dataId["arm"] in visitC[what] and dataId["visit"] in visitC[what][dataId["arm"]]):
                 if verbose > 0:
-                    print(f"{visit} {arm} {int(100*i/(len(visits) - 1) + 0.5)}%\r", end='', flush=True)
+                    frac = 1.0 if len(visits) == 1 else i/(len(visits) - 1)
+                    print(f"{visit} {arm} {int(100*frac + 0.5)}%\r", end='', flush=True)
 
                 pfsConfig = butler.get("pfsConfig", dataId, spectrograph=2)
                 pfsConfig = pfsConfig[pfsConfig.targetType != TargetType.ENGINEERING]
@@ -255,7 +256,7 @@ def plotThroughputs(cache, visits, arms, what="flux", refVisit=-1, showHome=Fals
                 c = visitC[what][dataId["arm"]][dataId["visit"]].copy()
                 pfsConfig = visitConfig[what][dataId["arm"]][dataId["visit"]]
             else:
-                raise RuntimeError(f"Unable to read c from cache for {dataId}")
+                raise RuntimeError(f"Unable to read value of {what} from cache for {dataId}")
 
             title = [f"{dataId['visit']}  {dataId['arm']}"]
             lam0, lam1 = selectWavelengthInterval(dataId["arm"])[:2]
@@ -307,7 +308,7 @@ def plotThroughputs(cache, visits, arms, what="flux", refVisit=-1, showHome=Fals
             else:
                 x, y = pfsConfig.pfiCenter.T
 
-            S = plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax)
+            S = plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, s=10)
 
             plt.colorbar(S, label="\n".join(colorbarlabel))
 
