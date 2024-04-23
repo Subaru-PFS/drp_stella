@@ -15,7 +15,8 @@ import pfs.utils.fiberids as fiberids
 __all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict"]
 
 
-lineColorDict = dict(ArI="cyan", HgI="blue", KrI="peachpuff", NeI="red", XeI="silver",
+lineColorDict = dict(ArI="cyan", CdI="orchid", HgI="blue", HgII="blue", KrI="peachpuff",
+                     NeI="red", XeI="silver",
                      OI="green", NaI="darkorange", OH="magenta", O2="bisque")
 
 
