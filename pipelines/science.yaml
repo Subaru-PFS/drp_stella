@@ -4,11 +4,6 @@ imports:
 tasks:
   fitPfsFluxReference:
     class: pfs.drp.stella.fitPfsFluxReference.FitPfsFluxReferenceTask
-    config:
-      minBroadbandFluxes: 1
-      minTeff: 0
-      maxTeff: 9999
-      paramMargin: [0, 0, 0, 0]
   fitFluxCal:
     class: pfs.drp.stella.fitFluxCal.FitFluxCalTask
   coaddSpectra:
