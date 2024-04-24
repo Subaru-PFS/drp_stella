@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
 
+import numpy as np
+
 from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.daf.butler import DeferredDatasetHandle
 from lsst.pex.config import ConfigurableField
@@ -11,6 +13,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 from pfs.datamodel import CalibIdentity, PfsConfig
 
+from ..blackSpotCorrection import BlackSpotCorrectionTask
 from ..buildFiberProfiles import BuildFiberProfilesTask
 from ..DetectorMapContinued import DetectorMap
 from ..fiberProfileSet import FiberProfileSet
@@ -57,6 +60,7 @@ class MeasureFiberProfilesConfig(CalibCombineConfig, pipelineConnections=Measure
     """Configuration for MeasureFiberProfilesTask"""
 
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
+    blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
 
     def setDefaults(self):
         super().setDefaults()
@@ -72,6 +76,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("profiles")
+        self.makeSubtask("blackspots")
 
     def runQuantum(
         self,
@@ -172,6 +177,23 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         if len(profiles) == 0:
             raise RuntimeError("No profiles found")
         self.log.info("%d fiber profiles found", len(profiles))
+
+        # Set the normalisation of the FiberProfiles
+        # The normalisation is the flat: we want extracted spectra to be relative to the flat.
+        bitmask = combined.mask.getPlaneBitMask(self.config.mask)
+        traces = profiles.makeFiberTracesFromDetectorMap(detectorMap)
+        spectra = traces.extractSpectra(combined.maskedImage, bitmask)
+        self.blackspots.run(pfsConfig, spectra)
+        medianTransmission = np.empty(len(spectra))
+        for i, ss in enumerate(spectra):
+            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux/ss.norm, np.nan)
+            medianTransmission[i] = np.nanmedian(ss.flux)
+            self.log.debug("Median relative transmission of fiber %d is %f",
+                           ss.fiberId, medianTransmission[i])
+
+        self.log.info("Median relative transmission of fibers %.2f +- %.2f (min %.2f, max %.2f)",
+                      np.mean(medianTransmission), np.std(medianTransmission, ddof=1),
+                      np.min(medianTransmission), np.max(medianTransmission))
 
         return Struct(outputData=profiles)
 
