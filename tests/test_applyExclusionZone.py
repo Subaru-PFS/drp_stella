@@ -4,6 +4,8 @@ import lsst.utils.tests
 import lsst.afw.geom
 
 from pfs.drp.stella.applyExclusionZone import applyExclusionZone
+from pfs.drp.stella.maskNearby import maskNearby
+from pfs.drp.stella.readLineList import ReadLineListTask
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus, ReferenceLineSource
 from pfs.drp.stella.tests import runTests
 
@@ -55,6 +57,48 @@ class ApplyExclusionZoneTestCase(lsst.utils.tests.TestCase):
         self.lines.wavelength[:] = self.lines.wavelength[indices]
         applyExclusionZone(self.lines, 1.1*self.spacing, ReferenceLineStatus.BLEND)
         self.assertFloatsEqual(self.lines.status, ReferenceLineStatus.BLEND)
+
+
+class MaskNearbyTestCase(lsst.utils.tests.TestCase):
+    """Test maskNearby"""
+    def setUp(self):
+        config = ReadLineListTask.ConfigClass()
+        config.lightSources = ["sky"]
+        task = ReadLineListTask(config=config)
+        self.lines = task.run()
+
+    def assertMask(self, wavelength, mask, exclusionRadius):
+        """Assert that the mask is as expected
+
+        We calculate the mask with the old, slow code and compare.
+        """
+        expect = np.zeros_like(wavelength, dtype=bool)
+        for wl in wavelength:
+            distance = wavelength - wl
+            expect |= (np.abs(distance) < exclusionRadius) & (distance != 0)
+        self.assertTrue(np.all(mask == expect))
+
+    def testBasic(self):
+        """Test basic functionality"""
+        exclusionZone = 0.5  # nm
+        mask = maskNearby(self.lines.wavelength, exclusionZone)
+        self.assertMask(self.lines.wavelength, mask, exclusionZone)
+
+    def testUnsorted(self):
+        """Test that it works even if the wavelengths aren't sorted"""
+        rng = np.random.RandomState(12345)
+        indices = np.argsort(rng.uniform(size=len(self.lines)))
+        wavelength = self.lines.wavelength[indices]
+        exclusionZone = 0.5
+        mask = maskNearby(wavelength, exclusionZone)
+        self.assertMask(wavelength, mask, exclusionZone)
+
+    def testMultiple(self):
+        """Test that it works with multiple copies of the wavelengths"""
+        exclusionZone = 0.5
+        wavelength = np.concatenate([self.lines.wavelength]*3)
+        mask = maskNearby(wavelength, exclusionZone)
+        self.assertMask(wavelength, mask, exclusionZone)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

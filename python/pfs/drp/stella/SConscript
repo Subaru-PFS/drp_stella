@@ -33,6 +33,7 @@ scripts.BasicSConscript.pybind11(
      'MultipleDistortionsDetectorMap',
      'RotScaleDistortion',
      'MosaicPolynomialDistortion',
+     'maskNearby',
      ],
     addUnderscore=False
 )
