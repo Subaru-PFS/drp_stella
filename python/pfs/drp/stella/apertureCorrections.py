@@ -163,23 +163,22 @@ class MeasureApertureCorrectionsTask(Task):
         catalog = SourceCatalog(self.schema)
         catalog.reserve(num)
 
-        for ii, ll in enumerate(lines):
-            if not select[ii]:
-                continue
-            xx, yy = detectorMap.findPoint(ll.fiberId, ll.wavelength)
+        lines = lines[select]
+        points = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        for ii, (xx, yy) in enumerate(points):
             if not np.isfinite(xx) or not np.isfinite(yy):
                 continue
             source = catalog.addNew()
             source.set(self.index, ii)
-            source.set(self.fiberId, ll.fiberId)
-            source.set(self.wavelength, ll.wavelength)
-            source.set(self.description, ll.description)
-            source.set(self.status, ll.status)
+            source.set(self.fiberId, lines.fiberId[ii])
+            source.set(self.wavelength, lines.wavelength[ii])
+            source.set(self.description, lines.description[ii])
+            source.set(self.status, lines.status[ii])
             source.set(self.center, Point2D(xx, yy))
-            source.set(self.psfFlux, ll.flux)
-            source.set(self.psfFluxErr, ll.fluxErr)
-            source.set(self.transition, ll.transition)
-            source.set(self.source, ll.source)
+            source.set(self.psfFlux, lines.flux[ii])
+            source.set(self.psfFluxErr, lines.fluxErr[ii])
+            source.set(self.transition, lines.transition[ii])
+            source.set(self.source, lines.source[ii])
 
         return catalog
 
@@ -295,7 +294,7 @@ class MeasureApertureCorrectionsTask(Task):
                 lookup[fiberId] = {wl: (flux, fluxErr) for
                                    wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
 
-        values = np.array([lookup[ll.fiberId][ll.wavelength] for ll in lines])
+        values = np.array([lookup[ff][wl] for ff, wl in zip(lines.fiberId, lines.wavelength)])
         lines.flux[:] = values[:, 0]
         lines.fluxErr[:] = values[:, 1]
 

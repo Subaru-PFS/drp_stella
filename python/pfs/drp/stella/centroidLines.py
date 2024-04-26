@@ -235,8 +235,8 @@ class CentroidLinesTask(Task):
             fiberId = detectorMap.fiberId
 
         for ff in fiberId:
-            for rl in referenceLines:
-                xx, yy = detectorMap.findPoint(ff, rl.wavelength)
+            points = detectorMap.findPoint(ff, referenceLines.wavelength)
+            for ii, (xx, yy) in enumerate(points):
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 expected = Point2D(xx, yy)
@@ -247,11 +247,11 @@ class CentroidLinesTask(Task):
 
                 source = catalog.addNew()
                 source.set(self.fiberId, ff)
-                source.set(self.wavelength, rl.wavelength)
-                source.set(self.description, rl.description)
-                source.set(self.status, rl.status)
-                source.set(self.transition, rl.transition)
-                source.set(self.source, rl.source)
+                source.set(self.wavelength, referenceLines.wavelength[ii])
+                source.set(self.description, referenceLines.description[ii])
+                source.set(self.status, referenceLines.status[ii])
+                source.set(self.transition, referenceLines.transition[ii])
+                source.set(self.source, referenceLines.source[ii])
                 source.setFootprint(footprint)
 
                 if bbox.contains(peak):
