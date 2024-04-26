@@ -10,6 +10,23 @@ namespace drp {
 namespace stella {
 
 
+/// Find peak on image
+///
+/// This function finds the peak of an image, starting from a given point.
+///
+/// @param image : Image to search.
+/// @param center : Starting point for search.
+/// @param halfWidth : Half-width of search box.
+/// @param badBitMask : Mask plane bitmask to ignore.
+/// @returns Peak of image.
+lsst::geom::Point2I findPeak(
+    lsst::afw::image::MaskedImage<float> const& image,
+    lsst::geom::Point2D const& center,
+    int halfWidth,
+    lsst::afw::image::MaskPixel badBitMask=0
+);
+
+
 /// Centroid an exposure
 ///
 /// This provides a simple interface to the SdssCentroid measurement algorithm

@@ -3,7 +3,7 @@ import numpy as np
 from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, ListField, makeConfigClass
 from lsst.pipe.base import Task
 
-from lsst.geom import Point2D, Point2I, Box2I, Extent2I
+from lsst.geom import Point2D
 from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
@@ -12,6 +12,7 @@ from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet
+from .centroidImage import findPeak
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
@@ -46,7 +47,7 @@ class CentroidLinesConfig(Config):
     )
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     shapes = ConfigField(dtype=ShapeConfig, doc="Shape measurement")
-    peakSearch = Field(dtype=float, default=3, doc="Radius of peak search (pixels)")
+    peakSearch = Field(dtype=int, default=3, doc="Radius of peak search (pixels)")
     footprintHeight = Field(dtype=int, default=11, doc="Height of footprint (pixels)")
     footprintWidth = Field(dtype=float, default=3, doc="Width of footprint (pixels)")
     photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
@@ -234,13 +235,14 @@ class CentroidLinesTask(Task):
         else:
             fiberId = detectorMap.fiberId
 
+        badBitMask = convolved.mask.getPlaneBitMask(self.config.mask)
         for ff in fiberId:
             points = detectorMap.findPoint(ff, referenceLines.wavelength)
             for ii, (xx, yy) in enumerate(points):
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 expected = Point2D(xx, yy)
-                peak = self.findPeak(convolved, expected)
+                peak = findPeak(convolved, expected, self.config.peakSearch, badBitMask)
                 footprint = makeFootprint(image, peak, self.config.footprintHeight,
                                           self.config.footprintWidth)
                 assert image.getBBox().contains(footprint.getSpans().getBBox())
@@ -262,33 +264,6 @@ class CentroidLinesTask(Task):
 
                 source.set(self.ignore, ignore)
         return catalog
-
-    def findPeak(self, image, center):
-        """Find a peak in the footprint around the expected peak
-
-        Parameters
-        ----------
-        image : `lsst.afw.image.MaskedImage`
-            Image on which to find peak.
-        center : `lsst.geom.Point2D`
-            Expected center of peak.
-
-        Returns
-        -------
-        peak : `lsst.geom.Point2I`
-            Coordinates of the peak.
-        """
-        x0 = int(center.getX() + 0.5) - self.config.peakSearch
-        y0 = int(center.getY() + 0.5) - self.config.peakSearch
-        size = 2*self.config.peakSearch + 1
-        box = Box2I(Point2I(x0, y0), Extent2I(size, size))
-        box.clip(image.getBBox())
-        subImage = image[box]
-        badBitmask = subImage.mask.getPlaneBitMask(self.config.mask)
-        good = np.isfinite(subImage.image.array) & ((subImage.mask.array & badBitmask) == 0)
-        yy, xx = np.unravel_index(np.argmax(np.where(good, subImage.image.array, 0.0)),
-                                  subImage.image.array.shape)
-        return Point2I(xx + x0, yy + y0)
 
     def measure(self, exposure, catalog, seed=0):
         """Measure the centroids
