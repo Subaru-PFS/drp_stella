@@ -168,6 +168,34 @@ class MultipleDistortionsDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         self.assertPositions(detMap)
 
+    def testSlitOffsetsAfterClone(self):
+        """Test the slit offsets after cloning
+
+        Cloning the detectorMap should clone the slit offsets too; PIPE2D-1394.
+        """
+        change = 1.2345
+        original = self.makeMultipleDistortionsDetectorMap(False)
+        spatial = original.getSpatialOffsets().copy()
+        spectral = original.getSpectralOffsets().copy()
+        fiberId = original.fiberId[original.getNumFibers()//2]
+        row = 0.5*original.bbox.getHeight()
+        xCenter = original.getXCenter(fiberId, row)
+
+        clone = original.clone()
+        self.assertFloatsEqual(clone.getSpatialOffsets(), spatial)
+        self.assertFloatsEqual(clone.getSpectralOffsets(), spectral)
+
+        # Change the slit offsets in the original, and they should change
+        original.setSlitOffsets(spatial + change, spectral - change)
+        self.assertFloatsEqual(original.getSpatialOffsets(), spatial + change)
+        self.assertFloatsEqual(original.getSpectralOffsets(), spectral - change)
+        self.assertNotEqual(original.getXCenter(fiberId, row), xCenter)
+
+        # The slit offsets in the clone should NOT have changed
+        self.assertFloatsEqual(clone.getSpatialOffsets(), spatial)
+        self.assertFloatsEqual(clone.getSpectralOffsets(), spectral)
+        self.assertFloatsEqual(clone.getXCenter(fiberId, row), xCenter)
+
     def testFinds(self):
         """Test the various ``find*`` methods
 
