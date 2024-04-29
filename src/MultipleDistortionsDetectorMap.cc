@@ -58,8 +58,17 @@ MultipleDistortionsDetectorMap::MultipleDistortionsDetectorMap(
 
 
 std::shared_ptr<DetectorMap> MultipleDistortionsDetectorMap::clone() const {
-    return std::make_shared<MultipleDistortionsDetectorMap>(getBase(), getDistortions(), getVisitInfo(),
-                                                            getMetadata()->deepCopy());
+    DistortionList distortions;
+    distortions.reserve(getDistortions().size());
+    for (auto const& dd : getDistortions()) {
+        distortions.emplace_back(dd->clone());
+    }
+    return std::make_shared<MultipleDistortionsDetectorMap>(
+        *std::dynamic_pointer_cast<SplinedDetectorMap>(getBase().clone()),
+        distortions,
+        lsst::afw::image::VisitInfo(getVisitInfo()),  // copy
+        getMetadata()->deepCopy()
+    );
 }
 
 

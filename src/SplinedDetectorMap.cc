@@ -93,9 +93,9 @@ std::shared_ptr<DetectorMap> SplinedDetectorMap::clone() const {
     std::vector<Spline> xCenter(_xCenter.begin(), _xCenter.end());
     std::vector<Spline> wavelength(_wavelength.begin(), _wavelength.end());
     return std::make_shared<SplinedDetectorMap>(
-        getBBox(), getFiberId(), xCenter, wavelength,
+        getBBox(), ndarray::copy(getFiberId()), xCenter, wavelength,
         ndarray::copy(getSpatialOffsets()), ndarray::copy(getSpectralOffsets()),
-        getVisitInfo(), getMetadata()->deepCopy()
+        lsst::afw::image::VisitInfo(getVisitInfo()), getMetadata()->deepCopy()
     );
 }
 
