@@ -153,6 +153,8 @@ class CentroidLinesTask(Task):
             Centroided lines.
         """
         checkPsf(exposure, fwhm=self.config.fwhm)
+        if len(referenceLines) == 0:
+            return ArcLineSet.empty()
 
         traces = None
         if self.config.doSubtractTraces:
