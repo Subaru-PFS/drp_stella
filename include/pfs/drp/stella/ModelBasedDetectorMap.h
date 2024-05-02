@@ -2,6 +2,7 @@
 #define PFS_DRP_STELLA_MODELBASEDDETECTORMAP_H
 
 #include "ndarray_fwd.h"
+#include "lsst/cpputils/Cache.h"
 
 #include "pfs/drp/stella/spline.h"
 #include "pfs/drp/stella/DetectorMap.h"
@@ -40,7 +41,7 @@ class ModelBasedDetectorMap : public DetectorMap {
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
     );
 
-    virtual ~ModelBasedDetectorMap() {}
+    virtual ~ModelBasedDetectorMap() = default;
     ModelBasedDetectorMap(ModelBasedDetectorMap const&) = default;
     ModelBasedDetectorMap(ModelBasedDetectorMap &&) = default;
     ModelBasedDetectorMap & operator=(ModelBasedDetectorMap const&) = default;
@@ -48,13 +49,12 @@ class ModelBasedDetectorMap : public DetectorMap {
 
   protected:
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual double findWavelengthImpl(int fiberId, double row) const override;
+    virtual double findWavelengthImpl(int fiberId, double row) const override {
+        return _getWavelengthSpline(fiberId)(row);
+    }
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;
-
-    /// Ensure that splines are initialized
-    void _ensureSplinesInitialized() const;
 
   private:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
@@ -63,18 +63,46 @@ class ModelBasedDetectorMap : public DetectorMap {
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override = 0;
 
     /// Return the fiber center
-    virtual double getXCenterImpl(int fiberId, double row) const override;
+    virtual double getXCenterImpl(int fiberId, double row) const override {
+        return _getXCenterSpline(fiberId)(row);
+    }
 
-    /// Set splines
-    void _setSplines() const;
+    using SplineCoeffT = double;
+    using Spline = math::Spline<SplineCoeffT>;
+    using SplinePair = std::pair<Spline, Spline>;
+    using SplineCache = lsst::utils::Cache<int, std::shared_ptr<SplinePair>>;
+
+    /// Construct wavelength and xCenter splines for a fiber
+    SplinePair _makeSplines(int fiberId) const;
+
+    /// Retrieve wavelength and xCenter splines for a fiber from the cache
+    ///
+    /// Generates them if they are not already in the cache.
+    SplinePair const& _getSplines(int fiberId) const {
+        return *_splines(
+            fiberId,
+            [this](int fiberId) { return std::make_shared<SplinePair>(_makeSplines(fiberId)); }
+        );
+    }
+
+    /// Retrieve wavelength spline for a fiber from the cache
+    ///
+    /// Generates it (and the xCenter spline) if they are not already in the
+    /// cache.
+    Spline const& _getWavelengthSpline(int fiberId) const { return _getSplines(fiberId).first; }
+
+    /// Retrieve xCenter spline for a fiber from the cache
+    ///
+    /// Generates it (and the wavelength spline) if they are not already in the
+    /// cache.
+    Spline const& _getXCenterSpline(int fiberId) const { return _getSplines(fiberId).second; }
+
+    /// Clear splines cache
+    void _clearSplines() const { _splines.flush(); }
 
     double _wavelengthCenter;
     double _wavelengthSampling;
-    using SplineCoeffT = double;
-    using Spline = math::Spline<SplineCoeffT>;
-    mutable std::vector<Spline> _rowToWavelength;
-    mutable std::vector<Spline> _rowToXCenter;
-    mutable bool _splinesInitialized;
+    mutable SplineCache _splines;
 };
 
 
