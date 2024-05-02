@@ -15,6 +15,7 @@ namespace {
 
 template <typename T>
 void defineCentroidImage(py::module & mod) {
+    mod.def("findPeak", &findPeak, "image"_a, "center"_a, "halfWidth"_a, "badBitMask"_a=0);
     mod.def("centroidImage",
             py::overload_cast<lsst::afw::image::Image<T> const&,
                               std::shared_ptr<lsst::afw::detection::Psf>>(&centroidImage<T>),

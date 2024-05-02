@@ -229,10 +229,10 @@ class PhotometerLinesTask(Task):
         """
         interpolators = self.getNormalizations(tracesOrProfiles)
         lines.fluxNorm[:] = [
-            interpolators[ll.fiberId](ll.y) if ll.fiberId in interpolators else np.nan for ll in lines
+            interpolators[ff](yy) if ff in interpolators else np.nan for ff, yy in zip(lines.fiberId, lines.y)
         ]
         if fiberNorms is not None:
-            lines.fluxNorm[:] *= [fiberNorms.calculate(ll.fiberId, ll.y) for ll in lines]
+            lines.fluxNorm[:] *= [fiberNorms.calculate(ff, yy) for ff, yy in zip(lines.fiberId, lines.y)]
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image

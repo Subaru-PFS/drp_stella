@@ -133,7 +133,11 @@ class Table:
 
     @property
     def rows(self) -> List[Row]:
-        """Return list of rows"""
+        """Return list of rows
+
+        This is convenient, but can be slow since it creates a new `Row` object
+        for each row.
+        """
         return [self.RowClass(**row[1].to_dict()) for row in self.data.iterrows()]
 
     def __len__(self) -> int:
@@ -145,7 +149,11 @@ class Table:
         return len(self) != 0
 
     def __iter__(self) -> Iterator[Row]:
-        """Iterator"""
+        """Iterator
+
+        This is convenient, but can be slow since it creates a new `Row` object
+        for each row.
+        """
         return iter(self.rows)
 
     @overload

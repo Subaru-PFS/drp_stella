@@ -9,6 +9,40 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
+
+lsst::geom::Point2I findPeak(
+    lsst::afw::image::MaskedImage<float> const& image,
+    lsst::geom::Point2D const& center,
+    int halfWidth,
+    lsst::afw::image::MaskPixel badBitMask
+) {
+    int const xCenter = center.getX() + 0.5;
+    int const yCenter = center.getY() + 0.5;
+    int const xMin = std::max(0, xCenter - halfWidth);  // inclusive
+    int const yMin = std::max(0, yCenter - halfWidth);  // inclusive
+    int const xMax = std::min(image.getWidth(), xCenter + halfWidth + 1);  // exclusive
+    int const yMax = std::min(image.getHeight(), yCenter + halfWidth + 1);  // exclusive
+
+    float maxValue = -std::numeric_limits<float>::infinity();
+    lsst::geom::Point2I peak{xCenter, yCenter};
+    int const x0 = image.getX0();
+    int const y0 = image.getY0();
+    for (int yy = yMin; yy < yMax; ++yy) {
+        auto iter = image.row_begin(yy - y0) + (xMin - x0);
+        for (int xx = xMin; xx < xMax; ++xx, ++iter) {
+            if ((iter.mask() & badBitMask) || !std::isfinite(iter.image())) {
+                continue;
+            }
+            if (iter.image() > maxValue) {
+                maxValue = iter.image();
+                peak = lsst::geom::Point2I(xx, yy);
+            }
+        }
+    }
+    return peak;
+}
+
+
 namespace {
 
 /// Construct a GaussianPsf

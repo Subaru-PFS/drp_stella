@@ -4,6 +4,7 @@ import numpy as np
 
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .arcLine import ArcLineSet
+from .maskNearby import maskNearby
 
 __all__ = ("getExclusionZone", "applyExclusionZone",)
 
@@ -39,9 +40,7 @@ def getExclusionZone(
         return excluded
 
     visible = (status & ReferenceLineStatus.NOT_VISIBLE) == 0
-    for wl in wavelength[visible]:
-        distance = wavelength - wl
-        excluded |= (np.abs(distance) < exclusionRadius) & (distance != 0)
+    excluded[visible] = maskNearby(wavelength[visible], exclusionRadius)
     unprotected = (status & ReferenceLineStatus.PROTECTED) == 0
     return excluded & unprotected
 
