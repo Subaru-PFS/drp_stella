@@ -7,7 +7,29 @@ from .guiders import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
-__all__ = ["momentsToABT", "showImageQuality", "showCobraConvergence"]
+__all__ = ["momentsToABT", "getFWHM", "showImageQuality", "showCobraConvergence", "opaqueColorbar"]
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def opaqueColorbar(S):
+    """A contextmanager to make a colorbar opaque (alpha=1)
+    E.g.
+       with opaqueColorbar(S):
+          plt.colorbar(S, label="Wavelength (nm)")
+    """
+    a = S.get_alpha()
+    try:
+        S.set_alpha(1)
+    except AttributeError:
+        a = None
+    try:
+        yield S
+    finally:
+        if a:
+            S.set_alpha(a)
 
 
 def momentsToABT(ixx, ixy, iyy):
@@ -29,19 +51,28 @@ def momentsToABT(ixx, ixy, iyy):
     return a, b, theta
 
 
-def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
-                     showFWHMHistogram=False, showFluxHistogram=False,
+def getFWHM(als):
+    """Return the Gaussian-equivalent FWHM and position angle from an arcLines object"""
+    a, b, theta = momentsToABT(als.xx, als.xy, als.yy)
+    r = np.sqrt(a*b)
+    return 2*np.sqrt(2*np.log(2))*r, theta
+
+
+def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainstLambda=False,
+                     showFWHMHistogram=False, showFluxHistogram=False, fromTrace=False,
+                     useSN=False,
                      assembleSpectrograph=True,
                      minFluxPercentile=10,
                      vmin=2.5, vmax=3.5,
                      logScale=True, gridsize=100, stride=1,
-                     butler=None, alsCache=None, figure=None):
+                     butler=None, alsCache=None, title="", figure=None):
     """
     Make QA plots for image quality
 
     dataIds: list of dataIds to analyze
     showWhisker: Show a whisker plot [default]
     showFWHM:    Show a 2-D image of the FWHM
+    showFWHMAgainstLambda: Plot the FWHM against the log of the line flux (or S/N if useSN is True)
     showFWHMHistogram:    Show a histogram of the FWHM
     showFluxHistogram:    Show a histogram of line fluxes
     assembleSpectrograph: If true, merge visits and arrange plots as b[r,m]n columns
@@ -51,6 +82,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
                  If <= 0, use plt.scatter() instead
     stride:      Stride when traversing fiberId (default: 1)
+    useSN:       Use signal/noise rather than lg(flux) in showFWHMAgainstLambda plots
     butler:      A butler to read data that isn't in the alsCache
     alsCache:    A dict to cache line shape data; returned by this function
     figure:      The figure to use; or None
@@ -75,7 +107,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     Return:
       alsCache
     """
-    if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram):
+    if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram or showFWHMAgainstLambda):
         showWhisker = True
 
     if len(dataIds) == 0:
@@ -192,13 +224,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
             continue
 
         if traceOnly:
-            a, b, theta = als.xx, np.NaN, np.NaN
+            a, theta = als.xx, np.NaN
         else:
-            a, b, theta = momentsToABT(als.xx, als.xy, als.yy)
-            r = np.sqrt(a*b)
-            fwhm = 2*np.sqrt(2*np.log(2))*r
+            fwhm, theta = getFWHM(als)
 
-        if showWhisker or showFWHM:
+        if showWhisker or showFWHM or showFWHMAgainstLambda:
             q10 = np.nanpercentile(als.flux, [minFluxPercentile])
             if np.isnan(q10).any():     # nanpercentile returns NaN not [NaN] in case of problems grrr
                 q10 = [np.NaN]
@@ -213,6 +243,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
 
             norm = plt.Normalize(vmin, vmax)
 
+            colorbarLabel = "FWHM (pixels)"
             if showWhisker:
                 imageSize = 4096            # used in estimating scale
 
@@ -231,15 +262,23 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
                     C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], s=5, norm=norm)
                 else:
                     C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
+            elif showFWHMAgainstLambda:
+                xarr = als.flux/als.fluxErr if useSN else np.log10(als.flux)
+                C = plt.scatter(xarr[ll], fwhm[ll], c=als.lam[ll], marker='.', alpha=0.75)
+                colorbarLabel = "Wavelength (nm)"
+
+                plt.xlabel("Signal/Noise" if useSN else "lg(flux)")
+                plt.ylabel("FWHM (pixels)")
             else:
                 raise RuntimeError("You can't get here")
 
             # We'll use C when we add a colorbar to the entire figure
-            plt.xlim(plt.ylim(-1, 4096))
-            plt.xlabel("x (pixels)")
-            plt.ylabel("y (pixels)")
+            if not showFWHMAgainstLambda:
+                plt.xlim(plt.ylim(-1, 4096))
+                plt.xlabel("x (pixels)")
+                plt.ylabel("y (pixels)")
 
-            ax.set_aspect(1)
+                ax.set_aspect(1)
             ax.label_outer()
         else:
             if showFWHMHistogram:
@@ -261,17 +300,21 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     for i in range(n, nx*ny):
         axs[i].set_axis_off()
 
-    if showWhisker or showFWHM:
+    if showWhisker or showFWHM or showFWHMAgainstLambda:
         # Setting shrink is a black art
         if ny == 1:
-            shrink = 0.99 if nx == 1 else 0.95/nx
+            if showFWHMAgainstLambda:
+                shrink = 1
+            else:
+                shrink = 0.99 if nx == 1 else 0.95/nx
         elif ny == 2:
             shrink = 0.99 if nx <= 4 else 0.72
         else:
             shrink = 1 if nx <= 2 else 0.93 if nx <= 4 else 0.85
 
         if C:
-            fig.colorbar(C, shrink=shrink, label="FWHM (pixels)", ax=axs)
+            with opaqueColorbar(C):
+                fig.colorbar(C, shrink=shrink, label=colorbarLabel, ax=axs)
 
     kwargs = {}
 
@@ -280,7 +323,9 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False,
     elif showWhisker and ny < nx:
         kwargs.update(y=0.76)
 
-    plt.suptitle(f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}", **kwargs)
+    if not title:
+        title = f"visit{'s' if len(visits) > 1 else ''} {' '.join([str(v) for v in visits])}"
+    plt.suptitle(title, **kwargs)
 
     return alsCache
 
