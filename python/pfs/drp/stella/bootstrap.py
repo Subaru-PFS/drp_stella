@@ -42,7 +42,8 @@ class BootstrapConfig(Config):
     rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
-    fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER"], doc="Fiber statuses to allow")
+    fiberStatus = ListField(dtype=str, default=["GOOD", "BROKENFIBER", "BROKENCOBRA"],
+                            doc="Fiber statuses to allow")
     targetType = ListField(dtype=str,
                            default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE", "DCB",
                                     "HOME", "UNASSIGNED"],
