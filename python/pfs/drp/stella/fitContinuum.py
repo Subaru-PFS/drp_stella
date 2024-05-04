@@ -152,7 +152,14 @@ class FitContinuumTask(Task):
         use = np.isfinite(knots) & np.isfinite(binned)
         if not np.any(use):
             raise FitContinuumError("No finite knots when fitting continuum")
-        interp = makeInterpolate(knots[use], binned[use], self.fitType)
+
+        try:
+            interp = makeInterpolate(knots[use], binned[use], self.fitType)
+        except Exception as e:
+            msg = "Fitting continuum: " + ", ".join(e.args)
+            self.log.warn(msg)
+            raise FitContinuumError(msg)
+
         fit = np.array(interp.interpolate(indices)).astype(values.dtype)
 
         if lsstDebug.Info(__name__).plot:
