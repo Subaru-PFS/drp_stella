@@ -82,7 +82,7 @@ class ReduceProfilesConfig(Config):
     normalize = ConfigurableField(target=NormalizeFiberProfilesTask, doc="Normalize fiber profiles")
     fiberStatus = ListField(
         dtype=str,
-        default=["GOOD", "BROKENFIBER", "BLACKSPOT"],
+        default=["GOOD", "BROKENFIBER", "BLACKSPOT", "BROKENCOBRA"],
         doc="Fiber status for which to build profiles",
     )
     targetType = ListField(
