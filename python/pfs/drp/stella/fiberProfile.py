@@ -300,7 +300,8 @@ class FiberProfile:
             centroid.append(peak.peak)
         centroid = np.interp(centroid, np.arange(self.index.size), self.index)
 
-        width = np.sqrt(((xx - centroid[:, np.newaxis])**2*self.profiles).sum(axis=1)/norm)
+        with np.errstate(invalid="ignore"):
+            width = np.sqrt(((xx - centroid[:, np.newaxis])**2*self.profiles).sum(axis=1)/norm)
 
         # Measure radius containing 90% of the flux
         centerIndex = (self.radius + 1)*self.oversample
