@@ -102,6 +102,11 @@ class ReduceProfilesConfig(Config):
     replaceFibers = ListField(dtype=int, default=[], doc="Replace the profiles for these fibers")
     replaceNearest = Field(dtype=int, default=2, doc="Replace profiles with average of this many near fibers")
     darkFiberWidth = Field(dtype=int, default=3, doc="Width around fibers to measure dark subtraction")
+    darkMask = ListField(
+        dtype=str,
+        default=["BAD", "SAT", "CR", "NO_DATA"],
+        doc="Mask planes to ignore when subtracting darks",
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -301,6 +306,13 @@ class ReduceProfilesTask(CmdLineTask):
         fiberId.intersection_update(detectorMap.fiberId)
 
         select = self.maskFibers(exposure.getBBox(), detectorMap, fiberId, self.config.darkFiberWidth)
+        select &= (exposure.mask.array & exposure.mask.getPlaneBitMask(self.config.darkMask)) == 0
+        select &= np.isfinite(exposure.image.array)
+        for dark in darkList:
+            badBitMask = dark.exposure.mask.getPlaneBitMask(self.config.darkMask)
+            select &= (dark.exposure.mask.array & badBitMask) == 0
+            select &= np.isfinite(dark.exposure.image.array)
+
         dataArray = exposure.image.array[select]
         darkArrays = [dark.exposure.image.array[select] for dark in darkList]
 
