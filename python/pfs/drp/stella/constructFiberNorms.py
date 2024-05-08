@@ -118,6 +118,8 @@ class ConstructFiberNormsConfig(SpectralCalibConfig):
         default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
         doc="Flat-field screen response parameters",
     )
+    rejIter = Field(dtype=int, default=1, doc="Number of iterations for fiberNorms measurement")
+    rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
 
     def setDefaults(self):
         super().setDefaults()
@@ -219,6 +221,15 @@ class ConstructFiberNormsTask(SpectralCalibTask):
             nn = ss.norm*screen[ii]
             flux = np.ma.masked_where(bad, ss.flux/nn)
             weights = np.ma.masked_where(bad, nn**2/ss.variance)
+            error = np.sqrt(ss.variance)
+
+            rejected = np.zeros_like(flux, dtype=bool)
+            for _ in range(self.config.rejIter):
+                median = np.ma.median(flux)
+                rejected |= np.abs(flux - median) > self.config.rejThresh*error
+                flux.mask |= rejected
+
+            weights.mask |= rejected
             norms[ii, 0] = np.ma.average(flux, weights=weights)
             self.log.debug("Normalization of fiber %d is %f", ss.fiberId, norms[ii])
 
