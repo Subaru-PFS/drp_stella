@@ -118,6 +118,11 @@ class ConstructFiberNormsConfig(SpectralCalibConfig):
         default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
         doc="Flat-field screen response parameters",
     )
+    mask = ListField(
+        dtype=str,
+        default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
+        doc="Mask planes to exclude from fiberNorms measurement",
+    )
     rejIter = Field(dtype=int, default=1, doc="Number of iterations for fiberNorms measurement")
     rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
 
@@ -215,7 +220,7 @@ class ConstructFiberNormsTask(SpectralCalibTask):
         # PfsFiberNorms allows a polynomial for each fiber, but we're using only a single value per fiber
         norms = np.ones((len(spectra), 1), dtype=float)
         for ii, ss in enumerate(spectra):
-            bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) != 0
+            bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask(self.config.mask)) != 0
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
             nn = ss.norm*screen[ii]
