@@ -219,9 +219,10 @@ class ConstructFiberNormsTask(SpectralCalibTask):
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
             nn = ss.norm*screen[ii]
-            flux = np.ma.masked_where(bad, ss.flux/nn)
-            weights = np.ma.masked_where(bad, nn**2/ss.variance)
-            error = np.sqrt(ss.variance)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                flux = np.ma.masked_where(bad, ss.flux/nn)
+                weights = np.ma.masked_where(bad, nn**2/ss.variance)
+                error = np.sqrt(ss.variance)
 
             rejected = np.zeros_like(flux, dtype=bool)
             for _ in range(self.config.rejIter):
@@ -230,7 +231,8 @@ class ConstructFiberNormsTask(SpectralCalibTask):
                 flux.mask |= rejected
 
             weights.mask |= rejected
-            norms[ii, 0] = np.ma.average(flux, weights=weights)
+            with np.errstate(invalid="ignore"):
+                norms[ii, 0] = np.ma.average(flux, weights=weights)
             self.log.debug("Normalization of fiber %d is %f", ss.fiberId, norms[ii])
 
         self.log.info(
