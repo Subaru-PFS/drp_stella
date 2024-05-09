@@ -118,6 +118,13 @@ class ConstructFiberNormsConfig(SpectralCalibConfig):
         default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
         doc="Flat-field screen response parameters",
     )
+    mask = ListField(
+        dtype=str,
+        default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
+        doc="Mask planes to exclude from fiberNorms measurement",
+    )
+    rejIter = Field(dtype=int, default=1, doc="Number of iterations for fiberNorms measurement")
+    rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
 
     def setDefaults(self):
         super().setDefaults()
@@ -213,13 +220,24 @@ class ConstructFiberNormsTask(SpectralCalibTask):
         # PfsFiberNorms allows a polynomial for each fiber, but we're using only a single value per fiber
         norms = np.ones((len(spectra), 1), dtype=float)
         for ii, ss in enumerate(spectra):
-            bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) != 0
+            bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask(self.config.mask)) != 0
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
             nn = ss.norm*screen[ii]
-            flux = np.ma.masked_where(bad, ss.flux/nn)
-            weights = np.ma.masked_where(bad, nn**2/ss.variance)
-            norms[ii, 0] = np.ma.average(flux, weights=weights)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                flux = np.ma.masked_where(bad, ss.flux/nn)
+                weights = np.ma.masked_where(bad, nn**2/ss.variance)
+                error = np.sqrt(ss.variance)
+
+            rejected = np.zeros_like(flux, dtype=bool)
+            for _ in range(self.config.rejIter):
+                median = np.ma.median(flux)
+                rejected |= np.abs(flux - median) > self.config.rejThresh*error
+                flux.mask |= rejected
+
+            weights.mask |= rejected
+            with np.errstate(invalid="ignore"):
+                norms[ii, 0] = np.ma.average(flux, weights=weights)
             self.log.debug("Normalization of fiber %d is %f", ss.fiberId, norms[ii])
 
         self.log.info(
