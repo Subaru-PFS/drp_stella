@@ -98,7 +98,7 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_SKY", "BAD_FLUXCAL", "INTRP", "SAT"],
+    mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
 
