@@ -27,7 +27,7 @@ from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListFie
 from lsst.pipe.base import CmdLineTask, Struct
 from lsst.obs.pfs.isrTask import PfsIsrTask
 from lsst.afw.display import Display
-from pfs.datamodel import TargetType
+from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -76,6 +76,11 @@ class ReduceExposureConfig(Config):
     doBoxcarExtraction = Field(dtype=bool, default=False, doc="Extract with a boxcar of width boxcarWidth")
     boxcarWidth = Field(dtype=float, default=5,
                         doc="Extract with a boxcar of width boxcarWidth if doBoxcarExtraction is True")
+    doDetectIIS = Field(dtype=bool, default=True,
+                        doc="If ~ENGINEERING fibres is requested but the IIS is illuminated, "
+                        "use a boxcar of boxcarWidth to extract the ENGINEERING fibres")
+    doBoxcarForIIS = Field(dtype=bool, default=True,
+                           doc="Enable boxcar extractions when ENGINEERING fibres are illuminated?")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -525,6 +530,16 @@ class ReduceExposureTask(CmdLineTask):
         kwargs = dict(spectrograph=sensorRef.dataId["spectrograph"])
         if self.config.targetType:
             kwargs.update(targetType=[TargetType.fromString(tt) for tt in self.config.targetType])
+
+        # Handle the IIS fibres for the user
+        if set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus) == set([FiberStatus.GOOD]):
+            if self.config.doDetectIIS:
+                if len(set(kwargs["targetType"]) ^ set(~TargetType.ENGINEERING)) == 0:
+                    kwargs["targetType"] = [TargetType.ENGINEERING]
+                    self.log.info("~TargetType.ENGINEERING requested but IIS is on; assuming ENGINEERING")
+
+            if self.config.doBoxcarForIIS:
+                boxcarWidth = self.config.boxcarWidth
 
         select = pfsConfig.getSelection(**kwargs)
         if not select.any():
