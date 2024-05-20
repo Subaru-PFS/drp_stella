@@ -116,7 +116,7 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
     )
     minWavelength = Field(
         dtype=float,
-        default=600.0,
+        default=480.0,
         doc="min of the wavelength range in which observation spectra are compared to models.",
     )
     maxWavelength = Field(
@@ -124,17 +124,29 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         default=1200.0,
         doc="max of the wavelength range in which observation spectra are compared to models.",
     )
-    ignoredRangesLeft = ListField(
+    lrIgnoredRangesLeft = ListField(
         dtype=float,
-        default=[685.0, 716.0, 759.0, 810.0, 895.0, 1100.0],
+        default=[685.0, 715.0, 755.0, 810.0, 895.0, 1100.0],
         doc="Left ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
-        " when comparing observation spectra to models.",
+        " when comparing low-resolution observation spectra to models.",
     )
-    ignoredRangesRight = ListField(
+    lrIgnoredRangesRight = ListField(
         dtype=float,
         default=[695.0, 735.0, 770.0, 835.0, 985.0, 1200.0],
         doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
-        " when comparing observation spectra to models.",
+        " when comparing low-resolution observation spectra to models.",
+    )
+    mrIgnoredRangesLeft = ListField(
+        dtype=float,
+        default=[625.0, 755.0, 810.0, 885.0, 1100.0],
+        doc="Left ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
+        " when comparing middle-resolution observation spectra to models.",
+    )
+    mrIgnoredRangesRight = ListField(
+        dtype=float,
+        default=[735.0, 770.0, 835.0, 985.0, 1200.0],
+        doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
+        " when comparing middle-resolution observation spectra to models.",
     )
     badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
     modelSNR = Field(
@@ -1195,11 +1207,18 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
         spectra : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             The same instance as the argument.
         """
+        if isMidResolution(spectra):
+            ignoredRangesLeft = self.config.mrIgnoredRangesLeft
+            ignoredRangesRight = self.config.mrIgnoredRangesRight
+        else:
+            ignoredRangesLeft = self.config.lrIgnoredRangesLeft
+            ignoredRangesRight = self.config.lrIgnoredRangesRight
+
         # Mask atmospheric absorption lines etc.
         wavelength = spectra.wavelength
         badMask = spectra.flags.add("ATMOSPHERE")
 
-        for low, high in zip(self.config.ignoredRangesLeft, self.config.ignoredRangesRight):
+        for low, high in zip(ignoredRangesLeft, ignoredRangesRight):
             spectra.mask[...] |= np.where((low < wavelength) & (wavelength < high), badMask, 0).astype(
                 spectra.mask.dtype
             )
@@ -1835,6 +1854,26 @@ def marginalizePdf(
     marginalizedPdf = np.array([value for key, value in keyValueList], dtype=float)
 
     return y, marginalizedPdf
+
+
+def isMidResolution(pfsMerged: PfsMerged) -> bool:
+    """Return True if a part of spectra in ``pfsMerged`` are from
+    mid-resolution arm.
+
+    Parameters
+    ----------
+    pfsMerged : `PfsMerged`
+        Merged spectra from exposure.
+
+    Returns
+    -------
+    midres : `bool`
+        True if a part of spectra in ``pfsMerged`` are from mid-resolution arm.
+    """
+    # `pfsMerged.identity.arm` is made from `pfsArm`s that are actually merged
+    # into `pfsMerged`, in contrast to `pfsConfig.arms`. The latter comes from
+    # `pfsDesign`.
+    return "m" in pfsMerged.identity.arm
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:

@@ -91,7 +91,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             self.np_random.choice(len(self.modelSet.parameters), size=nFibers, replace=False)
         ]
 
-        identity = Identity(visit=0, arm="r", spectrograph=1, pfsDesignId=0)
+        identity = Identity(visit=0, arm="brn", spectrograph=1, pfsDesignId=0)
         fiberId = np.arange(1, nFibers + 1, dtype=np.int32)
         radecs = self.getRandomLonLat(size=nFibers)
         ebvs = self.dustMap(radecs[:, 0], radecs[:, 1])
