@@ -80,7 +80,12 @@ class MinimizationMonitor:
     """Number of calls ever made to ``self.__call__()``."""
 
     def __init__(
-        self, objective, *, tol: float = -1, windowSize: int = 10, log: Union[logging.Logger, None] = None
+        self,
+        objective: Callable[[np.ndarray], float],
+        *,
+        tol: float = -1,
+        windowSize: int = 10,
+        log: Union[logging.Logger, None] = None,
     ) -> None:
         self.objective = objective
         self.tol = tol
@@ -166,6 +171,10 @@ class BroadbandFluxChi2:
         Merged spectra.
     broadbandFluxType : `Literal["fiber", "psf", "total"]`
         Type of broadband flux to use.
+    badMask : `List[str]`
+        Mask planes for bad pixels.
+    log : `logging.Logger`, optional
+        Logger.
     """
 
     def __init__(
@@ -173,7 +182,12 @@ class BroadbandFluxChi2:
         pfsConfig: PfsConfig,
         pfsMerged: PfsMerged,
         broadbandFluxType: Literal["fiber", "psf", "total"],
+        badMask: List[str],
+        log: Optional[logging.Logger],
     ) -> None:
+        self.log = log
+        self.badMask = badMask
+
         self.obsSpectra: Dict[int, PfsSingle] = {
             fiberId: pfsMerged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in pfsConfig.fiberId
         }
@@ -190,12 +204,17 @@ class BroadbandFluxChi2:
         else:
             raise ValueError(f"`broadbandFluxType` must be one of fiber|psf|total. ('{broadbandFluxType}')")
 
-        self.bbFlux: Dict[int, Tuple[float, float, str]] = {
+        self.arms: Dict[int, str] = getExistentArms(pfsMerged)
+
+        self.bbFlux: Dict[int, List[Tuple[float, float, str]]] = {
             fiberId: list(zip(bbFlux, bbFluxErr, filterNames))
             for fiberId, bbFlux, bbFluxErr, filterNames in zip(
                 pfsConfig.fiberId, bbFluxList, bbFluxErrList, pfsConfig.filterNames
             )
         }
+
+        for fiberId in pfsConfig.fiberId:
+            self._addressAbsentArms(self.obsSpectra[fiberId], self.bbFlux[fiberId], self.arms[fiberId])
 
         self.fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
         self._filterCurves: Dict[str, FilterCurve] = {}
@@ -377,6 +396,89 @@ class BroadbandFluxChi2:
         if instance is None:
             instance = self._filterCurves[filterName] = FilterCurve(filterName)
         return instance
+
+    def _addressAbsentArms(
+        self, spectrum: PfsSingle, bbFlux: List[Tuple[float, float, str]], arms: str
+    ) -> None:
+        """Address the problem arising from absent arms (see PIPE2D-1427).
+
+        If an arm is absent, spectrum in its wavelength range is not available.
+        Because we compare broadband fluxes with integrations of spectra,
+        sampling points absent from the integration ranges lead to erroneous
+        chi^2.
+
+        To address this problem, we throw away broadband fluxes if the bands
+        are hardly covered by the observed spectra. In addition, we interpolate
+        or extrapolate the observed spectra so that they will cover entire
+        bands of broadband filters.
+
+        Parameters
+        ----------
+        spectrum : `PfsSingle`
+            Spectrum.
+        bbFlux : `List[Tuple[float, float, str]]`
+            Broadband fluxes. Each element of the list is a tuple of
+            ``(flux, fluxErr, filterName)``
+        arms : `str`
+            Existent arms. "brn" and "bmn" for example.
+        """
+        if not all(filterName.endswith("_ps1") for flux, fluxErr, filterName in bbFlux):
+            if self.log:
+                self.log.warning(
+                    "Flux standard with non-PS1 broadband fluxes cannot be used: %s", spectrum.getIdentity()
+                )
+            bbFlux[:] = []
+            return
+
+        if arms == "brn":
+            # No tweak is required.
+            return
+
+        if arms == "rn":
+            bbFlux[:] = [
+                (flux, fluxErr, filterName)
+                for flux, fluxErr, filterName in bbFlux
+                if filterName in ["i_ps1", "z_ps1", "y_ps1"]
+            ]
+            return
+
+        if arms == "br":
+            interpolateLinearly(spectrum, (890, 920), (920, 950), self.badMask, mode="extrapolate-right")
+            return
+
+        if arms == "bmn":
+            interpolateLinearly(spectrum, (580, 610), (715, 745), self.badMask, mode="interpolate")
+            interpolateLinearly(spectrum, (850, 880), (1000, 1030), self.badMask, mode="interpolate")
+            return
+
+        if arms == "mn":
+            bbFlux[:] = [
+                (flux, fluxErr, filterName)
+                for flux, fluxErr, filterName in bbFlux
+                if filterName in ["i_ps1", "z_ps1", "y_ps1"]
+            ]
+            interpolateLinearly(spectrum, (715, 745), (745, 775), self.badMask, mode="extrapolate-left")
+            interpolateLinearly(spectrum, (850, 880), (1000, 1030), self.badMask, mode="interpolate")
+            return
+
+        if arms == "bm":
+            bbFlux[:] = [
+                (flux, fluxErr, filterName)
+                for flux, fluxErr, filterName in bbFlux
+                if filterName in ["g_ps1", "r_ps1", "i_ps1", "z_ps1"]
+            ]
+            interpolateLinearly(spectrum, (580, 610), (715, 745), self.badMask, mode="interpolate")
+            interpolateLinearly(spectrum, (820, 850), (850, 880), self.badMask, mode="extrapolate-right")
+            return
+
+        if self.log:
+            self.log.warning(
+                'Flux standard is not used because combination of arms is unexpected: "%s" (%s)',
+                arms,
+                spectrum.getIdentity(),
+            )
+        bbFlux[:] = []
+        return
 
 
 def fitFluxCalibToArrays(
@@ -585,6 +687,118 @@ def fitFluxCalibToArrays(
         params = monitor3.x
 
     return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
+
+def getExistentArms(pfsMerged: PfsMerged) -> Dict[int, str]:
+    """Get the set of arms, per fiber, that were present when ``pfsMerged``
+    was observed.
+
+    This function guesses used arms from the observed spectra instead of
+    referring to ``pfsConfig.arms`` or ``pfsMerged.identity.arm`` because
+    they are per-visit information.
+
+    Parameters
+    ----------
+    pfsMerged : `PfsMerged`
+        Merged spectra from exposure.
+
+    Returns
+    -------
+    arms : `Dict[int, str]`
+        Mapping from fiberId to one-letter arm names concatenated to be a
+        string (e.g. "brn").
+    """
+    arms: Dict[int, str] = {}
+
+    if "NO_DATA" in pfsMerged.flags:
+        noData = pfsMerged.flags.get("NO_DATA")
+    else:
+        noData = 0
+
+    for i, fiberId in enumerate(pfsMerged.fiberId):
+        good = 0 == (pfsMerged.mask[i] & noData)
+        wavelength = pfsMerged.wavelength[i][good]
+
+        wlRangeList = [
+            [450.0, 550.0],
+            [750.0, 850.0],
+            [910.0, 930.0],
+            [1050.0, 1150.0],
+        ]
+
+        flags = [np.any((wlMin < wavelength) & (wavelength < wlMax)) for wlMin, wlMax in wlRangeList]
+
+        arms[fiberId] = "".join(
+            [
+                "b" if flags[0] else "",
+                "r" if flags[1] and flags[2] else "",
+                "m" if flags[1] and not flags[2] else "",
+                "n" if flags[3] else "",
+            ]
+        )
+
+    return arms
+
+
+def interpolateLinearly(
+    spectrum: PfsSingle,
+    wlRange1: Tuple[float, float],
+    wlRange2: Tuple[float, float],
+    badMask: List[str],
+    mode: Literal["interpolate", "extrapolate-left", "extrapolate-right"],
+) -> None:
+    """Interpolate or extrapolate spectrum linearly.
+
+    Median fluxes ``flux1``, ``flux2`` are computed in ``wlRange1`` and
+    ``wlRange2``. The interpolation line is drawn through ``flux1`` and
+    ``flux2``.
+
+    Parameters
+    ----------
+    spectrum : `PfsSingle`
+        Spectrum.
+    wlRange1 : `Tuple[float, float]`
+        Wavelength range (nm) in which to compute ``flux1``.
+    wlRange2 : `Tuple[float, float]`
+        Wavelength range (nm) in which to compute ``flux2``.
+    badMask : `List[str]`
+        Mask planes for bad pixels.
+    mode : `Literal["interpolate", "extrapolate-left", "extrapolate-right"]`
+        If mode="interpolate", fluxes between ``wlRange1[1]`` and
+        ``wlRange2[0]`` get replaced.
+        If mode="extrapolate-left", fluxes on the left of `wlRange1[0]`` get
+        replaced.
+        If mode="extrapolate-right", fluxes on the right of `wlRange2[1]`` get
+        replaced.
+    """
+    bits = spectrum.flags.get(*(m for m in badMask if m in spectrum.flags))
+    isGood = np.isfinite(spectrum.flux) & (0 == (spectrum.mask & bits))
+
+    index1 = isGood & (wlRange1[0] < spectrum.wavelength) & (spectrum.wavelength < wlRange1[1])
+    index2 = isGood & (wlRange2[0] < spectrum.wavelength) & (spectrum.wavelength < wlRange2[1])
+
+    wl1 = np.mean(spectrum.wavelength[index1])
+    wl2 = np.mean(spectrum.wavelength[index2])
+    # We use median instead of mean because we don't want absorption lines
+    # to affect the results.
+    flux1 = np.median(spectrum.flux[index1])
+    flux2 = np.median(spectrum.flux[index2])
+
+    if mode == "interpolate":
+        interpoland = (wlRange1[1] < spectrum.wavelength) & (spectrum.wavelength < wlRange2[0])
+    elif mode == "extrapolate-left":
+        interpoland = spectrum.wavelength < wlRange1[0]
+    elif mode == "extrapolate-right":
+        interpoland = wlRange2[1] < spectrum.wavelength
+    else:
+        raise ValueError(f"Invalid mode: '{mode}'")
+
+    spectrum.flux[interpoland] = flux1 + (flux2 - flux1) / (wl2 - wl1) * (
+        spectrum.wavelength[interpoland] - wl1
+    )
+    # We reset all masks for interpolated points because we don't want other
+    # functions to ignore the interpolated points.
+    spectrum.mask[interpoland] = 0
 
 
 class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
@@ -896,6 +1110,8 @@ class FitFluxCalTask(CmdLineTask, PipelineTask):
             fluxStdConfig,
             fluxStdMerged,
             self.config.broadbandFluxType,
+            self.config.badMask,
+            self.log,
         )
         return self.fitFocalPlane.run(
             calibVectors,
