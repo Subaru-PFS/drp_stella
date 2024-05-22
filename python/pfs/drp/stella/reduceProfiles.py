@@ -263,12 +263,25 @@ class ReduceProfilesTask(CmdLineTask):
         data : `lsst.pipe.base.Struct`
             Struct with ``exposure``, ``detectorMap``, ``pfsConfig``.
         """
-        require = ("calexp", "detectorMap_used")
+        require = ["postISRCCD", "detectorMap_used"]
+        if self.reduceExposure.config.doRepair:
+            require.append("pfsArm")
+
         if all(dataRef.datasetExists(name) for name in require):
             self.log.info("Reading existing data for %s", dataRef.dataId)
+            exposure = dataRef.get("postISRCCD")
+            detectorMap = dataRef.get("detectorMap_used")
+            if self.reduceExposure.config.doRepair:
+                if self.reduceExposure.repair.config.subtractScatteredLight:
+                    pfsArm = dataRef.get("pfsArm")
+                else:
+                    pfsArm = None
+
+                self.reduceExposure.repairExposure(exposure, pfsArm=pfsArm, detectorMap=detectorMap)
+
             data = Struct(
-                exposure=dataRef.get("calexp"),
-                detectorMap=dataRef.get("detectorMap_used"),
+                exposure=exposure,
+                detectorMap=detectorMap,
                 pfsConfig=dataRef.get("pfsConfig"),
             )
         else:
@@ -362,7 +375,10 @@ class ReduceProfilesTask(CmdLineTask):
         else:
             exposure = self.reduceExposure.runIsr(dataRef)
         if self.reduceExposure.config.doRepair:
-            self.reduceExposure.repairExposure(exposure)
+            pfsArm = dataRef.get("pfsArm")
+            detectorMap = dataRef.get("detectorMap_used")
+
+            self.reduceExposure.repairExposure(exposure, pfsArm=pfsArm, detectorMap=detectorMap)
 
         pfsConfig = dataRef.get("pfsConfig").select(spectrograph=dataRef.dataId["spectrograph"])
         fiberId = getIlluminatedFibers(pfsConfig)

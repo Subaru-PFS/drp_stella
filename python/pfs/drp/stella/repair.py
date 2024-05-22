@@ -11,8 +11,10 @@ from lsst.afw.geom import SpanSet
 from lsst.geom import Point2I
 from lsst.meas.algorithms import findCosmicRays
 from lsst.ip.isr.isrFunctions import growMasks
+from lsst.utils.timer import timeMethod
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet
+from .scatteredLight import estimateScatteredLight
 
 __all__ = ("maskLines", "PfsRepairConfig", "PfsRepairTask")
 
@@ -57,6 +59,7 @@ class PfsRepairConfig(RepairConfig):
         doc="Mask planes to ignore in trace removal",
     )
     crGrow = Field(dtype=int, default=1, doc="Radius to grow CRs")
+    subtractScatteredLight = Field(dtype=bool, default=False, doc="Subtract scattered light?")
 
     def setDefaults(self):
         self.cosmicray.nCrPixelMax = 5000000
@@ -64,6 +67,51 @@ class PfsRepairConfig(RepairConfig):
 
 class PfsRepairTask(RepairTask):
     ConfigClass: ClassVar[Type[Config]] = PfsRepairConfig
+
+    @timeMethod
+    def run(self, exposure, defects=None, keepCRs=None,
+            pfsArm=None, detectorMap=None
+            ):
+        """Repair an Exposure's defects and cosmic rays.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure must have a valid Psf.
+            Modified in place.
+        defects : `lsst.meas.algorithms.DefectListT` or `None`, optional
+            If `None`, do no defect correction.
+        keepCRs : `Unknown` or `None`, optional
+            Don't interpolate over the CR pixels (defer to ``RepairConfig`` if `None`).
+
+        Raises
+        ------
+        AssertionError
+            Raised if any of the following occur:
+            - No exposure provided.
+            - The object provided as exposure evaluates to False.
+            - No PSF provided.
+            - The Exposure has no associated Psf.
+        """
+
+        super().run(exposure, defects=defects, keepCRs=keepCRs)
+
+        if self.config.subtractScatteredLight:
+            scatteringCoefficients = dict(b3=(-1.75, 0.0, 6.59e-02),
+                                          r3=(-1.5, 1.51e-03, 5.07e-02),
+                                          n3=(-1.5, 7.51e-04, 6.53e-02),
+                                          m3=(-1.5, 4.98e-03, 5.34e-02),
+                                          )
+
+            scatteringCoeffs = scatteringCoefficients.get(exposure.getDetector().getName())
+            if scatteringCoeffs is not None:
+                alpha, c0, c1 = scatteringCoeffs
+                smodel = estimateScatteredLight(pfsArm, detectorMap, self.log, alpha=alpha)
+                if smodel is not None:
+                    self.log.info("Subtracting scattered light")
+                    smodel *= c1
+                    smodel += c0*np.nanmean(exposure.image.array)
+                    exposure.image -= smodel
 
     def cosmicRay(self, exposure: Exposure, keepCRs: Optional[bool] = None):
         """Mask cosmic rays

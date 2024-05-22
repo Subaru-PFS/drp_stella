@@ -289,7 +289,15 @@ class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
             psf = DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
                                     fwhmToSigma(self.config.psfFwhm))
             exposure.setPsf(psf)
-            self.repair.run(exposure, keepCRs=False)
+
+            if self.config.repair.subtractScatteredLight:
+                pfsArm = sensorRef.get("pfsArm")
+                detectorMap = sensorRef.get("detectorMap")
+            else:
+                pfsArm = None
+                detectorMap = None
+
+            self.repair.run(exposure, keepCRs=False, detectorMap=detectorMap, pfsArm=pfsArm)
             if self.config.crGrow > 0:
                 mask = exposure.getMaskedImage().getMask().clone()
                 mask &= mask.getPlaneBitMask("CR")

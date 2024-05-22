@@ -289,6 +289,7 @@ class ReduceExposureTask(CmdLineTask):
         skyImage = None
         sky2d = None
 
+        scatteredLightIsSubtracted = False
         boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
         if self.config.useCalexp:
             if sensorRef.datasetExists("calexp"):
@@ -301,7 +302,13 @@ class ReduceExposureTask(CmdLineTask):
         if not exposure:
             exposure = self.runIsr(sensorRef)
             if self.config.doRepair:
-                self.repairExposure(exposure)
+                kwargs = {}
+                if self.config.repair.subtractScatteredLight:
+                    scatteredLightIsSubtracted = True
+                    kwargs.update(pfsArm=sensorRef.get("pfsArm"),
+                                  detectorMap=sensorRef.get("detectorMap"))
+
+                self.repairExposure(exposure, **kwargs)
             if self.config.doSkySwindle:
                 self.skySwindle(sensorRef, exposure.image)
 
@@ -316,7 +323,13 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doMaskLines:
             maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
         if self.config.doRepair:
-            self.repairExposure(exposure)
+            kwargs = {}
+            if self.config.repair.subtractScatteredLight and not scatteredLightIsSubtracted:
+                scatteredLightIsSubtracted = True
+                kwargs.update(pfsArm=sensorRef.get("pfsArm"),
+                              detectorMap=sensorRef.get("detectorMap"))
+
+            self.repairExposure(exposure, **kwargs)
 
         detectorMap = calibs.detectorMap
         fiberTraces = calibs.fiberTraces
@@ -463,7 +476,7 @@ class ReduceExposureTask(CmdLineTask):
 
         return results
 
-    def repairExposure(self, exposure):
+    def repairExposure(self, exposure, **kwargs):
         """Repair CCD defects in the exposure
 
         Uses the PSF specified in the config.
@@ -471,7 +484,7 @@ class ReduceExposureTask(CmdLineTask):
         modelPsfConfig = self.config.repair.interp.modelPsf
         psf = modelPsfConfig.apply()
         exposure.setPsf(psf)
-        self.repair.run(exposure)
+        self.repair.run(exposure, **kwargs)
 
     def skySwindle(self, sensorRef, image):
         """Perform the sky swindle
