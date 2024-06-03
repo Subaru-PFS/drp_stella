@@ -491,6 +491,7 @@ def fitFluxCalibToArrays(
     *,
     robust: bool,
     polyOrder: int,
+    polyWavelengthDependent: bool,
     fitPrecisely: bool,
     scales: Optional[np.ndarray],
     bbChi2: BroadbandFluxChi2,
@@ -523,6 +524,8 @@ def fitFluxCalibToArrays(
     polyOrder : `int`
         Order of the polynomial to be fitted so as to map ``positions``
         to ``scales`` approximately.
+    polyWavelengthDependent : `bool`
+        Whether the polynomial is wavelength-dependent.
     fitPrecisely : `bool`
         If False, skip time-consuming refinement phase of fitting.
     scales : `numpy.ndarray` of `float`, shape ``(N,)``
@@ -602,6 +605,11 @@ def fitFluxCalibToArrays(
         # is not caught by ``minimize()``. So we catch it for ourselves.
         params = monitor1.x
 
+    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+
+    if not polyWavelengthDependent:
+        return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
     # Second, fit a function dependent on \lambda, with approximate chi^2.
 
     # Low resolution wavelength at which to evaluate the fitted polynomial.
@@ -629,8 +637,6 @@ def fitFluxCalibToArrays(
         return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2])
 
     monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
-    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
-
     if log is not None:
         log.info("Start phase-2 fitting...")
 
@@ -809,6 +815,11 @@ class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
     """
 
     polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
+    polyWavelengthDependent = Field(
+        dtype=bool,
+        default=False,
+        doc="Whether the polynomial is wavelength-dependent. ('this option=True' is deprecated)",
+    )
     fitPrecisely = Field(
         dtype=bool, default=True, doc="If False, skip time-consuming refinement phase of fitting."
     )
