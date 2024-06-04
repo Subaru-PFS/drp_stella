@@ -15,6 +15,7 @@
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/MosaicPolynomialDistortion.h"
 #include "pfs/drp/stella/impl/Distortion.h"
+#include "pfs/drp/stella/math/AffineTransform.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 
 
@@ -22,17 +23,9 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
-std::size_t const NUM_AFFINE = 6;  // Number of affine transformation parameters
-
 namespace {
 
-
-lsst::geom::AffineTransform makeAffineTransform(ndarray::Array<double, 1, 1> const& coeff) {
-    lsst::geom::AffineTransform affine;
-    affine.setParameterVector(ndarray::asEigenMatrix(coeff));
-    return affine;
-}
-
+std::size_t const NUM_AFFINE = math::NUM_AFFINE_PARAMS;
 
 }  // anonymous namespace
 
@@ -55,7 +48,7 @@ MosaicPolynomialDistortion::MosaicPolynomialDistortion(
 ) : AnalyticDistortion<MosaicPolynomialDistortion>(
         order, range, joinCoefficients(order, affineCoeff, xCoeff, yCoeff)
     ),
-    _affine(std::move(makeAffineTransform(affineCoeff))),
+    _affine(std::move(math::makeAffineTransform(affineCoeff))),
     _poly(order, range, xCoeff, yCoeff)
 {}
 
