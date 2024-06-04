@@ -15,7 +15,7 @@ from .DistortedDetectorMapContinued import DistortedDetectorMap
 from .LayeredDetectorMapContinued import LayeredDetectorMap
 from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
 from .PolynomialDetectorMapContinued import PolynomialDetectorMap
-from .RotScaleDistortionContinued import RotScaleDistortion
+from .PolynomialDistortionContinued import PolynomialDistortion
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
@@ -25,6 +25,7 @@ class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
     def setDefaults(self):
         self.exclusionRadius = 4.0
+        self.order = 2
 
 
 class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
@@ -75,7 +76,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
         DistortionClass = self.getDistortionClass(arm)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
-        needNumLines = 8  # RotScaleDistortion
+        needNumLines = PolynomialDistortion.getNumDistortionForOrder(self.config.order)
         good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
         numGoodLines = good.sum()
 
@@ -131,7 +132,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         distortionClass : `type`
             Class to use for the distortion.
         """
-        return RotScaleDistortion
+        return PolynomialDistortion
 
     def getBaseDetectorMap(self, detectorMap, arm: str):
         """Get detectorMap to use as a base
@@ -267,6 +268,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         forced = self.config.forced or None
         parameters = self.config.parameters or None
         return DistortionClass.fit(
+            self.config.order,
             bbox,
             xBase,
             yBase,
