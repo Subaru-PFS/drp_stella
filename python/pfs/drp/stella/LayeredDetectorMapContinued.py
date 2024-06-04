@@ -1,0 +1,81 @@
+from lsst.utils import continueClass
+import lsst.afw.image
+import pfs.datamodel.pfsDetectorMap
+
+from .DetectorMapContinued import DetectorMap
+from .Distortion import Distortion
+from .LayeredDetectorMap import LayeredDetectorMap
+from .SplinedDetectorMapContinued import SplinedDetectorMap
+from .utils import headerToMetadata
+
+__all__ = ("LayeredDetectorMap",)
+
+
+@continueClass  # noqa: F811 (redefinition)
+class LayeredDetectorMap:  # noqa: F811 (redefinition)
+    @classmethod
+    def fromDatamodel(cls, detMap):
+        """Construct from the pfs.datamodel representation
+
+        Parameters
+        ----------
+        detMap : `pfs.datamodel.LayeredDetectorMap`
+            datamodel representation of LayeredDetectorMap.
+
+        Returns
+        -------
+        self : `pfs.drp.stella.LayeredDetectorMap`
+            drp_stella representation of LayeredDetectorMap.
+        """
+        if not isinstance(detMap, pfs.datamodel.LayeredDetectorMap):
+            raise RuntimeError(f"Wrong type: {detMap}")
+        box = detMap.box.toLsst()
+        spatial = detMap.spatial
+        spectral = detMap.spectral
+        base = SplinedDetectorMap.fromDatamodel(detMap.base)
+        distortions = [Distortion.fromDatamodel(dd) for dd in detMap.distortions]
+        dividedDetector = detMap.dividedDetector
+        rightCcd = detMap.rightCcd
+        metadata = headerToMetadata(detMap.metadata)
+        visitInfo = lsst.afw.image.VisitInfo(metadata)
+        lsst.afw.image.stripVisitInfoKeywords(metadata)
+
+        return cls(box, spatial, spectral, base, distortions, dividedDetector, rightCcd, visitInfo, metadata)
+
+    def toDatamodel(self, identity=None):
+        """Convert to the pfs.datamodel representation
+
+        Parameters
+        ----------
+        identity : `pfs.datamodel.CalibIdentity`, optional
+            Identification of the calibration. Providing this is only necessary
+            if you intend to write via the datamodel representation's ``write``
+            method; other means of writing that provide a filename directly do
+            not require providing an ``identity`` here.
+
+        Returns
+        -------
+        detMap : `pfs.datamodel.LayeredDetectorMap`
+            Datamodel representation of LayeredDetectorMap.
+        """
+        base = self.getBase().toDatamodel()
+        distortions = [dd.toDatamodel() for dd in self.getDistortions()]
+
+        metadata = self.metadata.deepCopy()
+        if self.visitInfo is not None:
+            lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
+
+        return pfs.datamodel.LayeredDetectorMap(
+            identity,
+            pfs.datamodel.Box.fromLsst(self.bbox),
+            self.getSpatialOffsets(),
+            self.getSpectralOffsets(),
+            base,
+            distortions,
+            self.getDividedDetector(),
+            self.getRightCcdParameters(),
+            metadata.toDict(),
+        )
+
+
+DetectorMap.register(LayeredDetectorMap)

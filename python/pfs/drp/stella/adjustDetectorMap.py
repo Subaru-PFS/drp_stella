@@ -2,13 +2,17 @@ from typing import Type
 
 import numpy as np
 
-from lsst.geom import Box2D
+from lsst.afw.image import VisitInfo
+from lsst.daf.base import PropertyList
+from lsst.geom import AffineTransform, Box2D
 
 from . import SplinedDetectorMap
 from . import ReferenceLineStatus
+from .DetectorMapContinued import DetectorMap
 from .DistortionContinued import Distortion
 from .DoubleDetectorMapContinued import DoubleDetectorMap
 from .DistortedDetectorMapContinued import DistortedDetectorMap
+from .LayeredDetectorMapContinued import LayeredDetectorMap
 from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
 from .PolynomialDetectorMapContinued import PolynomialDetectorMap
 from .RotScaleDistortionContinued import RotScaleDistortion
@@ -82,9 +86,14 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             residuals = self.calculateBaseResiduals(base, lines)
             weights = self.calculateWeights(lines)
             fit = self.fitDistortion(
-                detectorMap.bbox, residuals, weights, dispersion, seed=seed, DistortionClass=DistortionClass
+                base.bbox,
+                residuals,
+                weights,
+                dispersion,
+                seed=seed,
+                DistortionClass=DistortionClass,
             )
-            detectorMap = self.constructAdjustedDetectorMap(base, fit.distortion)
+            detectorMap = self.makeDetectorMap(base, fit.distortion, base.visitInfo, base.metadata)
 
             numParameters = fit.numParameters
             if self.config.doSlitOffsets:
@@ -141,11 +150,24 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         """
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
-        # Promote other detectorMap classes to MultipleDistortionsDetectorMap
+
+        # Ideal is if the base detectorMap is a LayeredDetectorMap (the modern best).
+        if isinstance(detectorMap, LayeredDetectorMap):
+            # We'll simply add another layer later
+            return detectorMap
+        # A SplinedDetectorMap can be promoted to a LayeredDetectorMap by using it as the base.
         if isinstance(detectorMap, SplinedDetectorMap):
-            distortions = []
-            base = detectorMap
-        elif isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
+            offsets = np.zeros(len(detectorMap), dtype=float)
+            rightCcd = AffineTransform()
+            return LayeredDetectorMap(
+                detectorMap.bbox, offsets, offsets, detectorMap, [], False, rightCcd, visitInfo, metadata
+            )
+
+        # If it's not one of the above, then we have to work with what we have.
+        # We can't convert to a LayeredDetectorMap, because the slit offsets work very differently.
+        # We'll promote to a MultipleDistortionsDetectorMap, which is the best we can do.
+        # We can remove the below once we eliminate these older detectorMap types.
+        if isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
             distortions = [detectorMap.distortion.clone()]
             base = detectorMap.base
         elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
@@ -155,29 +177,50 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             raise RuntimeError(f"Unrecognized detectorMap type: {type(detectorMap)}")
         return MultipleDistortionsDetectorMap(base, distortions, visitInfo, metadata)
 
-    def constructAdjustedDetectorMap(self, base, distortion):
-        """Construct an adjusted detectorMap
-
-        The adjusted detectorMap uses the low-order coefficients that we've just
-        fit, and the high-order coefficients from the original detectorMap.
+    def makeDetectorMap(
+        self,
+        base: DetectorMap,
+        distortion: Distortion,
+        visitInfo: VisitInfo,
+        metadata: PropertyList,
+    ) -> DetectorMap:
+        """Make a DetectorMap from a base and distortion
 
         Parameters
         ----------
-        base : `pfs.drp.stella.MultipleDistortionsDetectorMap`
-            Mapping from fiberId,wavelength --> x,y with low-order coefficients
-            zeroed out.
+        base : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
         distortion : `pfs.drp.stella.Distortion`
-            Low-order distortion to apply.
+            Distortion to apply.
+        visitInfo : `lsst.afw.image.VisitInfo`
+            Visit information for exposure.
+        metadata : `lsst.daf.base.PropertyList`
+            DetectorMap metadata (FITS header).
 
         Returns
         -------
         detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping from fiberId,wavelength --> x,y with both low- and
-            high-order coefficients set.
+            DetectorMap with distortion applied.
         """
-        return MultipleDistortionsDetectorMap(
-            base.base, base.distortions + [distortion], base.visitInfo, base.metadata
-        )
+        if isinstance(base, LayeredDetectorMap):
+            return LayeredDetectorMap(
+                base.bbox,
+                base.getSpatialOffsets(),
+                base.getSpectralOffsets(),
+                base.base,
+                base.distortions + [distortion],
+                base.dividedDetector,
+                base.rightCcd,
+                visitInfo,
+                metadata,
+            )
+
+        if isinstance(base, MultipleDistortionsDetectorMap):
+            return MultipleDistortionsDetectorMap(
+                base.base, base.distortions + [distortion], visitInfo, metadata
+            )
+
+        raise RuntimeError(f"Unrecognized base detectorMap type: {type(base)}")
 
     def fitModelImpl(
         self,

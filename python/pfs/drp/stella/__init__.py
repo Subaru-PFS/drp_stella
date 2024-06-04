@@ -35,6 +35,7 @@ from .DoubleDistortionContinued import *
 from .MultipleDistortionsDetectorMapContinued import *
 from .RotScaleDistortionContinued import *
 from .MosaicPolynomialDistortionContinued import *
+from .LayeredDetectorMapContinued import *
 
 from lsst.afw.image import Mask
 for plane in (
