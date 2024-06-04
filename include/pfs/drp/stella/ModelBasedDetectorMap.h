@@ -49,9 +49,7 @@ class ModelBasedDetectorMap : public DetectorMap {
 
   protected:
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual double findWavelengthImpl(int fiberId, double row) const override {
-        return _getWavelengthSpline(fiberId)(row);
-    }
+    virtual double findWavelengthImpl(int fiberId, double row) const override;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;
@@ -63,9 +61,7 @@ class ModelBasedDetectorMap : public DetectorMap {
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override = 0;
 
     /// Return the fiber center
-    virtual double getXCenterImpl(int fiberId, double row) const override {
-        return _getXCenterSpline(fiberId)(row);
-    }
+    virtual double getXCenterImpl(int fiberId, double row) const override;
 
     using SplineCoeffT = double;
     using Spline = math::Spline<SplineCoeffT>;

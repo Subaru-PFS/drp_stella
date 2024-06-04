@@ -109,4 +109,22 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
 }
 
 
+double ModelBasedDetectorMap::getXCenterImpl(int fiberId, double row) const {
+    try {
+        return _getXCenterSpline(fiberId)(row);
+    } catch (...) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+}
+
+
+double ModelBasedDetectorMap::findWavelengthImpl(int fiberId, double row) const {
+    try {
+        return _getWavelengthSpline(fiberId)(row);
+    } catch (...) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+}
+
+
 }}}  // namespace pfs::drp::stella
