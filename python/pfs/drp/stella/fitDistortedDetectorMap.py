@@ -336,6 +336,7 @@ class FitDistortedDetectorMapConfig(Config):
     )
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
+    chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -474,7 +475,7 @@ class FitDistortedDetectorMapTask(Task):
 
         if dataId["arm"] in "brm":
             # Add in the chip gap that was removed by the simulator
-            chipGap = 1.040/0.015  # pixels
+            chipGap = self.config.chipGap  # pixels
             xCenter = base.getXCenter(base.fiberId, np.full(len(base), base.getBBox().getCenterY()))
             select = xCenter > base.getBBox().getCenterX()
 
@@ -555,8 +556,6 @@ class FitDistortedDetectorMapTask(Task):
             rightCcd = AffineTransform()  # Identity transform
         else:
             raise RuntimeError(f"Unknown distortion type: {distortion}")
-
-#        breakpoint()
 
         return LayeredDetectorMap(
             bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
