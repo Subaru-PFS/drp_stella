@@ -39,6 +39,11 @@ class FiberProfileSet:
             metadata = PropertyList()
         self.metadata = metadata
 
+    @property
+    def hash(self):
+        """Return a hash of the fiber profiles"""
+        return hash(self.toPfsFiberProfiles())
+
     @classmethod
     def makeEmpty(cls, identity, visitInfo=None, metadata=None):
         """Construct an empty `FiberProfileSet`
