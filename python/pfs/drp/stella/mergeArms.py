@@ -214,7 +214,9 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                 sky1d.append(self.skySubtraction(ss, pfsConfig))
 
         spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
-        merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
+        metadata = spectra[0].metadata.copy()
+        metadata.update(getPfsVersions())
+        merged = PfsMerged.fromMerge(spectrographs, metadata=metadata)  # Merge across spectrographs
 
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
         mergedLsf = self.combineLsfs(lsfList)
