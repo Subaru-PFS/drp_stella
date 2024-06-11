@@ -444,7 +444,7 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doWriteArm:
             pfsArm = results.spectra.toPfsArm(sensorRef.dataId)
             pfsArm.metadata.update(metadataToHeader(results.exposure.getMetadata()))
-            pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = (results.fiberProfiles.hash, "Hash of fiberProfiles")
+            pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = results.fiberProfiles.hash
             sensorRef.put(pfsArm, "pfsArm")
             if results.lines is not None:
                 sensorRef.put(results.lines, "arcLines")

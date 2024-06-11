@@ -1,7 +1,5 @@
 from functools import lru_cache
-from typing import overload, Optional
 
-import numpy as np
 from numpy.typing import ArrayLike
 import pfs.datamodel.drp
 
@@ -38,11 +36,7 @@ class PfsObject(pfs.datamodel.drp.PfsObject, PfsFiberArray):
 
 
 class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
-    @overload
-    def calculate(self, fiberId: int) -> np.ndarray:
-        ...
-
-    def calculate(self, fiberId: int, rows: Optional[ArrayLike] = None) -> ArrayLike:
+    def calculate(self, fiberId: int, wavelength: ArrayLike) -> ArrayLike:
         """Calculate the normalization for a fiber
 
         Parameters
@@ -54,9 +48,7 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
             Normalization for each spectral pixel.
         """
         poly = self.getPolynomial(fiberId)
-        if rows is None:
-            rows = np.arange(self.height, dtype=float)
-        return poly(rows)
+        return poly(wavelength)
 
     @lru_cache(maxsize=1000)
     def getPolynomial(self, fiberId: int) -> NormalizedPolynomial1D:
@@ -70,10 +62,11 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
         Returns
         -------
         poly : `NormalizedPolynomial1D`
-            Normalized polynomial for the fiber.
+            Normalized polynomial for the fiber normalisation as a function of
+            wavelength.
         """
         coeff = self[fiberId]
-        return NormalizedPolynomial1D(coeff, 0, self.height)
+        return NormalizedPolynomial1D(coeff, self.wlMin, self.wlMax)
 
     def getMetadata(self):
         """Return metadata
