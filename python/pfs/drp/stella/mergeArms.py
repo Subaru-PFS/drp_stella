@@ -18,6 +18,7 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from pfs.drp.stella.gen3 import DatasetRefList, zipDatasetRefs
 from pfs.drp.stella.selectFibers import SelectFibersTask
+from .combineSpectra import combineSpectraSets
 from .datamodel import PfsConfig, PfsArm, PfsMerged
 from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
@@ -419,7 +420,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         wavelength = self.config.wavelength.wavelength
         resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
-        combination = self.combine(resampled, flags)
+        combination = combineSpectraSets(resampled, flags, self.config.mask)
 
         notes = PfsMerged.NotesClass.empty(len(archetype))
         for name in self.config.notesCopyFirst:
@@ -431,70 +432,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
                          combination.sky, combination.norm, combination.covar, flags, archetype.metadata,
                          notes)
-
-    def combine(self, spectra, flags):
-        """Combine spectra
-
-        Parameters
-        ----------
-        spectra : iterable of `pfs.datamodel.PfsFiberArraySet`
-            List of spectra to combine. These should already have been
-            resampled to a common wavelength representation.
-        flags : `pfs.datamodel.MaskHelper`
-            Mask interpreter, for identifying bad pixels.
-
-        Returns
-        -------
-        wavelength : `numpy.ndarray` of `float`
-            Wavelengths for combined spectrum.
-        flux : `numpy.ndarray` of `float`
-            Normalised flux measurements for combined spectrum.
-        sky : `numpy.ndarray` of `float`
-            Sky measurements for combined spectrum.
-        norm : `numpy.ndarray` of `float`
-            Normalisation of combined spectrum.
-        covar : `numpy.ndarray` of `float`
-            Covariance matrix for combined spectrum.
-        mask : `numpy.ndarray` of `int`
-            Mask for combined spectrum.
-        """
-        archetype = spectra[0]
-        mask = np.zeros_like(archetype.mask)
-        flux = np.zeros_like(archetype.flux)
-        sky = np.zeros_like(archetype.sky)
-        norm = np.zeros_like(archetype.norm)
-        covar = np.zeros_like(archetype.covar)
-        sumWeights = np.zeros_like(archetype.flux)
-
-        for ss in spectra:
-            with np.errstate(invalid="ignore", divide="ignore"):
-                variance = ss.variance/ss.norm**2
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (variance > 0)
-
-            weight = np.zeros_like(ss.flux)
-            weight[good] = 1.0/variance[good]
-            with np.errstate(invalid="ignore"):
-                flux[good] += ss.flux[good]*weight[good]/ss.norm[good]
-                sky[good] += ss.sky[good]*weight[good]/ss.norm[good]
-                norm[good] += ss.norm[good]*weight[good]
-            mask[good] |= ss.mask[good]
-            sumWeights += weight
-
-        good = sumWeights > 0
-        flux[good] /= sumWeights[good]
-        sky[good] /= sumWeights[good]
-        norm[good] /= sumWeights[good]
-        covar[:, 0][good] = 1.0/sumWeights[good]
-        covar[:, 0][~good] = np.inf
-        covar[:, 1:] = np.where(good, 0.0, np.inf)[:, np.newaxis]
-
-        for ss in spectra:
-            mask[~good] |= ss.mask[~good]
-        mask[~good] |= flags["NO_DATA"]
-        covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        with np.errstate(invalid="ignore"):
-            return Struct(wavelength=archetype.wavelength, flux=flux*norm, sky=sky*norm, norm=norm,
-                          covar=covar*norm[:, np.newaxis, :]**2, mask=mask, covar2=covar2)
 
     def mergeLsfs(self, lsfList, spectraList):
         """Merge LSFs for different arms within a spectrograph
