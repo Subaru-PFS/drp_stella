@@ -132,6 +132,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         distortionClass : `type`
             Class to use for the distortion.
         """
+#        from .RotScaleDistortionContinued import RotScaleDistortion
+#        return RotScaleDistortion
         return PolynomialDistortion
 
     def getBaseDetectorMap(self, detectorMap, arm: str):
@@ -149,34 +151,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         """
-        visitInfo = detectorMap.visitInfo
-        metadata = detectorMap.metadata
-
-        # Ideal is if the base detectorMap is a LayeredDetectorMap (the modern best).
-        if isinstance(detectorMap, LayeredDetectorMap):
-            # We'll simply add another layer later
-            return detectorMap
-        # A SplinedDetectorMap can be promoted to a LayeredDetectorMap by using it as the base.
-        if isinstance(detectorMap, SplinedDetectorMap):
-            offsets = np.zeros(len(detectorMap), dtype=float)
-            rightCcd = AffineTransform()
-            return LayeredDetectorMap(
-                detectorMap.bbox, offsets, offsets, detectorMap, [], False, rightCcd, visitInfo, metadata
-            )
-
-        # If it's not one of the above, then we have to work with what we have.
-        # We can't convert to a LayeredDetectorMap, because the slit offsets work very differently.
-        # We'll promote to a MultipleDistortionsDetectorMap, which is the best we can do.
-        # We can remove the below once we eliminate these older detectorMap types.
-        if isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
-            distortions = [detectorMap.distortion.clone()]
-            base = detectorMap.base
-        elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
-            distortions = [dd.clone() for dd in detectorMap.distortions]
-            base = detectorMap.base
-        else:
-            raise RuntimeError(f"Unrecognized detectorMap type: {type(detectorMap)}")
-        return MultipleDistortionsDetectorMap(base, distortions, visitInfo, metadata)
+        breakpoint()
+        return LayeredDetectorMap.fromDetectorMap(detectorMap)
 
     def makeDetectorMap(
         self,
