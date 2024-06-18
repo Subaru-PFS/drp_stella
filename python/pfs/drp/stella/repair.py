@@ -68,9 +68,8 @@ class PfsRepairConfig(RepairConfig):
 class PfsRepairTask(RepairTask):
     ConfigClass: ClassVar[Type[Config]] = PfsRepairConfig
 
-    @timeMethod
     def run(self, exposure, defects=None, keepCRs=None,
-            pfsArm=None, detectorMap=None
+            pfsArm=None, detectorMap=None, scatteredLightModel=None
             ):
         """Repair an Exposure's defects and cosmic rays.
 
@@ -97,21 +96,25 @@ class PfsRepairTask(RepairTask):
         super().run(exposure, defects=defects, keepCRs=keepCRs)
 
         if self.config.subtractScatteredLight:
-            scatteringCoefficients = dict(b3=(-1.75, 0.0, 6.59e-02),
-                                          r3=(-1.5, 1.51e-03, 5.07e-02),
-                                          n3=(-1.5, 7.51e-04, 6.53e-02),
-                                          m3=(-1.5, 4.98e-03, 5.34e-02),
-                                          )
+            if scatteredLightModel is None:  # i.e. we need to calculate it for ourselves
+                scatteringCoefficients = dict(b3=(-1.75, 0.0, 6.6e-02),
+                                              r3=(-1.5,  0.0, 5.8e-02), # noqa; E241
+                                              n3=(-1.5,  0.0, 6.5e-02), # noqa; E241
+                                              m3=(-1.5,  0.0, 5.8e-02), # noqa; E241
+                                              )
 
-            scatteringCoeffs = scatteringCoefficients.get(exposure.getDetector().getName())
-            if scatteringCoeffs is not None:
-                alpha, c0, c1 = scatteringCoeffs
-                smodel = estimateScatteredLight(pfsArm, detectorMap, self.log, alpha=alpha)
-                if smodel is not None:
-                    self.log.info("Subtracting scattered light")
-                    smodel *= c1
-                    smodel += c0*np.nanmean(exposure.image.array)
-                    exposure.image -= smodel
+                scatteringCoeffs = scatteringCoefficients.get(exposure.getDetector().getName())
+                if scatteringCoeffs is not None:
+                    alpha, c0, c1 = scatteringCoeffs
+                    # N.b. handles case pfsArm/detectorMap is None, returning None
+                    scatteredLightModel = estimateScatteredLight(pfsArm, detectorMap, self.log, alpha=alpha)
+                    if scatteredLightModel is not None:
+                        scatteredLightModel *= c1
+                        scatteredLightModel += c0*np.nanmean(exposure.image.array)
+
+            if scatteredLightModel is not None:
+                self.log.info("Subtracting scattered light")
+                exposure.maskedImage -= scatteredLightModel
 
     def cosmicRay(self, exposure: Exposure, keepCRs: Optional[bool] = None):
         """Mask cosmic rays

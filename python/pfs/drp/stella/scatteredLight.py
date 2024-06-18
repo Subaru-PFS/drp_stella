@@ -4,7 +4,7 @@ import scipy.signal as signal
 import lsst.afw.image as afwImage
 from pfs.drp.stella import FiberTrace, FiberTraceSet, SpectrumSet
 
-__all__ = ["estimateScatteredLight"]
+__all__ = ["estimateScatteredLight", "readScatteredLightFromFile"]
 
 
 def estimateScatteredLight(pfsArm, detMap, log=None,
@@ -24,6 +24,9 @@ hsize=4096  # kernel is (2*hsize + 1)*(2*hsize + 1)
 gap=69     # gap between the active areas of the CCDs
     kernels:  array to return the components and total kernel
     models:   array to return the model spectrum used
+
+    Returns:
+       afwImage.ImageF
 """
     if detMap is None:
         return None
@@ -61,7 +64,11 @@ gap=69     # gap between the active areas of the CCDs
     weights += weight
 
     if Bratio != 0:
-        weight = ((dX**2 + dY**2) + b*b)**(beta/2)
+        if False:                       # second component has circular symmetry
+            weight = ((dX**2 + dY**2) + b*b)**(beta/2)
+        else:                           # second component leaves spectral direction unchanged
+            weight = (dX**2 + b*b)**(beta/2)
+
         weight *= A*Bratio/(1 + Bratio)/np.sum(weight)
         if kernels is not None:
             kernels.append(weight)
@@ -91,5 +98,21 @@ gap=69     # gap between the active areas of the CCDs
         smodel = _model
 
     smodel = afwImage.ImageF(smodel.astype(np.float32))
+
+    return smodel
+
+
+def readScatteredLightFromFile(exposure, scatteredLightModelFile):
+    """Read the scattered light for exposure from scatteredLightModelFile
+
+    return: `afwImage.ImageF`
+    """
+    smodel = afwImage.DecoratedImageF(scatteredLightModelFile)
+    md = smodel.getMetadata()
+    smodel = smodel.image.clone()
+    # Scale by the median of the image; POSTISR_NANMEDIAN is the median of
+    # the data used to create the model
+    scatteredLight_median = md["POSTISR_NANMEAN"]
+    smodel.array *= np.nanmean(exposure.image.array)/scatteredLight_median
 
     return smodel

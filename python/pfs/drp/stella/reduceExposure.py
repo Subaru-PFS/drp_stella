@@ -47,6 +47,7 @@ from .background import DichroicBackgroundTask
 from .arcLine import ArcLineSet
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
+from .scatteredLight import readScatteredLightFromFile
 from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
@@ -304,11 +305,21 @@ class ReduceExposureTask(CmdLineTask):
             if self.config.doRepair:
                 kwargs = {}
                 if self.config.repair.subtractScatteredLight:
-                    scatteredLightIsSubtracted = True
+                    scatteredLightModelFile = self.config.repair.scatteredLightModelFile
+                    if scatteredLightModelFile:
+                        scatteredLightModel = readScatteredLightFromFile(exposure, scatteredLightModelFile)
+                    else:
+                        scatteredLightModel = None
+
                     kwargs.update(pfsArm=sensorRef.get("pfsArm"),
-                                  detectorMap=sensorRef.get("detectorMap"))
+                                  detectorMap=sensorRef.get("detectorMap"),
+                                  scatteredLightModel=scatteredLightModel)
 
                 self.repairExposure(exposure, **kwargs)
+
+                if "pfsArm" in kwargs:
+                    scatteredLightIsSubtracted = True
+
             if self.config.doSkySwindle:
                 self.skySwindle(sensorRef, exposure.image)
 
@@ -325,11 +336,20 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doRepair:
             kwargs = {}
             if self.config.repair.subtractScatteredLight and not scatteredLightIsSubtracted:
-                scatteredLightIsSubtracted = True
+                scatteredLightModelFile = self.config.repair.scatteredLightModelFile
+                if scatteredLightModelFile:
+                    scatteredLightModel = readScatteredLightFromFile(exposure, scatteredLightModelFile)
+                else:
+                    scatteredLightModel = None
+
                 kwargs.update(pfsArm=sensorRef.get("pfsArm"),
-                              detectorMap=sensorRef.get("detectorMap"))
+                              detectorMap=sensorRef.get("detectorMap"),
+                              scatteredLightModel=scatteredLightModel)
 
             self.repairExposure(exposure, **kwargs)
+
+            if "pfsArm" in kwargs:
+                scatteredLightIsSubtracted = True
 
         detectorMap = calibs.detectorMap
         fiberTraces = calibs.fiberTraces
@@ -565,6 +585,7 @@ class ReduceExposureTask(CmdLineTask):
                     kwargs["targetType"] = [TargetType.ENGINEERING]
                     self.log.info("~TargetType.ENGINEERING requested but IIS is on; assuming ENGINEERING")
 
+        if set(kwargs["targetType"]) == set([TargetType.ENGINEERING]):
             if self.config.doBoxcarForIIS:
                 boxcarWidth = self.config.boxcarWidth
 
@@ -593,7 +614,10 @@ class ReduceExposureTask(CmdLineTask):
                 fiberProfiles = sensorRef.get("fiberProfiles")
 
             if fiberProfiles is None:
-                assert boxcarWidth > 0
+                if boxcarWidth <= 0:
+                    raise RuntimeError(
+                        "Unable to find any fiberProfiles, and a boxcar extraction was not requested")
+
                 fiberProfiles = FiberProfileSet.makeEmpty(None)
                 for fid in need:        # the Gaussian will be replaced by a boxcar, so params don't matter
                     fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
