@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField, ConfigField
+from lsst.pex.config import ConfigurableField, Field, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -101,6 +101,9 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+
+    nIter = Field(dtype=int, default=0, doc="Number of iterations of sigma-clipping")
+    nSigma = Field(dtype=float, default=2.5, "Number of sigma to clip at, if nIter > 0"):
 
 
 class CoaddSpectraRunner(TaskRunner):
@@ -414,29 +417,52 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             resampled.append(spectrum.resample(wavelength))
             resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
 
-        # Now do a weighted coaddition
         archetype = resampled[0]
         length = archetype.length
         mask = np.zeros(length, dtype=archetype.mask.dtype)
-        flux = np.zeros(length, dtype=archetype.flux.dtype)
-        sky = np.zeros(length, dtype=archetype.sky.dtype)
         covar = np.zeros((3, length), dtype=archetype.covar.dtype)
-        sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        for ss in resampled:
-            weight = np.zeros_like(flux)
+        # do a weighted-and-clipped mean
+        allFlux = np.empty((len(resampled), length), dtype=archetype.flux.dtype)
+        allVariance = np.empty_like(allFlux)
+        allSky = np.empty_like(allFlux)
+        allMask = np.empty_like(allFlux, dtype=archetype.mask.dtype)
+
+        allGood = np.empty_like(allFlux, dtype=bool)
+
+        for i, ss in enumerate(resampled):
+            allGood[i] = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.variance > 0)
+
+            allFlux[i] = ss.flux
+            allVariance[i] = ss.variance
+            allSky[i] = ss.sky
+            allMask[i] = ss.mask
+
+        nIter = max([0, self.config.nIter])
+        nSigma = self.config.nSigma
+        for iter in range(1 + nIter):
             with np.errstate(invalid="ignore", divide="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                weight[good] = 1.0/ss.covar[0][good]
-                flux[good] += ss.flux[good]*weight[good]
-                sky[good] += ss.sky[good]*weight[good]
-                mask[good] |= ss.mask[good]
-                sumWeights += weight
+                allWeight = np.where(allGood, 1.0/allVariance, 0)
+                weight = np.nansum(allWeight, axis=0)
 
-        good = sumWeights > 0
-        flux[good] /= sumWeights[good]
-        sky[good] /= sumWeights[good]
-        covar[0][good] = 1.0/sumWeights[good]
+                flux = np.nansum(allFlux*allWeight, axis=0)/weight
+
+                if iter < nIter:        # don't update if we're not going to update the flux
+                    allChi = (allFlux - np.nanmedian(allFlux, axis=0))/np.sqrt(allVariance)
+                    allGood[np.abs(allChi) > nSigma] = False
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            sky = np.nansum(allSky*allWeight, axis=0)/weight
+            covar[0] = 1/weight       # == variance
+        #
+        # combine bitwise/logical arrays
+        #
+        for i in range(1, allGood.shape[0]):
+            allMask[0] |= allMask[i]
+            allGood[0] += allGood[i]
+        mask = allMask[0]
+        good = allGood[0] > 0
+
         covar[0][~good] = np.inf
         covar[1:2] = np.where(good, 0.0, np.inf)
         mask[~good] = flags["NO_DATA"]
