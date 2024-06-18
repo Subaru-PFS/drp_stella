@@ -437,9 +437,6 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     SuNSS = TargetType.SUNSS_IMAGING in pfsConfig.targetType
 
     showAll = False
-    if xcen is None and len(fiberIds) == 0:
-        xcen = 2000
-
     if xcen is None:
         if fiberIds is None:
             fiberIds = detMap.fiberId
@@ -496,7 +493,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             color = 'green' if SuNSS and imagingFiber else 'red'
 
         fiberX = detMap.getXCenter(fid, height//2)
-        if showAll or len(fiberIds) > 1 or np.abs(fiberX - xcen) < width/2:
+        if showAll or (fiberIds is not None and len(fiberIds) > 1) or np.abs(fiberX - xcen) < width/2:
             fiberX = detMap.getXCenter(fid)
             plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
                      color=color if showAll else None)
