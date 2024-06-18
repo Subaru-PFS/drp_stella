@@ -160,7 +160,7 @@ class ExtractSpectraTask(pipeBase.Task):
 
         if fiberNorms is not None:
             for spectrum in spectra:
-                if spectrum.fiberId in fiberNorms.coeff:
+                if spectrum.fiberId in fiberNorms:
                     spectrum.norm *= fiberNorms.calculate(spectrum.fiberId)
 
         return spectra

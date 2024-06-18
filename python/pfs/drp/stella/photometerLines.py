@@ -233,7 +233,7 @@ class PhotometerLinesTask(Task):
         ]
         if fiberNorms is not None:
             for i, (ff, yy) in enumerate(zip(lines.fiberId, lines.y)):
-                if ff in fiberNorms.coeff:
+                if ff in fiberNorms:
                     lines.fluxNorm[i] = fiberNorms.calculate(ff, yy)
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
