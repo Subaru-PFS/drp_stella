@@ -9,29 +9,41 @@ def selectWavelengthInterval(arm):
     """We'll measure the flux in [lam0, lam1]; if bkgd0 and bkgd1 are not None, measure the background
     The background will be measured in [bkgd0, lam0] + [lam1, bkgd1]
     """
-    bkgd0, bkgd1 = None, None  # the region to measure the background; may be None
+    intervals = []
     if arm == 'b':
         lamc = 557.9
         (lam0, lam1), (bkgd0, bkgd1) = (lamc - 0.5, lamc + 0.5), (lamc - 1.5, lamc + 1.5)
+
+        intervals.append((lam0, lam1, bkgd0, bkgd1))
     elif arm == 'r':
-        lam0, lam1 = 930.5, 933.1
+        intervals.append((930.5, 933.1, None, None))
+        intervals.append((947.25, 949, None, None))
     elif arm == 'n':
-        lam0, lam1 = 1142, 1148
+        intervals.append((1142, 1148, None, None))
     else:
         raise RuntimeError(f"selectWavelengthInterval doesn't know about arm={arm}")
 
-    assert (bkgd0 is None) == (bkgd1 is None)
+    return intervals
 
-    return lam0, lam1, bkgd0, bkgd1
+
+def getWavelengthLabel(arm):
+    """Generate a label for the wavelength intervals used in arm"""
+    labels = []
+    for lam0, lam1, b0, b1 in selectWavelengthInterval(arm):
+        labels.append(f"{lam0:.1f} < $\\lambda$ < {lam1:.1f}")
+
+    if len(labels) == 1:
+        return labels[0]
+    else:
+        return "(" + "), (".join(labels) + ")"
 
 
 def showWavelengthInterval(arm):
-    lam0, lam1, bkgd0, bkgd1 = selectWavelengthInterval(arm)
+    for lam0, lam1, bkgd0, bkgd1 in selectWavelengthInterval(arm):
+        if bkgd0:
+            plt.axvspan(bkgd0, bkgd1, color='black', alpha=0.05, zorder=-2)
 
-    if bkgd0:
-        plt.axvspan(bkgd0, bkgd1, color='black', alpha=0.05, zorder=-2)
-
-    plt.axvspan(lam0, lam1, color='black', alpha=0.05 if bkgd0 else 0.1, zorder=-1)
+        plt.axvspan(lam0, lam1, color='black', alpha=0.05 if bkgd0 else 0.1, zorder=-1)
 
 
 def extractFlux(y, lam, l0, l1):
@@ -39,24 +51,28 @@ def extractFlux(y, lam, l0, l1):
 
 
 def measureBkgd(y, lam, arm):
-    lam0, lam1, bkgd0, bkgd1 = selectWavelengthInterval(arm)
+    bkgds = []
+    for lam0, lam1, bkgd0, bkgd1 in selectWavelengthInterval(arm):
+        if bkgd0:
+            bkgd = extractFlux(y, lam, bkgd0, lam0) + extractFlux(y, lam, lam1, bkgd1)
+            bkgd /= (bkgd1 - bkgd0 - (lam1 - lam0))
+        else:
+            bkgd = 0*extractFlux(y, lam, lam0, lam1)
 
-    if bkgd0:
-        bkgd = extractFlux(y, lam, bkgd0, lam0) + extractFlux(y, lam, lam1, bkgd1)
-        bkgd /= (bkgd1 - bkgd0 - (lam1 - lam0))
-    else:
-        return 0*extractFlux(y, lam, lam0, lam1)
+        bkgds.append(bkgd)
 
-    return bkgd
+    return bkgds
 
 
 def measureFlux(y, lam, arm):
-    lam0, lam1, bkgd0, bkgd1 = selectWavelengthInterval(arm)
+    fluxes = []
+    for (lam0, lam1, bkgd0, bkgd1), bkgd in zip(selectWavelengthInterval(arm), measureBkgd(y, lam, arm)):
+        flux = extractFlux(y, lam, lam0, lam1)
+        flux -= (lam1 - lam0)*bkgd
 
-    flux = extractFlux(y, lam, lam0, lam1)
-    flux -= (lam1 - lam0)*measureBkgd(y, lam, arm)
+        fluxes.append(flux)
 
-    return flux
+    return np.sum(fluxes, axis=0)
 
 
 def estimateFiberThroughputs(butler, visits, arms="brn", what="flux",
@@ -175,7 +191,7 @@ def estimateFiberThroughputs(butler, visits, arms="brn", what="flux",
 
                     y = list(measureFlux(y, spec.wavelength, dataId["arm"]))
 
-                    if True:
+                    if False:
                         #
                         # Deal with fibres missing in spec;  PIPE2D-1401
                         # We insert NaNs into the measurements in the proper places
@@ -185,7 +201,7 @@ def estimateFiberThroughputs(butler, visits, arms="brn", what="flux",
                             j = np.where(config.fiberId == fid)[0][0]
                             y[j:j] = [np.NaN]
 
-                        c.append(y)
+                    c.append(y)
 
                 visitC[what][dataId["arm"]][dataId["visit"]] = np.array(sum(c, []))
                 visitConfig[what][dataId["arm"]][dataId["visit"]] = pfsConfig[ll]
@@ -259,9 +275,9 @@ def plotThroughputs(cache, visits, arms, what="flux", refVisit=-1, showHome=Fals
                 raise RuntimeError(f"Unable to read value of {what} from cache for {dataId}")
 
             title = [f"{dataId['visit']}  {dataId['arm']}"]
-            lam0, lam1 = selectWavelengthInterval(dataId["arm"])[:2]
+            lam0, lam1 = selectWavelengthInterval(dataId["arm"])[0][:2]  # XXX just the first pair
             colorbarlabel = [f"{'relative' if refVisit > 0 else ''}flux in "
-                             f"{lam0:.1f} < $\\lambda$ < {lam1:.1f}"]
+                             + getWavelengthLabel(arm)]
             title.append(f"[{pfsConfig.designName}]")
             title.append("\n")
             title.append(dict(flux="",
@@ -443,8 +459,7 @@ def throughputPerSpectrograph(cache, visit, arm, what="flux", title=""):
     II = plt.imshow(im, origin="lower", aspect="auto", interpolation='none', vmin=vmin, vmax=vmax,
                     extent=(0.5, im.shape[1] + 0.5, 0.5, 4.5))
 
-    lam0, lam1 = selectWavelengthInterval(arm)[:2]
-    plt.colorbar(II, label=f"flux in {lam0:.1f} < $\\lambda$ < {lam1:.1f}")
+    plt.colorbar(II, label=f"flux in {getWavelengthLabel(arm)}")
 
     plt.xlabel("Fibre Hole")
     plt.ylabel("spectrograph")
