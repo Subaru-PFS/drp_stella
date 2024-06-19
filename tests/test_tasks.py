@@ -14,7 +14,6 @@ import pfs.drp.stella.synthetic
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
-from pfs.drp.stella.datamodel import PfsFiberNorms
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
 from pfs.drp.stella.identifyLines import IdentifyLinesConfig, IdentifyLinesTask
@@ -118,11 +117,6 @@ class TasksTestCase(lsst.utils.tests.TestCase):
             lsst.afw.image.makeExposure(self.flat), self.identity, detectorMap=self.detMap
         ).profiles
 
-    def makeFiberNorms(self):
-        """Construct fiber normalizations"""
-        coeffs = np.ones((self.synthConfig.numFibers, 1), dtype=float)
-        return PfsFiberNorms(self.identity, self.detMap.fiberId, self.synthConfig.height, coeffs)
-
     def assertSpectra(self, spectra, hasContinuum=True):
         """Assert that the extracted arc spectra are as expected"""
         self.assertEqual(len(spectra), self.synthConfig.numFibers)
@@ -172,7 +166,6 @@ class TasksTestCase(lsst.utils.tests.TestCase):
     def testReduceExposure(self):
         """Test ReduceExposureTask"""
         profiles = self.makeFiberProfiles()
-        fiberNorms = self.makeFiberNorms()
 
         config = ReduceExposureTask.ConfigClass()
         config.isr.retarget(DummyIsrTask)
@@ -188,7 +181,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         raw = lsst.afw.image.makeExposure(self.arc)
         raw.getInfo().setVisitInfo(lsst.afw.image.VisitInfo(id=12345))
         dataRef = DummyDataRef(raw=raw, fiberProfiles=profiles, detectorMap=self.detMap,
-                               pfsConfig=self.pfsConfig, fiberNorms=fiberNorms)
+                               pfsConfig=self.pfsConfig)
 
         with lsst.utils.tests.getTempFilePath(".txt") as filename:
             self.referenceLines.writeLineList(filename)

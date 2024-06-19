@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField, ConfigField
+from lsst.pex.config import Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -23,7 +23,7 @@ from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsObjectSpectra
-from .fluxCalibrate import calibratePfsArm
+from .fluxCalibrate import calibratePfsArm, ApplyFiberNormsConfig
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
@@ -98,6 +98,13 @@ class CoaddSpectraConnections(
         dimensions=("instrument", "exposure", "detector"),
         multiple=True,
     )
+    fiberNorms = PrerequisiteConnection(
+        name="fiberNorms",
+        doc="Fiber normalisations",
+        storageClass="PfsFiberNorms",
+        dimensions=("instrument", "exposure", "arm"),
+        isCalibration=True,
+    )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",
@@ -126,6 +133,13 @@ class CoaddSpectraConnections(
         dimensions=("instrument", "skymap", "tract", "patch"),
     )
 
+    def __init__(self, *, config=None):
+        super().__init__(config=config)
+        if not config:
+            return
+        if not config.doApplyFiberNorms:
+            self.prerequisiteInputs.remove("fiberNorms")
+
 
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
@@ -133,6 +147,8 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
+    applyFiberNorms = ConfigField(dtype=ApplyFiberNormsConfig, doc="Configuration for applyFiberNorms")
 
 
 class CoaddSpectraRunner(TaskRunner):
@@ -173,6 +189,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             - ``identity`` (`Identity`): identity of the data.
             - ``pfsArm`` (`PfsArm`): extracted spectra from spectrograph arm.
             - ``pfsArmLsf`` (`LsfDict`): line-spread function for ``pfsArm``.
+            - ``fiberNorms`` (`PfsFiberNorms`): fiber normalisations for ``pfsArm``.
             - ``sky1d`` (`FocalPlaneFunction`): 1d sky subtraction model.
             - ``fluxCal`` (`FocalPlaneFunction`): flux calibration solution.
             - ``pfsConfig`` (`PfsConfig`): PFS fiber configuration.
@@ -224,10 +241,11 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
         patch = "%d,%d" % skymap[tract][butler.quantum.dataId["patch"]].getIndex()
 
         data: Dict[Identity, Struct] = {}
-        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
+        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, fiberNormsRef, sky1dRef, fluxCalRef in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsConfig),
             DatasetRefList.fromList(inputRefs.pfsArm),
             DatasetRefList.fromList(inputRefs.pfsArmLsf),
+            DatasetRefList.fromList(inputRefs.fiberNorms) if self.config.doApplyFiberNorms else None,
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
@@ -244,6 +262,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
                 identity=identity,
                 pfsArm=pfsArm,
                 pfsArmLsf=butler.get(pfsArmLsfRef),
+                fiberNorms=butler.get(fiberNormsRef) if self.config.doApplyFiberNorms else None,
                 sky1d=butler.get(sky1dRef),
                 fluxCal=butler.get(fluxCalRef),
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),
@@ -274,6 +293,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
                 identity=Identity.fromDict(dataRef.dataId),
                 pfsArm=pfsArm,
                 pfsArmLsf=dataRef.get("pfsArmLsf"),
+                fiberNorms=dataRef.get("fiberNorms") if self.config.doApplyFiberNorms else None,
                 sky1d=dataRef.get("sky1d"),
                 fluxCal=dataRef.get("fluxCal"),
                 pfsConfig=dataRef.get("pfsConfig").select(fiberId=pfsArm.fiberId),
@@ -378,7 +398,13 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             Calibrated spectrum of the target.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
-        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
+        kwargs = {}
+        if self.config.doApplyFiberNorms:
+            kwargs["fiberNorms"] = data.fiberNorms
+            kwargs["fiberNormsConfig"] = self.config.applyFiberNorms
+        spectrum = calibratePfsArm(
+            spectrum, data.pfsConfig, data.fiberNorms, data.sky1d, data.fluxCal, **kwargs
+        )
         return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
