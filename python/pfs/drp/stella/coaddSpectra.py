@@ -33,6 +33,38 @@ from .gen3 import DatasetRefList, zipDatasetRefs
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
 
+class SetWithNaN:
+    """A subset of set which includes at most one NaN, despite the fact that NaN != NaN"""
+
+    def __init__(self, iterable):
+        """Construct a set from iterable with at most one NaN"""
+        self.__set = set()
+        sawNaN = False
+
+        for x in iterable:
+            if np.isnan(x):
+                if not sawNaN:
+                    self.__set.add(x)
+                    sawNaN = True
+            else:
+                self.add(x)
+
+    def add(self, val):
+        if np.isnan(val) and np.isnan(list(self)).any():
+            return
+
+        self.__set.add(val)
+
+    def __len__(self):
+        return self.__set.__len__()
+
+    def __repr__(self):
+        return self.__set.__repr__()
+
+    def pop(self):
+        return self.__set.pop()
+
+
 class CoaddSpectraConnections(
     PipelineTaskConnections,
     dimensions=("instrument", "skymap", "tract", "patch"),
@@ -289,7 +321,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             for ff, flux in zip(pfsConfig.filterNames[0], pfsConfig.fiberFlux[0]):
                 fiberFlux[ff].append(flux)
         for ff in fiberFlux:
-            flux = set(fiberFlux[ff])
+            flux = SetWithNaN(fiberFlux[ff])
             if len(flux) > 1:
                 self.log.warn("Multiple %s flux for target %s (%s); using average" % (ff, target, flux))
                 flux = np.average(np.array(fiberFlux[ff]))
