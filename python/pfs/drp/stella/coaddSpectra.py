@@ -403,7 +403,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
             kwargs["fiberNorms"] = data.fiberNorms
             kwargs["fiberNormsConfig"] = self.config.applyFiberNorms
         spectrum = calibratePfsArm(
-            spectrum, data.pfsConfig, data.fiberNorms, data.sky1d, data.fluxCal, **kwargs
+            spectrum, data.pfsConfig, data.sky1d, data.fluxCal, **kwargs
         )
         return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
