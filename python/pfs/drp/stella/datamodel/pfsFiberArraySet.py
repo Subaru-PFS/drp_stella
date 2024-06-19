@@ -39,7 +39,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             return self.__imul__(1.0/rhs)
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
-             figure=None, axes=None):
+             figure=None, ax=None):
         """Plot the spectra
 
         Parameters
@@ -56,14 +56,14 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             Show the plot?
         figure : `matplotlib.Figure` or ``None``
             The figure to use
-        axes : `matplotlib.Axes` or ``None``
-            The axes to use.
+        ax : `matplotlib.Axes` or ``None``
+            The x/y axes to use.
 
         Returns
         -------
         figure : `matplotlib.Figure`
             Figure containing the plot.
-        axes : `matplotlib.Axes`
+        ax : `matplotlib.Axes`
             Axes containing the plot.
         """
         import matplotlib.pyplot as plt
@@ -79,12 +79,13 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             xLabel = "Wavelength (nm)"
 
         if figure is None:
-            if axes is None:
-                figure, axes = plt.subplots()
+            if ax is None:
+                figure, axs = plt.subplots(squeeze=False)
+                ax = axs[0]
             else:
-                figure = axes.get_figure()
-        elif axes is None:
-            axes = figure.gca()
+                figure = ax.get_figure()
+        elif ax is None:
+            ax = figure.gca()
 
         colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))
         for ff, cc in zip(fiberId, colors):
@@ -100,14 +101,14 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             if normalized:
                 with np.errstate(invalid="ignore", divide="ignore"):
                     flux /= self.norm[index][good]
-            axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
+            ax.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
 
-        axes.set_xlabel(xLabel)
-        axes.set_ylabel(self._ylabel)
+        ax.set_xlabel(xLabel)
+        ax.set_ylabel(self._ylabel)
 
         if show:
             figure.show()
-        return figure, axes
+        return figure, ax
 
     def resample(self, wavelength, fiberId=None):
         """Construct a new PfsFiberArraySet resampled to a common wavelength vector

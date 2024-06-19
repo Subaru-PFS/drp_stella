@@ -23,7 +23,12 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
         self.flux /= rhs
         return self
 
-    def plot(self, ignorePixelMask: Optional[int] = None, show: bool = True) -> Tuple["Figure", "Axes"]:
+    def plot(self, ignorePixelMask: Optional[int] = None,
+             figure: Optional[Figure] if TYPE_CHECKING else [] = None,
+             ax: Optional[Axes] if TYPE_CHECKING else [] = None,
+             trimToUsable: Optional[bool] = False,
+             title: Optional[str] = None,
+             show: bool = True) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
@@ -37,7 +42,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
         -------
         figure : `matplotlib.Figure`
             Figure containing the plot.
-        axes : `matplotlib.Axes`
+        ax : `matplotlib.Axes`
             Axes containing the plot.
         """
         import matplotlib.pyplot as plt
@@ -46,21 +51,36 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
         if ignorePixelMask is None:
             ignorePixelMask = self.flags.get("NO_DATA")
 
-        figure, axes = plt.subplots()
+        if figure is None:
+            if ax is None:
+                figure, axs = plt.subplots(squeeze=False)
+                ax = axs[0]
+            else:
+                figure = ax.get_figure()
+        elif ax is None:
+            ax = figure.gca()
+
         good = (self.mask & ignorePixelMask) == 0
-        axes.plot(self.wavelength[good], self.flux[good], 'k-', label="Flux")
 
         for start, stop in contiguous_regions(~good):
             if stop >= self.wavelength.size:
                 stop = self.wavelength.size - 1
-            axes.axvspan(self.wavelength[start], self.wavelength[stop], color="grey", alpha=0.1)
+            if trimToUsable:
+                good &= ~((self.wavelength[start] < self.wavelength) &
+                          (self.wavelength < self.wavelength[stop]))
+            else:
+                ax.axvspan(self.wavelength[start], self.wavelength[stop], color="grey", alpha=0.1)
 
-        axes.set_xlabel("Wavelength (nm)")
-        axes.set_ylabel("Flux (nJy)")
-        axes.set_title(str(self.getIdentity()))
+        ax.plot(self.wavelength[good], self.flux[good], 'k-', label="Flux")
+
+        ax.set_xlabel("Wavelength (nm)")
+        ax.set_ylabel("Flux (nJy)")
+        if title is None:
+            title = str(self.getIdentity())
+        ax.set_title(title)
         if show:
             figure.show()
-        return figure, axes
+        return figure, ax
 
     def resample(self, wavelength: np.ndarray) -> "PfsSimpleSpectrum":
         """Resampled the spectrum in wavelength
@@ -99,6 +119,10 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         plotSky: bool = True,
         plotErrors: bool = True,
         ignorePixelMask: Optional[int] = None,
+        figure: Optional[Figure] if TYPE_CHECKING else [] = None,
+        ax: Optional[Axes] if TYPE_CHECKING else [] = None,
+        trimToUsable: Optional[bool] = False,
+        title: Optional[str] = None,
         show: bool = True,
     ) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
@@ -123,12 +147,25 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         """
         if ignorePixelMask is None:
             ignorePixelMask = self.flags.get("NO_DATA")
-        figure, axes = super().plot(ignorePixelMask=ignorePixelMask, show=False)
+        figure, axes = super().plot(figure=figure, ax=ax, ignorePixelMask=ignorePixelMask,
+                                    trimToUsable=trimToUsable, title=title,
+                                    show=False)
         good = (self.mask & ignorePixelMask) == 0
+
+        if trimToUsable:
+            from matplotlib.cbook import contiguous_regions
+            for start, stop in contiguous_regions(~good):
+                if stop >= self.wavelength.size:
+                    stop = self.wavelength.size - 1
+                good &= ~((self.wavelength[start] < self.wavelength) &
+                          (self.wavelength < self.wavelength[stop]))
+
         if plotSky:
-            axes.plot(self.wavelength[good], self.sky[good], 'b-', label="Sky")
+            axes.plot(self.wavelength[good], self.sky[good], 'b-', alpha=0.5,
+                      label="Sky")
         if plotErrors:
-            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'r-', label="Flux errors")
+            axes.plot(self.wavelength[good], np.sqrt(self.variance[good]), 'r-', alpha=0.5,
+                      label="Flux errors")
         if show:
             figure.show()
         return figure, axes
