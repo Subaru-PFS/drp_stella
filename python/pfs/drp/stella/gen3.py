@@ -272,8 +272,8 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
         return iter(refLists[0])
 
     # Identify the largest set of dimensions
-    refDimensions = [refs.dimensions for refs in refLists]
-    mostDimensions = max(refDimensions, key=lambda dims: len(dims))
+    refDimensions = [refs.dimensions if refs is not None else None for refs in refLists]
+    mostDimensions = max(refDimensions, key=lambda dims: len(dims) if dims is not None else 0)
     # All other sets of dimensions should be a subset of that.
     # This assumption makes the calculation MUCH easier,
     # and it should usually be true in the cases we care about.
@@ -283,12 +283,14 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
     # of dimensions need to craft their own solution that does what they
     # expect.
     for dims in refDimensions:
+        if dims is None:
+            continue
         if not dims.issubset(mostDimensions):
             raise RuntimeError(f"Graph {dims} is not a subset of {mostDimensions}")
 
     # Knowing the largest set of dimensions, we can calculate the largest set
     # of coordinates (dataIds).
-    mostIndices = [ii for ii, dims in enumerate(refDimensions) if dims == mostDimensions]
+    mostIndices = [ii for ii, dims in enumerate(refDimensions) if dims is not None and dims == mostDimensions]
     allCoordinates = functools.reduce(
         lambda coords, index: coords.union(set(refLists[index].keys())),
         mostIndices[1:],
@@ -299,7 +301,10 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
     # appropriate reference from each list.
     for dataId in allCoordinates:
         try:
-            result = tuple(refs.byExtendedCoordinate(dataId, allowMissing=allowMissing) for refs in refLists)
+            result = tuple(
+                refs.byExtendedCoordinate(dataId, allowMissing=allowMissing) if refs is not None else None
+                for refs in refLists
+            )
         except KeyError:
             assert not allowMissing, "Should only get KeyError if allowMissing=False"
             continue
