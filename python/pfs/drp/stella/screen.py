@@ -10,7 +10,7 @@ __all__ = ("screenParameters", "screenResponse")
 
 screenParameters = ListField(
     dtype=float,
-    default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
+    default=[0, 0, -1.62131294e-07, -7.96517605e-05, -1.13541195e-04],
     doc="Flat-field screen response parameters",
 )
 
@@ -107,6 +107,5 @@ def screenResponse(x: np.ndarray, y: np.ndarray, insrot: float, params: np.ndarr
 
     coords = np.vstack((x, y))
     rotated = rotateCoordinatesAroundCenter(coords, x0, y0, np.deg2rad(insrot))
-    # You have to remember that we computed this model by dividing twilight by the quartzes.
-    # Providing the twilight is uniform, what you have left is actually the inverse of the screen response.
-    return 1 / poly2dScreen(rotated, *params[2:])
+    # Those values are median wrt wavelength measured from engineering RUN17 111721..111732
+    return poly2dScreen(rotated, *params[2:])
