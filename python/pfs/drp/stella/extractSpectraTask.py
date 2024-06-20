@@ -9,7 +9,6 @@ import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 
 from lsst.afw.image import MaskedImage
-from .datamodel import PfsFiberNorms
 from .DetectorMap import DetectorMap
 from .FiberTrace import FiberTrace
 from .FiberTraceSet import FiberTraceSet
@@ -48,7 +47,6 @@ class ExtractSpectraTask(pipeBase.Task):
         detectorMap: Optional[DetectorMap] = None,
         fiberId: Optional[np.ndarray] = None,
         isBoxcar: bool = False,
-        fiberNorms : Optional[PfsFiberNorms] = None,
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -69,8 +67,6 @@ class ExtractSpectraTask(pipeBase.Task):
             Fiber identifiers to include in output.
         isBoxcar : `bool`
             fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
-        fiberNorms : `PfsFiberNorms`, optional
-            Fiber normalizations.
 
         Returns
         -------
@@ -104,7 +100,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
-        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar, fiberNorms)
+        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
 
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
@@ -120,7 +116,6 @@ class ExtractSpectraTask(pipeBase.Task):
         fiberTraceSet: FiberTraceSet,
         detectorMap: Optional[DetectorMap] = None,
         isBoxcar: bool = False,
-        fiberNorms : Optional[PfsFiberNorms] = None,
     ) -> SpectrumSet:
         """Extract all spectra in the fiberTraceSet
 
@@ -136,8 +131,6 @@ class ExtractSpectraTask(pipeBase.Task):
             and provide a rough wavelength calibration.
         isBoxcar : `bool`
             fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
-        fiberNorms : `PfsFiberNorms`, optional
-            Fiber normalizations.
 
         Returns
         -------
@@ -157,11 +150,6 @@ class ExtractSpectraTask(pipeBase.Task):
         if detectorMap is not None:
             for spectrum in spectra:
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
-
-        if fiberNorms is not None:
-            for spectrum in spectra:
-                if spectrum.fiberId in fiberNorms.coeff:
-                    spectrum.norm *= fiberNorms.calculate(spectrum.fiberId)
 
         return spectra
 

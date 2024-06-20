@@ -53,8 +53,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
 
         if figure is None:
             if ax is None:
-                figure, axs = plt.subplots(squeeze=False)
-                ax = axs[0]
+                figure, ax = plt.subplots(squeeze=True)
             else:
                 figure = ax.get_figure()
         elif ax is None:

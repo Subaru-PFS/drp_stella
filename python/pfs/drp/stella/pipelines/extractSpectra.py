@@ -21,6 +21,7 @@ from ..NevenPsfContinued import NevenPsf
 from ..readLineList import ReadLineListTask
 from ..repair import PfsRepairTask, maskLines
 from ..subtractSky2d import SkyModel, SubtractSky2dTask
+from ..utils.sysUtils import metadataToHeader, getPfsVersions
 
 __all__ = ("ExtractSpectraTask",)
 
@@ -247,9 +248,14 @@ class ExtractSpectraTask(PipelineTask):
             for spec, skySpec in zip(spectra, skySpectra):
                 spec.background += skySpec.spectrum
 
+        pfsArm = spectra.toPfsArm(identity.getDict())
+        pfsArm.metadata.update(**getPfsVersions())
+        pfsArm.metadata.update(metadataToHeader(exposure.getMetadata()))
+        pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
+
         return Struct(
             calexp=exposure,
-            pfsArm=spectra.toPfsArm(identity.getDict()),
+            pfsArm=pfsArm,
             original=original,
             spectra=spectra,
             continuum=continuum,

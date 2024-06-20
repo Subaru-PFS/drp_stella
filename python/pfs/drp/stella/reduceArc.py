@@ -31,7 +31,6 @@ class ReduceArcConfig(pexConfig.Config):
     def setDefaults(self):
         super().setDefaults()
         self.reduceExposure.doAdjustDetectorMap = False  # We'll do a full-order fit
-        self.reduceExposure.doApplyFiberNorms = False  # We don't need them
         self.reduceExposure.doSubtractSky2d = False
         self.reduceExposure.doWriteArm = False  # We'll do this ourselves, after wavelength calibration
         self.reduceExposure.photometerLines.doApertureCorrection = False  # Unnecessary for centroiding
