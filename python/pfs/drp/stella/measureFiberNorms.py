@@ -310,13 +310,14 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             with np.errstate(invalid="ignore"):
                 average = np.ma.average(flux, weights=weights, axis=1).filled(np.nan)
 
+            goodAverages = average[np.isfinite(average)]
             self.log.info(
                 "Median normalization of spectrograph %d is %.2f +- %.2f (min %.2f, max %.2f)",
                 spectrograph,
-                np.median(average),
-                robustRms(average),
-                np.min(average),
-                np.max(average),
+                np.median(goodAverages),
+                robustRms(goodAverages),
+                np.min(goodAverages),
+                np.max(goodAverages),
             )
 
             select = slice(index, index + len(ss))
