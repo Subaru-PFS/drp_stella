@@ -170,6 +170,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config = ReduceExposureTask.ConfigClass()
         config.isr.retarget(DummyIsrTask)
         config.doRepair = False
+        config.doApplyScreenResponse = False
         config.doSubtractContinuum = True
         config.doSubtractSky2d = False
         config.doWriteCalexp = True

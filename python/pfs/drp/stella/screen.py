@@ -2,17 +2,95 @@ from typing import Iterable
 
 import numpy as np
 
-from lsst.pex.config import ListField
+from lsst.pex.config import Config, ListField
+from lsst.pipe.base import Task
+from lsst.daf.base import PropertyList
+
+from pfs.datamodel import PfsConfig
+from lsst.obs.pfs.utils import getLamps
+from .SpectrumSetContinued import SpectrumSet
 
 
-__all__ = ("screenParameters", "screenResponse")
+__all__ = ("ScreenResponseConfig", "ScreenResponseTask", "screenResponse")
 
 
-screenParameters = ListField(
-    dtype=float,
-    default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
-    doc="Flat-field screen response parameters",
-)
+class ScreenResponseConfig(Config):
+    screenParams = ListField(
+        dtype=float,
+        default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
+        doc="Flat-field screen response parameters",
+    )
+
+
+class ScreenResponseTask(Task):
+    ConfigClass = ScreenResponseConfig
+    _DefaultName = "screenResponse"
+
+    def run(self, metadata: PropertyList, spectra: SpectrumSet, pfsConfig: PfsConfig):
+        """Correct the spectra for the screen response.
+
+        Parameters
+        ----------
+        metadata : `PropertyList`
+            Metadata for the exposure.
+        spectra : `SpectrumSet`
+            The spectra to be corrected.
+        pfsConfig : `PfsConfig`
+            Fiber configuration.
+        """
+        if not self.isQuartz(metadata):
+            self.log.debug("Not applying screen response correction since not a quartz lamp exposure")
+            return
+        insrot = metadata["INSROT"]
+        self.log.info("Applying screen response correction to quartz lamp spectra, INSROT=%f", insrot)
+        self.apply(spectra, pfsConfig, insrot)
+
+    def isQuartz(self, metadata: PropertyList) -> bool:
+        """Return whether the exposure is a quartz lamp exposure
+
+        Parameters
+        ----------
+        metadata : `PropertyList`
+            Metadata for the exposure.
+
+        Returns
+        -------
+        isQuartz : `bool`
+            Whether the exposure is a quartz lamp exposure.
+        """
+        lamps = getLamps(metadata)
+        return bool(lamps & set(("Quartz", "Quartz_eng")))
+
+    def apply(self, spectra: SpectrumSet, pfsConfig: PfsConfig, insrot: float):
+        """Correct the spectra for the screen response.
+
+        Parameters
+        ----------
+        spectra : `SpectrumSet`
+            The spectra to be corrected.
+        pfsConfig : `PfsConfig`
+            Fiber configuration.
+        insrot : `float`
+            The instrument rotator angle (degrees) of the exposure.
+        """
+        # Apply screen response correction
+        pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
+        if not np.array_equal(pfsConfig.fiberId, spectra.fiberId):
+            raise RuntimeError("FiberId mismatch")
+        if not np.isfinite(insrot):
+            raise RuntimeError("Rotator angle is not finite")
+        screen = screenResponse(
+            pfsConfig.pfiCenter[:, 0],
+            pfsConfig.pfiCenter[:, 1],
+            insrot,
+            self.config.screenParams,
+        )
+        # The "screen response" is the quartz flux divided by the twilight flux.
+        # To get the twilight flux, we need to divide our quartz flux by the screen response.
+        # We have the quartz flux as the "norm" of the pfsMerged.
+        # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
+        for spectrum, value in zip(spectra, screen):
+            spectrum.norm /= value
 
 
 def rotationMatrix(theta: float) -> np.ndarray:

@@ -23,7 +23,7 @@ from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsObjectSpectra
-from .fluxCalibrate import calibratePfsArm, ApplyFiberNormsConfig
+from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
@@ -148,7 +148,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
-    applyFiberNorms = ConfigField(dtype=ApplyFiberNormsConfig, doc="Configuration for applyFiberNorms")
+    doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
 
 
 class CoaddSpectraRunner(TaskRunner):
@@ -401,7 +401,7 @@ class CoaddSpectraTask(CmdLineTask, PipelineTask):
         kwargs = {}
         if self.config.doApplyFiberNorms:
             kwargs["fiberNorms"] = data.fiberNorms
-            kwargs["fiberNormsConfig"] = self.config.applyFiberNorms
+            kwargs["doCheckFiberNormsHashes"] = self.config.doCheckFiberNormsHashes
         spectrum = calibratePfsArm(
             spectrum, data.pfsConfig, data.sky1d, data.fluxCal, **kwargs
         )

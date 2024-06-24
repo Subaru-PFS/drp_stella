@@ -352,8 +352,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             visit0=min(visitList),
         )
 
-        insrot = archetype.metadata["INSROT"]
-
         outputId = dict(
             arm=archetype.identity.arm,
             calibTime=archetype.identity.obsTime,
@@ -376,9 +374,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             header=astropy.io.fits.Header(cards=dict(MODELTYP="CONSTANT")),
         )
 
-        return PfsFiberNorms(
-            identity, fiberId, wavelength, values, insrot, fiberProfilesHash, model, header
-        )
+        return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
 
     def plotFiberNorms(
         self,

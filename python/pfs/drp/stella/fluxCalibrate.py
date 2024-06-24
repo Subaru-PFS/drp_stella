@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 from numpy.typing import ArrayLike
 
-from lsst.pex.config import Field, Config, ConfigurableField
+from lsst.pex.config import Field, ConfigurableField
 from lsst.pipe.base import ArgumentParser, Struct
 from lsst.daf.persistence import Butler
 
@@ -29,12 +29,10 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .gen3 import readDatasetRefs
 from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
-from .screen import screenParameters, screenResponse
 
 
 __all__ = (
     "PfsReferenceSet",
-    "ApplyFiberNormsConfig",
     "applyFiberNorms",
     "fluxCalibrate",
     "FluxCalibrateConfig",
@@ -45,18 +43,10 @@ PfsReferenceSet = Dict[int, PfsReference]
 """Mapping of fiberId to the appropriate PfsReference"""
 
 
-class ApplyFiberNormsConfig(Config):
-    """Configuration for applyFiberNorms"""
-    doCheckHashes = Field(dtype=bool, default=True, doc="Check hashes of fiber profiles?")
-    doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction?")
-    screenParams = screenParameters
-
-
 def applyFiberNorms(
     pfsArm: PfsArm,
     fiberNorms: PfsFiberNorms,
-    pfsConfig: PfsConfig,
-    config: ApplyFiberNormsConfig,
+    doCheckHashes: bool = True,
 ) -> Set[int]:
     """Apply fiber normalisation to a PfsArm
 
@@ -68,15 +58,15 @@ def applyFiberNorms(
         Fiber normalisations.
     pfsConfig : `PfsConfig`
         Top-end configuration.
-    config : `ApplyFiberNormsConfig`
-        Configuration parameters.
+    doCheckHashes : `bool`, optional
+        Check hashes for consistency?
 
     Returns
     -------
     missingFiberId : `set` of `int`
         FiberIds for which we don't have a normalisation.
     """
-    if config.doCheckHashes:
+    if doCheckHashes:
         spectrograph = pfsArm.identity.spectrograph
         expectHash = fiberNorms.fiberProfilesHash[spectrograph]
         gotHash = pfsArm.metadata["PFS.HASH.FIBERPROFILES"]
@@ -93,26 +83,6 @@ def applyFiberNorms(
             pfsArm.norm[ii] *= nn
         else:
             missingFiberId.add(fiberId)
-
-    # Apply screen response correction
-    if config.doApplyScreenResponse:
-        pfsConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
-        if not np.array_equal(pfsConfig.fiberId, pfsArm.fiberId):
-            raise RuntimeError("FiberId mismatch")
-        insrot = pfsArm.metadata["INSROT"]
-        if not np.isfinite(insrot):
-            raise RuntimeError("Rotator angle is not finite")
-        screen = screenResponse(
-            pfsConfig.pfiCenter[:, 0],
-            pfsConfig.pfiCenter[:, 1],
-            insrot,
-            config.screenParams,
-        )
-        # The "screen response" is the quartz flux divided by the twilight flux.
-        # To get the twilight flux, we need to divide our quartz flux by the screen response.
-        # We have the quartz flux as the "norm" of the pfsMerged.
-        # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
-        pfsArm.norm /= screen[..., np.newaxis]
 
     return missingFiberId
 
@@ -147,7 +117,7 @@ def calibratePfsArm(
     sky1d: FocalPlaneFunction,
     fluxCal: FocalPlaneFunction,
     fiberNorms: Optional[PfsFiberNorms] = None,
-    fiberNormsConfig: Optional[ApplyFiberNormsConfig] = None,
+    doCheckFiberNormsHashes: bool = True,
     wavelength: Optional[ArrayLike] = None,
 ) -> PfsArm:
     """Calibrate a PfsArm
@@ -162,8 +132,8 @@ def calibratePfsArm(
         Flux calibration model.
     fiberNorms : `PfsFiberNorms`, optional
         Fiber normalisations.
-    fiberNormsConfig : `ApplyFiberNormsConfig`, optional
-        Configuration for applying fiber normalisations.
+    doCheckFiberNormsHashes : `bool`, optional
+        Check hashes in the fiberNorms for consistency?
     wavelength : `numpy.ndarray` of `float`, optional
         Wavelength array for optional resampling.
 
@@ -175,9 +145,7 @@ def calibratePfsArm(
     pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
     spectra /= calculateDispersion(spectra.wavelength)  # Convert to electrons/nm
     if fiberNorms is not None:
-        if fiberNormsConfig is None:
-            raise ValueError("fiberNormsConfig must be provided if fiberNorms is provided")
-        applyFiberNorms(spectra, fiberNorms, pfsConfig, fiberNormsConfig)
+        applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
     subtractSky1d(spectra, pfsConfig, sky1d)
     fluxCalibrate(spectra, pfsConfig, fluxCal)
     if wavelength is not None:

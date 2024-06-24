@@ -14,6 +14,7 @@ from .blackSpotCorrection import BlackSpotCorrectionTask
 from .fiberProfileSet import FiberProfileSet
 from .centroidTraces import CentroidTracesTask, tracesToLines
 from .constructSpectralCalibs import setCalibHeader
+from .screen import ScreenResponseTask
 
 __all__ = ("NormalizeFiberProfilesConfig", "NormalizeFiberProfilesTask")
 
@@ -29,6 +30,8 @@ class NormalizeFiberProfilesConfig(Config):
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
+    doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction?")
+    screen = ConfigurableField(target=ScreenResponseTask, doc="Screen response correction")
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
 
     def setDefaults(self):
@@ -50,6 +53,7 @@ class NormalizeFiberProfilesTask(Task):
         self.makeSubtask("combine")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
+        self.makeSubtask("screen")
         self.makeSubtask("blackspots")
 
     def run(self, profiles: FiberProfileSet, normRefList: List[ButlerDataRef], visitList: List[int]):
@@ -59,11 +63,13 @@ class NormalizeFiberProfilesTask(Task):
             combined.detectorMap,
             combined.exposure.mask.getPlaneBitMask(self.config.mask),
         )
+        if self.config.doApplyScreenResponse:
+            self.screen.run(combined.exposure.getMetadata(), spectra, combined.pfsConfig)
         self.blackspots.run(combined.pfsConfig, spectra)
 
         for ss in spectra:
             good = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) == 0
-            profiles[ss.fiberId].norm = np.where(good, ss.flux, np.nan)
+            profiles[ss.fiberId].norm = np.where(good, ss.flux/ss.norm, np.nan)
 
         self.write(normRefList[0], profiles, visitList, [dataRef.dataId["visit"] for dataRef in normRefList])
         self.plotProfiles(normRefList[0], profiles)
