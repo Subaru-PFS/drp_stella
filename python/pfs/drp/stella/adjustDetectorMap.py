@@ -4,17 +4,13 @@ import numpy as np
 
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
-from lsst.geom import AffineTransform, Box2D
+from lsst.geom import Box2D
 
-from . import SplinedDetectorMap
 from . import ReferenceLineStatus
 from .DetectorMapContinued import DetectorMap
 from .DistortionContinued import Distortion
-from .DoubleDetectorMapContinued import DoubleDetectorMap
-from .DistortedDetectorMapContinued import DistortedDetectorMap
 from .LayeredDetectorMapContinued import LayeredDetectorMap
 from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
-from .PolynomialDetectorMapContinued import PolynomialDetectorMap
 from .PolynomialDistortionContinued import PolynomialDistortion
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
@@ -151,7 +147,6 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         """
-        breakpoint()
         return LayeredDetectorMap.fromDetectorMap(detectorMap)
 
     def makeDetectorMap(
