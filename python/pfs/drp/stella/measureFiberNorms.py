@@ -300,8 +300,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
             rejected = np.zeros_like(flux, dtype=bool)
             for _ in range(self.config.rejIter):
-                median = np.ma.median(flux, axis=0)
-                rejected |= np.abs(flux - median) > self.config.rejThresh*error
+                median = np.ma.median(flux, axis=1)
+                rejected |= np.abs(flux - median[..., np.newaxis]) > self.config.rejThresh*error
                 flux.mask |= rejected
 
             weights.mask |= rejected
