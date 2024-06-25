@@ -1,4 +1,5 @@
 from typing import Optional, Tuple, TYPE_CHECKING
+import warnings
 
 import numpy as np
 
@@ -59,7 +60,9 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
         xx = pfsConfig.pfiCenter[indices, 0]
         yy = pfsConfig.pfiCenter[indices, 1]
 
-        values = np.nanmedian(self.values, axis=1)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
+            values = np.nanmedian(self.values, axis=1)
         good = np.isfinite(values)
         median = np.median(values[good])
         rms = robustRms(values[good])
