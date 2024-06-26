@@ -26,6 +26,7 @@ import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import CmdLineTask, Struct
 from lsst.obs.pfs.isrTask import PfsIsrTask
+from lsst.obs.pfs.utils import getLamps
 from lsst.afw.display import Display
 from pfs.datamodel import FiberStatus, TargetType
 from .measurePsf import MeasurePsfTask
@@ -48,6 +49,7 @@ from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
 from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
 from .screen import ScreenResponseTask
+from .barycentricCorrection import barycentricCorrection
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -111,6 +113,7 @@ N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` whic
     windowed = Field(dtype=bool, default=False,
                      doc="Reduction of windowed data, for real-time acquisition? Implies "
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
+    doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
     doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
@@ -353,6 +356,7 @@ class ReduceExposureTask(CmdLineTask):
 
         original = None
         spectra = None
+        pfsArm = None
         if self.config.doExtractSpectra:
             self.log.info("Extracting spectra from %(visit)d%(arm)s%(spectrograph)d", sensorRef.dataId)
             maskedImage = exposure.maskedImage
@@ -386,9 +390,14 @@ class ReduceExposureTask(CmdLineTask):
             if self.config.doApplyScreenResponse:
                 self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
 
-            results.original = original
-            results.spectra = spectra
+            pfsArm = spectra.toPfsArm(sensorRef.dataId)
+            if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
+                self.log.info("Applying barycentric correction")
+                barycentricCorrection(pfsArm, pfsConfig)
 
+        results.original = original
+        results.spectra = spectra
+        results.pfsArm = pfsArm
         if self.debugInfo.plotSpectra:
             self.plotSpectra(results.spectra)
 
@@ -448,10 +457,9 @@ class ReduceExposureTask(CmdLineTask):
             sensorRef.put(results.sky2d, "sky2d")
 
         if self.config.doWriteArm:
-            pfsArm = results.spectra.toPfsArm(sensorRef.dataId)
-            pfsArm.metadata.update(metadataToHeader(results.exposure.getMetadata()))
-            pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = results.fiberProfiles.hash
-            sensorRef.put(pfsArm, "pfsArm")
+            results.pfsArm.metadata.update(metadataToHeader(results.exposure.getMetadata()))
+            results.pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = results.fiberProfiles.hash
+            sensorRef.put(results.pfsArm, "pfsArm")
             if results.lines is not None:
                 sensorRef.put(results.lines, "arcLines")
 
