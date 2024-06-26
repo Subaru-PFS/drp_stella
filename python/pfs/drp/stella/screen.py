@@ -17,7 +17,7 @@ __all__ = ("ScreenResponseConfig", "ScreenResponseTask", "screenResponse")
 class ScreenResponseConfig(Config):
     screenParams = ListField(
         dtype=float,
-        default=[-1.25426776e-04, 1.04442944e-04, 2.42251468e-07, 8.29359712e-05, 1.28199568e-04],
+        default=[0, 0, -1.62131294e-07, -7.96517605e-05, -1.13541195e-04],
         doc="Flat-field screen response parameters",
     )
 
