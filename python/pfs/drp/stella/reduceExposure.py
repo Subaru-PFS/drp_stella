@@ -47,6 +47,7 @@ from .arcLine import ArcLineSet
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
 from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
+from .screen import ScreenResponseTask
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -96,6 +97,8 @@ class ReduceExposureConfig(Config):
     doSubtractSpectra = Field(dtype=bool, default=False, doc="Subtract extracted spectra from exposure?")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
+    doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction to quartz?")
+    screen = ConfigurableField(target=ScreenResponseTask, doc="Screen response correction")
     doWriteCalexp = Field(dtype=bool, default=True, doc="Write corrected frame?")
     doWriteLsf = Field(dtype=bool, default=True, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
@@ -221,6 +224,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
         self.makeSubtask("background")
         self.debugInfo = lsstDebug.Info(__name__)
@@ -378,6 +382,9 @@ class ReduceExposureTask(CmdLineTask):
                 skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
                 for spec, skySpec in zip(spectra, skySpectra):
                     spec.background += skySpec.spectrum/skySpec.norm*spec.norm
+
+            if self.config.doApplyScreenResponse:
+                self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
 
             results.original = original
             results.spectra = spectra

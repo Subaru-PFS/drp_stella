@@ -19,12 +19,10 @@ from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel import CalibIdentity, PfsConfig
-from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 
 from .combineSpectra import combineSpectraSets
 from .constructSpectralCalibs import setCalibHeader
-from .datamodel import PfsArm
-from .fitDistortedDetectorMap import addColorbar
+from .datamodel import PfsArm, PfsFiberNorms
 from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
@@ -302,21 +300,22 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
             rejected = np.zeros_like(flux, dtype=bool)
             for _ in range(self.config.rejIter):
-                median = np.ma.median(flux, axis=0)
-                rejected |= np.abs(flux - median) > self.config.rejThresh*error
+                median = np.ma.median(flux, axis=1)
+                rejected |= np.abs(flux - median[..., np.newaxis]) > self.config.rejThresh*error
                 flux.mask |= rejected
 
             weights.mask |= rejected
             with np.errstate(invalid="ignore"):
                 average = np.ma.average(flux, weights=weights, axis=1).filled(np.nan)
 
+            goodAverages = average[np.isfinite(average)]
             self.log.info(
                 "Median normalization of spectrograph %d is %.2f +- %.2f (min %.2f, max %.2f)",
                 spectrograph,
-                np.median(average),
-                robustRms(average),
-                np.min(average),
-                np.max(average),
+                np.median(goodAverages),
+                robustRms(goodAverages),
+                np.min(goodAverages),
+                np.max(goodAverages),
             )
 
             select = slice(index, index + len(ss))
@@ -352,8 +351,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             visit0=min(visitList),
         )
 
-        insrot = archetype.metadata["INSROT"]
-
         outputId = dict(
             arm=archetype.identity.arm,
             calibTime=archetype.identity.obsTime,
@@ -376,9 +373,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             header=astropy.io.fits.Header(cards=dict(MODELTYP="CONSTANT")),
         )
 
-        return PfsFiberNorms(
-            identity, fiberId, wavelength, values, insrot, fiberProfilesHash, model, header
-        )
+        return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
 
     def plotFiberNorms(
         self,
@@ -391,7 +386,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        fiberNorms : `pfs.datamodel.pfsFiberNorms.PfsFiberNorms`
+        fiberNorms : `pfs.drp.stella.datamodel.pfsFiberNorms.PfsFiberNorms`
             Fiber normalization values
         pfsConfig : `pfs.datamodel.PfsConfig`
             Configuration for the PFS system
@@ -401,31 +396,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         fig : `matplotlib.figure.Figure`
             Figure containing the plot.
         """
-        import matplotlib
-        import matplotlib.pyplot as plt
-        import matplotlib.cm
-        from matplotlib.colors import Normalize
-        cmap = matplotlib.cm.coolwarm
-        fig, axes = plt.subplots()
-
-        pfsConfig = pfsConfig.select(fiberId=fiberNorms.fiberId)
-        indices = np.argsort(pfsConfig.fiberId)
-        assert np.array_equal(pfsConfig.fiberId[indices], fiberNorms.fiberId)
-        xx = pfsConfig.pfiCenter[indices, 0]
-        yy = pfsConfig.pfiCenter[indices, 1]
-
-        values = np.nanmedian(fiberNorms.values, axis=1)
-        good = np.isfinite(values)
-        median = np.median(values[good])
-        rms = robustRms(values[good])
-        lower = max(median - self.config.plotLower*rms, np.nanmin(values))
-        upper = min(median + self.config.plotUpper*rms, np.nanmax(values))
-        norm = Normalize(vmin=lower, vmax=upper)
-
-        axes.scatter(xx, yy, marker="o", c=values, cmap=cmap, norm=norm, s=10)
-        axes.set_aspect("equal")
+        fig, axes = fiberNorms.plot(pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper)
         axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
-        addColorbar(fig, axes, cmap, norm, "Fiber normalization")
         return fig
 
     def _getMetadataName(self):

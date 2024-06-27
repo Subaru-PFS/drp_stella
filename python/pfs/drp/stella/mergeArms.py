@@ -31,7 +31,7 @@ from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
-from .fluxCalibrate import ApplyFiberNormsConfig, applyFiberNorms
+from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
 
 
@@ -129,7 +129,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         default=["blackSpotId", "blackSpotDistance", "blackSpotCorrection"],
     )
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
-    applyFiberNorms = ConfigField(dtype=ApplyFiberNormsConfig, doc="Configuration for applying fiberNorms")
+    doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -232,7 +232,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                     pfsArm,
                     fiberNorms[pfsArm.identity.arm],
                     pfsConfig,
-                    self.config.applyFiberNorms
+                    self.config.doCheckFiberNormsHashes,
                 )
                 if missingFiberIds:
                     self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
