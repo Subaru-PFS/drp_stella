@@ -24,17 +24,20 @@ public:
 
     Spline(ConstArray const& x,                            ///< positions of knots
            ConstArray const& y,                            ///< values of function at knots
-           InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
+           InterpolationTypes interpolationType=CUBIC_NOTAKNOT, ///< spline boundary conditions
+           bool allowExtrapolation=false                     ///< allow extrapolation?
           );
 
     template <typename U>
     Spline(
         std::vector<U> const& x,
         std::vector<U> const& y,
-        InterpolationTypes interpolationType=CUBIC_NOTAKNOT
+        InterpolationTypes interpolationType=CUBIC_NOTAKNOT,
+        bool allowExtrapolation=false
     ) : Spline(utils::convertArray<InternalT>(utils::vectorToArray(x)),
                utils::convertArray<InternalT>(utils::vectorToArray(y)),
-               interpolationType) {}
+               interpolationType,
+               allowExtrapolation) {}
 
     // That ctor disables the move ctors
     Spline(Spline const&) = default;
@@ -48,6 +51,7 @@ public:
     ConstArray const getX() const { return _x; }
     ConstArray const getY() const { return _y; }
     InterpolationTypes getInterpolationType() const { return _interpolationType; }
+    bool getAllowExtrapolation() const { return _allowExtrapolation; }
 
     bool isPersistable() const noexcept { return true; }
 
@@ -68,6 +72,7 @@ public:
     int _m0;                            // index of point at/near the middle of the array
     double _dmdx;                       // amount x increases for between points; == x[1] - x[0]
     InterpolationTypes _interpolationType;  // type of spline interpolation
+    bool _allowExtrapolation;           // allow extrapolation?
 
     int _findIndex(T z) const;          // point whose index we want
 };
