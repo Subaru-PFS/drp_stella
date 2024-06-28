@@ -44,10 +44,11 @@ SplinedDetectorMap::SplinedDetectorMap(
 
     _xCenter.reserve(fiberId.size());
     _wavelength.reserve(fiberId.size());
+    auto const interpolationType = Spline::CUBIC_NOTAKNOT;
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
-        _xCenter.emplace_back(xCenterKnots[ii], xCenterValues[ii]);
-        _wavelength.emplace_back(wavelengthKnots[ii], wavelengthValues[ii]);
-        _row.emplace_back(wavelengthValues[ii], wavelengthKnots[ii]);
+        _xCenter.emplace_back(xCenterKnots[ii], xCenterValues[ii], interpolationType, true);
+        _wavelength.emplace_back(wavelengthKnots[ii], wavelengthValues[ii], interpolationType, true);
+        _row.emplace_back(wavelengthValues[ii], wavelengthKnots[ii], interpolationType, true);
     }
 
     _set_xToFiberId();
@@ -81,8 +82,9 @@ SplinedDetectorMap::SplinedDetectorMap(
         }
     }
 
+    auto const interpolationType = Spline::CUBIC_NOTAKNOT;
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
-        _row.emplace_back(_wavelength[ii].getY(), _wavelength[ii].getX());
+        _row.emplace_back(_wavelength[ii].getY(), _wavelength[ii].getX(), interpolationType, true);
     }
 
     _set_xToFiberId();
@@ -117,7 +119,7 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
 ) const {
     std::size_t const index = getFiberIndex(fiberId);
     double const y = _row[index](wavelength) + getSpectralOffset(fiberId);
-    if (y < 0 || y > getBBox().getHeight() - 1) {
+    if (y < 0 || y > getBBox().getHeight() - 1 || !std::isfinite(y)) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
         return lsst::geom::PointD(NaN, NaN);
     }
