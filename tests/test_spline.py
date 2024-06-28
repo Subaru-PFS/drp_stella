@@ -57,6 +57,24 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(LengthError):
             SplineD(np.arange(5, dtype=float), np.arange(7, dtype=float))
 
+    def testAllowExtrapolation(self):
+        """Test allowExtrapolation feature"""
+        self.assertFalse(self.spline.getAllowExtrapolation())  # False by default
+        self.assertFalse(self.spline.allowExtrapolation)  # False by default
+        self.assertTrue(np.isnan(self.spline(self.xx.min() - 1)))
+        self.assertTrue(np.isnan(self.spline(self.xx.max() + 1)))
+        self.assertFalse(np.isnan(self.spline(self.xx.mean())))
+
+        spline = SplineD(self.xx, self.yy, self.spline.getInterpolationType(), True)
+        self.assertTrue(spline.getAllowExtrapolation())
+        self.assertTrue(spline.allowExtrapolation)
+        self.assertFalse(np.isnan(spline(self.xx.min() - 1)))
+        self.assertFalse(np.isnan(spline(self.xx.max() + 1)))
+        self.assertFalse(np.isnan(spline(self.xx.mean())))
+
+
+
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

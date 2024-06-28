@@ -105,7 +105,12 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
         xArray[ii] = xx[index];
         yArray[ii] = yy[index];
     }
-    return std::make_pair(Spline(yArray, wlArray), Spline(yArray, xArray));
+
+    auto const interpolation = Spline::CUBIC_NOTAKNOT;
+    return std::make_pair(
+        Spline(yArray, wlArray, interpolation, false),
+        Spline(yArray, xArray, interpolation, false)
+    );
 }
 
 
