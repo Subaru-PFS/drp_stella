@@ -54,6 +54,9 @@ class ModelBasedDetectorMap : public DetectorMap {
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;
 
+    using SplineCoeffT = double;
+    using Spline = math::Spline<SplineCoeffT>;
+
   private:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     ///
@@ -63,8 +66,6 @@ class ModelBasedDetectorMap : public DetectorMap {
     /// Return the fiber center
     virtual double getXCenterImpl(int fiberId, double row) const override;
 
-    using SplineCoeffT = double;
-    using Spline = math::Spline<SplineCoeffT>;
     using SplinePair = std::pair<Spline, Spline>;
     using SplineCache = lsst::utils::Cache<int, std::shared_ptr<SplinePair>>;
 
