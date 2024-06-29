@@ -67,9 +67,9 @@ Spline<T>::Spline(
     ndarray::Array<Spline<T>::InternalT const, 1, 1> const& x,
     ndarray::Array<Spline<T>::InternalT const, 1, 1> const& y,
     InterpolationTypes interpolationType,
-    bool allowExtrapolation
+    ExtrapolationTypes extrapolationType
 ) : _interpolationType(interpolationType),
-    _allowExtrapolation(allowExtrapolation) {
+    _extrapolationType(extrapolationType) {
     utils::checkSize(x.size(), y.size(), "x vs y");
     std::size_t const n = x.size();
     if (n < 3) {
@@ -200,8 +200,24 @@ Spline<T>::Spline(
 template<typename T>
 T Spline<T>::operator()(T const z) const
 {
-    if (!_allowExtrapolation && (z < _x[0] || z > _x[_x.size() - 1])) {
-        return std::numeric_limits<T>::quiet_NaN();
+    std::size_t const last = _x.size() - 1;
+    switch (_extrapolationType) {
+      case EXTRAPOLATE_NONE:
+        if (z < _x[0] || z > _x[last]) {
+            return std::numeric_limits<T>::quiet_NaN();
+        }
+        break;
+      case EXTRAPOLATE_SINGLE: {
+        // Allow extrapolation by a single bin
+        double const low = 2*_x[0] - _x[1];
+        double const high = 2*_x[last] - _x[last - 1];
+        if (z < low || z > high) {
+            return std::numeric_limits<T>::quiet_NaN();
+        }
+        break;
+      }
+      case EXTRAPOLATE_ALL:
+        break;
     }
     int const m = _findIndex(z);         // index of the next LARGEST point in _x; clipped in [1, n-1]
 
@@ -270,7 +286,7 @@ class SplinePersistenceHelper {
     lsst::afw::table::Key<Array> x;
     lsst::afw::table::Key<Array> y;
     lsst::afw::table::Key<int> interpolationType;
-    lsst::afw::table::Key<int> allowExtrapolation;  // it's a bool, but we persist as int because it's easier
+    lsst::afw::table::Key<int> extrapolationType;
 
     static SplinePersistenceHelper const &get() {
         static SplinePersistenceHelper const instance;
@@ -283,7 +299,7 @@ class SplinePersistenceHelper {
         x(schema.addField<Array>("x", "positions of knots", "pixel", 0)),
         y(schema.addField<Array>("y", "values at knots", "count", 0)),
         interpolationType(schema.addField<int>("interpolationType", "type of spline interpolation", "")),
-        allowExtrapolation(schema.addField<int>("allowExtrapolation", "allow extrapolation?", ""))
+        extrapolationType(schema.addField<int>("extrapolationType", "extrapolation mode", ""))
         {}
 };
 
@@ -300,7 +316,7 @@ void Spline<T>::write(lsst::afw::table::io::OutputArchiveHandle & handle) const 
     record->set(schema.x, xx);
     record->set(schema.y, yy);
     record->set(schema.interpolationType, _interpolationType);
-    record->set(schema.allowExtrapolation, _allowExtrapolation);
+    record->set(schema.extrapolationType, _extrapolationType);
     handle.saveCatalog(cat);
 }
 
@@ -321,7 +337,7 @@ class Spline<T>::Factory : public lsst::afw::table::io::PersistableFactory {
         return std::make_shared<Spline<T>>(utils::convertArray<InternalT>(record.get(schema.x)),
                                            utils::convertArray<InternalT>(record.get(schema.y)),
                                            InterpolationTypes(record.get(schema.interpolationType)),
-                                           record.get(schema.allowExtrapolation));
+                                           ExtrapolationTypes(record.get(schema.extrapolationType)));
     }
 
     Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}

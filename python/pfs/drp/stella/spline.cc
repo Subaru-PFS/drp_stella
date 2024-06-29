@@ -19,15 +19,21 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     using Class = Spline<T>;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, ("Spline" + suffix).c_str());
 
-    py::enum_<typename Class::InterpolationTypes> type(cls, "InterpolationTypes");
-    type.value("NOTAKNOT", Class::InterpolationTypes::CUBIC_NOTAKNOT);
-    type.value("NATURAL", Class::InterpolationTypes::CUBIC_NATURAL);
-    type.export_values();
+    py::enum_<typename Class::InterpolationTypes> interpolation(cls, "InterpolationTypes");
+    interpolation.value("NOTAKNOT", Class::InterpolationTypes::CUBIC_NOTAKNOT);
+    interpolation.value("NATURAL", Class::InterpolationTypes::CUBIC_NATURAL);
+    interpolation.export_values();
+
+    py::enum_<typename Class::ExtrapolationTypes> extrapolation(cls, "ExtrapolationTypes");
+    extrapolation.value("ALL", Class::ExtrapolationTypes::EXTRAPOLATE_ALL);
+    extrapolation.value("SINGLE", Class::ExtrapolationTypes::EXTRAPOLATE_SINGLE);
+    extrapolation.value("NONE", Class::ExtrapolationTypes::EXTRAPOLATE_NONE);
+    extrapolation.export_values();
 
     cls.def(py::init<typename Class::Array const&, typename Class::Array const&,
-                     typename Class::InterpolationTypes, bool>(),
-                     "x"_a, "y"_a, "type"_a=Class::InterpolationTypes::CUBIC_NOTAKNOT,
-                     "allowExtrapolate"_a=false);
+                     typename Class::InterpolationTypes, typename Class::ExtrapolationTypes>(),
+                     "x"_a, "y"_a, "interpolationType"_a=Class::InterpolationTypes::CUBIC_NOTAKNOT,
+                     "extrapolationType"_a=Class::ExtrapolationTypes::EXTRAPOLATE_ALL);
     cls.def("__call__", py::overload_cast<T const>(&Class::operator(), py::const_));
     cls.def("__call__", py::overload_cast<ndarray::Array<T, 1, 1> const&>(&Class::operator(), py::const_));
     // Copy arrays so that they are writable, and can be used freely elsewhere
@@ -35,8 +41,8 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     cls.def("getY", [](Class const& self) { return typename Class::Array(ndarray::copy(self.getY())); });
     cls.def("getInterpolationType", &Class::getInterpolationType);
     cls.def_property_readonly("interpolationType", &Class::getInterpolationType);
-    cls.def("getAllowExtrapolation", &Class::getAllowExtrapolation);
-    cls.def_property_readonly("allowExtrapolation", &Class::getAllowExtrapolation);
+    cls.def("getExtrapolationType", &Class::getExtrapolationType);
+    cls.def_property_readonly("extrapolationType", &Class::getExtrapolationType);
 }
 
 PYBIND11_PLUGIN(spline) {

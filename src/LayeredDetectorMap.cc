@@ -8,7 +8,7 @@
 #include "pfs/drp/stella/math/quartiles.h"
 #include "pfs/drp/stella/LayeredDetectorMap.h"
 
-#define DEBUG_FIBERID 1
+//#define DEBUG_FIBERID 1
 
 
 namespace pfs {

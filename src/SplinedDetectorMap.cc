@@ -44,11 +44,10 @@ SplinedDetectorMap::SplinedDetectorMap(
 
     _xCenter.reserve(fiberId.size());
     _wavelength.reserve(fiberId.size());
-    auto const interpolationType = Spline::CUBIC_NOTAKNOT;
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
-        _xCenter.emplace_back(xCenterKnots[ii], xCenterValues[ii], interpolationType, true);
-        _wavelength.emplace_back(wavelengthKnots[ii], wavelengthValues[ii], interpolationType, true);
-        _row.emplace_back(wavelengthValues[ii], wavelengthKnots[ii], interpolationType, true);
+        _xCenter.emplace_back(xCenterKnots[ii], xCenterValues[ii]);
+        _wavelength.emplace_back(wavelengthKnots[ii], wavelengthValues[ii]);
+        _row.emplace_back(wavelengthValues[ii], wavelengthKnots[ii]);
     }
 
     _set_xToFiberId();
@@ -82,9 +81,8 @@ SplinedDetectorMap::SplinedDetectorMap(
         }
     }
 
-    auto const interpolationType = Spline::CUBIC_NOTAKNOT;
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
-        _row.emplace_back(_wavelength[ii].getY(), _wavelength[ii].getX(), interpolationType, true);
+        _row.emplace_back(_wavelength[ii].getY(), _wavelength[ii].getX());
     }
 
     _set_xToFiberId();

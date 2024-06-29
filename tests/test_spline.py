@@ -57,23 +57,36 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(LengthError):
             SplineD(np.arange(5, dtype=float), np.arange(7, dtype=float))
 
-    def testAllowExtrapolation(self):
-        """Test allowExtrapolation feature"""
-        self.assertFalse(self.spline.getAllowExtrapolation())  # False by default
-        self.assertFalse(self.spline.allowExtrapolation)  # False by default
-        self.assertTrue(np.isnan(self.spline(self.xx.min() - 1)))
-        self.assertTrue(np.isnan(self.spline(self.xx.max() + 1)))
-        self.assertFalse(np.isnan(self.spline(self.xx.mean())))
+    def testExtrapolation(self):
+        """Test extrapolation controls"""
+        delta = np.average(self.xx[1:] - self.xx[:-1])
+        low = self.xx[0] - 0.5*delta
+        high = self.xx[-1] + 0.5*delta
+        middle = np.median(self.xx)
 
-        spline = SplineD(self.xx, self.yy, self.spline.getInterpolationType(), True)
-        self.assertTrue(spline.getAllowExtrapolation())
-        self.assertTrue(spline.allowExtrapolation)
-        self.assertFalse(np.isnan(spline(self.xx.min() - 1)))
-        self.assertFalse(np.isnan(spline(self.xx.max() + 1)))
-        self.assertFalse(np.isnan(spline(self.xx.mean())))
+        spline = self.spline
+        extrapolation = SplineD.ExtrapolationTypes.ALL
+        self.assertEqual(spline.getExtrapolationType(), extrapolation)
+        self.assertEqual(spline.extrapolationType, extrapolation)
+        self.assertFalse(np.isnan(spline(low)))
+        self.assertFalse(np.isnan(spline(high)))
+        self.assertFalse(np.isnan(spline(middle)))
 
+        extrapolation = SplineD.ExtrapolationTypes.NONE
+        spline = SplineD(self.xx, self.yy, self.spline.getInterpolationType(), extrapolation)
+        self.assertEqual(spline.getExtrapolationType(), extrapolation)
+        self.assertEqual(spline.extrapolationType, extrapolation)
+        self.assertTrue(np.isnan(spline(low)))
+        self.assertTrue(np.isnan(spline(high)))
+        self.assertFalse(np.isnan(spline(middle)))
 
-
+        extrapolation = SplineD.ExtrapolationTypes.SINGLE
+        spline = SplineD(self.xx, self.yy, self.spline.getInterpolationType(), extrapolation)
+        self.assertEqual(spline.getExtrapolationType(), extrapolation)
+        self.assertEqual(spline.extrapolationType, extrapolation)
+        self.assertFalse(np.isnan(spline(low)))
+        self.assertFalse(np.isnan(spline(high)))
+        self.assertFalse(np.isnan(spline(middle)))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

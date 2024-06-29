@@ -46,18 +46,14 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
     lsst::geom::Point2D point;  // Position on detector
 
     // Iterate up in wavelength until we drop off the edge of the detector
-    // We want to get right up to the edge of the detector, if we can.
-    // In order to do so, we'll pull back on the wavelength sampling if we go off the edge.
-    SplineCoeffT goodWavelength = _wavelengthCenter;
-    for (int fails = 0; fails < 10; ++fails) {
-        double const wl = goodWavelength + _wavelengthSampling/(1 << fails);
+    for (SplineCoeffT wl = _wavelengthCenter; true; wl += _wavelengthSampling) {
         try {
             point = findPointImpl(fiberId, wl);
         } catch (...) {
-            continue;
+            break;
         }
         if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
-            continue;
+            break;
         }
         wavelength.push_back(wl);
         xx.push_back(point.getX());
@@ -65,20 +61,16 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
         if (point.getY() > height || point.getY() < 0) {
             break;
         }
-        fails = 0;
-        goodWavelength = wl;
     }
     // Iterate down in wavelength until we drop off the edge of the detector
-    goodWavelength = _wavelengthCenter - _wavelengthSampling;
-    for (int fails = 0; fails < 10; ++fails) {
-        double const wl = goodWavelength - _wavelengthSampling/(1 << fails);
+    for (SplineCoeffT wl = _wavelengthCenter - _wavelengthSampling; true; wl -= _wavelengthSampling) {
         try {
             point = findPointImpl(fiberId, wl);
         } catch (...) {
-            continue;
+            break;
         }
         if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
-            continue;
+            break;
         }
         wavelength.push_back(wl);
         xx.push_back(point.getX());
@@ -86,8 +78,6 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
         if (point.getY() < 0 || point.getY() > height) {
             break;
         }
-        fails = 0;
-        goodWavelength = wl;
     }
     std::size_t const length = wavelength.size();
     if (length < 3) {
@@ -117,9 +107,10 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
     }
 
     auto const interpolation = Spline::CUBIC_NOTAKNOT;
+    auto const extrapolation = Spline::EXTRAPOLATE_SINGLE;
     return std::make_pair(
-        Spline(yArray, wlArray, interpolation, false),
-        Spline(yArray, xArray, interpolation, false)
+        Spline(yArray, wlArray, interpolation, extrapolation),
+        Spline(yArray, xArray, interpolation, extrapolation)
     );
 }
 
