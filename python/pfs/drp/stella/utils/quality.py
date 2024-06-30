@@ -260,10 +260,10 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
 
                 plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
             elif showFWHM:
-                if size <= 0:
+                if gridsize <= 0:
                     kwargs = {}
                     if s < 0:
-                        kwargs["s"] = np.abs(size)
+                        kwargs["s"] = np.abs(gridsize)
                     C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], norm=norm, **kwargs)
                 else:
                     C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
