@@ -189,7 +189,7 @@ class DataId(dict):
         super().__init__(*args, **kwargs)
 
     def __str__(self):
-        return '%(visit)d %(arm)s%(spectrograph)d\n' % self
+        return '%(visit)d %(arm)s%(spectrograph)d' % self
 
     @property
     def arm(self):
