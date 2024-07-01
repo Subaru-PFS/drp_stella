@@ -6,7 +6,7 @@ from lsst.pex.config import Config, ListField
 from lsst.pipe.base import Task
 from lsst.daf.base import PropertyList
 
-from pfs.datamodel import PfsConfig
+from pfs.datamodel import PfsConfig, TargetType
 from lsst.obs.pfs.utils import getLamps
 from .SpectrumSetContinued import SpectrumSet
 
@@ -42,8 +42,9 @@ class ScreenResponseTask(Task):
             self.log.debug("Not applying screen response correction since not a quartz lamp exposure")
             return
         insrot = metadata["INSROT"]
-        self.log.info("Applying screen response correction to quartz lamp spectra, INSROT=%f", insrot)
-        self.apply(spectra, pfsConfig, insrot)
+        if np.sum(pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) > 0:
+            self.log.info("Applying screen response correction to quartz lamp spectra, INSROT=%f", insrot)
+            self.apply(spectra, pfsConfig, insrot)
 
     def isQuartz(self, metadata: PropertyList) -> bool:
         """Return whether the exposure is a quartz lamp exposure
@@ -89,8 +90,9 @@ class ScreenResponseTask(Task):
         # To get the twilight flux, we need to divide our quartz flux by the screen response.
         # We have the quartz flux as the "norm" of the pfsMerged.
         # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
-        for spectrum, value in zip(spectra, screen):
-            spectrum.norm /= value
+        for spectrum, ttype, value in zip(spectra, pfsConfig.targetType, screen):
+            if ttype != TargetType.ENGINEERING:
+                spectrum.norm /= value
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
