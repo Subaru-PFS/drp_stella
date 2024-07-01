@@ -20,6 +20,8 @@ namespace pfs { namespace drp { namespace stella {
 /// transforms.
 class ModelBasedDetectorMap : public DetectorMap {
   public:
+    using SplineCoeffT = double;
+    using Spline = math::Spline<SplineCoeffT>;
 
     /// Ctor
     ///
@@ -38,7 +40,8 @@ class ModelBasedDetectorMap : public DetectorMap {
         ndarray::Array<double, 1, 1> const& spatialOffsets,
         ndarray::Array<double, 1, 1> const& spectralOffsets,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
-        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
+        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
+        Spline::ExtrapolationTypes extrapolation=Spline::EXTRAPOLATE_ALL
     );
 
     virtual ~ModelBasedDetectorMap() = default;
@@ -53,9 +56,6 @@ class ModelBasedDetectorMap : public DetectorMap {
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;
-
-    using SplineCoeffT = double;
-    using Spline = math::Spline<SplineCoeffT>;
 
   private:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
@@ -100,6 +100,7 @@ class ModelBasedDetectorMap : public DetectorMap {
     double _wavelengthCenter;
     double _wavelengthSampling;
     mutable SplineCache _splines;
+    Spline::ExtrapolationTypes _extrapolation;
 };
 
 

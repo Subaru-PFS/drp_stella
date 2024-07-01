@@ -70,7 +70,8 @@ LayeredDetectorMap::LayeredDetectorMap(
         spatialOffsets,
         spectralOffsets,
         visitInfo,
-        metadata
+        metadata,
+        Spline::EXTRAPOLATE_NONE
     ),
     _fiberPitch(calculateFiberPitch(base)),
     _wavelengthDispersion(calculateDispersion(base)),

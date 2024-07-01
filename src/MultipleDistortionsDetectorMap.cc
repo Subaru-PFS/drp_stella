@@ -7,6 +7,7 @@
 
 #include "pfs/drp/stella/MultipleDistortionsDetectorMap.h"
 
+#define DEBUG_FIBERID 1
 
 namespace pfs {
 namespace drp {
@@ -77,9 +78,30 @@ lsst::geom::PointD MultipleDistortionsDetectorMap::findPointImpl(
     double wavelength
 ) const {
     lsst::geom::PointD point = _base.findPoint(fiberId, wavelength);
-    for (auto const& distortion : _distortions) {
-        point += lsst::geom::Extent2D((*distortion)(point));
+
+#ifdef DEBUG_FIBERID
+    if (fiberId == DEBUG_FIBERID) {
+        std::cerr << "fiberId,wavelength = " << fiberId << "," << wavelength;
+        std::cerr << " + (" << getSpatialOffset(fiberId) << "," << getSpectralOffset(fiberId) << ")";
+        std::cerr << " --> point = " << point;
     }
+#endif
+
+    for (auto const& distortion : _distortions) {
+        auto const dist = lsst::geom::Extent2D((*distortion)(point));
+        point += dist;
+#ifdef DEBUG_FIBERID
+        if (fiberId == DEBUG_FIBERID) {
+            std::cerr << " + distortion " << dist << " --> point = " << point;
+        }
+#endif
+    }
+
+#ifdef DEBUG_FIBERID
+    if (fiberId == DEBUG_FIBERID) {
+        std::cerr << " --> distorted = " << point << std::endl;
+    }
+#endif
     return point;
 }
 

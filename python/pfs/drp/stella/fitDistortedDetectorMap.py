@@ -590,6 +590,8 @@ class FitDistortedDetectorMapTask(Task):
         self.log.debug("%d good lines after line status (%s)", good.sum(), getCounts())
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        if hasattr(lines, "slope"):
+            good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)

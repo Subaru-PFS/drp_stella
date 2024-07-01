@@ -117,7 +117,7 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
 ) const {
     std::size_t const index = getFiberIndex(fiberId);
     double const y = _row[index](wavelength) + getSpectralOffset(fiberId);
-    if (y < 0 || y > getBBox().getHeight() - 1 || !std::isfinite(y)) {
+    if (y < -0.5 || y > getBBox().getHeight() - 0.5 || !std::isfinite(y)) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
         return lsst::geom::PointD(NaN, NaN);
     }
