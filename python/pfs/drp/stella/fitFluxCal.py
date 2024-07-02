@@ -219,7 +219,7 @@ class BroadbandFluxChi2:
         self.fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
         self._filterCurves: Dict[str, FilterCurve] = {}
 
-    def __call__(self, fiberId: np.ndarray, fluxCalib: np.ndarray, *, save=False) -> float:
+    def __call__(self, fiberId: np.ndarray, fluxCalib: np.ndarray, *, l1=False, save=False) -> float:
         """Compute chi^2.
 
         Parameters
@@ -229,6 +229,8 @@ class BroadbandFluxChi2:
         fluxCalib : `numpy.ndarray` of `float`, shape ``(N, M)``
             Flux calibration vector, such that (observed flux) / (fluxCalib)
             will be a calibrated flux.
+        l1 : `bool`
+            If True, the return value is not chi^2 but an L1 loss.
         save : `bool`
             Save to ``self`` the results of photometering ``spectra/fluxCalib``.
             The saved results will be used when you call ``self.rescaleFluxCalib()``
@@ -239,6 +241,7 @@ class BroadbandFluxChi2:
         chi2 : float
             Chi^2.
         """
+        lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
         fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
 
@@ -276,7 +279,7 @@ class BroadbandFluxChi2:
                 if np.isfinite(bbFlux) and bbFluxErr > 0:
                     photometry = self._getFilterCurve(filterName).photometer(calibrated, quadpack=False)
                     relativeErr = (bbFlux - photometry) / bbFluxErr
-                    chi2 += relativeErr**2
+                    chi2 += lossFunc(relativeErr)
                     if save:
                         photometries.append(
                             PhotometryPair(
@@ -292,7 +295,7 @@ class BroadbandFluxChi2:
 
         return chi2
 
-    def rescaleFluxCalib(self, fiberId: np.ndarray, scales: np.ndarray) -> float:
+    def rescaleFluxCalib(self, fiberId: np.ndarray, scales: np.ndarray, *, l1=False) -> float:
         """Recompute chi^2, rescaling by ``scales`` the ``fluxCalib`` argument
         of the last call to ``self.__call__(..., save=True)``
 
@@ -306,22 +309,27 @@ class BroadbandFluxChi2:
             List of fiber IDs.
         scales : `numpy.ndarray` of `float`, shape ``(N,)``
             Scales by which to multiply ``fluxCalib``.
+        l1 : `bool`
+            If True, the return value is not chi^2 but an L1 loss.
 
         Returns
         -------
         chi2 : float
             Chi^2.
         """
+        lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
 
         for fId, scale in zip(fiberId, scales):
             for pair in self.fiberIdToPhotometries[fId]:
                 relativeErr = (pair.truth - pair.model / scale) / pair.error
-                chi2 += relativeErr**2
+                chi2 += lossFunc(relativeErr)
 
         return chi2
 
-    def rescaleFluxCalibEx(self, fiberId: np.ndarray, scales: np.ndarray, wavelengths: np.ndarray) -> float:
+    def rescaleFluxCalibEx(
+        self, fiberId: np.ndarray, scales: np.ndarray, wavelengths: np.ndarray, *, l1=False
+    ) -> float:
         """Recompute chi^2, rescaling by ``scales`` the ``fluxCalib`` argument
         of the last call to ``self.__call__(..., save=True)``
 
@@ -340,12 +348,15 @@ class BroadbandFluxChi2:
             Scales by which to multiply ``fluxCalib``.
         wavelengths : `numpy.ndarray` of `float`, shape ``(N,M)``
             wavelengths corresponding to ``scales``
+        l1 : `bool`
+            If True, the return value is not chi^2 but an L1 loss.
 
         Returns
         -------
         chi2 : float
             Chi^2.
         """
+        lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
 
         for fId, scale, wavelength in zip(fiberId, scales, wavelengths):
@@ -371,7 +382,7 @@ class BroadbandFluxChi2:
             for pair in self.fiberIdToPhotometries[fId]:
                 s = self._getFilterCurve(pair.filterName).photometer(scaleArray, quadpack=False)
                 relativeErr = (pair.truth - pair.model / s) / pair.error
-                chi2 += relativeErr**2
+                chi2 += lossFunc(relativeErr)
 
         return chi2
 
@@ -480,6 +491,66 @@ class BroadbandFluxChi2:
         bbFlux[:] = []
         return
 
+    @staticmethod
+    def _getLossFunction(*, l1: bool) -> Callable[[float], float]:
+        """Get a loss function.
+
+        The loss function takes a relative error and returns a loss.
+        The returned loss function is of class C^oo.
+
+        Parameters
+        ----------
+        l1 : `bool`
+            If True, an L1 loss function is returned.
+            If False, an L2 loss function is returned.
+
+        Returns
+        -------
+        lossFunc : `Callable[[float], float]`
+            loss function.
+        """
+        if l1:
+
+            def l1Loss(relativeErr: float) -> float:
+                """L1 loss function.
+
+                This function is not a hard L1 loss function.
+                It is smooth around relativeErr=0.
+
+                Parameters
+                ----------
+                relativeErr : `float`
+                    Relative error.
+
+                Returns
+                -------
+                loss : `float`
+                    Loss.
+                """
+                # This function \simeq l2loss(relativeErr) for relativeErr ~ 0,
+                # and \simeq |relativeErr| for relativeErr >> 1.
+                return math.hypot(0.5, relativeErr) - 0.5
+
+            return l1Loss
+        else:
+
+            def l2Loss(relativeErr: float) -> float:
+                """L2 loss function.
+
+                Parameters
+                ----------
+                relativeErr : `float`
+                    Relative error.
+
+                Returns
+                -------
+                loss : `float`
+                    Loss.
+                """
+                return relativeErr**2
+
+            return l2Loss
+
 
 def fitFluxCalibToArrays(
     fiberId: np.ndarray,
@@ -491,6 +562,7 @@ def fitFluxCalibToArrays(
     *,
     robust: bool,
     polyOrder: int,
+    polyWavelengthDependent: bool,
     fitPrecisely: bool,
     scales: Optional[np.ndarray],
     bbChi2: BroadbandFluxChi2,
@@ -523,6 +595,8 @@ def fitFluxCalibToArrays(
     polyOrder : `int`
         Order of the polynomial to be fitted so as to map ``positions``
         to ``scales`` approximately.
+    polyWavelengthDependent : `bool`
+        Whether the polynomial is wavelength-dependent.
     fitPrecisely : `bool`
         If False, skip time-consuming refinement phase of fitting.
     scales : `numpy.ndarray` of `float`, shape ``(N,)``
@@ -585,7 +659,7 @@ def fitFluxCalibToArrays(
         """
         poly = NormalizedPolynomialND(params, posMin, posMax)
         scales = np.exp(poly(positions))
-        return bbChi2.rescaleFluxCalib(fiberId, scales)
+        return bbChi2.rescaleFluxCalib(fiberId, scales, l1=robust)
 
     monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
     params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
@@ -601,6 +675,11 @@ def fitFluxCalibToArrays(
         # With old scipy, `StopIteration` raised by ``callback``
         # is not caught by ``minimize()``. So we catch it for ourselves.
         params = monitor1.x
+
+    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+
+    if not polyWavelengthDependent:
+        return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
 
     # Second, fit a function dependent on \lambda, with approximate chi^2.
 
@@ -626,11 +705,9 @@ def fitFluxCalibToArrays(
         """
         poly = NormalizedPolynomialND(params, polyMin, polyMax)
         scales = np.exp(poly(polyArgs))
-        return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2])
+        return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2], l1=robust)
 
     monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
-    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
-
     if log is not None:
         log.info("Start phase-2 fitting...")
 
@@ -671,7 +748,7 @@ def fitFluxCalibToArrays(
         poly = NormalizedPolynomialND(params, polyMin, polyMax)
         fluxCalib = np.exp(poly(polyArgs))
         fluxCalib *= averageCalibVector
-        return bbChi2(fiberId, fluxCalib)
+        return bbChi2(fiberId, fluxCalib, l1=robust)
 
     monitor3 = MinimizationMonitor(objective3, tol=tol, log=log)
     if log is not None:
@@ -809,6 +886,11 @@ class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
     """
 
     polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
+    polyWavelengthDependent = Field(
+        dtype=bool,
+        default=False,
+        doc="Whether the polynomial is wavelength-dependent. ('this option=True' is deprecated)",
+    )
     fitPrecisely = Field(
         dtype=bool, default=True, doc="If False, skip time-consuming refinement phase of fitting."
     )
