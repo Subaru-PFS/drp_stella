@@ -178,12 +178,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 MaskT const maskValue = dataMask(xData, yData);
                 ImageT const imageValue = dataImage(xData, yData);
                 VarianceT const varianceValue = dataVariance(xData, yData);
-                if (modelValue > minFracMask) {
-                    maskResult[ii] |= maskValue;
-                }
                 if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue) ||
                     varianceValue <= 0) {
                     continue;
+                }
+                if (modelValue > minFracMask) {
+                    maskResult[ii] |= maskValue;
                 }
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
