@@ -312,7 +312,7 @@ class FiberProfileSet:
             traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
         return traces
 
-    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.0):
+    def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.3):
         """Extract spectra from an image
 
         Parameters
