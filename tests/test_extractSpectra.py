@@ -105,14 +105,16 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         everyOther = np.arange(0, self.synthConfig.width, 2, dtype=int)
         self.image.mask.array[self.badRow][everyOther] |= bitMask
 
-        # With mask supplied to extractSpectra
-        spectra = self.fiberTraces.extractSpectra(self.image, bitMask)
+        # With mask supplied to extractSpectra and minFracMask=0
+        # BAD doesn't get into the mask because it's excluded.
+        spectra = self.fiberTraces.extractSpectra(self.image, bitMask, 0.0)
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
-        expectMask[self.badRow] = bitMask
+        expectMask[self.badRow] = 0
         self.assertSpectra(spectra, mask=expectMask)
 
         # No mask supplied to extractSpectra
-        spectra = self.fiberTraces.extractSpectra(self.image)
+        # BAD now gets into the mask because it's not explicitly excluded.
+        spectra = self.fiberTraces.extractSpectra(self.image, 0, 0.0)
         expectMask[self.badRow] = bitMask
         self.assertSpectra(spectra, mask=expectMask)
 
@@ -201,10 +203,10 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.0)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
 
-        # With bad pixel at fraction=0.5 and minFracMask=0.3 --> masked
+        # With bad pixel at fraction=0.5 and minFracMask=0.3 --> masked but no sign of it
         ft[col - x0] = norm
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.3)
-        self.assertFloatsEqual(spectra[index].mask.array[0], masked)
+        self.assertFloatsEqual(spectra[index].mask.array[0], 0)
 
         # With bad pixel at fraction=0.5 and minFracMask = 0.7 --> unmasked
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.7)

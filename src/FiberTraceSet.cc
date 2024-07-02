@@ -91,6 +91,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 
     ndarray::Array<bool, 1, 1> useTrace = ndarray::allocate(num);  // trace overlaps this row?
     ndarray::Array<MaskT, 1, 1> maskResult = ndarray::allocate(num);  // mask value for each trace
+    ndarray::Array<MaskT, 1, 1> maskBadResult = ndarray::allocate(num);  // mask value if trace is bad
     ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares: model dot data
 
     // This is a version of the least-squares matrix used for calculating the covariances.
@@ -124,15 +125,17 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto const& box = _traces[ii]->getTrace().getBBox();
             useTrace[ii] = (yActual >= box.getMinY() && yActual <= box.getMaxY());
-            maskResult[ii] = noData;
+            maskResult[ii] = 0;  // used in case of success
+            maskBadResult[ii] = noData;  // used in case of failure
 
             if (useTrace[ii]) {
                 std::size_t const yy = yData - box.getMinY();
-                auto const& trace = ndarray::asEigenArray(_traces[ii]->getTrace().getImage()->getArray()[yy]);
+                auto const& traceImage = _traces[ii]->getTrace();
+                auto const& trace = ndarray::asEigenArray(traceImage.getImage()->getArray()[yy]);
                 result[ii]->getNorm()[yData] = trace.template cast<double>().sum();
-                if (result[ii]->getNorm()[yData] == 0) {
+                if (result[ii]->getNorm()[yData] == 0 || !std::isfinite(result[ii]->getNorm()[yData])) {
                     useTrace[ii] = false;
-                    maskResult[ii] |= badFiberTrace;
+                    maskBadResult[ii] |= badFiberTrace;
                 }
             }
         }
@@ -169,17 +172,22 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto const& iModelMask = *iTrace.getMask();
             double const iNorm = result[ii]->getNorm()[yData];
             maskResult[ii] = 0;
+            std::size_t numTracePixels = 0;
             std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), x0);
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
                  xModel < std::size_t(iTrace.getWidth()) && xData < width;
                  ++xModel, ++xData) {
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
+                ++numTracePixels;
                 double const modelValue = iModelImage(xModel, iyModel)/iNorm;
                 MaskT const maskValue = dataMask(xData, yData);
                 ImageT const imageValue = dataImage(xData, yData);
                 VarianceT const varianceValue = dataVariance(xData, yData);
                 if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue) ||
                     varianceValue <= 0) {
+                    if (modelValue > minFracMask) {
+                        maskBadResult[ii] |= maskValue;
+                    }
                     continue;
                 }
                 if (modelValue > minFracMask) {
@@ -191,11 +199,14 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 modelData += modelValue*imageValue;
             }
 
-            if (model2 == 0.0 || model2Weighted == 0.0) {
+            if (numTracePixels == 0) {
+                maskBadResult[ii] |= badFiberTrace;
+            }
+
+            if (numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
                 useTrace[ii] = false;
                 matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
                 diagonalWeighted[ii] = 1.0;
-                maskResult[ii] |= noData | badFiberTrace;
                 continue;
             }
 
@@ -279,15 +290,16 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto varResult = variance[ii];
             auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
             auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
+            MaskT maskValue = maskResult[ii];
             if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult)) {
                 value = 0.0;
-                maskResult[ii] |= noData;
+                maskValue = maskBadResult[ii];
                 varResult = 0.0;
                 covarResult1 = 0.0;
                 covarResult2 = 0.0;
             }
             result[ii]->getSpectrum()[yData] = value;
-            result[ii]->getMask()(yData, 0) = maskResult[ii];
+            result[ii]->getMask()(yData, 0) = maskValue;
             result[ii]->getCovariance()[0][yData] = varResult;
             result[ii]->getCovariance()[1][yData] = covarResult1;
             result[ii]->getCovariance()[2][yData] = covarResult2;
