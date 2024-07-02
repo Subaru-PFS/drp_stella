@@ -30,6 +30,7 @@ class NormalizeFiberProfilesConfig(Config):
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
+    minFracMask = Field(dtype=float, default=0.3, doc="Minimum pixel fraction of profile to accumulate mask")
     doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction?")
     screen = ConfigurableField(target=ScreenResponseTask, doc="Screen response correction")
     blackspots = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
@@ -62,6 +63,7 @@ class NormalizeFiberProfilesTask(Task):
             combined.exposure.maskedImage,
             combined.detectorMap,
             combined.exposure.mask.getPlaneBitMask(self.config.mask),
+            self.config.minFracMask,
         )
         if self.config.doApplyScreenResponse:
             self.screen.run(combined.exposure.getMetadata(), spectra, combined.pfsConfig)
