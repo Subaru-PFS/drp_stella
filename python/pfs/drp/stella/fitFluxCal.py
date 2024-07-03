@@ -120,7 +120,7 @@ class MinimizationMonitor:
             self.fun = fun
             self.x = np.copy(xk)
             if self.log is not None:
-                self.log.info("smallest objective ever found: %s", fun)
+                self.log.debug("smallest objective ever found: %s", fun)
 
         self.nCalls += 1
         self.window[:-1] = self.window[1:]
@@ -133,7 +133,7 @@ class MinimizationMonitor:
         variance = np.var(self.window, ddof=1)
         if variance < (self.tol * mean) ** 2:
             if self.log is not None:
-                self.log.info("Minimization stops because var(objective) is small enough.")
+                self.log.debug("Minimization stops because var(objective) is small enough.")
             raise StopIteration()
 
 
@@ -665,7 +665,7 @@ def fitFluxCalibToArrays(
     params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
 
     if log is not None:
-        log.info("Start phase-1 fitting...")
+        log.debug("Start phase-1 fitting...")
 
     try:
         result = minimize(objective1, params, callback=monitor1)
@@ -709,7 +709,7 @@ def fitFluxCalibToArrays(
 
     monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
     if log is not None:
-        log.info("Start phase-2 fitting...")
+        log.debug("Start phase-2 fitting...")
 
     try:
         result = minimize(objective2, params, callback=monitor2)
@@ -752,7 +752,7 @@ def fitFluxCalibToArrays(
 
     monitor3 = MinimizationMonitor(objective3, tol=tol, log=log)
     if log is not None:
-        log.info("Start phase-3 fitting...")
+        log.debug("Start phase-3 fitting...")
 
     try:
         result = minimize(objective3, params, callback=monitor3)
