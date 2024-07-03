@@ -49,6 +49,7 @@ class LayeredDetectorMap : public ModelBasedDetectorMap {
     /// @param visitInfo : visit information
     /// @param metadata : FITS header
     /// @param samplingFactor : period to sample distortion field for cached spline (pixels)
+    /// @param precisionFactor : factor of wavelength sampling for precision at spline ends
     LayeredDetectorMap(
         lsst::geom::Box2I const& bbox,
         ndarray::Array<double, 1, 1> const& spatialOffsets,
@@ -59,7 +60,8 @@ class LayeredDetectorMap : public ModelBasedDetectorMap {
         lsst::geom::AffineTransform const& rightCcd=lsst::geom::AffineTransform(),
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
-        float samplingFactor=10.0
+        float samplingFactor=10.0,
+        float precisionFactor=1.0e-3
     );
     LayeredDetectorMap(
         lsst::geom::Box2I const& bbox,

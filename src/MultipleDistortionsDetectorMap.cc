@@ -7,7 +7,7 @@
 
 #include "pfs/drp/stella/MultipleDistortionsDetectorMap.h"
 
-#define DEBUG_FIBERID 1
+//#define DEBUG_FIBERID 1
 
 namespace pfs {
 namespace drp {

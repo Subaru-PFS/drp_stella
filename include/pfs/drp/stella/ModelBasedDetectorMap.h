@@ -28,10 +28,13 @@ class ModelBasedDetectorMap : public DetectorMap {
     /// @param bbox : detector bounding box
     /// @param wavelengthCenter : Central wavelength (nm)
     /// @param wavelengthSampling : Wavelength sampling interval (nm)
+    /// @param fiberId : fiber IDs
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     /// @param visitInfo : visit information
     /// @param metadata : FITS header
+    /// @param extrapolation : extrapolation mode for splines
+    /// @param wavelengthPrecisionFactor : factor of wavelengthSampling for precision at spline ends
     ModelBasedDetectorMap(
         lsst::geom::Box2I const& bbox,
         double wavelengthCenter,
@@ -41,7 +44,8 @@ class ModelBasedDetectorMap : public DetectorMap {
         ndarray::Array<double, 1, 1> const& spectralOffsets,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
-        Spline::ExtrapolationTypes extrapolation=Spline::EXTRAPOLATE_ALL
+        Spline::ExtrapolationTypes extrapolation=Spline::EXTRAPOLATE_ALL,
+        double wavelengthPrecisionFactor=1.0e-3
     );
 
     virtual ~ModelBasedDetectorMap() = default;
@@ -99,6 +103,7 @@ class ModelBasedDetectorMap : public DetectorMap {
 
     double _wavelengthCenter;
     double _wavelengthSampling;
+    double _wavelengthPrecisionFactor;
     mutable SplineCache _splines;
     Spline::ExtrapolationTypes _extrapolation;
 };

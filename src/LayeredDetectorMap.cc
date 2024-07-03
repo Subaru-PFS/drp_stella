@@ -61,7 +61,8 @@ LayeredDetectorMap::LayeredDetectorMap(
     lsst::geom::AffineTransform const& rightCcd,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata,
-    float samplingFactor
+    float samplingFactor,
+    float precisionFactor
 ) : ModelBasedDetectorMap(
         bbox,
         calculateWavelengthCenter(base),
@@ -71,7 +72,8 @@ LayeredDetectorMap::LayeredDetectorMap(
         spectralOffsets,
         visitInfo,
         metadata,
-        Spline::EXTRAPOLATE_NONE
+        Spline::EXTRAPOLATE_NONE,
+        precisionFactor*calculateDispersion(base)
     ),
     _fiberPitch(calculateFiberPitch(base)),
     _wavelengthDispersion(calculateDispersion(base)),
@@ -279,8 +281,8 @@ lsst::geom::PointD LayeredDetectorMap::findPointImpl(
     }
 #endif
 
-    lsst::geom::Extent2D const prev{_base.findPoint(interp.first.first, wl)};
-    lsst::geom::Extent2D const next{_base.findPoint(interp.second.first, wl)};
+    lsst::geom::Extent2D const prev{_base.findPoint(interp.first.first, wl, false, false)};
+    lsst::geom::Extent2D const next{_base.findPoint(interp.second.first, wl, false, false)};
     lsst::geom::Point2D const base{
         prev*interp.first.second + lsst::geom::Extent2D(next)*interp.second.second
     };
