@@ -290,19 +290,19 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
                 self.assertTrue(np.all(ss.covariance != 0))
 
         # Ditto, with a row entirely bad
-        # Flux should be zero in the bad row, and it should be masked BAD|NO_DATA|BAD_FIBERTRACE
+        # Flux should be zero in the bad row, and it should be masked NO_DATA|BAD
         bad = mask.getPlaneBitMask("BAD")
-        noData = mask.getPlaneBitMask(["NO_DATA", "BAD_FIBERTRACE"])
+        noData = mask.getPlaneBitMask("NO_DATA")
         badRow = 123
         isGood = np.arange(config.height) != badRow
         mask.array[badRow, :] |= bad
-        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad)
+        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad, 0.0)
         self.assertEqual(len(spectra), config.numFibers)
         for ii, ss in enumerate(spectra):
             self.assertFloatsAlmostEqual(ss.spectrum, np.where(np.arange(config.height) == badRow, 0.0, flux),
                                          rtol=rtol)
             self.assertFloatsEqual(ss.mask.array[0],
-                                   np.where(np.arange(config.height) == badRow, bad | noData, 0))
+                                   np.where(np.arange(config.height) == badRow, noData | bad, 0))
             self.assertTrue(np.all(ss.variance[isGood] > 0))
             if ii == 0:
                 self.assertTrue(np.all(ss.covariance[-1][isGood] == 0))
@@ -317,17 +317,17 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
 
         # Bad column on every trace
         # Flux should still be reasonable, the masked pixels will be ignored
-        # but the mask will be accumulated so every mask pixel will be BAD.
+        # and the mask will show no sign of the bad pixels.
         mask.array[:] = 0
         for col in config.traceCenters:
             mask.array[:, int(col)] = bad
             allFlat.array[:, int(col)] = np.nan
 
-        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad)
+        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad, 0.0)
         self.assertEqual(len(spectra), config.numFibers)
         for ii, ss in enumerate(spectra):
             self.assertFloatsAlmostEqual(ss.spectrum, flux, rtol=2*rtol)
-            self.assertFloatsEqual(ss.mask.array[0], bad)
+            self.assertFloatsEqual(ss.mask.array[0], 0)
             self.assertTrue(np.all(ss.variance > 0))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
             self.assertTrue(np.all(np.isfinite(ss.covariance)))

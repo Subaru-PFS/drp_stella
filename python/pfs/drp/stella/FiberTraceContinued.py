@@ -19,7 +19,7 @@ class FiberTrace:  # noqa: F811 (redefinition)
         traceMask = self.getTrace().mask
         mask.Factory(mask, traceMask.getBBox(), PARENT)[:] |= traceMask
 
-    def extractSpectrum(self, maskedImage, badBitmask, minFracMask=0.0):
+    def extractSpectrum(self, maskedImage, badBitmask, minFracMask=0.3):
         """Extract a spectrum using the trace
 
         Parameters

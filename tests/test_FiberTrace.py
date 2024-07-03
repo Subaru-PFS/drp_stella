@@ -201,7 +201,8 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         expectVariance = 1.0/(np.sum(self.subimage.image.array**2/self.variance, axis=1) -
                               self.subimage.image.array[:, badCol]**2/self.variance)
-        self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, mask=self.bad, background=0.0,
+        # BAD doesn't get propagated to the spectrum mask because it's excluded
+        self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, mask=0, background=0.0,
                                   imageTol=1.0e-14, varianceTol=1.0e-6)
 
     def testExtractOptimalBadRow(self):
@@ -211,13 +212,14 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """
         badRow = 23
         self.subimage.mask.array[badRow, :] = self.bad
-        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
+        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad, 0.0)
         expectImage = np.ones(self.height, dtype=float)
         expectImage[badRow] = 0.0
         expectVariance = self.optimalVariance
         expectVariance[badRow] = 0.0
         expectMask = np.zeros(self.height, dtype=np.int32)
-        expectMask[badRow] = spectrum.mask.getPlaneBitMask(["BAD", "NO_DATA", "BAD_FIBERTRACE"])
+        # The mask should be NO_DATA|BAD: NO_DATA because the value is zero, BAD tells us why
+        expectMask[badRow] = spectrum.mask.getPlaneBitMask(["NO_DATA", "BAD"])
         self.assertSpectrumValues(spectrum, image=expectImage, variance=expectVariance,
                                   mask=expectMask, background=0.0, imageTol=1.0e-14, varianceTol=1.0e-6)
 
