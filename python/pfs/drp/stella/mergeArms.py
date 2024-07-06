@@ -230,7 +230,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                 missingFiberIds = applyFiberNorms(
                     pfsArm,
                     fiberNorms[pfsArm.identity.arm],
-                    pfsConfig,
                     self.config.doCheckFiberNormsHashes,
                 )
                 if missingFiberIds:

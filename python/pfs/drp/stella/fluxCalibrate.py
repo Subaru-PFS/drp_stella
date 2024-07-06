@@ -56,8 +56,6 @@ def applyFiberNorms(
         Arm spectra to which to apply normalisation.
     fiberNorms : `PfsFiberNorms`
         Fiber normalisations.
-    pfsConfig : `PfsConfig`
-        Top-end configuration.
     doCheckHashes : `bool`, optional
         Check hashes for consistency?
 
