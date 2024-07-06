@@ -43,7 +43,20 @@ class MeasureFiberNormsRunner(TaskRunner):
             arm = ref.dataId["arm"]
             spectrograph = ref.dataId["spectrograph"]
             groups[arm][spectrograph].append(ref)
-        return [(groups[arm], kwargs) for arm in groups.keys()]
+
+        if not parsedCmd.single:
+            return [(groups[arm], kwargs) for arm in groups.keys()]
+
+        # Want to split the groups by visit as well
+        targets = []
+        for spectrographRefs in groups.values():
+            visitGroups = defaultdict(lambda: defaultdict(list))
+            for spectrograph, refs in spectrographRefs.items():
+                for ref in refs:
+                    visit = ref.dataId["visit"]
+                    visitGroups[visit][spectrograph].append(ref)
+            targets += [(specRefs, kwargs) for specRefs in visitGroups.values()]
+        return targets
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):
@@ -99,7 +112,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
     def _makeArgumentParser(cls):
         """Make an ArgumentParser"""
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="raw", help="data IDs, e.g. --id exp=12345")
+        parser.add_id_argument(name="--id", datasetType="pfsArm", help="data IDs, e.g. --id exp=12345")
+        parser.add_argument("--single", action="store_true", default=False, help="Run on a single visit")
         return parser
 
     def runDataRef(self, dataRefs: Dict[int, List[ButlerDataRef]]) -> Struct:
