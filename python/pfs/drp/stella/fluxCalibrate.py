@@ -75,12 +75,20 @@ def applyFiberNorms(
 
     # Apply normalisation to each fiber
     missingFiberId = set()
+    badFiberNorms = pfsArm.flags.add("BAD_FIBERNORMS")
     for ii, fiberId in enumerate(pfsArm.fiberId):
         if fiberId in fiberNorms:
             nn = fiberNorms[fiberId]
+
+            bad = (nn == 0.0) | ~np.isfinite(nn)
+            if np.any(bad):
+                nn[bad] = 1.0
+                pfsArm.mask[ii][bad] |= badFiberNorms
+
             pfsArm.norm[ii] *= nn
         else:
             missingFiberId.add(fiberId)
+            pfsArm.mask[ii] |= badFiberNorms
 
     return missingFiberId
 

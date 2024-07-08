@@ -32,4 +32,6 @@ def barycentricCorrection(pfsArm: PfsArm, pfsConfig: PfsConfig, location: Option
         coord = SkyCoord(ra=pfsConfig.ra[ii]*u.deg, dec=pfsConfig.dec[ii]*u.deg)
         corr = coord.radial_velocity_correction("barycentric", obstime=time, location=location)
         pfsArm.notes.barycentricCorrection[ii] = corr.to(u.km/u.s).value
+        if not np.isfinite(pfsArm.notes.barycentricCorrection[ii]):
+            continue
         pfsArm.wavelength[ii] *= 1 + (corr/astropy.constants.c).value
