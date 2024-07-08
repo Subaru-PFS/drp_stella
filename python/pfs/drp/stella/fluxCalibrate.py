@@ -29,6 +29,7 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .gen3 import readDatasetRefs
 from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
+from .barycentricCorrection import applyBarycentricCorrection
 
 
 __all__ = (
@@ -153,6 +154,7 @@ def calibratePfsArm(
     if fiberNorms is not None:
         applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
     subtractSky1d(spectra, pfsConfig, sky1d)
+    applyBarycentricCorrection(spectra)
     fluxCalibrate(spectra, pfsConfig, fluxCal)
     if wavelength is not None:
         spectra = spectra.resample(wavelength)  # sampling of pfsArm related to the flux values
