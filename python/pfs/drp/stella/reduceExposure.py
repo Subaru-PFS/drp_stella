@@ -49,7 +49,7 @@ from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
 from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
 from .screen import ScreenResponseTask
-from .barycentricCorrection import barycentricCorrection
+from .barycentricCorrection import calculateBarycentricCorrection
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -113,7 +113,7 @@ N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` whic
     windowed = Field(dtype=bool, default=False,
                      doc="Reduction of windowed data, for real-time acquisition? Implies "
                      "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
-    doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
+    doBarycentricCorrection = Field(dtype=bool, default=True, doc="Calculate barycentric correction?")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
     doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
@@ -392,8 +392,8 @@ class ReduceExposureTask(CmdLineTask):
 
             pfsArm = spectra.toPfsArm(sensorRef.dataId)
             if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
-                self.log.info("Applying barycentric correction")
-                barycentricCorrection(pfsArm, pfsConfig)
+                self.log.info("Calculating barycentric correction")
+                calculateBarycentricCorrection(pfsArm, pfsConfig)
 
         results.original = original
         results.spectra = spectra

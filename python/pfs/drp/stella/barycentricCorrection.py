@@ -8,14 +8,21 @@ import numpy as np
 
 from pfs.datamodel import PfsArm, PfsConfig
 
+__all__ = ("calculateBarycentricCorrection", "applyBarycentricCorrection")
 
-def barycentricCorrection(pfsArm: PfsArm, pfsConfig: PfsConfig, location: Optional[EarthLocation] = None):
-    """Apply barycentric correction to a pfsArm
+
+def calculateBarycentricCorrection(
+    pfsArm: PfsArm, pfsConfig: PfsConfig, location: Optional[EarthLocation] = None
+):
+    """Calculate barycentric correction for a pfsArm
+
+    The barycentric correction is calculated for each fiber and recorded in the
+    pfsArm notes.
 
     Parameters
     ----------
     pfsArm : `PfsArm`
-        pfsArm to correct.
+        pfsArm for which to calculate the barycentric correction.
     pfsConfig : `PfsConfig`
         Fiber configuration.
     location : `EarthLocation`, optional
@@ -32,6 +39,27 @@ def barycentricCorrection(pfsArm: PfsArm, pfsConfig: PfsConfig, location: Option
         coord = SkyCoord(ra=pfsConfig.ra[ii]*u.deg, dec=pfsConfig.dec[ii]*u.deg)
         corr = coord.radial_velocity_correction("barycentric", obstime=time, location=location)
         pfsArm.notes.barycentricCorrection[ii] = corr.to(u.km/u.s).value
-        if not np.isfinite(pfsArm.notes.barycentricCorrection[ii]):
+
+
+def applyBarycentricCorrection(pfsArm: PfsArm):
+    """Apply previously calculated barycentric correction
+
+    Parameters
+    ----------
+    pfsArm : `PfsArm`
+        pfsArm to which to apply the barycentric correction.
+
+    Returns
+    -------
+    noValue : `set`
+        fiberIds for which no barycentric correction was available.
+    """
+    speedOfLight = astropy.constants.c.to(u.km/u.s).value
+    noValue = set()
+    for ii in range(len(pfsArm)):
+        corr = pfsArm.notes.barycentricCorrection[ii]  # km/s
+        if not np.isfinite(corr):
+            noValue.add(pfsArm.fiberId[ii])
             continue
-        pfsArm.wavelength[ii] *= 1 + (corr/astropy.constants.c).value
+        pfsArm.wavelength[ii] *= 1 + (corr/speedOfLight)
+    return noValue

@@ -33,6 +33,7 @@ from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
 from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
+from .barycentricCorrection import applyBarycentricCorrection
 
 
 class WavelengthSamplingConfig(Config):
@@ -129,6 +130,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     )
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -239,15 +241,30 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         for spec in spectra:
             self.normalizeSpectra(spec)
 
+        haveSky = not getLamps(allSpectra[0].metadata)  # No lamps means sky exposure
         sky1d = []
         if self.config.doSubtractSky1d:
-            # Do sky subtraction arm by arm for now; alternatives involve changing the run() API
-            for ss in allSpectra:
-                if getLamps(ss.metadata):
-                    self.log.warn("Skipping sky subtraction for lamp exposure")
-                    sky1d.append(None)
-                    continue
-                sky1d.append(self.skySubtraction(ss, pfsConfig))
+            if haveSky:
+                # Do sky subtraction arm by arm for now; alternatives involve changing the run() API
+                for ss in allSpectra:
+                    sky1d.append(self.skySubtraction(ss, pfsConfig))
+            else:
+                self.log.warn("Skipping sky subtraction for lamp exposure")
+                sky1d = [None]*len(allSpectra)
+
+        # Now that the sky subtraction is done, we can apply the barycentric correction
+        if self.config.doBarycentricCorrection:
+            if haveSky:
+                noBarycentricFibers = set()
+                for ss in allSpectra:
+                    noBarycentricFibers |= applyBarycentricCorrection(ss)
+                self.log.info("Applied barycentric correction")
+                if noBarycentricFibers:
+                    self.log.warn(
+                        "Unable to apply barycentric correction to fibers: %s", sorted(noBarycentricFibers)
+                    )
+            else:
+                self.log.warn("Skipping barycentric correction for lamp exposure")
 
         spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
         metadata = allSpectra[0].metadata.copy()
