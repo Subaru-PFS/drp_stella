@@ -291,7 +291,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
             auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
             MaskT maskValue = maskResult[ii];
-            if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult)) {
+            if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult) || varResult <= 0.0) {
                 value = 0.0;
                 maskValue = maskBadResult[ii];
                 varResult = 0.0;
