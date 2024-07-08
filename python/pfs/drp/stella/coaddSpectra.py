@@ -144,7 +144,7 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
-    mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL"],
+    mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")

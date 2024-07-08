@@ -136,6 +136,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
         self.fitSkyModel.rejThreshold = 10.0
+        self.fitSkyModel.mask = ["NO_DATA", "BAD_FLAT", "BAD_FIBERNORMS"]
         self.fitContinuum.numKnots = 100  # Increased number of knots because larger wavelength range
         self.fitContinuum.iterations = 0  # No rejection: normalisation doesn't need to be exact, just robust
 
