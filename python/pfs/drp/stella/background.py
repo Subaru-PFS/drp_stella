@@ -10,7 +10,7 @@ from lsst.afw.image import MaskedImage
 from pfs.datamodel import FiberStatus
 from .datamodel import PfsConfig
 from pfs.drp.stella import DetectorMap
-from .fitDistortedDetectorMap import addColorbar
+from pfs.drp.stella.utils.plotting import addColorbar
 
 __all__ = ("BackgroundConfig", "BackgroundTask")
 

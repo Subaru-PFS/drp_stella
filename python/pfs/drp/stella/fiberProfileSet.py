@@ -517,7 +517,7 @@ class FiberProfileSet:
         """
         import matplotlib.pyplot as plt
         from matplotlib.colors import Normalize
-        from .fitDistortedDetectorMap import addColorbar
+        from pfs.drp.stella.utils.plotting import addColorbar
 
         stats = {fiberId: self[fiberId].calculateStatistics() for fiberId in self}
         fiberGridSize = min(fiberGridSize, len(stats))

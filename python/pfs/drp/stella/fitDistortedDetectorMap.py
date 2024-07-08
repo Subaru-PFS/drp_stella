@@ -15,6 +15,8 @@ from lsst.geom import Box2D
 from pfs.datamodel.pfsTable import PfsTable, Column
 from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
 from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
+from pfs.drp.stella.utils.plotting import addColorbar
+
 from .DistortionContinued import Distortion
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -248,36 +250,6 @@ def calculateFitStatistics(
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, num=num,
                   numParameters=numParameters, selection=xSelection, isTrace=isTrace, soften=soften,
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
-
-
-def addColorbar(figure, axes, cmap, norm, label=None):
-    """Add colorbar to a plot
-
-    Parameters
-    ----------
-    figure : `matplotlib.pyplot.Figure`
-        Figure containing the axes.
-    axes : `matplotlib.pyplot.Axes`
-        Axes with the plot.
-    cmap : `matplotlib.colors.Colormap`
-        Color map.
-    norm : `matplot.colors.Normalize`
-        Normalization for color map.
-    label : `str`
-        Label to apply to colorbar.
-
-    Returns
-    -------
-    colorbar : `matplotlib.colorbar.Colorbar`
-        The colorbar.
-    """
-    import matplotlib.cm
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axes)
-    cax = divider.append_axes("right", size='5%', pad=0.05)
-    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
-    colors.set_array([])
-    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)
 
 
 class FittingError(RuntimeError):

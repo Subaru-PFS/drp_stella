@@ -1,3 +1,4 @@
+import matplotlib.cm
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -61,3 +62,33 @@ def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=
     plt.tight_layout()
 
     return fig
+
+
+def addColorbar(figure, axes, cmap, norm, label=None):
+    """Add colorbar to a plot
+
+    Parameters
+    ----------
+    figure : `matplotlib.pyplot.Figure`
+        Figure containing the axes.
+    axes : `matplotlib.pyplot.Axes`
+        Axes with the plot.
+    cmap : `matplotlib.colors.Colormap`
+        Color map.
+    norm : `matplot.colors.Normalize`
+        Normalization for color map.
+    label : `str`
+        Label to apply to colorbar.
+
+    Returns
+    -------
+    colorbar : `matplotlib.colorbar.Colorbar`
+        The colorbar.
+    """
+    import matplotlib.cm
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size='5%', pad=0.05)
+    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
+    colors.set_array([])
+    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)

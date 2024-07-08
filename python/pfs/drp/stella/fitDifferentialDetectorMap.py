@@ -13,6 +13,8 @@ from lsst.pipe.base import Task, Struct
 from lsst.afw.math import LeastSquares
 
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
+from pfs.drp.stella.utils.plotting import addColorbar
+
 from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms, fitStraightLine
@@ -93,36 +95,6 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     dof = 2*selection.sum() - model.getNumParameters(model.getDistortionOrder())
     return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, soften=soften)
-
-
-def addColorbar(figure, axes, cmap, norm, label=None):
-    """Add colorbar to a plot
-
-    Parameters
-    ----------
-    figure : `matplotlib.pyplot.Figure`
-        Figure containing the axes.
-    axes : `matplotlib.pyplot.Axes`
-        Axes with the plot.
-    cmap : `matplotlib.colors.Colormap`
-        Color map.
-    norm : `matplot.colors.Normalize`
-        Normalization for color map.
-    label : `str`
-        Label to apply to colorbar.
-
-    Returns
-    -------
-    colorbar : `matplotlib.colorbar.Colorbar`
-        The colorbar.
-    """
-    import matplotlib.cm
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axes)
-    cax = divider.append_axes("right", size='5%', pad=0.05)
-    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
-    colors.set_array([])
-    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)
 
 
 class FitDifferentialDetectorMapConfig(Config):
