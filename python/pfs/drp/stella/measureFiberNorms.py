@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from matplotlib.figure import Figure
+    pass
 import numpy as np
 import astropy.io.fits
 
@@ -32,6 +32,7 @@ class MeasureFiberNormsRunner(TaskRunner):
 
     Gen2 middleware input parsing.
     """
+
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         """Produce list of targets for MeasureFiberNormsTask
@@ -183,6 +184,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         ----------
         armSpectra : `dict` mapping `int` to `list` of `pfs.datamodel.PfsArm`
             pfsArm spectra, indexed by spectrograph.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Configuration for the PFS system.
 
         Returns
         -------
@@ -199,8 +202,10 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         coadded = {spec: self.coaddSpectra(pfsArmList) for spec, pfsArmList in armSpectra.items()}
         fiberNorms = self.measureFiberNorms(coadded, visitSet)
         if self.config.doPlot:
-            plot = self.plotFiberNorms(
-                fiberNorms, pfsConfig, visitSet, next(iter(coadded.values())).identity.arm
+            arm = next(iter(coadded.values())).identity.arm
+            title = f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitSet))}"
+            plot = fiberNorms.plot(
+                pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper, title=title
             )
         else:
             plot = None
@@ -308,14 +313,14 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
             with np.errstate(divide="ignore", invalid="ignore"):
-                flux = np.ma.masked_where(bad, ss.flux/ss.norm)
-                weights = np.ma.masked_where(bad, ss.norm**2/ss.variance)
+                flux = np.ma.masked_where(bad, ss.flux / ss.norm)
+                weights = np.ma.masked_where(bad, ss.norm ** 2 / ss.variance)
                 error = np.sqrt(ss.variance)
 
             rejected = np.zeros_like(flux, dtype=bool)
             for _ in range(self.config.rejIter):
                 median = np.ma.median(flux, axis=1)
-                rejected |= np.abs(flux - median[..., np.newaxis]) > self.config.rejThresh*error
+                rejected |= np.abs(flux - median[..., np.newaxis]) > self.config.rejThresh * error
                 flux.mask |= rejected
 
             weights.mask |= rejected
@@ -336,7 +341,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
             fiberId[select] = ss.fiberId
             wavelength[select] = ss.wavelength
             with np.errstate(invalid="ignore"):
-                values[select] = ss.flux/ss.norm
+                values[select] = ss.flux / ss.norm
             norms[select] = average
             index += len(ss)
 
@@ -388,31 +393,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         )
 
         return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
-
-    def plotFiberNorms(
-        self,
-        fiberNorms: PfsFiberNorms,
-        pfsConfig: PfsConfig,
-        visitList: Iterable[int],
-        arm: str,
-    ) -> "Figure":
-        """Plot fiber normalization values
-
-        Parameters
-        ----------
-        fiberNorms : `pfs.drp.stella.datamodel.pfsFiberNorms.PfsFiberNorms`
-            Fiber normalization values
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration for the PFS system
-
-        Returns
-        -------
-        fig : `matplotlib.figure.Figure`
-            Figure containing the plot.
-        """
-        fig, axes = fiberNorms.plot(pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper)
-        axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
-        return fig
 
     def _getMetadataName(self):
         """Suppress output of task metadata"""
