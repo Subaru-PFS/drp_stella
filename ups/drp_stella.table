@@ -1,5 +1,4 @@
 setupRequired(pipe_tasks)
-setupRequired(pipe_drivers)
 setupRequired(afw)
 setupRequired(meas_base)
 setupRequired(obs_pfs)

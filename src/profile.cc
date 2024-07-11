@@ -148,7 +148,7 @@ class SwathProfileBuilder {
         if (rejected[xx]) return;
         double const pixelValue = iter.image();
         double const invVariance = 1.0/iter.variance();
-        if (!isfinite(pixelValue) || !isfinite(invVariance)) return;
+        if (!std::isfinite(pixelValue) || !std::isfinite(invVariance)) return;
 
         // Iterate over fibers of interest
 #if 1
