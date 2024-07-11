@@ -4,7 +4,7 @@ from lsst.pex.config import Config, Field, ListField, ConfigField, ConfigurableF
 from lsst.pex.config import makeConfigClass, FieldValidationError
 from lsst.pipe.base import Task, Struct
 from lsst.meas.base import CircularApertureFluxAlgorithm, ApertureFluxControl
-from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
+from lsst.meas.base import FatalAlgorithmError, MeasurementError
 from lsst.afw.image import ExposureF, abMagFromFlux, abMagErrFromFluxErr
 from lsst.afw.table import SourceCatalog, SourceTable, Point2DKey
 from lsst.geom import Point2D
