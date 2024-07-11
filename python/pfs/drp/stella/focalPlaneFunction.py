@@ -343,7 +343,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         fit : `FocalPlaneFunction`
             Function fit to input arrays.
         """
-        if not np.all(np.equal.reduce(wavelengths, axis=0)):
+        if not np.all([np.array_equal(wavelengths[0], wl) for wl in wavelengths[1:]]):
             raise RuntimeError("Wavelength arrays not identical")
 
         if robust:
