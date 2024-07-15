@@ -179,6 +179,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         ----------
         armSpectra : `dict` mapping `int` to `list` of `pfs.datamodel.PfsArm`
             pfsArm spectra, indexed by spectrograph.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Configuration for the PFS system.
 
         Returns
         -------
