@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from matplotlib.figure import Figure
+    pass
 import numpy as np
 import astropy.io.fits
 
@@ -32,6 +32,7 @@ class MeasureFiberNormsRunner(TaskRunner):
 
     Gen2 middleware input parsing.
     """
+
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         """Produce list of targets for MeasureFiberNormsTask
@@ -96,9 +97,6 @@ class MeasureFiberNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureFib
     rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
     insrotTol = Field(dtype=float, default=1.0, doc="Tolerance for INSROT values (degrees)")
     doCheckHash = Field(dtype=bool, default=True, doc="Check that fiberProfilesHashes are consistent?")
-    doPlot = Field(dtype=bool, default=True, doc="Produce a plot of the fiber normalization values?")
-    plotLower = Field(dtype=float, default=2.5, doc="Lower bound for plot (standard deviations from median)")
-    plotUpper = Field(dtype=float, default=2.5, doc="Upper bound for plot (standard deviations from median)")
 
 
 class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
@@ -143,8 +141,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         ref = dataRefs.popitem()[1][0]
         ref.put(result.fiberNorms, "fiberNorms_meas")
-        if self.config.doPlot:
-            ref.put(result.plot, "fiberNorms_plot")
 
         return result
 
@@ -198,13 +194,8 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         coadded = {spec: self.coaddSpectra(pfsArmList) for spec, pfsArmList in armSpectra.items()}
         fiberNorms = self.measureFiberNorms(coadded, visitSet)
-        if self.config.doPlot:
-            plot = self.plotFiberNorms(
-                fiberNorms, pfsConfig, visitSet, next(iter(coadded.values())).identity.arm
-            )
-        else:
-            plot = None
-        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet, plot=plot)
+
+        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet)
 
     def checkSpectra(self, pfsArmList: Iterable[PfsArm], sameArm: bool = True) -> None:
         """Check that the spectra are compatible
@@ -388,31 +379,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         )
 
         return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
-
-    def plotFiberNorms(
-        self,
-        fiberNorms: PfsFiberNorms,
-        pfsConfig: PfsConfig,
-        visitList: Iterable[int],
-        arm: str,
-    ) -> "Figure":
-        """Plot fiber normalization values
-
-        Parameters
-        ----------
-        fiberNorms : `pfs.drp.stella.datamodel.pfsFiberNorms.PfsFiberNorms`
-            Fiber normalization values
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration for the PFS system
-
-        Returns
-        -------
-        fig : `matplotlib.figure.Figure`
-            Figure containing the plot.
-        """
-        fig, axes = fiberNorms.plot(pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper)
-        axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
-        return fig
 
     def _getMetadataName(self):
         """Suppress output of task metadata"""
