@@ -2,7 +2,6 @@ import lsstDebug
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base import (
     ArgumentParser,
-    CmdLineTask,
     PipelineTask,
     PipelineTaskConfig,
     PipelineTaskConnections,
@@ -248,7 +247,7 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         self.fitDownsampledContinuum.maskLineRadius = 25
 
 
-class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
+class FitPfsFluxReferenceTask(PipelineTask):
     """Construct reference for flux calibration."""
 
     ConfigClass = FitPfsFluxReferenceConfig
