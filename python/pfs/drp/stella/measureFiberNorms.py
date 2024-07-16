@@ -15,7 +15,7 @@ from lsst.daf.persistence import ButlerDataRef
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel import CalibIdentity, PfsConfig
@@ -150,7 +150,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -158,7 +158,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

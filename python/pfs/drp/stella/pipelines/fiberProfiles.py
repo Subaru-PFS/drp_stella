@@ -6,7 +6,7 @@ from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, 
 from lsst.daf.butler import DeferredDatasetHandle
 from lsst.pex.config import ConfigurableField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -80,7 +80,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -88,7 +88,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

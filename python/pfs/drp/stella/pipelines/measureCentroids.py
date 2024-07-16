@@ -3,7 +3,7 @@ from lsst.afw.display import Display
 from lsst.afw.image import ExposureF
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -99,7 +99,7 @@ class MeasureCentroidsTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
@@ -107,7 +107,7 @@ class MeasureCentroidsTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -183,7 +183,7 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):

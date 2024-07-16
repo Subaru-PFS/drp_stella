@@ -20,7 +20,7 @@ from lsst.daf.butler import (
 )
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.skymap import BaseSkyMap
@@ -312,7 +312,7 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
 
 
 def readDatasetRefs(
-    butler: ButlerQuantumContext,
+    butler: QuantumContext,
     inputRefs: InputQuantizedConnection,
     *names: str,
     allowMissing: bool = False,
@@ -354,7 +354,7 @@ def readDatasetRefs(
 
     Parameters
     ----------
-    butler : `ButlerQuantumContext`
+    butler : `QuantumContext`
         Data butler for a particular quantum.
     inputRefs : `InputQuantizedConnection`
         Dataset references; modified.
