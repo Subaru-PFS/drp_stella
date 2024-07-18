@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 
 import pfs.datamodel
+from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
 from ..utils.math import robustRms
 
@@ -14,6 +15,34 @@ __all__ = ("PfsFiberNorms",)
 
 
 class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
+    @property
+    def spectrograph(self):
+        """Return spectrograph number"""
+        return spectrographFromFiberId(self.fiberId)
+
+    @property
+    def fiberHole(self):
+        """Return fiber hole number"""
+        return fiberHoleFromFiberId(self.fiberId)
+
+    def __imul__(self, rhs):
+        """In-place multiplication"""
+        if isinstance(rhs, pfs.datamodel.PfsFiberNorms):
+            rhs = rhs.values
+        rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
+        with np.errstate(invalid="ignore"):
+            self.values *= rhs
+        return self
+
+    def __itruediv__(self, rhs):
+        """In-place division"""
+        if isinstance(rhs, pfs.datamodel.PfsFiberNorms):
+            rhs = rhs.values
+        rhs = np.array(rhs).copy()  # Ensure rhs does not share memory with an element of self
+        with np.errstate(divide="ignore"):
+            self.values /= rhs
+        return self
+
     def plot(
         self,
         pfsConfig: pfs.datamodel.PfsConfig,
