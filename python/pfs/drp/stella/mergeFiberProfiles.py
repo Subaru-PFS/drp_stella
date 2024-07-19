@@ -182,7 +182,9 @@ class MergeFiberProfilesTask(CmdLineTask):
         bad = alwaysBad | tooCloseNormal | tooCloseBad
 
         # Get profiles for the fibers we don't have good profiles for
-        merged = FiberProfileSet.makeEmpty(profiles[0].identity, profiles[0].visitInfo, profiles[0].metadata)
+        merged = FiberProfileSet.makeEmpty(
+            profiles[0].identity, profiles[0].visitInfo, profiles[0].metadata.deepCopy()
+        )
         for ff in bad:
             for pp in profiles:
                 if ff in pp:
@@ -210,6 +212,26 @@ class MergeFiberProfilesTask(CmdLineTask):
         bad |= set(badFibers) | missing
         self.log.info("Replacing %d bad and missing fibers: %s", len(bad), sorted(bad))
         merged.replaceFibers(bad, self.config.replaceNearest)
+
+        # Propagate metadata
+        badKeywords = []
+        for key in merged.metadata:
+            for prefix in ("CALIB_INPUT_", "CALIB_DARK_", "CALIB_NORM_"):
+                if key.startswith(prefix):
+                    badKeywords.append(key)
+        for key in badKeywords:
+            merged.metadata.remove(key)
+
+        for ii, fn in enumerate(filenames):
+            merged.metadata[f"CALMRG{ii:02d}"] = fn  # FITS: can't use long key name and also use long strings
+        for ii, pp in enumerate(profiles):
+            for key in pp.metadata:
+                if key.startswith("CALIB_INPUT_"):
+                    new = key.replace("CALIB_INPUT_", f"CALIB_MERGE_INPUT_{ii}_")
+                    merged.metadata[new] = pp.metadata[key]
+                elif key.startswith("CALIB_DARK_"):
+                    new = key.replace("CALIB_DARK_", f"CALIB_MERGE_DARK_{ii}_")
+                    merged.metadata[new] = pp.metadata[key]
 
         return merged
 
