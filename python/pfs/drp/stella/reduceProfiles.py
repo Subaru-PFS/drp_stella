@@ -229,6 +229,10 @@ class ReduceProfilesTask(CmdLineTask):
         profiles = self.profiles.runMultiple(exposureList, identity, detectorMapList, pfsConfigList).profiles
         profiles.replaceFibers(self.config.replaceFibers, self.config.replaceNearest)
 
+        for ii, ref in enumerate(darkRefList):
+            profiles.metadata[f"CALIB_DARK_{ii}"] = ref.dataId["visit"]
+        # CALIB_INPUT_* is added by NormalizeFiberProfilesTask.write
+
         dataVisits = [dataRef.dataId["visit"] for dataRef in dataRefList]
         if normRefList:
             self.normalize.run(profiles, normRefList, dataVisits)
