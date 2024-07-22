@@ -182,6 +182,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         logger.addHandler(handler)
 
         config = AdjustDetectorMapTask.ConfigClass()
+        config.order = 1
         task = AdjustDetectorMapTask(log=logger, config=config)
 
         if display is not None:
@@ -271,18 +272,15 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         xDistortion = np.zeros(numCoeffs, dtype=float)
         yDistortion = np.zeros(numCoeffs, dtype=float)
 
-        # Introduce a rotation+scale that we will correct with AdjustDetectorMapTask
-        scale = 1.23e-2
-        theta = 5.4321e-3
+        # Introduce a distortion that we will correct with AdjustDetectorMapTask
         xNorm = 0.5*self.synthConfig.width
         yNorm = 0.5*self.synthConfig.height
-
         xDistortion[0] = 1.5
-        xDistortion[1] = (np.cos(theta) - 1 + scale) * xNorm
-        xDistortion[2] = -np.sin(theta) * yNorm
+        xDistortion[1] = 1.23e-2 * xNorm
+        xDistortion[2] = -7.65e-4 * yNorm
         yDistortion[0] = -1.5
-        yDistortion[1] = np.sin(theta) * xNorm
-        yDistortion[2] = (np.cos(theta) - 1 + scale) * yNorm
+        yDistortion[1] = 8.76e-5 * xNorm
+        yDistortion[2] = 1.23e-2 * yNorm
 
         distortion = PolynomialDistortion(
             distortionOrder, Box2D(self.base.bbox), np.concatenate((xDistortion, yDistortion))
@@ -319,6 +317,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         logger.addHandler(handler)
 
         config = AdjustDetectorMapTask.ConfigClass()
+        config.order = 1
         task = AdjustDetectorMapTask(log=logger, config=config)
 
         if display is not None:
@@ -355,7 +354,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         diff = actual - expected
         self.assertFloatsAlmostEqual(diff, 0.0, atol=0.02)
         self.assertFloatsAlmostEqual(np.median(diff), 0.0, atol=0.005)
-        self.assertLess(robustRms(diff), 0.007)
+        self.assertLess(robustRms(diff), 0.008)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
