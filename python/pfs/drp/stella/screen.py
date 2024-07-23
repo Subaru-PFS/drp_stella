@@ -86,6 +86,11 @@ class ScreenResponseTask(Task):
             insrot,
             self.config.screenParams,
         )
+
+        noPosition = np.isnan(pfsConfig.pfiCenter).all(axis=1)
+        if np.any(noPosition):
+            screen[noPosition] = 1.0
+
         # The "screen response" is the quartz flux divided by the twilight flux.
         # To get the twilight flux, we need to divide our quartz flux by the screen response.
         # We have the quartz flux as the "norm" of the pfsMerged.
