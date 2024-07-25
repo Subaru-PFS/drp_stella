@@ -3,6 +3,7 @@ tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
     config:
+      connections.ccdExposure: raw.exposure
       doRepair: False  # Will be done as part of extractSpectra
   measureDetectorMap:
     class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
