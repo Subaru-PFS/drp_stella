@@ -19,7 +19,9 @@ _LOG = logging.getLogger(__name__)
 COPY_TEMPLATES = dict(
     pfsConfig="pfsConfig/%(day_obs)s/pfsConfig-0x%(pfs_design_id)016x-%(obs_id)06d.fits",
     calexp="images/%(day_obs)s/%(obs_id)06d/calexp-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits",
-    detectorMap="images/%(day_obs)s/%(obs_id)06d/detectorMap-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits",
+    detectorMap_used=(
+        "detectorMap/%(day_obs)s/%(obs_id)06d/detectorMap-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits"
+    ),
     pfsArm="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArm-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits",
     pfsArmLsf="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArmLsf-%(obs_id)06d-%(arm)1s%(spectrograph)1d.pickle",
     pfsMerged="pfsMerged/%(day_obs)s/pfsMerged-%(obs_id)06d.fits",
