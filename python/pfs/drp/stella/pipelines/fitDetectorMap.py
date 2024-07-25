@@ -39,7 +39,7 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         multiple=True,
     )
     calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -63,7 +63,7 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
     )
 
     detectorMap = OutputConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping between fiberId,wavelength and x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -126,12 +126,11 @@ class FitDetectorMapTask(PipelineTask):
             output connections.
         """
         # Determine what spectrograph+arm we're dealing with
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.arcLines[0].dataId))
-        )
-        assert detector.arm in "brnm"
-        assert detector.spectrograph in (1, 2, 3, 4)
-        dataId = dict(arm=detector.arm, spectrograph=detector.spectrograph)
+        arm = inputRefs.arcLines[0].dataId.arm.name
+        spectrograph = inputRefs.arcLines[0].dataId.spectrograph.num
+        assert arm in "brnm"
+        assert spectrograph in (1, 2, 3, 4)
+        dataId = dict(arm=arm, spectrograph=spectrograph)
 
         # Get only the first detectorMap, visitInfo and metadata
         detectorMapKey = ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"

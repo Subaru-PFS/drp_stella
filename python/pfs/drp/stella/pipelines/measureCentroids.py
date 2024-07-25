@@ -44,7 +44,7 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         dimensions=("instrument", "detector"),
     )
     calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -192,12 +192,10 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
             ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
         )
 
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.exposure.dataId))
-        )
-        assert detector.arm in "brnm"
+        arm = inputRefs.exposure.dataId.arm.name
+        assert arm in "brnm"
 
-        outputs = self.run(**inputs, arm=detector.arm)
+        outputs = self.run(**inputs, arm=arm)
         butler.put(outputs.centroids, outputRefs.centroids)
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         return outputs

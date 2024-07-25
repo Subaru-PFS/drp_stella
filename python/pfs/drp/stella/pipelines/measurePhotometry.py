@@ -145,11 +145,12 @@ class MeasurePhotometryTask(PipelineTask):
         """
         inputs = butler.get(inputRefs)
         dataId: DataCoordinate = inputRefs.exposure.dataId
-        detector = next(iter(butler.registry.queryDimensionRecords("detector", dataId=dataId)))
-        assert detector.arm in "brnm"
-        assert detector.spectrograph in (1, 2, 3, 4)
+        arm = dataId.arm.name
+        spectrograph = dataId.spectrograph.num
+        assert arm in "brnm"
+        assert spectrograph in (1, 2, 3, 4)
 
-        outputs = self.run(**inputs, arm=detector.arm, spectrograph=detector.spectrograph)
+        outputs = self.run(**inputs, arm=arm, spectrograph=spectrograph)
         if self.config.doMeasureLines:
             butler.put(outputs.photometry, outputRefs.photometry)
             butler.put(outputs.apCorr, outputRefs.apCorr)
