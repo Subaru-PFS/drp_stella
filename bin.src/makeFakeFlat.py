@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from itertools import product
 
 from lsst.afw.image import ExposureF, VisitInfo
-from pfs.drp.stella.constructSpectralCalibs import setCalibHeader
+from pfs.drp.stella.calibs import setCalibHeader
 
 
 def makeFakeFlat(arm: str, spectrograph: int) -> ExposureF:

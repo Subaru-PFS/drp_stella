@@ -4,7 +4,7 @@ import numpy as np
 
 import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -159,7 +159,7 @@ class MergeArmsRunner(TaskRunner):
         return [(list(specs.values()), kwargs) for specs in exposures.values()]
 
 
-class MergeArmsTask(CmdLineTask, PipelineTask):
+class MergeArmsTask(PipelineTask):
     """Merge all extracted spectra from a single exposure"""
     _DefaultName = "mergeArms"
     ConfigClass = MergeArmsConfig

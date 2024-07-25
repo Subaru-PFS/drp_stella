@@ -12,21 +12,12 @@ from lsst.afw.detection import FootprintSet, Threshold
 from lsst.afw.display import Display
 from lsst.meas.algorithms import DoubleGaussianPsf
 from lsst.pipe.base import Struct
-from lsst.ctrl.pool.pool import NODE
 import lsst.pipe.drivers.constructCalibs
 from lsst.pipe.drivers.utils import getDataRef
 from .repair import PfsRepairTask
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
-
-
-# Monkey-patching:
-# * CalibTask.getOutputId to include visit0
-# * CalibTask.recordCalibOutputs to include SPECTROGRAPH, ARM header keywords
-_originalGetOutputId = lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId
-_originalRecordCalibInputs = lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs
-_originalHeaderFromRaws = lsst.pipe.drivers.constructCalibs.CalibTask.calculateOutputHeaderFromRaws
 
 
 def getOutputId(self, expRefList, calibId):
@@ -143,12 +134,6 @@ def calculateOutputHeaderFromRaws(self, butler, calib, dataIdList, outputId):
         fixed = dateObs[:dateObs.rfind("T")]
         if "T" in fixed:  # Make sure we haven't broken a good DATE-OBS
             header.set("DATE-OBS", fixed, comment="Start date of earliest input observation")
-
-
-lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId = getOutputId
-lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs = recordCalibInputs
-lsst.pipe.drivers.constructCalibs.CalibTask.getFilter = getFilter
-lsst.pipe.drivers.constructCalibs.CalibTask.calculateOutputHeaderFromRaws = calculateOutputHeaderFromRaws
 
 
 def setCalibHeader(header: Union[dafBase.PropertyList, Dict], calibName: str, visitList: Iterable[int],
@@ -339,5 +324,5 @@ class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
         dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
                        dataId in struct.ccdIdList]
 
-        self.log.info("Combining %d inputs %s on %s" % (len(dataRefList), fullOutputId, NODE))
+        self.log.info("Combining %d inputs %s" % (len(dataRefList), fullOutputId))
         return Struct(dataRefList=dataRefList, outputId=fullOutputId)

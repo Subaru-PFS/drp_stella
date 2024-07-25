@@ -4,7 +4,7 @@ import numpy as np
 from collections import defaultdict, Counter
 
 from lsst.pex.config import Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -162,7 +162,7 @@ class CoaddSpectraRunner(TaskRunner):
         return [(parsedCmd.id.refList, kwargs)]
 
 
-class CoaddSpectraTask(CmdLineTask, PipelineTask):
+class CoaddSpectraTask(PipelineTask):
     """Coadd multiple observations"""
     _DefaultName = "coaddSpectra"
     ConfigClass = CoaddSpectraConfig

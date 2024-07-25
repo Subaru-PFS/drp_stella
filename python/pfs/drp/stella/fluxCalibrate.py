@@ -8,7 +8,7 @@ from lsst.pex.config import Field, ConfigurableField
 from lsst.pipe.base import ArgumentParser, Struct
 from lsst.daf.persistence import Butler
 
-from lsst.pipe.base import CmdLineTask, PipelineTask, PipelineTaskConfig, PipelineTaskConnections
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
@@ -234,7 +234,7 @@ class FluxCalibrateConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateC
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
 
 
-class FluxCalibrateTask(CmdLineTask, PipelineTask):
+class FluxCalibrateTask(PipelineTask):
     """Measure and apply the flux calibration"""
     ConfigClass = FluxCalibrateConfig
     _DefaultName = "fluxCalibrate"

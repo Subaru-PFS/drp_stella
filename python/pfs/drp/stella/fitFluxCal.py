@@ -10,7 +10,6 @@ from scipy.optimize import minimize
 import lsstDebug
 from lsst.pipe.base import (
     ArgumentParser,
-    CmdLineTask,
     PipelineTask,
     PipelineTaskConfig,
     QuantumContext,
@@ -945,7 +944,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
     )
 
 
-class FitFluxCalTask(CmdLineTask, PipelineTask):
+class FitFluxCalTask(PipelineTask):
     """Measure and apply the flux calibration"""
 
     ConfigClass = FitFluxCalConfig
