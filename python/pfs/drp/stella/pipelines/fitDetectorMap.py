@@ -5,7 +5,7 @@ from lsst.daf.base import PropertyList
 from lsst.daf.butler import DataCoordinate
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -39,7 +39,7 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         multiple=True,
     )
     calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -63,7 +63,7 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
     )
 
     detectorMap = OutputConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping between fiberId,wavelength and x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -108,7 +108,7 @@ class FitDetectorMapTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -116,7 +116,7 @@ class FitDetectorMapTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -126,12 +126,11 @@ class FitDetectorMapTask(PipelineTask):
             output connections.
         """
         # Determine what spectrograph+arm we're dealing with
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.arcLines[0].dataId))
-        )
-        assert detector.arm in "brnm"
-        assert detector.spectrograph in (1, 2, 3, 4)
-        dataId = dict(arm=detector.arm, spectrograph=detector.spectrograph)
+        arm = inputRefs.arcLines[0].dataId.arm.name
+        spectrograph = inputRefs.arcLines[0].dataId.spectrograph.num
+        assert arm in "brnm"
+        assert spectrograph in (1, 2, 3, 4)
+        dataId = dict(arm=arm, spectrograph=spectrograph)
 
         # Get only the first detectorMap, visitInfo and metadata
         detectorMapKey = ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"

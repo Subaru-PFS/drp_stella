@@ -3,16 +3,12 @@ import numpy as np
 import astropy.io.fits
 
 from lsst.utils import continueClass
-from lsst.afw.display import Display
-from lsst.pex.config import Config, Field, ConfigurableField
-from lsst.pipe.base import CmdLineTask, InputOnlyArgumentParser
 
 import pfs.datamodel
-from .readLineList import ReadLineListTask
 from pfs.drp.stella.DetectorMap import DetectorMap
 
 
-__all__ = ["DetectorMap", "DisplayDetectorMapTask", "DisplayDetectorMapConfig"]
+__all__ = ("DetectorMap",)
 
 
 @continueClass  # noqa F811: redefinition
@@ -207,6 +203,58 @@ class DetectorMap:  # noqa F811: redefinition
                     for xx, yy in points:
                         display.dot("x", xx, yy, size=5, ctype=ctype)
 
+    def displayPfsConfig(self, display, pfsConfig, wavelengths=None):
+        """Display the pfsConfig fibers
+
+        Parameters
+        ----------
+        display : `lsst.afw.display.Display`
+            Display on which to plot.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Fiber configuration.
+        wavelengths : iterable of `float`, optional
+            Wavelengths to plot.
+
+        Returns
+        -------
+        result : `dict`
+            Mapping of target type and/or fiber status to color. This is a
+            helpful reminder of what things mean.
+        """
+        result = {}
+        pfsConfig = pfsConfig.select(fiberId=self.fiberId)
+        goodConfig = pfsConfig.select(fiberStatus=pfs.datamodel.FiberStatus.GOOD).fiberId
+        for targetType, color in (
+            (pfs.datamodel.TargetType.SCIENCE, "GREEN"),
+            (pfs.datamodel.TargetType.SKY, "BLUE"),
+            (pfs.datamodel.TargetType.FLUXSTD, "YELLOW"),
+            (pfs.datamodel.TargetType.UNASSIGNED, "MAGENTA"),
+            (pfs.datamodel.TargetType.ENGINEERING, "CYAN"),
+            (pfs.datamodel.TargetType.SUNSS_DIFFUSE, "BLUE"),
+            (pfs.datamodel.TargetType.SUNSS_IMAGING, "GREEN"),
+            (pfs.datamodel.TargetType.DCB, "GREEN"),
+        ):
+            selectConfig = goodConfig.select(targetType=targetType)
+            if len(selectConfig) == 0:
+                continue
+            fiberId = selectConfig.fiberId
+            self.display(display, fiberId, wavelengths, color)
+            result[targetType] = color
+
+        for fiberStatus, color in (
+            (pfs.datamodel.FiberStatus.BROKENFIBER, "BLACK"),
+            (pfs.datamodel.FiberStatus.BLOCKED, "BLACK"),
+            (pfs.datamodel.FiberStatus.BLACKSPOT, "RED"),
+            (pfs.datamodel.FiberStatus.UNILLUMINATED, "BLACK")
+        ):
+            selectConfig = pfsConfig.select(fiberStatus=fiberStatus)
+            if len(selectConfig) == 0:
+                continue
+            self.display(display, selectConfig.fiberId, wavelengths, color)
+            result[fiberStatus] = color
+
+        return result
+
     def toBytes(self):
         """Convert to bytes
 
@@ -224,102 +272,3 @@ class DetectorMap:  # noqa F811: redefinition
     def __reduce__(self):
         """How to pickle"""
         return self.__class__.fromBytes, (self.toBytes(),)
-
-
-class DisplayDetectorMapConfig(Config):
-    """Configuration for DisplayDetectorMapTask"""
-    frame = Field(dtype=int, default=1, doc="Frame to use for display")
-    backend = Field(dtype=str, doc="Display backend to use")
-    doPlotLines = Field(dtype=bool, default=True, doc="Plot the location of lines from line list?")
-    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
-
-
-class DisplayDetectorMapTask(CmdLineTask):
-    """Display an image with the detectorMap superimposed"""
-    ConfigClass = DisplayDetectorMapConfig
-    _DefaultName = "displayDetectorMap"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.makeSubtask("readLineList")
-
-    @classmethod
-    def _makeArgumentParser(cls, *args, **kwargs):
-        parser = InputOnlyArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", datasetType="postISRCCD",
-                               help="input identifiers, e.g., --id visit=123 ccd=4")
-        return parser
-
-    def runDataRef(self, dataRef):
-        """Display an image with the detectorMap superimposed
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Butler data reference.
-        """
-        exposure = dataRef.get("postISRCCD")
-        detectorMap = dataRef.get("detectorMap")
-        pfsConfig = dataRef.get("pfsConfig")
-        self.log.info("Displaying %s", dataRef.dataId)
-        self.run(exposure, detectorMap, pfsConfig)
-
-    def run(self, exposure, detectorMap, pfsConfig):
-        """Display an image with the detectorMap superimposed
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-            Image to display.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping between fiberId,wavelength <--> x,y.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Fiber configuration.
-        """
-        wavelengths = None
-        if self.config.doPlotLines:
-            lines = self.readLineList.run(metadata=exposure.getMetadata())
-            wavelengths = [rl.wavelength for rl in lines]
-
-        display = Display(frame=self.config.frame, backend=self.config.backend)
-        display.mtv(exposure)
-
-        goodFibers = detectorMap.fiberId[pfsConfig.selectByFiberStatus(pfs.datamodel.FiberStatus.GOOD,
-                                         detectorMap.fiberId)]
-        for targetType, color in ((pfs.datamodel.TargetType.SCIENCE, "GREEN"),
-                                  (pfs.datamodel.TargetType.SKY, "BLUE"),
-                                  (pfs.datamodel.TargetType.FLUXSTD, "YELLOW"),
-                                  (pfs.datamodel.TargetType.UNASSIGNED, "MAGENTA"),
-                                  (pfs.datamodel.TargetType.ENGINEERING, "CYAN"),
-                                  (pfs.datamodel.TargetType.SUNSS_DIFFUSE, "BLUE"),
-                                  (pfs.datamodel.TargetType.SUNSS_IMAGING, "GREEN"),
-                                  (pfs.datamodel.TargetType.DCB, "GREEN"),
-                                  ):
-            indices = pfsConfig.selectByTargetType(targetType, goodFibers)
-            if indices.size == 0:
-                self.log.info("No %s fibers found", targetType)
-                continue
-            fiberId = goodFibers[indices]
-            detectorMap.display(display, fiberId, wavelengths, color)
-            self.log.info("%s fibers (%d) are shown in %s", targetType, indices.size, color)
-
-        for fiberStatus, color in ((pfs.datamodel.FiberStatus.BROKENFIBER, "BLACK"),
-                                   (pfs.datamodel.FiberStatus.BLOCKED, "BLACK"),
-                                   (pfs.datamodel.FiberStatus.BLACKSPOT, "RED"),
-                                   (pfs.datamodel.FiberStatus.UNILLUMINATED, "BLACK")
-                                   ):
-            indices = pfsConfig.selectByFiberStatus(fiberStatus, detectorMap.fiberId)
-            if indices.size == 0:
-                self.log.info("No %s fibers found", fiberStatus)
-                continue
-            self.log.info("%s fibers (%d) are shown in %s", fiberStatus, indices.size, color)
-            detectorMap.display(display, detectorMap.fiberId[indices], wavelengths, color)
-
-    def _getConfigName(self):
-        return None
-
-    def _getMetadataName(self):
-        return None
-
-    def writePackageVersions(self, *args, **kwargs):
-        return

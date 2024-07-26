@@ -11,7 +11,6 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from lsst.daf.butler import (
     Butler,
     DataCoordinate,
-    DatasetIdGenEnum,
     DatasetRef,
     DatasetType,
     DimensionGraph,
@@ -20,7 +19,7 @@ from lsst.daf.butler import (
 )
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.skymap import BaseSkyMap
@@ -312,7 +311,7 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
 
 
 def readDatasetRefs(
-    butler: ButlerQuantumContext,
+    butler: QuantumContext,
     inputRefs: InputQuantizedConnection,
     *names: str,
     allowMissing: bool = False,
@@ -354,7 +353,7 @@ def readDatasetRefs(
 
     Parameters
     ----------
-    butler : `ButlerQuantumContext`
+    butler : `QuantumContext`
         Data butler for a particular quantum.
     inputRefs : `InputQuantizedConnection`
         Dataset references; modified.
@@ -460,7 +459,9 @@ def addExposurePatchRecords(
     for tt, pp in set(zip(pfsConfig.tract, pfsConfig.patch)):
         px, py = pp.split(",")
         tract = int(tt)  # The registry treats np.int32 as different from int
-        patch = skymap[tt].getPatchInfo((int(px), int(py))).getSequentialIndex()
+        if tract < 0:
+            continue
+        patch = skymap[tract].getPatchInfo((int(px), int(py))).getSequentialIndex()
         registry.syncDimensionData("exposure_patch", dict(tract=tract, patch=patch, **kwargs), update=update)
 
 
@@ -516,7 +517,7 @@ def ingestPfsConfig(
                 exposure = pfsConfig.visit
                 pfsDesignId = pfsConfig.pfsDesignId
                 dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
-                ref = DatasetRef(datasetType, dataId)
+                ref = DatasetRef(datasetType, dataId, run)
                 uri = ResourcePath(path, root=cwd, forceAbsolute=True)
                 datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
@@ -526,4 +527,4 @@ def ingestPfsConfig(
                 )
 
     log.info("Ingesting files...")
-    butler.ingest(*datasets, transfer=transfer, run=run, idGenerationMode=DatasetIdGenEnum.DATAID_TYPE)
+    butler.ingest(*datasets, transfer=transfer)

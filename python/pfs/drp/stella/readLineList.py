@@ -3,7 +3,6 @@ from lsst.pipe.base import Struct, Task
 
 from lsst.obs.pfs.utils import getLamps, getLampElements
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
-from .utils import processConfigListFromCmdLine
 import re
 from collections import Counter
 import numpy as np
@@ -48,10 +47,6 @@ class ReadLineListConfig(Config):
         def getDuplicateItems(iterable):
             """Return a list of duplicates"""
             return [k for k, v in Counter(iterable).items() if v > 1]
-
-        # Handle setting lists of strings on the command line
-        self.lightSources = processConfigListFromCmdLine(self.lightSources)
-        self.lampElements = processConfigListFromCmdLine(self.lampElements)
 
         super().validate()
 

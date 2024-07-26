@@ -3,7 +3,7 @@ from lsst.afw.display import Display
 from lsst.afw.image import ExposureF
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -44,7 +44,7 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         dimensions=("instrument", "detector"),
     )
     calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
@@ -99,7 +99,7 @@ class MeasureCentroidsTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
@@ -107,7 +107,7 @@ class MeasureCentroidsTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -183,7 +183,7 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
@@ -192,12 +192,10 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
             ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
         )
 
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.exposure.dataId))
-        )
-        assert detector.arm in "brnm"
+        arm = inputRefs.exposure.dataId.arm.name
+        assert arm in "brnm"
 
-        outputs = self.run(**inputs, arm=detector.arm)
+        outputs = self.run(**inputs, arm=arm)
         butler.put(outputs.centroids, outputRefs.centroids)
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         return outputs

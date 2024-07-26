@@ -3,7 +3,7 @@ from lsst.afw.image import Exposure
 from lsst.pipe.base import Struct
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
-from lsst.obs.pfs.isrTask import PfsIsrTask, PfsIsrTaskConfig
+from lsst.obs.pfs.isrTask import PfsIsrTask, PfsIsrTaskConfig, PfsIsrConnections
 from lsst.ip.isr.isrTask import IsrTaskConnections
 
 from ..repair import PfsRepairTask
@@ -11,7 +11,7 @@ from ..repair import PfsRepairTask
 __all__ = ("IsrTask",)
 
 
-class IsrConnections(IsrTaskConnections):
+class IsrConnections(PfsIsrConnections):
     """Connections for IsrTask"""
 
     flat = PrerequisiteConnection(
@@ -31,6 +31,7 @@ class IsrConfig(PfsIsrTaskConfig, pipelineConnections=IsrConnections):
 
     def setDefaults(self):
         super().setDefaults()
+        self.connections.ccdExposure = "raw.exposure"
         self.doWrite = True  # Ensure postISRCCD is written
 
 

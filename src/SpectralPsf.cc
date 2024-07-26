@@ -109,7 +109,7 @@ OversampledPsf::doComputeKernelImage(
 ) const {
     return resampleKernelImage(
         *recenterOversampledKernelImage(*doComputeOversampledKernelImage(position), _oversampleFactor),
-        _oversampleFactor, computeBBox());
+        _oversampleFactor, computeBBox(getAveragePosition()));
 }
 
 
@@ -121,7 +121,7 @@ OversampledPsf::doComputeImage(
     return resampleKernelImage(
         *recenterOversampledKernelImage(*doComputeOversampledKernelImage(position), _oversampleFactor,
                                         position),
-        _oversampleFactor, computeBBox(), position);
+        _oversampleFactor, computeBBox(getAveragePosition()), position);
 }
 
 

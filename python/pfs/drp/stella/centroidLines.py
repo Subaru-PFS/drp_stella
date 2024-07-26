@@ -5,10 +5,10 @@ from lsst.pipe.base import Task
 
 from lsst.geom import Point2D
 from lsst.afw.table import SourceCatalog, SourceTable
-from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
-from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
-from lsst.meas.base.sdssShape import SdssShapeAlgorithm, SdssShapeControl
-from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
+from lsst.meas.base import FatalAlgorithmError, MeasurementError
+from lsst.meas.base import SdssCentroidAlgorithm, SdssCentroidControl
+from lsst.meas.base import SdssShapeAlgorithm, SdssShapeControl
+from lsst.meas.base import PsfFluxAlgorithm, PsfFluxControl
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet

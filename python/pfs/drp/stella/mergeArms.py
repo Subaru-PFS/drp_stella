@@ -4,13 +4,13 @@ import numpy as np
 
 import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from lsst.obs.pfs.utils import getLamps
@@ -159,7 +159,7 @@ class MergeArmsRunner(TaskRunner):
         return [(list(specs.values()), kwargs) for specs in exposures.values()]
 
 
-class MergeArmsTask(CmdLineTask, PipelineTask):
+class MergeArmsTask(PipelineTask):
     """Merge all extracted spectra from a single exposure"""
     _DefaultName = "mergeArms"
     ConfigClass = MergeArmsConfig
@@ -278,7 +278,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -286,7 +286,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

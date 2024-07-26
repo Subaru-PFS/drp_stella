@@ -71,7 +71,7 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
         radius = config.apertureCorrection.apertureFlux.radii[0]
         canApCorr = synthConfig.height/numLines > 2*radius
-        assert(doApCorr == canApCorr)
+        assert doApCorr == canApCorr
         config.doApertureCorrection = doApCorr
         task = PhotometerLinesTask(name="photometer", config=config)
         task.log.setLevel(task.log.DEBUG)
