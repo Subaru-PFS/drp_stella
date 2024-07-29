@@ -19,35 +19,36 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
-from datetime import datetime
 import numpy as np
-import lsstDebug
 
-from lsst.pex.config import Config, Field, ConfigurableField, DictField, ListField
-from lsst.pipe.base import CmdLineTask, Struct
-from lsst.obs.pfs.isrTask import PfsIsrTask
+from lsst.pex.config import Field, ConfigurableField, DictField, ListField
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
+from lsst.pipe.base import QuantumContext
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+from lsst.daf.butler import DataCoordinate
+from lsst.afw.image import Exposure
+
+from .datamodel.pfsConfig import PfsConfig
+from .DetectorMapContinued import DetectorMap
+
+
 from lsst.obs.pfs.utils import getLamps
-from lsst.afw.display import Display
-from pfs.datamodel import FiberStatus, TargetType
-from .measurePsf import MeasurePsfTask
+from pfs.datamodel import FiberStatus, TargetType, Identity
 from .extractSpectraTask import ExtractSpectraTask
-from .subtractSky2d import SubtractSky2dTask
-from .fitContinuum import FitContinuumTask
-from .lsf import ExtractionLsf, GaussianLsf
+from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask, tracesToLines
 from .adjustDetectorMap import AdjustDetectorMapTask
-from .fitDistortedDetectorMap import FittingError
-from .constructSpectralCalibs import setCalibHeader
-from .repair import PfsRepairTask, maskLines
 from .blackSpotCorrection import BlackSpotCorrectionTask
-from .background import DichroicBackgroundTask
 from .arcLine import ArcLineSet
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
-from .utils.sysUtils import metadataToHeader, getPfsVersions, processConfigListFromCmdLine
+from .utils.sysUtils import metadataToHeader, getPfsVersions
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 
@@ -55,20 +56,80 @@ from .barycentricCorrection import calculateBarycentricCorrection
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 
-class ReduceExposureConfig(Config):
+class ReduceExposureConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+    exposure = InputConnection(
+        name="postISRCCD",
+        doc="Exposure to reduce",
+        storageClass="Exposure",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+    pfsConfig = PrerequisiteConnection(
+        name="pfsConfig",
+        doc="Top-end fiber configuration",
+        storageClass="PfsConfig",
+        dimensions=("instrument", "exposure"),
+    )
+    fiberProfiles = PrerequisiteConnection(
+        name="fiberProfiles",
+        doc="Profile of fibers",
+        storageClass="FiberProfileSet",
+        dimensions=("instrument", "detector"),
+        isCalibration=True,
+    )
+    detectorMap = PrerequisiteConnection(
+        name="detectorMap_calib",
+        doc="Mapping from fiberId,wavelength to x,y",
+        storageClass="DetectorMap",
+        dimensions=("instrument", "detector"),
+        isCalibration=True,
+    )
+
+    pfsArm = OutputConnection(
+        name="pfsArm",
+        doc="Extracted spectra from arm",
+        storageClass="PfsArm",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+    lsf = OutputConnection(
+        name="pfsArmLsf",
+        doc="1D line-spread function",
+        storageClass="LsfDict",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+    lines = OutputConnection(
+        name="lines",
+        doc="Emission line measurements",
+        storageClass="ArcLineSet",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+    apCorr = OutputConnection(
+        name="apCorr",
+        doc="Aperture correction for line photometry",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+    detectorMapUsed = OutputConnection(
+        name="detectorMap_used",
+        doc="DetectorMap used for extraction",
+        storageClass="DetectorMap",
+        dimensions=("instrument", "exposure", "detector"),
+    )
+
+    def __init__(self, *, config=None):
+        super().__init__(config=config)
+
+        if not config:
+            return
+        if self.config.doBoxcarExtraction:
+            self.prerequisiteInputs.remove("fiberProfiles")
+
+
+class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
     """Config for ReduceExposure"""
-    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
-    doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
-    repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
-    doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
-    requireAdjustDetectorMap = Field(dtype=bool, default=False,
-                                     doc="Require detectorMap adjustment to succeed?")
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
-    doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines on image?")
-    maskRadius = Field(dtype=int, default=2, doc="Radius around reference lines to mask (pixels)")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
@@ -84,83 +145,22 @@ class ReduceExposureConfig(Config):
                         "use a boxcar of boxcarWidth to extract the ENGINEERING fibres")
     doBoxcarForIIS = Field(dtype=bool, default=True,
                            doc="Enable boxcar extractions when ENGINEERING fibres are illuminated?")
-    doSkySwindle = Field(dtype=bool, default=False,
-                         doc="Do the Sky Swindle (subtract the exact sky)? "
-                             "This only works with Simulator files produced with the --allOutput flag")
-    doMeasurePsf = Field(dtype=bool, default=False, doc="Measure PSF?")
-    measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
     gaussianLsfWidth = DictField(keytype=str, itemtype=float,
                                  doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
                                  default=dict(b=0.081, r=0.109, m=0.059, n=0.109))
-    doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
-    subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
-    doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
-    doSubtractSpectra = Field(dtype=bool, default=False, doc="Subtract extracted spectra from exposure?")
-    doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction to quartz?")
     screen = ConfigurableField(target=ScreenResponseTask, doc="Screen response correction")
-    doWriteCalexp = Field(dtype=bool, default=True, doc="Write corrected frame?")
-    doWriteLsf = Field(dtype=bool, default=True, doc="Write line-spread function?")
-    doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
-    usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
-    useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
     targetType = ListField(dtype=str, default=["^ENGINEERING"],
-                           doc="""Target type for which to extract spectra
-N.b. you can exclude a set of types, e.g. `["^ENGINEERING", "^UNASSIGNED"]` which is interpreted as
-"neither ENGINEERING nor UNASSIGNED"   (empty: `["^ENGINEERING"]`)""")
-    windowed = Field(dtype=bool, default=False,
-                     doc="Reduction of windowed data, for real-time acquisition? Implies "
-                     "doAdjustDetectorMap=False doMeasureLines=False isr.overscanFitType=MEDIAN")
+                           doc="Target type for which to extract spectra")
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Calculate barycentric correction?")
     doBlackSpotCorrection = Field(dtype=bool, default=True, doc="Correct for black spot penumbra?")
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
-    doBackground = Field(dtype=bool, default=False, doc="Subtract background?")
-    background = ConfigurableField(target=DichroicBackgroundTask, doc="Background subtraction")
     spatialOffset = Field(dtype=float, default=0.0, doc="Spatial offset to add")
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
 
-    def validate(self):
-        if not self.doExtractSpectra and self.doWriteArm:
-            raise ValueError("You may not specify doWriteArm if doExtractSpectra is False")
-        if self.windowed:
-            self.doAdjustDetectorMap = False
-            self.doMeasureLines = False
-            self.isr.overscanFitType = "MEDIAN"
 
-        # Handle setting lists of strings on the command line
-        self.targetType = processConfigListFromCmdLine(self.targetType)
-
-        #
-        # Parse the target types.  Note that types may start ^ to exclude that type
-        badTargetTypes = []
-        exclude = []                    # list of types to exclude
-        for tt in self.targetType:
-            if tt.startswith('^'):
-                exclude.append(tt[1:])
-                tt = tt[1:]
-            elif exclude and not tt.startswith('^'):
-                raise RuntimeError(f"If you exclude any type you must exclude all; saw {tt}")
-
-            try:
-                TargetType.fromString(tt)
-            except AttributeError:
-                badTargetTypes.append(tt)
-
-        if badTargetTypes:
-            raise ValueError(f"Unrecognised TargetTypes: {', '.join(badTargetTypes)}")
-
-        if exclude:
-            self.targetType = []
-            for tt in [str(_) for _ in TargetType]:
-                if tt not in exclude:
-                    self.targetType.append(tt)
-
-        super().validate()
-
-
-class ReduceExposureTask(CmdLineTask):
+class ReduceExposureTask(PipelineTask):
     r"""!Reduce a PFS exposures, generating pfsArm files
 
     @anchor ReduceExposureTask_
@@ -177,7 +177,6 @@ class ReduceExposureTask(CmdLineTask):
     @section drp_stella_reduceExposure_Purpose  Description
 
     Perform the following operations:
-    - Call isr to unpersist raw data and assemble it into a post-ISR exposure
     - Call repair to repair cosmic rays
     - Call extractSpectra to extract the spectra
     and then apply the wavelength solution from the DetectorMap
@@ -216,338 +215,160 @@ class ReduceExposureTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("isr")
-        self.makeSubtask("repair")
         self.makeSubtask("readLineList")
         self.makeSubtask("centroidLines")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("photometerLines")
         self.makeSubtask("adjustDetectorMap")
-        self.makeSubtask("measurePsf")
-        self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
-        self.makeSubtask("fitContinuum")
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
-        self.makeSubtask("background")
-        self.debugInfo = lsstDebug.Info(__name__)
 
-    def runDataRef(self, sensorRef):
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection
+    ) -> None:
+        inputs = butler.get(inputRefs)
+        dataId = inputRefs.exposure.dataId
+        if self.config.doBoxcarExtraction:
+            inputs["fiberProfiles"] = None
+        outputs = self.run(**inputs, dataId=dataId)
+        butler.put(outputs, outputRefs)
+        return outputs
+
+    def run(
+        self,
+        exposure: Exposure,
+        pfsConfig: PfsConfig,
+        fiberProfiles: FiberProfileSet | None,
+        detectorMap: DetectorMap,
+        dataId: dict[str, str] | DataCoordinate,
+    ) -> Struct:
         """Process an arm exposure
-
-        The sequence of operations is:
-        - remove instrument signature
-        - measure PSF
-        - subtract sky from the image
-        - extract the spectra from the fiber traces
-        - write the outputs
 
         Parameters
         ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for sensors to process.
+        exposure : `lsst.afw.image.Exposure`
+            Exposure data to reduce.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration.
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of fibers.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        dataId : `dict` [`str`, `str`] or `DataCoordinate`
+            Data identifier.
 
         Returns
         -------
-        exposure : `lsst.afw.image.Exposure`
-            Exposure data for sensor.
-        psf : PSF
-            Point-spread function; if ``doMeasurePsf`` is set.
-        lsf : LSF
-            Line-spread function; if ``doMeasurePsf`` is set.
-        sky2d : `pfs.drp.stella.FocalPlaneFunction`
-            2D sky subtraction solution.
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
-        original : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra before continuum subtraction.
-            Will be identical to ``spectra`` if continuum subtraction
-            was not performed.
+        pfsArm : `pfs.drp.stella.datamodel.PfsArm`
+            Extracted spectra.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping of wl,fiber to detector position.
+        detectorMapUsed : `pfs.drp.stella.DetectorMap`
+            Mapping of wl,fiber to detector position; used for extraction.
         lines : `pfs.drp.stella.ArcLineSet`
             Measured lines.
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Measured aperture correction.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration.
+        lsf : LSF
+            Line-spread function.
         """
 
-        self.log.info("Processing %s", sensorRef.dataId)
+        arm = dataId["arm"]
+        spectrograph = dataId["spectrograph"]
 
-        pfsConfig = sensorRef.get("pfsConfig")
-        exposure = None
-        fiberTraces = None
-        detectorMap = None
-        refLines = None
-        lines = None
-        apCorr = None
-        psf = None
-        lsf = None
-        skyImage = None
-        sky2d = None
-
-        boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
-        if self.config.useCalexp:
-            if sensorRef.datasetExists("calexp"):
-                self.log.info("Reading existing calexp for %s", sensorRef.dataId)
-                exposure = sensorRef.get("calexp")
-                exposure.mask &= ~exposure.mask.getPlaneBitMask("REFLINE")  # not related to ISR etc.
-            else:
-                self.log.warn("Not retrieving calexp, despite 'useCalexp' config, since it is missing")
-
-        if not exposure:
-            exposure = self.runIsr(sensorRef)
-            if self.config.doRepair:
-                self.repairExposure(exposure)
-            if self.config.doSkySwindle:
-                self.skySwindle(sensorRef, exposure.image)
-
-        calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig, boxcarWidth)
-
-        if self.config.doBackground:
-            bg = self.background.run(
-                exposure.maskedImage, sensorRef.dataId["arm"], calibs.detectorMap, pfsConfig
-            )
-            sensorRef.put(bg, "background")
-
-        if self.config.doMaskLines:
-            maskLines(exposure.mask, calibs.detectorMap, calibs.refLines, self.config.maskRadius)
-        if self.config.doRepair:
-            self.repairExposure(exposure)
-
-        detectorMap = calibs.detectorMap
-        fiberTraces = calibs.fiberTraces
-        refLines = calibs.refLines
-        lines = calibs.lines
-        apCorr = calibs.apCorr
-        pfsConfig = calibs.pfsConfig
-        psf = calibs.psf
-        lsf = calibs.lsf
-
-        if self.config.doSubtractSky2d:
-            self.log.warn("Performing 2D sky subtraction on single arm")
-            skyResults = self.subtractSky2d.run(
-                [exposure], pfsConfig, [psf], [fiberTraces], [detectorMap], [lines], [apCorr]
-            )
-            skyImage = skyResults.imageList[0]
-            sky2d = skyResults.sky2d
-
-        metadata = exposure.getMetadata()
-        versions = getPfsVersions()
-        for key, value in versions.items():
-            metadata.set(key, value)
-
-        results = Struct(
-            exposure=exposure,
-            fiberProfiles=calibs.fiberProfiles,
-            fiberTraces=fiberTraces,
-            detectorMap=detectorMap,
-            psf=psf,
-            lsf=lsf,
-            lines=lines,
-            apCorr=apCorr,
-            pfsConfig=pfsConfig,
-            sky2d=sky2d,
-            skyImage=skyImage,
-        )
-
-        original = None
-        spectra = None
-        pfsArm = None
-        if self.config.doExtractSpectra:
-            self.log.info("Extracting spectra from %(visit)d%(arm)s%(spectrograph)d", sensorRef.dataId)
-            maskedImage = exposure.maskedImage
-            fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
-            spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId,
-                                              True if boxcarWidth > 0 else False).spectra
-            original = spectra
-
-            if self.config.doSubtractSpectra:
-                self.log.info("Subtracting spectra from exposure")
-                sub = exposure.clone()
-                sub.maskedImage -= spectra.makeImage(maskedImage.getBBox(), fiberTraces)
-                sensorRef.put(sub, "subtracted")
-
-            if self.config.doSubtractContinuum:
-                continua = self.fitContinuum.run(spectra, refLines)
-                maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
-                spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
-                # Set sky flux from continuum
-                for ss, cc in zip(spectra, continua):
-                    ss.background += cc.spectrum/cc.norm*ss.norm
-
-            if self.config.doBlackSpotCorrection:
-                self.blackSpotCorrection.run(pfsConfig, spectra)
-
-            if skyImage is not None:
-                skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
-                for spec, skySpec in zip(spectra, skySpectra):
-                    spec.background += skySpec.spectrum/skySpec.norm*spec.norm
-
-            if self.config.doApplyScreenResponse:
-                self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
-
-            pfsArm = spectra.toPfsArm(sensorRef.dataId)
-            if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
-                self.log.info("Calculating barycentric correction")
-                calculateBarycentricCorrection(pfsArm, pfsConfig)
-
-        results.original = original
-        results.spectra = spectra
-        results.pfsArm = pfsArm
-        if self.debugInfo.plotSpectra:
-            self.plotSpectra(results.spectra)
-
-        self.write(sensorRef, results)
-        return results
-
-    def runIsr(self, sensorRef):
-        """Run Instrument Signature Removal (ISR)
-
-        This method wraps the ISR call to allow us to post-process the ISR-ed
-        image.
-
-        Parameters
-        ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for sensor.
-
-        Returns
-        -------
-        exposure : `lsst.afw.image.Exposure`
-            Sensor image after ISR has been applied.
-        """
-        if self.config.usePostIsrCcd:
-            if sensorRef.datasetExists("postISRCCD"):
-                self.log.info("Reusing existing postISRCCD for %s", sensorRef.dataId)
-                return sensorRef.get("postISRCCD")
-            self.log.warn("Not retrieving postISRCCD for %s, despite 'usePostIsrCcd' config, "
-                          "since it is missing", sensorRef.dataId)
-        exposure = self.isr.runDataRef(sensorRef).exposure
-        # Remove negative variance (because we can have very low count levels)
-        bad = np.where(exposure.variance.array < 0)
-        exposure.variance.array[bad] = np.inf
-        exposure.mask.array[bad] |= exposure.mask.getPlaneBitMask("BAD")
-        return exposure
-
-    def write(self, sensorRef, results):
-        """Write out results
-
-        Respects the various ``doWrite`` entries in the configuation.
-
-        Parameters
-        ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for writing.
-        results : `lsst.pipe.base.Struct`
-            Conglomeration of results to be written out.
-        """
-        if self.config.doWriteCalexp:
-            sensorRef.put(results.exposure, "calexp")
-        if self.config.doWriteLsf:
-            if results.lsf is None:
-                self.log.warn("Can't write LSF for %s" % (sensorRef.dataId,))
-            else:
-                sensorRef.put(results.lsf, "pfsArmLsf")
-        if self.config.doSubtractSky2d:
-            self.log.warn("Writing sky2d for single arm")
-            sensorRef.put(results.sky2d, "sky2d")
-
-        if self.config.doWriteArm:
-            results.pfsArm.metadata.update(metadataToHeader(results.exposure.getMetadata()))
-            results.pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = results.fiberProfiles.hash
-            sensorRef.put(results.pfsArm, "pfsArm")
-            if results.lines is not None:
-                sensorRef.put(results.lines, "arcLines")
-
-        return results
-
-    def repairExposure(self, exposure):
-        """Repair CCD defects in the exposure
-
-        Uses the PSF specified in the config.
-        """
-        modelPsfConfig = self.config.repair.interp.modelPsf
-        psf = modelPsfConfig.apply()
-        exposure.setPsf(psf)
-        self.repair.run(exposure)
-
-    def skySwindle(self, sensorRef, image):
-        """Perform the sky swindle
-
-        The 'sky swindle' is where we subtract the known sky signal from the
-        image. The resultant sky-subtracted image contains the noise from the
-        sky, but no sky and no systematic sky subtraction residuals.
-
-        This is a dirty hack, intended only to allow a direct comparison with
-        the 1D simulator, which uses the same swindle.
-
-        Parameters
-        ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for sensor data.
-        image : `lsst.afw.image.Image`
-            Exposure from which to subtract the sky.
-        """
-        self.log.warn("Applying sky swindle")
-        import astropy.io.fits
-        filename = sensorRef.getUri("raw")
-        with astropy.io.fits.open(filename) as fits:
-            image.array -= fits["SKY"].data
-
-    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig, boxcarWidth=0):
-        """Provide suitable spectral calibrations
-
-        Parameters
-        ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for sensor data.
-        exposure : `lsst.afw.image.Exposure`
-            Image of spectra. Required for measuring a slit offset.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration. Required for measuring a slit offset.
-        boxcarWidth: `int`
-            Width of boxcar extraction; use fiberProfiles if <= 0
-
-        Returns
-        -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping from fiberId,wavelength to x,y.
-        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
-            Profile for each fiber.
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Trace for each fiber (defined as a boxcar if boxcarWidth > 0).
-        refLines : `pfs.drp.stella.ReferenceLineSet`
-            Reference lines.
-        lines : `pfs.drp.stella.ArcLineSet`
-            Measured lines.
-        apCorr : `pfs.drp.stella.FocalPlaneFunction`
-            Aperture correction.
-        traces : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
-            Peaks for each trace, indexed by fiberId.
-        psf : `pfs.drp.stella.SpectralPsf`
-            Two-dimensional point-spread function.
-        lsf : `pfs.drp.stella.Lsf`
-            One-dimensional line-spread function.
-        """
-        detectorMap = sensorRef.get("detectorMap")
         spatialOffset = self.config.spatialOffset
         spectralOffset = self.config.spectralOffset
         if spatialOffset != 0.0 or spectralOffset != 0.0:
             self.log.info("Adjusting detectorMap slit offset by %f,%f", spatialOffset, spectralOffset)
             detectorMap.applySlitOffset(spatialOffset, spectralOffset)
 
-        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+        check = self.checkPfsConfig(pfsConfig, detectorMap, spectrograph)
+        pfsConfig = check.pfsConfig
+        boxcarWidth = check.boxcarWidth
 
-        # Check that the detectorMap includes all the expected fibers
-        kwargs = dict(spectrograph=sensorRef.dataId["spectrograph"])
+        if boxcarWidth > 0:
+            fiberProfiles = FiberProfileSet.makeEmpty(None)
+            for fid in pfsConfig.fiberId:
+                # the Gaussian will be replaced by a boxcar, so params don't matter
+                fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
+
+        measurements = self.measure(exposure, pfsConfig, fiberProfiles, detectorMap, boxcarWidth, arm)
+
+        lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
+
+        fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
+        spectra = self.extractSpectra.run(
+            exposure.maskedImage,
+            measurements.fiberTraces,
+            measurements.detectorMap,
+            fiberId,
+            True if boxcarWidth > 0 else False,
+        ).spectra
+
+        if self.config.doBlackSpotCorrection:
+            self.blackSpotCorrection.run(pfsConfig, spectra)
+        if self.config.doApplyScreenResponse:
+            self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
+
+        visitInfo = exposure.visitInfo
+        identity = Identity(
+            visit=dataId["exposure"],
+            arm=arm,
+            spectrograph=spectrograph,
+            pfsDesignId=dataId["pfs_design_id"],
+            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
+            expTime=visitInfo.exposureTime,
+        )
+        pfsArm = spectra.toPfsArm(identity)
+        if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
+            self.log.info("Calculating barycentric correction")
+            calculateBarycentricCorrection(pfsArm, pfsConfig)
+
+        pfsArm.metadata.update(metadataToHeader(exposure.getMetadata()))
+        pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
+
+        metadata = exposure.getMetadata()
+        versions = getPfsVersions()
+        for key, value in versions.items():
+            metadata.set(key, value)
+            pfsArm.metadata[key] = value
+
+        return Struct(
+            pfsArm=pfsArm,
+            fiberTraces=measurements.fiberTraces,
+            detectorMapUsed=measurements.detectorMap,
+            lines=measurements.lines,
+            apCorr=measurements.apCorr,
+            lsf=lsf,
+        )
+
+    def checkPfsConfig(self, pfsConfig: PfsConfig, detectorMap: DetectorMap, spectrograph: int) -> PfsConfig:
+        """Check that the PfsConfig is consistent with the DetectorMap
+
+        Parameters
+        ----------
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration with active fibers selected.
+        boxcarWidth : `int`
+            Width of boxcar extraction; use fiberProfiles if <= 0.
+        """
+        kwargs = dict(spectrograph=spectrograph)
         if self.config.targetType:
-            kwargs.update(targetType=[TargetType.fromString(tt) for tt in self.config.targetType])
+            kwargs.update(targetType=TargetType.fromList(self.config.targetType))
 
         # Handle the IIS fibres for the user
+        boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
         if set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus) == set([FiberStatus.GOOD]):
             if self.config.doDetectIIS:
                 if len(set(kwargs["targetType"]) ^ set(~TargetType.ENGINEERING)) == 0:
@@ -557,137 +378,63 @@ class ReduceExposureTask(CmdLineTask):
             if self.config.doBoxcarForIIS:
                 boxcarWidth = self.config.boxcarWidth
 
-        select = pfsConfig.getSelection(**kwargs)
-        if not select.any():
-            raise RuntimeError(f"Selection {kwargs} returns no fibres for dataId "
-                               f"{'%(visit)d %(arm)s%(spectrograph)d}' % sensorRef.dataId}")
-        need = set(pfsConfig.fiberId[select])
+        pfsConfig = pfsConfig.select(**kwargs)
+        if len(pfsConfig) == 0:
+            raise RuntimeError(f"Selection {kwargs} returns no fibers")
+
+        need = set(pfsConfig.fiberId)
         haveDetMap = set(detectorMap.fiberId)
         missingDetMap = need - haveDetMap
         if missingDetMap:
-            uri = sensorRef.getUri("detectorMap")
-            raise RuntimeError(f"detectorMap ({uri}) does not include fibers: {list(sorted(missingDetMap))}")
+            raise RuntimeError(f"detectorMap does not include fibers: {list(sorted(missingDetMap))}")
 
-        pfsConfig = pfsConfig[select]
+        return Struct(pfsConfig=pfsConfig, boxcarWidth=boxcarWidth)
 
-        fiberProfiles = None
-        fiberTraces = None
-        if (
-            self.config.doMeasureLines or
-            (self.config.doAdjustDetectorMap and len(refLines) > 0) or
-            self.config.doExtractSpectra or
-            self.config.doMeasurePsf
-        ):
-            if boxcarWidth <= 0 and sensorRef.datasetExists("fiberProfiles"):
-                fiberProfiles = sensorRef.get("fiberProfiles")
-
-            if fiberProfiles is None:
-                assert boxcarWidth > 0
-                fiberProfiles = FiberProfileSet.makeEmpty(None)
-                for fid in need:        # the Gaussian will be replaced by a boxcar, so params don't matter
-                    fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
-
-            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
-
+    def measure(
+        self,
+        exposure: Exposure,
+        pfsConfig: PfsConfig,
+        fiberProfiles: FiberProfileSet | None,
+        detectorMap: DetectorMap,
+        boxcarWidth: int,
+        arm: str,
+    ) -> Struct:
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+        seed = exposure.visitInfo.id if exposure.visitInfo is not None else 0
         lines = ArcLineSet.empty()
-        traces = None
-        if self.config.doAdjustDetectorMap or self.config.doMeasureLines:
-            if len(refLines) > 0:
-                lines = self.centroidLines.run(
-                    exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=exposure.visitInfo.id
-                )
-            if (
-                self.config.doForceTraces
-                or not lines
-            ):
-                traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-                lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+        if len(refLines) > 0:
+            lines = self.centroidLines.run(
+                exposure, refLines, detectorMap, pfsConfig, fiberTraces, seed=seed
+            )
+        if self.config.doForceTraces or not lines:
+            traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+            lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
-            if self.config.doAdjustDetectorMap:
-                if self.debugInfo.detectorMap:
-                    fiberId = pfsConfig.fiberId  # a set of fibres to display
-                    display = Display(frame=1)
-                    display.mtv(exposure)
-                    detectorMap.display(display, fiberId=fiberId, wavelengths=refLines.wavelength,
-                                        ctype="red", plotTraces=False)
+        if self.config.doAdjustDetectorMap:
+            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, arm, seed=seed).detectorMap
+            if fiberProfiles is not None:
+                # make fiberTraces with new detectorMap
+                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
-                try:
-                    detectorMap = self.adjustDetectorMap.run(
-                        detectorMap,
-                        lines,
-                        sensorRef.dataId["arm"],
-                        seed=exposure.visitInfo.id if exposure.visitInfo is not None else 0,
-                    ).detectorMap
-                except (FittingError, RuntimeError) as exc:
-                    if self.config.requireAdjustDetectorMap:
-                        raise
-                    self.log.warn("DetectorMap adjustment failed: %s", exc)
-                except RuntimeError as exc:
-                    self.log.warn("DetectorMap adjustment failed: %s", exc)
+        # Update photometry using best detectorMap
+        notTrace = lines.description != "Trace"
+        phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+        apCorr = phot.apCorr
 
-                if self.debugInfo.detectorMap:
-                    detectorMap.display(display, fiberId=fiberId[::5], wavelengths=refLines.wavelength,
-                                        ctype="green", plotTraces=False)
+        # Copy results to the one list of lines that we return
+        lines.flux[notTrace] = phot.lines.flux
+        lines.fluxErr[notTrace] = phot.lines.fluxErr
+        lines.fluxNorm[notTrace] = phot.lines.fluxNorm
+        lines.flag[notTrace] |= phot.lines.flag
 
-                outputId = sensorRef.dataId.copy()
-                outputId["visit0"] = outputId["visit"]
-                outputId["calibDate"] = outputId["dateObs"]
-                outputId["calibTime"] = outputId["taiObs"]
-                setCalibHeader(detectorMap.metadata, "detectorMap", [sensorRef.dataId["visit"]], outputId)
-                date = datetime.now().isoformat()
-                history = f"reduceExposure on {date} with visit={sensorRef.dataId['visit']}"
-                detectorMap.metadata.add("HISTORY", history)
-
-                if fiberProfiles is not None:
-                    # make fiberTraces with new detectorMap
-                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
-
-        sensorRef.put(detectorMap, "detectorMap_used")
-
-        if self.config.doMeasurePsf:
-            psf = self.measurePsf.runSingle(exposure, detectorMap)
-            lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
-        else:
-            psf = None
-            lsf = self.defaultLsf(sensorRef.dataId["arm"], pfsConfig.fiberId, detectorMap)
-
-        # Update photometry using best detectorMap, PSF
-        apCorr = None
-        if self.config.doMeasureLines:
-            notTrace = lines.description != "Trace"
-            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
-            apCorr = phot.apCorr
-
-            # Copy results to the one list of lines that we return
-            lines.flux[notTrace] = phot.lines.flux
-            lines.fluxErr[notTrace] = phot.lines.fluxErr
-            lines.fluxNorm[notTrace] = phot.lines.fluxNorm
-            lines.flag[notTrace] |= phot.lines.flag
-
-            if apCorr is not None:
-                sensorRef.put(phot.apCorr, "apCorr")
-
-        return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      pfsConfig=pfsConfig, refLines=refLines, lines=lines, apCorr=apCorr, psf=psf, lsf=lsf)
-
-    def calculateLsf(self, psf, fiberTraceSet, length):
-        """Calculate the LSF for this exposure
-
-        Parameters
-        ----------
-        psf : `pfs.drp.stella.SpectralPsf`
-            Point-spread function for spectral data.
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
-            Traces for each fiber.
-        length : `int`
-            Array length.
-
-        Returns
-        -------
-        lsf : `dict` (`int`: `pfs.drp.stella.ExtractionLsf`)
-            Line-spread functions, indexed by fiber identifier.
-        """
-        return {ft.fiberId: ExtractionLsf(psf, ft, length) for ft in fiberTraceSet}
+        return Struct(
+            refLines=refLines,
+            lines=lines,
+            apCorr=apCorr,
+            detectorMap=detectorMap,
+            fiberTraces=fiberTraces,
+        )
 
     def defaultLsf(self, arm, fiberId, detectorMap):
         """Generate a default LSF for this exposure
@@ -703,44 +450,11 @@ class ReduceExposureTask(CmdLineTask):
 
         Returns
         -------
-        lsf : `dict` (`int`: `pfs.drp.stella.GaussianLsf`)
+        lsf : `LsfDict`
             Line-spread functions, indexed by fiber identifier.
         """
         length = detectorMap.bbox.getHeight()
         sigma = self.config.gaussianLsfWidth[arm]
-        return {ff: GaussianLsf(length, sigma/detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
-
-    def plotSpectra(self, spectra):
-        """Plot spectra
-
-        The spectra from different fibers are shown as different colors.
-        Points with non-zero mask are drawn as dotted lines, while good points
-        are solid.
-
-        Parameters
-        ----------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra from spectrograph arm.
-        """
-        import matplotlib.pyplot as plt
-        import matplotlib.cm
-
-        fiberId = set()
-        fiberId.update(set(ss.fiberId for ss in spectra))
-        fiberId = dict(zip(fiberId, matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))))
-
-        figure, axes = plt.subplots()
-        for ii, ss in enumerate(spectra):
-            color = fiberId[ss.fiberId]
-            axes.plot(ss.wavelength, ss.spectrum, ls="solid", color=color)
-            bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask(["BAD_FLAT", "CR", "NO_DATA", "SAT"])) != 0
-            if np.any(bad):
-                axes.plot(ss.wavelength[bad], ss.spectrum[bad], ".", color=color)
-
-        axes.set_xlabel("Wavelength (nm)")
-        axes.set_ylabel("Flux")
-        figure.show()
-        input("Hit ENTER to continue... ")
-
-    def _getMetadataName(self):
-        return None
+        return LsfDict(
+            {ff: GaussianLsf(length, sigma/detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
+        )

@@ -1,3 +1,5 @@
+import numpy as np
+
 from lsst.pex.config import ConfigurableField, Field
 from lsst.afw.image import Exposure
 from lsst.pipe.base import Struct
@@ -52,6 +54,13 @@ class IsrTask(PfsIsrTask):
         it uses the PSF, which needs to be measured from the image).
         """
         result = super().run(*args, **kwargs)
+        exposure = result.exposure
+
+        # Remove negative variance (because we can have very low count levels)
+        bad = np.where(exposure.variance.array < 0)
+        exposure.variance.array[bad] = np.inf
+        exposure.mask.array[bad] |= exposure.mask.getPlaneBitMask("BAD")
+
         if self.config.doRepair:
             self.repairExposure(result.exposure)
         return result
