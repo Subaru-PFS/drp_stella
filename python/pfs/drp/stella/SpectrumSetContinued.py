@@ -31,17 +31,13 @@ class SpectrumSet:  # noqa: F811 (redefinition)
     """
     fileNameRegex = r"^pfsArm-(\d{6})-([brnm])(\d)\.fits.*$"
 
-    def toPfsArm(self, dataId):
+    def toPfsArm(self, identity: Identity):
         """Convert to a `pfs.datamodel.PfsArm`
 
         Parameters
         ----------
-        dataId : `dict`
-            Data identifier, which is expected to contain:
-
-            - ``visit`` (`int`): exposure number
-            - ``spectrograph`` (`int`): spectrograph number
-            - ``arm`` (`str`: "b", "r", "m" or "n"): spectrograph arm
+        identity : `pfs.datamodel.Identity`
+            Identity of the spectra.
 
         Returns
         -------
@@ -57,7 +53,6 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         for ii, ss in enumerate(self):
             covar[ii] = ss.getCovariance()
         metadata = getPfsVersions()
-        identity = Identity.fromDict(dataId)
         notes = PfsArm.NotesClass(**{
             col.name: np.array([self[ii].notes.get(col.name, col.default) for ii in range(numSpectra)])
             for col in PfsArm.NotesClass.schema

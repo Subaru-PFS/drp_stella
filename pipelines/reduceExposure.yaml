@@ -4,14 +4,7 @@ tasks:
     class: pfs.drp.stella.pipelines.IsrTask
     config:
       connections.ccdExposure: raw.exposure
-      doRepair: False  # Will be done as part of extractSpectra
-  measureDetectorMap:
-    class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
-  measurePhotometry:
-    class: pfs.drp.stella.pipelines.MeasurePhotometryTask
-  fitSky2d:
-    class: pfs.drp.stella.pipelines.FitSky2dTask
-  extractSpectra:
-    class: pfs.drp.stella.pipelines.ExtractSpectraTask
+  reduceExposure:
+    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask
