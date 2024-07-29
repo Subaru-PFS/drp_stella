@@ -973,8 +973,9 @@ class PolynomialPerFiber(FocalPlaneFunction):
             if robust:
                 rms[ff] = robustRms(residuals)
             else:
-                weights = 1.0 / errors[ii][choose] ** 2
-                rms[ff] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
+                with np.errstate(divide="ignore"):
+                    weights = 1.0 / errors[ii][choose] ** 2
+                    rms[ff] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
 
         return cls(coeffs, rms, minWavelength, maxWavelength)
 
