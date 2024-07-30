@@ -36,13 +36,6 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         dimensions=("instrument", "exposure"),
     )
 
-    # We'll choose one based on the config parameter 'useBootstrapDetectorMap'
-    bootstrapDetectorMap = PrerequisiteConnection(
-        name="detectorMap_bootstrap",
-        doc="Mapping from fiberId,wavelength to x,y: derived from instrument model",
-        storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
-    )
     calibDetectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
@@ -58,21 +51,10 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         dimensions=("instrument", "exposure", "detector"),
     )
 
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-
-        if not config:
-            return
-        if config.useBootstrapDetectorMap:
-            self.prerequisiteInputs.remove("calibDetectorMap")
-        else:
-            self.prerequisiteInputs.remove("bootstrapDetectorMap")
-
 
 class MeasureCentroidsConfig(PipelineTaskConfig, pipelineConnections=MeasureCentroidsConnections):
     """Configuration for MeasureCentroidsTask"""
 
-    useBootstrapDetectorMap = Field(dtype=bool, default=False, doc="Use bootstrap detectorMap?")
     readLineList = ConfigurableField(
         target=ReadLineListTask, doc="Read line lists for detectorMap adjustment"
     )
@@ -103,25 +85,11 @@ class MeasureCentroidsTask(PipelineTask):
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
-        """Entry point with butler I/O
-
-        Parameters
-        ----------
-        butler : `QuantumContext`
-            Data butler, specialised to operate in the context of a quantum.
-        inputRefs : `InputQuantizedConnection`
-            Container with attributes that are data references for the various
-            input connections.
-        outputRefs : `OutputQuantizedConnection`
-            Container with attributes that are data references for the various
-            output connections.
-        """
         inputs = butler.get(inputRefs)
-        inputs["detectorMap"] = inputs.pop(
-            ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        )
+        inputs["detectorMap"] = inputs.pop("calibDetectorMap")
+
         outputs = self.run(**inputs)
-        butler.put(outputs.centroids, outputRefs.centroids)
+        butler.put(outputs, outputRefs)
         return outputs
 
     def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap):
@@ -188,9 +156,7 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
         outputRefs: OutputQuantizedConnection,
     ):
         inputs = butler.get(inputRefs)
-        inputs["detectorMap"] = inputs.pop(
-            ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        )
+        inputs["detectorMap"] = inputs.pop("calibDetectorMap")
 
         arm = inputRefs.exposure.dataId.arm.name
         assert arm in "brnm"

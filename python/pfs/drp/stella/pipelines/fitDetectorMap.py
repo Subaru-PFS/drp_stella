@@ -30,14 +30,6 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         multiple=True,
     )
 
-    # We'll choose one based on the config parameter 'useBootstrapDetectorMap'
-    bootstrapDetectorMap = PrerequisiteConnection(
-        name="detectorMap_bootstrap",
-        doc="Mapping from fiberId,wavelength to x,y: derived from instrument model",
-        storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
-        multiple=True,
-    )
     calibDetectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
@@ -70,21 +62,10 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         isCalibration=True,
     )
 
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-
-        if not config:
-            return
-        if config.useBootstrapDetectorMap:
-            self.prerequisiteInputs.remove("calibDetectorMap")
-        else:
-            self.prerequisiteInputs.remove("bootstrapDetectorMap")
-
 
 class FitDetectorMapConfig(PipelineTaskConfig, pipelineConnections=FitDetectorMapConnections):
     """Configuration for FitDetectorMapTask"""
 
-    useBootstrapDetectorMap = Field(dtype=bool, default=False, doc="Use bootstrap detectorMap?")
     fitDetectorMap = ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
 
 
@@ -133,11 +114,10 @@ class FitDetectorMapTask(PipelineTask):
         dataId = dict(arm=arm, spectrograph=spectrograph)
 
         # Get only the first detectorMap, visitInfo and metadata
-        detectorMapKey = ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", detectorMapKey)
+        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "calibDetectorMap")
         first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
 
-        detectorMap = getattr(data, detectorMapKey)[first]
+        detectorMap = data.calibDetectorMap[first]
         outputs = self.run(dataId, data.arcLines, data.visitInfo[first], data.metadata[first], detectorMap)
         butler.put(outputs, outputRefs)
 
