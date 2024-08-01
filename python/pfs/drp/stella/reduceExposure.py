@@ -109,7 +109,7 @@ class ReduceExposureConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "exposure", "detector"),
     )
     detectorMapUsed = OutputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="DetectorMap used for extraction",
         storageClass="DetectorMap",
         dimensions=("instrument", "exposure", "detector"),

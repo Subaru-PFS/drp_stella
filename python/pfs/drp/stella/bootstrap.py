@@ -51,7 +51,7 @@ class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "d
     )
 
     detectorMap = OutputConnection(
-        name="detectorMap_calib",
+        name="detectorMap_bootstrap",
         doc="Mapping of fiberId,wavelength to x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),

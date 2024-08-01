@@ -123,7 +123,7 @@ class MeasureDetectorMapConnections(MeasureCentroidsConnections):
     """Connections for MeasureDetectorMapTask"""
 
     outputDetectorMap = OutputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Corrected mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "exposure", "detector"),

@@ -10,12 +10,14 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from lsst.daf.butler import (
     Butler,
+    CollectionType,
     DataCoordinate,
     DatasetRef,
     DatasetType,
     DimensionGraph,
     FileDataset,
     Registry,
+    Timespan,
 )
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
@@ -23,6 +25,7 @@ from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.skymap import BaseSkyMap
+from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
 from pfs.drp.stella.datamodel import PfsConfig
 
@@ -528,3 +531,77 @@ def ingestPfsConfig(
 
     log.info("Ingesting files...")
     butler.ingest(*datasets, transfer=transfer)
+
+
+def certifyDetectorMaps(
+    repo: str,
+    instrument: str,
+    datasetType: str,
+    collection: str,
+    target: str,
+    timespan: Timespan,
+    transfer: Optional[str] = "copy",
+) -> None:
+    """Ingest and certify detectorMaps.
+
+    Building PFS detectorMaps frequently uses the calib detectorMap as part of
+    the process of fitting a new detectorMap (e.g., for the centroiding
+    starting point, and the slit offsets). In order to avoid cycles when
+    building the detectorMap, we write the new detectorMap as a separate
+    dataset type from the calib detectorMap dataset type.
+
+    This function copies the new detectorMaps as calib detectorMaps, and then
+    certifies them for new use as calibs.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    datasetType : `str`
+        Dataset type of the detectorMaps to certify.
+    collection : `str`
+        The collection containing the files to certify.
+    target : `str`
+        The collection to which the certified detectorMaps will be added.
+    timespan : `Timespan`
+        Timespan to use for certification.
+    transfer : `str`, optional
+        Transfer mode to use for ingest. If not `None`, must be one of 'auto',
+        'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
+        'symlink'.
+    """
+    log = logging.getLogger("certifyDetectorMaps")
+    run = collection + "/certify"
+    butler = Butler(repo, run=run)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    fromType = registry.getDatasetType(datasetType)
+    toType = registry.getDatasetType("detectorMap_calib")
+    dimensions = registry.dimensions.extract(["instrument"])
+
+    query = list(registry.queryDatasets(
+        fromType, collections=collection, dimensions=dimensions, instrument=instrumentName
+    ))
+    if not query:
+        log.warn("No detectorMaps found.")
+        return
+    datasets = []
+    for ref in query:
+        log.info("Ingesting %s ...", ref.dataId)
+        uri = butler.getURI(ref)
+        dataId = dict(instrument=instrumentName, detector=ref.dataId["detector"])
+        new = DatasetRef(toType, dataId, run)
+        datasets.append(FileDataset(path=uri, refs=[new], formatter=DetectorMapFormatter))
+
+    with registry.transaction():
+        butler.ingest(*datasets, transfer=transfer)
+
+        log.info("Certifying newly-ingested detectorMaps...")
+        query = list(registry.queryDatasets(toType, collections=run))
+        if not datasets:
+            raise RuntimeError("Unable to find newly-ingested detectorMaps!")
+        registry.registerCollection(target, type=CollectionType.CALIBRATION)
+        registry.certify(target, query, timespan)

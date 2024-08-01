@@ -55,7 +55,7 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
     )
 
     detectorMap = OutputConnection(
-        name="detectorMap_calib",
+        name="detectorMap_candidate",
         doc="Mapping between fiberId,wavelength and x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "detector"),
