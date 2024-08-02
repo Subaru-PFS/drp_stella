@@ -74,22 +74,23 @@ def applyFiberNorms(
                 f"Hash mismatch for fiberProfiles: {gotHash} != {expectHash}"
             )
 
-    # Apply normalisation to each fiber
-    missingFiberId = set()
     badFiberNorms = pfsArm.flags.add("BAD_FIBERNORMS")
-    for ii, fiberId in enumerate(pfsArm.fiberId):
-        if fiberId in fiberNorms:
-            nn = fiberNorms[fiberId]
+    fiberNorms = fiberNorms.select(fiberId=pfsArm.fiberId)
 
-            bad = (nn == 0.0) | ~np.isfinite(nn)
-            if np.any(bad):
-                nn[bad] = 1.0
-                pfsArm.mask[ii][bad] |= badFiberNorms
+    # Catch fibers without a fiberNorms entry
+    missingFiberId = set(pfsArm.fiberId) - set(fiberNorms.fiberId)
+    if missingFiberId:
+        missing = pfsArm.select(fiberId=list(missingFiberId))
+        missing.mask |= badFiberNorms
+        pfsArm = pfsArm.select(fiberId=fiberNorms.fiberId)
 
-            pfsArm.norm[ii] *= nn
-        else:
-            missingFiberId.add(fiberId)
-            pfsArm.mask[ii] |= badFiberNorms
+    # Apply the fiberNorms
+    assert np.array_equal(pfsArm.fiberId, fiberNorms.fiberId)
+    bad = (fiberNorms.values == 0.0) | ~np.isfinite(fiberNorms.values)
+    if np.any(bad):
+        fiberNorms.values[bad] = 1.0
+        pfsArm.mask[bad] |= badFiberNorms
+    pfsArm.norm *= fiberNorms.values
 
     return missingFiberId
 
