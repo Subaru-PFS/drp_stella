@@ -1,9 +1,12 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
+import numpy as np
+
+from lsst.geom import Box2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 from lsst.daf.butler import DataCoordinate
-from lsst.pex.config import ConfigurableField, Field
+from lsst.pex.config import ConfigurableField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
@@ -13,7 +16,6 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from pfs.drp.stella.gen3 import readDatasetRefs
 
 from ..arcLine import ArcLineSet
-from ..DetectorMapContinued import DetectorMap
 from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
 
 __all__ = ("FitDetectorMapTask",)
@@ -30,13 +32,20 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         multiple=True,
     )
 
-    calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap_calib",
+    slitOffsets = PrerequisiteConnection(
+        name="detectorMap_calib.slitOffsets",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
-        storageClass="DetectorMap",
+        storageClass="NumpyArray",
         dimensions=("instrument", "detector"),
-        multiple=True,
         isCalibration=True,
+    )
+
+    bbox = InputConnection(
+        name="postISRCCD.bbox",
+        doc="Bounding box for detector",
+        storageClass="Box2I",
+        dimensions=("instrument", "exposure", "detector"),
+        multiple=True,
     )
 
     visitInfo = InputConnection(
@@ -61,6 +70,13 @@ class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "detector"),
         isCalibration=True,
     )
+
+    def __init__(self, *, config=None):
+        super().__init__(config=config)
+        if not config:
+            return
+        if config.fitDetectorMap.doSlitOffsets:
+            self.prerequisiteInputs.remove("slitOffsets")
 
 
 class FitDetectorMapConfig(PipelineTaskConfig, pipelineConnections=FitDetectorMapConnections):
@@ -114,11 +130,17 @@ class FitDetectorMapTask(PipelineTask):
         dataId = dict(arm=arm, spectrograph=spectrograph)
 
         # Get only the first detectorMap, visitInfo and metadata
-        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "calibDetectorMap")
+        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "bbox")
         first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
 
-        detectorMap = data.calibDetectorMap[first]
-        outputs = self.run(dataId, data.arcLines, data.visitInfo[first], data.metadata[first], detectorMap)
+        outputs = self.run(
+            dataId,
+            data.arcLines,
+            data.visitInfo[first],
+            data.metadata[first],
+            data.bbox[first],
+            butler.get(inputRefs.slitOffsets) if not self.config.fitDetectorMap.doSlitOffsets else None,
+        )
         butler.put(outputs, outputRefs)
 
     def run(
@@ -127,7 +149,8 @@ class FitDetectorMapTask(PipelineTask):
         arcLines: Iterable[ArcLineSet],
         visitInfo: VisitInfo,
         metadata: PropertyList,
-        detectorMap: DetectorMap,
+        bbox: Box2I,
+        slitOffsets: Optional[np.ndarray] = None,
     ):
         """Fit a detectorMap based on centroids measured on multiple exposures
 
@@ -142,9 +165,10 @@ class FitDetectorMapTask(PipelineTask):
             Visit information to apply to the detectorMap.
         metadata : `PropertyList`
             Metadata (header) to apply to the detectorMap.
-        detectorMap : `DetectorMap`
-            Previous detectorMap. This is used for the bounding box and the
-            slit offsets.
+        bbox : `Box2I`
+            Bounding box for the detector.
+        slitOffsets : `numpy.ndarray` of `float`, optional
+            Slit offsets to apply to the detectorMap.
 
         Returns
         -------
@@ -177,10 +201,10 @@ class FitDetectorMapTask(PipelineTask):
         """
         return self.fitDetectorMap.run(
             dataId,
-            detectorMap.bbox,
+            bbox,
             sum(arcLines, ArcLineSet.empty()),
             visitInfo,
             metadata,
-            detectorMap.getSpatialOffsets(),
-            detectorMap.getSpectralOffsets(),
+            slitOffsets[0] if slitOffsets is not None else None,
+            slitOffsets[1] if slitOffsets is not None else None,
         )
