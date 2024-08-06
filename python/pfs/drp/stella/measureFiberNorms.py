@@ -6,57 +6,25 @@ if TYPE_CHECKING:
 import numpy as np
 import astropy.io.fits
 
-import lsst.log
-
 from lsst.pex.config import Field, ListField
-from lsst.pipe.base import CmdLineTask, Struct, ArgumentParser, TaskRunner
-from lsst.daf.persistence import ButlerDataRef
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel import CalibIdentity, PfsConfig
 
+from .calibs import setCalibHeader
 from .combineSpectra import combineSpectraSets
-from .constructSpectralCalibs import setCalibHeader
 from .datamodel import PfsArm, PfsFiberNorms
 from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
 
-class MeasureFiberNormsRunner(TaskRunner):
-    """Runner for MeasureFiberNormsTask
-
-    Gen2 middleware input parsing.
-    """
-    @staticmethod
-    def getTargetList(parsedCmd, **kwargs):
-        """Produce list of targets for MeasureFiberNormsTask
-
-        We operate on sets of arms.
-        """
-        groups = defaultdict(lambda: defaultdict(list))
-        for ref in parsedCmd.id.refList:
-            arm = ref.dataId["arm"]
-            spectrograph = ref.dataId["spectrograph"]
-            groups[arm][spectrograph].append(ref)
-
-        if not parsedCmd.single:
-            return [(groups[arm], kwargs) for arm in groups.keys()]
-
-        # Want to split the groups by visit as well
-        targets = []
-        for spectrographRefs in groups.values():
-            visitGroups = defaultdict(lambda: defaultdict(list))
-            for spectrograph, refs in spectrographRefs.items():
-                for ref in refs:
-                    visit = ref.dataId["visit"]
-                    visitGroups[visit][spectrograph].append(ref)
-            targets += [(specRefs, kwargs) for specRefs in visitGroups.values()]
-        return targets
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):
@@ -71,11 +39,12 @@ class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrum
         dimensions=("instrument", "exposure", "detector"),
         multiple=True,
     )
-    pfsConfig = InputConnection(
+    pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end configuration",
         storageClass="PfsConfig",
         dimensions=("instrument", "exposure"),
+        multiple=True,
     )
     fiberNorms = OutputConnection(
         name="fiberNorms_meas",
@@ -101,52 +70,11 @@ class MeasureFiberNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureFib
     plotUpper = Field(dtype=float, default=2.5, doc="Upper bound for plot (standard deviations from median)")
 
 
-class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
+class MeasureFiberNormsTask(PipelineTask):
     """Task to measure fiber normalization values"""
 
     ConfigClass = MeasureFiberNormsConfig
-    RunnerClass = MeasureFiberNormsRunner
     _DefaultName = "measureFiberNorms"
-
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Make an ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsArm", help="data IDs, e.g. --id exp=12345")
-        parser.add_argument("--single", action="store_true", default=False, help="Run on a single visit")
-        return parser
-
-    def runDataRef(self, dataRefs: Dict[int, List[ButlerDataRef]]) -> Struct:
-        """Run on a list of data references
-
-        Gen2 middleware entry point.
-
-        Parameters
-        ----------
-        dataRefs : `dict` mapping `int` to `list` of `lsst.daf.butler.DataRef`
-            Data references for multiple visits, indexed by spectrograph number.
-
-        Returns
-        -------
-        fiberNorms : `lsst.afw.table.SimpleCatalog`
-            Fiber normalization values
-        """
-        pfsArms = {spec: [dataRef.get("pfsArm") for dataRef in dataRefList]
-                   for spec, dataRefList in dataRefs.items()}
-        pfsConfig = next(iter(dataRefs.values()))[0].get("pfsConfig")
-
-        arm = set((dataRef.dataId["arm"] for dataRefList in dataRefs.values() for dataRef in dataRefList))
-        assert len(arm) == 1, f"Multiple arms: {arm}"
-        lsst.log.MDC("LABEL", arm.pop())
-
-        result = self.run(pfsArms, pfsConfig)
-
-        ref = dataRefs.popitem()[1][0]
-        ref.put(result.fiberNorms, "fiberNorms_meas")
-        if self.config.doPlot:
-            ref.put(result.plot, "fiberNorms_plot")
-
-        return result
 
     def runQuantum(
         self,
@@ -171,10 +99,10 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         for ref in DatasetRefList.fromList(inputRefs.pfsArm):
             spectrograph = ref.dataId["spectrograph"]
             groups[spectrograph].append(butler.get(ref))
-        pfsConfig = butler.get(inputRefs[0].pfsConfig)
+        pfsConfig = butler.get(inputRefs.pfsConfig[0])
 
         outputs = self.run(groups, pfsConfig)
-        butler.get(outputs.fiberNorms, outputRefs.fiberNorms)
+        butler.put(outputs.fiberNorms, outputRefs.fiberNorms)
 
     def run(self, armSpectra: Dict[int, List[PfsArm]], pfsConfig: PfsConfig) -> Struct:
         """Measure fiber normalization values
@@ -414,6 +342,3 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
         return fig
 
-    def _getMetadataName(self):
-        """Suppress output of task metadata"""
-        return None
