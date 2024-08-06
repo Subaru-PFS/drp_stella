@@ -6,5 +6,7 @@ tasks:
       connections.ccdExposure: raw.exposure
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+  fiberNorms:  # Produce fiberNorms for quartz exposures only
+    class: pfs.drp.stella.measureFiberNorms.ExposureFiberNormsTask
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask

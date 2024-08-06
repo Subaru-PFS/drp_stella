@@ -76,7 +76,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         multiple=True,
     )
     fiberNorms = PrerequisiteConnection(
-        name="fiberNorms",
+        name="fiberNorms_calib",
         doc="Fiber normalisations",
         storageClass="PfsFiberNorms",
         dimensions=("instrument", "exposure", "arm"),

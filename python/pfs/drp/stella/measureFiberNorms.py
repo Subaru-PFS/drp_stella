@@ -25,12 +25,15 @@ from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
 
+__all__ = ("MeasureFiberNormsTask", "ExposeFiberNormsTask")
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):
     """Pipeline connections for MeasureFiberNormsTask
 
     Gen3 middleware pipeline input/output definitions.
+
+    This version coadds the spectra from multiple exposures.
     """
     pfsArm = InputConnection(
         name="pfsArm",
@@ -47,10 +50,11 @@ class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrum
         multiple=True,
     )
     fiberNorms = OutputConnection(
-        name="fiberNorms_meas",
+        name="fiberNorms_calib",
         doc="Measured fiber normalisations",
         storageClass="PfsFiberNorms",
         dimensions=("instrument", "arm"),
+        isCalibration=True,
     )
 
 
@@ -342,3 +346,71 @@ class MeasureFiberNormsTask(PipelineTask):
         axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
         return fig
 
+
+class ExposureFiberNormsConnections(
+    MeasureFiberNormsConnections, dimensions=("instrument", "arm", "exposure")
+):
+    """Pipeline connections for MeasureFiberNormsExposureTask
+
+    Gen3 middleware pipeline input/output definitions.
+
+    This version works on a single exposure.
+    """
+    fiberNorms = OutputConnection(
+        name="fiberNorms",
+        doc="Measured fiber normalisations",
+        storageClass="PfsFiberNorms",
+        dimensions=("instrument", "arm", "exposure"),
+    )
+
+
+class ExposureFiberNormsConfig(MeasureFiberNormsConfig, pipelineConnections=ExposureFiberNormsConnections):
+    """Configuration for ExposureFiberNormsExposureTask"""
+    requireQuartz = Field(dtype=bool, default=True, doc="Require quartz lamp data to measure fiberNorms?")
+
+
+class ExposureFiberNormsTask(MeasureFiberNormsTask):
+    """Measure fiberNorms for a single exposure"""
+    ConfigClass = ExposureFiberNormsConfig
+
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with Gen3 butler I/O
+
+        Parameters
+        ----------
+        butler : `QuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        if self.config.requireQuartz:
+            dataId = inputRefs.pfsArm[0].dataId
+            if dataId.records["exposure"].lamps != "Quartz":
+                self.log.info("Ignoring non-quartz exposure %s", dataId)
+                return  # Nothing to do
+        return super().runQuantum(butler, inputRefs, outputRefs)
+
+    def coaddSpectra(self, pfsArmList: List[PfsArm]) -> PfsArm:
+        """Coadd spectra
+
+        Parameters
+        ----------
+        pfsArmList : `list` of `pfs.datamodel.PfsArm`
+            List of pfsArm.
+
+        Returns
+        -------
+        spectra : `pfs.datamodel.PfsArm`
+            Coadded spectra
+        """
+        assert len(pfsArmList) == 1
+        return pfsArmList[0]
