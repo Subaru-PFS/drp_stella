@@ -35,7 +35,7 @@ class MeasureFiberProfilesConnections(
         deferLoad=True,
     )
     detectorMap = InputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "exposure", "detector"),

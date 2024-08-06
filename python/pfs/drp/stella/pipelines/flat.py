@@ -234,7 +234,8 @@ class FlatCombineTask(CalibCombineTask):
             bad = (exp.mask.array & noData) != 0
             exp.mask.array[bad] &= ~noData
             weight = exp.variance.clone()
-            weight.array[:] = 1.0 / weight.array
+            with np.errstate(divide="ignore"):
+                weight.array[:] = 1.0 / weight.array
             weight.array[bad] = 0.0
             image *= weight
 

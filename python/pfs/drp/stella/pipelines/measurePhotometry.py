@@ -40,7 +40,7 @@ class MeasurePhotometryConnections(
         dimensions=("instrument", "exposure"),
     )
     detectorMap = InputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
         dimensions=("instrument", "exposure", "detector"),

@@ -1,30 +1,73 @@
+import os
+from typing import Callable
 from types import SimpleNamespace
 from operator import attrgetter
 from datetime import datetime
-from collections import defaultdict
 import numpy as np
 from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 
-from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
-from lsst.pex.config import Config, Field, ConfigurableField, ListField
-from lsst.obs.pfs.isrTask import PfsIsrTask
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base import QuantumContext
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+from lsst.daf.butler import DatasetRef
+
+from lsst.pipe.base import Struct
+from lsst.pex.config import Field, ConfigurableField, ListField
+from lsst.afw.image import Exposure
+from lsst.utils import getPackageDir
 
 from pfs.datamodel import FiberStatus, CalibIdentity
 from pfs.datamodel.pfsConfig import TargetType
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
+from .datamodel import PfsConfig
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
 from .readLineList import ReadLineListTask
-from .constructSpectralCalibs import setCalibHeader
-from . import SplinedDetectorMap
+from .calibs import setCalibHeader
+from .DetectorMapContinued import DetectorMap
+from . import SplinedDetectorMap, FiberTraceSet
 
 import lsstDebug
 
 
-class BootstrapConfig(Config):
+class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "detector")):
+    """Connections for MergeArmsTask"""
+    exposure = InputConnection(
+        name="postISRCCD",
+        doc="ISR-processed exposures; there should be one arc and one quartz",
+        storageClass="Exposure",
+        dimensions=("instrument", "exposure", "detector"),
+        multiple=True,
+    )
+    pfsConfig = InputConnection(
+        name="pfsConfig",
+        doc="Top-end fiber configuration; there should be one arc and one quartz",
+        storageClass="PfsConfig",
+        dimensions=("instrument", "exposure"),
+        multiple=True,
+    )
+
+    detectorMap = OutputConnection(
+        name="detectorMap_bootstrap",
+        doc="Mapping of fiberId,wavelength to x,y",
+        storageClass="DetectorMap",
+        dimensions=("instrument", "detector"),
+        isCalibration=True,
+    )
+
+
+class BootstrapConfig(PipelineTaskConfig, pipelineConnections=BootstrapConnections):
     """Configuration for BootstrapTask"""
-    isr = ConfigurableField(target=PfsIsrTask, doc="Instrumental signature removal")
+    detectorMap = Field(
+        dtype=str,
+        doc="Template for detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
+        default=os.path.join(
+            getPackageDir("drp_pfs_data"), "detectorMap", "detectorMap-sim-%(arm)s%(spectrograph)s.fits"
+        ),
+    )
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Fiber profiles")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
@@ -55,47 +98,10 @@ class BootstrapConfig(Config):
     def setDefaults(self):
         super().setDefaults()
         self.profiles.doBlindFind = True  # We can't trust the detectorMap
+        self.findLines.threshold = 50.0  # We only care about bright lines
 
 
-class BootstrapRunner(TaskRunner):
-    @classmethod
-    def getTargetList(cls, parsedCmd, **kwargs):
-        """Produce list of targets
-
-        We only want to operate on a single flat and single arc, together.
-        """
-        flatArms = defaultdict(dict)
-        for ref in parsedCmd.flatId.refList:
-            arm = ref.dataId["arm"]
-            spec = ref.dataId["spectrograph"]
-            if arm in flatArms[spec]:
-                raise RuntimeError(f"Multiple flat exposures specified for arm={arm} spectrograph={spec}")
-            flatArms[spec][arm] = ref
-
-        arcArms = defaultdict(dict)
-        for ref in parsedCmd.arcId.refList:
-            arm = ref.dataId["arm"]
-            spec = ref.dataId["spectrograph"]
-            if arm in arcArms[spec]:
-                raise RuntimeError(f"Multiple arc exposures specified for arm={arm} spectrograph={spec}")
-            arcArms[spec][arm] = ref
-
-        flats = set([(ss, aa) for ss in flatArms for aa in flatArms[ss]])
-        arcs = set([(ss, aa) for ss in arcArms for aa in arcArms[ss]])
-        missingArcs = flats - arcs
-        missingFlats = arcs - flats
-        if missingArcs:
-            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingArcs)
-            raise RuntimeError(f"No arcs provided for flats: {missing}")
-        if missingFlats:
-            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingFlats)
-            raise RuntimeError(f"No flats provided for arcs: {missing}")
-        assert flats == arcs
-
-        return [(flatArms[ss][aa], dict(arcRef=arcArms[ss][aa])) for ss, aa in flats]
-
-
-class BootstrapTask(CmdLineTask):
+class BootstrapTask(PipelineTask):
     """Bootstrap a detectorMap
 
     We have a reasonable detectorMap from the optical model + 2D simulator.
@@ -106,24 +112,90 @@ class BootstrapTask(CmdLineTask):
     """
     _DefaultName = "bootstrap"
     ConfigClass = BootstrapConfig
-    RunnerClass = BootstrapRunner
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("isr")
         self.makeSubtask("profiles")
         self.makeSubtask("readLineList")
         self.makeSubtask("findLines")
 
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Build a suitable ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--flatId", "raw", help="data ID for flat, e.g., visit=12345")
-        parser.add_id_argument("--arcId", "raw", help="data ID for arc, e.g., visit=54321")
-        return parser
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection
+    ) -> None:
+        """Entry point for Gen3 middleware"""
 
-    def runDataRef(self, flatRef, arcRef):
+        def chooseOne(datasetName: str, select: Callable[[DatasetRef], bool], kind: str) -> DatasetRef:
+            """Choose one of the inputs
+
+            Parameters
+            ----------
+            name : `str`
+                Name of the input.
+            select : `Callable`
+                Function to select the input. Receives a dataset reference and
+                returns whether the reference should be selected.
+            kind : `str`
+                Kind of dataset reference being selected; used for error
+                message.
+
+            Raises
+            ------
+            RuntimeError
+                If the number of selected references is not 1.
+
+            Returns
+            -------
+            ref : `DatasetRef`
+                Selected dataset reference.
+            """
+            refList = getattr(inputRefs, datasetName)
+            if len(refList) != 2:
+                raise RuntimeError(f"Expected 2 dataset references in {datasetName}, found {len(refList)}")
+            newRefList = [ref for ref in refList if select(ref)]
+            if len(newRefList) != 1:
+                raise RuntimeError(f"Expected exactly 1 {kind} in {datasetName}, found {len(newRefList)}")
+            return newRefList[0]
+
+        arcExposure = chooseOne(
+            "exposure", lambda ref: ref.dataId.records["exposure"].lamps != "Quartz", "arc"
+        )
+        quartzExposure = chooseOne(
+            "exposure", lambda ref: ref.dataId.records["exposure"].lamps == "Quartz", "quartz"
+        )
+        arcId = arcExposure.dataId["exposure"]
+        quartzId = quartzExposure.dataId["exposure"]
+        arcConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["exposure"] == arcId, "arc")
+        quartzConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["exposure"] == quartzId, "quartz")
+
+        dataId = arcExposure.dataId
+        identity = CalibIdentity(
+            visit0=dataId["exposure"],
+            arm=dataId["arm"],
+            spectrograph=dataId["spectrograph"],
+            obsDate=str(dataId.timespan.begin),
+        )
+
+        outputs = self.run(
+            arcExposure=butler.get(arcExposure),
+            quartzExposure=butler.get(quartzExposure),
+            arcConfig=butler.get(arcConfig),
+            quartzConfig=butler.get(quartzConfig),
+            identity=identity,
+        )
+        butler.put(outputs, outputRefs)
+        return outputs
+
+    def run(
+        self,
+        arcExposure: Exposure,
+        quartzExposure: Exposure,
+        arcConfig: PfsConfig,
+        quartzConfig: PfsConfig,
+        identity: CalibIdentity,
+    ) -> Struct:
         """Fit out differences between the expected and actual detectorMap
 
         We use a quartz flat to find and trace fibers. The resulting fiberTrace
@@ -133,34 +205,81 @@ class BootstrapTask(CmdLineTask):
 
         Parameters
         ----------
-        flatRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for a quartz flat.
-        arcRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for an arc.
+        arcExposure : `lsst.afw.image.Exposure`
+            Exposure with arc lines.
+        quartzExposure : `lsst.afw.image.Exposure`
+            Exposure with quartz flat.
+        arcConfig : `pfs.datamodel.PfsConfig`
+            Top-end fiber configuration for arc.
+        quartzConfig : `pfs.datamodel.PfsConfig`
+            Top-end fiber configuration for quartz.
+        identity : `pfs.datamodel.CalibIdentity`
+            Calibration identity.
+
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+            Result of the processing.
         """
-        flatConfig = flatRef.get("pfsConfig")
-        arcConfig = arcRef.get("pfsConfig")
-        if not np.all(flatConfig.fiberId == arcConfig.fiberId):
-            raise RuntimeError("Mismatch between fibers for flat (%s) and arc (%s)" %
-                               (flatConfig.fiberId, arcConfig.fiberId))
-        traces = self.traceFibers(flatRef, flatConfig)
-        lineResults = self.findArcLines(arcRef, traces)
+        if not np.all(quartzConfig.fiberId == arcConfig.fiberId):
+            raise RuntimeError(
+                f"Mismatch between fibers for flat ({quartzConfig.fiberId}) and arc ({arcConfig.fiberId})"
+            )
+        detectorMap = self.getDetectorMap(identity)
+        traces = self.traceFibers(quartzExposure, quartzConfig, detectorMap, identity)
+        lineResults = self.findArcLines(arcExposure, traces)
+        refLines = self.readLineList.run(metadata=arcExposure.getMetadata())
 
-        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, lineResults.refLines, frame=1)
+        self.visualize(
+            lineResults.exposure,
+            [ss.fiberId for ss in lineResults.spectra],
+            detectorMap,
+            refLines,
+            frame=1,
+        )
 
-        matches = self.matchArcLines(lineResults.lines, lineResults.refLines, lineResults.detectorMap)
-        fiberIdLists = self.selectFiberIds(lineResults.detectorMap, arcRef.dataId["arm"])
+        matches = self.matchArcLines(lineResults.lines, refLines, detectorMap)
+        fiberIdLists = self.selectFiberIds(detectorMap, identity.arm)
         for fiberId in fiberIdLists:
-            self.fitDetectorMap(matches, lineResults.detectorMap, fiberId)
+            self.fitDetectorMap(matches, detectorMap, fiberId)
 
-        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, lineResults.refLines, frame=2)
+        self.visualize(
+            lineResults.exposure,
+            [ss.fiberId for ss in lineResults.spectra],
+            detectorMap,
+            refLines,
+            frame=2,
+        )
 
-        self.setCalibHeader(lineResults.detectorMap.metadata, arcRef.dataId)
-        arcRef.put(lineResults.detectorMap, "detectorMap", visit0=arcRef.dataId["visit"])
+        self.setCalibHeader(detectorMap.metadata, identity)
+        return Struct(detectorMap=detectorMap)
 
-    def traceFibers(self, flatRef, pfsConfig):
+    def getDetectorMap(self, identity: CalibIdentity) -> DetectorMap:
+        """Provide the detectorMap
+
+        We retrieve the detectorMap by filename (through the config).
+
+        Parameters
+        ----------
+        identity: `pfs.datamodel.CalibIdentity`
+            Calibration identity. Includes ``arm`` and ``spectrograph``.
+
+        Returns
+        -------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
+        """
+        filename = self.config.detectorMap % identity.toDict()
+        self.log.info("Reading detectorMap from %s", filename)
+        detectorMap = DetectorMap.readFits(filename)
+        if hasattr(detectorMap, "getBase"):
+            detectorMap = detectorMap.getBase()
+        detectorMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
+        return detectorMap
+
+    def traceFibers(
+        self, exposure: Exposure, pfsConfig: PfsConfig, detectorMap: DetectorMap, identity: CalibIdentity
+    ) -> FiberTraceSet:
         """Trace fibers on the quartz flat
 
         We need to make sure we find as many fibers on the flat as we expect
@@ -168,24 +287,27 @@ class BootstrapTask(CmdLineTask):
 
         Parameters
         ----------
-        flatRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for a quartz flat.
+        exposure : `lsst.afw.image.Exposure`
+            Quartz flat exposure.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end fiber configuration for quartz flat.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Map of fiberId,wavelength to x,y.
+        identity: `pfs.datamodel.CalibIdentity`
+            Calibration identity.
 
         Returns
         -------
         traces : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
         """
-        exposure = self.isr.runDataRef(flatRef).exposure
-        detMap = flatRef.get("detectorMap")
-        identity = CalibIdentity.fromDict(flatRef.dataId)
-        result = self.profiles.run(exposure, identity, detectorMap=detMap, pfsConfig=pfsConfig)
+        result = self.profiles.run(exposure, identity, detectorMap=detectorMap, pfsConfig=pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
         traces.sortTracesByXCenter()  # Organised left to right
         self.log.info("Found %d fibers on flat", len(traces))
         fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
         targetType = [TargetType.fromString(fs) for fs in self.config.targetType]
-        fiberId = detMap.fiberId
+        fiberId = detectorMap.fiberId
         if self.config.badFibers:
             fiberId = np.array(list(set(fiberId) - set(self.config.badFibers)))
         select = pfsConfig.getSelection(fiberId=fiberId, fiberStatus=fiberStatus,
@@ -198,7 +320,7 @@ class BootstrapTask(CmdLineTask):
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
-        centers = np.array([detMap.getXCenter(ff, middle) for ff in fiberId])
+        centers = np.array([detectorMap.getXCenter(ff, middle) for ff in fiberId])
         increasing = np.all(centers[1:] - centers[:-1] > 0)
         decreasing = np.all(centers[1:] - centers[:-1] < 0)
         assert increasing or decreasing
@@ -206,7 +328,7 @@ class BootstrapTask(CmdLineTask):
             tt.fiberId = ff
         return traces
 
-    def findArcLines(self, arcRef, traces):
+    def findArcLines(self, exposure: Exposure, traces: FiberTraceSet) -> Struct:
         """Find lines on the extracted arc spectra
 
         The x and y centroids are done separately, for convenience: the x
@@ -215,8 +337,8 @@ class BootstrapTask(CmdLineTask):
 
         Parameters
         ----------
-        arcExposure : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for arc.
+        exposure : `lsst.afw.image.Exposure`
+            Arc exposure.
         traces : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
 
@@ -235,18 +357,7 @@ class BootstrapTask(CmdLineTask):
             Center in y (`float`).
         ``flux``
             Peak flux (`float`).
-
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Map of fiberId,wavelength to x,y.
         """
-        exposure = self.isr.runDataRef(arcRef).exposure
-        detMap = arcRef.get("detectorMap")
-
-        if hasattr(detMap, "getBase"):
-            detMap = detMap.getBase()
-
-        detMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
-        refLines = self.readLineList.run(metadata=exposure.getMetadata())
         badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
         spectra = traces.extractSpectra(exposure.maskedImage, badBitMask)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
@@ -255,7 +366,7 @@ class BootstrapTask(CmdLineTask):
                   for xx, yy in zip(xList, yList)]
                  for xList, yList, spectrum in zip(xCenters, yCenters, spectra)]
         self.log.info("Found %d lines in %d traces", sum(len(ll) for ll in lines), len(lines))
-        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure, refLines=refLines)
+        return Struct(spectra=spectra, lines=lines, exposure=exposure)
 
     def centroidTrace(self, trace, rows):
         """Centroid the trace
@@ -559,27 +670,21 @@ class BootstrapTask(CmdLineTask):
         wavelengths = [rl.wavelength for rl in refLines]
         detectorMap.display(disp, fiberId, wavelengths, plotTraces=False)
 
-    def setCalibHeader(self, metadata, dataId):
+    def setCalibHeader(self, metadata, identity: CalibIdentity):
         """Set the header
 
         Parameters
         ----------
         metadata : `lsst.daf.base.PropertyList`
             FITS header to update.
-        dataId : `dict` (`str`: POD)
-            Data identifier.
+        identity : `pfs.datamodel.CalibIdentity`
+            Calibration identity.
         """
-        keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "calibTime", "visit0")
-        mapping = dict(visit0="visit", calibDate="dateObs", calibTime="taiObs")
-        outputId = {key: dataId[mapping.get(key, key)] for key in keywords}
-        setCalibHeader(metadata, "detectorMap", [dataId["visit"]], outputId)
+        setCalibHeader(metadata, "detectorMap", [identity.visit0], identity.toDict())
 
         date = datetime.now().isoformat()
-        history = f"bootstrap on {date} with arc={dataId['visit']}"
+        history = f"bootstrap on {date} with arc={identity.visit0}"
         metadata.add("HISTORY", history)
-
-    def _getMetadataName(self):
-        return None
 
 
 def fitChebyshev2D(xx, yy, xOrder, yOrder, xDomain=None, yDomain=None, rejIterations=3, rejThreshold=3.0):
