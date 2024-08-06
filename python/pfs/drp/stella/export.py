@@ -22,6 +22,7 @@ COPY_TEMPLATES = dict(
     detectorMap=(
         "detectorMap/%(day_obs)s/%(obs_id)06d/detectorMap-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits"
     ),
+    fiberNorms=("fiberNorms/%(day_obs)s/pfsFiberNorms-%(obs_id)06d-%(arm)1s.fits"),
     pfsArm="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArm-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits",
     pfsArmLsf="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArmLsf-%(obs_id)06d-%(arm)1s%(spectrograph)1d.pickle",
     pfsMerged="pfsMerged/%(day_obs)s/pfsMerged-%(obs_id)06d.fits",
