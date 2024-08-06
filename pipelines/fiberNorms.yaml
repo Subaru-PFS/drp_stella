@@ -1,0 +1,10 @@
+description: PFS fiberNorms construction
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+    config:
+      connections.ccdExposure: raw.exposure
+  reduceExposure:
+    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+  measureFiberNorms:
+    class: pfs.drp.stella.measureFiberNorms.MeasureFiberNormsTask
