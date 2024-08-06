@@ -404,6 +404,11 @@ def targetFromDataId(dataId: Union[DataCoordinate, Dict[str, Union[int, str]]]) 
     return Target(dataId["catId"], dataId["tract"], dataId["patch"], dataId["objId"])
 
 
+class NoResultsError(ValueError):
+    """Exception raised when no results are found"""
+    pass
+
+
 def addPfsConfigRecords(
     registry: Registry,
     pfsConfig: PfsConfig,
@@ -441,6 +446,8 @@ def addPfsConfigRecords(
             "exposure", dataId=dict(instrument=instrument, exposure=exposure)
         )
     ]
+    if len(dataId) == 0:
+        raise NoResultsError(f"No exposure records found for instrument={instrument}, exposure={exposure}")
     assert len(dataId) == 1
     dataId = dataId[0]
     if dataId.pfs_design_id != pfsDesignId:
@@ -513,12 +520,15 @@ def ingestPfsConfig(
                 dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
                 ref = DatasetRef(datasetType, dataId, run)
                 uri = ResourcePath(path, root=cwd, forceAbsolute=True)
-                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
                 log.info("Registering %s ...", filename)
-                addPfsConfigRecords(
-                    registry, pfsConfig, instrumentName, update=update
-                )
+                try:
+                    addPfsConfigRecords(registry, pfsConfig, instrumentName, update=update)
+                except NoResultsError as exc:
+                    log.warn(str(exc))
+                    continue
+
+                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
     log.info("Ingesting files...")
     butler.ingest(*datasets, transfer=transfer)
