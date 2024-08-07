@@ -10,7 +10,6 @@ def main():
     parser.add_argument("repo", help="URI for datastore repository")
     parser.add_argument("instrument", help="Instrument name or fully-qualified instrument class")
     parser.add_argument("run", help="Run into which to ingest files")
-    parser.add_argument("skymap", help="Name of skymap system")
     parser.add_argument("path", nargs="+", help="Path/glob for pfsConfig files")
     parser.add_argument(
         "--transfer",
@@ -23,9 +22,7 @@ def main():
     )
 
     args = parser.parse_args()
-    ingestPfsConfig(
-        args.repo, args.instrument, args.run, args.skymap, args.path, args.transfer, not args.no_update
-    )
+    ingestPfsConfig(args.repo, args.instrument, args.run, args.path, args.transfer, not args.no_update)
 
 
 if __name__ == "__main__":
