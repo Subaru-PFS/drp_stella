@@ -34,6 +34,7 @@ from .fitContinuum import FitContinuumTask
 from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
+from .measureFiberNorms import lookupFiberNorms
 
 
 class WavelengthSamplingConfig(Config):
@@ -76,11 +77,13 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         multiple=True,
     )
     fiberNorms = PrerequisiteConnection(
-        name="fiberNorms",
+        name="fiberNorms_calib",
         doc="Fiber normalisations",
         storageClass="PfsFiberNorms",
-        dimensions=("instrument", "exposure", "arm"),
+        dimensions=("instrument", "arm"),
         isCalibration=True,
+        multiple=True,
+        lookupFunction=lookupFiberNorms,
     )
 
     pfsMerged = OutputConnection(
@@ -319,7 +322,8 @@ class MergeArmsTask(PipelineTask):
         butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
         butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)
         for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
-            butler.put(sky1d, ref)
+            if sky1d is not None:
+                butler.put(sky1d, ref)
 
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure

@@ -235,6 +235,8 @@ class ReduceExposureTask(PipelineTask):
         if self.config.doBoxcarExtraction:
             inputs["fiberProfiles"] = None
         outputs = self.run(**inputs, dataId=dataId)
+        if outputs.apCorr is None:  # e.g., for a quartz
+            del outputRefs.apCorr
         butler.put(outputs, outputRefs)
         return outputs
 
