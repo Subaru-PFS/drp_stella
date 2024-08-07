@@ -34,6 +34,7 @@ from .fitContinuum import FitContinuumTask
 from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
+from .measureFiberNorms import lookupFiberNorms
 
 
 class WavelengthSamplingConfig(Config):
@@ -79,8 +80,10 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="fiberNorms_calib",
         doc="Fiber normalisations",
         storageClass="PfsFiberNorms",
-        dimensions=("instrument", "exposure", "arm"),
+        dimensions=("instrument", "arm"),
         isCalibration=True,
+        multiple=True,
+        lookupFunction=lookupFiberNorms,
     )
 
     pfsMerged = OutputConnection(

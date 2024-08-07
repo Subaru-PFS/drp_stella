@@ -9,6 +9,7 @@ import astropy.io.fits
 from lsst.pex.config import Field, ListField
 from lsst.pipe.base import Struct
 
+from lsst.daf.butler import DataCoordinate, DatasetRef, Registry
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
@@ -25,7 +26,53 @@ from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
 
-__all__ = ("MeasureFiberNormsTask", "ExposeFiberNormsTask")
+__all__ = ("lookupFiberNorms", "MeasureFiberNormsTask", "ExposeFiberNormsTask")
+
+
+def lookupFiberNorms(
+    datasetType: str, registry: Registry, dataId: DataCoordinate, collections: List[str]
+) -> List[DatasetRef]:
+    """Look up a bias or dark frame
+
+    This is a lookup function for a PrerequisiteConnection that finds fiberNorms
+    for a given dataId.
+
+    Parameters
+    ----------
+    datasetType : `str`
+        The dataset type to look up.
+    registry : `lsst.daf.butler.Registry`
+        The butler registry.
+    dataId : `lsst.daf.butler.DataCoordinate`
+        The data identifier.
+    collections : `list` of `str`
+        The collections to search.
+
+    Returns
+    -------
+    refs : `list` of `lsst.daf.butler.DatasetRef`
+        The references to the bias or dark frame.
+    """
+    if "exposure" not in dataId or dataId.timespan is None:
+        # We need to provide the entire set of available fiberNorms for the join
+        result = registry.queryDatasets(datasetType, collections=collections)
+        return [ref for ref in result]
+    if "arm" in dataId:
+        # We know exactly what we want
+        return [registry.findDataset(datasetType, dataId, collections=collections, timespan=dataId.timespan)]
+
+    refList = []
+    for arm in "brnm":
+        try:
+            ref = registry.findDataset(
+                "fiberNorms_calib", dataId, arm=arm, collections=collections, timespan=dataId.timespan
+            )
+        except Exception:
+            continue
+        if ref is not None:
+            refList.append(ref)
+    # print(f"lookupFiberNorms on {datasetType} for {dataId}: found {len(refList)} --> {refList}")
+    return refList
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):

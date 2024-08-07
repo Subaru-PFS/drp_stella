@@ -6,5 +6,10 @@ tasks:
     class: pfs.drp.stella.fitPfsFluxReference.FitPfsFluxReferenceTask
   fitFluxCal:
     class: pfs.drp.stella.fitFluxCal.FitFluxCalTask
+  preCoadd:
+    class: pfs.drp.stella.coaddSpectra.PreCoaddTask
   coaddSpectra:
     class: pfs.drp.stella.coaddSpectra.CoaddSpectraTask
+
+contracts:
+  - preCoadd.doApplyFiberNorms == coaddSpectra.doApplyFiberNorms
