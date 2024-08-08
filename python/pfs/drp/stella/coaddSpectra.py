@@ -4,7 +4,7 @@ import numpy as np
 from collections import defaultdict, Counter
 
 from lsst.pex.config import Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -22,12 +22,11 @@ from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
-from .datamodel.pfsTargetSpectra import PfsObjectSpectra
 from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
-from .lsf import Lsf, LsfDict, warpLsf, coaddLsf
+from .lsf import Lsf, warpLsf, coaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
 from .measureFiberNorms import lookupFiberNorms
 
@@ -152,16 +151,10 @@ class PreCoaddTask(PipelineTask):
 
 class CoaddSpectraConnections(
     PipelineTaskConnections,
-    dimensions=("instrument", "skymap", "tract", "patch"),
+    dimensions=("instrument", "cat_id"),
 ):
     """Connections for CoaddSpectraTask"""
 
-    skymap = PrerequisiteConnection(
-        doc="Definition of geometry/bbox and projection/wcs",
-        name=BaseSkyMap.SKYMAP_DATASET_TYPE_NAME,
-        storageClass="SkyMap",
-        dimensions=("skymap", ),
-    )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
@@ -214,17 +207,19 @@ class CoaddSpectraConnections(
         multiple=True,
     )
 
-    pfsCoadd = OutputConnection(
-        name="pfsCoadd",
-        doc="Flux-calibrated coadded object spectra",
-        storageClass="PfsObjectSpectra",
-        dimensions=("instrument", "skymap", "tract", "patch"),
+    pfsObject = OutputConnection(
+        name="pfsObject",
+        doc="Flux-calibrated coadded object spectrum",
+        storageClass="PfsObject",
+        dimensions=("instrument", "cat_id", "obj_id"),
+        multiple=True,
     )
-    pfsCoaddLsf = OutputConnection(
-        name="pfsCoaddLsf",
-        doc="Line-spread function for pfsCoadd",
-        storageClass="LsfDict",
-        dimensions=("instrument", "skymap", "tract", "patch"),
+    pfsObjectLsf = OutputConnection(
+        name="pfsObjectLsf",
+        doc="Line-spread function for pfsObject",
+        storageClass="Lsf",
+        dimensions=("instrument", "cat_id", "obj_id"),
+        multiple=True,
     )
 
     def __init__(self, *, config=None):
@@ -273,9 +268,9 @@ class CoaddSpectraTask(PipelineTask):
 
         Returns
         -------
-        pfsCoadd : `dict` mapping `Target` to `PfsObject`
+        pfsObject : `dict` mapping `Target` to `PfsObject`
             Coadded spectra, indexed by target.
-        pfsCoaddLsf : `LsfDict`
+        pfsObjectLsf : `LsfDict`
             Line-spread functions for coadded spectra, indexed by target.
         """
         targetTypes = (TargetType.SCIENCE, TargetType.FLUXSTD, TargetType.SKY)
@@ -284,14 +279,14 @@ class CoaddSpectraTask(PipelineTask):
             for target in dd.pfsConfig.select(fiberStatus=FiberStatus.GOOD, targetType=targetTypes):
                 targetSources[target].append(identity)
 
-        pfsCoadd: Dict[Target, PfsObject] = {}
-        pfsCoaddLsf: Dict[Target, Lsf] = {}
+        pfsObject: Dict[Target, PfsObject] = {}
+        pfsObjectLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
             result = self.process(target, {identity: data[identity] for identity in sources})
-            pfsCoadd[target] = result.pfsObject
-            pfsCoaddLsf[target] = result.pfsObjectLsf
+            pfsObject[target] = result.pfsObject
+            pfsObjectLsf[target] = result.pfsObjectLsf
 
-        return Struct(pfsCoadd=pfsCoadd, pfsCoaddLsf=pfsCoaddLsf)
+        return Struct(pfsObject=pfsObject, pfsObjectLsf=pfsObjectLsf)
 
     def runQuantum(
         self,
@@ -312,10 +307,9 @@ class CoaddSpectraTask(PipelineTask):
             Container with attributes that are data references for the various
             output connections.
         """
-        skymap = butler.get(inputRefs.skymap)
-        assert butler.quantum.dataId is not None
-        tract = butler.quantum.dataId["tract"]
-        patch = "%d,%d" % skymap[tract][butler.quantum.dataId["patch"]].getIndex()
+        catId = set(ref.dataId["cat_id"] for ref in outputRefs.pfsObject)
+        assert len(catId) == 1, "All pfsObject must have the same cat_id"
+        catId = catId.pop()
 
         if self.config.doApplyFiberNorms:
             fiberNormsMap = {ref.id.int: butler.get(ref) for ref in inputRefs.fiberNorms}
@@ -339,7 +333,7 @@ class CoaddSpectraTask(PipelineTask):
                 pfsDesignId=dataId["pfs_design_id"]
             )
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
-            pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, tract=tract, patch=patch)
+            pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId)
             fiberNorms = None
             if self.config.doApplyFiberNorms:
                 fiberNormsId = butler.get(fiberNormsIdRef)
@@ -358,41 +352,18 @@ class CoaddSpectraTask(PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsObjectSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
-        butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
+        pfsObjectRef = {(ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsObject}
+        pfsObjectLsfRef = {
+            (ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsObjectLsf
+        }
 
-    def runDataRef(self, dataRefList):
-        """Coadd multiple observations
+        for target in outputs.pfsObject:
+            targetId = (target.catId, target.objId)
+            if targetId not in pfsObjectRef:
+                raise RuntimeError(f"Missing output data reference for {target}")
 
-        We base the coaddition on the ``pfsArm`` files because that data hasn't
-        been interpolated. Of course, at the moment we immediately interpolate,
-        but we may choose not to in the future.
-
-        Parameters
-        ----------
-        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
-            Data references for all exposures observing the targets.
-        """
-        dataRefDict = {Identity.fromDict(dataRef.dataId): dataRef for dataRef in dataRefList}
-        data = {}
-        for dataId, dataRef in dataRefDict.items():
-            pfsArm = dataRef.get("pfsArm")
-            data[dataId] = Struct(
-                identity=Identity.fromDict(dataRef.dataId),
-                pfsArm=pfsArm,
-                pfsArmLsf=dataRef.get("pfsArmLsf"),
-                fiberNorms=dataRef.get("fiberNorms") if self.config.doApplyFiberNorms else None,
-                sky1d=dataRef.get("sky1d"),
-                fluxCal=dataRef.get("fluxCal"),
-                pfsConfig=dataRef.get("pfsConfig").select(fiberId=pfsArm.fiberId),
-            )
-
-        butler = dataRefList[0].getButler()
-        results = self.run(data)
-        for target, pfsObject in results.pfsCoadd.items():
-            identity = pfsObject.getIdentity()
-            butler.put(pfsObject, "pfsObject", identity)
-            butler.put(results.pfsCoaddLsf[target], "pfsObjectLsf", identity)
+            butler.put(outputs.pfsObject[target], pfsObjectRef[targetId])
+            butler.put(outputs.pfsObjectLsf[target], pfsObjectLsfRef[targetId])
 
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
         """Generate a fully-populated `Target` for this target

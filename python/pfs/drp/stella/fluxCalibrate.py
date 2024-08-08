@@ -28,7 +28,6 @@ from .subtractSky1d import subtractSky1d
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .gen3 import readDatasetRefs
-from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .barycentricCorrection import applyBarycentricCorrection
 
 
@@ -209,17 +208,19 @@ class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument"
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "exposure"),
     )
-    pfsCalibrated = OutputConnection(
-        name="pfsCalibrated",
-        doc="Flux-calibrated object spectrum",
-        storageClass="PfsCalibratedSpectra",
-        dimensions=("instrument", "exposure"),
+    pfsSingle = OutputConnection(
+        name="pfsSingle",
+        doc="Single exposure flux-calibrated object spectrum",
+        storageClass="PfsSingle",
+        dimensions=("instrument", "exposure", "cat_id", "obj_id"),
+        multiple=True,
     )
-    pfsCalibratedLsf = OutputConnection(
-        name="pfsCalibratedLsf",
-        doc="Line-spread function for pfsCalibrated",
-        storageClass="LsfDict",
-        dimensions=("instrument", "exposure"),
+    pfsSingleLsf = OutputConnection(
+        name="pfsSingleLsf",
+        doc="Line-spread function for pfsSingle",
+        storageClass="Lsf",
+        dimensions=("instrument", "exposure", "cat_id", "obj_id"),
+        multiple=True,
     )
 
 
@@ -277,9 +278,9 @@ class FluxCalibrateTask(PipelineTask):
         -------
         fluxCal : `FocalPlaneFunction`
             Flux calibration solution.
-        pfsCalibrated : `PfsCalibratedSpectra`
+        pfsSingle : `dict` mapping `Target` to `PfsSingle`
             Calibrated spectra.
-        pfsCalibratedLsf : `LsfDict`
+        pfsSingleLsf : `dict` mapping `Target` to `Lsf`
             Line-spread functions for calibrated spectra.
         """
         mergedFluxCal = pfsMerged.select(pfsConfig, targetType=TargetType.FLUXSTD)
@@ -299,8 +300,8 @@ class FluxCalibrateTask(PipelineTask):
             calibrated.append(pfsArm)
 
         pfsMerged = pfsMerged.select(pfsConfig, fiberStatus=FiberStatus.GOOD)
-        pfsCalibrated: Dict[Target, PfsSingle] = {}
-        pfsCalibratedLsf: Dict[Target, Lsf] = {}
+        pfsSingle: Dict[Target, PfsSingle] = {}
+        pfsSingleLsf: Dict[Target, Lsf] = {}
         for ff in pfsMerged.fiberId:
             extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
             extracted.fluxTable = self.fluxTable.run(
@@ -310,13 +311,13 @@ class FluxCalibrateTask(PipelineTask):
             extracted.metadata = getPfsVersions()
 
             target = extracted.target
-            pfsCalibrated[target] = extracted
-            pfsCalibratedLsf[target] = pfsMergedLsf[ff]
+            pfsSingle[target] = extracted
+            pfsSingleLsf[target] = pfsMergedLsf[ff]
 
         return Struct(
             fluxCal=fluxCal,
-            pfsCalibrated=PfsCalibratedSpectra(pfsCalibrated.values()),
-            pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
+            pfsSingle=pfsSingle,
+            pfsSingleLsf=pfsSingleLsf,
         )
 
     def runQuantum(
@@ -349,7 +350,21 @@ class FluxCalibrateTask(PipelineTask):
         outputs = self.run(
             **inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d, references=references
         )
-        butler.put(outputs, outputRefs)
+
+        butler.put(outputs.fluxCal, outputRefs.fluxCal)
+
+        pfsSingleRef = {(ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsSingle}
+        pfsSingleLsfRef = {
+            (ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsSingleLsf
+        }
+
+        for target in outputs.pfsSingle:
+            targetId = (target.catId, target.objId)
+            if targetId not in pfsSingleRef:
+                raise RuntimeError(f"Missing output data reference for {target}")
+
+            butler.put(outputs.pfsSingle[target], pfsSingleRef[targetId])
+            butler.put(outputs.pfsSingleLsf[target], pfsSingleLsfRef[targetId])
 
     @classmethod
     def _makeArgumentParser(cls):

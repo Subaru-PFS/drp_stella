@@ -8,6 +8,8 @@ from glob import glob
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+import numpy as np
+
 from lsst.daf.butler import (
     Butler,
     CollectionType,
@@ -24,7 +26,6 @@ from lsst.pipe.base import Instrument
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
-from lsst.skymap import BaseSkyMap
 from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
 from pfs.drp.stella.datamodel import PfsConfig
@@ -402,19 +403,16 @@ def targetFromDataId(dataId: Union[DataCoordinate, Dict[str, Union[int, str]]]) 
     return Target(dataId["catId"], dataId["tract"], dataId["patch"], dataId["objId"])
 
 
-def addExposurePatchRecords(
+def addPfsConfigRecords(
     registry: Registry,
     pfsConfig: PfsConfig,
     instrument: str,
-    skymapName: str,
-    skymap: BaseSkyMap,
     update: bool = True,
 ) -> None:
-    """Add exposure_patch records for a pfsConfig to the butler registry
+    """Add records for a pfsConfig to the butler registry
 
-    This is needed in order to associate an ``exposure`` with a particular
-    ``tract,patch``, which is required for the science pipeline since it coadds
-    spectra over ``tract,patch``.
+    This is needed in order to associate an ``exposure,fiberId`` with a
+    particular ``catId,objId``.
 
     Parameters
     ----------
@@ -424,10 +422,6 @@ def addExposurePatchRecords(
         PFS fiber configuration.
     instrument : `str`
         Name of instrument.
-    skymapName : `str`
-        Name of the skymap system that defines the tract,patch pairs.
-    skymap : subclass of `BaseSkyMap`
-        Mapping of ra,dec to tract,patch.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
@@ -457,22 +451,26 @@ def addExposurePatchRecords(
     kwargs = dict(
         instrument=instrument,
         exposure=exposure,
-        skymap=skymapName,
     )
-    for tt, pp in set(zip(pfsConfig.tract, pfsConfig.patch)):
-        px, py = pp.split(",")
-        tract = int(tt)  # The registry treats np.int32 as different from int
-        if tract < 0:
-            continue
-        patch = skymap[tract].getPatchInfo((int(px), int(py))).getSequentialIndex()
-        registry.syncDimensionData("exposure_patch", dict(tract=tract, patch=patch, **kwargs), update=update)
+
+    for catId in np.unique(pfsConfig.catId):
+        registry.syncDimensionData("cat_id", dict(cat_id=int(catId), instrument=instrument), update=update)
+
+    for fiberId, catId, objId in zip(pfsConfig.fiberId, pfsConfig.catId, pfsConfig.objId):
+        catId = int(catId)
+        objId = int(objId)
+        registry.syncDimensionData(
+            "obj_id", dict(instrument=instrument, cat_id=catId, obj_id=objId), update=update
+        )
+        registry.syncDimensionData(
+            "pfsConfig", dict(fiber_id=int(fiberId), cat_id=catId, obj_id=objId, **kwargs), update=update
+        )
 
 
 def ingestPfsConfig(
     repo: str,
     instrument: str,
     run: str,
-    skymapName: str,
     pathList: Iterable[str],
     transfer: Optional[str] = "auto",
     update: bool = True,
@@ -487,8 +485,6 @@ def ingestPfsConfig(
         Instrument name or fully-qualified class name as a string.
     run : `str`
         The run in which the files should be ingested.
-    skymapName : `str`
-        Name of the skymap system that defines the tract,patch pairs.
     pathList : iterable of `str`
         Paths/globs of pfsConfig files to ingest.
     transfer : `str`, optional
@@ -506,12 +502,6 @@ def ingestPfsConfig(
     datasetType = butler.registry.getDatasetType("pfsConfig")
     cwd = os.getcwd()
 
-    skymap = butler.get(
-        BaseSkyMap.SKYMAP_DATASET_TYPE_NAME,
-        dataId=dict(skymap=skymapName),
-        collections=[BaseSkyMap.SKYMAP_RUN_COLLECTION_NAME],
-    )
-
     datasets = []
     with registry.transaction():
         for path in pathList:
@@ -525,8 +515,8 @@ def ingestPfsConfig(
                 datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
                 log.info("Registering %s ...", filename)
-                addExposurePatchRecords(
-                    registry, pfsConfig, instrumentName, skymapName, skymap, update=update
+                addPfsConfigRecords(
+                    registry, pfsConfig, instrumentName, update=update
                 )
 
     log.info("Ingesting files...")
