@@ -1,6 +1,5 @@
 import numpy as np
 from lsst.afw.image import makeExposure
-from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import Struct
 from lsst.pipe.base import QuantumContext
@@ -9,23 +8,26 @@ from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from pfs.datamodel import CalibIdentity
 
+from .calibCombine import PfsCalibCombineConnections, PfsCalibCombineConfig, PfsCalibCombineTask
 from ..buildFiberProfiles import BuildFiberProfilesTask
 
 __all__ = ("FlatDitherCombineTask", "FlatCombineTask")
 
 
-class FlatDitherCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector", "dither")):
+class FlatDitherCombineConnections(
+    PfsCalibCombineConnections, dimensions=("instrument", "arm", "spectrograph", "dither")
+):
     """Connections for FlatDitherCombineTask"""
 
     outputData = OutputConnection(
         name="ditherFlat",
         doc="Output combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
     )
 
 
-class FlatDitherCombineConfig(CalibCombineConfig, pipelineConnections=FlatDitherCombineConnections):
+class FlatDitherCombineConfig(PfsCalibCombineConfig, pipelineConnections=FlatDitherCombineConnections):
     """Configuration for FlatDitherCombineTask"""
 
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
@@ -43,7 +45,7 @@ class FlatDitherCombineConfig(CalibCombineConfig, pipelineConnections=FlatDither
         self.mask = ["BAD", "SAT", "CR", "INTRP"]
 
 
-class FlatDitherCombineTask(CalibCombineTask):
+class FlatDitherCombineTask(PfsCalibCombineTask):
     """Combine multiple exposures with the same dither setting"""
 
     ConfigClass = FlatDitherCombineConfig
@@ -94,8 +96,10 @@ class FlatDitherCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------
@@ -156,14 +160,14 @@ class FlatDitherCombineTask(CalibCombineTask):
         return Struct(outputData=combined)
 
 
-class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector")):
+class FlatCombineConnections(PfsCalibCombineConnections, dimensions=("instrument", "arm", "spectrograph")):
     """Connections for FlatCombineTask"""
 
     inputExpHandles = InputConnection(
         name="ditherFlat",
         doc="Input combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
         multiple=True,
         deferLoad=True,
     )
@@ -171,18 +175,18 @@ class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", 
         name="fiberFlat",
         doc="Combined flat",
         storageClass="ExposureF",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
 
-class FlatCombineConfig(CalibCombineConfig, pipelineConnections=FlatCombineConnections):
+class FlatCombineConfig(PfsCalibCombineConfig, pipelineConnections=FlatCombineConnections):
     """Configuration for FlatCombineTask"""
 
     pass
 
 
-class FlatCombineTask(CalibCombineTask):
+class FlatCombineTask(PfsCalibCombineTask):
     """Combine normalised dither exposures"""
 
     ConfigClass = FlatCombineConfig
@@ -203,8 +207,10 @@ class FlatCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------

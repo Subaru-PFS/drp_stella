@@ -33,13 +33,13 @@ from . import SplinedDetectorMap, FiberTraceSet
 import lsstDebug
 
 
-class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "detector")):
+class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")):
     """Connections for MergeArmsTask"""
     exposure = InputConnection(
         name="postISRCCD",
         doc="ISR-processed exposures; there should be one arc and one quartz",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = InputConnection(
@@ -54,7 +54,7 @@ class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "d
         name="detectorMap_bootstrap",
         doc="Mapping of fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 

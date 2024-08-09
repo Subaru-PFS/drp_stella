@@ -20,14 +20,16 @@ from ..readLineList import ReadLineListTask
 __all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask")
 
 
-class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+class MeasureCentroidsConnections(
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+):
     """Connections for MeasureCentroidsTask"""
 
     exposure = InputConnection(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -40,7 +42,7 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -48,7 +50,7 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         name="centroids",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
 
@@ -126,7 +128,7 @@ class MeasureDetectorMapConnections(MeasureCentroidsConnections):
         name="detectorMap",
         doc="Corrected mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
 

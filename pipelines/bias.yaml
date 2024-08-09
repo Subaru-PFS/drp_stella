@@ -12,7 +12,7 @@ tasks:
       doFlat: False
       doFringe: False
   cpBiasCombine:
-    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    class: pfs.drp.stella.pipelines.calibCombine.PfsCalibCombineTask
     config:
       connections.inputExpHandles: biasProc
       connections.outputData: bias

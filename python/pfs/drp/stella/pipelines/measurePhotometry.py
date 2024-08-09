@@ -23,7 +23,7 @@ __all__ = ("MeasurePhotometryTask",)
 
 
 class MeasurePhotometryConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
 ):
     """Connections for MeasurePhotometryTask"""
 
@@ -31,7 +31,7 @@ class MeasurePhotometryConnections(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -43,13 +43,13 @@ class MeasurePhotometryConnections(
         name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
         doc="Profile of fibers",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -57,25 +57,25 @@ class MeasurePhotometryConnections(
         name="photometry",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     apCorr = OutputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     psf = OutputConnection(
         name="psf",
         doc="2D point-spread function",
         storageClass="NevenPsf",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     lsf = OutputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):

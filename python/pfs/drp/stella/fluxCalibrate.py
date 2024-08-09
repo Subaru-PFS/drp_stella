@@ -191,14 +191,14 @@ class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument"
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 

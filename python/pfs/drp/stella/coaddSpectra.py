@@ -28,7 +28,7 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, warpLsf, coaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
-from .measureFiberNorms import lookupFiberNorms
+from .pipelines.lookups import lookupFiberNorms
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -65,14 +65,16 @@ class SetWithNaN:
         return self.__set.pop()
 
 
-class PreCoaddConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+class PreCoaddConnections(
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+):
     """Connections for PreCoaddTask"""
 
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     fiberNorms = PrerequisiteConnection(
         name="fiberNorms_calib",
@@ -87,7 +89,7 @@ class PreCoaddConnections(PipelineTaskConnections, dimensions=("instrument", "ex
         name="fiberNormsId",
         doc="ID of fiberNorms",
         storageClass="int",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):
@@ -166,21 +168,21 @@ class CoaddSpectraConnections(
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     pfsArmLsf = InputConnection(
         name="pfsArmLsf",
         doc="1d line-spread function for extracted spectra",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     fiberNormsId = InputConnection(
         name="fiberNormsId",
         doc="ID of fiberNorms",
         storageClass="int",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     fiberNorms = PrerequisiteConnection(
@@ -196,7 +198,7 @@ class CoaddSpectraConnections(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     fluxCal = InputConnection(
