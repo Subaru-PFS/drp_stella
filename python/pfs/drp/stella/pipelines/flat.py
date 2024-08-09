@@ -14,14 +14,16 @@ from ..buildFiberProfiles import BuildFiberProfilesTask
 __all__ = ("FlatDitherCombineTask", "FlatCombineTask")
 
 
-class FlatDitherCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector", "dither")):
+class FlatDitherCombineConnections(
+    CalibCombineConnections, dimensions=("instrument", "arm", "spectrograph", "dither")
+):
     """Connections for FlatDitherCombineTask"""
 
     outputData = OutputConnection(
         name="ditherFlat",
         doc="Output combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
     )
 
 
@@ -94,8 +96,10 @@ class FlatDitherCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------
@@ -156,14 +160,14 @@ class FlatDitherCombineTask(CalibCombineTask):
         return Struct(outputData=combined)
 
 
-class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector")):
+class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", "arm", "spectrograph")):
     """Connections for FlatCombineTask"""
 
     inputExpHandles = InputConnection(
         name="ditherFlat",
         doc="Input combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
         multiple=True,
         deferLoad=True,
     )
@@ -171,7 +175,7 @@ class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", 
         name="fiberFlat",
         doc="Combined flat",
         storageClass="ExposureF",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -203,8 +207,10 @@ class FlatCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------

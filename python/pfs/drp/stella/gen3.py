@@ -582,7 +582,9 @@ def certifyDetectorMaps(
     for ref in query:
         log.info("Ingesting %s ...", ref.dataId)
         uri = butler.getURI(ref)
-        dataId = dict(instrument=instrumentName, detector=ref.dataId["detector"])
+        dataId = dict(
+            instrument=instrumentName, arm=ref.dataId["arm"], spectrograph=ref.dataId["spectrograph"]
+        )
         new = DatasetRef(toType, dataId, run)
         datasets.append(FileDataset(path=uri, refs=[new], formatter=DetectorMapFormatter))
 

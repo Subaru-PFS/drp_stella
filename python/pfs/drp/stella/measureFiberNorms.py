@@ -86,7 +86,7 @@ class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrum
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(

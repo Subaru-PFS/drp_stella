@@ -20,7 +20,7 @@ class IsrConnections(PfsIsrConnections):
         name="fiberFlat",
         doc="Combined flat",
         storageClass="ExposureF",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 

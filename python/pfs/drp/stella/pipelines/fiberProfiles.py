@@ -22,7 +22,7 @@ __all__ = ("MeasureFiberProfilesTask", "MergeFiberProfilesTask")
 
 
 class MeasureFiberProfilesConnections(
-    CalibCombineConnections, dimensions=("instrument", "detector", "pfs_design_id")
+    CalibCombineConnections, dimensions=("instrument", "arm", "spectrograph", "pfs_design_id")
 ):
     """Connections for MeasureFiberProfilesTask"""
 
@@ -30,7 +30,7 @@ class MeasureFiberProfilesConnections(
         name="fiberProfilesProc",
         doc="Input combined profiles.",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "spectrograph", "arm", "detector"),
+        dimensions=("instrument", "exposure", "spectrograph", "arm", "spectrograph"),
         multiple=True,
         deferLoad=True,
     )
@@ -38,7 +38,7 @@ class MeasureFiberProfilesConnections(
         name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
@@ -53,7 +53,7 @@ class MeasureFiberProfilesConnections(
         name="fiberProfiles_subset",
         doc="Output subset of fiber profiles.",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector", "pfs_design_id"),
+        dimensions=("instrument", "arm", "spectrograph", "pfs_design_id"),
     )
 
 
@@ -151,8 +151,10 @@ class MeasureFiberProfilesTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------
@@ -208,21 +210,23 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         return Struct(outputData=profiles)
 
 
-class MergeFiberProfilesConnections(PipelineTaskConnections, dimensions=("instrument", "detector")):
+class MergeFiberProfilesConnections(
+    PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")
+):
     """Connections for MergeFiberProfilesTask"""
 
     profiles = InputConnection(
         name="fiberProfiles_subset",
         doc="Input fiber profile subsets.",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector", "pfs_design_id"),
+        dimensions=("instrument", "arm", "spectrograph", "pfs_design_id"),
         multiple=True,
     )
     merged = OutputConnection(
         name="fiberProfiles",
         doc="Merged fiber profiles.",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 

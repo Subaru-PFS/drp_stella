@@ -26,7 +26,7 @@ class FitSky2dConnections(PipelineTaskConnections, dimensions=("instrument", "ex
         name="photometry",
         doc="Line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 
