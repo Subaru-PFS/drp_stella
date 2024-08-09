@@ -27,7 +27,7 @@ __all__ = ("ExtractSpectraTask",)
 
 
 class ExtractSpectraConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph)
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
 ):
     """Connections for ExtractSpectraTask"""
 
@@ -35,7 +35,7 @@ class ExtractSpectraConnections(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -47,13 +47,13 @@ class ExtractSpectraConnections(
         name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
         doc="Position and shape of fibers",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "arm", "spectrograph),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
     sky2d = InputConnection(
@@ -66,26 +66,26 @@ class ExtractSpectraConnections(
         name="psf",
         doc="2D point-spread function",
         storageClass="NevenPsf",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     apCorr = InputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     calexp = OutputConnection(
         name="calexp",
         doc="Calibrated exposure, optionally sky-subtracted",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):

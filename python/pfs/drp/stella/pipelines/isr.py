@@ -6,7 +6,6 @@ from lsst.pipe.base import Struct
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
 from lsst.obs.pfs.isrTask import PfsIsrTask, PfsIsrTaskConfig, PfsIsrConnections
-from lsst.ip.isr.isrTask import IsrTaskConnections
 
 from ..repair import PfsRepairTask
 

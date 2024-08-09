@@ -12,7 +12,7 @@ tasks:
       doFringe: False
       doRepair: False  # We'll do that in the next stage
   dark:
-    class: lsst.cp.pipe.cpDarkTask.CpDarkTask
+    class: pfs.drp.stella.pipelines.dark.PfsDarkTask
     config:
       connections.inputExp: darkProc
       connections.outputExp: darkScaled
@@ -20,7 +20,7 @@ tasks:
       repair.interp.modelPsf.defaultFwhm: 3
       repair.cosmicray.nCrPixelMax: 5000000
   darkCombine:
-    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    class: pfs.drp.stella.pipelines.calibCombine.PfsCalibCombineTask
     config:
       connections.inputExpHandles: darkScaled
       connections.outputData: dark

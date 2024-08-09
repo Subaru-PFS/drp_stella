@@ -1,11 +1,11 @@
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 import numpy as np
 
 from lsst.geom import Box2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
-from lsst.daf.butler import DataCoordinate
+from lsst.daf.butler import DataCoordinate, DatasetRef, Registry
 from lsst.pex.config import ConfigurableField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base import QuantumContext
@@ -17,6 +17,7 @@ from pfs.drp.stella.gen3 import readDatasetRefs
 
 from ..arcLine import ArcLineSet
 from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
+from .lookups import lookupDetectorMap
 
 __all__ = ("FitDetectorMapTask",)
 
@@ -40,6 +41,7 @@ class FitDetectorMapConnections(
         storageClass="NumpyArray",
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
+        lookupFunction=lookupDetectorMap,
     )
 
     bbox = InputConnection(
