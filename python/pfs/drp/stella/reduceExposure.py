@@ -56,12 +56,14 @@ from .barycentricCorrection import calculateBarycentricCorrection
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 
-class ReduceExposureConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+class ReduceExposureConnections(
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+):
     exposure = InputConnection(
         name="postISRCCD",
         doc="Exposure to reduce",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -73,14 +75,14 @@ class ReduceExposureConnections(PipelineTaskConnections, dimensions=("instrument
         name="fiberProfiles",
         doc="Profile of fibers",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -88,31 +90,31 @@ class ReduceExposureConnections(PipelineTaskConnections, dimensions=("instrument
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     lsf = OutputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     lines = OutputConnection(
         name="lines",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     apCorr = OutputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     detectorMapUsed = OutputConnection(
         name="detectorMap",
         doc="DetectorMap used for extraction",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):

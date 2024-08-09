@@ -34,7 +34,7 @@ from .fitContinuum import FitContinuumTask
 from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
-from .measureFiberNorms import lookupFiberNorms
+from .pipelines.lookups import lookupFiberNorms
 
 
 class WavelengthSamplingConfig(Config):
@@ -60,7 +60,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
@@ -73,7 +73,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     fiberNorms = PrerequisiteConnection(
@@ -102,7 +102,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 
