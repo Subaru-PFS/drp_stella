@@ -18,7 +18,7 @@ class CombineImagesConfig(Config):
     rejThresh = Field(dtype=float, default=3.0, doc="Clipping threshold for combination")
     rejIter = Field(dtype=int, default=3, doc="Clipping iterations for combination")
     maxVisitsToCalcErrorFromInputVariance = Field(
-        dtype=int, default=2,
+        dtype=int, default=7,
         doc="Maximum number of visits to estimate variance from input variance, not per-pixel spread"
     )
 
