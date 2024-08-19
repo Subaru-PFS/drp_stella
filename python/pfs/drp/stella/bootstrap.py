@@ -46,7 +46,7 @@ class BootstrapConfig(Config):
                             doc="Fiber statuses to allow")
     targetType = ListField(dtype=str,
                            default=["SCIENCE", "SKY", "FLUXSTD", "SUNSS_IMAGING", "SUNSS_DIFFUSE", "DCB",
-                                    "HOME", "UNASSIGNED"],
+                                    "HOME", "UNASSIGNED", "ENGINEERING"],
                            doc="Target types to allow")
     spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
     spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
