@@ -22,7 +22,7 @@ class FittingError(RuntimeError):
 class FindLinesConfig(Config):
     """Configuration for FindLinesTask"""
     threshold = Field(dtype=float, default=5.0, doc="Threshold for line detection (sigma)")
-    mask = ListField(dtype=str, default=["NO_DATA"], doc="Mask planes to ignore")
+    mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT"], doc="Mask planes to ignore")
     width = Field(dtype=float, default=1.0, doc="Guess width of line (stdev, pixels)")
     kernelHalfSize = Field(dtype=float, default=4.0, doc="Half-size of kernel, in units of the width")
     fittingRadius = Field(dtype=float, default=10.0,

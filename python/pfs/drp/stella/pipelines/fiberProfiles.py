@@ -65,8 +65,8 @@ class MeasureFiberProfilesConfig(CalibCombineConfig, pipelineConnections=Measure
     def setDefaults(self):
         super().setDefaults()
         self.profiles.profileRadius = 2  # Full fiber density, so can't go out very wide
-        self.profiles.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA"]
-        self.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA"]
+        self.profiles.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA", "SUSPECT"]
+        self.mask = ["BAD", "SAT", "CR", "INTRP", "NO_DATA", "SUSPECT"]
 
 
 class MeasureFiberProfilesTask(CalibCombineTask):

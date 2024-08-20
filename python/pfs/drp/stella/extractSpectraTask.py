@@ -22,6 +22,11 @@ class ExtractSpectraConfig(pexConfig.Config):
                                doc="Mask pixels to ignore in extracting spectra")
     minFracMask = pexConfig.Field(dtype=float, default=0.25,
                                   doc="Minimum fractional contribution of pixel for mask to be accumulated")
+    minFracImage = pexConfig.Field(
+        dtype=float,
+        default=0.3,
+        doc="Minimum total fractional contribution for measurement to be considered reliable",
+    )
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -145,7 +150,9 @@ class ExtractSpectraTask(pipeBase.Task):
                 spectrum = ft.extractAperture(maskedImage, badBitMask)
                 spectra.add(spectrum)
         else:
-            spectra = fiberTraceSet.extractSpectra(maskedImage, badBitMask, self.config.minFracMask)
+            spectra = fiberTraceSet.extractSpectra(
+                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+            )
 
         if detectorMap is not None:
             for spectrum in spectra:

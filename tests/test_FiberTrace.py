@@ -121,7 +121,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         self.assertFiberTracesEqual(copy, self.fiberTrace)
         self.assertCopy(copy.trace.image, self.fiberTrace.trace.image, True)
 
-    def assertSpectrumValues(self, spectrum, image=None, variance=None, mask=0,
+    def assertSpectrumValues(self, spectrum, image=None, variance=None, mask=0, norm=None,
                              imageTol=0.0, varianceTol=0.0):
         """Assert that the spectrum has the expected values
 
@@ -136,6 +136,8 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
             Expected values for the variance part of the spectrum.
         mask : `numpy.ndarray` or scalar
             Expected values for the mask part of the spectrum.
+        norm : `numpy.ndarray` or scalar
+            Expected values for the norm part of the spectrum.
         imageTol : `float`
             Relative tolerance for image comparison.
         varianceTol : `float`
@@ -144,9 +146,11 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         beforeSlice = slice(0, self.xy0.getY())
         specSlice = slice(self.xy0.getY(), self.xy0.getY() + self.height)
         afterSlice = slice(self.xy0.getY() + self.height, self.fullDims.getY())
+        if norm is None:
+            norm = np.sum(self.trace.image.array, axis=1)
+
         self.assertFloatsEqual(spectrum.norm[beforeSlice], 0.0)
-        self.assertFloatsAlmostEqual(spectrum.norm[specSlice], np.sum(self.trace.image.array, axis=1),
-                                     atol=1.0e-6)
+        self.assertFloatsAlmostEqual(spectrum.norm[specSlice], norm, atol=1.0e-6)
         self.assertFloatsEqual(spectrum.norm[beforeSlice], 0.0)
         if image is not None:
             self.assertFloatsEqual(spectrum.flux[beforeSlice], 0.0)
@@ -180,7 +184,9 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         expectVariance = 1.0/(np.sum(self.subimage.image.array**2/self.variance, axis=1) -
                               self.subimage.image.array[:, badCol]**2/self.variance)
-        self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance,
+        expectNorm = self.fiberTrace.trace.image.array.sum(axis=1)
+        expectNorm -= self.fiberTrace.trace.image.array[:, badCol]
+        self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, norm=expectNorm,
                                   imageTol=1.0e-14, varianceTol=1.0e-6)
 
     def testExtractOptimalMasked(self):

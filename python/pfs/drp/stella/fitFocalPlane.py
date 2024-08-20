@@ -19,7 +19,7 @@ __all__ = ("FitFocalPlaneConfig", "FitFocalPlaneTask",
 
 class FitFocalPlaneConfig(Config):
     """Configuration for FitFocalPlaneTask"""
-    mask = ListField(dtype=str, default=["NO_DATA", "SAT", "BAD_FLAT", "CR"],
+    mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "SAT", "BAD_FLAT", "CR"],
                      doc="Mask flags to ignore in fitting")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")

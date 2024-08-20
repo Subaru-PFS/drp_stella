@@ -72,7 +72,7 @@ class NormalizeFiberProfilesTask(Task):
         self.blackspots.run(combined.pfsConfig, spectra)
 
         for ss in spectra:
-            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) == 0
+            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])) == 0
             profiles[ss.fiberId].norm = np.where(good, ss.flux/ss.norm, np.nan)
 
         self.write(normRefList[0], profiles, visitList, [dataRef.dataId["visit"] for dataRef in normRefList])

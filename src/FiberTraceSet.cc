@@ -79,7 +79,8 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
     MaskT badBitMask,
-    float minFracMask
+    float minFracMask,
+    float minFracImage
 ) const {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
@@ -95,12 +96,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares: model dot data
 
     // This is a version of the least-squares matrix used for calculating the covariances.
-    // We use a symmetric tridiagonal matrix (represented by diagonal and off-diagonal arrays) because
-    // we don't care about anything further than that. The matrix is calculated using inverse variance
-    // weights, so we can get the covariance.
+    // We use a simple diagnonal matrix because we don't care about anything further than that.
+    // The matrix is calculated using inverse variance weights, so we can get the covariance.
     ndarray::Array<double, 1, 1> diagonalWeighted = ndarray::allocate(num);  // diagonal of weighted LS
-    ndarray::Array<double, 1, 1> offDiagWeighted = ndarray::allocate(num - 1);  // off-diagonal of weighted LS
-    math::SymmetricTridiagonalWorkspace<double> solutionWorkspace, inversionWorkspace;
 
     auto const& dataImage = *image.getImage();
     auto const& dataMask = *image.getMask();
@@ -108,6 +106,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 
     MaskT const noData = 1 << dataMask.addMaskPlane("NO_DATA");
     MaskT const badFiberTrace = 1 << dataMask.addMaskPlane("BAD_FIBERTRACE");
+    MaskT const suspect = 1 << dataMask.addMaskPlane("SUSPECT");
 
     // Initialize results, in case we miss anything
     for (auto & spectrum : result) {
@@ -131,9 +130,14 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             if (useTrace[ii]) {
                 std::size_t const yy = yData - box.getMinY();
                 auto const& traceImage = _traces[ii]->getTrace();
-                auto const& trace = ndarray::asEigenArray(traceImage.getImage()->getArray()[yy]);
-                result[ii]->getNorm()[yData] = trace.template cast<double>().sum();
-                if (result[ii]->getNorm()[yData] == 0 || !std::isfinite(result[ii]->getNorm()[yData])) {
+                double sumModel = 0.0;
+                for (auto iter = traceImage.row_begin(yy); iter != traceImage.row_end(yy); ++iter) {
+                    if (iter.mask() & require) {
+                        sumModel += iter.image();
+                    }
+                }
+                result[ii]->getNorm()[yData] = sumModel;
+                if (sumModel == 0 || !std::isfinite(sumModel)) {
                     useTrace[ii] = false;
                     maskBadResult[ii] |= badFiberTrace;
                 }
@@ -144,7 +148,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         math::SymmetricSparseSquareMatrix matrix{num};  // least-squares matrix: model dot model
         vector.deep() = 0.0;
         diagonalWeighted.deep() = 0.0;
-        offDiagWeighted.deep() = 0.0;
 
         for (std::size_t ii = 0; ii < num; ++ii) {
             if (!useTrace[ii]) {
@@ -163,6 +166,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             double model2 = 0.0;  // model^2
             double model2Weighted = 0.0;  // model^2/sigma^2
             double modelData = 0.0;  // model dot data
+            double sumModel = 0.0;  // sum of model values
             auto const& iTrace = _traces[ii]->getTrace();
             auto const iyModel = yActual - iTrace.getBBox().getMinY();
             assert(iTrace.getBBox().getMinX() >= 0 && iTrace.getBBox().getMinY() >= 0);
@@ -171,7 +175,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto const& iModelImage = *iTrace.getImage();
             auto const& iModelMask = *iTrace.getMask();
             double const iNorm = result[ii]->getNorm()[yData];
-            maskResult[ii] = 0;
             std::size_t numTracePixels = 0;
             std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), x0);
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
@@ -197,17 +200,17 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 model2 += m2;
                 model2Weighted += m2/varianceValue;
                 modelData += modelValue*imageValue;
+                sumModel += modelValue;
             }
 
-            if (numTracePixels == 0) {
-                maskBadResult[ii] |= badFiberTrace;
-            }
-
-            if (numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
+            if (sumModel == 0.0 || numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
                 useTrace[ii] = false;
                 matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
                 diagonalWeighted[ii] = 1.0;
                 continue;
+            } else if (sumModel < minFracImage) {
+                maskResult[ii] |= suspect;
+                maskBadResult[ii] |= suspect;
             }
 
             matrix.add(ii, ii, model2);
@@ -248,8 +251,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 
                 // Accumulate in overlap
                 double modelModel = 0.0;  // model_i dot model_j
-                double modelModelWeighted = 0.0;  // model_i dot model_j/sigma^2
-                bool accumulateWeighted = (jj == ii + 1);  // do we want to calculate modelModelWeighted?
                 for (std::size_t xData = overlapStart - x0,
                         xi = overlapStart - ixMin, xj = overlapStart - jxMin;
                         xData <= overlapMax - x0;
@@ -267,39 +268,32 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                     double const jModel = jModelImage(xj, jyModel)/jNorm;
                     double const mm = iModel*jModel;
                     modelModel += mm;
-                    if (accumulateWeighted) {
-                        modelModelWeighted += mm/varianceValue;
-                    }
                 }
                 matrix.add(ii, jj, modelModel);
-                if (accumulateWeighted) {
-                    offDiagWeighted[ii] = modelModelWeighted;
-                }
             }
         }
 
         // Solve least-squares and set results
         ndarray::Array<double, 1, 1> solution = matrix.solve(vector);
-
-        ndarray::Array<double, 1, 1> variance;
-        ndarray::Array<double, 1, 1> covariance;
-        std::tie(variance, covariance) = math::invertSymmetricTridiagonal(diagonalWeighted, offDiagWeighted,
-                                                                          inversionWorkspace);
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto value = solution[ii];
-            auto varResult = variance[ii];
+            auto variance = 1.0/diagonalWeighted[ii];
             MaskT maskValue = maskResult[ii];
-            if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult) || varResult <= 0.0) {
+            if (!useTrace[ii]) {
+                maskValue = maskBadResult[ii];
+                variance = 0.0;
+            }
+            if (!std::isfinite(value)) {
                 value = 0.0;
                 maskValue = maskBadResult[ii];
-                varResult = 0.0;
-                covarResult1 = 0.0;
-                covarResult2 = 0.0;
             }
-            result[ii]->getSpectrum()[yData] = value;
+            if (!std::isfinite(variance) || variance <= 0) {
+                variance = 0.0;
+                maskValue = maskBadResult[ii];
+            }
             result[ii]->getFlux()[yData] = value;
             result[ii]->getMask()(yData, 0) = maskValue;
-            result[ii]->getVariance()[yData] = varResult;
+            result[ii]->getVariance()[yData] = variance;
         }
     }
 

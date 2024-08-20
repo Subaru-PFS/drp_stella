@@ -148,7 +148,9 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
         " when comparing middle-resolution observation spectra to models.",
     )
-    badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
+    badMask = ListField(
+        dtype=str, default=["BAD", "SAT", "CR", "NO_DATA", "SUSPECT"], doc="Mask planes for bad pixels"
+    )
     modelSNR = Field(
         dtype=float,
         default=400,

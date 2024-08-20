@@ -39,7 +39,9 @@ class FitContinuumConfig(Config):
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
     doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines before fitting?")
     maskLineRadius = Field(dtype=int, default=5, doc="Number of pixels either side of reference line to mask")
-    mask = ListField(dtype=str, default=["BAD", "CR", "NO_DATA", "BAD_FLAT"], doc="Mask planes to ignore")
+    mask = ListField(
+        dtype=str, default=["BAD", "CR", "NO_DATA", "SUSPECT", "BAD_FLAT"], doc="Mask planes to ignore"
+    )
 
 
 class FitContinuumTask(Task):
