@@ -215,8 +215,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 target = drpStella.Spectrum(length, ff)
                 target.flux[:] = np.nan
                 target.mask.array[:] = target.mask.getPlaneBitMask("NO_DATA")
-                target.covariance[:] = np.nan
-                target.background[:] = np.nan
+                target.variance[:] = np.nan
                 wavelength = np.nan
                 if detectorMap is not None and ff in detectorMap:
                     wavelength = detectorMap.getWavelength(ff)

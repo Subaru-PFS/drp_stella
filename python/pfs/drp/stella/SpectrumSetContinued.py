@@ -55,15 +55,17 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         numSpectra = len(self)
         covar = np.zeros((numSpectra, 3, self.getLength()))
         for ii, ss in enumerate(self):
-            covar[ii] = ss.getCovariance()
+            covar[ii, 0] = ss.getVariance()
         metadata = getPfsVersions()
         identity = Identity.fromDict(dataId)
         notes = PfsArm.NotesClass(**{
             col.name: np.array([self[ii].notes.get(col.name, col.default) for ii in range(numSpectra)])
             for col in PfsArm.NotesClass.schema
         })
-        return PfsArm(identity, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
-                      self.getAllBackgrounds(), self.getAllNormalizations(), covar, flags, metadata, notes)
+        flux = self.getAllFluxes()
+        background = np.zeros_like(flux)
+        return PfsArm(identity, fiberIds, wavelength, flux, self.getAllMasks(),
+                      background, self.getAllNormalizations(), covar, flags, metadata, notes)
 
     @classmethod
     def fromPfsArm(cls, pfsArm):
@@ -88,11 +90,10 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         for ii in range(numFibers):
             spectrum = Spectrum(length)
             spectrum.fiberId = pfsArm.fiberId[ii]
-            spectrum.spectrum[:] = pfsArm.flux[ii]
+            spectrum.flux[:] = pfsArm.flux[ii]
             spectrum.mask.array[:] = pfsArm.mask[ii]
-            spectrum.background[:] = pfsArm.sky[ii]
             spectrum.norm[:] = pfsArm.norm[ii]
-            spectrum.covariance[:] = pfsArm.covar[ii]
+            spectrum.variance[:] = pfsArm.covar[ii, 0]
             spectrum.wavelength[:] = pfsArm.wavelength[ii]
 
             # Need to convert notes to pure-python types so PropertySet will recognise them
@@ -211,7 +212,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         pfsArm = PfsArm.read(identity, dirName=parsed.dirName)
         return cls.fromPfsArm(pfsArm)
 
-    def makeImage(self, box, fiberTraces, useSky=False):
+    def makeImage(self, box, fiberTraces):
         """Make a 2D image of the spectra
 
         Parameters
@@ -220,8 +221,6 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             Bounding box for image.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces indicating where on the image the spectra go.
-        useSky : `bool`
-            Use sky value instead of flux?
 
         Returns
         -------
@@ -236,7 +235,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spec = specDict.get(ft.fiberId, None)
             if spec is None:
                 continue
-            fiberImage = ft.constructImage(spec, useSky)
+            fiberImage = ft.constructImage(spec)
             image[fiberImage.getBBox(), afwImage.PARENT] += fiberImage
 
         return image
@@ -278,7 +277,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
                 useWavelength = np.arange(len(spectrum), dtype=float)
             division = np.searchsorted(useWavelength,
                                        np.linspace(minWavelength, maxWavelength, numRows + 1)[1:-1])
-            spectrum.plotDivided(axes, division, doBackground=False, fluxStyle=dict(ls="solid", color=cc))
+            spectrum.plotDivided(axes, division, fluxStyle=dict(ls="solid", color=cc))
 
         if filename is not None:
             figure.savefig(filename, bbox_inches='tight')

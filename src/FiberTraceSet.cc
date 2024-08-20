@@ -111,9 +111,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 
     // Initialize results, in case we miss anything
     for (auto & spectrum : result) {
-        spectrum->getSpectrum().deep() = 0.0;
+        spectrum->getFlux().deep() = 0.0;
         spectrum->getMask().getArray().deep() = spectrum->getMask().getPlaneBitMask("NO_DATA");
-        spectrum->getCovariance().deep() = 0.0;
+        spectrum->getVariance().deep() = 0.0;
         spectrum->getNorm().deep() = 0.0;
     }
 
@@ -288,8 +288,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto value = solution[ii];
             auto varResult = variance[ii];
-            auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
-            auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
             MaskT maskValue = maskResult[ii];
             if (!useTrace[ii] || !std::isfinite(value) || !std::isfinite(varResult) || varResult <= 0.0) {
                 value = 0.0;
@@ -299,10 +297,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 covarResult2 = 0.0;
             }
             result[ii]->getSpectrum()[yData] = value;
+            result[ii]->getFlux()[yData] = value;
             result[ii]->getMask()(yData, 0) = maskValue;
-            result[ii]->getCovariance()[0][yData] = varResult;
-            result[ii]->getCovariance()[1][yData] = covarResult1;
-            result[ii]->getCovariance()[2][yData] = covarResult2;
+            result[ii]->getVariance()[yData] = varResult;
         }
     }
 

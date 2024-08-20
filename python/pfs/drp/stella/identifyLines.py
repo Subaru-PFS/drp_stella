@@ -127,7 +127,7 @@ class IdentifyLinesTask(Task):
 
         obsLines = self.findLines.runCentroids(spectrum)
         indices = sorted(list(range(len(obsLines.centroids))),
-                         key=lambda ii: spectrum.spectrum[int(obsLines.centroids[ii] + 0.5)], reverse=True)
+                         key=lambda ii: spectrum.flux[int(obsLines.centroids[ii] + 0.5)], reverse=True)
         candidates = [rl for rl in lines]
 
         if self.debugInfo_display:
@@ -149,12 +149,12 @@ class IdentifyLinesTask(Task):
             candidates.remove(ref)
 
             matches.append(fiberId, ref.wavelength, detectorMap.getXCenter(fiberId, obs), obs, np.nan, obsErr,
-                           spectrum.spectrum[int(obs + 0.5)], False, ref.status, ref.description)
+                           spectrum.flux[int(obs + 0.5)], False, ref.status, ref.description)
 
         # Include unmatched reference lines
         for ref in candidates:
             point = detectorMap.findPoint(fiberId, ref.wavelength)
             matches.append(fiberId, ref.wavelength, point.getX(), point.getY(), np.nan, np.nan,
-                           spectrum.spectrum[int(point.getY() + 0.5)], True, ref.status, ref.description)
+                           spectrum.flux[int(point.getY() + 0.5)], True, ref.status, ref.description)
 
         return matches

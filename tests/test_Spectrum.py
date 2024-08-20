@@ -27,27 +27,24 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.image = self.rng.uniform(size=self.length).astype(np.float32)
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background = self.rng.uniform(size=self.length).astype(np.float32)
         self.norm = self.rng.uniform(size=self.length).astype(np.float32)
-        self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
+        self.variance = self.rng.uniform(size=self.length).astype(np.float32)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
         self.notes = {"foo": 123, "bar": 4.56}
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
-        return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
+        return Spectrum(self.image, self.mask, self.norm, self.variance,
                         self.wavelengthArray, self.fiberId, PropertySet.from_mapping(self.notes))
 
     def assertSpectrum(self, spectrum):
         """Assert that the ``Spectrum`` has the expected contents"""
         self.assertEqual(len(spectrum), self.length)
         self.assertEqual(spectrum.fiberId, self.fiberId)
-        self.assertFloatsEqual(spectrum.spectrum, self.image)
+        self.assertFloatsEqual(spectrum.flux, self.image)
         self.assertImagesEqual(spectrum.mask, self.mask)
-        self.assertFloatsEqual(spectrum.variance, self.covariance[0])
-        self.assertFloatsEqual(spectrum.background, self.background)
+        self.assertFloatsEqual(spectrum.variance, self.variance)
         self.assertFloatsEqual(spectrum.norm, self.norm)
-        self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
         self.assertDictEqual(spectrum.notes.toDict(), self.notes)
 
@@ -60,23 +57,19 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(spectrum), self.length)
         self.assertEqual(spectrum.fiberId, 0)
         self.assertEqual(spectrum.flux.shape, (self.length,))
-        self.assertEqual(spectrum.spectrum.shape, (self.length,))
         self.assertEqual(spectrum.mask.getHeight(), 1)
         self.assertEqual(spectrum.mask.getWidth(), self.length)
         self.assertEqual(spectrum.variance.shape, (self.length,))
-        self.assertEqual(spectrum.background.shape, (self.length,))
         self.assertEqual(spectrum.norm.shape, (self.length,))
-        self.assertEqual(spectrum.covariance.shape, (3, self.length))
         self.assertEqual(spectrum.wavelength.shape, (self.length,))
         self.assertEqual(len(spectrum.notes), 0)
 
         # Set elements via setters
         spectrum.setFiberId(self.fiberId)
-        spectrum.setSpectrum(self.image)
+        spectrum.setFlux(self.image)
         spectrum.setMask(self.mask)
-        spectrum.setBackground(self.background)
         spectrum.setNorm(self.norm)
-        spectrum.setCovariance(self.covariance)
+        spectrum.setVariance(self.variance)
         spectrum.setWavelength(self.wavelengthArray)
         spectrum.getNotes().update(self.notes)
         self.assertSpectrum(spectrum)
@@ -86,9 +79,8 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum.fiberId = self.fiberId
         spectrum.flux = self.image
         spectrum.mask = self.mask
-        spectrum.background = self.background
         spectrum.norm = self.norm
-        spectrum.covariance = self.covariance
+        spectrum.variance = self.variance
         spectrum.wavelength = self.wavelengthArray
         spectrum.notes.update(self.notes)
         self.assertSpectrum(spectrum)
@@ -97,17 +89,13 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.image[:] = self.rng.uniform(size=self.length)
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background[:] = self.rng.uniform(size=self.length)
         self.norm[:] = self.rng.uniform(size=self.length)
-        self.covariance[:] = self.rng.uniform(size=(3, self.length))
+        self.variance[:] = self.rng.uniform(size=self.length)
         self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsNotEqual(spectrum.flux, self.image)
-        self.assertFloatsNotEqual(spectrum.spectrum, self.image)
         self.assertFloatsNotEqual(spectrum.mask.array, self.mask.array)
-        self.assertFloatsNotEqual(spectrum.variance, self.covariance[0])
-        self.assertFloatsNotEqual(spectrum.background, self.background)
-        self.assertFloatsNotEqual(spectrum.norm, self.background)
-        self.assertFloatsNotEqual(spectrum.covariance, self.covariance)
+        self.assertFloatsNotEqual(spectrum.variance, self.variance)
+        self.assertFloatsNotEqual(spectrum.norm, self.norm)
         self.assertFloatsNotEqual(spectrum.wavelength, self.wavelengthArray)
 
     def testBasics(self):
@@ -122,12 +110,10 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         # Getters instead of properties
         self.assertEqual(spectrum.getFiberId(), self.fiberId)
         self.assertFloatsEqual(spectrum.getFlux(), self.image)
-        self.assertFloatsEqual(spectrum.getSpectrum(), self.image)
         self.assertImagesEqual(spectrum.getMask(), self.mask)
-        self.assertFloatsEqual(spectrum.getVariance(), self.covariance[0])
-        self.assertFloatsEqual(spectrum.getBackground(), self.background)
+        self.assertFloatsEqual(spectrum.getVariance(), self.variance)
         self.assertFloatsEqual(spectrum.getNorm(), self.norm)
-        self.assertFloatsEqual(spectrum.getCovariance(), self.covariance)
+        self.assertFloatsEqual(spectrum.getVariance(), self.variance)
         self.assertFloatsEqual(spectrum.getWavelength(), self.wavelengthArray)
         self.assertFloatsEqual(spectrum.getNormFlux(), self.image/self.norm)
 
@@ -135,26 +121,14 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         self.image[:] = self.rng.uniform(size=self.length)
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**31, self.length).astype(np.int32)
-        self.background[:] = self.rng.uniform(size=self.length)
         self.norm[:] = self.rng.uniform(size=self.length)
-        self.covariance[:] = self.rng.uniform(size=(3, self.length))
+        self.variance[:] = self.rng.uniform(size=self.length)
         self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsEqual(spectrum.flux, self.image)
-        self.assertFloatsEqual(spectrum.spectrum, self.image)
         self.assertFloatsEqual(spectrum.mask.array, self.mask.array)
-        self.assertFloatsEqual(spectrum.variance, self.covariance[0])
-        self.assertFloatsEqual(spectrum.background, self.background)
-        self.assertFloatsEqual(spectrum.covariance, self.covariance)
+        self.assertFloatsEqual(spectrum.variance, self.variance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
         self.assertFloatsEqual(spectrum.normFlux, self.image/self.norm)
-
-        # Set the variance and ensure it changes the covariance
-        spectrum.covariance[:] = self.covariance
-        self.assertFloatsEqual(spectrum.covariance, self.covariance)
-        variance = self.rng.uniform(size=self.length).astype(np.float32)
-        spectrum.variance = variance
-        self.covariance[0] = variance
-        self.assertFloatsEqual(spectrum.covariance, self.covariance)
 
     def testPickle(self):
         """Test pickling of ``Spectrum``"""
@@ -175,7 +149,7 @@ class SpectrumTestCase(lsst.utils.tests.TestCase):
         spectrum = self.makeSpectrum()
         # Write directly to file
         with lsst.utils.tests.getTempFilePath(ext) as filename:
-            spectrum.plot(numRows=4, doBackground=True, filename=filename)
+            spectrum.plot(numRows=4, filename=filename)
         # Check return values
         with lsst.utils.tests.getTempFilePath(ext) as filename:
             numRows = 4  # Must be > 1 for len(axes) to work

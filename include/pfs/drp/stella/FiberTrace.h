@@ -66,21 +66,18 @@ class FiberTrace {
      *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
      * @param bbox : bounding box of image
-     * @param useSky : use sky value instead of flux?
      */
     std::shared_ptr<Image> constructImage(
         Spectrum const& spectrum,
-        lsst::geom::Box2I const & bbox,
-        bool useSky=false
+        lsst::geom::Box2I const & bbox
     ) const;
 
     /**
      * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
      *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
-     * @param useSky : use sky value instead of flux?
      */
-    std::shared_ptr<Image> constructImage(Spectrum const& spectrum, bool useSky=false) const {
+    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const {
         return constructImage(spectrum, getTrace().getBBox());
     }
 
@@ -89,12 +86,10 @@ class FiberTrace {
      *
      * @param image : image into which to reconstruct trace
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
-     * @param useSky : use sky value instead of flux?
      */
     void constructImage(
         lsst::afw::image::Image<ImageT> & image,
-        Spectrum const& spectrum,
-        bool useSky=false
+        Spectrum const& spectrum
     ) const;
 
     /**

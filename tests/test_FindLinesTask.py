@@ -83,14 +83,14 @@ def makeSpectrum(length, centers, amplitudes, widths, noise, bgIntercept=0.0, bg
     """
     indices = np.arange(length)
     spectrum = Spectrum(length)
-    spectrum.spectrum[:] = bgIntercept + bgSlope*indices
+    spectrum.flux[:] = bgIntercept + bgSlope*indices
     spectrum.mask[:] = 0
     spectrum.variance[:] = noise**2
 
     for cc, aa, ww in zip(makeIterable(centers),
                           makeIterable(amplitudes, len(centers)),
                           makeIterable(widths, len(centers))):
-        spectrum.spectrum += gaussian(indices, cc, aa, ww)
+        spectrum.flux += gaussian(indices, cc, aa, ww)
 
     return spectrum
 
@@ -112,7 +112,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         task = FindLinesTask(config=config)
         result = task.run(spectrum)
 
-        self.assertEqual(result.continuum.shape, spectrum.spectrum.shape)
+        self.assertEqual(result.continuum.shape, spectrum.flux.shape)
 
         lines = result.lines
         self.assertEqual(len(lines), len(centers))
@@ -148,7 +148,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         task = FindLinesTask(config=config)
         result = task.run(spectrum)
 
-        self.assertEqual(result.continuum.shape, spectrum.spectrum.shape)
+        self.assertEqual(result.continuum.shape, spectrum.flux.shape)
 
         lines = result.lines
         self.assertEqual(len(lines), len(centers))
@@ -179,7 +179,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         task = FindLinesTask(config=config)
         result = task.runCentroids(spectrum)
 
-        self.assertEqual(result.continuum.shape, spectrum.spectrum.shape)
+        self.assertEqual(result.continuum.shape, spectrum.flux.shape)
 
         centroids = result.centroids
         self.assertEqual(len(centroids), len(centers))

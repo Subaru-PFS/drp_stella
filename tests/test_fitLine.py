@@ -56,7 +56,7 @@ def makeSpectrum(length, center, amplitude, rmsSize, bgConst=0.0, bgSlope=0.0):
     indices = np.arange(length)
     spectrum = Spectrum(length)
     background = bgConst + bgSlope*(indices - center)
-    spectrum.spectrum[:] = gaussian(indices, center, amplitude, rmsSize) + background
+    spectrum.flux[:] = gaussian(indices, center, amplitude, rmsSize) + background
     spectrum.mask[:] = 0
     return spectrum
 
@@ -109,7 +109,7 @@ class FitLinesTestCase(lsst.utils.tests.TestCase):
         """Test that masked pixels are ignored"""
         pixel = int(self.center) + 1  # +1 so the guess amplitude isn't NAN
         maskVal = 4
-        self.spectrum.spectrum[pixel] = np.nan
+        self.spectrum.flux[pixel] = np.nan
         self.spectrum.mask.array[0, pixel] = maskVal
 
         # Not respecting the bad pixel means the NAN contaminates everything

@@ -88,10 +88,8 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
             self.assertFloatsAlmostEqual(ss.norm, expectNorm, rtol=1.0e-6)
             self.assertFloatsEqual(ss.mask.array[0], expectMask)
-            self.assertFloatsEqual(ss.background, 0.0)
             self.assertTrue(np.all(ss.mask.array[0] | (ss.variance > 0)))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
-            self.assertTrue(np.all(np.isfinite(ss.covariance)))
 
     def testBasic(self):
         """Test basic extraction"""
