@@ -43,12 +43,11 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 std::shared_ptr<afwImage::Image<ImageT>>
 FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     Spectrum const& spectrum,
-    lsst::geom::Box2I const& bbox,
-    bool useSky
+    lsst::geom::Box2I const& bbox
 ) const {
     auto out = std::make_shared<afwImage::Image<ImageT>>(bbox);
     *out = 0.0;
-    constructImage(*out, spectrum, useSky);
+    constructImage(*out, spectrum);
     return out;
 }
 
@@ -56,10 +55,9 @@ FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     afwImage::Image<ImageT> & image,
-    Spectrum const& spectrum,
-    bool useSky
+    Spectrum const& spectrum
 ) const {
-    return constructImage(image, useSky ? spectrum.getBackground() : spectrum.getFlux());
+    return constructImage(image, spectrum.getFlux());
 }
 
 
@@ -305,9 +303,9 @@ Spectrum FiberTrace<ImageT, MaskT, VarianceT>::extractAperture(
     MaskT const require = image.getMask()->getPlaneBitMask(fiberMaskPlane);
 
     // Initialize results, in case we miss anything
-    spectrum.getSpectrum().deep() = 0.0;
+    spectrum.getFlux().deep() = 0.0;
     spectrum.getMask().getArray().deep() = spectrum.getMask().getPlaneBitMask("NO_DATA");
-    spectrum.getCovariance().deep() = 0.0;
+    spectrum.getVariance().deep() = 0.0;
     spectrum.getNorm().deep() = 0.0;
 
     auto const trace = getTrace();
@@ -342,7 +340,7 @@ Spectrum FiberTrace<ImageT, MaskT, VarianceT>::extractAperture(
             sumWeight += weight;
         }
         spectrum.getFlux()[yImage] = sumImage;
-        spectrum.getCovariance()[0][yImage] = sumVariance;
+        spectrum.getVariance()[yImage] = sumVariance;
         lsst::afw::image::MaskPixel maskResult = 0;
         if (sumWeight == 0 || !std::isfinite(sumWeight)) {
             maskResult = noData|badFiberTrace;

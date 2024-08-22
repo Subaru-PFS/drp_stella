@@ -926,7 +926,9 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
     adjustCalibVectorsRangeStop = Field(
         dtype=float, default=700, doc="Stop of wavelength range to use for height adjustment [nm]."
     )
-    badMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA"], doc="Mask planes for bad pixels")
+    badMask = ListField(
+        dtype=str, default=["BAD", "SAT", "CR", "NO_DATA", "SUSPECT"], doc="Mask planes for bad pixels"
+    )
     broadbandFluxType = ChoiceField(
         doc="Type of broadband fluxes to use.",
         dtype=str,

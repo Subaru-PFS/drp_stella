@@ -30,8 +30,7 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
     cls.def("getAllMasks", &Class::getAllMasks);
-    cls.def("getAllCovariances", &Class::getAllCovariances);
-    cls.def("getAllBackgrounds", &Class::getAllBackgrounds);
+    cls.def("getAllVariances", &Class::getAllVariances);
     cls.def("getAllNormalizations", &Class::getAllNormalizations);
     cls.def("getAllNotes", &Class::getAllNotes);
 

@@ -42,7 +42,9 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         norm = np.ones(shape, dtype=float)
         covar = np.zeros((self.numFibers, 3, self.length), dtype=float)
         covar[:, 0, :] = self.noise**2
-        flags = MaskHelper(**{nn: ii for ii, nn in enumerate(("NO_DATA", "SAT", "BAD_FLAT", "CR"))})
+        flags = MaskHelper(
+            **{nn: ii for ii, nn in enumerate(("NO_DATA", "SUSPECT", "SAT", "BAD_FLAT", "CR"))}
+        )
         metadata = {}
         self.spectra = PfsFiberArraySet(identity, fiberId, wavelength, flux, mask, sky, norm, covar, flags,
                                         metadata)

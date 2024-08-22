@@ -15,9 +15,8 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
   : _length(length),
     _flux(ndarray::allocate(length)),
     _mask(length, 1),
-    _background(ndarray::allocate(length)),
     _norm(ndarray::allocate(length)),
-    _covariance(ndarray::allocate(3, length)),
+    _variance(ndarray::allocate(length)),
     _wavelength(ndarray::allocate(length)),
     _fiberId(fiberId),
     _isWavelengthSet(false),
@@ -25,9 +24,8 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
 {
     _flux.deep() = 0.;
     _mask.getArray().deep() = 0;
-    _background.deep() = 0.;
     _norm.deep() = 1.0;
-    _covariance.deep() = 0.;
+    _variance.deep() = 0.;
     _wavelength.deep() = 0.;
 }
 
@@ -35,18 +33,16 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
 Spectrum::Spectrum(
     ImageArray const& flux,
     Mask const& mask,
-    ImageArray const& background,
     ImageArray const& norm,
-    CovarianceMatrix const& covariance,
+    VarianceArray const& variance,
     WavelengthArray const& wavelength,
     int fiberId,
     std::shared_ptr<lsst::daf::base::PropertySet> notes
 ) : _length(flux.getNumElements()),
     _flux(flux),
     _mask(mask),
-    _background(background),
     _norm(norm),
-    _covariance(covariance),
+    _variance(variance),
     _wavelength(wavelength),
     _fiberId(fiberId),
     _isWavelengthSet(!wavelength.empty()),
@@ -66,12 +62,6 @@ void Spectrum::setMask(const Mask & mask) {
 }
 
 
-void Spectrum::setBackground(Spectrum::ImageArray const& background) {
-    utils::checkSize(background.getShape()[0], _length, "Spectrum::setBackground");
-    _background.deep() = background;
-}
-
-
 void Spectrum::setNorm(Spectrum::ImageArray const& norm) {
     utils::checkSize(norm.getShape()[0], _length, "Spectrum::setNorm");
     _norm.deep() = norm;
@@ -80,14 +70,7 @@ void Spectrum::setNorm(Spectrum::ImageArray const& norm) {
 
 void Spectrum::setVariance(Spectrum::VarianceArray const& variance) {
     utils::checkSize(variance.getShape()[0], _length, "Spectrum::setVariance");
-    _covariance[0].deep() = variance;
-}
-
-
-void Spectrum::setCovariance(Spectrum::CovarianceMatrix const& covariance) {
-    utils::checkSize(covariance.getShape(), ndarray::makeVector(static_cast<std::size_t>(3), _length),
-              "Spectrum::setCovariance");
-    _covariance.deep() = covariance;
+    _variance.deep() = variance;
 }
 
 

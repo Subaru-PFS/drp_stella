@@ -21,8 +21,6 @@ class Spectrum {
     using ConstImageArray = ndarray::Array<const ImageT, 1, 1>;
     using VarianceArray = ndarray::Array<VarianceT, 1, 1>;
     using ConstVarianceArray = ndarray::Array<VarianceT const, 1, 1>;
-    using CovarianceMatrix = ndarray::Array<VarianceT, 2, 1>;
-    using ConstCovarianceMatrix = ndarray::Array<VarianceT const, 2, 1>;
     using WavelengthArray = ndarray::Array<double, 1, 1>;
     using ConstWavelengthArray = ndarray::Array<double const, 1, 1>;
 
@@ -37,9 +35,8 @@ class Spectrum {
     ///
     /// @param flux  Spectrum values
     /// @param mask  Mask values
-    /// @param background  Background values
     /// @param norm  Normalisation
-    /// @param covariance  Covariance matrix
+    /// @param variance  Variance values
     /// @param wavelength  Wavelength values
     /// @param lines  Line list
     /// @param fiberId  Fiber identifier
@@ -47,9 +44,8 @@ class Spectrum {
     Spectrum(
         ImageArray const& flux,
         Mask const& mask,
-        ImageArray const& background,
         ImageArray const& norm,
-        CovarianceMatrix const& covariance,
+        VarianceArray const& variance,
         WavelengthArray const& wavelength,
         int fiberId=0,
         std::shared_ptr<lsst::daf::base::PropertySet> notes=nullptr
@@ -72,20 +68,6 @@ class Spectrum {
     //@}
 
     //@{
-    /// Return the spectrum
-    ///
-    /// Synonym for getFlux.
-    ImageArray getSpectrum() { return _flux; }
-    ConstImageArray getSpectrum() const { return _flux; }
-    //@}
-
-    //@{
-    /// Return the background
-    ImageArray getBackground() { return _background; }
-    ConstImageArray getBackground() const { return _background; }
-    //@}
-
-    //@{
     /// Return the normalisation
     ImageArray getNorm() { return _norm; }
     ConstImageArray getNorm() const { return _norm; }
@@ -96,14 +78,8 @@ class Spectrum {
 
     //@{
     /// Return the variance of this spectrum
-    VarianceArray getVariance() { return _covariance[0]; }
-    ConstVarianceArray getVariance() const { return _covariance[0]; }
-    //@}
-
-    //@{
-    /// Return the pointer to the covariance of this spectrum
-    CovarianceMatrix getCovariance() { return _covariance; }
-    ConstCovarianceMatrix getCovariance() const { return _covariance; }
+    VarianceArray getVariance() { return _variance; }
+    ConstVarianceArray getVariance() const { return _variance; }
     //@}
 
     //@{
@@ -128,24 +104,11 @@ class Spectrum {
     /// Set the flux (deep copy)
     void setFlux(ndarray::Array<ImageT, 1, 1>  const& flux);
 
-    /// Set the spectrum (deep copy)
-    ///
-    /// A synonym for setFlux.
-    void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum) {
-        return setFlux(spectrum);
-    }
-
-    /// Set the background array (deep copy)
-    void setBackground(ImageArray const& background);
-
     /// Set the normalisation (deep copy)
     void setNorm(ImageArray const& norm);
 
     /// Set the variance (deep copy)
     void setVariance(VarianceArray const& variance);
-
-    /// Set the covariance (deep copy)
-    void setCovariance(CovarianceMatrix const& covar);
 
     /// Set the wavelength  (deep copy)
     void setWavelength(WavelengthArray const& wavelength);
@@ -162,9 +125,8 @@ class Spectrum {
     std::size_t _length;
     ImageArray _flux;
     Mask _mask;
-    ImageArray _background;
     ImageArray _norm;
-    CovarianceMatrix _covariance;
+    VarianceArray _variance;
     WavelengthArray _wavelength;
     int _fiberId;
     bool _isWavelengthSet;

@@ -25,27 +25,24 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.image = self.rng.uniform(size=self.length).astype(np.float32)
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background = self.rng.uniform(size=self.length).astype(np.float32)
         self.norm = self.rng.uniform(size=self.length).astype(np.float32)
-        self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
+        self.variance = self.rng.uniform(size=self.length).astype(np.float32)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
         self.notes = {"blackSpotId": 123}
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
-        return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
+        return Spectrum(self.image, self.mask, self.norm, self.variance,
                         self.wavelengthArray, self.fiberId, PropertySet.from_mapping(self.notes))
 
     def assertSpectrum(self, spectrum):
         """Assert that the ``Spectrum`` has the expected contents"""
         self.assertEqual(len(spectrum), self.length)
         self.assertEqual(spectrum.fiberId, self.fiberId)
-        self.assertFloatsEqual(spectrum.spectrum, self.image)
+        self.assertFloatsEqual(spectrum.flux, self.image)
         self.assertImagesEqual(spectrum.mask, self.mask)
-        self.assertFloatsEqual(spectrum.variance, self.covariance[0])
-        self.assertFloatsEqual(spectrum.background, self.background)
+        self.assertFloatsEqual(spectrum.variance, self.variance)
         self.assertFloatsEqual(spectrum.norm, self.norm)
-        self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
         for key, value in self.notes.items():
             self.assertEqual(spectrum.notes[key], value)
@@ -94,11 +91,10 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         spectra = SpectrumSet(num, self.length)
         for ii, ss in enumerate(spectra):
             multiplier = ii + 1
-            ss.spectrum = self.image*multiplier
+            ss.flux = self.image*multiplier
             ss.wavelength = self.wavelengthArray*multiplier
             ss.mask.array[0, :] = ii
-            ss.covariance = self.covariance*multiplier
-            ss.background = self.background*multiplier
+            ss.variance = self.variance*multiplier
             ss.norm = self.norm*multiplier
             ss.notes.update(self.notes)
             spectra[ii] = ss
@@ -119,11 +115,10 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         for ii, spectrum in enumerate(spectra):
             multiplier = ii + 1
             self.assertEqual(spectrum.fiberId, ii)
-            self.assertFloatsEqual(spectrum.spectrum, self.image*multiplier)
+            self.assertFloatsEqual(spectrum.flux, self.image*multiplier)
             self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray*multiplier)
             self.assertFloatsEqual(spectrum.mask.array[0, :], ii)
-            self.assertFloatsEqual(spectrum.covariance, self.covariance*multiplier)
-            self.assertFloatsEqual(spectrum.background, self.background*multiplier)
+            self.assertFloatsEqual(spectrum.variance, self.variance*multiplier)
             self.assertFloatsEqual(spectrum.norm, self.norm*multiplier)
             for key, value in self.notes.items():
                 self.assertEqual(spectrum.notes[key], value)
@@ -136,15 +131,13 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         image = np.concatenate([self.image[np.newaxis, :]*(ii + 1) for ii in range(num)])
         wavelength = np.concatenate([self.wavelengthArray[np.newaxis, :]*(ii + 1) for ii in range(num)])
         mask = np.concatenate([np.ones((1, self.length), dtype=np.int32)*ii for ii in range(num)])
-        background = np.concatenate([self.background[np.newaxis, :]*(ii + 1) for ii in range(num)])
         norm = np.concatenate([self.norm[np.newaxis, :]*(ii + 1) for ii in range(num)])
-        covariance = np.concatenate([self.covariance[np.newaxis, :, :]*(ii + 1) for ii in range(num)])
+        variance = np.concatenate([self.variance[np.newaxis, :]*(ii + 1) for ii in range(num)])
 
         self.assertFloatsEqual(spectra.getAllFluxes(), image)
         self.assertFloatsEqual(spectra.getAllWavelengths(), wavelength)
         self.assertFloatsEqual(spectra.getAllMasks(), mask)
-        self.assertFloatsEqual(spectra.getAllCovariances(), covariance)
-        self.assertFloatsEqual(spectra.getAllBackgrounds(), background)
+        self.assertFloatsEqual(spectra.getAllVariances(), variance)
         self.assertFloatsEqual(spectra.getAllNormalizations(), norm)
         notes = spectra.getAllNotes()
         for nn in notes:

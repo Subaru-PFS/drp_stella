@@ -89,7 +89,7 @@ class MeasureFiberNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureFib
     """Configuration for MeasureFiberNormsTask"""
     mask = ListField(
         dtype=str,
-        default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
+        default=["BAD_FLAT", "CR", "SAT", "NO_DATA", "SUSPECT"],
         doc="Mask planes to exclude from fiberNorms measurement",
     )
     rejIter = Field(dtype=int, default=1, doc="Number of iterations for fiberNorms measurement")

@@ -2,9 +2,6 @@
 #include "lsst/pex/exceptions.h"
 
 #include "pfs/drp/stella/SpectrumSet.h"
-//#include "pfs/drp/stella/math/Math.h"
-//#include "pfs/drp/stella/math/CurveFitting.h"
-//#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 #include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs { namespace drp { namespace stella {
@@ -45,7 +42,7 @@ ndarray::Array<int, 1, 1> SpectrumSet::getAllFiberIds() const {
 SpectrumSet::ImageArray SpectrumSet::getAllFluxes() const {
     ImageArray flux = ndarray::allocate(size(), _length);
     for (std::size_t ii = 0; ii < size(); ++ii) {
-        flux[ii] = get(ii)->getSpectrum();
+        flux[ii] = get(ii)->getFlux();
     }
     return flux;
 }
@@ -69,21 +66,12 @@ SpectrumSet::MaskArray SpectrumSet::getAllMasks() const {
 }
 
 
-SpectrumSet::CovarianceArray SpectrumSet::getAllCovariances() const {
-    CovarianceArray covar = ndarray::allocate(size(), 3, _length);
+SpectrumSet::VarianceArray SpectrumSet::getAllVariances() const {
+    VarianceArray variance = ndarray::allocate(size(), _length);
     for (std::size_t ii = 0; ii < size(); ++ii ){
-        covar[ii] = get(ii)->getCovariance();
+        variance[ii] = get(ii)->getVariance();
     }
-    return covar;
-}
-
-
-SpectrumSet::ImageArray SpectrumSet::getAllBackgrounds() const {
-    ImageArray backgrounds = ndarray::allocate(size(), _length);
-    for (std::size_t ii = 0; ii < size(); ++ii) {
-        backgrounds[ii] = get(ii)->getBackground();
-    }
-    return backgrounds;
+    return variance;
 }
 
 

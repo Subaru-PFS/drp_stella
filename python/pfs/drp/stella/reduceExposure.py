@@ -375,22 +375,20 @@ class ReduceExposureTask(CmdLineTask):
                 continua = self.fitContinuum.run(spectra, refLines)
                 maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
                 spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
-                # Set sky flux from continuum
-                for ss, cc in zip(spectra, continua):
-                    ss.background += cc.spectrum/cc.norm*ss.norm
 
             if self.config.doBlackSpotCorrection:
                 self.blackSpotCorrection.run(pfsConfig, spectra)
 
+            pfsArm = spectra.toPfsArm(sensorRef.dataId)
+
             if skyImage is not None:
                 skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
-                for spec, skySpec in zip(spectra, skySpectra):
-                    spec.background += skySpec.spectrum/skySpec.norm*spec.norm
+                assert np.array_equal(skySpectra.fiberId, pfsArm.fiberId)
+                pfsArm.sky[:] = skySpectra.flux/skySpectra.norm*pfsArm.norm
 
             if self.config.doApplyScreenResponse:
                 self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
 
-            pfsArm = spectra.toPfsArm(sensorRef.dataId)
             if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
                 self.log.info("Calculating barycentric correction")
                 calculateBarycentricCorrection(pfsArm, pfsConfig)

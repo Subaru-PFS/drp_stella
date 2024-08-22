@@ -48,7 +48,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             Display(backend=display, frame=1).mtv(self.image, title="Synthetic image")
             Display(backend=display, frame=2).mtv(self.fiberTraces[4].trace, title="FiberTrace #4")
 
-    def assertSpectra(self, spectra, flux=None, mask=None):
+    def assertSpectra(self, spectra, flux=None, mask=None, norm=None):
         """Assert that the extracted spectra are as expected
 
         Parameters
@@ -60,6 +60,9 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             indexed by the fiberId.
         mask : `dict` (`int`: array_like) or array_like, optional
             Expected mask values. If a `dict`, provides the expected mask value
+            indexed by the fiberId.
+        norm : `dict` (`int`: array_like) or array_like, optional
+            Expected norm values. If a `dict`, provides the expected norm value
             indexed by the fiberId.
         """
         self.assertEqual(len(spectra), self.synthConfig.numFibers)
@@ -79,19 +82,22 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             if expectMask is None:
                 expectMask = 0
 
-            bbox = ft.trace.getBBox()
-            expectNorm = np.zeros(self.synthConfig.height, dtype=np.float32)
-            expectNorm[bbox.getMinY():bbox.getMaxY() + 1] = ft.trace.image.array.sum(axis=1)
+            if isinstance(norm, Mapping):
+                expectNorm = norm.get(ss.fiberId, None)
+            else:
+                expectNorm = norm
+            if expectNorm is None:
+                bbox = ft.trace.getBBox()
+                expectNorm = np.zeros(self.synthConfig.height, dtype=np.float32)
+                expectNorm[bbox.getMinY():bbox.getMaxY() + 1] = ft.trace.image.array.sum(axis=1)
 
             self.assertEqual(ss.fiberId, ft.fiberId)
             self.assertEqual(len(ss), self.synthConfig.height)
             self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
             self.assertFloatsAlmostEqual(ss.norm, expectNorm, rtol=1.0e-6)
             self.assertFloatsEqual(ss.mask.array[0], expectMask)
-            self.assertFloatsEqual(ss.background, 0.0)
             self.assertTrue(np.all(ss.mask.array[0] | (ss.variance > 0)))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
-            self.assertTrue(np.all(np.isfinite(ss.covariance)))
 
     def testBasic(self):
         """Test basic extraction"""
@@ -161,17 +167,24 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         fiberId = self.synthConfig.fiberId[index]
         expectFlux = np.full(self.synthConfig.height, self.flux, dtype=np.float32)
         expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
-        expectFlux[row] = 0.0
+        expectNorm = np.full(self.synthConfig.height, self.flux, dtype=np.float32)
+        expectFlux[row] = 0.0  # We don't measure any flux for this row, because there's no fiberTrace data
         expectMask[row] = self.image.mask.getPlaneBitMask(["BAD_FIBERTRACE", "NO_DATA"])
+        expectNorm[row] = 0.0  # There's no flux in the fiberTrace for this row
 
         self.fiberTraces[index].trace.image.array[row, :] = 0.0
         spectra = self.fiberTraces.extractSpectra(self.image)
-        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+        self.assertSpectra(
+            spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask}, norm={fiberId: expectNorm}
+        )
 
+        # Remove the FIBERTRACE mask bit
         self.fiberTraces[index].trace.image.array[row, :] = 1000.0
         self.fiberTraces[index].trace.mask.array[row, :] = 0
         spectra = self.fiberTraces.extractSpectra(self.image)
-        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+        self.assertSpectra(
+            spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask}, norm={fiberId: expectNorm}
+        )
 
     def testMinFracMask(self):
         """Test behavior of the minFracMask parameter

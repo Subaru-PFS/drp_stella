@@ -11,15 +11,13 @@ __all__ = ["Spectrum"]
 @continueClass  # noqa: F811 (redefinition)
 class Spectrum:  # noqa: F811 (redefinition)
     """Flux as a function of wavelength"""
-    def plot(self, numRows=3, doBackground=False, filename=None):
+    def plot(self, numRows=3, filename=None):
         """Plot spectrum
 
         Parameters
         ----------
         numRows : `int`
             Number of row panels over which to plot the spectrum.
-        doBackground : `bool`, optional
-            Plot the background values in addition to the flux values?
         filename : `str`, optional
             Name of file to which to write the plot. If a ``filename`` is
             specified, the matplotlib `figure` will be closed.
@@ -35,14 +33,14 @@ class Spectrum:  # noqa: F811 (redefinition)
         figure, axes = plt.subplots(numRows)
 
         division = np.linspace(0, len(self), numRows + 1, dtype=int)[1:-1]
-        self.plotDivided(axes, division, doBackground=doBackground)
+        self.plotDivided(axes, division)
 
         if filename is not None:
             figure.savefig(filename, bbox_inches='tight')
             plt.close(figure)
         return figure, axes
 
-    def plotDivided(self, axes, division, doBackground=False, fluxStyle=None, backgroundStyle=None):
+    def plotDivided(self, axes, division, fluxStyle=None):
         """Plot spectrum that has been divided into parts
 
         This is intended as the implementation of the guts of the ``plot``
@@ -55,14 +53,9 @@ class Spectrum:  # noqa: F811 (redefinition)
         division : `numpy.ndarray`
             Array of indices at which to divide the spectrum. This should be one
             element shorter than the list of ``axes``.
-        doBackground : `bool`, optional
-            Plot the background values in addition to the flux values?
         fluxStyle : `dict`
             Arguments for the ``matplotlib.Axes.plot`` method when plotting the
             flux vector.
-        backgroundStyle : `dict`
-            Arguments for the ``matplotlib.Axes.plot`` method when plotting the
-            background vector.
         """
         # subplots(1) returns an Axes not embedded in a list
         try:
@@ -74,21 +67,15 @@ class Spectrum:  # noqa: F811 (redefinition)
                                                 (len(axes), len(division)))
         if fluxStyle is None:
             fluxStyle = dict(ls="solid", color="black")
-        if backgroundStyle is None:
-            backgroundStyle = dict(ls="solid", color="blue")
 
         useWavelength = self.getWavelength()
         if np.all(useWavelength == 0.0):
             useWavelength = np.arange(len(self), dtype=float)
         wavelength = np.split(useWavelength, division)
-        flux = np.split(self.getSpectrum(), division)
-        if doBackground:
-            background = np.split(self.getBackground(), division)
+        flux = np.split(self.getFlux(), division)
 
         for ii, ax in enumerate(axes):
             ax.plot(wavelength[ii], flux[ii], **fluxStyle)
-            if doBackground:
-                ax.plot(wavelength[ii], background[ii], **backgroundStyle)
 
     def wavelengthToPixels(self, wavelength):
         """Convert wavelength to pixels

@@ -124,7 +124,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         expectSpectrum = self.arcData.spectrum + continuum
         for spectrum in spectra:
             # Add continuum back in, so the rtol can be relative to something non-zero
-            values = spectrum.spectrum if hasContinuum else spectrum.spectrum + continuum
+            values = spectrum.flux if hasContinuum else spectrum.flux + continuum
             self.assertFloatsAlmostEqual(values, expectSpectrum, rtol=3.0e-3)
 
     def testBasic(self):
@@ -151,7 +151,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = ExtractSpectraTask(config=config)
         spectra = task.run(self.flat, traces, self.detMap).spectra
         for spectrum in spectra:
-            self.assertFloatsAlmostEqual(spectrum.spectrum, self.flux, rtol=3.0e-3)
+            self.assertFloatsAlmostEqual(spectrum.flux, self.flux, rtol=3.0e-3)
 
         # Extract arc
         spectra = task.run(self.arc, traces, self.detMap).spectra
@@ -220,8 +220,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         for ii, (ff, ss) in enumerate(zip(fiberId, spectra)):
             self.assertEqual(ss.fiberId, ff)
         self.assertTrue(np.all(np.isnan(spectra[index].flux)))
-        self.assertTrue(np.all(np.isnan(spectra[index].background)))
-        self.assertTrue(np.all(np.isnan(spectra[index].covariance)))
+        self.assertTrue(np.all(np.isnan(spectra[index].variance)))
         self.assertTrue(np.all(np.isnan(spectra[index].wavelength)))
         self.assertFloatsEqual(spectra[index].mask.array, spectra[index].mask.getPlaneBitMask("NO_DATA"))
 

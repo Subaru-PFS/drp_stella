@@ -23,7 +23,7 @@ class NormalizeFiberProfilesConfig(Config):
     """Configuration for normalizing fiber profiles"""
     reduceExposure = ConfigurableField(target=ReduceExposureTask, doc="Reduce single exposure")
     combine = ConfigurableField(target=CombineImagesTask, doc="CombineImages")
-    doAdjustDetectorMap = Field(dtype=bool, default=False, doc="Adjust detectorMap using trace positions?")
+    doAdjustDetectorMap = Field(dtype=bool, default=True, doc="Adjust detectorMap using trace positions?")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     traceSpectralError = Field(dtype=float, default=1.0,
@@ -59,6 +59,8 @@ class NormalizeFiberProfilesTask(Task):
 
     def run(self, profiles: FiberProfileSet, normRefList: List[ButlerDataRef], visitList: List[int]):
         combined = self.makeCombinedExposure(normRefList)
+        for fiberId in profiles:
+            profiles[fiberId].norm = None
         spectra = profiles.extractSpectra(
             combined.exposure.maskedImage,
             combined.detectorMap,
@@ -70,7 +72,7 @@ class NormalizeFiberProfilesTask(Task):
         self.blackspots.run(combined.pfsConfig, spectra)
 
         for ss in spectra:
-            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask("NO_DATA")) == 0
+            good = (ss.mask.array[0] & ss.mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])) == 0
             profiles[ss.fiberId].norm = np.where(good, ss.flux/ss.norm, np.nan)
 
         self.write(normRefList[0], profiles, visitList, [dataRef.dataId["visit"] for dataRef in normRefList])

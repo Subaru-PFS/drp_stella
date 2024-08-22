@@ -22,7 +22,7 @@ class FittingError(RuntimeError):
 class FindLinesConfig(Config):
     """Configuration for FindLinesTask"""
     threshold = Field(dtype=float, default=5.0, doc="Threshold for line detection (sigma)")
-    mask = ListField(dtype=str, default=["NO_DATA"], doc="Mask planes to ignore")
+    mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT"], doc="Mask planes to ignore")
     width = Field(dtype=float, default=1.0, doc="Guess width of line (stdev, pixels)")
     kernelHalfSize = Field(dtype=float, default=4.0, doc="Half-size of kernel, in units of the width")
     fittingRadius = Field(dtype=float, default=10.0,
@@ -96,7 +96,7 @@ class FindLinesTask(Task):
             import matplotlib.pyplot as plt
             figure, axes = plt.subplots()
             indices = np.arange(len(spectrum))
-            axes.plot(indices, spectrum.spectrum, 'k-')
+            axes.plot(indices, spectrum.flux, 'k-')
             for cc in centroids:
                 axes.axvline(cc, color="r", linestyle=":")
             plt.show()
@@ -129,9 +129,7 @@ class FindLinesTask(Task):
 
         flux = np.convolve(spectrum.normFlux if continuum is None else spectrum.normFlux - continuum,
                            kernel, mode="same")
-        covariance = np.zeros_like(spectrum.covariance)
-        covariance[0, :] = np.convolve(spectrum.variance, kernel**2, mode="same")
-        background = np.convolve(spectrum.background, kernel, mode="same")
+        variance = np.convolve(spectrum.variance, kernel**2, mode="same")
 
         # Expand each mask plane
         grow = int(self.config.maskRadius*self.config.width + 0.5)
@@ -142,8 +140,7 @@ class FindLinesTask(Task):
         mask.array[0, :halfSize] |= mask.getPlaneBitMask("NO_DATA")
         mask.array[0, len(spectrum) - halfSize:] |= mask.getPlaneBitMask("NO_DATA")
 
-        return Spectrum(flux, mask, background, np.ones_like(flux), covariance, spectrum.wavelength,
-                        spectrum.fiberId)
+        return Spectrum(flux, mask, np.ones_like(flux), variance, spectrum.wavelength, spectrum.fiberId)
 
     def findPeaks(self, spectrum):
         """Find positive peaks in the spectrum
@@ -332,12 +329,12 @@ class FindLinesTask(Task):
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
             indices = np.arange(lowIndex, highIndex)
-            axes.plot(indices, spectrum.spectrum[lowIndex:highIndex], "k-")
+            axes.plot(indices, spectrum.flux[lowIndex:highIndex], "k-")
             good = (mask[lowIndex:highIndex] & maskVal) == 0
             if good.sum() != len(good):
-                axes.plot(indices[~good], spectrum.spectrum[lowIndex:highIndex][~good], "rx")
+                axes.plot(indices[~good], spectrum.flux[lowIndex:highIndex][~good], "rx")
             if allPeaks is not None and np.any(isInterloper):
-                axes.plot(indices[isInterloper], spectrum.spectrum[lowIndex:highIndex][isInterloper], "bx")
+                axes.plot(indices[isInterloper], spectrum.flux[lowIndex:highIndex][isInterloper], "bx")
             xx = np.arange(lowIndex, highIndex, 0.01)
             axes.plot(xx, fit(xx), "b--")
             axes.axvline(result.center, color="b", linestyle=":")

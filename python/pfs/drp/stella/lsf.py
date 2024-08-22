@@ -745,7 +745,7 @@ class ExtractionLsf(Lsf):
         traces.add(self.fiberTrace)
         spectra = traces.extractSpectra(psfImage)
         assert len(spectra) == 1
-        return Kernel1D(spectra[0].spectrum, -xy0.getY())
+        return Kernel1D(spectra[0].flux, -xy0.getY())
 
     def computeArray(self, yy):
         """Return an array with the LSF inserted at the nominated position
@@ -784,7 +784,7 @@ class ExtractionLsf(Lsf):
         array = np.zeros(self.length)
         yMin = max(psfBox.getMinY(), 0)
         yMax = min(psfBox.getMaxY() + 1, self.length)
-        spectrum = spectra[0].spectrum[yMin - psfBox.getMinY():yMax - psfBox.getMinY()]
+        spectrum = spectra[0].flux[yMin - psfBox.getMinY():yMax - psfBox.getMinY()]
         spectrum /= spectrum.sum()
         array[yMin:yMax] = spectrum
         return array
