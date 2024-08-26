@@ -6,13 +6,20 @@ class _InterpolationTypes:
     NOTAKNOT: int = 0
     NATURAL: int = 1
 
+class _ExtrapolationTypes:
+    ALL: int = 0
+    SINGLE: int = 1
+    NONE: int = 2
+
 class SplineD:
     InterpolationTypes = _InterpolationTypes
+    ExtrapolationTypes = _ExtrapolationTypes
     def __init__(
         self,
         x: np.ndarray,
         y: np.ndarray,
-        type: int = _InterpolationTypes.NOTAKNOT,
+        interpolationType: int = _InterpolationTypes.NOTAKNOT,
+        extrapolationType: int = _ExtrapolationTypes.ALL,
     ): ...
     @overload
     def __call__(self, x: float) -> float: ...
@@ -23,3 +30,6 @@ class SplineD:
     def getInterpolationType(self) -> int: ...
     @property
     def interpolationType(self) -> int: ...
+    def getExtrapolationType(self) -> int: ...
+    @property
+    def extrapolationType(self) -> int: ...
