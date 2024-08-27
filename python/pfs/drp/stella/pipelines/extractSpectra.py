@@ -237,7 +237,7 @@ class ExtractSpectraTask(PipelineTask):
             spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
             # Set sky flux from continuum
             for ss, cc in zip(spectra, continuum):
-                ss.background += cc.spectrum
+                ss.background += cc.flux
 
         if self.config.doBlackSpotCorrection:
             self.blackSpotCorrection.run(pfsConfig, original)
@@ -246,7 +246,7 @@ class ExtractSpectraTask(PipelineTask):
         if skyImage is not None:
             skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
             for spec, skySpec in zip(spectra, skySpectra):
-                spec.background += skySpec.spectrum
+                spec.background += skySpec.flux
 
         pfsArm = spectra.toPfsArm(identity.getDict())
         pfsArm.metadata.update(**getPfsVersions())
