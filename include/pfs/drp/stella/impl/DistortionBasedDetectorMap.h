@@ -45,8 +45,8 @@ DistortionBasedDetectorMap<DistortionT>::DistortionBasedDetectorMap(
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata,
     float samplingFactor
-) : ModelBasedDetectorMap(base.getBBox(), calculateWavelengthCenter(base),
-                          samplingFactor*calculateDispersion(base), base.getFiberId(),
+) : ModelBasedDetectorMap(base.getBBox(), calculateWavelengthCenter(base), calculateDispersion(base),
+                          samplingFactor, base.getFiberId(),
                           base.getSpatialOffsets(), base.getSpectralOffsets(),
                           visitInfo, metadata),
     _base(base),
@@ -62,7 +62,7 @@ std::shared_ptr<DetectorMap> DistortionBasedDetectorMap<DistortionT>::clone() co
 
 
 template <typename DistortionT>
-lsst::geom::PointD DistortionBasedDetectorMap<DistortionT>::findPointImpl(
+lsst::geom::PointD DistortionBasedDetectorMap<DistortionT>::evalModel(
     int fiberId,
     double wavelength
 ) const {

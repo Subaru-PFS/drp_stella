@@ -13,16 +13,22 @@ namespace stella {
 ModelBasedDetectorMap::ModelBasedDetectorMap(
     lsst::geom::Box2I const& bbox,
     double wavelengthCenter,
-    double wavelengthSampling,
+    double dispersion,
+    double sampling,
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets,
     VisitInfo const& visitInfo,
-    std::shared_ptr<lsst::daf::base::PropertySet> metadata
+    std::shared_ptr<lsst::daf::base::PropertySet> metadata,
+    Spline::ExtrapolationTypes extrapolation,
+    double precision
 ) : DetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
     _wavelengthCenter(wavelengthCenter),
-    _wavelengthSampling(wavelengthSampling),
-    _splines(fiberId.size())
+    _dispersion(dispersion),
+    _sampling(sampling),
+    _precision(precision),
+    _splines(fiberId.size()),
+    _extrapolation(extrapolation)
     {}
 
 
@@ -32,8 +38,8 @@ void ModelBasedDetectorMap::_resetSlitOffsets() {
 }
 
 
-ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberId) const {
-    assert(_wavelengthSampling > 0);  // to prevent infinite loops
+ModelBasedDetectorMap::SplineGroup ModelBasedDetectorMap::_makeSplines(int fiberId) const {
+    assert(_sampling > 0);  // to prevent infinite loops
     std::size_t const height = getBBox().getHeight();
     std::vector<SplineCoeffT> wavelength;
     std::vector<SplineCoeffT> xx;
@@ -45,39 +51,76 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
 
     lsst::geom::Point2D point;  // Position on detector
 
-    // Iterate up in wavelength until we drop off the edge of the detector
-    for (SplineCoeffT wl = _wavelengthCenter; true; wl += _wavelengthSampling) {
-        try {
-            point = findPointImpl(fiberId, wl);
-        } catch (...) {
-            break;
-        }
-        if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
-            break;
-        }
-        wavelength.push_back(wl);
-        xx.push_back(point.getX());
-        yy.push_back(point.getY());
-        if (point.getY() > height || point.getY() < 0) {
+    // Attempt to find a wavelength that's on the detector
+    double startWavelength = std::numeric_limits<double>::quiet_NaN();
+    for (float factor = 0.0; factor <= 1.0 && !std::isfinite(startWavelength); factor += 0.2) {
+        for (bool negative : {false, true}) {
+            double const wl = _wavelengthCenter + factor*0.5*height*_dispersion*(negative ? -1 : 1);
+            try {
+                point = evalModel(fiberId, wl);
+            } catch (...) {
+                continue;
+            }
+            if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
+                continue;
+            }
+            startWavelength = wl;
             break;
         }
     }
-    // Iterate down in wavelength until we drop off the edge of the detector
-    for (SplineCoeffT wl = _wavelengthCenter - _wavelengthSampling; true; wl -= _wavelengthSampling) {
+    if (!std::isfinite(startWavelength)) {
+        std::ostringstream msg;
+        msg << "Unable to find good starting wavelength for fiberId=" << fiberId;
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, msg.str());
+    }
+
+    // Iterate up in wavelength until we drop off the edge of the detector
+    // We want to get right up to the edge of the detector, if we can.
+    // In order to do so, we'll pull back on the wavelength sampling if we go off the edge.
+    SplineCoeffT goodWavelength = startWavelength;
+    SplineCoeffT wlStep = _dispersion*_sampling;
+    while (wlStep >= _dispersion*_precision) {
+        double const wl = goodWavelength + wlStep;
         try {
-            point = findPointImpl(fiberId, wl);
+            point = evalModel(fiberId, wl);
         } catch (...) {
-            break;
+            wlStep /= 2;
+            continue;
         }
         if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
-            break;
+            wlStep /= 2;
+            continue;
         }
         wavelength.push_back(wl);
         xx.push_back(point.getX());
         yy.push_back(point.getY());
-        if (point.getY() < 0 || point.getY() > height) {
+        if (point.getY() > height - 0.5 || point.getY() < -0.5) {
             break;
         }
+        goodWavelength = wl;
+    }
+    // Iterate down in wavelength until we drop off the edge of the detector
+    wlStep = _dispersion*_sampling;
+    goodWavelength = startWavelength;
+    while (wlStep >= _dispersion*_precision) {
+        double const wl = goodWavelength - wlStep;
+        try {
+            point = evalModel(fiberId, wl);
+        } catch (...) {
+            wlStep /= 2;
+            continue;
+        }
+        if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
+            wlStep /= 2;
+            continue;
+        }
+        wavelength.push_back(wl);
+        xx.push_back(point.getX());
+        yy.push_back(point.getY());
+        if (point.getY() < -0.5 || point.getY() > height - 0.5) {
+            break;
+        }
+        goodWavelength = wl;
     }
     std::size_t const length = wavelength.size();
     if (length < 3) {
@@ -105,7 +148,29 @@ ModelBasedDetectorMap::SplinePair ModelBasedDetectorMap::_makeSplines(int fiberI
         xArray[ii] = xx[index];
         yArray[ii] = yy[index];
     }
-    return std::make_pair(Spline(yArray, wlArray), Spline(yArray, xArray));
+
+    auto const interpolation = Spline::CUBIC_NOTAKNOT;
+    return std::make_tuple(
+        Spline(yArray, wlArray, interpolation, _extrapolation),
+        Spline(yArray, xArray, interpolation, _extrapolation),
+        Spline(wlArray, yArray, interpolation, _extrapolation)
+    );
+}
+
+
+lsst::geom::Point2D ModelBasedDetectorMap::findPointImpl(int fiberId, double wavelength) const {
+    try {
+        double const yy = _getRowSpline(fiberId)(wavelength);
+        if (!std::isfinite(yy)) {
+            return lsst::geom::Point2D(std::numeric_limits<double>::quiet_NaN(),
+                                       std::numeric_limits<double>::quiet_NaN());
+        }
+        double const xx = _getXCenterSpline(fiberId)(yy);
+        return lsst::geom::Point2D(xx, yy);
+    } catch (...) {
+        return lsst::geom::Point2D(std::numeric_limits<double>::quiet_NaN(),
+                                   std::numeric_limits<double>::quiet_NaN());
+    }
 }
 
 

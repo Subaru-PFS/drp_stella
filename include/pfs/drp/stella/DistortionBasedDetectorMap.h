@@ -54,7 +54,7 @@ class DistortionBasedDetectorMap : public ModelBasedDetectorMap {
 
   protected:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
+    virtual lsst::geom::PointD evalModel(int fiberId, double wavelength) const override;
 
     std::string getPythonModule() const override { return "pfs.drp.stella"; }
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
