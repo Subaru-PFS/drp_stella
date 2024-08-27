@@ -420,17 +420,17 @@ class ReduceArcTask(CmdLineTask):
         import matplotlib.pyplot as plt
 
         for spectrum in spectrumSet:
-            if not spectrum.isWavelengthSet() or np.all(np.isnan(spectrum.spectrum)):
+            if not spectrum.isWavelengthSet() or np.all(np.isnan(spectrum.flux)):
                 continue
             refLines = lines.extractReferenceLines(spectrum.fiberId)
             if fiberIds is not None and spectrum.fiberId not in fiberIds:
                 continue
             if plotCalibrationsRows:
                 rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
-                plt.plot(rows, spectrum.spectrum)
+                plt.plot(rows, spectrum.flux)
                 xlim = plt.xlim()
                 refLines.plot(plt.gca(), alpha=0.5, ls="-", labelLines=True, labelStatus=True, pixels=True,
-                              wavelength=spectrum.wavelength, spectrum=spectrum.spectrum)
+                              wavelength=spectrum.wavelength, spectrum=spectrum.flux)
                 plt.xlim(xlim)
                 if len(plt.gca().get_legend_handles_labels()[1]) > 0:
                     plt.legend(loc='best')
@@ -439,11 +439,11 @@ class ReduceArcTask(CmdLineTask):
                 plt.show()
 
             if plotCalibrationsWavelength:
-                plt.plot(spectrum.wavelength, spectrum.spectrum,
+                plt.plot(spectrum.wavelength, spectrum.flux,
                          label=None if fiberIds is None else spectrum.fiberId)
                 xlim = plt.xlim()
                 refLines.plot(plt.gca(), alpha=0.5, ls='-', labelLines=True, labelStatus=True,
-                              wavelength=spectrum.wavelength, spectrum=spectrum.spectrum)
+                              wavelength=spectrum.wavelength, spectrum=spectrum.flux)
                 plt.xlim(xlim)
                 if len(plt.gca().get_legend_handles_labels()[1]) > 0:
                     plt.legend(loc='best')

@@ -730,10 +730,10 @@ class ReduceExposureTask(CmdLineTask):
         figure, axes = plt.subplots()
         for ii, ss in enumerate(spectra):
             color = fiberId[ss.fiberId]
-            axes.plot(ss.wavelength, ss.spectrum, ls="solid", color=color)
+            axes.plot(ss.wavelength, ss.flux, ls="solid", color=color)
             bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask(["BAD_FLAT", "CR", "NO_DATA", "SAT"])) != 0
             if np.any(bad):
-                axes.plot(ss.wavelength[bad], ss.spectrum[bad], ".", color=color)
+                axes.plot(ss.wavelength[bad], ss.flux[bad], ".", color=color)
 
         axes.set_xlabel("Wavelength (nm)")
         axes.set_ylabel("Flux")
