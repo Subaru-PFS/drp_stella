@@ -25,11 +25,13 @@ void declareDetectorMap(py::module & mod) {
     cls.def("__len__", &Class::getNumFibers);
     cls.def("__contains__", &Class::contains);
     cls.def("applySlitOffset", &Class::applySlitOffset, "spatial"_a, "spectral"_a);
-    cls.def("getSpatialOffsets", py::overload_cast<>(&Class::getSpatialOffsets, py::const_),
-            py::return_value_policy::reference);
+    cls.def("getSpatialOffsets", [](Class const& self) {
+        return ndarray::Array<double, 1, 1>(ndarray::copy(self.getSpatialOffsets()));
+    });
     cls.def("getSpatialOffset", &Class::getSpatialOffset, "fiberId"_a);
-    cls.def("getSpectralOffsets", py::overload_cast<>(&Class::getSpectralOffsets, py::const_),
-            py::return_value_policy::reference);
+    cls.def("getSpectralOffsets", [](Class const& self) {
+        return ndarray::Array<double, 1, 1>(ndarray::copy(self.getSpectralOffsets()));
+    });
     cls.def("getSpectralOffset", &Class::getSpectralOffset, "fiberId"_a);
     cls.def("setSlitOffsets",
             py::overload_cast<Class::Array1D const&, Class::Array1D const&>(&Class::setSlitOffsets),
@@ -111,8 +113,8 @@ void declareDetectorMap(py::module & mod) {
     cls.def("findFiberId", py::overload_cast<double, double>(&Class::findFiberId, py::const_), "x"_a, "y"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);
-    cls.def("findPoint", py::overload_cast<int, double, bool>(&Class::findPoint, py::const_),
-            "fiberId"_a, "wavelength"_a, "throwOnError"_a=false);
+    cls.def("findPoint", py::overload_cast<int, double, bool, bool>(&Class::findPoint, py::const_),
+            "fiberId"_a, "wavelength"_a, "throwOnError"_a=false, "enforceLimits"_a=true);
     cls.def("findPoint", py::overload_cast<int, Class::Array1D const&>(&Class::findPoint, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("findPoint",

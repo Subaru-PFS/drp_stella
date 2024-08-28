@@ -22,10 +22,18 @@ DifferentialDetectorMap::DifferentialDetectorMap(
     GlobalDetectorModel const& model,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata,
-    float samplingFactor
-) : ModelBasedDetectorMap(base->getBBox(), model.getWavelengthCenter(), samplingFactor*model.getDispersion(),
-                          base->getFiberId(), base->getSpatialOffsets(), base->getSpectralOffsets(),
-                          visitInfo, metadata),
+    float sampling
+) : ModelBasedDetectorMap(
+        base->getBBox(),
+        model.getWavelengthCenter(),
+        model.getDispersion(),
+        sampling,
+        base->getFiberId(),
+        base->getSpatialOffsets(),
+        base->getSpectralOffsets(),
+        visitInfo,
+        metadata
+    ),
     _base(base),
     _model(model)
 {}
@@ -37,7 +45,7 @@ std::shared_ptr<DetectorMap> DifferentialDetectorMap::clone() const {
 }
 
 
-lsst::geom::PointD DifferentialDetectorMap::findPointImpl(
+lsst::geom::PointD DifferentialDetectorMap::evalModel(
     int fiberId,
     double wavelength
 ) const {

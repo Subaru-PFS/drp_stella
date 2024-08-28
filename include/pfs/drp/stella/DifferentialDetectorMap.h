@@ -35,7 +35,7 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
         GlobalDetectorModel const& model,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
-        float samplingFactor=50.0
+        float sampling=50.0
     );
 
     virtual ~DifferentialDetectorMap() {}
@@ -55,7 +55,7 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
 
   protected:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
+    virtual lsst::geom::PointD evalModel(int fiberId, double wavelength) const override;
 
     std::string getPersistenceName() const override { return "DifferentialDetectorMap"; }
     std::string getPythonModule() const override { return "pfs.drp.stella"; }

@@ -4,7 +4,7 @@ import lsst.log
 import numpy as np
 
 import lsst.utils.tests
-from lsst.geom import Box2D
+from lsst.geom import Box2D, AffineTransform
 import lsst.afw.image
 from lsst.afw.display import Display
 import lsst.log
@@ -19,7 +19,7 @@ from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, 
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat, makeSpectrumImage, addNoiseToImage
 from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
-from pfs.drp.stella import PolynomialDistortion, MultipleDistortionsDetectorMap, SplinedDetectorMap
+from pfs.drp.stella import PolynomialDistortion, LayeredDetectorMap, SplinedDetectorMap
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
 
@@ -62,7 +62,19 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        self.distorted = MultipleDistortionsDetectorMap(self.base.clone(), [distortion], visitInfo, metadata)
+        slitOffsets = np.zeros(len(self.base), dtype=float)
+        rightCcd = AffineTransform()
+        self.distorted = LayeredDetectorMap(
+            self.base.bbox,
+            slitOffsets,
+            slitOffsets,
+            self.base.clone(),
+            [distortion],
+            False,
+            rightCcd,
+            visitInfo,
+            metadata,
+        )
 
     def assertExpected(self, detMap, checkWavelengths=True):
         """Assert that the ``DistortedDetectorMap``s is as expected
@@ -289,7 +301,19 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        self.distorted = MultipleDistortionsDetectorMap(self.base.clone(), [distortion], visitInfo, metadata)
+        slitOffsets = np.zeros(len(self.base), dtype=float)
+        rightCcd = AffineTransform()
+        self.distorted = LayeredDetectorMap(
+            self.base.bbox,
+            slitOffsets,
+            slitOffsets,
+            self.base.clone(),
+            [distortion],
+            False,
+            rightCcd,
+            visitInfo,
+            metadata,
+        )
 
     def testAdjustDetectorMap(self):
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(self.image))
@@ -324,11 +348,12 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
             disp = Display(frame=1, backend=display)
             disp.mtv(exposure)
             self.distorted.display(disp, ctype="red")
+            self.base.display(disp, ctype="blue")
             if False:
                 with disp.Buffering():
                     for ff in traces:
                         for tt in traces[ff]:
-                            disp.dot("+", tt.peak, tt.row, ctype="blue")
+                            disp.dot("+", tt.peak, tt.row, ctype="orange")
 
         lines += tracesToLines(self.distorted, traces, 10.0)
         try:

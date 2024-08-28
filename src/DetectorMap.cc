@@ -216,7 +216,12 @@ DetectorMap::Array1D DetectorMap::getXCenter(
 }
 
 
-lsst::geom::Point2D DetectorMap::findPoint(int fiberId, double wavelength, bool throwOnError) const {
+lsst::geom::Point2D DetectorMap::findPoint(
+    int fiberId,
+    double wavelength,
+    bool throwOnError,
+    bool enforceLimits
+) const {
     double const NaN = std::numeric_limits<double>::quiet_NaN();
     lsst::geom::Point2D point;
     try {
@@ -227,9 +232,13 @@ lsst::geom::Point2D DetectorMap::findPoint(int fiberId, double wavelength, bool 
         }
         return lsst::geom::PointD(NaN, NaN);
     }
-    if (point.getX() < _bbox.getMinX() || point.getX() > _bbox.getMaxX() ||
-        point.getY() < _bbox.getMinY() || point.getY() > _bbox.getMaxY()) {
+
+    if (enforceLimits) {
+        // Floating-point boxes are +/- 0.5 larger than the integer boxes.
+        if (point.getX() < _bbox.getMinX() - 0.5 || point.getX() > _bbox.getMaxX() + 0.5 ||
+            point.getY() < _bbox.getMinY() - 0.5 || point.getY() > _bbox.getMaxY() + 0.5) {
             return lsst::geom::PointD(NaN, NaN);
+        }
     }
     return point;
 }

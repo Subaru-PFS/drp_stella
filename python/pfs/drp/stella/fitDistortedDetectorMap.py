@@ -10,12 +10,16 @@ import lsstDebug
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
-from lsst.geom import Box2D
+from lsst.geom import AffineTransform, Box2D, Box2I, Extent2I
+from lsst.afw.image import VisitInfo
+from lsst.daf.base import PropertyList
 
 from pfs.datamodel.pfsTable import PfsTable, Column
-from pfs.drp.stella import DetectorMap, MultipleDistortionsDetectorMap
+from pfs.drp.stella import DetectorMap
 from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
 from .DistortionContinued import Distortion
+from .LayeredDetectorMapContinued import LayeredDetectorMap
+from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineStatus
@@ -332,6 +336,7 @@ class FitDistortedDetectorMapConfig(Config):
     )
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
+    chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -417,10 +422,10 @@ class FitDistortedDetectorMapTask(Task):
 
             weights = self.calculateWeights(lines)
             results = self.fitDistortion(
-                bbox, residuals, weights, dispersion, seed=visitInfo.id, DistortionClass=DistortionClass
+                base.bbox, residuals, weights, dispersion, seed=visitInfo.id, DistortionClass=DistortionClass
             )
             reserved = results.reserved
-            detectorMap = MultipleDistortionsDetectorMap(base, [results.distortion], visitInfo, metadata)
+            detectorMap = self.makeDetectorMap(base, bbox, results.distortion, visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
                 detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
@@ -466,7 +471,34 @@ class FitDistortedDetectorMapTask(Task):
             Base detectorMap.
         """
         filename = self.config.base % dataId
-        return DetectorMap.readFits(filename)
+        base = DetectorMap.readFits(filename)
+
+        if dataId["arm"] in "brm":
+            # Add in the chip gap that was removed by the simulator
+            chipGap = self.config.chipGap  # pixels
+            xCenter = base.getXCenter(base.fiberId, np.full(len(base), base.getBBox().getCenterY()))
+            select = xCenter > base.getBBox().getCenterX()
+
+            # Grow the bounding box to include the chip gap
+            if not isinstance(base, SplinedDetectorMap):
+                raise RuntimeError("Base detectorMap must be a SplinedDetectorMap")
+            box = base.getBBox()
+            newBox = Box2I(box.getMin(), box.getMax() + Extent2I(int(np.ceil(chipGap)), 0))
+            base = SplinedDetectorMap(
+                newBox,
+                base.fiberId,
+                [base.getXCenterSpline(ff).getX() for ff in base.fiberId],
+                [base.getXCenterSpline(ff).getY() + (chipGap if select[ii] else 0.0)
+                 for ii, ff in enumerate(base.fiberId)],
+                [base.getWavelengthSpline(ff).getX() for ff in base.fiberId],
+                [base.getWavelengthSpline(ff).getY() for ff in base.fiberId],
+                base.getSpatialOffsets(),
+                base.getSpectralOffsets(),
+                base.getVisitInfo(),
+                base.getMetadata(),
+            )
+
+        return base
 
     def getDistortionClass(self, arm: str) -> Type:
         """Return the class to use for the distortion
@@ -482,6 +514,54 @@ class FitDistortedDetectorMapTask(Task):
             Class to use for the distortion.
         """
         return PolynomialDistortion if arm == "n" else MosaicPolynomialDistortion
+
+    def makeDetectorMap(
+        self,
+        base: DetectorMap,
+        bbox: Box2I,
+        distortion: Distortion,
+        visitInfo: VisitInfo,
+        metadata: PropertyList,
+    ) -> DetectorMap:
+        """Make a DetectorMap from a base and distortion
+
+        Parameters
+        ----------
+        base : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
+        distortion : `pfs.drp.stella.Distortion`
+            Distortion to apply.
+        visitInfo : `lsst.afw.image.VisitInfo`
+            Visit information for exposure.
+        metadata : `lsst.daf.base.PropertyList`
+            DetectorMap metadata (FITS header).
+
+        Returns
+        -------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            DetectorMap with distortion applied.
+        """
+        slitOffsets = np.zeros(len(base), dtype=float)  # These will get set later
+        if isinstance(distortion, MosaicPolynomialDistortion):
+            dividedDetector = True
+            rightCcd = distortion.getAffine()
+            distortion = PolynomialDistortion(
+                distortion.getOrder(),
+                distortion.getRange(),
+                distortion.getXCoefficients(),
+                distortion.getYCoefficients(),
+            )
+        elif isinstance(distortion, PolynomialDistortion):
+            dividedDetector = False
+            rightCcd = AffineTransform()  # Identity transform
+        else:
+            raise RuntimeError(f"Unknown distortion type: {distortion}")
+
+#        breakpoint()
+
+        return LayeredDetectorMap(
+            bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
+        )
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -512,6 +592,8 @@ class FitDistortedDetectorMapTask(Task):
         self.log.debug("%d good lines after line status (%s)", good.sum(), getCounts())
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        if hasattr(lines, "slope"):
+            good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
@@ -561,7 +643,7 @@ class FitDistortedDetectorMapTask(Task):
         good = self.getGoodLines(lines, dispersion)
         notTrace = lines.description != "Trace"
 
-        dx = np.median(lines.x[good])
+        dx = 0.0  # np.median(lines.x[good])  # XXX: doesn't work any more due to the chip gap
         if np.any(notTrace):
             dy = np.median(lines.y[good & notTrace])
         else:
@@ -839,6 +921,12 @@ class FitDistortedDetectorMapTask(Task):
         dx = lines.x - points[:, 0]
         dy = lines.y - points[:, 1]
 
+        if hasattr(detectorMap, "base"):
+            base = detectorMap.base
+            points[isLine] = base.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
+            points[:, 0][isTrace] = base.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+            points[:, 1][isTrace] = lines.y[isTrace]
+
         slope = detectorMap.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
 
         if self.debugInfo.baseResiduals:
@@ -913,7 +1001,7 @@ class FitDistortedDetectorMapTask(Task):
             flux=lines.flux,
             fluxErr=lines.fluxErr,
             fluxNorm=lines.fluxNorm,
-            flag=lines.flag,
+            flag=lines.flag | np.any(np.isnan(points), axis=1),
             status=lines.status,
             description=lines.description,
             transition=lines.transition,

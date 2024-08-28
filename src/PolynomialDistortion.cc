@@ -82,13 +82,6 @@ lsst::geom::Point2D PolynomialDistortion::evaluate(
 ) const {
     double const xx = point.getX();
     double const yy = point.getY();
-    if (!getRange().contains(point)) {
-        double const nan = std::numeric_limits<double>::quiet_NaN();
-        return lsst::geom::Point2D(nan, nan);
-        throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError,
-                          (boost::format("x,y=(%f,%f) is out of range of %s") %
-                           xx % yy % getRange()).str());
-    }
     return lsst::geom::Point2D(getXPoly()(xx, yy), getYPoly()(xx, yy));
 }
 

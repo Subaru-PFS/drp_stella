@@ -30,13 +30,13 @@ class MultipleDistortionsDetectorMap : public ModelBasedDetectorMap {
     /// @param distortions : distortions applied to base
     /// @param visitInfo : visit information
     /// @param metadata : FITS header
-    /// @param samplingFactor : period to sample distortion field for cached spline (pixels)
+    /// @param sampling : period to sample distortion field for cached spline (pixels)
     MultipleDistortionsDetectorMap(
         SplinedDetectorMap const& base,
         DistortionList const& distortions,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
-        float samplingFactor=50.0
+        float sampling=50.0
     );
 
     virtual ~MultipleDistortionsDetectorMap() {}
@@ -56,7 +56,7 @@ class MultipleDistortionsDetectorMap : public ModelBasedDetectorMap {
 
   protected:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
+    virtual lsst::geom::PointD evalModel(int fiberId, double wavelength) const override;
 
     std::string getPythonModule() const override { return "pfs.drp.stella"; }
     std::string getPersistenceName() const override { return "MultipleDistortionsDetectorMap"; }
