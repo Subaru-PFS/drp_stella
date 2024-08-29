@@ -7,6 +7,9 @@
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
 
+#include "pfs/drp/stella/utils/timer.h"
+
+
 namespace pfs { namespace drp { namespace stella {
 
 
@@ -81,6 +84,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     MaskT badBitMask,
     float minFracMask
 ) const {
+    utils::TimerSet timers;
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
     std::size_t const width = image.getWidth();
@@ -122,6 +126,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     for (std::size_t yData = 0; yData < height; ++yData, ++yActual) {
          // Determine which traces are relevant for this row
         for (std::size_t ii = 0; ii < num; ++ii) {
+            auto ttt = timers.context("trace");
             auto const& box = _traces[ii]->getTrace().getBBox();
             useTrace[ii] = (yActual >= box.getMinY() && yActual <= box.getMaxY());
             maskResult[ii] = noData;
@@ -144,6 +149,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         offDiagWeighted.deep() = 0.0;
 
         for (std::size_t ii = 0; ii < num; ++ii) {
+            auto ttt = timers.context("construct matrix");
             if (!useTrace[ii]) {
                 matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
                 diagonalWeighted[ii] = 1.0;
@@ -266,6 +272,8 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 }
             }
         }
+
+        auto ttt = timers.context("solve matrix");
 
         // Solve least-squares and set results
         ndarray::Array<double, 1, 1> solution = matrix.solve(vector);
