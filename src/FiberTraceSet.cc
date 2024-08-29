@@ -130,12 +130,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             if (useTrace[ii]) {
                 std::size_t const yy = yData - box.getMinY();
                 auto const& traceImage = _traces[ii]->getTrace();
-                double sumModel = 0.0;
-                for (auto iter = traceImage.row_begin(yy); iter != traceImage.row_end(yy); ++iter) {
-                    if (iter.mask() & require) {
-                        sumModel += iter.image();
-                    }
-                }
+                auto const& mask = ndarray::asEigenMatrix(traceImage.getMask()->getArray()[yy]);
+                auto const select = mask.unaryExpr(
+                    [require](lsst::afw::image::MaskPixel value) { return value & require; }
+                ).template cast<bool>();
+                auto const& trace = ndarray::asEigenMatrix(traceImage.getImage()->getArray()[yy]);
+                double const sumModel = select.select(trace.template cast<double>(), 0.0).sum();
                 result[ii]->getNorm()[yData] = sumModel;
                 if (sumModel == 0 || !std::isfinite(sumModel)) {
                     useTrace[ii] = false;
