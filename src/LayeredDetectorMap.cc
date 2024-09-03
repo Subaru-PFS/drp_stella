@@ -82,8 +82,8 @@ LayeredDetectorMap::LayeredDetectorMap(
     _distortions(distortions),
     _dividedDetector(dividedDetector),
     _rightCcd(rightCcd),
-    _fiberIndexCache(1000),
-    _precisionBBox(base.getBBox())
+    _precisionBBox(base.getBBox()),
+    _fiberIndexCache(1000)
 {
     for (auto const& distortion : _distortions) {
         if (!distortion) {
