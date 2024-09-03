@@ -82,8 +82,8 @@ LayeredDetectorMap::LayeredDetectorMap(
     _distortions(distortions),
     _dividedDetector(dividedDetector),
     _rightCcd(rightCcd),
-    _fiberIndexCache(1000),
-    _precisionBBox(base.getBBox())
+    _precisionBBox(base.getBBox()),
+    _fiberIndexCache(1000)
 {
     for (auto const& distortion : _distortions) {
         if (!distortion) {
@@ -445,7 +445,7 @@ double LayeredDetectorMap::findWavelengthImpl(int fiberId, double row) const {
             throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "findWavelength did not converge");
         }
         // This is the wavelength for layer 3 (distorted, above the detector)
-        wavelength = ModelBasedDetectorMap::findWavelengthImpl(fiberId, originalRow - dy);
+        wavelength = ModelBasedDetectorMap::findWavelengthImpl(fiberId, row);
         // This is the position for layer 4 (on the detector)
         lsst::geom::Point2D const point = findPointPermissive(fiberId, wavelength);
         double const yy = point.getY();
@@ -459,6 +459,7 @@ double LayeredDetectorMap::findWavelengthImpl(int fiberId, double row) const {
         }
         // This is the difference between layer 3 and layer 4
         dy = point.getY() - originalRow;
+        row -= dy;
     } while (std::abs(dy) > getPrecision());
 
     return wavelength;
