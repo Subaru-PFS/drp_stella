@@ -78,16 +78,26 @@ class FitFocalPlaneTask(Task):
         fit : `FocalPlaneFunction`
             Function fit to the data.
         """
-        numSamples = len(spectra)
-        length = spectra.length
         fitParams = self.config.getFitParameters()
         fitParams.update(kwargs)
 
+        mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
+        badFiber = np.all(mask, axis=1)
+        if np.all(badFiber):
+            raise RuntimeError("No good fibers")
+        if np.any(badFiber):
+            self.log.warn("Ignoring fibers with no good data: %s", spectra.fiberId[badFiber])
+            goodFiber = ~badFiber
+            spectra = spectra[goodFiber]
+            mask = mask[goodFiber]
+            pfsConfig = pfsConfig[goodFiber]
+
+        numSamples = len(spectra)
+        length = spectra.length
         wavelength = spectra.wavelength
         with np.errstate(invalid="ignore", divide="ignore"):
             values = spectra.flux/spectra.norm
             variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
-        mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
 
         # Robust fitting with rejection
         rejected = np.zeros((numSamples, length), dtype=bool)
