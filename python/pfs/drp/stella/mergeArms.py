@@ -15,6 +15,7 @@ from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantized
 
 from lsst.obs.pfs.utils import getLamps
 
+from pfs.datamodel import TargetType
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
@@ -259,6 +260,18 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                 for ss in allSpectra:
                     noBarycentricFibers |= applyBarycentricCorrection(ss)
                 self.log.info("Applied barycentric correction")
+                if noBarycentricFibers:
+                    noTarget = [TargetType.fromString(tt) for tt in (
+                        "SKY",
+                        "SUNSS_DIFFUSE",
+                        "SUNSS_IMAGING",
+                        "UNASSIGNED",
+                        "DCB",
+                        "HOME",
+                        "BLACKSPOT",
+                        "AFL",
+                    )]
+                    noBarycentricFibers -= set(pfsConfig.select(targetType=noTarget).fiberId)
                 if noBarycentricFibers:
                     self.log.warn(
                         "Unable to apply barycentric correction to fibers: %s", sorted(noBarycentricFibers)

@@ -654,6 +654,8 @@ class OversampledSpline(FocalPlaneFunction):
         if kwargs:
             raise RuntimeError(f"Unrecognised parameters: {kwargs}")
         use = ~masks
+        if not np.any(use):
+            raise RuntimeError("No unmasked data to fit")
         floatEpsilon = np.finfo(float).eps
         length = wavelengths.shape[1]
         wlUse = wavelengths[use]
