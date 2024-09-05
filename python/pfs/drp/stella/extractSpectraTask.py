@@ -24,7 +24,7 @@ class ExtractSpectraConfig(pexConfig.Config):
                                   doc="Minimum fractional contribution of pixel for mask to be accumulated")
     minFracImage = pexConfig.Field(
         dtype=float,
-        default=0.3,
+        default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")

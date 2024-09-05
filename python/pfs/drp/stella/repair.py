@@ -10,6 +10,7 @@ from lsst.afw.image import Exposure, Mask
 from lsst.afw.geom import SpanSet
 from lsst.geom import Point2I
 from lsst.meas.algorithms import findCosmicRays
+from lsst.ip.isr.isrFunctions import growMasks
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet
 
@@ -55,6 +56,7 @@ class PfsRepairConfig(RepairConfig):
         default=["BAD", "SAT", "REFLINE", "NO_DATA"],
         doc="Mask planes to ignore in trace removal",
     )
+    crGrow = Field(dtype=int, default=1, doc="Radius to grow CRs")
 
     def setDefaults(self):
         self.cosmicray.nCrPixelMax = 5000000
@@ -105,15 +107,23 @@ class PfsRepairTask(RepairTask):
 
         # Find CRs in traces-subtracted image
         exposure.image.array -= traces
+
         try:
             cosmicrays = findCosmicRays(exposure.maskedImage, psf, 0.0, config, keepCRs)
         finally:
             exposure.image.array += traces
 
         num = 0
+        numPixels = 0
+        numGrown = 0
         if cosmicrays is not None:
             mask = exposure.mask
             setMaskFromFootprintList(mask, cosmicrays, mask.getPlaneBitMask("CR"))
             num = len(cosmicrays)
+            numPixels = np.sum(mask.array & mask.getPlaneBitMask("CR") != 0)
 
-        self.log.info("Identified %s cosmic rays.", num)
+            if self.config.crGrow > 0:
+                growMasks(mask, self.config.crGrow, "CR", "CR")
+                numGrown = np.sum(mask.array & mask.getPlaneBitMask("CR") != 0)
+
+        self.log.info("Identified %d cosmic rays covering %d pixels, grown to %d", num, numPixels, numGrown)
