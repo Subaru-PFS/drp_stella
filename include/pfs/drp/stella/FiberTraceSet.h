@@ -131,7 +131,7 @@ class FiberTraceSet {
      * @return extracted spectra.
      */
     SpectrumSet extractSpectra(
-        MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.3, float minFracImage=0.3
+        MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.3, float minFracImage=0.4
     ) const;
 
   private:
