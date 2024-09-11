@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
+from astropy.time import Time
 
 from lsst.daf.butler import (
     Butler,
@@ -597,3 +598,33 @@ def certifyDetectorMaps(
             raise RuntimeError("Unable to find newly-ingested detectorMaps!")
         registry.registerCollection(target, type=CollectionType.CALIBRATION)
         registry.certify(target, query, timespan)
+
+
+def decertifyCalibrations(
+    repo: str,
+    collection: str,
+    datasetType: str,
+    timespanBegin: str,
+    timespanEnd: str,
+) -> None:
+    """Decertify a calibration dataset specified by its timespan
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collection : `str`
+        Collection containing the datasets to decertify.
+    datasetType : `str`
+        Dataset type to decertify.
+    timespanBegin : `str`
+        Beginning timespan.
+    timespanEnd : `str`
+        Ending timespan.
+    """
+    timespan = Timespan(
+        begin=Time(timespanBegin, scale="tai") if timespanBegin is not None else None,
+        end=Time(timespanEnd, scale="tai") if timespanEnd is not None else None,
+    )
+    butler = Butler(repo, writeable=True)
+    butler.registry.decertify(collection, datasetType, timespan)
