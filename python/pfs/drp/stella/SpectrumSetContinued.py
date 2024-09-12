@@ -170,7 +170,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = self._parsePath(filename)
-        pfsArm = self.toPfsArm(parsed.dataId)
+        pfsArm = self.toPfsArm(Identity.fromDict(parsed.dataId))
         pfsArm.writeFits(filename)
 
     @classmethod

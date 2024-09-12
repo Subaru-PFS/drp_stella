@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-import numpy as np
-
 from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.daf.butler import DeferredDatasetHandle
 from lsst.pex.config import ConfigurableField, ListField

@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import Field, ConfigurableField, ListField, ConfigField
+from lsst.pex.config import ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -14,7 +14,6 @@ from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
-from lsst.skymap import BaseSkyMap
 
 from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
@@ -28,7 +27,6 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, warpLsf, coaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
-from .pipelines.lookups import lookupFiberNorms
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 

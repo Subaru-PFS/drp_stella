@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Dict, Iterable, List
 
 import numpy as np

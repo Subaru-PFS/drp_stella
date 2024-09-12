@@ -1,7 +1,5 @@
 from typing import List
 
-import numpy as np
-
 from lsst.pex.config import Field
 
 from lsst.pipe.base import Struct

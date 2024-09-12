@@ -24,7 +24,7 @@ from .datamodel import PfsArm, PfsFiberNorms
 from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
-__all__ = ("MeasureFiberNormsTask", "ExposeFiberNormsTask")
+__all__ = ("MeasureFiberNormsTask", "ExposureFiberNormsTask")
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):

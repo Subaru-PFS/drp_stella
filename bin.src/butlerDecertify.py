@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 from pfs.drp.stella.gen3 import decertifyCalibrations
 
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("repo", help="Path to the repository")
