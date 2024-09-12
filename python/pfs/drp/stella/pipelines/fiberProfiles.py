@@ -18,7 +18,7 @@ from ..buildFiberProfiles import BuildFiberProfilesTask
 from ..DetectorMapContinued import DetectorMap
 from ..fiberProfileSet import FiberProfileSet
 
-__all__ = ("MeasureFiberProfilesTask", "MergeFiberProfilesTask")
+__all__ = ("MeasureFiberProfilesTask", "CombineFiberProfilesTask")
 
 
 class MeasureFiberProfilesConnections(
@@ -192,28 +192,14 @@ class MeasureFiberProfilesTask(CalibCombineTask):
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
-        bitmask = combined.mask.getPlaneBitMask(self.config.mask)
-        traces = profiles.makeFiberTracesFromDetectorMap(detectorMap)
-        spectra = traces.extractSpectra(combined.maskedImage, bitmask)
-        self.blackspots.run(pfsConfig, spectra)
-        medianTransmission = np.empty(len(spectra))
-        for i, ss in enumerate(spectra):
-            profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux/ss.norm, np.nan)
-            medianTransmission[i] = np.nanmedian(ss.flux)
-            self.log.debug("Median relative transmission of fiber %d is %f",
-                           ss.fiberId, medianTransmission[i])
-
-        self.log.info("Median relative transmission of fibers %.2f +- %.2f (min %.2f, max %.2f)",
-                      np.mean(medianTransmission), np.std(medianTransmission, ddof=1),
-                      np.min(medianTransmission), np.max(medianTransmission))
 
         return Struct(outputData=profiles)
 
 
-class MergeFiberProfilesConnections(
+class CombineFiberProfilesConnections(
     PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")
 ):
-    """Connections for MergeFiberProfilesTask"""
+    """Connections for CombineFiberProfilesTask"""
 
     profiles = InputConnection(
         name="fiberProfiles_subset",
@@ -224,21 +210,21 @@ class MergeFiberProfilesConnections(
     )
     merged = OutputConnection(
         name="fiberProfiles",
-        doc="Merged fiber profiles.",
+        doc="Combined fiber profiles.",
         storageClass="FiberProfileSet",
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
 
-class MergeFiberProfilesConfig(PipelineTaskConfig, pipelineConnections=MergeFiberProfilesConnections):
-    """Configuration for MergeFiberProfilesTask"""
+class CombineFiberProfilesConfig(PipelineTaskConfig, pipelineConnections=CombineFiberProfilesConnections):
+    """Configuration for CombineFiberProfilesTask"""
 
     pass
 
 
-class MergeFiberProfilesTask(PipelineTask):
-    """Merge fiber profiles
+class CombineFiberProfilesTask(PipelineTask):
+    """Combine fiber profiles
 
     We produce fiber profiles with different ``pfs_design_id`` dimensions,
     corresponding to different sets of fibers hiding behind black spots. These
@@ -246,11 +232,11 @@ class MergeFiberProfilesTask(PipelineTask):
     all the fibers.
     """
 
-    ConfigClass = MergeFiberProfilesConfig
+    ConfigClass = CombineFiberProfilesConfig
     _DefaultName = "mergeFiberProfilesGen3"
 
     def run(self, profiles):
-        """Merge fiber profiles
+        """Combine fiber profiles
 
         Parameters
         ----------
@@ -260,8 +246,8 @@ class MergeFiberProfilesTask(PipelineTask):
         Returns
         -------
         merged : `FiberProfileSet`
-            Merged set of fiber profiles.
+            Combined set of fiber profiles.
         """
         merged = FiberProfileSet.fromCombination(*profiles)
-        self.log.info("Merged %d profiles", len(merged))
+        self.log.info("Combined %d profiles", len(merged))
         return Struct(merged=merged)
