@@ -6,7 +6,7 @@ description: |
 tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
-  measureDetectorMap:
+  profilesFitDetectorMap:
     class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
   fitProfiles:
     class: pfs.drp.stella.reduceProfiles.ReduceProfilesTask
