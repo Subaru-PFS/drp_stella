@@ -24,7 +24,7 @@ from .datamodel import PfsArm, PfsFiberNorms
 from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
-__all__ = ("MeasureFiberNormsTask", "ExposeFiberNormsTask")
+__all__ = ("MeasureFiberNormsTask", "ExposureFiberNormsTask")
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):
@@ -234,12 +234,17 @@ class MeasureFiberNormsTask(PipelineTask):
         }
 
         for spectrograph, ss in spectra.items():
+            select = slice(index, index + len(ss))
+            fiberId[select] = ss.fiberId
+            wavelength[select] = ss.wavelength
+            values[select] = self.calculateFiberNormValue(ss)
+
             # Calculate the mean normalization for each fiber
             bad = (ss.mask & ss.flags.get(*self.config.mask)) != 0
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                flux = np.ma.masked_where(bad, ss.flux/ss.norm)
+            flux = np.ma.masked_where(bad, values[select])
+            with np.errstate(invalid="ignore", divide="ignore"):
                 weights = np.ma.masked_where(bad, ss.norm**2/ss.variance)
                 error = np.sqrt(ss.variance)
 
@@ -263,11 +268,6 @@ class MeasureFiberNormsTask(PipelineTask):
                 np.max(goodAverages),
             )
 
-            select = slice(index, index + len(ss))
-            fiberId[select] = ss.fiberId
-            wavelength[select] = ss.wavelength
-            with np.errstate(invalid="ignore"):
-                values[select] = ss.flux/ss.norm
             norms[select] = average
             index += len(ss)
 
@@ -319,6 +319,21 @@ class MeasureFiberNormsTask(PipelineTask):
         )
 
         return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
+
+    def calculateFiberNormValue(self, spectra: PfsArm) -> float:
+        """Calculate the fiber normalization value
+
+        Parameters
+        ----------
+        spectra : `pfs.datamodel.PfsArm`
+            Spectra from which to measure fiber normalization values.
+
+        Returns
+        -------
+        norm : `float`
+            Fiber normalization value
+        """
+        return spectra.flux
 
     def plotFiberNorms(
         self,
@@ -397,6 +412,22 @@ class ExposureFiberNormsTask(MeasureFiberNormsTask):
                 self.log.info("Ignoring non-quartz exposure %s", dataId)
                 return  # Nothing to do
         return super().runQuantum(butler, inputRefs, outputRefs)
+
+    def calculateFiberNormValue(self, spectra: PfsArm) -> float:
+        """Calculate the fiber normalization value
+
+        Parameters
+        ----------
+        spectra : `pfs.datamodel.PfsArm`
+            Spectra from which to measure fiber normalization values.
+
+        Returns
+        -------
+        norm : `float`
+            Fiber normalization value
+        """
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return spectra.flux/spectra.norm
 
     def coaddSpectra(self, pfsArmList: List[PfsArm]) -> PfsArm:
         """Coadd spectra

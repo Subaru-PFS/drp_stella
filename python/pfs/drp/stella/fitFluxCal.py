@@ -1069,7 +1069,6 @@ class FitFluxCalTask(PipelineTask):
             butler.put(outputs.pfsSingle[target], pfsSingleRef[targetId])
             butler.put(outputs.pfsSingleLsf[target], pfsSingleLsfRef[targetId])
 
-
     @classmethod
     def _makeArgumentParser(cls) -> ArgumentParser:
         parser = ArgumentParser(name=cls._DefaultName)

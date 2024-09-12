@@ -37,6 +37,7 @@ from .DetectorMapContinued import DetectorMap
 
 from lsst.obs.pfs.utils import getLamps
 from pfs.datamodel import FiberStatus, TargetType, Identity
+from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from .extractSpectraTask import ExtractSpectraTask
 from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
@@ -51,6 +52,8 @@ from .fiberProfileSet import FiberProfileSet
 from .utils.sysUtils import metadataToHeader, getPfsVersions
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
+from .pipelines.lookups import lookupFiberNorms
+from .fluxCalibrate import applyFiberNorms
 
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -77,6 +80,14 @@ class ReduceExposureConnections(
         storageClass="FiberProfileSet",
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
+    )
+    fiberNorms = PrerequisiteConnection(
+        name="fiberNorms_calib",
+        doc="Fiber normalisations",
+        storageClass="PfsFiberNorms",
+        dimensions=("instrument", "arm"),
+        isCalibration=True,
+        lookupFunction=lookupFiberNorms,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
@@ -124,6 +135,9 @@ class ReduceExposureConnections(
             return
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
+            self.prerequisiteInputs.remove("fiberNorms")
+        if not self.config.doApplyFiberNorms:
+            self.prerequisiteInputs.remove("fiberNorms")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -160,6 +174,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     blackSpotCorrection = ConfigurableField(target=BlackSpotCorrectionTask, doc="Black spot correction")
     spatialOffset = Field(dtype=float, default=0.0, doc="Spatial offset to add")
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
+    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
+    doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -236,6 +252,9 @@ class ReduceExposureTask(PipelineTask):
         dataId = inputRefs.exposure.dataId
         if self.config.doBoxcarExtraction:
             inputs["fiberProfiles"] = None
+            inputs["fiberNorms"] = None
+        if not self.config.doApplyFiberNorms:
+            inputs["fiberNorms"] = None
         outputs = self.run(**inputs, dataId=dataId)
         if outputs.apCorr is None:  # e.g., for a quartz
             del outputRefs.apCorr
@@ -247,6 +266,7 @@ class ReduceExposureTask(PipelineTask):
         exposure: Exposure,
         pfsConfig: PfsConfig,
         fiberProfiles: FiberProfileSet | None,
+        fiberNorms: PfsFiberNorms | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
     ) -> Struct:
@@ -260,6 +280,8 @@ class ReduceExposureTask(PipelineTask):
             PFS fiber configuration.
         fiberProfiles : `pfs.drp.stella.FiberProfileSet`
             Profiles of fibers.
+        fiberNorms : `pfs.drp.stella.PfsFiberNorms`
+            Normalization of fibers.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of fiberId,wavelength to x,y.
         dataId : `dict` [`str`, `str`] or `DataCoordinate`
@@ -331,9 +353,16 @@ class ReduceExposureTask(PipelineTask):
         if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
             self.log.info("Calculating barycentric correction")
             calculateBarycentricCorrection(pfsArm, pfsConfig)
-
         pfsArm.metadata.update(metadataToHeader(exposure.getMetadata()))
-        pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
+        if fiberProfiles is not None:
+            pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
+
+        if self.config.doApplyFiberNorms:
+            if fiberNorms is None:
+                raise RuntimeError("fiberNorms required but not provided")
+            missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
+            if missingFiberIds:
+                self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
         metadata = exposure.getMetadata()
         versions = getPfsVersions()

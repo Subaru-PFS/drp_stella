@@ -233,7 +233,10 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
     def setDefaults(self) -> None:
         super().setDefaults()
 
-        self.estimateRadialVelocity.mask = ["BAD", "SAT", "CR", "NO_DATA", "EDGE", "ATMOSPHERE"]
+        self.estimateRadialVelocity.mask = [
+            "BAD", "SAT", "CR", "NO_DATA", "BAD_FIBERNORMS", "BAD_FLAT", "BAD_SKY", "EDGE", "ATMOSPHERE"
+        ]
+        self.fitObsContinuum.mask = ["BAD", "SAT", "CR", "NO_DATA", "BAD_FIBERNORMS", "BAD_FLAT", "BAD_SKY"]
 
         # Not sure these paramaters are good.
         self.fitObsContinuum.numKnots = 50

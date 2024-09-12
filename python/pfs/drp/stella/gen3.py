@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
+from astropy.time import Time
 
 from lsst.daf.butler import (
     Butler,
@@ -597,3 +598,101 @@ def certifyDetectorMaps(
             raise RuntimeError("Unable to find newly-ingested detectorMaps!")
         registry.registerCollection(target, type=CollectionType.CALIBRATION)
         registry.certify(target, query, timespan)
+
+
+def defineFiberProfilesInputs(
+    repo: str,
+    instrument: str,
+    name: str,
+    bright: List[List[int]],
+    dark: List[List[int]],
+    update: bool = False,
+):
+    """Define inputs to a fiberProfiles run
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    name : `str`
+        Symbolic name of the fiberProfiles run.
+    bright : `list` of `list` of `int`]
+        Bright exposure IDs for each group.
+    dark : `list` of `list` of `int`]
+        Dark exposure IDs for each group. May be empty; otherwise, the length
+        of this list must match the length of the ``bright`` list.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+    """
+    log = logging.getLogger("pfs.defineFiberProfilesInputs")
+    run = instrument + "/fiberProfilesInputs"
+    butler = Butler(repo, run=run)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    if len(bright) != len(dark) and any(len(dd) > 0 for dd in dark):
+        raise RuntimeError(f"Length of bright ({len(bright)}) and dark ({len(dark)}) lists do not match")
+    numGroups = len(bright)
+
+    datasetType = DatasetType(
+        "profiles_exposures",
+        ("instrument", "profiles_run", "profiles_group"),
+        "StructuredDataDict",
+        universe=registry.dimensions,
+    )
+    registry.registerDatasetType(datasetType)
+
+    with registry.transaction():
+        log.info("Registering run %s ...", name)
+        registry.syncDimensionData(
+            "profiles_run", dict(instrument=instrumentName, run=name), update=update
+        )
+        for group in range(numGroups):
+            log.info("Registering group %d ...", group)
+            groupId = dict(instrument=instrumentName, profiles_run=name, profiles_group=group)
+            registry.syncDimensionData("profiles_group", groupId, update=update)
+            log.info("Registering exposures for group %d: %s", group, bright[group])
+            darkList = dark[group] if dark else []
+            for exposure in bright[group] + darkList:
+                registry.syncDimensionData(
+                    "profiles_exposures", dict(exposure=exposure, **groupId), update=update
+                )
+            # Write a file identifying the bright and dark exposures for this
+            # group. This might be a bit of a hack, but it is a simple way to
+            # provide the information to the pipeline. It's better than
+            # putting the information in the registry database, since that's
+            # more difficult to access.
+            butler.put(dict(bright=bright[group], dark=darkList), "profiles_exposures", **groupId)
+
+
+def decertifyCalibrations(
+    repo: str,
+    collection: str,
+    datasetType: str,
+    timespanBegin: str,
+    timespanEnd: str,
+) -> None:
+    """Decertify a calibration dataset specified by its timespan
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collection : `str`
+        Collection containing the datasets to decertify.
+    datasetType : `str`
+        Dataset type to decertify.
+    timespanBegin : `str`
+        Beginning timespan.
+    timespanEnd : `str`
+        Ending timespan.
+    """
+    timespan = Timespan(
+        begin=Time(timespanBegin, scale="tai") if timespanBegin is not None else None,
+        end=Time(timespanEnd, scale="tai") if timespanEnd is not None else None,
+    )
+    butler = Butler(repo, writeable=True)
+    butler.registry.decertify(collection, datasetType, timespan)

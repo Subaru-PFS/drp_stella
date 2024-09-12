@@ -107,35 +107,6 @@ def getFilter(self, butler, dataId):
     return None
 
 
-def calculateOutputHeaderFromRaws(self, butler, calib, dataIdList, outputId):
-    """Calculate the output header from the raw headers.
-
-    This metadata will go into the output FITS header. It will include all
-    headers that are identical in all inputs.
-
-    This version removes the extraneous T00:00:00 from the end of DATE-OBS
-    (there should already be a time).
-
-    Parameters
-    ----------
-    butler : `lsst.daf.persistence.Butler`
-        Data butler.
-    calib : `lsst.afw.image.Exposure`
-        Combined calib exposure.
-    dataIdList : iterable of `dict` (`str`: POD)
-        List of data identifiers for calibration inputs.
-    outputId : `dict`
-        Data identifier for output.
-    """
-    _originalHeaderFromRaws(self, butler, calib, dataIdList, outputId)
-    header = calib.getMetadata()
-    dateObs = header.get("DATE-OBS")
-    if dateObs.endswith("T00:00:00.00"):
-        fixed = dateObs[:dateObs.rfind("T")]
-        if "T" in fixed:  # Make sure we haven't broken a good DATE-OBS
-            header.set("DATE-OBS", fixed, comment="Start date of earliest input observation")
-
-
 def setCalibHeader(header: Union[dafBase.PropertyList, Dict], calibName: str, visitList: Iterable[int],
                    outputId: Dict[str, Any]) -> None:
     """Set header keys for calibs

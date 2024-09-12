@@ -4,6 +4,7 @@ import sys
 import lsst.daf
 import lsst.pipe.base
 
+
 class Bang:
     """Class that blows up in your face if you attempt to use it"""
     def __new__(*args, **kwargs):

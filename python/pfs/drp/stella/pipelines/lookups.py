@@ -77,5 +77,4 @@ def lookupFiberNorms(
             continue
         if ref is not None:
             refList.append(ref)
-    # print(f"lookupFiberNorms on {datasetType} for {dataId}: found {len(refList)} --> {refList}")
     return refList

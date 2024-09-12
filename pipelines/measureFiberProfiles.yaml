@@ -1,4 +1,8 @@
-description: Build fiber profiles
+description: |
+  Measure fiber profiles.
+  This is the Gen3 version of the Gen2 "constructFiberProfiles" script, which
+  measures profiles from a single (possibly combined) image, and then combines
+  profiles measured for multiple groups.
 tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
@@ -8,10 +12,10 @@ tasks:
     class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
     config:
       connections.exposure: fiberProfilesProc
-  measure:
+  measureProfiles:
     class: pfs.drp.stella.pipelines.MeasureFiberProfilesTask
     config:
       connections.inputExpHandles: fiberProfilesProc
       calibrationType: fiberProfiles
-  merge:
-    class: pfs.drp.stella.pipelines.MergeFiberProfilesTask
+  combineProfiles:
+    class: pfs.drp.stella.pipelines.CombineFiberProfilesTask

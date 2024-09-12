@@ -1,106 +1,103 @@
 from typing import List
 
-import yaml
-import numpy as np
+from lsst.pex.config import Field
 
-from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser
-from lsst.pex.config import Config, ConfigurableField, Field
+from lsst.pipe.base import Struct
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
+from lsst.pipe.base import QuantumContext
+from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
-from pfs.datamodel import TargetType
+from pfs.datamodel import TargetType, PfsConfig
 from .fiberProfileSet import FiberProfileSet
-from .normalizeFiberProfiles import NormalizeFiberProfilesTask
+from .reduceProfiles import getIlluminatedFibers
 
 
-class MergeFiberProfilesConfig(Config):
+class MergeFiberProfilesConnections(
+    PipelineTaskConnections,
+    dimensions=("instrument", "profiles_run", "arm", "spectrograph"),
+):
+    """Connections for MergeFiberProfilesTask"""
+    profiles = InputConnection(
+        name="fiberProfiles_group",
+        doc="Fiber profiles for individual groups",
+        dimensions=("instrument", "profiles_run", "profiles_group", "arm", "spectrograph"),
+        storageClass="FiberProfileSet",
+        multiple=True,
+    )
+    data = PrerequisiteConnection(
+        name="profiles_exposures",
+        doc="List of bright and dark exposures",
+        storageClass="StructuredDataDict",
+        dimensions=("instrument", "profiles_group"),
+        multiple=True,
+    )
+    pfsConfig = PrerequisiteConnection(
+        name="pfsConfig",
+        doc="PFS fiber configuration",
+        dimensions=("instrument", "exposure"),
+        storageClass="PfsConfig",
+        multiple=True,
+    )
+
+    merged = OutputConnection(
+        name="fiberProfiles",
+        doc="Merged fiber profiles",
+        dimensions=("instrument", "arm", "spectrograph"),
+        storageClass="FiberProfileSet",
+        isCalibration=True,
+    )
+
+
+class MergeFiberProfilesConfig(PipelineTaskConfig, pipelineConnections=MergeFiberProfilesConnections):
     """Configuration for MergeFiberProfilesTask"""
     fiberInfluence = Field(dtype=int, default=3,
                            doc="Number of fibers around an illuminated fiber whose profiles are influenced")
     replaceNearest = Field(dtype=int, default=3, doc="Number of nearest good fibers to use for replacement")
-    normalize = ConfigurableField(target=NormalizeFiberProfilesTask, doc="Normalize fiber profiles")
 
 
-class MergeFiberProfilesRunner(TaskRunner):
-    @staticmethod
-    def getTargetList(parsedCmd, **kwargs):
-        """Produce list of targets for MergeFiberProfilesTask
-
-        We want to operate on everything all at once.
-        """
-        if parsedCmd.profiles is None:
-            return []
-        numProfiles = len(parsedCmd.profiles)
-        if parsedCmd.visits is None or len(parsedCmd.visits) != numProfiles:
-            raise ValueError("Number of profiles and visits must match")
-        if parsedCmd.darkVisits is None or len(parsedCmd.darkVisits) != numProfiles:
-            raise ValueError("Number of profiles and darkVisits must match")
-
-        kwargs.update(
-            filenames=parsedCmd.profiles,
-            visits=parsedCmd.visits,
-            darkVisits=parsedCmd.darkVisits,
-            badFibersFile=parsedCmd.badFibersFile,
-        )
-        return [(parsedCmd.id.refList, kwargs)]
-
-
-class MergeFiberProfilesTask(CmdLineTask):
+class MergeFiberProfilesTask(PipelineTask):
     """Merge fiber profiles"""
     ConfigClass = MergeFiberProfilesConfig
     _DefaultName = "mergeFiberProfiles"
-    RunnerClass = MergeFiberProfilesRunner
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.makeSubtask("normalize")
-
-    @classmethod
-    def _makeArgumentParser(cls, *args, **kwargs):
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", "raw", help="data ID for norm, e.g., visit=12345 arm=r spectrograph=1")
-        parser.add_argument("--profiles", nargs="+", help="List of fiber profile filenames to merge")
-        parser.add_argument("--visits", nargs="+", type=int,
-                            help="Corresponding list of visit numbers (one per profile)")
-        parser.add_argument("--darkVisits", nargs="+", type=int,
-                            help="Corresponding dark visit numbers (one per profile)")
-        parser.add_argument(
-            "--badFibersFile",
-            type=str,
-            help=("YAML file containing list of bad fibers indexed by arm+spectrograph "
-                  "(e.g., b1: [1, 2, 3])"),
-        )
-        return parser
-
-    def runDataRef(
+    def runQuantum(
         self,
-        dataRefList,
-        filenames: List[str],
-        visits: List[int],
-        darkVisits: List[int],
-        badFibersFile: str = None,
-    ) -> FiberProfileSet:
-        """Merge fiber profiles"""
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with butler I/O
 
-        badFibers = None
-        if badFibersFile is not None:
-            badFibersYaml = yaml.safe_load(open(badFibersFile))
-            camera = f"{dataRefList[0].dataId['arm']}{dataRefList[0].dataId['spectrograph']}"
-            if camera in badFibersYaml:
-                badFibers = badFibersYaml[camera]
-                self.log.info("Will replace manually-designated bad fibers: %s", badFibers)
+        Parameters
+        ----------
+        butler : `QuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        spectrograph = outputRefs.merged.dataId["spectrograph"]
 
-        spectrograph = dataRefList[0].dataId["spectrograph"]
-        profiles = self.mergeFiberProfiles(
-            dataRefList[0].getButler(), filenames, visits, darkVisits, spectrograph, badFibers
-        )
-        self.normalize.run(profiles, dataRefList, [])
-        return profiles
+        profiles = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.profiles}
+        data = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.data}
+        pfsConfigs = {ref.dataId["exposure"]: butler.get(ref) for ref in inputRefs.pfsConfig}
+        brightConfigs = [[pfsConfigs[expId] for expId in data[group]["bright"]] for group in profiles]
+        darkConfigs = [[pfsConfigs[expId] for expId in data[group]["dark"]] for group in profiles]
 
-    def mergeFiberProfiles(
+        results = self.run(list(profiles.values()), brightConfigs, darkConfigs, spectrograph)
+        butler.put(results.merged, outputRefs.merged)
+
+    def run(
         self,
-        butler,
-        filenames: List[str],
-        visits: List[int],
-        darkVisits: List[int],
+        profiles: List[FiberProfileSet],
+        brightConfigs: List[List[PfsConfig]],
+        darkConfigs: List[List[PfsConfig]],
         spectrograph: int,
         badFibers: List[int] = None,
     ) -> FiberProfileSet:
@@ -108,14 +105,12 @@ class MergeFiberProfilesTask(CmdLineTask):
 
         Parameters
         ----------
-        butler : `lsst.daf.persistence.Butler`
-            Data butler.
-        filenames : list of `str`
-            List of fiber profile filenames to merge.
-        visits : list of `int`
-            Corresponding list of visit numbers (one per profile).
-        darkVisits : list of `int`
-            Corresponding dark visit numbers (one per profile).
+        profiles : list of `FiberProfileSet`
+            Fiber profiles to merge.
+        brightConfigs : list of list of `PfsConfig`
+            Bright fiber configurations for each profile.
+        darkConfigs : list of `int`
+            Dark fiber configurations for each profile.
         spectrograph : `int`
             Spectrograph number (1..4).
 
@@ -127,20 +122,20 @@ class MergeFiberProfilesTask(CmdLineTask):
         if badFibers is None:
             badFibers = []
 
-        profiles = [FiberProfileSet.readFits(fn) for fn in filenames]
-        pfsConfigs = [butler.get("pfsConfig", visit=vv).select(spectrograph=spectrograph) for vv in visits]
-        darkConfigs = [butler.get("pfsConfig", visit=vv).select(spectrograph=spectrograph)
-                       for vv in darkVisits]
+        # Dump everything but the first
+        brightConfigs = [groupConfigs[0].select(spectrograph=spectrograph) for groupConfigs in brightConfigs]
+        darkConfigs = [
+            groupConfigs[0].select(spectrograph=spectrograph) if groupConfigs else None
+            for groupConfigs in darkConfigs
+        ]
         numProfiles = len(profiles)
-        assert len(pfsConfigs) == numProfiles and len(darkConfigs) == numProfiles  # enforced in TaskRunner
+        assert len(brightConfigs) == numProfiles and len(darkConfigs) == numProfiles  # enforced in runQuantum
 
         # Fibers that were intended to be exposed
-        intended = [set(conf.fiberId[np.logical_and.reduce(np.isfinite(conf.pfiNominal), axis=1)])
-                    for conf in pfsConfigs]
+        intended = [set(getIlluminatedFibers(conf, False)) for conf in brightConfigs]
 
         # Fibers that were exposed that were not intended to be
-        bad = [set(conf.fiberId[np.logical_and.reduce(np.isfinite(conf.pfiCenter), axis=1)])
-               for conf in darkConfigs]
+        bad = [set(getIlluminatedFibers(conf, True) if conf else []) for conf in darkConfigs]
 
         # Fibers that were always exposed; probably these are broken cobras, though some might just have had
         # trouble in their one dot-roach of consequence
@@ -198,7 +193,7 @@ class MergeFiberProfilesTask(CmdLineTask):
         # Fill in missing fibers
         allFibers = set()
         engFibers = set()
-        for conf in pfsConfigs:
+        for conf in brightConfigs:
             allFibers.update(conf.fiberId)
             engFibers.update(conf.select(targetType=TargetType.ENGINEERING).fiberId)
         missing = allFibers - set(merged) - engFibers
@@ -211,10 +206,4 @@ class MergeFiberProfilesTask(CmdLineTask):
         self.log.info("Replacing %d bad and missing fibers: %s", len(bad), sorted(bad))
         merged.replaceFibers(bad, self.config.replaceNearest)
 
-        return merged
-
-    def _getMetadataName(self):
-        return None
-
-    def _getConfigName(self):
-        return None
+        return Struct(merged=merged)

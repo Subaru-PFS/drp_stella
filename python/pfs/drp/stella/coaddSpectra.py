@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import Field, ConfigurableField, ListField, ConfigField
+from lsst.pex.config import ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -14,7 +14,6 @@ from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
-from lsst.skymap import BaseSkyMap
 
 from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
@@ -28,7 +27,6 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, warpLsf, coaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
-from .pipelines.lookups import lookupFiberNorms
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -65,92 +63,6 @@ class SetWithNaN:
         return self.__set.pop()
 
 
-class PreCoaddConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
-):
-    """Connections for PreCoaddTask"""
-
-    pfsArm = InputConnection(
-        name="pfsArm",
-        doc="Extracted spectra",
-        storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
-    )
-    fiberNorms = PrerequisiteConnection(
-        name="fiberNorms_calib",
-        doc="Fiber normalisations",
-        storageClass="PfsFiberNorms",
-        dimensions=("instrument", "arm"),
-        isCalibration=True,
-        lookupFunction=lookupFiberNorms,
-    )
-
-    fiberNormsId = OutputConnection(
-        name="fiberNormsId",
-        doc="ID of fiberNorms",
-        storageClass="int",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
-    )
-
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-        if not config:
-            return
-        if not config.doApplyFiberNorms:
-            # Turn this into a no-op
-            self.inputs.remove("pfsArm")
-            self.prerequisiteInputs.remove("fiberNorms")
-            self.outputs.remove("fiberNormsId")
-
-
-class PreCoaddConfig(PipelineTaskConfig, pipelineConnections=PreCoaddConnections):
-    """Configuration for PreCoaddTask"""
-    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
-
-
-class PreCoaddTask(PipelineTask):
-    """Prepare for coaddition
-
-    The fiberNorms received by CoaddSpectraTask have dimensions
-    ``(instrument, arm)``, with no link to which exposure they are associated
-    with. This task creates a new dataset that records the association between
-    fiberNorms and the ``pfsArm``, so that CoaddSpectraTask can retrieve the
-    correct fiberNorms for each ``pfsArm``.
-
-    This task is incredibly lightweight: the only thing it does is find which
-    ``fiberNorms`` is associated with the ``pfsArm`` and writes the UUID of the
-    fiberNorms reference. It does no other I/O, not even reading the ``pfsArm``
-    or ``fiberNorms``.
-    """
-    _DefaultName = "preCoadd"
-    ConfigClass = PreCoaddConfig
-
-    def runQuantum(
-        self,
-        butler: QuantumContext,
-        inputRefs: InputQuantizedConnection,
-        outputRefs: OutputQuantizedConnection,
-    ) -> None:
-        """Entry point with butler I/O
-
-        Parameters
-        ----------
-        butler : `QuantumContext`
-            Data butler, specialised to operate in the context of a quantum.
-        inputRefs : `InputQuantizedConnection`
-            Container with attributes that are data references for the various
-            input connections.
-        outputRefs : `OutputQuantizedConnection`
-            Container with attributes that are data references for the various
-            output connections.
-        """
-        if not self.config.doApplyFiberNorms:
-            # Nothing to do
-            return
-        uuid = inputRefs.fiberNorms.id.int
-        butler.put(uuid, outputRefs.fiberNormsId)
-
-
 class CoaddSpectraConnections(
     PipelineTaskConnections,
     dimensions=("instrument", "cat_id"),
@@ -177,22 +89,6 @@ class CoaddSpectraConnections(
         storageClass="LsfDict",
         dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
-    )
-    fiberNormsId = InputConnection(
-        name="fiberNormsId",
-        doc="ID of fiberNorms",
-        storageClass="int",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
-        multiple=True,
-    )
-    fiberNorms = PrerequisiteConnection(
-        name="fiberNorms_calib",
-        doc="Fiber normalisations",
-        storageClass="PfsFiberNorms",
-        dimensions=("instrument", "arm"),
-        isCalibration=True,
-        multiple=True,
-        lookupFunction=lookupFiberNorms,
     )
     sky1d = InputConnection(
         name="sky1d",
@@ -224,14 +120,6 @@ class CoaddSpectraConnections(
         multiple=True,
     )
 
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-        if not config:
-            return
-        if not config.doApplyFiberNorms:
-            self.inputs.remove("fiberNormsId")
-            self.prerequisiteInputs.remove("fiberNorms")
-
 
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
@@ -239,8 +127,6 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
-    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
-    doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -263,7 +149,6 @@ class CoaddSpectraTask(PipelineTask):
             - ``identity`` (`Identity`): identity of the data.
             - ``pfsArm`` (`PfsArm`): extracted spectra from spectrograph arm.
             - ``pfsArmLsf`` (`LsfDict`): line-spread function for ``pfsArm``.
-            - ``fiberNorms`` (`PfsFiberNorms`): fiber normalisations for ``pfsArm``.
             - ``sky1d`` (`FocalPlaneFunction`): 1d sky subtraction model.
             - ``fluxCal`` (`FocalPlaneFunction`): flux calibration solution.
             - ``pfsConfig`` (`PfsConfig`): PFS fiber configuration.
@@ -313,17 +198,13 @@ class CoaddSpectraTask(PipelineTask):
         assert len(catId) == 1, "All pfsObject must have the same cat_id"
         catId = catId.pop()
 
-        if self.config.doApplyFiberNorms:
-            fiberNormsMap = {ref.id.int: butler.get(ref) for ref in inputRefs.fiberNorms}
-
         data: Dict[Identity, Struct] = {}
-        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef, fiberNormsIdRef in zipDatasetRefs(
+        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsConfig),
             DatasetRefList.fromList(inputRefs.pfsArm),
             DatasetRefList.fromList(inputRefs.pfsArmLsf),
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
-            DatasetRefList.fromList(inputRefs.fiberNormsId) if self.config.doApplyFiberNorms else None,
         ):
             dataId = pfsArmRef.dataId.full
             expId = dataId["exposure"]
@@ -336,17 +217,10 @@ class CoaddSpectraTask(PipelineTask):
             )
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
             pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId)
-            fiberNorms = None
-            if self.config.doApplyFiberNorms:
-                fiberNormsId = butler.get(fiberNormsIdRef)
-                fiberNorms = fiberNormsMap.get(fiberNormsId)
-                if fiberNorms is None:
-                    raise RuntimeError(f"Missing fiberNorms for {fiberNormsId}")
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
                 pfsArmLsf=butler.get(pfsArmLsfRef),
-                fiberNorms=fiberNorms,
                 sky1d=butler.get(sky1dRef),
                 fluxCal=butler.get(fluxCalRef),
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),
@@ -459,13 +333,7 @@ class CoaddSpectraTask(PipelineTask):
             Calibrated spectrum of the target.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
-        kwargs = {}
-        if self.config.doApplyFiberNorms:
-            kwargs["fiberNorms"] = data.fiberNorms
-            kwargs["doCheckFiberNormsHashes"] = self.config.doCheckFiberNormsHashes
-        spectrum = calibratePfsArm(
-            spectrum, data.pfsConfig, data.sky1d, data.fluxCal, **kwargs
-        )
+        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
         return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:

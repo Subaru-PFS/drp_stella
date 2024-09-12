@@ -1,11 +1,11 @@
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import numpy as np
 
 from lsst.geom import Box2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
-from lsst.daf.butler import DataCoordinate, DatasetRef, Registry
+from lsst.daf.butler import DataCoordinate
 from lsst.pex.config import ConfigurableField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base import QuantumContext
