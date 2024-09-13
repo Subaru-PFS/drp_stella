@@ -10,6 +10,9 @@ from lsst.resources import ResourcePath
 from lsst.resources.file import FileResourcePath
 from typing_extensions import ParamSpec
 
+from .datamodel.pfsTargetSpectra import PfsTargetSpectra
+from .lsf import LsfDict
+
 _LOG = logging.getLogger(__name__)
 
 # Filename templates for copying products directly
@@ -26,26 +29,26 @@ COPY_TEMPLATES = dict(
     pfsMergedLsf="pfsMerged/%(day_obs)s/pfsMergedLsf-%(obs_id)06d.pickle",
 )
 
-# Filename templates for individual spectra that require extra parameters from the spectrum
-SPECTRUM_TEMPLATES = dict(
-    pfsSingle=(
+# Filename templates for conglomerated spectra to be split
+SPLIT_TEMPLATES = dict(
+    pfsCalibrated=(
         "pfsSingle/%(catId)05d/%(tract)05d/%(patch)s/"
         "pfsSingle-%(catId)05d-%(tract)05d-%(patch)s-%(objId)016x-%(obs_id)06d.fits"
     ),
-    pfsObject=(
+    pfsCoadd=(
         "pfsObject/%(catId)05d/%(tract)05d/%(patch)s/"
         "pfsObject-%(catId)05d-%(tract)05d-%(patch)s-%(objId)016x-"
         "%(nVisit)03d-0x%(pfsVisitHash)016x.fits"
     ),
 )
 
-# Filename templates for LSFs of that require extra parameters from the spectrum
+# Filename templates for LSFs of conglomerated spectra to be split
 LSF_TEMPLATES = dict(
-    pfsSingleLsf=(
+    pfsCalibratedLsf=(
         "pfsSingle/%(catId)05d/%(tract)05d/%(patch)s/"
         "pfsSingleLsf-%(catId)05d-%(tract)05d-%(patch)s-%(objId)016x-%(obs_id)06d.pickle"
     ),
-    pfsObjectLsf=(
+    pfsCoaddLsf=(
         "pfsObject/%(catId)05d/%(tract)05d/%(patch)s/"
         "pfsObjectLsf-%(catId)05d-%(tract)05d-%(patch)s-%(objId)016x-"
         "%(nVisit)03d-0x%(pfsVisitHash)016x.pickle"
@@ -258,22 +261,22 @@ def writeObject(obj: FitsWriteable, target: ResourcePath, clobber: bool):
         obj.writeFits(target.ospath)
 
 
-async def rewriteSpectrum(
+async def splitSpectra(
     butler: Butler,
-    spectrumRef: DatasetRef,
+    spectraRef: DatasetRef,
     lsfDataset: str,
     spectrumTemplate: str,
     lsfTemplate: str,
     dataId: Dict[str, Any],
     clobber: bool,
 ):
-    """Write spectrum and LSF to new location
+    """Split conglomeration of spectra into individual files
 
     Parameters
     ----------
     butler : `Butler`
         Data butler.
-    spectrumRef : `DatasetRef`
+    spectraRef : `DatasetRef`
         Reference to dataset containing spectra.
     lsfDataset : `str`
         Name of dataset containing LSFs.
@@ -286,13 +289,14 @@ async def rewriteSpectrum(
     clobber : `bool`
         Clobber file if it already exists?
     """
-    spectrum = butler.get(spectrumRef)
-    lsf = butler.get(lsfDataset, spectrumRef.dataId)
-    dataId = getDataId(butler.registry, spectrumRef.dataId)
-    identity = dataId.copy() if dataId else {}
-    identity.update(spectrum.getIdentity())
-    await writeObject(spectrum, ResourcePath(spectrumTemplate % identity), clobber)
-    await writeObject(lsf, ResourcePath(lsfTemplate % identity), clobber)
+    spectra: PfsTargetSpectra = butler.get(spectraRef)
+    lsf: LsfDict = butler.get(lsfDataset, spectraRef.dataId)
+    dataId = getDataId(butler.registry, spectraRef.dataId)
+    for target in spectra:
+        identity = dataId.copy() if dataId else {}
+        identity.update(spectra[target].getIdentity())
+        await writeObject(spectra[target], ResourcePath(spectrumTemplate % identity), clobber)
+        await writeObject(lsf[target], ResourcePath(lsfTemplate % identity), clobber)
 
 
 async def runAsync(
@@ -326,17 +330,17 @@ async def runAsync(
         ref: DatasetRef
         for ref in butler.registry.queryDatasets(dataset, where=exposures, findFirst=True):
             await transferDataset(butler, ref, os.path.join(base, COPY_TEMPLATES[dataset]), mode)
-    for spectrumDataset in SPECTRUM_TEMPLATES:
-        lsfDataset = spectrumDataset + "Lsf"
-        spectrumRef: DatasetRef
-        for spectrumRef in butler.registry.queryDatasets(spectrumDataset, where=objects, findFirst=True):
-            await rewriteSpectrum(
+    for spectraDataset in SPLIT_TEMPLATES:
+        lsfDataset = spectraDataset + "Lsf"
+        spectraRef: DatasetRef
+        for spectraRef in butler.registry.queryDatasets(spectraDataset, where=objects, findFirst=True):
+            await splitSpectra(
                 butler,
-                spectrumRef,
+                spectraRef,
                 lsfDataset,
-                os.path.join(base, SPECTRUM_TEMPLATES[spectrumDataset]),
+                os.path.join(base, SPLIT_TEMPLATES[spectraDataset]),
                 os.path.join(base, LSF_TEMPLATES[lsfDataset]),
-                getDataId(butler.registry, spectrumRef.dataId),
+                getDataId(butler.registry, spectraRef.dataId),
                 clobber,
             )
 

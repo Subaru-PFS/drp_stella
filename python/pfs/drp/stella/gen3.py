@@ -29,6 +29,7 @@ from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
+from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
@@ -417,8 +418,8 @@ def addPfsConfigRecords(
 ) -> None:
     """Add records for a pfsConfig to the butler registry
 
-    This is needed in order to associate an ``exposure,fiberId`` with a
-    particular ``catId,objId``.
+    This is needed in order to associate an ``exposure`` with the various
+    ``catId``.
 
     Parameters
     ----------
@@ -456,22 +457,12 @@ def addPfsConfigRecords(
             dataId.pfs_design_id,
             pfsDesignId,
         )
-    kwargs = dict(
-        instrument=instrument,
-        exposure=exposure,
-    )
 
     for catId in np.unique(pfsConfig.catId):
-        registry.syncDimensionData("cat_id", dict(cat_id=int(catId), instrument=instrument), update=update)
-
-    for fiberId, catId, objId in zip(pfsConfig.fiberId, pfsConfig.catId, pfsConfig.objId):
         catId = int(catId)
-        objId = int(objId)
+        registry.syncDimensionData("cat_id", dict(instrument=instrument, id=catId), update=update)
         registry.syncDimensionData(
-            "obj_id", dict(instrument=instrument, cat_id=catId, obj_id=objId), update=update
-        )
-        registry.syncDimensionData(
-            "pfsConfig", dict(fiber_id=int(fiberId), cat_id=catId, obj_id=objId, **kwargs), update=update
+            "pfsConfig", dict(instrument=instrument, cat_id=catId, exposure=exposure), update=update
         )
 
 
@@ -503,7 +494,7 @@ def ingestPfsConfig(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("ingestPfsConfig")
+    log = logging.getLogger("pfs.ingestPfsConfig")
     butler = Butler(repo, run=run)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
@@ -573,7 +564,7 @@ def certifyDetectorMaps(
         'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
         'symlink'.
     """
-    log = logging.getLogger("certifyDetectorMaps")
+    log = logging.getLogger("pfs.certifyDetectorMaps")
     run = collection + "/certify"
     butler = Butler(repo, run=run)
     registry = butler.registry
@@ -706,3 +697,85 @@ def decertifyCalibrations(
     )
     butler = Butler(repo, writeable=True)
     butler.registry.decertify(collection, datasetType, timespan)
+
+
+def defineCombination(
+    repo: str,
+    instrument: str,
+    name: str,
+    where: Optional[str] = None,
+    exposureList: Optional[List[int]] = None,
+    collection: Optional[str] = None,
+    update: bool = False,
+):
+    """Define a combination of exposures
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    name : `str`
+        Name of the combination. This is a symbolic name that can be used to
+        refer to this combination in the future.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting exposures.
+    exposureList : list of `int`, optional
+        List of exposure numbers to include in the combination. If the ``where``
+        clause is provided, this list is used to further restrict the selection.
+    collection : `str`, optional
+        Collection to use for the combination. If not provided, the default
+        collection for the instrument will be used.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+
+    Returns
+    -------
+    visitHash : `int`
+        Hash of the exposures in the combination.
+    exposureList : list of `int`
+        List of exposure numbers in the combination.
+    """
+    if not where and not exposureList:
+        raise ValueError("Must provide at least one of 'where' and 'exposureList'")
+    bind = None
+    if exposureList:
+        add = f"exposure IN (exposureList)"
+        bind = dict(exposureList=exposureList)
+        if where is None:
+            where = add
+        else:
+            where = f"({where}) AND {add}"
+
+    log = logging.getLogger("pfs.defineCombination")
+    butler = Butler(repo, writeable=True) # collections=collection)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    query = registry.queryDimensionRecords(
+        "exposure", where=where, bind=bind, instrument=instrumentName
+    )
+    if not query:
+        log.warn("No data found.")
+        return
+
+    exposureList = sorted([ref.dataId["exposure"] for ref in query])
+    visitHash = calculatePfsVisitHash(exposureList)
+    log.info(
+        "Defining combination %s with pfsVisitHash=%016x for exposures: %s", name, visitHash, exposureList
+    )
+
+    with registry.transaction():
+        registry.syncDimensionData(
+            "combination", dict(instrument=instrument, name=name, pfs_visit_hash=visitHash), update=update
+        )
+        for exposure in exposureList:
+            registry.syncDimensionData(
+                "combination_join",
+                dict(instrument=instrument, combination=name, exposure=exposure),
+                update=update,
+            )
+
+    return visitHash, exposureList
