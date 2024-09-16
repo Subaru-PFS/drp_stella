@@ -1,7 +1,6 @@
 """Helper functions for the LSST Gen3 middleware"""
 
 import functools
-import logging
 import os
 from collections.abc import Sequence
 from glob import glob
@@ -31,6 +30,7 @@ from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
 from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
+from .utils.logging import getLogger
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
 
@@ -494,7 +494,7 @@ def ingestPfsConfig(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("pfs.ingestPfsConfig")
+    log = getLogger("pfs.ingestPfsConfig")
     butler = Butler(repo, run=run)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
@@ -564,7 +564,7 @@ def certifyDetectorMaps(
         'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
         'symlink'.
     """
-    log = logging.getLogger("pfs.certifyDetectorMaps")
+    log = getLogger("pfs.certifyDetectorMaps")
     run = collection + "/certify"
     butler = Butler(repo, run=run)
     registry = butler.registry
@@ -628,7 +628,7 @@ def defineFiberProfilesInputs(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("pfs.defineFiberProfilesInputs")
+    log = getLogger("pfs.defineFiberProfilesInputs")
     run = instrument + "/fiberProfilesInputs"
     butler = Butler(repo, run=run)
     registry = butler.registry
@@ -749,7 +749,7 @@ def defineCombination(
         else:
             where = f"({where}) AND {add}"
 
-    log = logging.getLogger("pfs.defineCombination")
+    log = getLogger("pfs.defineCombination")
     butler = Butler(repo, writeable=True) # collections=collection)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
