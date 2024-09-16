@@ -779,3 +779,32 @@ def defineCombination(
             )
 
     return visitHash, exposureList
+
+
+def cleanRun(
+    repo: str,
+    collections: str,
+    datasetTypes: Iterable[str],
+):
+    """Clean a run by deleting all datasets of specified types in a collection
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collections : `str`
+        Glob for collections to clean.
+    datasetTypes : list of `str`
+        Dataset types to delete.
+    """
+    log = getLogger("pfs.cleanRun")
+    butler = Butler(repo, writeable=True)
+    for coll in butler.registry.queryCollections(
+        collectionTypes=CollectionType.RUN,
+        expression=collections,
+        includeChains=True,
+    ):
+        for dst in datasetTypes:
+            refs = list(butler.registry.queryDatasets(dst, collections=coll))
+            log.info("Cleaning %d %s datasets in %s", len(refs), dst, coll)
+            butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
