@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 
 from pfs.drp.stella.gen3 import defineCombination
 
+
 def main():
     """Command-line front-end to defineCombination"""
     parser = ArgumentParser(description="Define a combination of exposures")

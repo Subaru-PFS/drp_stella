@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from pfs.drp.stella.gen3 import defineFiberProfilesInputs
 from pfs.drp.stella.utils.visits import parseIntegerList
 
+
 def main():
     """Command-line front-end to defineFiberProfilesInputs"""
     parser = ArgumentParser(description="Define a fiberProfiles run")

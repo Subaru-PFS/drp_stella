@@ -779,7 +779,6 @@ def defineCombination(
     name: str,
     where: Optional[str] = None,
     exposureList: Optional[List[int]] = None,
-    collection: Optional[str] = None,
     update: bool = False,
 ):
     """Define a combination of exposures
@@ -798,9 +797,6 @@ def defineCombination(
     exposureList : list of `int`, optional
         List of exposure numbers to include in the combination. If the ``where``
         clause is provided, this list is used to further restrict the selection.
-    collection : `str`, optional
-        Collection to use for the combination. If not provided, the default
-        collection for the instrument will be used.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
@@ -816,7 +812,7 @@ def defineCombination(
         raise ValueError("Must provide at least one of 'where' and 'exposureList'")
     bind = None
     if exposureList:
-        add = f"exposure IN (exposureList)"
+        add = "exposure IN (exposureList)"
         bind = dict(exposureList=exposureList)
         if where is None:
             where = add
@@ -824,7 +820,7 @@ def defineCombination(
             where = f"({where}) AND {add}"
 
     log = getLogger("pfs.defineCombination")
-    butler = Butler(repo, writeable=True) # collections=collection)
+    butler = Butler(repo, writeable=True)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
 
