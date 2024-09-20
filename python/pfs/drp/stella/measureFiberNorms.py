@@ -1,8 +1,6 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, TYPE_CHECKING
+from typing import Dict, Iterable, List
 
-if TYPE_CHECKING:
-    from matplotlib.figure import Figure
 import numpy as np
 import astropy.io.fits
 
@@ -12,11 +10,10 @@ from lsst.pipe.base import Struct
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
-from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
-from pfs.datamodel import CalibIdentity, PfsConfig
+from pfs.datamodel import CalibIdentity
 
 from .calibs import setCalibHeader
 from .combineSpectra import combineSpectraSets
@@ -41,13 +38,6 @@ class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrum
         dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
-    pfsConfig = PrerequisiteConnection(
-        name="pfsConfig",
-        doc="Top-end configuration",
-        storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
-        multiple=True,
-    )
     fiberNorms = OutputConnection(
         name="fiberNorms_calib",
         doc="Measured fiber normalisations",
@@ -68,9 +58,6 @@ class MeasureFiberNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureFib
     rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
     insrotTol = Field(dtype=float, default=1.0, doc="Tolerance for INSROT values (degrees)")
     doCheckHash = Field(dtype=bool, default=True, doc="Check that fiberProfilesHashes are consistent?")
-    doPlot = Field(dtype=bool, default=True, doc="Produce a plot of the fiber normalization values?")
-    plotLower = Field(dtype=float, default=2.5, doc="Lower bound for plot (standard deviations from median)")
-    plotUpper = Field(dtype=float, default=2.5, doc="Upper bound for plot (standard deviations from median)")
 
 
 class MeasureFiberNormsTask(PipelineTask):
@@ -102,12 +89,11 @@ class MeasureFiberNormsTask(PipelineTask):
         for ref in DatasetRefList.fromList(inputRefs.pfsArm):
             spectrograph = ref.dataId["spectrograph"]
             groups[spectrograph].append(butler.get(ref))
-        pfsConfig = butler.get(inputRefs.pfsConfig[0])
 
-        outputs = self.run(groups, pfsConfig)
+        outputs = self.run(groups)
         butler.put(outputs.fiberNorms, outputRefs.fiberNorms)
 
-    def run(self, armSpectra: Dict[int, List[PfsArm]], pfsConfig: PfsConfig) -> Struct:
+    def run(self, armSpectra: Dict[int, List[PfsArm]]) -> Struct:
         """Measure fiber normalization values
 
         Parameters
@@ -129,13 +115,7 @@ class MeasureFiberNormsTask(PipelineTask):
 
         coadded = {spec: self.coaddSpectra(pfsArmList) for spec, pfsArmList in armSpectra.items()}
         fiberNorms = self.measureFiberNorms(coadded, visitSet)
-        if self.config.doPlot:
-            plot = self.plotFiberNorms(
-                fiberNorms, pfsConfig, visitSet, next(iter(coadded.values())).identity.arm
-            )
-        else:
-            plot = None
-        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet, plot=plot)
+        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet)
 
     def checkSpectra(self, pfsArmList: Iterable[PfsArm], sameArm: bool = True) -> None:
         """Check that the spectra are compatible
@@ -334,31 +314,6 @@ class MeasureFiberNormsTask(PipelineTask):
             Fiber normalization value
         """
         return spectra.flux
-
-    def plotFiberNorms(
-        self,
-        fiberNorms: PfsFiberNorms,
-        pfsConfig: PfsConfig,
-        visitList: Iterable[int],
-        arm: str,
-    ) -> "Figure":
-        """Plot fiber normalization values
-
-        Parameters
-        ----------
-        fiberNorms : `pfs.drp.stella.datamodel.pfsFiberNorms.PfsFiberNorms`
-            Fiber normalization values
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration for the PFS system
-
-        Returns
-        -------
-        fig : `matplotlib.figure.Figure`
-            Figure containing the plot.
-        """
-        fig, axes = fiberNorms.plot(pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper)
-        axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
-        return fig
 
 
 class ExposureFiberNormsConnections(
