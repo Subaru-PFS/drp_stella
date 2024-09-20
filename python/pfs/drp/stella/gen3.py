@@ -710,6 +710,69 @@ def decertifyCalibrations(
     )
 
 
+def certifyCalibrations(
+    repo: str,
+    inputCollection: str,
+    outputCollection: str,
+    datasetType: str,
+    beginDate: str | None,
+    endDate: str | None,
+    searchAllInputs: bool = False,
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+) -> None:
+    """Certify a set of calibrations with a validity range.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI to the location of the repo or URI to a config file describing the
+        repo and its location.
+    inputCollection : `str`
+       Data collection to pull calibrations from.  Usually an existing
+        `~CollectionType.RUN` or `~CollectionType.CHAINED` collection, and may
+        _not_ be a `~CollectionType.CALIBRATION` collection or a nonexistent
+        collection.
+    outputCollection : `str`
+        Data collection to store final calibrations.  If it already exists, it
+        must be a `~CollectionType.CALIBRATION` collection.  If not, a new
+        `~CollectionType.CALIBRATION` collection with this name will be
+        registered.
+    datasetType : `str`
+        Name of the dataset type to certify.
+    beginDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should start being used.
+    endDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should stop being used.
+    searchAllInputs : `bool`, optional
+        Search all children of the inputCollection if it is a CHAINED
+        collection, instead of just the most recent one.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to certify. If not provided, all datasets in the
+        collection will be certified.
+    """
+    butler = Butler(repo, writeable=True, without_datastore=True)
+    registry = butler.registry
+    timespan = Timespan(
+        begin=Time(beginDate, scale="tai") if beginDate is not None else None,
+        end=Time(endDate, scale="tai") if endDate is not None else None,
+    )
+    if not searchAllInputs and registry.getCollectionType(inputCollection) is CollectionType.CHAINED:
+        inputCollection = next(iter(registry.getCollectionChain(inputCollection)))
+
+    if dataIds:
+        refs = set()
+        for ident in dataIds:
+            coord = getDataCoordinate(ident, butler.dimensions)
+            newRefs = registry.queryDatasets(datasetType, collections=[inputCollection], dataId=coord)
+            refs.update(newRefs)
+    else:
+        refs = set(registry.queryDatasets(datasetType, collections=[inputCollection]))
+    if not refs:
+        raise RuntimeError(f"No inputs found for dataset {datasetType} in {inputCollection}.")
+    registry.registerCollection(outputCollection, type=CollectionType.CALIBRATION)
+    registry.certify(outputCollection, refs, timespan)
+
+
 def defineCombination(
     repo: str,
     instrument: str,
