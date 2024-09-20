@@ -17,6 +17,7 @@ from lsst.daf.butler import (
     DatasetRef,
     DatasetType,
     DimensionGraph,
+    DimensionUniverse,
     FileDataset,
     Registry,
     Timespan,
@@ -673,8 +674,9 @@ def decertifyCalibrations(
     repo: str,
     collection: str,
     datasetType: str,
-    timespanBegin: str,
-    timespanEnd: str,
+    timespanBegin: Optional[str],
+    timespanEnd: Optional[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
 ) -> None:
     """Decertify a calibration dataset specified by its timespan
 
@@ -686,17 +688,26 @@ def decertifyCalibrations(
         Collection containing the datasets to decertify.
     datasetType : `str`
         Dataset type to decertify.
-    timespanBegin : `str`
+    timespanBegin : `str` or `None`
         Beginning timespan.
-    timespanEnd : `str`
+    timespanEnd : `str` or `None`
         Ending timespan.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to decertify. If not provided, all datasets in the
+        collection matching the timespan will be decertified.
     """
     timespan = Timespan(
         begin=Time(timespanBegin, scale="tai") if timespanBegin is not None else None,
         end=Time(timespanEnd, scale="tai") if timespanEnd is not None else None,
     )
     butler = Butler(repo, writeable=True)
-    butler.registry.decertify(collection, datasetType, timespan)
+
+    butler.registry.decertify(
+        collection,
+        datasetType,
+        timespan,
+        dataIds=[getDataCoordinate(ident, butler.dimensions) for ident in dataIds] if dataIds else None,
+    )
 
 
 def defineCombination(
@@ -785,6 +796,7 @@ def cleanRun(
     repo: str,
     collections: str,
     datasetTypes: Iterable[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
 ):
     """Clean a run by deleting all datasets of specified types in a collection
 
@@ -796,6 +808,9 @@ def cleanRun(
         Glob for collections to clean.
     datasetTypes : list of `str`
         Dataset types to delete.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to delete. If not provided, all datasets of the
+        specified types in the collection will be deleted.
     """
     log = getLogger("pfs.cleanRun")
     butler = Butler(repo, writeable=True)
@@ -805,6 +820,37 @@ def cleanRun(
         includeChains=True,
     ):
         for dst in datasetTypes:
-            refs = list(butler.registry.queryDatasets(dst, collections=coll))
+            if dataIds:
+                refs = []
+                for ident in dataIds:
+                    coord = getDataCoordinate(ident, butler.dimensions)
+                    refs.extend(butler.registry.queryDatasets(dst, collections=coll, dataId=coord))
+            else:
+                refs = list(butler.registry.queryDatasets(dst, collections=coll))
+            if not refs:
+                log.debug("No datasets found for %s in %s", dst, coll)
+                continue
             log.info("Cleaning %d %s datasets in %s", len(refs), dst, coll)
             butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
+
+
+def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
+    """Get a `DataCoordinate` from a dictionary
+
+    Parameters
+    ----------
+    dataId : `dict` [`str`: `str`]
+        Data identifier dictionary.
+    universe : `DimensionUniverse`
+        Dimension universe.
+
+    Returns
+    -------
+    coord : `DataCoordinate`
+        Constructed data coordinate.
+    """
+    coord = {}
+    for key, value in dataId.items():
+        dtype = universe[key].primaryKey.dtype().python_type
+        coord[key] = dtype(value)
+    return DataCoordinate.standardize(coord, universe=universe)
