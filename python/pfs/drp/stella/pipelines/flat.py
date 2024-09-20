@@ -10,6 +10,7 @@ from pfs.datamodel import CalibIdentity
 
 from .calibCombine import PfsCalibCombineConnections, PfsCalibCombineConfig, PfsCalibCombineTask
 from ..buildFiberProfiles import BuildFiberProfilesTask
+from ..traces import medianFilterColumns
 
 __all__ = ("FlatDitherCombineTask", "FlatCombineTask")
 
@@ -36,6 +37,11 @@ class FlatDitherCombineConfig(PfsCalibCombineConfig, pipelineConnections=FlatDit
         default=50,
         doc="Minimum Signal-to-Noise Ratio for normalized flat pixels",
         check=lambda x: x > 0,
+    )
+    smoothWidth = Field(
+        dtype=int,
+        default=400,
+        doc="Half-width (pixels) of median filter for smoothing spectra",
     )
 
     def setDefaults(self):
@@ -139,6 +145,13 @@ class FlatDitherCombineTask(PfsCalibCombineTask):
         traces = profileData.profiles.makeFiberTraces(combined.getDimensions(), profileData.centers)
         spectra = traces.extractSpectra(combined.maskedImage, maskVal)
         self.log.info("Extracted %d spectra", len(spectra))
+
+        # We need to smooth the extracted spectra so the flat samples any deviations
+        mask = (spectra.getAllMasks() & combined.mask.getPlaneBitMask(["BAD", "SAT", "CR"])) != 0
+        smoothWidth = self.config.smoothWidth
+        flux = medianFilterColumns(spectra.getAllFluxes().T.copy(), mask.T.copy(), smoothWidth).T
+        for ss, ff in zip(spectra, flux):
+            ss.flux[:] = ff
 
         expect = spectra.makeImage(combined.getBBox(), traces)
         # Occasionally NaNs are present in these images,

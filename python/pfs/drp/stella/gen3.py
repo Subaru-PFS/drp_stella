@@ -1,7 +1,6 @@
 """Helper functions for the LSST Gen3 middleware"""
 
 import functools
-import logging
 import os
 from collections.abc import Sequence
 from glob import glob
@@ -18,6 +17,7 @@ from lsst.daf.butler import (
     DatasetRef,
     DatasetType,
     DimensionGraph,
+    DimensionUniverse,
     FileDataset,
     Registry,
     Timespan,
@@ -29,7 +29,9 @@ from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
+from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
+from .utils.logging import getLogger
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
 
@@ -404,6 +406,11 @@ def targetFromDataId(dataId: Union[DataCoordinate, Dict[str, Union[int, str]]]) 
     return Target(dataId["catId"], dataId["tract"], dataId["patch"], dataId["objId"])
 
 
+class NoResultsError(ValueError):
+    """Exception raised when no results are found"""
+    pass
+
+
 def addPfsConfigRecords(
     registry: Registry,
     pfsConfig: PfsConfig,
@@ -412,8 +419,8 @@ def addPfsConfigRecords(
 ) -> None:
     """Add records for a pfsConfig to the butler registry
 
-    This is needed in order to associate an ``exposure,fiberId`` with a
-    particular ``catId,objId``.
+    This is needed in order to associate an ``exposure`` with the various
+    ``catId``.
 
     Parameters
     ----------
@@ -441,6 +448,8 @@ def addPfsConfigRecords(
             "exposure", dataId=dict(instrument=instrument, exposure=exposure)
         )
     ]
+    if len(dataId) == 0:
+        raise NoResultsError(f"No exposure records found for instrument={instrument}, exposure={exposure}")
     assert len(dataId) == 1
     dataId = dataId[0]
     if dataId.pfs_design_id != pfsDesignId:
@@ -449,22 +458,12 @@ def addPfsConfigRecords(
             dataId.pfs_design_id,
             pfsDesignId,
         )
-    kwargs = dict(
-        instrument=instrument,
-        exposure=exposure,
-    )
 
     for catId in np.unique(pfsConfig.catId):
-        registry.syncDimensionData("cat_id", dict(cat_id=int(catId), instrument=instrument), update=update)
-
-    for fiberId, catId, objId in zip(pfsConfig.fiberId, pfsConfig.catId, pfsConfig.objId):
         catId = int(catId)
-        objId = int(objId)
+        registry.syncDimensionData("cat_id", dict(instrument=instrument, id=catId), update=update)
         registry.syncDimensionData(
-            "obj_id", dict(instrument=instrument, cat_id=catId, obj_id=objId), update=update
-        )
-        registry.syncDimensionData(
-            "pfsConfig", dict(fiber_id=int(fiberId), cat_id=catId, obj_id=objId, **kwargs), update=update
+            "pfsConfig", dict(instrument=instrument, cat_id=catId, exposure=exposure), update=update
         )
 
 
@@ -496,7 +495,7 @@ def ingestPfsConfig(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("ingestPfsConfig")
+    log = getLogger("pfs.ingestPfsConfig")
     butler = Butler(repo, run=run)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
@@ -513,12 +512,15 @@ def ingestPfsConfig(
                 dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
                 ref = DatasetRef(datasetType, dataId, run)
                 uri = ResourcePath(path, root=cwd, forceAbsolute=True)
-                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
                 log.info("Registering %s ...", filename)
-                addPfsConfigRecords(
-                    registry, pfsConfig, instrumentName, update=update
-                )
+                try:
+                    addPfsConfigRecords(registry, pfsConfig, instrumentName, update=update)
+                except NoResultsError as exc:
+                    log.warn(str(exc))
+                    continue
+
+                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
     log.info("Ingesting files...")
     butler.ingest(*datasets, transfer=transfer)
@@ -563,7 +565,7 @@ def certifyDetectorMaps(
         'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
         'symlink'.
     """
-    log = logging.getLogger("certifyDetectorMaps")
+    log = getLogger("pfs.certifyDetectorMaps")
     run = collection + "/certify"
     butler = Butler(repo, run=run)
     registry = butler.registry
@@ -627,7 +629,7 @@ def defineFiberProfilesInputs(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("pfs.defineFiberProfilesInputs")
+    log = getLogger("pfs.defineFiberProfilesInputs")
     run = instrument + "/fiberProfilesInputs"
     butler = Butler(repo, run=run)
     registry = butler.registry
@@ -672,8 +674,9 @@ def decertifyCalibrations(
     repo: str,
     collection: str,
     datasetType: str,
-    timespanBegin: str,
-    timespanEnd: str,
+    timespanBegin: Optional[str],
+    timespanEnd: Optional[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
 ) -> None:
     """Decertify a calibration dataset specified by its timespan
 
@@ -685,14 +688,228 @@ def decertifyCalibrations(
         Collection containing the datasets to decertify.
     datasetType : `str`
         Dataset type to decertify.
-    timespanBegin : `str`
+    timespanBegin : `str` or `None`
         Beginning timespan.
-    timespanEnd : `str`
+    timespanEnd : `str` or `None`
         Ending timespan.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to decertify. If not provided, all datasets in the
+        collection matching the timespan will be decertified.
     """
     timespan = Timespan(
         begin=Time(timespanBegin, scale="tai") if timespanBegin is not None else None,
         end=Time(timespanEnd, scale="tai") if timespanEnd is not None else None,
     )
     butler = Butler(repo, writeable=True)
-    butler.registry.decertify(collection, datasetType, timespan)
+
+    butler.registry.decertify(
+        collection,
+        datasetType,
+        timespan,
+        dataIds=[getDataCoordinate(ident, butler.dimensions) for ident in dataIds] if dataIds else None,
+    )
+
+
+def certifyCalibrations(
+    repo: str,
+    inputCollection: str,
+    outputCollection: str,
+    datasetType: str,
+    beginDate: str | None,
+    endDate: str | None,
+    searchAllInputs: bool = False,
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+) -> None:
+    """Certify a set of calibrations with a validity range.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI to the location of the repo or URI to a config file describing the
+        repo and its location.
+    inputCollection : `str`
+       Data collection to pull calibrations from.  Usually an existing
+        `~CollectionType.RUN` or `~CollectionType.CHAINED` collection, and may
+        _not_ be a `~CollectionType.CALIBRATION` collection or a nonexistent
+        collection.
+    outputCollection : `str`
+        Data collection to store final calibrations.  If it already exists, it
+        must be a `~CollectionType.CALIBRATION` collection.  If not, a new
+        `~CollectionType.CALIBRATION` collection with this name will be
+        registered.
+    datasetType : `str`
+        Name of the dataset type to certify.
+    beginDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should start being used.
+    endDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should stop being used.
+    searchAllInputs : `bool`, optional
+        Search all children of the inputCollection if it is a CHAINED
+        collection, instead of just the most recent one.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to certify. If not provided, all datasets in the
+        collection will be certified.
+    """
+    butler = Butler(repo, writeable=True, without_datastore=True)
+    registry = butler.registry
+    timespan = Timespan(
+        begin=Time(beginDate, scale="tai") if beginDate is not None else None,
+        end=Time(endDate, scale="tai") if endDate is not None else None,
+    )
+    if not searchAllInputs and registry.getCollectionType(inputCollection) is CollectionType.CHAINED:
+        inputCollection = next(iter(registry.getCollectionChain(inputCollection)))
+
+    if dataIds:
+        refs = set()
+        for ident in dataIds:
+            coord = getDataCoordinate(ident, butler.dimensions)
+            newRefs = registry.queryDatasets(datasetType, collections=[inputCollection], dataId=coord)
+            refs.update(newRefs)
+    else:
+        refs = set(registry.queryDatasets(datasetType, collections=[inputCollection]))
+    if not refs:
+        raise RuntimeError(f"No inputs found for dataset {datasetType} in {inputCollection}.")
+    registry.registerCollection(outputCollection, type=CollectionType.CALIBRATION)
+    registry.certify(outputCollection, refs, timespan)
+
+
+def defineCombination(
+    repo: str,
+    instrument: str,
+    name: str,
+    where: Optional[str] = None,
+    exposureList: Optional[List[int]] = None,
+    update: bool = False,
+):
+    """Define a combination of exposures
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    name : `str`
+        Name of the combination. This is a symbolic name that can be used to
+        refer to this combination in the future.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting exposures.
+    exposureList : list of `int`, optional
+        List of exposure numbers to include in the combination. If the ``where``
+        clause is provided, this list is used to further restrict the selection.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+
+    Returns
+    -------
+    visitHash : `int`
+        Hash of the exposures in the combination.
+    exposureList : list of `int`
+        List of exposure numbers in the combination.
+    """
+    if not where and not exposureList:
+        raise ValueError("Must provide at least one of 'where' and 'exposureList'")
+    bind = None
+    if exposureList:
+        add = "exposure IN (exposureList)"
+        bind = dict(exposureList=exposureList)
+        if where is None:
+            where = add
+        else:
+            where = f"({where}) AND {add}"
+
+    log = getLogger("pfs.defineCombination")
+    butler = Butler(repo, writeable=True)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    query = registry.queryDimensionRecords(
+        "exposure", where=where, bind=bind, instrument=instrumentName
+    )
+    if not query:
+        log.warn("No data found.")
+        return
+
+    exposureList = sorted([ref.dataId["exposure"] for ref in query])
+    visitHash = calculatePfsVisitHash(exposureList)
+    log.info(
+        "Defining combination %s with pfsVisitHash=%016x for exposures: %s", name, visitHash, exposureList
+    )
+
+    with registry.transaction():
+        registry.syncDimensionData(
+            "combination", dict(instrument=instrument, name=name, pfs_visit_hash=visitHash), update=update
+        )
+        for exposure in exposureList:
+            registry.syncDimensionData(
+                "combination_join",
+                dict(instrument=instrument, combination=name, exposure=exposure),
+                update=update,
+            )
+
+    return visitHash, exposureList
+
+
+def cleanRun(
+    repo: str,
+    collections: str,
+    datasetTypes: Iterable[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+):
+    """Clean a run by deleting all datasets of specified types in a collection
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collections : `str`
+        Glob for collections to clean.
+    datasetTypes : list of `str`
+        Dataset types to delete.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to delete. If not provided, all datasets of the
+        specified types in the collection will be deleted.
+    """
+    log = getLogger("pfs.cleanRun")
+    butler = Butler(repo, writeable=True)
+    for coll in butler.registry.queryCollections(
+        collectionTypes=CollectionType.RUN,
+        expression=collections,
+        includeChains=True,
+    ):
+        for dst in datasetTypes:
+            if dataIds:
+                refs = []
+                for ident in dataIds:
+                    coord = getDataCoordinate(ident, butler.dimensions)
+                    refs.extend(butler.registry.queryDatasets(dst, collections=coll, dataId=coord))
+            else:
+                refs = list(butler.registry.queryDatasets(dst, collections=coll))
+            if not refs:
+                log.debug("No datasets found for %s in %s", dst, coll)
+                continue
+            log.info("Cleaning %d %s datasets in %s", len(refs), dst, coll)
+            butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
+
+
+def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
+    """Get a `DataCoordinate` from a dictionary
+
+    Parameters
+    ----------
+    dataId : `dict` [`str`: `str`]
+        Data identifier dictionary.
+    universe : `DimensionUniverse`
+        Dimension universe.
+
+    Returns
+    -------
+    coord : `DataCoordinate`
+        Constructed data coordinate.
+    """
+    coord = {}
+    for key, value in dataId.items():
+        dtype = universe[key].primaryKey.dtype().python_type
+        coord[key] = dtype(value)
+    return DataCoordinate.standardize(coord, universe=universe)

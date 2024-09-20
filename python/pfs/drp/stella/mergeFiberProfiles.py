@@ -2,6 +2,7 @@ from typing import List
 
 from lsst.pex.config import Field
 
+from lsst.daf.butler import DataCoordinate, DatasetRef, Registry
 from lsst.pipe.base import Struct
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -13,6 +14,45 @@ from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantized
 from pfs.datamodel import TargetType, PfsConfig
 from .fiberProfileSet import FiberProfileSet
 from .reduceProfiles import getIlluminatedFibers
+
+
+def lookupProfilesPfsConfig(
+    datasetType: str, registry: Registry, dataId: DataCoordinate, collections: List[str]
+) -> List[DatasetRef]:
+    """Look up pfsConfigs
+
+    This lookup function finds the pfsConfigs for a profiles_run.
+    This requires doing a JOIN against the profiles_exposures table,
+    which the butler doesn't do automatically; so we do it manually.
+    Without this, the butler attempts to get all possible pfsConfigs
+    in the registry.
+
+    Parameters
+    ----------
+    datasetType : `str`
+        The dataset type to look up.
+    registry : `lsst.daf.butler.Registry`
+        The butler registry.
+    dataId : `lsst.daf.butler.DataCoordinate`
+        The data identifier.
+    collections : `list` of `str`
+        The collections to search.
+
+    Returns
+    -------
+    refs : `list` of `lsst.daf.butler.DatasetRef`
+        The references to the bias or dark frame.
+    """
+    results = registry.queryDimensionRecords("profiles_exposures", dataId=dataId)
+    exposureList = [row.exposure for row in results]
+    refs = registry.queryDatasets(
+        datasetType,
+        collections=collections,
+        where="exposure IN (exposureList)",
+        bind=dict(exposureList=exposureList),
+        instrument=dataId["instrument"],
+    )
+    return list(refs)
 
 
 class MergeFiberProfilesConnections(
@@ -40,6 +80,7 @@ class MergeFiberProfilesConnections(
         dimensions=("instrument", "exposure"),
         storageClass="PfsConfig",
         multiple=True,
+        lookupFunction=lookupProfilesPfsConfig,
     )
 
     merged = OutputConnection(

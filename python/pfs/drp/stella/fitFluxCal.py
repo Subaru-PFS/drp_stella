@@ -24,6 +24,7 @@ from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
+from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
 from .fitReference import FilterCurve
 from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
@@ -987,11 +988,11 @@ class FitFluxCalTask(PipelineTask):
 
         Returns
         -------
-        fluxCal : `FocalPlaneFunction`
+        fluxCal : `FluxCalib`
             Flux calibration solution.
-        pfsSingle : `dict` mapping `Target` to `PfsSingle`
+        pfsCalibrated : `PfsCalibratedSpectra`
             Calibrated spectra.
-        pfsSingleLsf : `dict` mapping `Target` to `Lsf`
+        pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
         """
         fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, references)
@@ -1010,8 +1011,8 @@ class FitFluxCalTask(PipelineTask):
         selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
         fiberId = pfsMerged.fiberId[np.isin(pfsMerged.fiberId, pfsConfig.fiberId[selection])]
 
-        pfsSingle: Dict[Target, PfsSingle] = {}
-        pfsSingleLsf: Dict[Target, Lsf] = {}
+        pfsCalibrated: Dict[Target, PfsSingle] = {}
+        pfsCalibratedLsf: Dict[Target, Lsf] = {}
         for ff in fiberId:
             extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
             extracted.fluxTable = self.fluxTable.run(
@@ -1021,13 +1022,13 @@ class FitFluxCalTask(PipelineTask):
             extracted.metadata = getPfsVersions()
 
             target = extracted.target
-            pfsSingle[target] = extracted
-            pfsSingleLsf[target] = pfsMergedLsf[ff]
+            pfsCalibrated[target] = extracted
+            pfsCalibratedLsf[target] = pfsMergedLsf[ff]
 
         return Struct(
             fluxCal=fluxCal,
-            pfsSingle=pfsSingle,
-            pfsSingleLsf=pfsSingleLsf,
+            pfsCalibrated=PfsCalibratedSpectra(pfsCalibrated.values()),
+            pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 
     def runQuantum(
@@ -1053,21 +1054,7 @@ class FitFluxCalTask(PipelineTask):
         inputs = butler.get(inputRefs)
 
         outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
-
-        butler.put(outputs.fluxCal, outputRefs.fluxCal)
-
-        pfsSingleRef = {(ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsSingle}
-        pfsSingleLsfRef = {
-            (ref.dataId["cat_id"], ref.dataId["obj_id"]): ref for ref in outputRefs.pfsSingleLsf
-        }
-
-        for target in outputs.pfsSingle:
-            targetId = (target.catId, target.objId)
-            if targetId not in pfsSingleRef:
-                raise RuntimeError(f"Missing output data reference for {target}")
-
-            butler.put(outputs.pfsSingle[target], pfsSingleRef[targetId])
-            butler.put(outputs.pfsSingleLsf[target], pfsSingleLsfRef[targetId])
+        butler.put(outputs, outputRefs)
 
     @classmethod
     def _makeArgumentParser(cls) -> ArgumentParser:
