@@ -131,6 +131,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     )
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    fiberNormsVisit = Field(dtype=int, default=0, doc="Visit for fiberNorms (overrides calibs)")
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
 
     def setDefaults(self):
@@ -368,7 +369,9 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             for dataRef in sum(expSpecRefList, []):
                 arm = dataRef.dataId["arm"]
                 if arm not in fiberNorms:
-                    fiberNorms[arm] = dataRef.get("fiberNorms")
+                    fiberNormsVisit = self.config.fiberNormsVisit
+                    fiberNorms[arm] = dataRef.get("fiberNorms_meas", visit=fiberNormsVisit) if \
+                        fiberNormsVisit > 0 else dataRef.get("fiberNorms")
 
         results = self.run(spectra, pfsConfig, lsfList, fiberNorms)
 
