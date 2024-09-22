@@ -100,8 +100,6 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
 
     if fig is None:
         fig = plt.figure()
-    else:
-        fig.clf()
 
     axs = []
     if lines:
@@ -156,9 +154,8 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
         maskDescrip = f"[{' '.join(spec.flags.interpret(maskVal))}]" if maskVal != 0 else ""
         return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm {maskDescrip}"
 
-    ax = plt.gca()
-    ax.format_coord = format_coord
-    ax.get_cursor_data = lambda ev: None  # disabled
+    mainAx.format_coord = format_coord
+    mainAx.get_cursor_data = lambda ev: None  # disabled
 
     if not isinstance(spec, PfsArm):
         fiberIdBar = None
@@ -188,7 +185,7 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
                     plotLam = lam
                 else:
                     row = detMap.findPoint(fiberIdBar, lam)[1]
-                    x0, x1 = ax.get_xlim()
+                    x0, x1 = axs[0].get_xlim()
                     plotLam = x0 + (x1 - x0)*row/flux.shape[1]
 
                 lab = ll.description
