@@ -967,12 +967,13 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
 class ShowCobra:
     """Show a cobraId and possibly fiberId on right-click"""
 
-    def __init__(self, ax, pfi, gfm=None, pfsConfig=None):
+    def __init__(self, ax, pfi, gfm=None, pfsConfig=None, textcolor='white', showMTP=False):
         self.ax = ax
         self.pfi = pfi
         self.gfm = gfm
         self.pfsConfig = pfsConfig
-        self.text = ax.text(0, 0, "", va="bottom", ha="left", color='white', transform=ax.transAxes)
+        self.showMTP = showMTP
+        self.text = ax.text(0, 0, "", va="bottom", ha="left", color=textcolor, transform=ax.transAxes)
         self.circle = None
         #
         self.__alpha = unicodedata.lookup("GREEK SMALL LETTER alpha")  # used in cursor display string
@@ -1024,6 +1025,8 @@ class ShowCobra:
                         self.fiberId = self.gfm.fiberId[self.gfm.cobraId == self.cobraId][0]
 
                     self.msg += f"  fiberId {self.fiberId:4}"
+                    if self.showMTP:
+                        self.msg += f" MTP {self.gfm.fiberIdToMTP([self.fiberId])[0][0]}"
 
                     if self.pfsConfig:
                         ll = self.pfsConfig.fiberId == self.fiberId
@@ -1041,10 +1044,10 @@ class ShowCobra:
         self.text.set_text(self.msg)
 
 
-def addCobraIdCallback(fig, pfi, gfm=None, pfsConfig=None):
+def addCobraIdCallback(fig, pfi, gfm=None, pfsConfig=None, textcolor='white', showMTP=False):
     """Add a callback to """
 
-    onclick = ShowCobra(fig.gca(), pfi, gfm, pfsConfig)
+    onclick = ShowCobra(fig.gca(), pfi, gfm, pfsConfig, textcolor=textcolor, showMTP=showMTP)
     fig.canvas.mpl_connect('button_press_event', onclick)
 
     return onclick
