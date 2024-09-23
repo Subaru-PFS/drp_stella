@@ -2,6 +2,7 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplColors
+import matplotlib.transforms as transforms
 
 import lsst.geom as geom
 import lsst.afw.detection as afwDetect
@@ -12,7 +13,8 @@ from pfs.drp.stella.referenceLine import ReferenceLineStatus
 import pfs.utils.fiberids as fiberids
 
 
-__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict"]
+__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict",
+           "showPixelMask"]
 
 
 lineColorDict = dict(ArI="cyan", CdI="orchid", HgI="blue", HgII="blue", KrI="peachpuff",
@@ -675,3 +677,50 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, thres
             print(msg)
 
     return mos
+
+
+def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, clearLegend=False):
+    """Show a set of spectra's pixel mask bits (e.g. pfsArm.mask)
+
+    spec : `pfsArm` or `pfsMerged` or `pfsObject`
+       set of spectra.  N.b. can pass e.g. spec.select(fiberId=666)
+    ignore: `list` of `str`
+       List of names of mask bits to ignore
+    showLegend: `bool`
+       show a legend identifying the bits (default: True)
+    ax: `matplotlib.axes.Axes`
+       The axes to annotate
+    y0: `float`
+       The starting position for writing set bits, in `ax.transAxes` units (i.e. 0..1)
+    dy: `float`
+       The offset for successive bits, in `ax.transAxes` units (i.e. 0..1)
+    clearLegend: `bool`
+       Clear the legend before creating a legend to label bits
+    """
+    mask = np.bitwise_or.reduce(spec.mask, axis=0)
+    wavelength = np.nanmean(spec.wavelength, axis=0)
+
+    masksSet = []
+    for fname in spec.flags:
+        if fname in ignore:
+            continue
+
+        if np.any(mask & spec.flags.get(fname)):
+            masksSet.append(fname)
+
+    if ax is None:
+        ax = plt.gca()
+
+    if clearLegend:   # useful if we plotted lots of fibres
+        for line in ax.lines:
+            line.set_label(s='')
+
+    myTrans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+
+    for i, fname in enumerate(sorted(masksSet)):
+        if np.any(mask & spec.flags.get(fname)):
+            ax.plot(wavelength, np.where(mask & spec.flags.get(fname), y0 - i*dy, np.NaN),
+                    '.-', transform=myTrans, label=fname if showLegend else None)
+
+    if showLegend:
+        ax.legend()
