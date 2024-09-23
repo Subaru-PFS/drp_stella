@@ -2,13 +2,37 @@ import io
 import re
 import sys
 import importlib
+import pandas as pd
+import psycopg2
+import warnings
 
 import astropy.io.fits
 import lsst.afw.fits
 
 from pfs.datamodel.utils import astropyHeaderFromDict
+from pfs.utils.coordinates.transform import makePfiTransform
 
-__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine"]
+__all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine",
+           "pd_read_sql", "makePfiTransformFromOpdb"]
+
+
+def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection,
+                showQuery: bool = False) -> pd.DataFrame:
+    """Execute SQL Query and get Dataframe with pandas
+
+    Works around (harmless but annoying) pandas warning telling me to use sqlalchemy to access postgres
+    """
+
+    if showQuery:
+        print(sql_query)
+
+    with warnings.catch_warnings():
+        # ignore warning for non-SQLAlchemy Connecton
+        # see github.com/pandas-dev/pandas/issues/45660
+        warnings.simplefilter('ignore', UserWarning)
+        # create pandas DataFrame from database query
+        df = pd.read_sql_query(sql_query, db_conn)
+    return df
 
 
 def getPfsVersions(prefix="VERSION_"):
@@ -114,3 +138,45 @@ def processConfigListFromCmdLine(cmdLineString):
         return what
     else:
         return cmdLineString
+
+
+def frameId(visitId, subVisitId=0):
+    """Return a frameId given an visitId and optionally a subVisitId"""
+    return "%06d%02d" % (visitId, subVisitId)
+
+
+def makePfiTransformFromOpdb(opdb, visitId, subVisitId=0):
+    """Make a PfiTransform object for the given frameId by reading the opdb
+
+    opdb: `psycopg2.extensions.connection`
+       Connection to opdb
+    visitId: `int`
+       Desired visit
+    subVisitId: `int`
+       Desired subvisit (default: 0)
+    """
+    with opdb:
+        tmp = pd_read_sql(f'''
+            SELECT altitude, insrot
+            FROM mcs_exposure
+            WHERE mcs_frame_id = {frameId(visitId, subVisitId)};
+        ''', opdb)
+    altitude, insrot = tmp.iloc[0]
+
+    with opdb:
+        tmp = pd_read_sql(f"""
+        SELECT
+           *
+        FROM
+           mcs_pfi_transformation
+        WHERE
+           mcs_frame_id = {frameId(visitId, subVisitId)}
+        """, opdb)
+
+    mcs_frame_id, x0, y0, dscale, scale2, theta, alpha_rot, camera_name = tmp.iloc[0]
+
+    mpt = makePfiTransform(camera_name, altitude=altitude, insrot=insrot)
+
+    mpt.mcsDistort.setArgs([x0, y0, theta, dscale, scale2])
+
+    return mpt

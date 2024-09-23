@@ -1,18 +1,16 @@
-import warnings
 import numpy as np
 import scipy.optimize
 import scipy.stats
 import matplotlib.pyplot as plt
 from matplotlib.patches import Arc, Circle, RegularPolygon
 import pandas as pd
-import psycopg2
 
 from pfs.utils.coordinates.transform import MeasureDistortion
 import pfs.utils.coordinates.CoordTransp as ct
-
+from .sysUtils import pd_read_sql
 
 __all__ = ["GuiderConfig", "agcCameraCenters", "showAgcErrorsForVisits",
-           "readAgcDataFromOpdb", "readAGCPositionsForVisitByAgcExposureId", "pd_read_sql"]
+           "readAgcDataFromOpdb", "readAGCPositionsForVisitByAgcExposureId"]
 
 # Approximate centers of AG camera (indexed by agc_camera_id)
 agcCameraCenters = {
@@ -67,22 +65,6 @@ class MeasureXYRot(MeasureDistortion):
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
 # Communicate with the DB
-
-
-def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection,
-                showQuery: bool = False) -> pd.DataFrame:
-    """Execute SQL Query and get Dataframe with pandas"""
-
-    if showQuery:
-        print(sql_query)
-
-    with warnings.catch_warnings():
-        # ignore warning for non-SQLAlchemy Connecton
-        # see github.com/pandas-dev/pandas/issues/45660
-        warnings.simplefilter('ignore', UserWarning)
-        # create pandas DataFrame from database query
-        df = pd.read_sql_query(sql_query, db_conn)
-    return df
 
 
 def readSpSInfo(opdb, taken_after=None, min_exptime=0, exp_type='object', limit=0, windowed=False,

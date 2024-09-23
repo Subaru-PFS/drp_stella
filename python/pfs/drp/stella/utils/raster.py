@@ -7,9 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import unicodedata
 
-import psycopg2
 import pandas as pd
-import warnings
 
 import astropy.units
 import astropy.coordinates
@@ -21,6 +19,8 @@ from pfs.utils.coordinates.CoordTransp import CoordinateTransform
 
 from lsst.ip.isr import AssembleCcdTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
+from .sysUtils import pd_read_sql
+
 
 __all__ = ["raDecStrToDeg", "makeDither", "makeCobraImages", "makeSkyImageFromCobras",
            "plotSkyImageOneCobra", "plotSkyImageFromCobras", "calculateOffsets", "offsetsAsQuiver",
@@ -703,20 +703,6 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
         plt.ylabel(r"$\delta$ (deg)")
 
     return Q
-
-
-#
-# Workaround (harmless but annoying) pandas warning telling me to use sqlalchemy to access postgres
-#
-def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection) -> pd.DataFrame:
-    """Execute SQL Query and get Dataframe with pandas"""
-    with warnings.catch_warnings():
-        # ignore warning for non-SQLAlchemy Connecton
-        # see github.com/pandas-dev/pandas/issues/45660
-        warnings.simplefilter('ignore', UserWarning)
-        # create pandas DataFrame from database query
-        df = pd.read_sql_query(sql_query, db_conn)
-    return df
 
 
 def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
