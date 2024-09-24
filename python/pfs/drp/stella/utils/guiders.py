@@ -1,18 +1,16 @@
-import warnings
 import numpy as np
 import scipy.optimize
 import scipy.stats
 import matplotlib.pyplot as plt
 from matplotlib.patches import Arc, Circle, RegularPolygon
 import pandas as pd
-import psycopg2
 
 from pfs.utils.coordinates.transform import MeasureDistortion
 import pfs.utils.coordinates.CoordTransp as ct
-
+from .sysUtils import pd_read_sql
 
 __all__ = ["GuiderConfig", "agcCameraCenters", "showAgcErrorsForVisits",
-           "readAgcDataFromOpdb", "readAGCPositionsForVisitByAgcExposureId", ]
+           "readAgcDataFromOpdb", "readAGCPositionsForVisitByAgcExposureId"]
 
 # Approximate centers of AG camera (indexed by agc_camera_id)
 agcCameraCenters = {
@@ -23,26 +21,50 @@ agcCameraCenters = {
     4: (-122.58, -211.67),              # noqa E201, E241
     5: ( 119.23, -209.79),              # noqa E201, E241
 }
-3
+
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+class MeasureXYRot(MeasureDistortion):
+    def __init__(self, x, y, xoff, yoff, nsigma=5, alphaRot=0.0):
+        """x, y: measured positions in pfi coordinates (mm)
+        xoff, yoff: measured offsets (microns)
+        nsigma: clip the fitting at this many standard deviations (None => 5).  No clipping if <= 0
+        alphaRot: coefficient for the dtheta^2 term in the penalty function
+        """
+        self.nsigma = 5 if nsigma is None else nsigma
+        self.alphaRot = alphaRot
+
+        good = np.isfinite(x + y + xoff + yoff)
+
+        self.x = x[good]
+        self.y = y[good]
+
+        self.xtrue = (x + 1e-3*xoff)[good]
+        self.ytrue = (y + 1e-3*yoff)[good]
+        #
+        # The correct number of initial values; must match code in __call__()
+        #
+        x0, y0, dscale, theta, scale2 = np.array([0, 0, 0, 0, 0], dtype=float)
+        self._args = np.array([x0, y0, dscale, theta, scale2])
+        self.frozen = np.zeros(len(self._args), dtype=bool)
+
+    def __call__(self, args):
+        tx, ty = self.distort(self.x, self.y, *args)
+
+        d = np.hypot(tx - self.xtrue, ty - self.ytrue)
+
+        if self.nsigma > 0:
+            d = d[self.clip(d, self.nsigma)]
+
+        penalty = np.sum(d**2)
+        penalty += self.alphaRot*(args[2] - 0.0)**2  # include a prior on the rotation, args[2]
+
+        return penalty
+
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
 # Communicate with the DB
-
-
-def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection,
-                showQuery: bool = False) -> pd.DataFrame:
-    """Execute SQL Query and get Dataframe with pandas"""
-
-    if showQuery:
-        print(sql_query)
-
-    with warnings.catch_warnings():
-        # ignore warning for non-SQLAlchemy Connecton
-        # see github.com/pandas-dev/pandas/issues/45660
-        warnings.simplefilter('ignore', UserWarning)
-        # create pandas DataFrame from database query
-        df = pd.read_sql_query(sql_query, db_conn)
-    return df
 
 
 def readSpSInfo(opdb, taken_after=None, min_exptime=0, exp_type='object', limit=0, windowed=False,
@@ -620,6 +642,11 @@ def showGuiderErrors(agcData, config,
                      agc_camera_ids=range(6),
                      name=None):
     """
+    Show the guiders for the data in agcData
+
+    The mean nominal position of the guide stars per AGC is shown as a cross (often red), as
+    is the boresight.
+
     agcData: pandas DataFrame as returned by readAgcDataFromOpdb
     config: a GuiderConfig
     agc_camera_ids:  a list of 0-indexed cameras to display; default 0..5
@@ -638,9 +665,9 @@ def showGuiderErrors(agcData, config,
 
             if verbose:
                 print(f"Solving for offsets/rotations for {aid}")
-            transform = MeasureDistortion(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel], -1,
-                                          agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
-                                          None, nsigma=3)
+            transform = MeasureXYRot(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel],
+                                     agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
+                                     nsigma=3)
 
             res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
             transform.setArgs(res.x)
@@ -696,8 +723,8 @@ def showGuiderErrors(agcData, config,
             if agc_camera_id not in config.transforms:
                 print(f"Solving for offsets/rotations for AG{agc_camera_id + 1}")
 
-                transform = MeasureDistortion(agcData.agc_center_x_mm, agcData.agc_center_y_mm, -1,
-                                              agcData.agc_nominal_x_mm, agcData.agc_nominal_y_mm, None)
+                transform = MeasureXYRot(agcData.agc_center_x_mm, agcData.agc_center_y_mm,
+                                         agcData.agc_nominal_x_mm, agcData.agc_nominal_y_mm)
                 config.transforms[agc_camera_id] = transform
 
                 res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
@@ -1501,6 +1528,9 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
                 for agc_camera_id in range(6):
                     lll = ll & (_agcGuideErrors.agc_camera_id == agc_camera_id)
                     plt.plot(x[lll], y[lll], color='black', alpha=0.25, zorder=-1)
+
+            if i == 0:
+                plt.plot(agc_camera_x_mm/expand, agc_camera_y_mm/expand, '+', color='red', zorder=10)
 
             if showAGMean:
                 grouped = _agcGuideErrors.groupby("agc_exposure_id", as_index=False)

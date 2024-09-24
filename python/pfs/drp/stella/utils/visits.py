@@ -1,6 +1,8 @@
 import re
 from typing import List
 
+__all__ = ["parseIntegerList", "formatVisits"]
+
 VISIT_REGEX = re.compile(r"^(\d+)\.\.(\d+)(?::(\d+))?$")
 
 
@@ -39,3 +41,43 @@ def parseIntegerList(string: str) -> List[int]:
         else:
             result.append(int(value))
     return result
+
+
+def formatVisits(visits):
+    """Format a set of visits into the format used for an --id argument"""
+    visits = sorted(visits)
+
+    visitSummary = []
+    i = 0
+    while i < len(visits):
+        v0 = -1
+
+        while i < len(visits):
+            v = visits[i]
+            i += 1
+            if v0 < 0:
+                v0 = v
+                dv = -1                 # visit stride
+                continue
+
+            if dv < 0:
+                dv = v - v0
+
+            if visits[i - 2] + dv != v:
+                i -= 1                  # process this visit again later
+                v = visits[i - 1]       # previous value of v
+                break
+
+        if v0 == v:
+            vstr = "%d" % v
+        else:
+            if v == v0 + dv:
+                vstr = "%d^%d" % (v0, v)
+            else:
+                vstr = "%d..%d" % (v0, v)
+                if dv > 1:
+                    vstr += ":%d" % dv
+
+        visitSummary.append(vstr)
+
+    return "^".join(visitSummary)

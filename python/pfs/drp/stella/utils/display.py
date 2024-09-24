@@ -2,6 +2,7 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplColors
+import matplotlib.transforms as transforms
 
 import lsst.geom as geom
 import lsst.afw.detection as afwDetect
@@ -12,7 +13,8 @@ from pfs.drp.stella.referenceLine import ReferenceLineStatus
 import pfs.utils.fiberids as fiberids
 
 
-__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict"]
+__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict",
+           "showPixelMask", "showColorbar"]
 
 
 lineColorDict = dict(ArI="cyan", CdI="orchid", HgI="blue", HgII="blue", KrI="peachpuff",
@@ -100,8 +102,6 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
 
     if fig is None:
         fig = plt.figure()
-    else:
-        fig.clf()
 
     axs = []
     if lines:
@@ -156,9 +156,8 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
         maskDescrip = f"[{' '.join(spec.flags.interpret(maskVal))}]" if maskVal != 0 else ""
         return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm {maskDescrip}"
 
-    ax = plt.gca()
-    ax.format_coord = format_coord
-    ax.get_cursor_data = lambda ev: None  # disabled
+    mainAx.format_coord = format_coord
+    mainAx.get_cursor_data = lambda ev: None  # disabled
 
     if not isinstance(spec, PfsArm):
         fiberIdBar = None
@@ -188,7 +187,7 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
                     plotLam = lam
                 else:
                     row = detMap.findPoint(fiberIdBar, lam)[1]
-                    x0, x1 = ax.get_xlim()
+                    x0, x1 = axs[0].get_xlim()
                     plotLam = x0 + (x1 - x0)*row/flux.shape[1]
 
                 lab = ll.description
@@ -678,3 +677,72 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, thres
             print(msg)
 
     return mos
+
+
+def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, clearLegend=False):
+    """Show a set of spectra's pixel mask bits (e.g. pfsArm.mask)
+
+    spec : `pfsArm` or `pfsMerged` or `pfsObject`
+       set of spectra.  N.b. can pass e.g. spec.select(fiberId=666)
+    ignore: `list` of `str`
+       List of names of mask bits to ignore
+    showLegend: `bool`
+       show a legend identifying the bits (default: True)
+    ax: `matplotlib.axes.Axes`
+       The axes to annotate
+    y0: `float`
+       The starting position for writing set bits, in `ax.transAxes` units (i.e. 0..1)
+    dy: `float`
+       The offset for successive bits, in `ax.transAxes` units (i.e. 0..1)
+    clearLegend: `bool`
+       Clear the legend before creating a legend to label bits
+    """
+    mask = np.bitwise_or.reduce(spec.mask, axis=0)
+    wavelength = np.nanmean(spec.wavelength, axis=0)
+
+    masksSet = []
+    for fname in spec.flags:
+        if fname in ignore:
+            continue
+
+        if np.any(mask & spec.flags.get(fname)):
+            masksSet.append(fname)
+
+    if ax is None:
+        ax = plt.gca()
+
+    if clearLegend:   # useful if we plotted lots of fibres
+        for line in ax.lines:
+            line.set_label(s='')
+
+    myTrans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+
+    for i, fname in enumerate(sorted(masksSet)):
+        if np.any(mask & spec.flags.get(fname)):
+            ax.plot(wavelength, np.where(mask & spec.flags.get(fname), y0 - i*dy, np.NaN),
+                    '.-', transform=myTrans, label=fname if showLegend else None)
+
+    if showLegend:
+        ax.legend()
+
+
+def showColorbar(S, *args, **kwargs):
+    """Show a colorbar, forcing alpha==1
+
+    Arguments:
+    S: `matplotlib.cm.ScalarMappable`
+       The mapping whose colours we want (as returned by e.g. plt.scatter)
+    *args: `list`
+       Positional arguments to pass to colorbar()
+    **kwargs: `dict`
+       Keyword arguments to pass to colorbar()
+
+    Returns:
+       the `matplotlib.colorbar.Colorbar`
+    """
+    a = S.get_alpha()
+    S.set_alpha(1)
+    C = plt.colorbar(S, *args, **kwargs)
+    S.set_alpha(a)
+
+    return C

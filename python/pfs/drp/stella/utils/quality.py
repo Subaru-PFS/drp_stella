@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import lsst.daf.persistence as dafPersist
 
-from .guiders import pd_read_sql
+from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 

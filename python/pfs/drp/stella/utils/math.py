@@ -3,8 +3,10 @@ from types import SimpleNamespace
 from typing import Union
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy.ndimage import convolve1d
+from scipy.signal import savgol_coeffs
 
-__all__ = ("robustRms", "fitStraightLine", "ChisqList")
+__all__ = ("robustRms", "fitStraightLine", "ChisqList", "savgol_filter")
 
 
 def robustRms(array: ArrayLike) -> float:
@@ -102,3 +104,51 @@ class ChisqList:
         if prior is not None:
             prob *= prior
         return prob / np.sum(prob)
+
+
+def savgol_filter(x, window_length, polyorder, deriv=0, delta=1.0,
+                  axis=-1, mode='interp', cval=0.0, xerr=None):
+    """ Apply a Savitzky-Golay filter to an array, including an error estimate
+    Options as for scipy.signal.savgol_filter, with the extension:
+
+    xerr: `np.ndarray` of `float`
+       Errors in x, or `None`.  Taken to be independent
+
+    Returns
+    -------
+       `np.ndarray` of `float` (if xerr is None)
+          the filtered values of x
+       (`np.ndarray` of `float`, `np.ndarray` of `float`) (if xerr is not None)
+         the filtered values of x and the errors in those values
+    """
+
+    if mode not in ["mirror", "constant", "nearest", "interp", "wrap"]:
+        raise ValueError("mode must be 'mirror', 'constant', 'nearest' "
+                         "'wrap' or 'interp'.")
+
+    x = np.asarray(x)
+    # Ensure that x is either single or double precision floating point.
+    if x.dtype != np.float64 and x.dtype != np.float32:
+        x = x.astype(np.float64)
+
+    coeffs = savgol_coeffs(window_length, polyorder, deriv=deriv, delta=delta)
+
+    if mode == "interp":
+        # Do not pad.  Instead, for the elements within `window_length // 2`
+        # of the ends of the sequence, use the polynomial that is fitted to
+        # the last `window_length` elements.
+        from scipy.signal._savitzky_golay import _fit_edges_polyfit  # N.b. importing internal function
+
+        y = convolve1d(x, coeffs, axis=axis, mode="constant")
+        _fit_edges_polyfit(x, window_length, polyorder, deriv, delta, axis, y)
+
+        if xerr is not None:
+            yerr = np.sqrt(convolve1d(xerr**2, coeffs**2, axis=axis, mode="constant"))
+            _fit_edges_polyfit(x, window_length, polyorder, deriv, delta, axis, yerr)
+    else:
+        # Any mode other than 'interp' is passed on to ndimage.convolve1d.
+        y = convolve1d(x, coeffs, axis=axis, mode=mode, cval=cval)
+        if xerr is not None:
+            yerr = np.sqrt(convolve1d(xerr**2, coeffs**2, axis=axis, mode=mode, cval=cval))
+
+    return y if xerr is None else (y, yerr)

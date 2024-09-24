@@ -67,12 +67,13 @@ def applyFiberNorms(
     """
     if doCheckHashes:
         spectrograph = pfsArm.identity.spectrograph
-        expectHash = fiberNorms.fiberProfilesHash[spectrograph]
-        gotHash = pfsArm.metadata["PFS.HASH.FIBERPROFILES"]
-        if gotHash != expectHash:
-            raise RuntimeError(
-                f"Hash mismatch for fiberProfiles: {gotHash} != {expectHash}"
-            )
+        if spectrograph in fiberNorms.fiberProfilesHash:
+            expectHash = fiberNorms.fiberProfilesHash[spectrograph]
+            gotHash = pfsArm.metadata["PFS.HASH.FIBERPROFILES"]
+            if gotHash != expectHash:
+                raise RuntimeError(
+                    f"Hash mismatch for fiberProfiles: {gotHash} != {expectHash}"
+                )
 
     badFiberNorms = pfsArm.flags.add("BAD_FIBERNORMS")
     fiberNorms = fiberNorms.select(fiberId=pfsArm.fiberId)
