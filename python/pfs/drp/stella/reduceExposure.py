@@ -387,7 +387,7 @@ class ReduceExposureTask(CmdLineTask):
                 pfsArm.sky[:] = skySpectra.flux/skySpectra.norm*pfsArm.norm
 
             if self.config.doApplyScreenResponse:
-                self.screen.run(exposure.getMetadata(), spectra, pfsConfig)
+                self.screen.run(exposure.getMetadata(), pfsArm, pfsConfig)
 
             if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
                 self.log.info("Calculating barycentric correction")
