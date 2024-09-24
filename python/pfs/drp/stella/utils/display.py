@@ -14,7 +14,7 @@ import pfs.utils.fiberids as fiberids
 
 
 __all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict",
-           "showPixelMask"]
+           "showPixelMask", "showColorbar"]
 
 
 lineColorDict = dict(ArI="cyan", CdI="orchid", HgI="blue", HgII="blue", KrI="peachpuff",
@@ -724,3 +724,25 @@ def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, c
 
     if showLegend:
         ax.legend()
+
+
+def showColorbar(S, *args, **kwargs):
+    """Show a colorbar, forcing alpha==1
+
+    Arguments:
+    S: `matplotlib.cm.ScalarMappable`
+       The mapping whose colours we want (as returned by e.g. plt.scatter)
+    *args: `list`
+       Positional arguments to pass to colorbar()
+    **kwargs: `dict`
+       Keyword arguments to pass to colorbar()
+
+    Returns:
+       the `matplotlib.colorbar.Colorbar`
+    """
+    a = S.get_alpha()
+    S.set_alpha(1)
+    C = plt.colorbar(S, *args, **kwargs)
+    S.set_alpha(a)
+
+    return C
