@@ -6,9 +6,8 @@ from lsst.pex.config import Config, ListField
 from lsst.pipe.base import Task
 from lsst.daf.base import PropertyList
 
-from pfs.datamodel import PfsConfig, TargetType
+from pfs.datamodel import PfsConfig, TargetType, PfsFiberArraySet
 from lsst.obs.pfs.utils import getLamps
-from .SpectrumSetContinued import SpectrumSet
 
 
 __all__ = ("ScreenResponseConfig", "ScreenResponseTask", "screenResponse")
@@ -26,14 +25,14 @@ class ScreenResponseTask(Task):
     ConfigClass = ScreenResponseConfig
     _DefaultName = "screenResponse"
 
-    def run(self, metadata: PropertyList, spectra: SpectrumSet, pfsConfig: PfsConfig):
+    def run(self, metadata: PropertyList, spectra: PfsFiberArraySet, pfsConfig: PfsConfig):
         """Correct the spectra for the screen response.
 
         Parameters
         ----------
         metadata : `PropertyList`
             Metadata for the exposure.
-        spectra : `SpectrumSet`
+        spectra : `PfsFiberArraySet`
             The spectra to be corrected.
         pfsConfig : `PfsConfig`
             Fiber configuration.
@@ -62,12 +61,12 @@ class ScreenResponseTask(Task):
         lamps = getLamps(metadata)
         return bool(lamps & set(("Quartz", "Quartz_eng")))
 
-    def apply(self, spectra: SpectrumSet, pfsConfig: PfsConfig, insrot: float):
+    def apply(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, insrot: float):
         """Correct the spectra for the screen response.
 
         Parameters
         ----------
-        spectra : `SpectrumSet`
+        spectra : `PfsFiberArraySet`
             The spectra to be corrected.
         pfsConfig : `PfsConfig`
             Fiber configuration.
@@ -91,13 +90,13 @@ class ScreenResponseTask(Task):
         if np.any(noPosition):
             screen[noPosition] = 1.0
 
+        select = pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)
+
         # The "screen response" is the quartz flux divided by the twilight flux.
         # To get the twilight flux, we need to divide our quartz flux by the screen response.
         # We have the quartz flux as the "norm" of the pfsMerged.
         # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
-        for spectrum, ttype, value in zip(spectra, pfsConfig.targetType, screen):
-            if ttype != TargetType.ENGINEERING:
-                spectrum.norm /= value
+        spectra.norm[select] /= screen[select, np.newaxis]
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
