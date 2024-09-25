@@ -277,7 +277,7 @@ class BroadbandFluxChi2:
 
             for bbFlux, bbFluxErr, filterName in self.bbFlux[fId]:
                 if np.isfinite(bbFlux) and bbFluxErr > 0:
-                    photometry = self._getFilterCurve(filterName).photometer(calibrated, quadpack=False)
+                    photometry = self._getFilterCurve(filterName).photometer(calibrated)
                     relativeErr = (bbFlux - photometry) / bbFluxErr
                     chi2 += lossFunc(relativeErr)
                     if save:
@@ -380,7 +380,7 @@ class BroadbandFluxChi2:
             )
 
             for pair in self.fiberIdToPhotometries[fId]:
-                s = self._getFilterCurve(pair.filterName).photometer(scaleArray, quadpack=False)
+                s = self._getFilterCurve(pair.filterName).photometer(scaleArray)
                 relativeErr = (pair.truth - pair.model / s) / pair.error
                 chi2 += lossFunc(relativeErr)
 
