@@ -677,9 +677,10 @@ class OversampledSpline(FocalPlaneFunction):
 
         if robust:
             yMedian = binned_statistic(xx, yy, statistic="median", bins=bins)[0]
+            xMedian = binned_statistic(xx, xx, statistic="median", bins=bins)[0]
             goodBins = np.isfinite(yMedian)
             spline = InterpolatedUnivariateSpline(
-                centers[goodBins], yMedian[goodBins], k=splineOrder, bbox=(wlMin, wlMax)
+                xMedian[goodBins], yMedian[goodBins], k=splineOrder, bbox=(wlMin, wlMax)
             )
             knots = np.concatenate(
                 ([wlMin] * (splineOrder - 1), centers[goodBins], [wlMax] * (splineOrder - 1))
