@@ -147,15 +147,20 @@ class PhotometryPair:
         True flux.
     model : `float`
         Model flux to be fitted to the truth.
-    error : `float`
-        Error, such that ``(truth - model)**2 / error**2`` will be chi^2.
+    truthError : `float`
+        Error, such that ``(truth - model)**2 / (truthError**2 + modelError**2)``
+        will be chi^2.
+    modelError : `float`
+        Error, such that ``(truth - model)**2 / (truthError**2 + modelError**2)``
+        will be chi^2.
     filterName : `str`
         Filter name.
     """
 
     truth: float
     model: float
-    error: float
+    truthError: float
+    modelError: float
     filterName: str
 
 
@@ -276,13 +281,19 @@ class BroadbandFluxChi2:
 
             for bbFlux, bbFluxErr, filterName in self.bbFlux[fId]:
                 if np.isfinite(bbFlux) and bbFluxErr > 0:
-                    photometry = self._getFilterCurve(filterName).photometer(calibrated)
-                    relativeErr = (bbFlux - photometry) / bbFluxErr
+                    photometry, photoError = self._getFilterCurve(filterName).photometer(
+                        calibrated, doComputeError=True
+                    )
+                    relativeErr = (bbFlux - photometry) / math.hypot(bbFluxErr, photoError)
                     chi2 += lossFunc(relativeErr)
                     if save:
                         photometries.append(
                             PhotometryPair(
-                                truth=bbFlux, model=photometry, error=bbFluxErr, filterName=filterName
+                                truth=bbFlux,
+                                model=photometry,
+                                truthError=bbFluxErr,
+                                modelError=photoError,
+                                filterName=filterName,
                             )
                         )
 
@@ -321,7 +332,9 @@ class BroadbandFluxChi2:
 
         for fId, scale in zip(fiberId, scales):
             for pair in self.fiberIdToPhotometries[fId]:
-                relativeErr = (pair.truth - pair.model / scale) / pair.error
+                relativeErr = (pair.truth - pair.model / scale) / math.hypot(
+                    pair.truthError, pair.modelError / scale
+                )
                 chi2 += lossFunc(relativeErr)
 
         return chi2
@@ -380,7 +393,7 @@ class BroadbandFluxChi2:
 
             for pair in self.fiberIdToPhotometries[fId]:
                 s = self._getFilterCurve(pair.filterName).photometer(scaleArray)
-                relativeErr = (pair.truth - pair.model / s) / pair.error
+                relativeErr = (pair.truth - pair.model / s) / math.hypot(pair.truthError, pair.modelError / s)
                 chi2 += lossFunc(relativeErr)
 
         return chi2
@@ -859,6 +872,8 @@ def interpolateLinearly(
     # to affect the results.
     flux1 = np.median(spectrum.flux[index1])
     flux2 = np.median(spectrum.flux[index2])
+    covar1 = np.median(spectrum.covar[:, index1], axis=1, keepdims=True)
+    covar2 = np.median(spectrum.covar[:, index2], axis=1, keepdims=True)
 
     if mode == "interpolate":
         interpoland = (wlRange1[1] < spectrum.wavelength) & (spectrum.wavelength < wlRange2[0])
@@ -872,6 +887,16 @@ def interpolateLinearly(
     spectrum.flux[interpoland] = flux1 + (flux2 - flux1) / (wl2 - wl1) * (
         spectrum.wavelength[interpoland] - wl1
     )
+
+    # Because this spectrum will be photometered, we have to invent some
+    # good-looking variance. We interpolate variances just like fluxes,
+    # though it is wrong.
+    wl1 = wl1.reshape(1, -1)
+    wl2 = wl2.reshape(1, -1)
+    spectrum.covar[:, interpoland] = covar1 + (covar2 - covar1) / (wl2 - wl1) * (
+        spectrum.wavelength[interpoland] - wl1
+    )
+
     # We reset all masks for interpolated points because we don't want other
     # functions to ignore the interpolated points.
     spectrum.mask[interpoland] = 0
