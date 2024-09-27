@@ -28,10 +28,13 @@ class TransmissionCurve:
     transmission : array_like
         Array of corresponding transmission values.
     """
+
     def __init__(self, wavelength, transmission):
         if len(wavelength) != len(transmission):
-            raise RuntimeError("Mismatched lengths for wavelength and transmission: "
-                               f"{len(wavelength)} vs {len(transmission)}")
+            raise RuntimeError(
+                "Mismatched lengths for wavelength and transmission: "
+                f"{len(wavelength)} vs {len(transmission)}"
+            )
         self.wavelength = wavelength
         self.transmission = transmission
 
@@ -71,6 +74,7 @@ class TransmissionCurve:
             The return value is more predictable when this parameter is False.
         """
         if quadpack:
+
             def function(wavelength):
                 """The function we're integrating
 
@@ -79,13 +83,15 @@ class TransmissionCurve:
                 """
                 ss = (
                     np.interp(wavelength, spectrum.wavelength, spectrum.flux, 0.0, 0.0)
-                    if spectrum is not None else 1.0
+                    if spectrum is not None
+                    else 1.0
                 )
                 ff = self.interpolate(wavelength)
-                return ss*ff/wavelength
+                return ss * ff / wavelength
 
-            return scipy.integrate.quad(function, self.wavelength[0], self.wavelength[-1],
-                                        epsabs=0.0, epsrel=2.0e-3, limit=100)[0]
+            return scipy.integrate.quad(
+                function, self.wavelength[0], self.wavelength[-1], epsabs=0.0, epsrel=2.0e-3, limit=100
+            )[0]
         else:
             if spectrum is not None:
                 y = spectrum.flux * self.interpolate(spectrum.wavelength) / spectrum.wavelength
@@ -126,6 +132,7 @@ class FilterCurve(TransmissionCurve):
     filterName : `str`
         Name of the filter. Must be one that is known.
     """
+
     filenames = {
         "g_hsc": "HSC/hsc_g_v2018.dat",
         # This is HSC-R (as opposed to HSC-R2)
@@ -156,21 +163,23 @@ class FilterCurve(TransmissionCurve):
         if filterName not in self.filenames:
             raise RuntimeError(f"Unrecognised filter: {filterName}")
 
-        filename = os.path.join(os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "bandpass",
-                                self.filenames[filterName])
-        data = np.genfromtxt(filename, dtype=[('wavelength', 'f4'), ('flux', 'f4')])
+        filename = os.path.join(
+            os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "bandpass", self.filenames[filterName]
+        )
+        data = np.genfromtxt(filename, dtype=[("wavelength", "f4"), ("flux", "f4")])
         wavelength = data["wavelength"]
         transmission = data["flux"]  # Relative transmission
         super().__init__(wavelength, transmission)
 
 
-AMBRE_FILES = ["p6500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
-               "p6500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
-               "p7000_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
-               "p7000_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
-               "p7500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
-               "p7500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
-               ]
+AMBRE_FILES = [
+    "p6500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+    "p6500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
+    "p7000_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+    "p7000_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
+    "p7500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+    "p7500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
+]
 
 
 def readAmbre(target, wavelength):
@@ -191,8 +200,9 @@ def readAmbre(target, wavelength):
     ambre : `pfs.datamodel.drp.PfsReference`
         AMBRE spectrum.
     """
-    filename = os.path.join(os.environ["DRP_PFS_DATA_DIR"], "fluxCalSim",
-                            AMBRE_FILES[target.objId % len(AMBRE_FILES)])
+    filename = os.path.join(
+        os.environ["DRP_PFS_DATA_DIR"], "fluxCalSim", AMBRE_FILES[target.objId % len(AMBRE_FILES)]
+    )
     with astropy.io.fits.open(filename) as fits:
         wcs = astropy.wcs.WCS(fits[1].header)
         refFlux = fits[1].data["Flux"]  # nJy
@@ -201,8 +211,15 @@ def readAmbre(target, wavelength):
     # We just ignore the other axis.
     refWavelength = wcs.pixel_to_world(np.arange(len(refFlux)), 0)[0].to("nm").value
 
-    flux = scipy.interpolate.interp1d(refWavelength, refFlux, kind="linear", bounds_error=False,
-                                      fill_value=np.nan, copy=True, assume_sorted=True)(wavelength)
+    flux = scipy.interpolate.interp1d(
+        refWavelength,
+        refFlux,
+        kind="linear",
+        bounds_error=False,
+        fill_value=np.nan,
+        copy=True,
+        assume_sorted=True,
+    )(wavelength)
 
     flags = MaskHelper(NO_DATA=1)
     mask = np.where(np.isfinite(flux), 0, flags.get("NO_DATA"))
@@ -212,6 +229,7 @@ def readAmbre(target, wavelength):
 
 class FitReferenceConfig(Config):
     """Configuration for FitReferenceTask"""
+
     pass
 
 
@@ -221,6 +239,7 @@ class FitReferenceTask(Task):
     This implementation is a placeholder, appropriate only for processing
     simulated spectra with a constant flux density (per unit frequency)
     """
+
     ConfigClass = FitReferenceConfig
     _DefaultName = "fitReference"
 
@@ -243,8 +262,10 @@ class FitReferenceTask(Task):
         """
         fiberFlux = set(spectrum.target.fiberFlux.values())
         if len(fiberFlux) != 1:
-            raise RuntimeError("This implementation requires a single fiber flux, but was provided: %s" %
-                               (spectrum.target.fiberFlux,))
+            raise RuntimeError(
+                "This implementation requires a single fiber flux, but was provided: %s"
+                % (spectrum.target.fiberFlux,)
+            )
         fiberFlux = fiberFlux.pop()
 
         bandpass = None
@@ -261,5 +282,5 @@ class FitReferenceTask(Task):
         ref = readAmbre(spectrum.target, spectrum.wavelength)
         # For now, only use the filter curve in calculating the expected flux.
         # More precise work in the future may fold in the CCD QE, the mirror and the lens barrel.
-        ref *= fiberFlux*bandpass.integrate()/bandpass.integrate(ref)  # nJy
+        ref *= fiberFlux * bandpass.integrate() / bandpass.integrate(ref)  # nJy
         return ref
