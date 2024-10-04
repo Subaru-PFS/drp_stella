@@ -335,6 +335,8 @@ class ReduceExposureTask(CmdLineTask):
             skyImage = skyResults.imageList[0]
             sky2d = skyResults.sky2d
 
+        exposure.mask &= ~exposure.mask.getPlaneBitMask("REFLINE")
+
         metadata = exposure.getMetadata()
         versions = getPfsVersions()
         for key, value in versions.items():
