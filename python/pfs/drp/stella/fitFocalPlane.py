@@ -197,7 +197,7 @@ class FitFocalPlaneTask(Task):
 class FitOversampledSplineConfig(FitFocalPlaneConfig):
     """Configuration for fitting an `OversampledSpline`"""
     splineOrder = RangeField(dtype=int, default=3, min=1, doc="Spline order")
-    oversample = RangeField(dtype=float, default=1.1, min=1.0, doc="Oversampling factor")
+    oversample = RangeField(dtype=float, default=1.5, min=1.0, doc="Oversampling factor")
     defaultValue = Field(dtype=float, default=0.0, doc="Default value for out-of-range data")
 
 
@@ -213,7 +213,7 @@ class FitOversampledSplineTask(FitFocalPlaneTask):
 
 class FitBlockedOversampledSplineConfig(FitOversampledSplineConfig):
     """Configuration for fitting a `BlockedOversampledSpline`"""
-    blockSize = Field(dtype=int, default=5,
+    blockSize = Field(dtype=int, default=10,
                       doc="Block size. Must be large enough to always get enough source fibers, "
                           "but small enough to follow changes")
 
