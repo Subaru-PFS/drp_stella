@@ -213,6 +213,10 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 diagonalWeighted[ii] = 1.0;
                 continue;
             } else if (sumModel < minFracImage) {
+                if (maskCore == 0) {
+                    // We need to give some indication of why it's suspect
+                    maskCore = maskBadResult[ii];
+                }
                 maskResult[ii] |= suspect | maskCore;
                 maskBadResult[ii] |= suspect | maskCore;
             }
