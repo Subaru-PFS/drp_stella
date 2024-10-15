@@ -1,16 +1,15 @@
 from collections import defaultdict
-from typing import Dict
 import numpy as np
 
 import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from lsst.obs.pfs.utils import getLamps
@@ -18,7 +17,6 @@ from lsst.obs.pfs.utils import getLamps
 from pfs.datamodel import TargetType
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
-from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from pfs.datamodel.utils import createHash
 from pfs.drp.stella.gen3 import DatasetRefList, zipDatasetRefs
 from pfs.drp.stella.selectFibers import SelectFibersTask
@@ -32,7 +30,6 @@ from .lsf import LsfDict, warpLsf, coaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
-from .fluxCalibrate import applyFiberNorms
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
 
@@ -60,7 +57,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
@@ -73,15 +70,8 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
-    )
-    fiberNorms = PrerequisiteConnection(
-        name="fiberNorms",
-        doc="Fiber normalisations",
-        storageClass="PfsFiberNorms",
-        dimensions=("instrument", "exposure", "arm"),
-        isCalibration=True,
     )
 
     pfsMerged = OutputConnection(
@@ -100,16 +90,9 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
-
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-        if not config:
-            return
-        if not config.doApplyFiberNorms:
-            self.prerequisiteInputs.remove("fiberNorms")
 
 
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
@@ -129,9 +112,6 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         doc="Notes for which we simply copy the first value from one of the arms",
         default=["blackSpotId", "blackSpotDistance", "blackSpotCorrection", "barycentricCorrection"],
     )
-    doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber normalisations?")
-    doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
-    fiberNormsVisit = Field(dtype=int, default=0, doc="Visit for fiberNorms (overrides calibs)")
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
 
     def setDefaults(self):
@@ -161,7 +141,7 @@ class MergeArmsRunner(TaskRunner):
         return [(list(specs.values()), kwargs) for specs in exposures.values()]
 
 
-class MergeArmsTask(CmdLineTask, PipelineTask):
+class MergeArmsTask(PipelineTask):
     """Merge all extracted spectra from a single exposure"""
     _DefaultName = "mergeArms"
     ConfigClass = MergeArmsConfig
@@ -186,7 +166,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         self.makeSubtask("fitContinuum")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, spectra, pfsConfig, lsfList, fiberNorms: Dict[str, PfsFiberNorms]):
+    def run(self, spectra, pfsConfig, lsfList):
         """Merge all extracted spectra from a single exposure
 
         Parameters
@@ -198,8 +178,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
             Line-spread functions from the different arms, for each
             spectrograph.
-        fiberNorms : `dict` mapping `str` to `pfs.datamodel.PfsFiberNorms`
-            Fiber normalisations indexed by arm.
 
         Returns
         -------
@@ -225,20 +203,6 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
                     if onlyLsf:
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
-
-        # First: apply fiber normalisations.
-        # This has to be done before we do sky subtraction.
-        if fiberNorms is not None:
-            for pfsArm in allSpectra:
-                if pfsArm.identity.arm not in fiberNorms:
-                    raise RuntimeError(f"Missing fiberNorms for arm {pfsArm.identity.arm}")
-                missingFiberIds = applyFiberNorms(
-                    pfsArm,
-                    fiberNorms[pfsArm.identity.arm],
-                    self.config.doCheckFiberNormsHashes,
-                )
-                if missingFiberIds:
-                    self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
         for spec in spectra:
             self.normalizeSpectra(spec)
@@ -292,7 +256,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -300,7 +264,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -323,17 +287,14 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
             lsfList[spectrograph].append(butler.get(lsf))
             sky1dRefs[spectrograph].append(sky1d)
 
-        fiberNorms = None
-        if self.config.doApplyFiberNorms:
-            fiberNorms = {ref.dataId["arm"]: butler.get(ref) for ref in inputRefs.fiberNorms}
-
         pfsConfig = butler.get(inputRefs.pfsConfig)
-        outputs = self.run(list(pfsArmList.values()), pfsConfig, list(lsfList.values()), fiberNorms)
+        outputs = self.run(list(pfsArmList.values()), pfsConfig, list(lsfList.values()))
 
         butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
         butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)
         for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
-            butler.put(sky1d, ref)
+            if sky1d is not None:
+                butler.put(sky1d, ref)
 
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
@@ -363,17 +324,7 @@ class MergeArmsTask(CmdLineTask, PipelineTask):
         else:
             pfsConfig = expSpecRefList[0][0].get("pfsConfig")
 
-        fiberNorms = None
-        if self.config.doApplyFiberNorms:
-            fiberNorms = {}
-            for dataRef in sum(expSpecRefList, []):
-                arm = dataRef.dataId["arm"]
-                if arm not in fiberNorms:
-                    fiberNormsVisit = self.config.fiberNormsVisit
-                    fiberNorms[arm] = dataRef.get("fiberNorms_meas", visit=fiberNormsVisit) if \
-                        fiberNormsVisit > 0 else dataRef.get("fiberNorms")
-
-        results = self.run(spectra, pfsConfig, lsfList, fiberNorms)
+        results = self.run(spectra, pfsConfig, lsfList)
 
         expSpecRefList[0][0].put(results.pfsMerged, "pfsMerged")
         expSpecRefList[0][0].put(results.pfsMergedLsf, "pfsMergedLsf")

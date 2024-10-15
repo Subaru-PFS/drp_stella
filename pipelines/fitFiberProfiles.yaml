@@ -1,0 +1,14 @@
+description: |
+  Fit fiber profiles.
+  This is the Gen3 version of the Gen2 "reduceProfiles" script, which fits
+  profiles for multiple dithered exposures in each group before merging the
+  profiles from the groups.
+tasks:
+  isr:
+    class: pfs.drp.stella.pipelines.IsrTask
+  profilesFitDetectorMap:
+    class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
+  fitProfiles:
+    class: pfs.drp.stella.reduceProfiles.ReduceProfilesTask
+  mergeProfiles:
+    class: pfs.drp.stella.mergeFiberProfiles.MergeFiberProfilesTask

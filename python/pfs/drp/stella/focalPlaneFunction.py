@@ -343,7 +343,7 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         fit : `FocalPlaneFunction`
             Function fit to input arrays.
         """
-        if not np.all(np.equal.reduce(wavelengths, axis=0)):
+        if not np.all([np.array_equal(wavelengths[0], wl) for wl in wavelengths[1:]]):
             raise RuntimeError("Wavelength arrays not identical")
 
         if robust:
@@ -975,8 +975,9 @@ class PolynomialPerFiber(FocalPlaneFunction):
             if robust:
                 rms[ff] = robustRms(residuals)
             else:
-                weights = 1.0 / errors[ii][choose] ** 2
-                rms[ff] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
+                with np.errstate(divide="ignore"):
+                    weights = 1.0 / errors[ii][choose] ** 2
+                    rms[ff] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
 
         return cls(coeffs, rms, minWavelength, maxWavelength)
 

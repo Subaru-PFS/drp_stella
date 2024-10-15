@@ -1,31 +1,34 @@
 import numpy as np
 from lsst.afw.image import makeExposure
-from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from pfs.datamodel import CalibIdentity
 
+from .calibCombine import PfsCalibCombineConnections, PfsCalibCombineConfig, PfsCalibCombineTask
 from ..buildFiberProfiles import BuildFiberProfilesTask
+from ..traces import medianFilterColumns
 
 __all__ = ("FlatDitherCombineTask", "FlatCombineTask")
 
 
-class FlatDitherCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector", "dither")):
+class FlatDitherCombineConnections(
+    PfsCalibCombineConnections, dimensions=("instrument", "arm", "spectrograph", "dither")
+):
     """Connections for FlatDitherCombineTask"""
 
     outputData = OutputConnection(
         name="ditherFlat",
         doc="Output combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
     )
 
 
-class FlatDitherCombineConfig(CalibCombineConfig, pipelineConnections=FlatDitherCombineConnections):
+class FlatDitherCombineConfig(PfsCalibCombineConfig, pipelineConnections=FlatDitherCombineConnections):
     """Configuration for FlatDitherCombineTask"""
 
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
@@ -35,6 +38,11 @@ class FlatDitherCombineConfig(CalibCombineConfig, pipelineConnections=FlatDither
         doc="Minimum Signal-to-Noise Ratio for normalized flat pixels",
         check=lambda x: x > 0,
     )
+    smoothWidth = Field(
+        dtype=int,
+        default=400,
+        doc="Half-width (pixels) of median filter for smoothing spectra",
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -43,7 +51,7 @@ class FlatDitherCombineConfig(CalibCombineConfig, pipelineConnections=FlatDither
         self.mask = ["BAD", "SAT", "CR", "INTRP"]
 
 
-class FlatDitherCombineTask(CalibCombineTask):
+class FlatDitherCombineTask(PfsCalibCombineTask):
     """Combine multiple exposures with the same dither setting"""
 
     ConfigClass = FlatDitherCombineConfig
@@ -55,7 +63,7 @@ class FlatDitherCombineTask(CalibCombineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -63,7 +71,7 @@ class FlatDitherCombineTask(CalibCombineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -94,8 +102,10 @@ class FlatDitherCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------
@@ -136,6 +146,13 @@ class FlatDitherCombineTask(CalibCombineTask):
         spectra = traces.extractSpectra(combined.maskedImage, maskVal)
         self.log.info("Extracted %d spectra", len(spectra))
 
+        # We need to smooth the extracted spectra so the flat samples any deviations
+        mask = (spectra.getAllMasks() & combined.mask.getPlaneBitMask(["BAD", "SAT", "CR"])) != 0
+        smoothWidth = self.config.smoothWidth
+        flux = medianFilterColumns(spectra.getAllFluxes().T.copy(), mask.T.copy(), smoothWidth).T
+        for ss, ff in zip(spectra, flux):
+            ss.flux[:] = ff
+
         expect = spectra.makeImage(combined.getBBox(), traces)
         # Occasionally NaNs are present in these images,
         # despite the original coadded image containing zero NaNs
@@ -156,14 +173,14 @@ class FlatDitherCombineTask(CalibCombineTask):
         return Struct(outputData=combined)
 
 
-class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", "detector")):
+class FlatCombineConnections(PfsCalibCombineConnections, dimensions=("instrument", "arm", "spectrograph")):
     """Connections for FlatCombineTask"""
 
     inputExpHandles = InputConnection(
         name="ditherFlat",
         doc="Input combined dithers.",
         storageClass="Exposure",
-        dimensions=("instrument", "detector", "dither"),
+        dimensions=("instrument", "arm", "spectrograph", "dither"),
         multiple=True,
         deferLoad=True,
     )
@@ -171,18 +188,18 @@ class FlatCombineConnections(CalibCombineConnections, dimensions=("instrument", 
         name="fiberFlat",
         doc="Combined flat",
         storageClass="ExposureF",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
 
-class FlatCombineConfig(CalibCombineConfig, pipelineConnections=FlatCombineConnections):
+class FlatCombineConfig(PfsCalibCombineConfig, pipelineConnections=FlatCombineConnections):
     """Configuration for FlatCombineTask"""
 
     pass
 
 
-class FlatCombineTask(CalibCombineTask):
+class FlatCombineTask(PfsCalibCombineTask):
     """Combine normalised dither exposures"""
 
     ConfigClass = FlatCombineConfig
@@ -203,8 +220,10 @@ class FlatCombineTask(CalibCombineTask):
 
             ``"exposure"``
                 exposure id value (`int`)
-            ``"detector"``
-                detector id value (`int`)
+            ``"arm"``
+                spectrograph arm (`str`)
+            ``"spectrograph"``
+                spectrograph number (`int`)
 
         Returns
         -------
@@ -234,7 +253,8 @@ class FlatCombineTask(CalibCombineTask):
             bad = (exp.mask.array & noData) != 0
             exp.mask.array[bad] &= ~noData
             weight = exp.variance.clone()
-            weight.array[:] = 1.0 / weight.array
+            with np.errstate(divide="ignore"):
+                weight.array[:] = 1.0 / weight.array
             weight.array[bad] = 0.0
             image *= weight
 

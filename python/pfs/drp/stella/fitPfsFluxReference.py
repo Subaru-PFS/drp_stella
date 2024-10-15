@@ -1,8 +1,7 @@
 import lsstDebug
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base import (
     ArgumentParser,
-    CmdLineTask,
     PipelineTask,
     PipelineTaskConfig,
     PipelineTaskConnections,
@@ -236,7 +235,10 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
     def setDefaults(self) -> None:
         super().setDefaults()
 
-        self.estimateRadialVelocity.mask = ["BAD", "SAT", "CR", "NO_DATA", "EDGE", "ATMOSPHERE"]
+        self.estimateRadialVelocity.mask = [
+            "BAD", "SAT", "CR", "NO_DATA", "BAD_FIBERNORMS", "BAD_FLAT", "BAD_SKY", "EDGE", "ATMOSPHERE"
+        ]
+        self.fitObsContinuum.mask = ["BAD", "SAT", "CR", "NO_DATA", "BAD_FIBERNORMS", "BAD_FLAT", "BAD_SKY"]
 
         # Not sure these paramaters are good.
         self.fitObsContinuum.numKnots = 50
@@ -250,7 +252,7 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         self.fitDownsampledContinuum.maskLineRadius = 25
 
 
-class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
+class FitPfsFluxReferenceTask(PipelineTask):
     """Construct reference for flux calibration."""
 
     ConfigClass = FitPfsFluxReferenceConfig
@@ -280,7 +282,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -288,7 +290,7 @@ class FitPfsFluxReferenceTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

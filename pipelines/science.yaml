@@ -1,10 +1,6 @@
 description: Full 2D-DRP science pipeline
 imports:
-  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
+  - $DRP_STELLA_DIR/pipelines/calibrateExposure.yaml
 tasks:
-  fitPfsFluxReference:
-    class: pfs.drp.stella.fitPfsFluxReference.FitPfsFluxReferenceTask
-  fitFluxCal:
-    class: pfs.drp.stella.fitFluxCal.FitFluxCalTask
   coaddSpectra:
     class: pfs.drp.stella.coaddSpectra.CoaddSpectraTask

@@ -4,7 +4,7 @@ import lsstDebug
 from lsst.afw.image import ExposureF
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -26,14 +26,16 @@ from ..utils.sysUtils import metadataToHeader, getPfsVersions
 __all__ = ("ExtractSpectraTask",)
 
 
-class ExtractSpectraConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+class ExtractSpectraConnections(
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+):
     """Connections for ExtractSpectraTask"""
 
     exposure = InputConnection(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -42,16 +44,16 @@ class ExtractSpectraConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "exposure"),
     )
     detectorMap = InputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
         doc="Position and shape of fibers",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
     sky2d = InputConnection(
@@ -64,26 +66,26 @@ class ExtractSpectraConnections(PipelineTaskConnections, dimensions=("instrument
         name="psf",
         doc="2D point-spread function",
         storageClass="NevenPsf",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     apCorr = InputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     calexp = OutputConnection(
         name="calexp",
         doc="Calibrated exposure, optionally sky-subtracted",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):
@@ -130,7 +132,7 @@ class ExtractSpectraTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -138,7 +140,7 @@ class ExtractSpectraTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

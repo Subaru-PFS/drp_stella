@@ -1,31 +1,37 @@
 """Helper functions for the LSST Gen3 middleware"""
 
 import functools
-import logging
 import os
 from collections.abc import Sequence
 from glob import glob
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+import numpy as np
+from astropy.time import Time
+
 from lsst.daf.butler import (
     Butler,
+    CollectionType,
     DataCoordinate,
-    DatasetIdGenEnum,
     DatasetRef,
     DatasetType,
     DimensionGraph,
+    DimensionUniverse,
     FileDataset,
     Registry,
+    Timespan,
 )
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
-from lsst.skymap import BaseSkyMap
+from lsst.obs.pfs.formatters import DetectorMapFormatter
 from pfs.datamodel.target import Target
+from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
+from .utils.logging import getLogger
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
 
@@ -312,7 +318,7 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
 
 
 def readDatasetRefs(
-    butler: ButlerQuantumContext,
+    butler: QuantumContext,
     inputRefs: InputQuantizedConnection,
     *names: str,
     allowMissing: bool = False,
@@ -354,7 +360,7 @@ def readDatasetRefs(
 
     Parameters
     ----------
-    butler : `ButlerQuantumContext`
+    butler : `QuantumContext`
         Data butler for a particular quantum.
     inputRefs : `InputQuantizedConnection`
         Dataset references; modified.
@@ -400,19 +406,21 @@ def targetFromDataId(dataId: Union[DataCoordinate, Dict[str, Union[int, str]]]) 
     return Target(dataId["catId"], dataId["tract"], dataId["patch"], dataId["objId"])
 
 
-def addExposurePatchRecords(
+class NoResultsError(ValueError):
+    """Exception raised when no results are found"""
+    pass
+
+
+def addPfsConfigRecords(
     registry: Registry,
     pfsConfig: PfsConfig,
     instrument: str,
-    skymapName: str,
-    skymap: BaseSkyMap,
     update: bool = True,
 ) -> None:
-    """Add exposure_patch records for a pfsConfig to the butler registry
+    """Add records for a pfsConfig to the butler registry
 
-    This is needed in order to associate an ``exposure`` with a particular
-    ``tract,patch``, which is required for the science pipeline since it coadds
-    spectra over ``tract,patch``.
+    This is needed in order to associate an ``exposure`` with the various
+    ``catId``.
 
     Parameters
     ----------
@@ -422,10 +430,6 @@ def addExposurePatchRecords(
         PFS fiber configuration.
     instrument : `str`
         Name of instrument.
-    skymapName : `str`
-        Name of the skymap system that defines the tract,patch pairs.
-    skymap : subclass of `BaseSkyMap`
-        Mapping of ra,dec to tract,patch.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
@@ -444,6 +448,8 @@ def addExposurePatchRecords(
             "exposure", dataId=dict(instrument=instrument, exposure=exposure)
         )
     ]
+    if len(dataId) == 0:
+        raise NoResultsError(f"No exposure records found for instrument={instrument}, exposure={exposure}")
     assert len(dataId) == 1
     dataId = dataId[0]
     if dataId.pfs_design_id != pfsDesignId:
@@ -452,23 +458,19 @@ def addExposurePatchRecords(
             dataId.pfs_design_id,
             pfsDesignId,
         )
-    kwargs = dict(
-        instrument=instrument,
-        exposure=exposure,
-        skymap=skymapName,
-    )
-    for tt, pp in set(zip(pfsConfig.tract, pfsConfig.patch)):
-        px, py = pp.split(",")
-        tract = int(tt)  # The registry treats np.int32 as different from int
-        patch = skymap[tt].getPatchInfo((int(px), int(py))).getSequentialIndex()
-        registry.syncDimensionData("exposure_patch", dict(tract=tract, patch=patch, **kwargs), update=update)
+
+    for catId in np.unique(pfsConfig.catId):
+        catId = int(catId)
+        registry.syncDimensionData("cat_id", dict(instrument=instrument, id=catId), update=update)
+        registry.syncDimensionData(
+            "pfsConfig", dict(instrument=instrument, cat_id=catId, exposure=exposure), update=update
+        )
 
 
 def ingestPfsConfig(
     repo: str,
     instrument: str,
     run: str,
-    skymapName: str,
     pathList: Iterable[str],
     transfer: Optional[str] = "auto",
     update: bool = True,
@@ -483,8 +485,6 @@ def ingestPfsConfig(
         Instrument name or fully-qualified class name as a string.
     run : `str`
         The run in which the files should be ingested.
-    skymapName : `str`
-        Name of the skymap system that defines the tract,patch pairs.
     pathList : iterable of `str`
         Paths/globs of pfsConfig files to ingest.
     transfer : `str`, optional
@@ -495,18 +495,12 @@ def ingestPfsConfig(
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
     """
-    log = logging.getLogger("ingestPfsConfig")
+    log = getLogger("pfs.ingestPfsConfig")
     butler = Butler(repo, run=run)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
     datasetType = butler.registry.getDatasetType("pfsConfig")
     cwd = os.getcwd()
-
-    skymap = butler.get(
-        BaseSkyMap.SKYMAP_DATASET_TYPE_NAME,
-        dataId=dict(skymap=skymapName),
-        collections=[BaseSkyMap.SKYMAP_RUN_COLLECTION_NAME],
-    )
 
     datasets = []
     with registry.transaction():
@@ -516,14 +510,406 @@ def ingestPfsConfig(
                 exposure = pfsConfig.visit
                 pfsDesignId = pfsConfig.pfsDesignId
                 dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
-                ref = DatasetRef(datasetType, dataId)
+                ref = DatasetRef(datasetType, dataId, run)
                 uri = ResourcePath(path, root=cwd, forceAbsolute=True)
-                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
                 log.info("Registering %s ...", filename)
-                addExposurePatchRecords(
-                    registry, pfsConfig, instrumentName, skymapName, skymap, update=update
-                )
+                try:
+                    addPfsConfigRecords(registry, pfsConfig, instrumentName, update=update)
+                except NoResultsError as exc:
+                    log.warn(str(exc))
+                    continue
+
+                datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
 
     log.info("Ingesting files...")
-    butler.ingest(*datasets, transfer=transfer, run=run, idGenerationMode=DatasetIdGenEnum.DATAID_TYPE)
+    butler.ingest(*datasets, transfer=transfer)
+
+
+def certifyDetectorMaps(
+    repo: str,
+    instrument: str,
+    datasetType: str,
+    collection: str,
+    target: str,
+    timespan: Timespan,
+    transfer: Optional[str] = "copy",
+) -> None:
+    """Ingest and certify detectorMaps.
+
+    Building PFS detectorMaps frequently uses the calib detectorMap as part of
+    the process of fitting a new detectorMap (e.g., for the centroiding
+    starting point, and the slit offsets). In order to avoid cycles when
+    building the detectorMap, we write the new detectorMap as a separate
+    dataset type from the calib detectorMap dataset type.
+
+    This function copies the new detectorMaps as calib detectorMaps, and then
+    certifies them for new use as calibs.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    datasetType : `str`
+        Dataset type of the detectorMaps to certify.
+    collection : `str`
+        The collection containing the files to certify.
+    target : `str`
+        The collection to which the certified detectorMaps will be added.
+    timespan : `Timespan`
+        Timespan to use for certification.
+    transfer : `str`, optional
+        Transfer mode to use for ingest. If not `None`, must be one of 'auto',
+        'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
+        'symlink'.
+    """
+    log = getLogger("pfs.certifyDetectorMaps")
+    run = collection + "/certify"
+    butler = Butler(repo, run=run)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    fromType = registry.getDatasetType(datasetType)
+    toType = registry.getDatasetType("detectorMap_calib")
+    dimensions = registry.dimensions.extract(["instrument"])
+
+    query = list(registry.queryDatasets(
+        fromType, collections=collection, dimensions=dimensions, instrument=instrumentName
+    ))
+    if not query:
+        log.warn("No detectorMaps found.")
+        return
+    datasets = []
+    for ref in query:
+        log.info("Ingesting %s ...", ref.dataId)
+        uri = butler.getURI(ref)
+        dataId = dict(
+            instrument=instrumentName, arm=ref.dataId["arm"], spectrograph=ref.dataId["spectrograph"]
+        )
+        new = DatasetRef(toType, dataId, run)
+        datasets.append(FileDataset(path=uri, refs=[new], formatter=DetectorMapFormatter))
+
+    with registry.transaction():
+        butler.ingest(*datasets, transfer=transfer)
+
+        log.info("Certifying newly-ingested detectorMaps...")
+        query = list(registry.queryDatasets(toType, collections=run))
+        if not datasets:
+            raise RuntimeError("Unable to find newly-ingested detectorMaps!")
+        registry.registerCollection(target, type=CollectionType.CALIBRATION)
+        registry.certify(target, query, timespan)
+
+
+def defineFiberProfilesInputs(
+    repo: str,
+    instrument: str,
+    name: str,
+    bright: List[List[int]],
+    dark: List[List[int]],
+    update: bool = False,
+):
+    """Define inputs to a fiberProfiles run
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    name : `str`
+        Symbolic name of the fiberProfiles run.
+    bright : `list` of `list` of `int`]
+        Bright exposure IDs for each group.
+    dark : `list` of `list` of `int`]
+        Dark exposure IDs for each group. May be empty; otherwise, the length
+        of this list must match the length of the ``bright`` list.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+    """
+    log = getLogger("pfs.defineFiberProfilesInputs")
+    run = instrument + "/fiberProfilesInputs"
+    butler = Butler(repo, run=run)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    if len(bright) != len(dark) and any(len(dd) > 0 for dd in dark):
+        raise RuntimeError(f"Length of bright ({len(bright)}) and dark ({len(dark)}) lists do not match")
+    numGroups = len(bright)
+
+    datasetType = DatasetType(
+        "profiles_exposures",
+        ("instrument", "profiles_run", "profiles_group"),
+        "StructuredDataDict",
+        universe=registry.dimensions,
+    )
+    registry.registerDatasetType(datasetType)
+
+    with registry.transaction():
+        log.info("Registering run %s ...", name)
+        registry.syncDimensionData(
+            "profiles_run", dict(instrument=instrumentName, run=name), update=update
+        )
+        for group in range(numGroups):
+            log.info("Registering group %d ...", group)
+            groupId = dict(instrument=instrumentName, profiles_run=name, profiles_group=group)
+            registry.syncDimensionData("profiles_group", groupId, update=update)
+            log.info("Registering exposures for group %d: %s", group, bright[group])
+            darkList = dark[group] if dark else []
+            for exposure in bright[group] + darkList:
+                registry.syncDimensionData(
+                    "profiles_exposures", dict(exposure=exposure, **groupId), update=update
+                )
+            # Write a file identifying the bright and dark exposures for this
+            # group. This might be a bit of a hack, but it is a simple way to
+            # provide the information to the pipeline. It's better than
+            # putting the information in the registry database, since that's
+            # more difficult to access.
+            butler.put(dict(bright=bright[group], dark=darkList), "profiles_exposures", **groupId)
+
+
+def decertifyCalibrations(
+    repo: str,
+    collection: str,
+    datasetType: str,
+    timespanBegin: Optional[str],
+    timespanEnd: Optional[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+) -> None:
+    """Decertify a calibration dataset specified by its timespan
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collection : `str`
+        Collection containing the datasets to decertify.
+    datasetType : `str`
+        Dataset type to decertify.
+    timespanBegin : `str` or `None`
+        Beginning timespan.
+    timespanEnd : `str` or `None`
+        Ending timespan.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to decertify. If not provided, all datasets in the
+        collection matching the timespan will be decertified.
+    """
+    timespan = Timespan(
+        begin=Time(timespanBegin, scale="tai") if timespanBegin is not None else None,
+        end=Time(timespanEnd, scale="tai") if timespanEnd is not None else None,
+    )
+    butler = Butler(repo, writeable=True)
+
+    butler.registry.decertify(
+        collection,
+        datasetType,
+        timespan,
+        dataIds=[getDataCoordinate(ident, butler.dimensions) for ident in dataIds] if dataIds else None,
+    )
+
+
+def certifyCalibrations(
+    repo: str,
+    inputCollection: str,
+    outputCollection: str,
+    datasetType: str,
+    beginDate: str | None,
+    endDate: str | None,
+    searchAllInputs: bool = False,
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+) -> None:
+    """Certify a set of calibrations with a validity range.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI to the location of the repo or URI to a config file describing the
+        repo and its location.
+    inputCollection : `str`
+       Data collection to pull calibrations from.  Usually an existing
+        `~CollectionType.RUN` or `~CollectionType.CHAINED` collection, and may
+        _not_ be a `~CollectionType.CALIBRATION` collection or a nonexistent
+        collection.
+    outputCollection : `str`
+        Data collection to store final calibrations.  If it already exists, it
+        must be a `~CollectionType.CALIBRATION` collection.  If not, a new
+        `~CollectionType.CALIBRATION` collection with this name will be
+        registered.
+    datasetType : `str`
+        Name of the dataset type to certify.
+    beginDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should start being used.
+    endDate : `str`, optional
+        ISO-8601 date (TAI) this calibration should stop being used.
+    searchAllInputs : `bool`, optional
+        Search all children of the inputCollection if it is a CHAINED
+        collection, instead of just the most recent one.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to certify. If not provided, all datasets in the
+        collection will be certified.
+    """
+    butler = Butler(repo, writeable=True, without_datastore=True)
+    registry = butler.registry
+    timespan = Timespan(
+        begin=Time(beginDate, scale="tai") if beginDate is not None else None,
+        end=Time(endDate, scale="tai") if endDate is not None else None,
+    )
+    if not searchAllInputs and registry.getCollectionType(inputCollection) is CollectionType.CHAINED:
+        inputCollection = next(iter(registry.getCollectionChain(inputCollection)))
+
+    if dataIds:
+        refs = set()
+        for ident in dataIds:
+            coord = getDataCoordinate(ident, butler.dimensions)
+            newRefs = registry.queryDatasets(datasetType, collections=[inputCollection], dataId=coord)
+            refs.update(newRefs)
+    else:
+        refs = set(registry.queryDatasets(datasetType, collections=[inputCollection]))
+    if not refs:
+        raise RuntimeError(f"No inputs found for dataset {datasetType} in {inputCollection}.")
+    registry.registerCollection(outputCollection, type=CollectionType.CALIBRATION)
+    registry.certify(outputCollection, refs, timespan)
+
+
+def defineCombination(
+    repo: str,
+    instrument: str,
+    name: str,
+    where: Optional[str] = None,
+    exposureList: Optional[List[int]] = None,
+    update: bool = False,
+):
+    """Define a combination of exposures
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    name : `str`
+        Name of the combination. This is a symbolic name that can be used to
+        refer to this combination in the future.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting exposures.
+    exposureList : list of `int`, optional
+        List of exposure numbers to include in the combination. If the ``where``
+        clause is provided, this list is used to further restrict the selection.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+
+    Returns
+    -------
+    visitHash : `int`
+        Hash of the exposures in the combination.
+    exposureList : list of `int`
+        List of exposure numbers in the combination.
+    """
+    if not where and not exposureList:
+        raise ValueError("Must provide at least one of 'where' and 'exposureList'")
+    bind = None
+    if exposureList:
+        add = "exposure IN (exposureList)"
+        bind = dict(exposureList=exposureList)
+        if where is None:
+            where = add
+        else:
+            where = f"({where}) AND {add}"
+
+    log = getLogger("pfs.defineCombination")
+    butler = Butler(repo, writeable=True)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    query = registry.queryDimensionRecords(
+        "exposure", where=where, bind=bind, instrument=instrumentName
+    )
+    if not query:
+        log.warn("No data found.")
+        return
+
+    exposureList = sorted([ref.dataId["exposure"] for ref in query])
+    visitHash = calculatePfsVisitHash(exposureList)
+    log.info(
+        "Defining combination %s with pfsVisitHash=%016x for exposures: %s", name, visitHash, exposureList
+    )
+
+    with registry.transaction():
+        registry.syncDimensionData(
+            "combination", dict(instrument=instrument, name=name, pfs_visit_hash=visitHash), update=update
+        )
+        for exposure in exposureList:
+            registry.syncDimensionData(
+                "combination_join",
+                dict(instrument=instrument, combination=name, exposure=exposure),
+                update=update,
+            )
+
+    return visitHash, exposureList
+
+
+def cleanRun(
+    repo: str,
+    collections: str,
+    datasetTypes: Iterable[str],
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+):
+    """Clean a run by deleting all datasets of specified types in a collection
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    collections : `str`
+        Glob for collections to clean.
+    datasetTypes : list of `str`
+        Dataset types to delete.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to delete. If not provided, all datasets of the
+        specified types in the collection will be deleted.
+    """
+    log = getLogger("pfs.cleanRun")
+    butler = Butler(repo, writeable=True)
+    for coll in butler.registry.queryCollections(
+        collectionTypes=CollectionType.RUN,
+        expression=collections,
+        includeChains=True,
+    ):
+        for dst in datasetTypes:
+            if dataIds:
+                refs = []
+                for ident in dataIds:
+                    coord = getDataCoordinate(ident, butler.dimensions)
+                    refs.extend(butler.registry.queryDatasets(dst, collections=coll, dataId=coord))
+            else:
+                refs = list(butler.registry.queryDatasets(dst, collections=coll))
+            if not refs:
+                log.debug("No datasets found for %s in %s", dst, coll)
+                continue
+            log.info("Cleaning %d %s datasets in %s", len(refs), dst, coll)
+            butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
+
+
+def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
+    """Get a `DataCoordinate` from a dictionary
+
+    Parameters
+    ----------
+    dataId : `dict` [`str`: `str`]
+        Data identifier dictionary.
+    universe : `DimensionUniverse`
+        Dimension universe.
+
+    Returns
+    -------
+    coord : `DataCoordinate`
+        Constructed data coordinate.
+    """
+    coord = {}
+    for key, value in dataId.items():
+        dtype = universe[key].primaryKey.dtype().python_type
+        coord[key] = dtype(value)
+    return DataCoordinate.standardize(coord, universe=universe)

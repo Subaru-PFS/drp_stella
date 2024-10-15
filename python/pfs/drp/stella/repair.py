@@ -60,6 +60,7 @@ class PfsRepairConfig(RepairConfig):
 
     def setDefaults(self):
         self.cosmicray.nCrPixelMax = 5000000
+        self.interp.modelPsf.defaultFwhm = 1.5
 
 
 class PfsRepairTask(RepairTask):

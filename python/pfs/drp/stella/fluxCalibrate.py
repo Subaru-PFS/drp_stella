@@ -8,11 +8,11 @@ from lsst.pex.config import Field, ConfigurableField
 from lsst.pipe.base import ArgumentParser, Struct
 from lsst.daf.persistence import Butler
 
-from lsst.pipe.base import CmdLineTask, PipelineTask, PipelineTaskConfig, PipelineTaskConnections
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType
@@ -194,14 +194,14 @@ class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument"
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -236,7 +236,7 @@ class FluxCalibrateConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateC
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
 
 
-class FluxCalibrateTask(CmdLineTask, PipelineTask):
+class FluxCalibrateTask(PipelineTask):
     """Measure and apply the flux calibration"""
     ConfigClass = FluxCalibrateConfig
     _DefaultName = "fluxCalibrate"
@@ -323,7 +323,7 @@ class FluxCalibrateTask(CmdLineTask, PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -331,7 +331,7 @@ class FluxCalibrateTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various

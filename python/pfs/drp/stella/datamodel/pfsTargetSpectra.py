@@ -5,14 +5,14 @@ import astropy.io.fits
 import numpy as np
 import yaml
 from astropy.io.fits import BinTableHDU, Column, HDUList, ImageHDU
-from pfs.datamodel.drp import PfsSingleNotes, PfsSingle, PfsObjectNotes, PfsObject
+from pfs.datamodel.drp import PfsSingleNotes, PfsObjectNotes
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.observations import Observations
 from pfs.datamodel.pfsConfig import TargetType
 from pfs.datamodel.pfsTable import PfsTable
 from pfs.datamodel.target import Target
-from pfs.drp.stella.datamodel.fluxTable import FluxTable
-
+from .fluxTable import FluxTable
+from .drp import PfsSingle, PfsObject
 from .pfsFiberArray import PfsFiberArray
 
 __all__ = ["PfsTargetSpectra", "PfsCalibratedSpectra", "PfsObjectSpectra"]

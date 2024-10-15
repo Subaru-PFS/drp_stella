@@ -3,7 +3,7 @@ tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
     config:
-      connections.ccdExposure: raw
+      connections.ccdExposure: raw.exposure
       connections.outputExposure: darkProc
       doWrite: True
       doDark: False
@@ -12,15 +12,21 @@ tasks:
       doFringe: False
       doRepair: False  # We'll do that in the next stage
   dark:
-    class: lsst.cp.pipe.cpDarkTask.CpDarkTask
+    class: pfs.drp.stella.pipelines.dark.PfsDarkTask
     config:
+      # Disable NIR CRs because it's terribly slow
+      python: |
+        from pfs.drp.stella.repair import PfsRepairTask
+        config.repair.retarget(PfsRepairTask)
+        config.repair.doNirCosmicRay = False
       connections.inputExp: darkProc
       connections.outputExp: darkScaled
       crGrow: 2
-      repair.interp.modelPsf.defaultFwhm: 3
+      psfFwhm: 1.5
+      repair.interp.modelPsf.defaultFwhm: 1.5
       repair.cosmicray.nCrPixelMax: 5000000
   darkCombine:
-    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    class: pfs.drp.stella.pipelines.calibCombine.PfsCalibCombineTask
     config:
       connections.inputExpHandles: darkScaled
       connections.outputData: dark

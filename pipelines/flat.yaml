@@ -3,7 +3,7 @@ tasks:
   isr:
     class: pfs.drp.stella.pipelines.IsrTask
     config:
-      connections.ccdExposure: raw
+      connections.ccdExposure: raw.exposure
       connections.outputExposure: flatProc
       doWrite: True
       doBrighterFatter: False
@@ -13,6 +13,7 @@ tasks:
     class: pfs.drp.stella.pipelines.FlatDitherCombineTask
     config:
       connections.inputExpHandles: flatProc
+      profiles.profileRadius: 3  # Don't extend into neighbour's space
   flatCombine:
     class: pfs.drp.stella.pipelines.FlatCombineTask
 contracts:

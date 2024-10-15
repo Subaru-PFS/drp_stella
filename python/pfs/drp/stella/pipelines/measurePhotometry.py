@@ -3,7 +3,7 @@ from lsst.afw.image import Exposure
 from lsst.daf.butler import DataCoordinate
 from lsst.pex.config import ConfigurableField, DictField, Field, ListField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -23,7 +23,7 @@ __all__ = ("MeasurePhotometryTask",)
 
 
 class MeasurePhotometryConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
 ):
     """Connections for MeasurePhotometryTask"""
 
@@ -31,7 +31,7 @@ class MeasurePhotometryConnections(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -40,16 +40,16 @@ class MeasurePhotometryConnections(
         dimensions=("instrument", "exposure"),
     )
     detectorMap = InputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
         doc="Profile of fibers",
         storageClass="FiberProfileSet",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -57,25 +57,25 @@ class MeasurePhotometryConnections(
         name="photometry",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     apCorr = OutputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     psf = OutputConnection(
         name="psf",
         doc="2D point-spread function",
         storageClass="NevenPsf",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     lsf = OutputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):
@@ -126,7 +126,7 @@ class MeasurePhotometryTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -134,7 +134,7 @@ class MeasurePhotometryTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -145,11 +145,12 @@ class MeasurePhotometryTask(PipelineTask):
         """
         inputs = butler.get(inputRefs)
         dataId: DataCoordinate = inputRefs.exposure.dataId
-        detector = next(iter(butler.registry.queryDimensionRecords("detector", dataId=dataId)))
-        assert detector.arm in "brnm"
-        assert detector.spectrograph in (1, 2, 3, 4)
+        arm = dataId.arm.name
+        spectrograph = dataId.spectrograph.num
+        assert arm in "brnm"
+        assert spectrograph in (1, 2, 3, 4)
 
-        outputs = self.run(**inputs, arm=detector.arm, spectrograph=detector.spectrograph)
+        outputs = self.run(**inputs, arm=arm, spectrograph=spectrograph)
         if self.config.doMeasureLines:
             butler.put(outputs.photometry, outputRefs.photometry)
             butler.put(outputs.apCorr, outputRefs.apCorr)

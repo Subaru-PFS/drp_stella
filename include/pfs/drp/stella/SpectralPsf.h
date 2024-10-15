@@ -245,7 +245,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
         return Super::computeShape(position);
     }
     lsst::afw::geom::ellipses::Quadrupole computeShape() const {
-        return Super::computeShape();
+        return Super::computeShape(getAveragePosition());
     }
 
     /** Return a kernel corresponding to the PSF

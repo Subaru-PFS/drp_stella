@@ -1,87 +1,49 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, TYPE_CHECKING
+from typing import Dict, Iterable, List
 
-if TYPE_CHECKING:
-    from matplotlib.figure import Figure
 import numpy as np
 import astropy.io.fits
 
-import lsst.log
-
 from lsst.pex.config import Field, ListField
-from lsst.pipe.base import CmdLineTask, Struct, ArgumentParser, TaskRunner
-from lsst.daf.persistence import ButlerDataRef
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
-from pfs.datamodel import CalibIdentity, PfsConfig
+from pfs.datamodel import CalibIdentity
 
+from .calibs import setCalibHeader
 from .combineSpectra import combineSpectraSets
-from .constructSpectralCalibs import setCalibHeader
 from .datamodel import PfsArm, PfsFiberNorms
 from .gen3 import DatasetRefList
 from .utils.math import robustRms
 
-
-class MeasureFiberNormsRunner(TaskRunner):
-    """Runner for MeasureFiberNormsTask
-
-    Gen2 middleware input parsing.
-    """
-    @staticmethod
-    def getTargetList(parsedCmd, **kwargs):
-        """Produce list of targets for MeasureFiberNormsTask
-
-        We operate on sets of arms.
-        """
-        groups = defaultdict(lambda: defaultdict(list))
-        for ref in parsedCmd.id.refList:
-            arm = ref.dataId["arm"]
-            spectrograph = ref.dataId["spectrograph"]
-            groups[arm][spectrograph].append(ref)
-
-        if not parsedCmd.single:
-            return [(groups[arm], kwargs) for arm in groups.keys()]
-
-        # Want to split the groups by visit as well
-        targets = []
-        for spectrographRefs in groups.values():
-            visitGroups = defaultdict(lambda: defaultdict(list))
-            for spectrograph, refs in spectrographRefs.items():
-                for ref in refs:
-                    visit = ref.dataId["visit"]
-                    visitGroups[visit][spectrograph].append(ref)
-            targets += [(specRefs, kwargs) for specRefs in visitGroups.values()]
-        return targets
+__all__ = ("MeasureFiberNormsTask", "ExposureFiberNormsTask")
 
 
 class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm")):
     """Pipeline connections for MeasureFiberNormsTask
 
     Gen3 middleware pipeline input/output definitions.
+
+    This version coadds the spectra from multiple exposures.
     """
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
-    pfsConfig = InputConnection(
-        name="pfsConfig",
-        doc="Top-end configuration",
-        storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
-    )
     fiberNorms = OutputConnection(
-        name="fiberNorms_meas",
+        name="fiberNorms_calib",
         doc="Measured fiber normalisations",
         storageClass="PfsFiberNorms",
         dimensions=("instrument", "arm"),
+        isCalibration=True,
     )
 
 
@@ -96,61 +58,17 @@ class MeasureFiberNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureFib
     rejThresh = Field(dtype=float, default=4.0, doc="Threshold for rejection in fiberNorms measurement")
     insrotTol = Field(dtype=float, default=1.0, doc="Tolerance for INSROT values (degrees)")
     doCheckHash = Field(dtype=bool, default=True, doc="Check that fiberProfilesHashes are consistent?")
-    doPlot = Field(dtype=bool, default=True, doc="Produce a plot of the fiber normalization values?")
-    plotLower = Field(dtype=float, default=2.5, doc="Lower bound for plot (standard deviations from median)")
-    plotUpper = Field(dtype=float, default=2.5, doc="Upper bound for plot (standard deviations from median)")
 
 
-class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
+class MeasureFiberNormsTask(PipelineTask):
     """Task to measure fiber normalization values"""
 
     ConfigClass = MeasureFiberNormsConfig
-    RunnerClass = MeasureFiberNormsRunner
     _DefaultName = "measureFiberNorms"
-
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Make an ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsArm", help="data IDs, e.g. --id exp=12345")
-        parser.add_argument("--single", action="store_true", default=False, help="Run on a single visit")
-        return parser
-
-    def runDataRef(self, dataRefs: Dict[int, List[ButlerDataRef]]) -> Struct:
-        """Run on a list of data references
-
-        Gen2 middleware entry point.
-
-        Parameters
-        ----------
-        dataRefs : `dict` mapping `int` to `list` of `lsst.daf.butler.DataRef`
-            Data references for multiple visits, indexed by spectrograph number.
-
-        Returns
-        -------
-        fiberNorms : `lsst.afw.table.SimpleCatalog`
-            Fiber normalization values
-        """
-        pfsArms = {spec: [dataRef.get("pfsArm") for dataRef in dataRefList]
-                   for spec, dataRefList in dataRefs.items()}
-        pfsConfig = next(iter(dataRefs.values()))[0].get("pfsConfig")
-
-        arm = set((dataRef.dataId["arm"] for dataRefList in dataRefs.values() for dataRef in dataRefList))
-        assert len(arm) == 1, f"Multiple arms: {arm}"
-        lsst.log.MDC("LABEL", arm.pop())
-
-        result = self.run(pfsArms, pfsConfig)
-
-        ref = dataRefs.popitem()[1][0]
-        ref.put(result.fiberNorms, "fiberNorms_meas")
-        if self.config.doPlot:
-            ref.put(result.plot, "fiberNorms_plot")
-
-        return result
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -158,7 +76,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -171,12 +89,11 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         for ref in DatasetRefList.fromList(inputRefs.pfsArm):
             spectrograph = ref.dataId["spectrograph"]
             groups[spectrograph].append(butler.get(ref))
-        pfsConfig = butler.get(inputRefs[0].pfsConfig)
 
-        outputs = self.run(groups, pfsConfig)
-        butler.get(outputs.fiberNorms, outputRefs.fiberNorms)
+        outputs = self.run(groups)
+        butler.put(outputs.fiberNorms, outputRefs.fiberNorms)
 
-    def run(self, armSpectra: Dict[int, List[PfsArm]], pfsConfig: PfsConfig) -> Struct:
+    def run(self, armSpectra: Dict[int, List[PfsArm]]) -> Struct:
         """Measure fiber normalization values
 
         Parameters
@@ -198,13 +115,7 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         coadded = {spec: self.coaddSpectra(pfsArmList) for spec, pfsArmList in armSpectra.items()}
         fiberNorms = self.measureFiberNorms(coadded, visitSet)
-        if self.config.doPlot:
-            plot = self.plotFiberNorms(
-                fiberNorms, pfsConfig, visitSet, next(iter(coadded.values())).identity.arm
-            )
-        else:
-            plot = None
-        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet, plot=plot)
+        return Struct(fiberNorms=fiberNorms, coadded=coadded, visits=visitSet)
 
     def checkSpectra(self, pfsArmList: Iterable[PfsArm], sameArm: bool = True) -> None:
         """Check that the spectra are compatible
@@ -303,12 +214,17 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
         }
 
         for spectrograph, ss in spectra.items():
+            select = slice(index, index + len(ss))
+            fiberId[select] = ss.fiberId
+            wavelength[select] = ss.wavelength
+            values[select] = self.calculateFiberNormValue(ss)
+
             # Calculate the mean normalization for each fiber
             bad = (ss.mask & ss.flags.get(*self.config.mask)) != 0
             bad |= ~np.isfinite(ss.flux) | ~np.isfinite(ss.norm)
             bad |= ~np.isfinite(ss.variance) | (ss.variance == 0)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                flux = np.ma.masked_where(bad, ss.flux/ss.norm)
+            flux = np.ma.masked_where(bad, values[select])
+            with np.errstate(invalid="ignore", divide="ignore"):
                 weights = np.ma.masked_where(bad, ss.norm**2/ss.variance)
                 error = np.sqrt(ss.variance)
 
@@ -332,11 +248,6 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
                 np.max(goodAverages),
             )
 
-            select = slice(index, index + len(ss))
-            fiberId[select] = ss.fiberId
-            wavelength[select] = ss.wavelength
-            with np.errstate(invalid="ignore"):
-                values[select] = ss.flux/ss.norm
             norms[select] = average
             index += len(ss)
 
@@ -389,31 +300,102 @@ class MeasureFiberNormsTask(CmdLineTask, PipelineTask):
 
         return PfsFiberNorms(identity, fiberId, wavelength, values, fiberProfilesHash, model, header)
 
-    def plotFiberNorms(
-        self,
-        fiberNorms: PfsFiberNorms,
-        pfsConfig: PfsConfig,
-        visitList: Iterable[int],
-        arm: str,
-    ) -> "Figure":
-        """Plot fiber normalization values
+    def calculateFiberNormValue(self, spectra: PfsArm) -> float:
+        """Calculate the fiber normalization value
 
         Parameters
         ----------
-        fiberNorms : `pfs.drp.stella.datamodel.pfsFiberNorms.PfsFiberNorms`
-            Fiber normalization values
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration for the PFS system
+        spectra : `pfs.datamodel.PfsArm`
+            Spectra from which to measure fiber normalization values.
 
         Returns
         -------
-        fig : `matplotlib.figure.Figure`
-            Figure containing the plot.
+        norm : `float`
+            Fiber normalization value
         """
-        fig, axes = fiberNorms.plot(pfsConfig, lower=self.config.plotLower, upper=self.config.plotUpper)
-        axes.set_title(f"Fiber normalization for arm={arm}\nvisits: {','.join(map(str, visitList))}")
-        return fig
+        return spectra.flux
 
-    def _getMetadataName(self):
-        """Suppress output of task metadata"""
-        return None
+
+class ExposureFiberNormsConnections(
+    MeasureFiberNormsConnections, dimensions=("instrument", "arm", "exposure")
+):
+    """Pipeline connections for MeasureFiberNormsExposureTask
+
+    Gen3 middleware pipeline input/output definitions.
+
+    This version works on a single exposure.
+    """
+    fiberNorms = OutputConnection(
+        name="fiberNorms",
+        doc="Measured fiber normalisations",
+        storageClass="PfsFiberNorms",
+        dimensions=("instrument", "arm", "exposure"),
+    )
+
+
+class ExposureFiberNormsConfig(MeasureFiberNormsConfig, pipelineConnections=ExposureFiberNormsConnections):
+    """Configuration for ExposureFiberNormsExposureTask"""
+    requireQuartz = Field(dtype=bool, default=True, doc="Require quartz lamp data to measure fiberNorms?")
+
+
+class ExposureFiberNormsTask(MeasureFiberNormsTask):
+    """Measure fiberNorms for a single exposure"""
+    ConfigClass = ExposureFiberNormsConfig
+
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with Gen3 butler I/O
+
+        Parameters
+        ----------
+        butler : `QuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        if self.config.requireQuartz:
+            dataId = inputRefs.pfsArm[0].dataId
+            if dataId.records["exposure"].lamps != "Quartz":
+                self.log.info("Ignoring non-quartz exposure %s", dataId)
+                return  # Nothing to do
+        return super().runQuantum(butler, inputRefs, outputRefs)
+
+    def calculateFiberNormValue(self, spectra: PfsArm) -> float:
+        """Calculate the fiber normalization value
+
+        Parameters
+        ----------
+        spectra : `pfs.datamodel.PfsArm`
+            Spectra from which to measure fiber normalization values.
+
+        Returns
+        -------
+        norm : `float`
+            Fiber normalization value
+        """
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return spectra.flux/spectra.norm
+
+    def coaddSpectra(self, pfsArmList: List[PfsArm]) -> PfsArm:
+        """Coadd spectra
+
+        Parameters
+        ----------
+        pfsArmList : `list` of `pfs.datamodel.PfsArm`
+            List of pfsArm.
+
+        Returns
+        -------
+        spectra : `pfs.datamodel.PfsArm`
+            Coadded spectra
+        """
+        assert len(pfsArmList) == 1
+        return pfsArmList[0]

@@ -3,7 +3,7 @@ from lsst.afw.display import Display
 from lsst.afw.image import ExposureF
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -20,14 +20,16 @@ from ..readLineList import ReadLineListTask
 __all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask")
 
 
-class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "detector")):
+class MeasureCentroidsConnections(
+    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+):
     """Connections for MeasureCentroidsTask"""
 
     exposure = InputConnection(
         name="postISRCCD",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -36,18 +38,11 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         dimensions=("instrument", "exposure"),
     )
 
-    # We'll choose one based on the config parameter 'useBootstrapDetectorMap'
-    bootstrapDetectorMap = PrerequisiteConnection(
-        name="detectorMap_bootstrap",
-        doc="Mapping from fiberId,wavelength to x,y: derived from instrument model",
-        storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
-    )
     calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+        name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
         storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
@@ -55,24 +50,13 @@ class MeasureCentroidsConnections(PipelineTaskConnections, dimensions=("instrume
         name="centroids",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
-
-    def __init__(self, *, config=None):
-        super().__init__(config=config)
-
-        if not config:
-            return
-        if config.useBootstrapDetectorMap:
-            self.prerequisiteInputs.remove("calibDetectorMap")
-        else:
-            self.prerequisiteInputs.remove("bootstrapDetectorMap")
 
 
 class MeasureCentroidsConfig(PipelineTaskConfig, pipelineConnections=MeasureCentroidsConnections):
     """Configuration for MeasureCentroidsTask"""
 
-    useBootstrapDetectorMap = Field(dtype=bool, default=False, doc="Use bootstrap detectorMap?")
     readLineList = ConfigurableField(
         target=ReadLineListTask, doc="Read line lists for detectorMap adjustment"
     )
@@ -99,29 +83,15 @@ class MeasureCentroidsTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
-        """Entry point with butler I/O
-
-        Parameters
-        ----------
-        butler : `ButlerQuantumContext`
-            Data butler, specialised to operate in the context of a quantum.
-        inputRefs : `InputQuantizedConnection`
-            Container with attributes that are data references for the various
-            input connections.
-        outputRefs : `OutputQuantizedConnection`
-            Container with attributes that are data references for the various
-            output connections.
-        """
         inputs = butler.get(inputRefs)
-        inputs["detectorMap"] = inputs.pop(
-            ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        )
+        inputs["detectorMap"] = inputs.pop("calibDetectorMap")
+
         outputs = self.run(**inputs)
-        butler.put(outputs.centroids, outputRefs.centroids)
+        butler.put(outputs, outputRefs)
         return outputs
 
     def run(self, exposure: ExposureF, pfsConfig: PfsConfig, detectorMap: DetectorMap):
@@ -155,10 +125,10 @@ class MeasureDetectorMapConnections(MeasureCentroidsConnections):
     """Connections for MeasureDetectorMapTask"""
 
     outputDetectorMap = OutputConnection(
-        name="detectorMap_used",
+        name="detectorMap",
         doc="Corrected mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
     )
 
 
@@ -183,21 +153,17 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
         inputs = butler.get(inputRefs)
-        inputs["detectorMap"] = inputs.pop(
-            ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        )
+        inputs["detectorMap"] = inputs.pop("calibDetectorMap")
 
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.exposure.dataId))
-        )
-        assert detector.arm in "brnm"
+        arm = inputRefs.exposure.dataId.arm.name
+        assert arm in "brnm"
 
-        outputs = self.run(**inputs, arm=detector.arm)
+        outputs = self.run(**inputs, arm=arm)
         butler.put(outputs.centroids, outputRefs.centroids)
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         return outputs

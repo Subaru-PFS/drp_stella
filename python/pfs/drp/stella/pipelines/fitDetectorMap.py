@@ -1,11 +1,14 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
+import numpy as np
+
+from lsst.geom import Box2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 from lsst.daf.butler import DataCoordinate
-from lsst.pex.config import ConfigurableField, Field
+from lsst.pex.config import ConfigurableField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
-from lsst.pipe.base.butlerQuantumContext import ButlerQuantumContext
+from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -13,78 +16,76 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from pfs.drp.stella.gen3 import readDatasetRefs
 
 from ..arcLine import ArcLineSet
-from ..DetectorMapContinued import DetectorMap
 from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
+from .lookups import lookupDetectorMap
 
 __all__ = ("FitDetectorMapTask",)
 
 
-class FitDetectorMapConnections(PipelineTaskConnections, dimensions=("instrument", "detector")):
+class FitDetectorMapConnections(
+    PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")
+):
     """Connections for FitDetectorMapTask"""
 
     arcLines = InputConnection(
         name="centroids",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 
-    # We'll choose one based on the config parameter 'useBootstrapDetectorMap'
-    bootstrapDetectorMap = PrerequisiteConnection(
-        name="detectorMap_bootstrap",
-        doc="Mapping from fiberId,wavelength to x,y: derived from instrument model",
-        storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
-        multiple=True,
-    )
-    calibDetectorMap = PrerequisiteConnection(
-        name="detectorMap",
+    slitOffsets = PrerequisiteConnection(
+        name="detectorMap_calib.slitOffsets",
         doc="Mapping from fiberId,wavelength to x,y: measured from real data",
-        storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
-        multiple=True,
+        storageClass="NumpyArray",
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
+        lookupFunction=lookupDetectorMap,
+    )
+
+    bbox = InputConnection(
+        name="postISRCCD.bbox",
+        doc="Bounding box for detector",
+        storageClass="Box2I",
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        multiple=True,
     )
 
     visitInfo = InputConnection(
         name="postISRCCD.visitInfo",
         doc="Visit information",
         storageClass="VisitInfo",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
     metadata = InputConnection(
         name="postISRCCD.metadata",
         doc="Exposure header",
         storageClass="PropertyList",
-        dimensions=("instrument", "exposure", "detector"),
+        dimensions=("instrument", "exposure", "arm", "spectrograph"),
         multiple=True,
     )
 
     detectorMap = OutputConnection(
-        name="detectorMap",
+        name="detectorMap_candidate",
         doc="Mapping between fiberId,wavelength and x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "detector"),
+        dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
 
     def __init__(self, *, config=None):
         super().__init__(config=config)
-
         if not config:
             return
-        if config.useBootstrapDetectorMap:
-            self.prerequisiteInputs.remove("calibDetectorMap")
-        else:
-            self.prerequisiteInputs.remove("bootstrapDetectorMap")
+        if config.fitDetectorMap.doSlitOffsets:
+            self.prerequisiteInputs.remove("slitOffsets")
 
 
 class FitDetectorMapConfig(PipelineTaskConfig, pipelineConnections=FitDetectorMapConnections):
     """Configuration for FitDetectorMapTask"""
 
-    useBootstrapDetectorMap = Field(dtype=bool, default=False, doc="Use bootstrap detectorMap?")
     fitDetectorMap = ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
 
 
@@ -108,7 +109,7 @@ class FitDetectorMapTask(PipelineTask):
 
     def runQuantum(
         self,
-        butler: ButlerQuantumContext,
+        butler: QuantumContext,
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ) -> None:
@@ -116,7 +117,7 @@ class FitDetectorMapTask(PipelineTask):
 
         Parameters
         ----------
-        butler : `ButlerQuantumContext`
+        butler : `QuantumContext`
             Data butler, specialised to operate in the context of a quantum.
         inputRefs : `InputQuantizedConnection`
             Container with attributes that are data references for the various
@@ -126,20 +127,24 @@ class FitDetectorMapTask(PipelineTask):
             output connections.
         """
         # Determine what spectrograph+arm we're dealing with
-        detector = next(
-            iter(butler.registry.queryDimensionRecords("detector", dataId=inputRefs.arcLines[0].dataId))
-        )
-        assert detector.arm in "brnm"
-        assert detector.spectrograph in (1, 2, 3, 4)
-        dataId = dict(arm=detector.arm, spectrograph=detector.spectrograph)
+        arm = inputRefs.arcLines[0].dataId.arm.name
+        spectrograph = inputRefs.arcLines[0].dataId.spectrograph.num
+        assert arm in "brnm"
+        assert spectrograph in (1, 2, 3, 4)
+        dataId = dict(arm=arm, spectrograph=spectrograph)
 
         # Get only the first detectorMap, visitInfo and metadata
-        detectorMapKey = ("bootstrap" if self.config.useBootstrapDetectorMap else "calib") + "DetectorMap"
-        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", detectorMapKey)
+        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "bbox")
         first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
 
-        detectorMap = getattr(data, detectorMapKey)[first]
-        outputs = self.run(dataId, data.arcLines, data.visitInfo[first], data.metadata[first], detectorMap)
+        outputs = self.run(
+            dataId,
+            data.arcLines,
+            data.visitInfo[first],
+            data.metadata[first],
+            data.bbox[first],
+            butler.get(inputRefs.slitOffsets) if not self.config.fitDetectorMap.doSlitOffsets else None,
+        )
         butler.put(outputs, outputRefs)
 
     def run(
@@ -148,7 +153,8 @@ class FitDetectorMapTask(PipelineTask):
         arcLines: Iterable[ArcLineSet],
         visitInfo: VisitInfo,
         metadata: PropertyList,
-        detectorMap: DetectorMap,
+        bbox: Box2I,
+        slitOffsets: Optional[np.ndarray] = None,
     ):
         """Fit a detectorMap based on centroids measured on multiple exposures
 
@@ -163,9 +169,10 @@ class FitDetectorMapTask(PipelineTask):
             Visit information to apply to the detectorMap.
         metadata : `PropertyList`
             Metadata (header) to apply to the detectorMap.
-        detectorMap : `DetectorMap`
-            Previous detectorMap. This is used for the bounding box and the
-            slit offsets.
+        bbox : `Box2I`
+            Bounding box for the detector.
+        slitOffsets : `numpy.ndarray` of `float`, optional
+            Slit offsets to apply to the detectorMap.
 
         Returns
         -------
@@ -198,10 +205,10 @@ class FitDetectorMapTask(PipelineTask):
         """
         return self.fitDetectorMap.run(
             dataId,
-            detectorMap.bbox,
+            bbox,
             sum(arcLines, ArcLineSet.empty()),
             visitInfo,
             metadata,
-            detectorMap.getSpatialOffsets(),
-            detectorMap.getSpectralOffsets(),
+            slitOffsets[0] if slitOffsets is not None else None,
+            slitOffsets[1] if slitOffsets is not None else None,
         )

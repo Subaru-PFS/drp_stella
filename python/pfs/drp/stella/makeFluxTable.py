@@ -190,6 +190,8 @@ def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0
         keep = np.ones_like(resampledFlux, dtype=bool)
         for _ in range(iterations):
             use = good & keep
+            if not np.any(use):
+                break
             data = coadd(resampledFlux, resampledVariance, resampledMask, use, noData)
             with np.errstate(divide='ignore', invalid='ignore'):
                 diff = (resampledFlux - data.flux[np.newaxis, :])/np.sqrt(resampledVariance)
