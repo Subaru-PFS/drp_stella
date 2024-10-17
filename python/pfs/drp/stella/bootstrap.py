@@ -226,6 +226,9 @@ class BootstrapTask(PipelineTask):
                 f"Mismatch between fibers for flat ({quartzConfig.fiberId}) and arc ({arcConfig.fiberId})"
             )
         detectorMap = self.getDetectorMap(identity)
+        arcConfig = arcConfig.select(fiberId=detectorMap.fiberId)
+        quartzConfig = quartzConfig.select(fiberId=detectorMap.fiberId)
+
         traces = self.traceFibers(quartzExposure, quartzConfig, detectorMap, identity)
         lineResults = self.findArcLines(arcExposure, traces)
         refLines = self.readLineList.run(metadata=arcExposure.getMetadata())
