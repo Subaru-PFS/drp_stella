@@ -111,7 +111,7 @@ class FitFocalPlaneTask(Task):
             good = ~(rejected | newRejected | mask | funcEval.masks)
             numGood = good.sum()
             chi2 = np.sum(resid[good]**2)
-            self.log.info("Fit focal plane function iteration %d: "
+            self.log.debug("Fit focal plane function iteration %d: "
                            "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d",
                            ii, chi2, (~np.logical_and.reduce(funcEval.masks, axis=0)).sum(), length,
                            numSamples, numGood, (mask | funcEval.masks).sum(), rejected.sum())

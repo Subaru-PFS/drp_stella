@@ -678,10 +678,6 @@ class OversampledSpline(FocalPlaneFunction):
         bins = np.concatenate(([wlMin], knots, [wlMax]))
         centers = 0.5 * (bins[:-1] + bins[1:])
 
-        from collections import Counter
-        counts = binned_statistic(xx, yy, statistic="count", bins=bins)[0].astype(int)
-        print(fiberId.min(), fiberId.max(), (counts == 0).sum())
-
         if robust:
             yMedian = binned_statistic(xx, yy, statistic="median", bins=bins)[0]
             xMedian = binned_statistic(xx, xx, statistic="median", bins=bins)[0]
@@ -834,8 +830,8 @@ class BlockedOversampledSpline(FocalPlaneFunction):
             select = blocks == bb
             ff = fiberId[select].mean()
 
-#            global debugging
-#            debugging = 922 in range(fiberId[select].min(), fiberId[select].max() + 1)
+            global debugging
+            debugging = 922 in range(fiberId[select].min(), fiberId[select].max() + 1)
 
             splines[ff] = OversampledSpline.fitArrays(
                 fiberId[select],
