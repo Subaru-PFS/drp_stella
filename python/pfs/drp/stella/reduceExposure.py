@@ -54,7 +54,7 @@ from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .fluxCalibrate import applyFiberNorms
-
+from .fitDistortedDetectorMap import FittingError
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -147,6 +147,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
+    requireAdjustDetectorMap = Field(dtype=bool, default=False,
+                                     doc="Require detectorMap adjustment to succeed?")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     traceSpectralError = Field(dtype=float, default=5.0,
@@ -446,7 +448,13 @@ class ReduceExposureTask(PipelineTask):
             lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
         if self.config.doAdjustDetectorMap:
-            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, arm, seed=seed).detectorMap
+            try:
+                detectorMap = self.adjustDetectorMap.run(detectorMap, lines, arm, seed=seed).detectorMap
+            except (FittingError, RuntimeError) as exc:
+                if self.config.requireAdjustDetectorMap:
+                    raise
+                self.log.warn("DetectorMap adjustment failed: %s", exc)
+
             if fiberProfiles is not None:
                 # make fiberTraces with new detectorMap
                 fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
