@@ -695,22 +695,22 @@ class OversampledSpline(FocalPlaneFunction):
 
         coeffs = spline.get_coeffs()
 
-        if debugging:
-            import matplotlib.pyplot as plt
+#        if debugging:
+#            import matplotlib.pyplot as plt
 #            plt.plot(xx, yy, "ko")
-            for ii, (wl, val) in enumerate(zip(wavelengths, values)):
-                select = (wl > 710) & (wl < 712)
-                print(ii, np.median(val[select]))
-                plt.plot(wl, val, ls="-", label=f"{ii}")
-            plt.plot(centers, binned_statistic(xx, yy, statistic="median", bins=bins)[0], "bo")
-            plt.plot(centers, spline(centers), "r-")
+#            for ii, (wl, val) in enumerate(zip(wavelengths, values)):
+#                select = (wl > 710) & (wl < 712)
+#                print(ii, np.median(val[select]))
+#                plt.plot(wl, val, ls="-", label=f"{ii}")
+#            plt.plot(centers, binned_statistic(xx, yy, statistic="median", bins=bins)[0], "bo")
+#            plt.plot(centers, spline(centers), "r-")
 #            for bb in bins:
 #                if bb > 780 and bb < 785:
 #                    plt.axvline(bb, color="k", linestyle=":")
 #            plt.xlim(781.9, 783)
-            plt.legend()
-            plt.show()
-            breakpoint()
+#            plt.legend()
+#            plt.show()
+#            breakpoint()
 
         # Measure the noise in the fit
         residual = yy - spline(xx)

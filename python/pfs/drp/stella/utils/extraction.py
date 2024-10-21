@@ -1,6 +1,6 @@
 from functools import partial
 from textwrap import dedent
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
 
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.backend_bases import KeyEvent
@@ -91,17 +91,22 @@ class ExtractionExplorer:
         self._wl1 = pfsArm.wavelength[self._middle][-1]
         self._dot = []
 
+        self._pFig = plt.figure()
+        self._pAx = self._pFig.gca()
+
         spectraHelp = dedent("""
         Spectra display key bindings:
             q: Quit
             space: Pan image to point
             enter: Pan spectrum to point
+            i: Inspect spectrum of fiber
             +: Zoom in
             -: Zoom out
         """)
         spectraMenu = {
             "q": "spectraQuit",
             " ": "spectraPanImage",
+            "i": "spectraPlot",
             "enter": "spectraPan",
             "+": "spectraZoomIn",
             "-": "spectraZoomOut",
@@ -152,6 +157,21 @@ class ExtractionExplorer:
         self._dot += self._iAx.lines[-2:]  # The "x" is implemented as two lines
         self._iFig.suptitle(f"{self._title}\nfiberId={fiberId}, wavelength={wavelength:.1f}")
 
+    def getSpectraFiberId(self, y: float) -> int:
+        """Return the fiberId corresponding to the y-coordinate in the spectra"""
+        return self._pfsArm.fiberId[int(y + 0.5)]
+
+    def getSpectraWavelength(self, x: float, y: float) -> float:
+        """Return the wavelength corresponding to the x,y coordinates in the spectra"""
+        return self.getSpectraFiberIdWavelength(x, y)[1]
+
+    def getSpectraFiberIdWavelength(self, x: float, y: float) -> Tuple[int, float]:
+        """Return the fiberId and wavelength corresponding to the x,y coordinates in the spectra"""
+        row = int(self._length*(x - self._wl0)/(self._wl1 - self._wl0))
+        fiberIndex = int(y + 0.5)
+        wavelength = np.interp(row, np.arange(self._length), self._pfsArm.wavelength[fiberIndex])
+        return self._pfsArm.fiberId[fiberIndex], wavelength
+
     def getSpectraBox(self) -> Box2D:
         """Return a Box2D representing the current view of the spectra"""
         x0, x1 = self._sAx.get_xlim()
@@ -180,6 +200,34 @@ class ExtractionExplorer:
         """Event handler to zoom out on the spectra"""
         self.spectraZoom(2.0)
 
+    def spectraPlot(self, event: KeyEvent):
+        """Event handler to plot the spectrum of the fiber"""
+        fiberIndex = int(event.ydata + 0.5)
+        fiberId = self.getSpectraFiberId(event.ydata)
+        self._pFig.clear()
+        self._pAx = self._pFig.gca()
+        self._pAx.plot(self._pfsArm.wavelength[fiberIndex], self._pfsArm.flux[fiberIndex], "k-", label="Flux")
+        self._pAx.plot(self._pfsArm.wavelength[fiberIndex], self._pfsArm.sky[fiberIndex], "b-", label="Sky")
+        self._pAx.plot(
+            self._pfsArm.wavelength[fiberIndex],
+            np.sqrt(self._pfsArm.variance[fiberIndex]),
+            "r-",
+            label="Error",
+        )
+        self._pFig.suptitle(f"{self._title}\nfiberId={fiberId}")
+        self._pAx.set_xlabel("Wavelength (nm)")
+        self._pAx.set_ylabel("Flux")
+        box = self.getSpectraBox()
+        wlMin = self.getSpectraWavelength(box.getMinX(), event.ydata)
+        wlMax = self.getSpectraWavelength(box.getMaxX(), event.ydata)
+        select = (self._pfsArm.wavelength[fiberIndex] >= wlMin)
+        select &= (self._pfsArm.wavelength[fiberIndex] <= wlMax)
+        fluxMin = np.nanmin(self._pfsArm.flux[fiberIndex][select])
+        fluxMax = np.nanmax(self._pfsArm.flux[fiberIndex][select])
+        self._pAx.set_xlim(wlMin, wlMax)
+        self._pAx.set_ylim(0.9*fluxMin, 1.1*fluxMax)
+        self._pAx.legend()
+
     def imageQuit(self, event: KeyEvent):
         """Event handler to quit the image display"""
         self._iFig.canvas.mpl_disconnect(self._iConn)
@@ -191,11 +239,11 @@ class ExtractionExplorer:
 
     def imageZoomIn(self, event: KeyEvent):
         """Event handler to zoom in on the image"""
-        self.imageZoom(0.5)
+        self.imageZoom(2.0)
 
     def imageZoomOut(self, event: KeyEvent):
         """Event handler to zoom out on the image"""
-        self.imageZoom(2.0)
+        self.imageZoom(0.5)
 
     def imagePan(self, event: KeyEvent):
         """Event handler to pan the image"""
