@@ -740,7 +740,7 @@ def showGuiderErrors(agcData, config,
 
             agcDataCam.dx = agcDataCam.agc_center_x_mm - agcDataCam.agc_nominal_x_mm
             agcDataCam.dy = agcDataCam.agc_center_y_mm - agcDataCam.agc_nominal_y_mm
-            agcDataCam.dr = np.hypot(agcDataCam.dy, agcDataCam.dy)
+            agcDataCam.dr = np.hypot(agcDataCam.dx, agcDataCam.dy)
 
             agcData.loc[sel] = agcDataCam
 
