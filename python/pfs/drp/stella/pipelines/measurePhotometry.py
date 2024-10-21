@@ -28,7 +28,7 @@ class MeasurePhotometryConnections(
     """Connections for MeasurePhotometryTask"""
 
     exposure = InputConnection(
-        name="postISRCCD",
+        name="calexp",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
         dimensions=("instrument", "exposure", "arm", "spectrograph"),

@@ -87,7 +87,7 @@ class ReduceProfilesConnections(
 ):
     """Connections for ReduceProfilesTask"""
     exposure = InputConnection(
-        name="postISRCCD",
+        name="calexp",
         doc="ISR-processed exposure",
         storageClass="Exposure",
         dimensions=("instrument", "exposure", "arm", "spectrograph"),

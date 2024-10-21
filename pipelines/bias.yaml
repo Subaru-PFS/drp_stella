@@ -1,7 +1,7 @@
 description: PFS bias construction
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
     config:
       connections.ccdExposure: raw.exposure
       connections.outputExposure: biasProc

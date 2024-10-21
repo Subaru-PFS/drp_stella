@@ -1,7 +1,9 @@
 description: Measure detectorMap
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
   measureCentroids:
     class: pfs.drp.stella.pipelines.MeasureCentroidsTask
   fitDetectorMap:

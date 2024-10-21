@@ -5,7 +5,9 @@ description: |
   profiles from the groups.
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
   profilesFitDetectorMap:
     class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
   fitProfiles:
