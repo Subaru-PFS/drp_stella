@@ -21,7 +21,7 @@ __all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask")
 
 
 class MeasureCentroidsConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+    PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     """Connections for MeasureCentroidsTask"""
 
@@ -29,13 +29,13 @@ class MeasureCentroidsConnections(
         name="calexp",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
     calibDetectorMap = PrerequisiteConnection(
@@ -50,7 +50,7 @@ class MeasureCentroidsConnections(
         name="centroids",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
 
@@ -128,7 +128,7 @@ class MeasureDetectorMapConnections(MeasureCentroidsConnections):
         name="detectorMap",
         doc="Corrected mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
 

@@ -22,7 +22,7 @@ def lookupProfilesPfsConfig(
     """Look up pfsConfigs
 
     This lookup function finds the pfsConfigs for a profiles_run.
-    This requires doing a JOIN against the profiles_exposures table,
+    This requires doing a JOIN against the profiles_visits table,
     which the butler doesn't do automatically; so we do it manually.
     Without this, the butler attempts to get all possible pfsConfigs
     in the registry.
@@ -43,13 +43,13 @@ def lookupProfilesPfsConfig(
     refs : `list` of `lsst.daf.butler.DatasetRef`
         The references to the bias or dark frame.
     """
-    results = registry.queryDimensionRecords("profiles_exposures", dataId=dataId)
-    exposureList = [row.exposure for row in results]
+    results = registry.queryDimensionRecords("profiles_visits", dataId=dataId)
+    visitList = [row.visit for row in results]
     refs = registry.queryDatasets(
         datasetType,
         collections=collections,
-        where="exposure IN (exposureList)",
-        bind=dict(exposureList=exposureList),
+        where="visit IN (visitList)",
+        bind=dict(visitList=visitList),
         instrument=dataId["instrument"],
     )
     return list(refs)
@@ -68,7 +68,7 @@ class MergeFiberProfilesConnections(
         multiple=True,
     )
     data = PrerequisiteConnection(
-        name="profiles_exposures",
+        name="profiles_visits",
         doc="List of bright and dark exposures",
         storageClass="StructuredDataDict",
         dimensions=("instrument", "profiles_group"),
@@ -77,7 +77,7 @@ class MergeFiberProfilesConnections(
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="PFS fiber configuration",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
         storageClass="PfsConfig",
         multiple=True,
         lookupFunction=lookupProfilesPfsConfig,
@@ -127,7 +127,7 @@ class MergeFiberProfilesTask(PipelineTask):
 
         profiles = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.profiles}
         data = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.data}
-        pfsConfigs = {ref.dataId["exposure"]: butler.get(ref) for ref in inputRefs.pfsConfig}
+        pfsConfigs = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs.pfsConfig}
         brightConfigs = [[pfsConfigs[expId] for expId in data[group]["bright"]] for group in profiles]
         darkConfigs = [[pfsConfigs[expId] for expId in data[group]["dark"]] for group in profiles]
 

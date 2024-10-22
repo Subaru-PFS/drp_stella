@@ -419,7 +419,7 @@ def addPfsConfigRecords(
 ) -> None:
     """Add records for a pfsConfig to the butler registry
 
-    This is needed in order to associate an ``exposure`` with the various
+    This is needed in order to associate an ``visit`` with the various
     ``catId``.
 
     Parameters
@@ -440,21 +440,21 @@ def addPfsConfigRecords(
         Raised if the record exists in the database (according to primary key
         lookup) but is inconsistent with the given one.
     """
-    exposure = pfsConfig.visit
+    visit = pfsConfig.visit
     pfsDesignId = pfsConfig.pfsDesignId
     dataId = [
         rr
         for rr in registry.queryDimensionRecords(
-            "exposure", dataId=dict(instrument=instrument, exposure=exposure)
+            "visit", dataId=dict(instrument=instrument, visit=visit)
         )
     ]
     if len(dataId) == 0:
-        raise NoResultsError(f"No exposure records found for instrument={instrument}, exposure={exposure}")
+        raise NoResultsError(f"No visit records found for instrument={instrument}, visit={visit}")
     assert len(dataId) == 1
     dataId = dataId[0]
     if dataId.pfs_design_id != pfsDesignId:
         raise RuntimeError(
-            "pfsDesignId mismatch between exposure in registry (%016x) and pfsConfig (%016x)",
+            "pfsDesignId mismatch between visit in registry (%016x) and pfsConfig (%016x)",
             dataId.pfs_design_id,
             pfsDesignId,
         )
@@ -463,7 +463,7 @@ def addPfsConfigRecords(
         catId = int(catId)
         registry.syncDimensionData("cat_id", dict(instrument=instrument, id=catId), update=update)
         registry.syncDimensionData(
-            "pfsConfig", dict(instrument=instrument, cat_id=catId, exposure=exposure), update=update
+            "pfsConfig", dict(instrument=instrument, cat_id=catId, visit=visit), update=update
         )
 
 
@@ -507,9 +507,9 @@ def ingestPfsConfig(
         for path in pathList:
             for filename in glob(path):
                 pfsConfig = PfsConfig.readFits(filename)
-                exposure = pfsConfig.visit
+                visit = pfsConfig.visit
                 pfsDesignId = pfsConfig.pfsDesignId
-                dataId = dict(instrument=instrumentName, exposure=exposure, pfs_design_id=pfsDesignId)
+                dataId = dict(instrument=instrumentName, visit=visit, pfs_design_id=pfsDesignId)
                 ref = DatasetRef(datasetType, dataId, run)
                 uri = ResourcePath(path, root=cwd, forceAbsolute=True)
 
@@ -640,7 +640,7 @@ def defineFiberProfilesInputs(
     numGroups = len(bright)
 
     datasetType = DatasetType(
-        "profiles_exposures",
+        "profiles_visits",
         ("instrument", "profiles_run", "profiles_group"),
         "StructuredDataDict",
         universe=registry.dimensions,
@@ -656,18 +656,18 @@ def defineFiberProfilesInputs(
             log.info("Registering group %d ...", group)
             groupId = dict(instrument=instrumentName, profiles_run=name, profiles_group=group)
             registry.syncDimensionData("profiles_group", groupId, update=update)
-            log.info("Registering exposures for group %d: %s", group, bright[group])
+            log.info("Registering visits for group %d: %s", group, bright[group])
             darkList = dark[group] if dark else []
-            for exposure in bright[group] + darkList:
+            for visit in bright[group] + darkList:
                 registry.syncDimensionData(
-                    "profiles_exposures", dict(exposure=exposure, **groupId), update=update
+                    "profiles_visits", dict(visit=visit, **groupId), update=update
                 )
             # Write a file identifying the bright and dark exposures for this
             # group. This might be a bit of a hack, but it is a simple way to
             # provide the information to the pipeline. It's better than
             # putting the information in the registry database, since that's
             # more difficult to access.
-            butler.put(dict(bright=bright[group], dark=darkList), "profiles_exposures", **groupId)
+            butler.put(dict(bright=bright[group], dark=darkList), "profiles_visits", **groupId)
 
 
 def decertifyCalibrations(
@@ -778,10 +778,10 @@ def defineCombination(
     instrument: str,
     name: str,
     where: Optional[str] = None,
-    exposureList: Optional[List[int]] = None,
+    visitList: Optional[List[int]] = None,
     update: bool = False,
 ):
-    """Define a combination of exposures
+    """Define a combination of visits
 
     Parameters
     ----------
@@ -793,9 +793,9 @@ def defineCombination(
         Name of the combination. This is a symbolic name that can be used to
         refer to this combination in the future.
     where : `str`, optional
-        SQL WHERE clause to use for selecting exposures.
-    exposureList : list of `int`, optional
-        List of exposure numbers to include in the combination. If the ``where``
+        SQL WHERE clause to use for selecting visits.
+    visitList : list of `int`, optional
+        List of visit numbers to include in the combination. If the ``where``
         clause is provided, this list is used to further restrict the selection.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
@@ -804,16 +804,16 @@ def defineCombination(
     Returns
     -------
     visitHash : `int`
-        Hash of the exposures in the combination.
-    exposureList : list of `int`
-        List of exposure numbers in the combination.
+        Hash of the visits in the combination.
+    visitList : list of `int`
+        List of visit numbers in the combination.
     """
-    if not where and not exposureList:
-        raise ValueError("Must provide at least one of 'where' and 'exposureList'")
+    if not where and not visitList:
+        raise ValueError("Must provide at least one of 'where' and 'visitList'")
     bind = None
-    if exposureList:
-        add = "exposure IN (exposureList)"
-        bind = dict(exposureList=exposureList)
+    if visitList:
+        add = "visit IN (visitList)"
+        bind = dict(visitList=visitList)
         if where is None:
             where = add
         else:
@@ -825,30 +825,30 @@ def defineCombination(
     instrumentName = Instrument.from_string(instrument, registry).getName()
 
     query = registry.queryDimensionRecords(
-        "exposure", where=where, bind=bind, instrument=instrumentName
+        "visit", where=where, bind=bind, instrument=instrumentName
     )
     if not query:
         log.warn("No data found.")
         return
 
-    exposureList = sorted([ref.dataId["exposure"] for ref in query])
-    visitHash = calculatePfsVisitHash(exposureList)
+    visitList = sorted([ref.dataId["visit"] for ref in query])
+    visitHash = calculatePfsVisitHash(visitList)
     log.info(
-        "Defining combination %s with pfsVisitHash=%016x for exposures: %s", name, visitHash, exposureList
+        "Defining combination %s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
     )
 
     with registry.transaction():
         registry.syncDimensionData(
             "combination", dict(instrument=instrument, name=name, pfs_visit_hash=visitHash), update=update
         )
-        for exposure in exposureList:
+        for visit in visitList:
             registry.syncDimensionData(
                 "combination_join",
-                dict(instrument=instrument, combination=name, exposure=exposure),
+                dict(instrument=instrument, combination=name, visit=visit),
                 update=update,
             )
 
-    return visitHash, exposureList
+    return visitHash, visitList
 
 
 def cleanRun(

@@ -8,7 +8,7 @@ class PfsCalibCombineConnections(CalibCombineConnections):
         name="cpInputs",
         doc="Input pre-processed exposures to combine.",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
         deferLoad=True,
     )

@@ -10,19 +10,19 @@ from lsst.pipe.base import Struct
 from lsst.meas.algorithms import SingleGaussianPsf
 
 
-class PfsDarkConnections(CpDarkConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")):
+class PfsDarkConnections(CpDarkConnections, dimensions=("instrument", "visit", "arm", "spectrograph")):
     inputExp = InputConnection(
         name="cpDarkISR",
         doc="Input pre-processed exposures to combine.",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
     outputExp = OutputConnection(
         name="cpDarkProc",
         doc="Output combined proposed calibration.",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
 

@@ -60,19 +60,19 @@ __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
 
 class ReduceExposureConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+    PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     exposure = InputConnection(
         name="calexp",
         doc="Exposure to reduce",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
@@ -101,31 +101,31 @@ class ReduceExposureConnections(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     lsf = OutputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     lines = OutputConnection(
         name="lines",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     apCorr = OutputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     detectorMapUsed = OutputConnection(
         name="detectorMap",
         doc="DetectorMap used for extraction",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):
@@ -341,7 +341,7 @@ class ReduceExposureTask(PipelineTask):
 
         visitInfo = exposure.visitInfo
         identity = Identity(
-            visit=dataId["exposure"],
+            visit=dataId["visit"],
             arm=arm,
             spectrograph=spectrograph,
             pfsDesignId=dataId["pfs_design_id"],

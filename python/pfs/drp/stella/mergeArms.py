@@ -51,26 +51,26 @@ class WavelengthSamplingConfig(Config):
         return WavelengthArray(self.minWavelength, self.maxWavelength, self.length)
 
 
-class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
     """Connections for MergeArmsTask"""
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     lsf = InputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -78,19 +78,19 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "e
         name="pfsMerged",
         doc="Merged spectra from an exposure",
         storageClass="PfsMerged",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsMergedLsf = OutputConnection(
         name="pfsMergedLsf",
         doc="Line-spread function of merged spectra from an exposure",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     sky1d = OutputConnection(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 

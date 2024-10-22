@@ -28,7 +28,7 @@ def lookupDetectorMap(
     refs : `list` of `lsst.daf.butler.DatasetRef`
         The references to the bias or dark frame.
     """
-    if "exposure" not in dataId or dataId.timespan is None:
+    if "visit" not in dataId or dataId.timespan is None:
         # We need to provide the entire set of available detectorMaps for the join
         result = registry.queryDatasets(datasetType, dataId=dataId, collections=collections)
         return [ref for ref in result]
@@ -59,7 +59,7 @@ def lookupFiberNorms(
     refs : `list` of `lsst.daf.butler.DatasetRef`
         The references to the bias or dark frame.
     """
-    if "exposure" not in dataId or dataId.timespan is None:
+    if "visit" not in dataId or dataId.timespan is None:
         # We need to provide the entire set of available fiberNorms for the join
         result = registry.queryDatasets(datasetType, collections=collections)
         return [ref for ref in result]

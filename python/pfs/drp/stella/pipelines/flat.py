@@ -100,7 +100,7 @@ class FlatDitherCombineTask(PfsCalibCombineTask):
             List of dictionaries of input data dimensions/values.
             Each list entry should contain:
 
-            ``"exposure"``
+            ``"visit"``
                 exposure id value (`int`)
             ``"arm"``
                 spectrograph arm (`str`)
@@ -218,7 +218,7 @@ class FlatCombineTask(PfsCalibCombineTask):
             List of dictionaries of input data dimensions/values.
             Each list entry should contain:
 
-            ``"exposure"``
+            ``"visit"``
                 exposure id value (`int`)
             ``"arm"``
                 spectrograph arm (`str`)

@@ -152,8 +152,8 @@ def getDataId(registry: Registry, dataId: DataCoordinate) -> Dict[str, Any]:
         Gen2-style data identifier.
     """
     result = dict(zip(dataId.full.names, dataId.full.values()))
-    exposure = getRecord(dataId, "exposure", registry)
-    if exposure:
+    visit = getRecord(dataId, "visit", registry)
+    if visit:
         for key, dtype in dict(
             pfs_design_id=int,
             obs_id=int,
@@ -163,7 +163,7 @@ def getDataId(registry: Registry, dataId: DataCoordinate) -> Dict[str, Any]:
             science_program=str,
             target_name=str,
         ).items():
-            result[key] = dtype(getattr(exposure, key))
+            result[key] = dtype(getattr(visit, key))
     arm = getRecord(dataId, "arm")
     if arm:
         result["arm"] = arm.name
@@ -302,7 +302,7 @@ async def splitSpectra(
 async def runAsync(
     butler: Butler,
     base: str,
-    exposures: Optional[str] = None,
+    visits: Optional[str] = None,
     objects: Optional[str] = None,
     mode: str = "link",
     clobber: bool = False,
@@ -317,8 +317,8 @@ async def runAsync(
         Data butler.
     base : `str`
         Base directory for output.
-    exposures : `str`, optional
-        Query to apply for exposure-based datasets.
+    visits : `str`, optional
+        Query to apply for visit-based datasets.
     objects : `str`, optional
         Query to apply for object-based datasets.
     mode : `str`, optional
@@ -328,7 +328,7 @@ async def runAsync(
     """
     for dataset in COPY_TEMPLATES:
         ref: DatasetRef
-        for ref in butler.registry.queryDatasets(dataset, where=exposures, findFirst=True):
+        for ref in butler.registry.queryDatasets(dataset, where=visits, findFirst=True):
             await transferDataset(butler, ref, os.path.join(base, COPY_TEMPLATES[dataset]), mode)
     for spectraDataset in SPLIT_TEMPLATES:
         lsfDataset = spectraDataset + "Lsf"
@@ -354,8 +354,8 @@ def run(*args, **kwargs):
         Data butler.
     base : `str`
         Base directory for output.
-    exposures : `str`, optional
-        Query to apply for exposure-based datasets.
+    visits : `str`, optional
+        Query to apply for visit-based datasets.
     objects : `str`, optional
         Query to apply for object-based datasets.
     mode : `str`, optional
@@ -375,7 +375,7 @@ def main():
     parser.add_argument(
         "-b", "--butler-config", required=True, help="Location of the gen3 butler/registry config file"
     )
-    parser.add_argument("--exposures", help="Data selection expression for exposures")
+    parser.add_argument("--visits", help="Data selection expression for visits")
     parser.add_argument("--objects", help="Data selection expression for objects")
     parser.add_argument("-o", "--output", required=True, help="Output directory")
     parser.add_argument(
@@ -388,4 +388,4 @@ def main():
     args = parser.parse_args()
 
     butler = Butler(args.butler_config, collections=args.input.split(","))
-    run(butler, args.output, args.exposures, args.objects, args.mode, args.clobber)
+    run(butler, args.output, args.visits, args.objects, args.mode, args.clobber)

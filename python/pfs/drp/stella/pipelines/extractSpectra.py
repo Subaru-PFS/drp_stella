@@ -27,7 +27,7 @@ __all__ = ("ExtractSpectraTask",)
 
 
 class ExtractSpectraConnections(
-    PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
+    PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     """Connections for ExtractSpectraTask"""
 
@@ -35,19 +35,19 @@ class ExtractSpectraConnections(
         name="calexp",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     detectorMap = InputConnection(
         name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     fiberProfiles = PrerequisiteConnection(
         name="fiberProfiles",
@@ -60,32 +60,32 @@ class ExtractSpectraConnections(
         name="sky2d",
         doc="2D sky subtraction model",
         storageClass="SkyModel",
-        dimensions=("instrument", "exposure", "arm"),
+        dimensions=("instrument", "visit", "arm"),
     )
     psf = InputConnection(
         name="psf",
         doc="2D point-spread function",
         storageClass="NevenPsf",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     apCorr = InputConnection(
         name="apCorr",
         doc="Aperture correction for line photometry",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
     calexp = OutputConnection(
         name="calexp",
         doc="Calibrated exposure, optionally sky-subtracted",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
     def __init__(self, *, config=None):
@@ -152,7 +152,7 @@ class ExtractSpectraTask(PipelineTask):
         inputs = butler.get(inputRefs)
         dataId = inputRefs.exposure.dataId.full
         inputs["identity"] = Identity(
-            visit=dataId["exposure"],
+            visit=dataId["visit"],
             arm=dataId["arm"],
             spectrograph=dataId["spectrograph"],
             pfsDesignId=dataId["pfs_design_id"],

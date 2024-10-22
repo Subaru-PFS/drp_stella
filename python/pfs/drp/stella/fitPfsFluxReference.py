@@ -60,33 +60,33 @@ except ImportError:
 __all__ = ["FitPfsFluxReferenceConnections", "FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
 
 
-class FitPfsFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+class FitPfsFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
     """Connections for FitPfsFluxReferenceTask"""
 
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsMerged = InputConnection(
         name="pfsMerged",
         doc="Merged spectra from exposure",
         storageClass="PfsMerged",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsMergedLsf = InputConnection(
         name="pfsMergedLsf",
         doc="Line-spread function of merged spectra",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
     reference = OutputConnection(
         name="pfsFluxReference",
         doc="Fit reference spectrum of flux standards",
         storageClass="PfsFluxReference",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
 

@@ -31,7 +31,7 @@ class FitDetectorMapConnections(
         name="centroids",
         doc="Emission line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -48,7 +48,7 @@ class FitDetectorMapConnections(
         name="postISRCCD.bbox",
         doc="Bounding box for detector",
         storageClass="Box2I",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -56,14 +56,14 @@ class FitDetectorMapConnections(
         name="postISRCCD.visitInfo",
         doc="Visit information",
         storageClass="VisitInfo",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     metadata = InputConnection(
         name="postISRCCD.metadata",
         doc="Exposure header",
         storageClass="PropertyList",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 

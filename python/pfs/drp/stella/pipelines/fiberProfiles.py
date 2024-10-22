@@ -28,7 +28,7 @@ class MeasureFiberProfilesConnections(
         name="calexp",
         doc="Input combined profiles.",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "spectrograph", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "spectrograph", "arm", "spectrograph"),
         multiple=True,
         deferLoad=True,
     )
@@ -36,14 +36,14 @@ class MeasureFiberProfilesConnections(
         name="detectorMap",
         doc="Mapping from fiberId,wavelength to x,y",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure", "pfs_design_id"),
+        dimensions=("instrument", "visit", "pfs_design_id"),
         multiple=True,
     )
 
@@ -115,11 +115,11 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         inputDims = [dataId.byName() for dataId in dataIdList]
 
         obsDate = min(dataId.timespan.begin.to_datetime().date().isoformat() for dataId in dataIdList)
-        visit = min(dataId.exposure.id for dataId in dataIdList)
+        visit = min(dataId.visit.id for dataId in dataIdList)
         identity = CalibIdentity(obsDate=obsDate, spectrograph=spectrograph, arm=arm, visit0=visit)
 
         inputExpHandles = butler.get(inputRefs.inputExpHandles)
-        detectorMap = butler.get(min(inputRefs.detectorMap, key=lambda ref: ref.dataId["exposure"]))
+        detectorMap = butler.get(min(inputRefs.detectorMap, key=lambda ref: ref.dataId["visit"]))
         pfsConfig = butler.get(inputRefs.pfsConfig[0])
         outputs = self.run(inputExpHandles, detectorMap, pfsConfig, identity, inputDims)
         butler.put(outputs, outputRefs)
@@ -148,7 +148,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
             List of dictionaries of input data dimensions/values.
             Each list entry should contain:
 
-            ``"exposure"``
+            ``"visit"``
                 exposure id value (`int`)
             ``"arm"``
                 spectrograph arm (`str`)
