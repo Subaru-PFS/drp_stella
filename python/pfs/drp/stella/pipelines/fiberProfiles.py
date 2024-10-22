@@ -25,7 +25,7 @@ class MeasureFiberProfilesConnections(
     """Connections for MeasureFiberProfilesTask"""
 
     inputExpHandles = InputConnection(
-        name="fiberProfilesProc",
+        name="calexp",
         doc="Input combined profiles.",
         storageClass="Exposure",
         dimensions=("instrument", "exposure", "spectrograph", "arm", "spectrograph"),
@@ -73,6 +73,7 @@ class MeasureFiberProfilesConfig(CalibCombineConfig, pipelineConnections=Measure
 
     def setDefaults(self):
         super().setDefaults()
+        self.calibrationType = "fiberProfiles"
         self.profiles.profileRadius = 2  # Full fiber density, so can't go out very wide
         self.profiles.mask = ["BAD", "SAT", "CR", "INTRP", "BAD_FLAT", "NO_DATA", "SUSPECT"]
         self.profiles.doBlindFind = False

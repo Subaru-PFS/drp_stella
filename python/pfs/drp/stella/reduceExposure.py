@@ -63,7 +63,7 @@ class ReduceExposureConnections(
     PipelineTaskConnections, dimensions=("instrument", "exposure", "arm", "spectrograph")
 ):
     exposure = InputConnection(
-        name="postISRCCD",
+        name="calexp",
         doc="Exposure to reduce",
         storageClass="Exposure",
         dimensions=("instrument", "exposure", "arm", "spectrograph"),
@@ -197,7 +197,6 @@ class ReduceExposureTask(PipelineTask):
     @section drp_stella_reduceExposure_Purpose  Description
 
     Perform the following operations:
-    - Call repair to repair cosmic rays
     - Call extractSpectra to extract the spectra
     and then apply the wavelength solution from the DetectorMap
 
@@ -374,6 +373,7 @@ class ReduceExposureTask(PipelineTask):
             pfsArm.metadata[key] = value
 
         return Struct(
+            outputExposure=exposure,
             pfsArm=pfsArm,
             fiberTraces=measurements.fiberTraces,
             detectorMapUsed=measurements.detectorMap,

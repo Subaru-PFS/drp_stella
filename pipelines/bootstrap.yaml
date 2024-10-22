@@ -1,8 +1,6 @@
 description: Bootstrap a detectorMap
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
-    config:
-      connections.ccdExposure: raw.exposure
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
   bootstrap:
     class: pfs.drp.stella.bootstrap.BootstrapTask

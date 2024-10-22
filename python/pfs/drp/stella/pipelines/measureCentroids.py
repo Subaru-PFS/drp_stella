@@ -26,7 +26,7 @@ class MeasureCentroidsConnections(
     """Connections for MeasureCentroidsTask"""
 
     exposure = InputConnection(
-        name="postISRCCD",
+        name="calexp",
         doc="Input ISR-corrected exposure",
         storageClass="Exposure",
         dimensions=("instrument", "exposure", "arm", "spectrograph"),

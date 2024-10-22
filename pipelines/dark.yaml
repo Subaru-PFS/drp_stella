@@ -1,7 +1,7 @@
 description: PFS dark construction
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
     config:
       connections.ccdExposure: raw.exposure
       connections.outputExposure: darkProc
@@ -10,7 +10,6 @@ tasks:
       doBrighterFatter: False
       doFlat: False
       doFringe: False
-      doRepair: False  # We'll do that in the next stage
   dark:
     class: pfs.drp.stella.pipelines.dark.PfsDarkTask
     config:

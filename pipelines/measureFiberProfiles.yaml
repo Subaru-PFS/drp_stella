@@ -5,17 +5,12 @@ description: |
   profiles measured for multiple groups.
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
-    config:
-      connections.outputExposure: fiberProfilesProc
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
   measureDetectorMap:
     class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
-    config:
-      connections.exposure: fiberProfilesProc
   measureProfiles:
     class: pfs.drp.stella.pipelines.MeasureFiberProfilesTask
-    config:
-      connections.inputExpHandles: fiberProfilesProc
-      calibrationType: fiberProfiles
   combineProfiles:
     class: pfs.drp.stella.pipelines.CombineFiberProfilesTask

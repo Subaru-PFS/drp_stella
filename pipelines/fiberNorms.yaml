@@ -1,9 +1,9 @@
 description: PFS fiberNorms construction
 tasks:
   isr:
-    class: pfs.drp.stella.pipelines.IsrTask
-    config:
-      connections.ccdExposure: raw.exposure
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
