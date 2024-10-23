@@ -764,6 +764,8 @@ class FitPfsFluxReferenceTask(PipelineTask):
             modelInterpolator = self.modelInterpolator
 
         bestParams: Dict[int, Struct] = {}
+        # This dict will be filled only if debug mode is on
+        whitenedModels: Dict[int, PfsSimpleSpectrum] = {}
 
         for iFiber, obsSpectrum in enumerate(fibers(pfsConfig, obsSpectra)):
             fiberId = pfsConfig.fiberId[iFiber]
@@ -804,6 +806,8 @@ class FitPfsFluxReferenceTask(PipelineTask):
                     chi square. (returned only if ``returnChisq=True``)
                 dof : `int`
                     degree of freedom. (returned only if ``returnChisq=True``)
+                whitenedModel : `PfsSimpleSpectrum`
+                    Best-fit model, whitened. (returned only if ``returnChisq=True``)
                 """
                 param = xToParam(x)  # Note: param = (teff, logg, m, alpha)
                 prior = prior1d(param[0])
@@ -821,6 +825,8 @@ class FitPfsFluxReferenceTask(PipelineTask):
                 model = modelContinuum.whiten(model)
                 chisq = calculateSpecChiSquare(obsSpectrum, model, self.getBadMask())
                 if returnChisq:
+                    # Add this member for debug output.
+                    chisq.whitenedModel = model
                     return chisq
                 else:
                     return chisq.chi2 - 2 * math.log(prior)
@@ -838,6 +844,15 @@ class FitPfsFluxReferenceTask(PipelineTask):
                 chi2=chisq.chi2,
                 dof=chisq.dof,
                 success=result.success and math.isfinite(chisq.chi2),
+            )
+
+            if self.debugInfo.doWriteWhitenedFlux:
+                whitenedModels[fiberId] = chisq.whitenedModel
+
+        if self.debugInfo.doWriteWhitenedFlux:
+            debugging.writeExtraData(
+                f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
+                whitenedModel=whitenedModels,
             )
 
         return bestParams
