@@ -827,11 +827,10 @@ def defineCombination(
     query = registry.queryDimensionRecords(
         "visit", where=where, bind=bind, instrument=instrumentName
     )
-    if not query:
+    visitList = sorted([ref.dataId["visit"] for ref in query])
+    if not visitList:
         log.warn("No data found.")
         return
-
-    visitList = sorted([ref.dataId["visit"] for ref in query])
     visitHash = calculatePfsVisitHash(visitList)
     log.info(
         "Defining combination %s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
