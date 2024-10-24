@@ -313,7 +313,8 @@ class MeasureFiberNormsTask(PipelineTask):
         norm : `float`
             Fiber normalization value
         """
-        return spectra.flux
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return spectra.flux/spectra.norm
 
 
 class ExposureFiberNormsConnections(
@@ -367,22 +368,6 @@ class ExposureFiberNormsTask(MeasureFiberNormsTask):
                 self.log.info("Ignoring non-quartz exposure %s", dataId)
                 return  # Nothing to do
         return super().runQuantum(butler, inputRefs, outputRefs)
-
-    def calculateFiberNormValue(self, spectra: PfsArm) -> float:
-        """Calculate the fiber normalization value
-
-        Parameters
-        ----------
-        spectra : `pfs.datamodel.PfsArm`
-            Spectra from which to measure fiber normalization values.
-
-        Returns
-        -------
-        norm : `float`
-            Fiber normalization value
-        """
-        with np.errstate(invalid="ignore", divide="ignore"):
-            return spectra.flux/spectra.norm
 
     def coaddSpectra(self, pfsArmList: List[PfsArm]) -> PfsArm:
         """Coadd spectra
