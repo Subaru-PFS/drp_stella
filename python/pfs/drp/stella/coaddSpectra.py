@@ -74,35 +74,35 @@ class CoaddSpectraConnections(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
         multiple=True,
     )
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     pfsArmLsf = InputConnection(
         name="pfsArmLsf",
         doc="1d line-spread function for extracted spectra",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     fluxCal = InputConnection(
         name="fluxCal",
         doc="Flux calibration model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
         multiple=True,
     )
 
@@ -205,10 +205,10 @@ class CoaddSpectraTask(PipelineTask):
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
             dataId = pfsArmRef.dataId.full
-            expId = dataId["exposure"]
+            visit = dataId["visit"]
             arm = dataId["arm"]
             identity = Identity(
-                visit=expId,
+                visit=visit,
                 arm=arm,
                 spectrograph=dataId["spectrograph"],
                 pfsDesignId=dataId["pfs_design_id"]

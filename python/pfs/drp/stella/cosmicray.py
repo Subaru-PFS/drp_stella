@@ -14,19 +14,19 @@ __all__ = ("CosmicRayTask",)
 
 class CosmicRayConnections(
     PipelineTaskConnections,
-    dimensions=("instrument", "exposure", "arm", "spectrograph"),
+    dimensions=("instrument", "visit", "arm", "spectrograph"),
 ):
     inputExposure = InputConnection(
         name="postISRCCD",
         doc="Exposure to repair",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     outputExposure = OutputConnection(
         name="calexp",
         doc="Repaired exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
 

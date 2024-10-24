@@ -33,11 +33,11 @@ __all__ = (
 
 class ProfilesFitDetectorMapConnections(
     MeasureDetectorMapConnections,
-    dimensions=("instrument", "exposure", "arm", "spectrograph", "profiles_group"),
+    dimensions=("instrument", "visit", "arm", "spectrograph", "profiles_group"),
 ):
     """Connections for ProfilesFitDetectorMapTask"""
     data = PrerequisiteConnection(
-        name="profiles_exposures",
+        name="profiles_visits",
         doc="List of bright and dark exposures",
         storageClass="StructuredDataDict",
         dimensions=("instrument", "profiles_group"),
@@ -75,7 +75,7 @@ class ProfilesFitDetectorMapTask(MeasureDetectorMapTask):
         data = butler.get(inputRefs.data)
         del inputRefs.data
 
-        if inputRefs.exposure.dataId["exposure"] in data["dark"]:
+        if inputRefs.exposure.dataId["visit"] in data["dark"]:
             return
 
         super().runQuantum(butler, inputRefs, outputRefs)
@@ -90,11 +90,11 @@ class ReduceProfilesConnections(
         name="calexp",
         doc="ISR-processed exposure",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     data = PrerequisiteConnection(
-        name="profiles_exposures",
+        name="profiles_visits",
         doc="List of bright and dark exposures",
         storageClass="StructuredDataDict",
         dimensions=("instrument", "profiles_group"),
@@ -103,14 +103,14 @@ class ReduceProfilesConnections(
         name="detectorMap",
         doc="Detector map",
         storageClass="DetectorMap",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
         multiple=True,
     )
 
@@ -219,7 +219,7 @@ class ReduceProfilesTask(PipelineTask):
         brightList = {}
         darkList = {}
         for ref in inputRefs.exposure:
-            expId = ref.dataId["exposure"]
+            expId = ref.dataId["visit"]
             if expId in darkIds:
                 darkList[expId] = butler.get(ref)
                 darkIds.remove(expId)
@@ -230,8 +230,8 @@ class ReduceProfilesTask(PipelineTask):
                 raise RuntimeError(f"Exposure {expId} not in bright or dark list")
         if brightIds or darkIds:
             raise RuntimeError(f"Unmatched bright or dark exposures: bright={brightIds}, dark={darkIds}")
-        pfsConfigList = {ref.dataId["exposure"]: butler.get(ref) for ref in inputRefs.pfsConfig}
-        detectorMapList = {ref.dataId["exposure"]: butler.get(ref) for ref in inputRefs.detectorMap}
+        pfsConfigList = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs.pfsConfig}
+        detectorMapList = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs.detectorMap}
 
         expId = min(brightList.keys())
 

@@ -13,20 +13,20 @@ from ..subtractSky2d import SubtractSky2dTask
 __all__ = ("FitSky2dTask",)
 
 
-class FitSky2dConnections(PipelineTaskConnections, dimensions=("instrument", "exposure", "arm")):
+class FitSky2dConnections(PipelineTaskConnections, dimensions=("instrument", "visit", "arm")):
     """Connections for FitSky2dTask"""
 
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     photometry = InputConnection(
         name="photometry",
         doc="Line measurements",
         storageClass="ArcLineSet",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -34,7 +34,7 @@ class FitSky2dConnections(PipelineTaskConnections, dimensions=("instrument", "ex
         name="sky2d",
         doc="2D sky subtraction model",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm"),
+        dimensions=("instrument", "visit", "arm"),
     )
 
     def __init__(self, *, config=None):

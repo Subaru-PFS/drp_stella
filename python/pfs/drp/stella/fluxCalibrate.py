@@ -163,45 +163,45 @@ def calibratePfsArm(
     return spectra
 
 
-class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
     """Connections for FluxCalibrateTask"""
 
     pfsMerged = InputConnection(
         name="pfsMerged",
         doc="Merged spectra from exposure",
         storageClass="PfsMerged",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsMergedLsf = InputConnection(
         name="pfsMergedLsf",
         doc="Line-spread function of merged spectra",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     references = InputConnection(
         name="pfsFluxReference",
         doc="Fit reference spectrum of flux standards",
         storageClass="PfsFluxReference",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
 
@@ -209,19 +209,19 @@ class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument"
         name="fluxCal",
         doc="Flux calibration model",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsCalibrated = OutputConnection(
         name="pfsCalibrated",
         doc="Flux-calibrated object spectrum",
         storageClass="PfsCalibratedSpectra",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsCalibratedLsf = OutputConnection(
         name="pfsCalibratedLsf",
         doc="Line-spread function for pfsCalibrated",
         storageClass="LsfDict",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
 

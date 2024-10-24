@@ -3,7 +3,6 @@ tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
     config:
-      connections.ccdExposure: raw.exposure
       connections.outputExposure: flatProc
       doWrite: True
       doBrighterFatter: False

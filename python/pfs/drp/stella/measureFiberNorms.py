@@ -35,7 +35,7 @@ class MeasureFiberNormsConnections(PipelineTaskConnections, dimensions=("instrum
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     fiberNorms = OutputConnection(
@@ -317,7 +317,7 @@ class MeasureFiberNormsTask(PipelineTask):
 
 
 class ExposureFiberNormsConnections(
-    MeasureFiberNormsConnections, dimensions=("instrument", "arm", "exposure")
+    MeasureFiberNormsConnections, dimensions=("instrument", "arm", "visit")
 ):
     """Pipeline connections for MeasureFiberNormsExposureTask
 
@@ -329,7 +329,7 @@ class ExposureFiberNormsConnections(
         name="fiberNorms",
         doc="Measured fiber normalisations",
         storageClass="PfsFiberNorms",
-        dimensions=("instrument", "arm", "exposure"),
+        dimensions=("instrument", "arm", "visit"),
     )
 
 
@@ -363,7 +363,7 @@ class ExposureFiberNormsTask(MeasureFiberNormsTask):
         """
         if self.config.requireQuartz:
             dataId = inputRefs.pfsArm[0].dataId
-            if dataId.records["exposure"].lamps != "Quartz":
+            if dataId.records["visit"].lamps != "Quartz":
                 self.log.info("Ignoring non-quartz exposure %s", dataId)
                 return  # Nothing to do
         return super().runQuantum(butler, inputRefs, outputRefs)

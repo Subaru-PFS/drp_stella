@@ -39,14 +39,14 @@ class BootstrapConnections(PipelineTaskConnections, dimensions=("instrument", "a
         name="postISRCCD",
         doc="ISR-processed exposures; there should be one arc and one quartz",
         storageClass="Exposure",
-        dimensions=("instrument", "exposure", "arm", "spectrograph"),
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
     pfsConfig = InputConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration; there should be one arc and one quartz",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
         multiple=True,
     )
 
@@ -160,19 +160,19 @@ class BootstrapTask(PipelineTask):
             return newRefList[0]
 
         arcExposure = chooseOne(
-            "exposure", lambda ref: ref.dataId.records["exposure"].lamps != "Quartz", "arc"
+            "exposure", lambda ref: ref.dataId.records["visit"].lamps != "Quartz", "arc"
         )
         quartzExposure = chooseOne(
-            "exposure", lambda ref: ref.dataId.records["exposure"].lamps == "Quartz", "quartz"
+            "exposure", lambda ref: ref.dataId.records["visit"].lamps == "Quartz", "quartz"
         )
-        arcId = arcExposure.dataId["exposure"]
-        quartzId = quartzExposure.dataId["exposure"]
-        arcConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["exposure"] == arcId, "arc")
-        quartzConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["exposure"] == quartzId, "quartz")
+        arcId = arcExposure.dataId["visit"]
+        quartzId = quartzExposure.dataId["visit"]
+        arcConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["visit"] == arcId, "arc")
+        quartzConfig = chooseOne("pfsConfig", lambda ref: ref.dataId["visit"] == quartzId, "quartz")
 
         dataId = arcExposure.dataId
         identity = CalibIdentity(
-            visit0=dataId["exposure"],
+            visit0=dataId["visit"],
             arm=dataId["arm"],
             spectrograph=dataId["spectrograph"],
             obsDate=str(dataId.timespan.begin),
