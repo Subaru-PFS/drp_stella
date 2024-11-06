@@ -6,7 +6,7 @@ tasks:
     class: pfs.drp.stella.cosmicray.CompareCosmicRayTask
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
-  fiberNorms:  # Produce residual fiberNorms for quartz exposures only
-    class: pfs.drp.stella.measureFiberNorms.ExposureFiberNormsTask
+    config:
+      requireAdjustDetectorMap: True
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask
