@@ -8,6 +8,7 @@ from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 from pfs.drp.stella.fitFocalPlane import FitFocalPlaneTask
 from pfs.drp.stella.fitFocalPlane import FitOversampledSplineTask
 from pfs.drp.stella.fitFocalPlane import FitBlockedOversampledSplineTask
+from pfs.drp.stella.utils.logging import getLogger
 
 from pfs.drp.stella.tests import runTests, classParameters
 
@@ -25,7 +26,7 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         self.noise = 3.21
         self.minWavelength = 500
         self.maxWavelength = 1000
-        self.rng = np.random.RandomState(12345)
+        self.rng = np.random.RandomState(123456789)
         self.actual = 0.1*(np.arange(self.length, dtype=float) - 0.5*self.length)
 
         identity = dict(visit=12345, arm="r", spectrograph=3)
@@ -87,7 +88,7 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
         config = self.Task.ConfigClass()
         for name in kwargs:
             setattr(config, name, kwargs[name])
-        task = self.Task(name="fit", config=config)
+        task = self.Task(name="fit", config=config, log=getLogger("pfs.drp.stella.tests"))
         return task.run(self.spectra, self.pfsConfig)
 
     def assertFunction(self, function: FocalPlaneFunction, nSigma: float = 4.0):
@@ -173,6 +174,7 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
 
         bad = self.getBadPixels(fracBad)
         self.spectra.flux[bad] += badValue
+        self.spectra.mask[bad] |= self.spectra.flags.add("REJECT_ME")
 
         func = self.fit()
         self.assertFunction(func)

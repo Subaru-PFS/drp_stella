@@ -177,6 +177,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             double const iNorm = result[ii]->getNorm()[yData];
             std::size_t numTracePixels = 0;
             std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), x0);
+            MaskT maskCore = 0;
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
                  xModel < std::size_t(iTrace.getWidth()) && xData < width;
                  ++xModel, ++xData) {
@@ -186,14 +187,16 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 MaskT const maskValue = dataMask(xData, yData);
                 ImageT const imageValue = dataImage(xData, yData);
                 VarianceT const varianceValue = dataVariance(xData, yData);
+                bool const isCore = modelValue > minFracMask;
+                if (isCore) {
+                    maskCore |= maskValue;
+                }
                 if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue) ||
                     varianceValue <= 0) {
-                    if (modelValue > minFracMask) {
-                        maskBadResult[ii] |= maskValue;
-                    }
+                    maskBadResult[ii] |= maskValue;
                     continue;
                 }
-                if (modelValue > minFracMask) {
+                if (isCore) {
                     maskResult[ii] |= maskValue;
                 }
                 double const m2 = std::pow(modelValue, 2);
@@ -202,6 +205,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 modelData += modelValue*imageValue;
                 sumModel += modelValue;
             }
+            maskBadResult[ii] |= maskCore;
 
             if (sumModel == 0.0 || numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
                 useTrace[ii] = false;
@@ -209,8 +213,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 diagonalWeighted[ii] = 1.0;
                 continue;
             } else if (sumModel < minFracImage) {
-                maskResult[ii] |= suspect;
-                maskBadResult[ii] |= suspect;
+                if (maskCore == 0) {
+                    // We need to give some indication of why it's suspect
+                    maskCore = maskBadResult[ii];
+                }
+                maskResult[ii] |= suspect | maskCore;
+                maskBadResult[ii] |= suspect | maskCore;
             }
 
             matrix.add(ii, ii, model2);

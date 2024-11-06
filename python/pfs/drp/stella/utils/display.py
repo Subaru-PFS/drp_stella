@@ -59,7 +59,7 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
 
 
 def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, labelLines=True,
-                          fiberIndex=None, fig=None, **kwargs):
+                          fiberIndex=None, fig=None, mask=None, cmap_bad=None, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object
 
     spec : `pfsArm` or `pfsMerged` or `pfsObject`
@@ -78,6 +78,12 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
        Only show this set of fibres; these are indices into spec, _not_ fiberId
     fig : `matplotlib.Figure`
        The figure to use; or ``None``
+    mask : iterable of `str`
+        Mask planes to flag.
+    cmap_bad : `str` or matplotlib colormap or `None`
+        Colormap to use for bad pixels. Choose one that doesn't clash with the
+        ``cmap`` used for good pixels. If `None`, bad pixels are not shown with
+        a different colormap.
     """
 
     if kwargs:
@@ -106,15 +112,18 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
     axs = []
     if lines:
         # 3 columns: image; colorbar; space for line labels
-        gs = fig.add_gridspec(2, 2, height_ratios=[1, 10], width_ratios=[15, 1], hspace=0.025, wspace=0.02)
+        gs = fig.add_gridspec(2, 3, height_ratios=[1, 10], width_ratios=[15, 1, 1], hspace=0.025, wspace=0.02)
         axs.append(fig.add_subplot(gs[0, 0]))
         axs.append(fig.add_subplot(gs[1, 0], sharex=axs[0]))
         axs.append(fig.add_subplot(gs[1, 1], sharey=axs[0]))  # for colorbar
+        axs.append(fig.add_subplot(gs[1, 2], sharey=axs[0]))  # for bad colorbar
 
         mainAx = axs[1]
         cax = axs[2]                    # steal colorbar from here
+        caxBad = axs[3]
 
         cax.set_visible(False)
+        caxBad.set_visible(False)
 
         plt.sca(axs[1])
     else:
@@ -124,35 +133,60 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
 
         mainAx = axs[0]
         cax = None
+        caxBad = None
 
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
 
     flux = spec.flux
     fiberId = spec.fiberId
-    mask = spec.mask
+    maskArray = spec.mask
     wavelength = spec.wavelength
+    if cmap_bad:
+        if mask:
+            isBad = (maskArray & spec.flags.get(*mask)) != 0
+        else:
+            isBad = maskArray != 0
+    else:
+        isBad = np.zeros_like(flux, dtype=bool)
 
     if fiberIndex is not None and len(fiberIndex) != 0:
         flux = flux[fiberIndex]
         fiberId = fiberId[fiberIndex]
-        mask = mask[fiberIndex]
+        maskArray = maskArray[fiberIndex]
         wavelength = wavelength[fiberIndex]
 
-    imshown = plt.imshow(flux, aspect='auto', origin='lower', interpolation='none',
-                         extent=(lam0, lam1, -0.5, flux.shape[0] - 1 + 0.5), **kwargs)
+    imshowKwargs = dict(
+        aspect='auto',
+        origin='lower',
+        interpolation='none',
+        extent=(lam0, lam1, -0.5, flux.shape[0] - 1 + 0.5),
+    )
 
+    imshownGood = plt.imshow(flux, **imshowKwargs, alpha=np.where(isBad, 0.0, 1.0), **kwargs)
+    if cmap_bad:
+        imshownBad = plt.imshow(
+            flux, **imshowKwargs, alpha=np.where(isBad, 1.0, 0.0), cmap=cmap_bad, **kwargs
+        )
+        if caxBad:
+            plt.colorbar(imshownBad, ax=caxBad, fraction=1, label="Flux (bad pixels)")
+        else:
+            plt.colorbar(imshownBad, label="Flux (bad pixels)")
+
+    colorbarLabel = "Flux" + (" (good pixels)" if cmap_bad is not None else "")
     if cax:
-        plt.colorbar(imshown, ax=cax, fraction=1)
+        plt.colorbar(imshownGood, ax=cax, fraction=1, label=colorbarLabel)
     else:
-        plt.colorbar(imshown)
+        plt.colorbar(imshownGood, label=colorbarLabel)
 
     def format_coord(x, y):
         col = int(len(spec.wavelength[len(spec)//2])*(x - lam0)/(lam1 - lam0) + 0.5)
         row = int(y + 0.5)
+        if col < 0 or col > spec.length - 1 or row < 0 or row > len(spec.flux) - 1:
+            return "<out of bounds>"
 
         # \u03BB is $\lambda$
-        maskVal = mask[row][col]
+        maskVal = maskArray[row][col]
         maskDescrip = f"[{' '.join(spec.flags.interpret(maskVal))}]" if maskVal != 0 else ""
         return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm {maskDescrip}"
 
@@ -164,7 +198,7 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
         xlabel = "wavelength (nm)"
         # Only show wavelengths for which we have data; especially interesting
         # if we only merged e.g. b and r
-        have_data = np.sum((mask & spec.flags["NO_DATA"]) == 0, axis=0)
+        have_data = np.sum((maskArray & spec.flags["NO_DATA"]) == 0, axis=0)
         ll = np.where(have_data > 0, spec.wavelength[0], np.NaN)
         plt.xlim(np.nanmin(ll), np.nanmax(ll))
     else:

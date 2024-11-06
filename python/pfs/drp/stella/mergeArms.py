@@ -102,7 +102,8 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
                                     doc="Fit sky model over the focal plane")
-    mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT"], doc="Mask values to reject when combining")
+    mask = ListField(dtype=str, default=["NO_DATA"], doc="Mask values to reject when combining")
+    suspect = ListField(dtype=str, default=["SUSPECT"], doc="Mask values to allow if we're desperate")
     pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
     if not, the values 0x666 and 0 are used.""")
@@ -455,7 +456,7 @@ class MergeArmsTask(PipelineTask):
         wavelength = self.config.wavelength.wavelength
         resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
-        combination = combineSpectraSets(resampled, flags, self.config.mask)
+        combination = combineSpectraSets(resampled, flags, self.config.mask, self.config.suspect)
 
         notes = PfsMerged.NotesClass.empty(len(archetype))
         for name in self.config.notesCopyFirst:
