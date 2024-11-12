@@ -7,7 +7,7 @@ import psycopg2
 import warnings
 
 import astropy.io.fits
-import lsst.afw.fits
+# import lsst.afw.fits
 
 from pfs.datamodel.utils import astropyHeaderFromDict
 from pfs.utils.coordinates.transform import makePfiTransform

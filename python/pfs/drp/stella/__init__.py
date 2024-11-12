@@ -1,9 +1,4 @@
-try:
-    from .version import *
-except ImportError:
-    print("WARNING: unable to import version.py in drp_stella; did you build with scons?")
-    __version__ = "unknown"
-
+import pfs.drp.stella.gen2  # noqa: create dummy Gen2 middleware classes
 import pfs.drp.stella.astropyFix  # noqa: monkey-patch astropy's lazyproperty to avoid deadlocks
 import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
 from .datamodel import *
