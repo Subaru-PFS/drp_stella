@@ -38,8 +38,7 @@ from .utils import debugging
 from .utils.polynomialND import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
-from typing import Callable, Iterable
-from typing import Dict, List, Optional, Tuple, Union
+from collections.abc import Callable, Iterable
 from typing import Literal
 
 __all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
@@ -50,7 +49,7 @@ class MinimizationMonitor:
 
     Parameters
     ----------
-    objective : `Callable[[np.ndarray], float]`
+    objective : `Callable` [[`np.ndarray`], `float`]
         Objective function
     tol : `float`
         Tolerance. If stddev of objective's return values are less than
@@ -65,7 +64,7 @@ class MinimizationMonitor:
     objective: Callable[[np.ndarray], float]
     tol: float
     windowSize: int
-    log: Union[logging.Logger, None]
+    log: logging.Logger | None
 
     fun: float
     """The smallest objective value ever seen"""
@@ -85,7 +84,7 @@ class MinimizationMonitor:
         *,
         tol: float = -1,
         windowSize: int = 10,
-        log: Union[logging.Logger, None] = None,
+        log: logging.Logger | None = None,
     ) -> None:
         self.objective = objective
         self.tol = tol
@@ -174,9 +173,9 @@ class BroadbandFluxChi2:
         PFS fiber configuration.
     pfsMerged : `PfsMerged`
         Merged spectra.
-    broadbandFluxType : `Literal["fiber", "psf", "total"]`
+    broadbandFluxType : {"fiber", "psf", "total"}
         Type of broadband flux to use.
-    badMask : `List[str]`
+    badMask : `list` [`str`]
         Mask planes for bad pixels.
     smoothFilterWidth : `float`
         Width (nm) of smoothing filter.
@@ -191,14 +190,14 @@ class BroadbandFluxChi2:
         pfsConfig: PfsConfig,
         pfsMerged: PfsMerged,
         broadbandFluxType: Literal["fiber", "psf", "total"],
-        badMask: List[str],
+        badMask: list[str],
         smoothFilterWidth: float,
-        log: Optional[logging.Logger],
+        log: logging.Logger | None,
     ) -> None:
         self.log = log
         self.badMask = badMask
 
-        self.obsSpectra: Dict[int, PfsSingle] = {
+        self.obsSpectra: dict[int, PfsSingle] = {
             fiberId: pfsMerged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in pfsConfig.fiberId
         }
 
@@ -214,9 +213,9 @@ class BroadbandFluxChi2:
         else:
             raise ValueError(f"`broadbandFluxType` must be one of fiber|psf|total. ('{broadbandFluxType}')")
 
-        self.arms: Dict[int, str] = getExistentArms(pfsMerged)
+        self.arms: dict[int, str] = getExistentArms(pfsMerged)
 
-        self.bbFlux: Dict[int, List[Tuple[float, float, str]]] = {
+        self.bbFlux: dict[int, list[tuple[float, float, str]]] = {
             fiberId: list(zip(bbFlux, bbFluxErr, filterNames))
             for fiberId, bbFlux, bbFluxErr, filterNames in zip(
                 pfsConfig.fiberId, bbFluxList, bbFluxErrList, pfsConfig.filterNames
@@ -244,8 +243,8 @@ class BroadbandFluxChi2:
                     mode="reflect",
                 )
 
-        self.fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
-        self._filterCurves: Dict[str, FilterCurve] = {}
+        self.fiberIdToPhotometries: dict[int, list[PhotometryPair]] = {}
+        self._filterCurves: dict[str, FilterCurve] = {}
 
     def __call__(self, fiberId: np.ndarray, fluxCalib: np.ndarray, *, l1=False, save=False) -> float:
         """Compute chi^2.
@@ -271,7 +270,7 @@ class BroadbandFluxChi2:
         """
         lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
-        fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
+        fiberIdToPhotometries: dict[int, list[PhotometryPair]] = {}
 
         for fId, calib in zip(fiberId, fluxCalib):
             spectrum = self.obsSpectra[fId]
@@ -301,7 +300,7 @@ class BroadbandFluxChi2:
             calib = calib[isGood]
 
             calibrated /= calib
-            photometries: List[PhotometryPair] = []
+            photometries: list[PhotometryPair] = []
 
             for bbFlux, bbFluxErr, filterName in self.bbFlux[fId]:
                 if np.isfinite(bbFlux) and bbFluxErr > 0:
@@ -445,7 +444,7 @@ class BroadbandFluxChi2:
         return instance
 
     def _addressAbsentArms(
-        self, spectrum: PfsSingle, bbFlux: List[Tuple[float, float, str]], arms: str
+        self, spectrum: PfsSingle, bbFlux: list[tuple[float, float, str]], arms: str
     ) -> None:
         """Address the problem arising from absent arms (see PIPE2D-1427).
 
@@ -463,7 +462,7 @@ class BroadbandFluxChi2:
         ----------
         spectrum : `PfsSingle`
             Spectrum.
-        bbFlux : `List[Tuple[float, float, str]]`
+        bbFlux : `list` [`tuple` [`float`, `float`, `str`]]
             Broadband fluxes. Each element of the list is a tuple of
             ``(flux, fluxErr, filterName)``
         arms : `str`
@@ -542,7 +541,7 @@ class BroadbandFluxChi2:
 
         Returns
         -------
-        lossFunc : `Callable[[float], float]`
+        lossFunc : `Callable` [[`float`], `float`]
             loss function.
         """
         if l1:
@@ -600,10 +599,10 @@ def fitFluxCalibToArrays(
     polyOrder: int,
     polyWavelengthDependent: bool,
     fitPrecisely: bool,
-    scales: Optional[np.ndarray],
+    scales: np.ndarray | None,
     bbChi2: BroadbandFluxChi2,
     tol: float,
-    log: Optional[logging.Logger],
+    log: logging.Logger | None,
     **kwargs,
 ) -> "FluxCalib":
     """Fit `FluxCalib` to arrays
@@ -802,7 +801,7 @@ def fitFluxCalibToArrays(
     return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
 
 
-def getExistentArms(pfsMerged: PfsMerged) -> Dict[int, str]:
+def getExistentArms(pfsMerged: PfsMerged) -> dict[int, str]:
     """Get the set of arms, per fiber, that were present when ``pfsMerged``
     was observed.
 
@@ -817,11 +816,11 @@ def getExistentArms(pfsMerged: PfsMerged) -> Dict[int, str]:
 
     Returns
     -------
-    arms : `Dict[int, str]`
+    arms : `dict` [`int`, `str`]
         Mapping from fiberId to one-letter arm names concatenated to be a
         string (e.g. "brn").
     """
-    arms: Dict[int, str] = {}
+    arms: dict[int, str] = {}
 
     if "NO_DATA" in pfsMerged.flags:
         noData = pfsMerged.flags.get("NO_DATA")
@@ -855,9 +854,9 @@ def getExistentArms(pfsMerged: PfsMerged) -> Dict[int, str]:
 
 def interpolateLinearly(
     spectrum: PfsSingle,
-    wlRange1: Tuple[float, float],
-    wlRange2: Tuple[float, float],
-    badMask: List[str],
+    wlRange1: tuple[float, float],
+    wlRange2: tuple[float, float],
+    badMask: list[str],
     mode: Literal["interpolate", "extrapolate-left", "extrapolate-right"],
 ) -> None:
     """Interpolate or extrapolate spectrum linearly.
@@ -870,13 +869,13 @@ def interpolateLinearly(
     ----------
     spectrum : `PfsSingle`
         Spectrum.
-    wlRange1 : `Tuple[float, float]`
+    wlRange1 : `tuple` [`float`, `float`]
         Wavelength range (nm) in which to compute ``flux1``.
-    wlRange2 : `Tuple[float, float]`
+    wlRange2 : `tuple` [`float`, `float`]
         Wavelength range (nm) in which to compute ``flux2``.
-    badMask : `List[str]`
+    badMask : `list` [`str`]
         Mask planes for bad pixels.
-    mode : `Literal["interpolate", "extrapolate-left", "extrapolate-right"]`
+    mode : {"interpolate", "extrapolate-left", "extrapolate-right"}
         If mode="interpolate", fluxes between ``wlRange1[1]`` and
         ``wlRange2[0]`` get replaced.
         If mode="extrapolate-left", fluxes on the left of `wlRange1[0]`` get
@@ -1023,7 +1022,7 @@ class FitFluxCalTask(PipelineTask):
         pfsMergedLsf: LsfDict,
         references: PfsFluxReference,
         pfsConfig: PfsConfig,
-        pfsArmList: List[PfsArm],
+        pfsArmList: list[PfsArm],
         sky1dList: Iterable[FluxCalib],
     ) -> Struct:
         """Measure and apply the flux calibration
@@ -1068,8 +1067,8 @@ class FitFluxCalTask(PipelineTask):
         selection &= ~pfsConfig.getSelection(targetType=TargetType.ENGINEERING)
         fiberId = pfsMerged.fiberId[np.isin(pfsMerged.fiberId, pfsConfig.fiberId[selection])]
 
-        pfsCalibrated: Dict[Target, PfsSingle] = {}
-        pfsCalibratedLsf: Dict[Target, Lsf] = {}
+        pfsCalibrated: dict[Target, PfsSingle] = {}
+        pfsCalibratedLsf: dict[Target, Lsf] = {}
         for ff in fiberId:
             extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
             extracted.fluxTable = self.fluxTable.run(
