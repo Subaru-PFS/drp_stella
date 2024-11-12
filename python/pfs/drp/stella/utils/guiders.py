@@ -453,6 +453,7 @@ def showAgcErrorsForVisits(agcData,
                            byTime=False,
                            yminmax=None,
                            figure=None,
+                           livePlot=None,
                            showLegend=True):
     """
     agcData: pandas DataFrame as returned by readAgcDataFromOpdb
@@ -460,8 +461,11 @@ def showAgcErrorsForVisits(agcData,
     yminmax: float Scale figures into +- yminmax (or 0, sqrt(2)*yminmax for rerror); or None
     figure:  matplotlib figure to use, or None
     """
-    fig, axs = plt.subplots(3, 1, num=figure, sharex=True, sharey=False, squeeze=False)
-    axs = axs.flatten()
+    if livePlot is None:
+        fig, axs = plt.subplots(3, 1, num=figure, sharex=True, sharey=False, squeeze=False)
+        axs = axs.flatten()
+    else:
+        fig, axs = livePlot.fig, livePlot.axs
 
     if pfs_visit_ids is not None:
         agcData = agcData[agcData.isin(dict(pfs_visit_id=pfs_visit_ids)).pfs_visit_id]
@@ -756,7 +760,8 @@ def rotXY(angle, x, y):
 def showGuiderErrors(agcData, config,
                      verbose=False,
                      agc_camera_ids=range(6),
-                     name=None):
+                     name=None,
+                     livePlot=None):
     """
     Show the guiders for the data in agcData
 
@@ -768,6 +773,12 @@ def showGuiderErrors(agcData, config,
     agc_camera_ids:  a list of 0-indexed cameras to display; default 0..5
     name:  a string to show in the header; or None
     """
+    if livePlot is not None:
+        plt.sca(livePlot.ax)
+        colorbar = livePlot.colorbar
+    else:
+        colorbar = None
+
     agc_exposure_ids = np.sort(agcData.agc_exposure_id.unique())
     #
     # Fix the mean guiding offset for each exposure?
@@ -986,10 +997,16 @@ def showGuiderErrors(agcData, config,
                                 c=tmp.agc_exposure_id, cmap=config.agc_exposure_cm)
 
     if S is not None:
-        a = S.get_alpha()
-        S.set_alpha(1)
-        plt.colorbar(S).set_label("agc_exposure_id")
-        S.set_alpha(a)
+        if colorbar is None:
+            a = S.get_alpha()
+            S.set_alpha(1)
+            colorbar = plt.colorbar(S).set_label("agc_exposure_id")
+            S.set_alpha(a)
+        else:
+            colorbar.update_normal(S)
+
+        if livePlot:
+            livePlot.colorbar = colorbar
 
     if Q is not None:
         qlen = config.guideErrorEstimate   # microns
@@ -1097,7 +1114,7 @@ def showGuiderErrorsByParams(agcData, guideErrorByCamera, params, config, figure
     plt.suptitle(config.make_title(agcData, name), y=1.0)
 
 
-def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
+def showTelescopeErrors(agcData, config, showTheta=False, figure=None, livePlot=None):
     """
     """
     agc_ring_R = np.mean(np.hypot(*np.array(list(agcCameraCenters.values())).T))  # Approx. radius of AGs
@@ -1119,9 +1136,12 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
     dy = guide_delta_azimuth
     theta = guide_delta_insrot
 
-    nx, ny = 2, 2
-    fig, axs = plt.subplots(nx, ny, num=figure, sharex=False, sharey=False, squeeze=False)
-    axs = axs.flatten()
+    if livePlot is None:
+        nx, ny = 2, 2
+        fig, axs = plt.subplots(nx, ny, num=figure, sharex=False, sharey=False, squeeze=False)
+        axs = axs.flatten()
+    else:
+        fig, axs = livePlot
 
     for i, ax in enumerate(axs):
         plt.sca(ax)
