@@ -439,7 +439,7 @@ class GuiderConfig:
                  pfs_visitIdMax=0,
                  agc_exposure_idMin=0,
                  agc_exposure_idMax=0,
-                 agc_exposure_cm=plt.matplotlib.cm.get_cmap("viridis"),
+                 agc_exposure_cm=plt.get_cmap("viridis"),
                  showByVisitSize=5,
                  showByVisitAlpha=1):
         """
@@ -1021,8 +1021,8 @@ def showTelescopeErrors(agcData, config, showTheta=False, figure=None):
                 plt.colorbar(S, shrink=shrink).set_label("agc_exposure_id")
                 ax.set_facecolor('black')
 
-                ax.get_shared_x_axes().join(ax, axs[0])
-                ax.get_shared_y_axes().join(ax, axs[0])
+                axs[0].sharex(ax)
+                axs[0].sharey(ax)
 
             plt.gca().set_aspect(1)
             plt.xlabel(r"$\delta$alt (asec)")
