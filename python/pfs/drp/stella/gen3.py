@@ -912,3 +912,100 @@ def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> Da
         dtype = universe[key].primaryKey.dtype().python_type
         coord[key] = dtype(value)
     return DataCoordinate.standardize(coord, universe=universe)
+
+
+def defineVisitGroup(
+    repo: str,
+    instrument: str,
+    where: Optional[str] = None,
+    visitList: Optional[List[int]] = None,
+    update: bool = False,
+) -> List[int]:
+    """Define a group of visits
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting visits.
+    visitList : list of `int`, optional
+        List of visit numbers to include in the group. If the ``where``
+        clause is provided, this list is used to further restrict the selection.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+
+    Returns
+    -------
+    visitList : list of `int`
+        List of visit numbers in the group.
+    """
+    if not where and not visitList:
+        raise ValueError("Must provide at least one of 'where' and 'visitList'")
+    bind = None
+    if visitList:
+        add = "visit IN (visitList)"
+        bind = dict(visitList=visitList)
+        if where is None:
+            where = add
+        else:
+            where = f"({where}) AND {add}"
+
+    log = getLogger("pfs.defineVisitGroup")
+    butler = Butler(repo, writeable=True)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    query = registry.queryDimensionRecords("visit", where=where, bind=bind, instrument=instrumentName)
+    data = sorted(query, key=lambda row: row.id)
+    if not data:
+        log.warn("No visits found.")
+        return []
+    visitList = [row.id for row in data]
+
+    group = visitList[0]  # Use the first visit as the group identifier
+    log.info("Defining visit group %d for visits: %s", group, visitList)
+
+    def takeFirst(attr):
+        """Take the first value, but warn if there are multiple
+
+        Parameters
+        ----------
+        attr : `str`
+            Attribute name.
+
+        Returns
+        -------
+        value : `Any`
+            Value of the attribute.
+        """
+        values = set(getattr(row, attr) for row in data)
+        first = getattr(data[0], attr)
+        if len(values) != 1:
+            log.warn("Multiple %s found (%s); using %s", attr, values, first)
+        return first
+
+    groupData = dict(instrument=instrument, id=group)
+    groupData["day_obs"] = min(row.day_obs for row in data)
+    groupData["seq_num"] = min(row.seq_num for row in data)
+    groupData["exposure_time"] = sum(row.exposure_time for row in data)
+    groupData["target_name"] = takeFirst("target_name")
+    groupData["observation_reason"] = takeFirst("observation_reason")
+    groupData["science_program"] = takeFirst("science_program")
+    groupData["zenith_angle"] = np.average([row.zenith_angle for row in data])
+
+    with registry.transaction():
+        registry.syncDimensionData(
+            "visit_group", dict(**groupData), update=update
+        )
+        for visit in visitList:
+            registry.syncDimensionData(
+                "visit_group_join",
+                dict(instrument=instrument, visit_group=group, visit=visit),
+                update=update,
+            )
+
+    return visitList

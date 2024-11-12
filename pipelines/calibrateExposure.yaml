@@ -2,10 +2,6 @@ description: Reduce and calibrate exposure
 imports:
   - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
 tasks:
-  reduceExposure:  # Overriding configuration parameters
-    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
-    config:
-      requireAdjustDetectorMap: True
   fitPfsFluxReference:
     class: pfs.drp.stella.fitPfsFluxReference.FitPfsFluxReferenceTask
   fitFluxCal:
