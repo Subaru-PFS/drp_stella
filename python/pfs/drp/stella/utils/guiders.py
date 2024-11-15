@@ -465,7 +465,7 @@ def showAgcErrorsForVisits(agcData,
         fig, axs = plt.subplots(3, 1, num=figure, sharex=True, sharey=False, squeeze=False)
         axs = axs.flatten()
     else:
-        fig, axs = livePlot.fig, livePlot.axes
+        fig, axs = livePlot.fig, livePlot.axes[:3]
 
     if pfs_visit_ids is not None:
         agcData = agcData[agcData.isin(dict(pfs_visit_id=pfs_visit_ids)).pfs_visit_id]
@@ -763,7 +763,7 @@ def showGuiderErrors(agcData, config,
     name:  a string to show in the header; or None
     """
     if livePlot is not None:
-        fig, ax, colorbar = livePlot.fig, livePlot.axes[0], livePlot.colorbar
+        fig, ax, colorbar = livePlot.fig, livePlot.axes[-1], livePlot.colorbar
     else:
         colorbar = None
 
