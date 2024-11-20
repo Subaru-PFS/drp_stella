@@ -5,6 +5,7 @@ import math
 
 from astropy import constants as const
 import numpy as np
+from scipy.ndimage import median_filter
 from scipy.optimize import minimize
 
 import lsstDebug
@@ -177,6 +178,10 @@ class BroadbandFluxChi2:
         Type of broadband flux to use.
     badMask : `List[str]`
         Mask planes for bad pixels.
+    smoothFilterWidth : `float`
+        Width (nm) of smoothing filter.
+        (A copy of) ``pfsMerged`` will be made smooth with this filter.
+        Disabled if it is zero or negative.
     log : `logging.Logger`, optional
         Logger.
     """
@@ -187,6 +192,7 @@ class BroadbandFluxChi2:
         pfsMerged: PfsMerged,
         broadbandFluxType: Literal["fiber", "psf", "total"],
         badMask: List[str],
+        smoothFilterWidth: float,
         log: Optional[logging.Logger],
     ) -> None:
         self.log = log
@@ -218,7 +224,25 @@ class BroadbandFluxChi2:
         }
 
         for fiberId in pfsConfig.fiberId:
-            self._addressAbsentArms(self.obsSpectra[fiberId], self.bbFlux[fiberId], self.arms[fiberId])
+            spectrum = self.obsSpectra[fiberId]
+            self._addressAbsentArms(spectrum, self.bbFlux[fiberId], self.arms[fiberId])
+
+            wavelenPerPix = np.nanmedian(spectrum.wavelength[1:] - spectrum.wavelength[:-1])
+            filterWidthInPix = 2 * int(round(smoothFilterWidth / (2 * wavelenPerPix) - 0.5)) + 1
+            if filterWidthInPix > 1:
+                # We modify only `flux` member, and we don't touch `covar`.
+                # It won't be a problem because we are only interested in the
+                # integral of `flux` and the integral's error bar.
+                # The integral's theoretical statistical error won't change
+                # much when we apply a median filter to `flux` here.
+                # Furthermore, if we were to correct the variance layer here,
+                # the computed error bar would be very bad because of loss of
+                # off-diagonal covariances.
+                spectrum.flux[:] = median_filter(
+                    spectrum.flux,
+                    size=filterWidthInPix,
+                    mode="reflect",
+                )
 
         self.fiberIdToPhotometries: Dict[int, List[PhotometryPair]] = {}
         self._filterCurves: Dict[str, FilterCurve] = {}
@@ -964,6 +988,12 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         default="psf",
         optional=False,
     )
+    smoothFilterWidth = Field(
+        dtype=float,
+        default=1.0,
+        doc="Width of smoothing filter (median filter) applied to spectra"
+        " before they are used to compute broadband photometry [nm].",
+    )
     minimizationTolerance = Field(
         dtype=float,
         default=1e-6,
@@ -1219,6 +1249,7 @@ class FitFluxCalTask(PipelineTask):
             fluxStdMerged,
             self.config.broadbandFluxType,
             self.config.badMask,
+            self.config.smoothFilterWidth,
             self.log,
         )
         return self.fitFocalPlane.run(
