@@ -1,7 +1,9 @@
 from collections import defaultdict
+import contextlib
 import dataclasses
 import logging
 import math
+import warnings
 
 from astropy import constants as const
 import numpy as np
@@ -38,7 +40,7 @@ from .utils import debugging
 from .utils.polynomialND import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 from typing import Literal
 
 __all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
@@ -224,8 +226,6 @@ class BroadbandFluxChi2:
 
         for fiberId in pfsConfig.fiberId:
             spectrum = self.obsSpectra[fiberId]
-            self._addressAbsentArms(spectrum, self.bbFlux[fiberId], self.arms[fiberId])
-
             wavelenPerPix = np.nanmedian(spectrum.wavelength[1:] - spectrum.wavelength[:-1])
             filterWidthInPix = 2 * int(round(smoothFilterWidth / (2 * wavelenPerPix) - 0.5)) + 1
             if filterWidthInPix > 1:
@@ -443,6 +443,55 @@ class BroadbandFluxChi2:
             instance = self._filterCurves[filterName] = FilterCurve(filterName)
         return instance
 
+    @contextlib.contextmanager
+    def temporarilyCalibrateFlux(
+        self, fiberId: np.ndarray, fluxCalib: np.ndarray
+    ) -> Generator[None, None, None]:
+        """Divide observed spectra of flux standards by a calibration vector
+        temporarily.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            List of fiber IDs.
+        fluxCalib : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Flux calibration vector, such that (observed flux) / (fluxCalib)
+            will be a calibrated flux.
+        """
+        originalObsSpectra = dict(self.obsSpectra)
+        originalBBFlux = dict(self.bbFlux)
+
+        for fId, calib in zip(fiberId, fluxCalib):
+            bbFlux = list(self.bbFlux[fId])
+
+            spectrum = self.obsSpectra[fId]
+            spectrum = PfsSingle(
+                spectrum.target,
+                spectrum.observations,
+                spectrum.wavelength,
+                np.copy(spectrum.flux),
+                np.copy(spectrum.mask),
+                np.copy(spectrum.sky),
+                np.copy(spectrum.covar),
+                np.copy(spectrum.covar2),
+                spectrum.flags,
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                spectrum /= calib
+
+            self._addressAbsentArms(spectrum, bbFlux, self.arms[fId])
+
+            self.bbFlux[fId] = bbFlux
+            self.obsSpectra[fId] = spectrum
+
+        try:
+            yield
+        finally:
+            self.bbFlux = originalBBFlux
+            self.obsSpectra = originalObsSpectra
+
     def _addressAbsentArms(
         self, spectrum: PfsSingle, bbFlux: list[tuple[float, float, str]], arms: str
     ) -> None:
@@ -461,7 +510,7 @@ class BroadbandFluxChi2:
         Parameters
         ----------
         spectrum : `PfsSingle`
-            Spectrum.
+            Spectrum. Must be flux-calibrated, at least roughly.
         bbFlux : `list` [`tuple` [`float`, `float`, `str`]]
             Broadband fluxes. Each element of the list is a tuple of
             ``(flux, fluxErr, filterName)``
@@ -667,138 +716,143 @@ def fitFluxCalibToArrays(
 
     averageCalibVector = constantFocalPlaneFunction.evaluate(wavelengths, fiberId, positions).values
 
-    # Save to `bbChi2` the result of photometries with the use of this
-    # average flux calibration vector.
-    bbChi2(fiberId, averageCalibVector, save=True)
+    with bbChi2.temporarilyCalibrateFlux(fiberId, averageCalibVector):
+        # Because we have already divided the observed flux by `averageCalibVector`
+        # we reset the divider to 1.0
+        averageCalibVector = np.ones_like(averageCalibVector)
 
-    posMin = np.min(positions, axis=(0,))
-    posMax = np.max(positions, axis=(0,))
-    wlMin = wavelengths[0, 0]
-    wlMax = wavelengths[0, -1]
-    polyMin = np.array(list(posMin) + [wlMin], dtype=float)
-    polyMax = np.array(list(posMax) + [wlMax], dtype=float)
+        # Save to `bbChi2` the result of photometries with the use of this
+        # average flux calibration vector.
+        bbChi2(fiberId, averageCalibVector, save=True)
 
-    # First, fit a function independent of \lambda.
-    def objective1(params: np.ndarray) -> float:
-        """Objective function to minimize.
+        posMin = np.min(positions, axis=(0,))
+        posMax = np.max(positions, axis=(0,))
+        wlMin = wavelengths[0, 0]
+        wlMax = wavelengths[0, -1]
+        polyMin = np.array(list(posMin) + [wlMin], dtype=float)
+        polyMax = np.array(list(posMax) + [wlMax], dtype=float)
 
-        Parameters
-        ----------
-        params : `numpy.ndarray`
-            Parameters of `NormalizedPolynomialND`.
+        # First, fit a function independent of \lambda.
+        def objective1(params: np.ndarray) -> float:
+            """Objective function to minimize.
 
-        Returns
-        -------
-        objective : `float`
-            Objective.
-        """
-        poly = NormalizedPolynomialND(params, posMin, posMax)
-        scales = np.exp(poly(positions))
-        return bbChi2.rescaleFluxCalib(fiberId, scales, l1=robust)
+            Parameters
+            ----------
+            params : `numpy.ndarray`
+                Parameters of `NormalizedPolynomialND`.
 
-    monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
-    params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
+            Returns
+            -------
+            objective : `float`
+                Objective.
+            """
+            poly = NormalizedPolynomialND(params, posMin, posMax)
+            scales = np.exp(poly(positions))
+            return bbChi2.rescaleFluxCalib(fiberId, scales, l1=robust)
 
-    if log is not None:
-        log.debug("Start phase-1 fitting...")
+        monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
+        params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
 
-    try:
-        result = minimize(objective1, params, callback=monitor1)
-        # TBD: Should we test whether minimization has succeeded?
-        params = result.x
-    except StopIteration:
-        # With old scipy, `StopIteration` raised by ``callback``
-        # is not caught by ``minimize()``. So we catch it for ourselves.
-        params = monitor1.x
+        if log is not None:
+            log.debug("Start phase-1 fitting...")
 
-    params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+        try:
+            result = minimize(objective1, params, callback=monitor1)
+            # TBD: Should we test whether minimization has succeeded?
+            params = result.x
+        except StopIteration:
+            # With old scipy, `StopIteration` raised by ``callback``
+            # is not caught by ``minimize()``. So we catch it for ourselves.
+            params = monitor1.x
 
-    if not polyWavelengthDependent:
+        params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+
+        if not polyWavelengthDependent:
+            return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
+        # Second, fit a function dependent on \lambda, with approximate chi^2.
+
+        # Low resolution wavelength at which to evaluate the fitted polynomial.
+        lowResWL = np.linspace(wlMin, wlMax, num=int(round(wlMax - wlMin)))
+        # List of (x, y, lam) at which to evaluate the fitted polynomial.
+        polyArgs = np.empty(shape=(len(fiberId), len(lowResWL), 3), dtype=float)
+        polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
+        polyArgs[:, :, 2] = lowResWL.reshape(1, -1)
+
+        def objective2(params: np.ndarray) -> float:
+            """Objective function to minimize.
+
+            Parameters
+            ----------
+            params : `numpy.ndarray`
+                Parameters of `NormalizedPolynomialND`.
+
+            Returns
+            -------
+            objective : `float`
+                Objective.
+            """
+            poly = NormalizedPolynomialND(params, polyMin, polyMax)
+            scales = np.exp(poly(polyArgs))
+            return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2], l1=robust)
+
+        monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
+        if log is not None:
+            log.debug("Start phase-2 fitting...")
+
+        try:
+            result = minimize(objective2, params, callback=monitor2)
+            # TBD: Should we test whether minimization has succeeded?
+            params = result.x
+        except StopIteration:
+            # With old scipy, `StopIteration` raised by ``callback``
+            # is not caught by ``minimize()``. So we catch it for ourselves.
+            params = monitor2.x
+
+        if robust or not fitPrecisely:
+            # Phase-3 takes time. We skip it unless this is the last lap of
+            # a clipping loop (when robust=True), or unless fitPrecisely=True.
+            return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
+
+        # Third, fit a function dependent on \lambda, with accurate chi^2.
+
+        # List of (x, y, lam) at which to evaluate the fitted polynomial.
+        polyArgs = np.empty(shape=values.shape + (3,), dtype=float)
+        polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
+        polyArgs[:, :, 2] = wavelengths
+
+        def objective3(params: np.ndarray) -> float:
+            """Objective function to minimize.
+
+            Parameters
+            ----------
+            params : `numpy.ndarray`
+                Parameters of `NormalizedPolynomialND`.
+
+            Returns
+            -------
+            objective : `float`
+                Objective.
+            """
+            poly = NormalizedPolynomialND(params, polyMin, polyMax)
+            fluxCalib = np.exp(poly(polyArgs))
+            fluxCalib *= averageCalibVector
+            return bbChi2(fiberId, fluxCalib, l1=robust)
+
+        monitor3 = MinimizationMonitor(objective3, tol=tol, log=log)
+        if log is not None:
+            log.debug("Start phase-3 fitting...")
+
+        try:
+            result = minimize(objective3, params, callback=monitor3)
+            # TBD: Should we test whether minimization has succeeded?
+            params = result.x
+        except StopIteration:
+            # With old scipy, `StopIteration` raised by ``callback``
+            # is not caught by ``minimize()``. So we catch it for ourselves.
+            params = monitor3.x
+
         return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
-
-    # Second, fit a function dependent on \lambda, with approximate chi^2.
-
-    # Low resolution wavelength at which to evaluate the fitted polynomial.
-    lowResWL = np.linspace(wlMin, wlMax, num=int(round(wlMax - wlMin)))
-    # List of (x, y, lam) at which to evaluate the fitted polynomial.
-    polyArgs = np.empty(shape=(len(fiberId), len(lowResWL), 3), dtype=float)
-    polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
-    polyArgs[:, :, 2] = lowResWL.reshape(1, -1)
-
-    def objective2(params: np.ndarray) -> float:
-        """Objective function to minimize.
-
-        Parameters
-        ----------
-        params : `numpy.ndarray`
-            Parameters of `NormalizedPolynomialND`.
-
-        Returns
-        -------
-        objective : `float`
-            Objective.
-        """
-        poly = NormalizedPolynomialND(params, polyMin, polyMax)
-        scales = np.exp(poly(polyArgs))
-        return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2], l1=robust)
-
-    monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
-    if log is not None:
-        log.debug("Start phase-2 fitting...")
-
-    try:
-        result = minimize(objective2, params, callback=monitor2)
-        # TBD: Should we test whether minimization has succeeded?
-        params = result.x
-    except StopIteration:
-        # With old scipy, `StopIteration` raised by ``callback``
-        # is not caught by ``minimize()``. So we catch it for ourselves.
-        params = monitor2.x
-
-    if robust or not fitPrecisely:
-        # Phase-3 takes time. We skip it unless this is the last lap of
-        # a clipping loop (when robust=True), or unless fitPrecisely=True.
-        return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
-
-    # Third, fit a function dependent on \lambda, with accurate chi^2.
-
-    # List of (x, y, lam) at which to evaluate the fitted polynomial.
-    polyArgs = np.empty(shape=values.shape + (3,), dtype=float)
-    polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
-    polyArgs[:, :, 2] = wavelengths
-
-    def objective3(params: np.ndarray) -> float:
-        """Objective function to minimize.
-
-        Parameters
-        ----------
-        params : `numpy.ndarray`
-            Parameters of `NormalizedPolynomialND`.
-
-        Returns
-        -------
-        objective : `float`
-            Objective.
-        """
-        poly = NormalizedPolynomialND(params, polyMin, polyMax)
-        fluxCalib = np.exp(poly(polyArgs))
-        fluxCalib *= averageCalibVector
-        return bbChi2(fiberId, fluxCalib, l1=robust)
-
-    monitor3 = MinimizationMonitor(objective3, tol=tol, log=log)
-    if log is not None:
-        log.debug("Start phase-3 fitting...")
-
-    try:
-        result = minimize(objective3, params, callback=monitor3)
-        # TBD: Should we test whether minimization has succeeded?
-        params = result.x
-    except StopIteration:
-        # With old scipy, `StopIteration` raised by ``callback``
-        # is not caught by ``minimize()``. So we catch it for ourselves.
-        params = monitor3.x
-
-    return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
 
 
 def getExistentArms(pfsMerged: PfsMerged) -> dict[int, str]:
