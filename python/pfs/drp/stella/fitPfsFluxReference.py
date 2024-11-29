@@ -169,6 +169,12 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         default="psf",
         optional=False,
     )
+    fabricatedBroadbandFluxErrSNR = Field(
+        dtype=float,
+        default=0,
+        doc="If positive, fabricate flux errors in pfsConfig if all of them are NaN"
+        " (for old engineering data). The fabricated flux errors are such that S/N is this much.",
+    )
     minTeff = Field(
         doc="FLUXSTD target gets fitted only if effective temperature, in K, from broadband fluxes"
         " is above this value.",
@@ -362,6 +368,8 @@ class FitPfsFluxReferenceTask(PipelineTask):
         pfsConfig = pfsConfig.select(targetType=TargetType.FLUXSTD)
         originalFiberId = np.copy(pfsConfig.fiberId)
         fitFlag: dict[int, int] = {}  # mapping fiberId -> flag indicating fit status
+
+        removeBadFluxes(pfsConfig, self.config.broadbandFluxType, self.config.fabricatedBroadbandFluxErrSNR)
 
         self.log.info("Number of FLUXSTD: %d", len(pfsConfig))
 
@@ -1899,6 +1907,93 @@ def isMidResolution(pfsMerged: PfsMerged) -> bool:
     # into `pfsMerged`, in contrast to `pfsConfig.arms`. The latter comes from
     # `pfsDesign`.
     return "m" in pfsMerged.identity.arm
+
+
+def removeBadFluxes(
+    pfsConfig: PfsConfig,
+    fluxType: Literal["fiber", "psf", "total"],
+    fluxSNR: float,
+) -> None:
+    """Remove bad fluxes (fiberFlux, psfFlux, totalFlux) from ``pfsConfig``.
+
+    Fluxes are bad
+      - if they are not finite, or
+      - if their errors are not positive.
+
+    In checking these conditions, ``fluxType`` flux is used.
+    The other fluxes than ``fluxType`` are also removed if ``fluxType`` flux
+    is bad, for consistency.
+
+    Parameters
+    ----------
+    pfsConfig : `PfsConfig`
+        pfsConfig : `pfs.datamodel.pfsConfig.PfsConfig`
+        Configuration of the PFS top-end.
+    broadbandFluxType : {"fiber", "psf", "total"}
+        Type of broadband flux to use.
+    fluxSNR : `float`
+        If fluxErr for all bands are NaN, we fabricated fluxErr such that S/N
+        will be this much. Pass 0 to disable this behavior.
+    """
+    filterNameLists = [list_ for list_ in pfsConfig.filterNames]
+    # We make deepcopies for fear that they may be overwritten if fluxSNR > 0
+    fiberFluxArrays = [np.copy(arr) for arr in pfsConfig.fiberFlux]
+    fiberFluxErrArrays = [np.copy(arr) for arr in pfsConfig.fiberFluxErr]
+    psfFluxArrays = [np.copy(arr) for arr in pfsConfig.psfFlux]
+    psfFluxErrArrays = [np.copy(arr) for arr in pfsConfig.psfFluxErr]
+    totalFluxArrays = [np.copy(arr) for arr in pfsConfig.totalFlux]
+    totalFluxErrArrays = [np.copy(arr) for arr in pfsConfig.totalFluxErr]
+
+    if fluxType == "fiber":
+        refFluxArrays = fiberFluxArrays
+        refFluxErrArrays = fiberFluxErrArrays
+    elif fluxType == "psf":
+        refFluxArrays = psfFluxArrays
+        refFluxErrArrays = psfFluxErrArrays
+    elif fluxType == "total":
+        refFluxArrays = totalFluxArrays
+        refFluxErrArrays = totalFluxErrArrays
+    else:
+        raise ValueError(f"`fluxType` must be one of fiber|psf|total. ('{fluxType}')")
+
+    for i in range(len(filterNameLists)):
+        filterNameList = filterNameLists[i]
+        fiberFluxArray = fiberFluxArrays[i]
+        fiberFluxErrArray = fiberFluxErrArrays[i]
+        psfFluxArray = psfFluxArrays[i]
+        psfFluxErrArray = psfFluxErrArrays[i]
+        totalFluxArray = totalFluxArrays[i]
+        totalFluxErrArray = totalFluxErrArrays[i]
+        refFluxArray = refFluxArrays[i]
+        refFluxErrArray = refFluxErrArrays[i]
+
+        if fluxSNR > 0:
+            # Notice that refFluxErrArray will also be modified
+            # if {fiber,psf,total}FluxErrArray are modified.
+            if np.all(np.isnan(fiberFluxErrArray)):
+                fiberFluxErrArray[:] = fiberFluxArray / fluxSNR
+            if np.all(np.isnan(psfFluxErrArray)):
+                psfFluxErrArray[:] = psfFluxArray / fluxSNR
+            if np.all(np.isnan(totalFluxErrArray)):
+                totalFluxErrArray[:] = totalFluxArray / fluxSNR
+
+        isGood = np.isfinite(refFluxArray) & (refFluxErrArray > 0)
+
+        filterNameLists[i] = [x for x, good in zip(filterNameList, isGood) if good]
+        fiberFluxArrays[i] = fiberFluxArray[isGood]
+        fiberFluxErrArrays[i] = fiberFluxErrArray[isGood]
+        psfFluxArrays[i] = psfFluxArray[isGood]
+        psfFluxErrArrays[i] = psfFluxErrArray[isGood]
+        totalFluxArrays[i] = totalFluxArray[isGood]
+        totalFluxErrArrays[i] = totalFluxErrArray[isGood]
+
+    pfsConfig.filterNames = filterNameLists
+    pfsConfig.fiberFlux = fiberFluxArrays
+    pfsConfig.fiberFluxErr = fiberFluxErrArrays
+    pfsConfig.psfFlux = psfFluxArrays
+    pfsConfig.psfFluxErr = psfFluxErrArrays
+    pfsConfig.totalFlux = totalFluxArrays
+    pfsConfig.totalFluxErr = totalFluxErrArrays
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:

@@ -29,6 +29,7 @@ from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
+from .fitPfsFluxReference import removeBadFluxes
 from .fitReference import FilterCurve
 from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
 from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib
@@ -1041,6 +1042,12 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         default="psf",
         optional=False,
     )
+    fabricatedBroadbandFluxErrSNR = Field(
+        dtype=float,
+        default=0,
+        doc="If positive, fabricate flux errors in pfsConfig if all of them are NaN"
+        " (for old engineering data). The fabricated flux errors are such that S/N is this much.",
+    )
     smoothFilterWidth = Field(
         dtype=float,
         default=1.0,
@@ -1105,6 +1112,7 @@ class FitFluxCalTask(PipelineTask):
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
         """
+        removeBadFluxes(pfsConfig, self.config.broadbandFluxType, self.config.fabricatedBroadbandFluxErrSNR)
         fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, references)
         fluxCalibrate(pfsMerged, pfsConfig, fluxCal)
 
