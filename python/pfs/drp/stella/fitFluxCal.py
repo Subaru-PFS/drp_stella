@@ -184,6 +184,10 @@ class BroadbandFluxChi2:
         Width (nm) of smoothing filter.
         (A copy of) ``pfsMerged`` will be made smooth with this filter.
         Disabled if it is zero or negative.
+    minIntegrandWavelength: float,
+        Minimum wavelength in the spectra to integrate.
+    maxIntegrandWavelength: float,
+        Maximum wavelength in the spectra to integrate.
     log : `logging.Logger`, optional
         Logger.
     """
@@ -195,6 +199,8 @@ class BroadbandFluxChi2:
         broadbandFluxType: Literal["fiber", "psf", "total"],
         badMask: list[str],
         smoothFilterWidth: float,
+        minIntegrandWavelength: float,
+        maxIntegrandWavelength: float,
         log: logging.Logger | None,
     ) -> None:
         self.log = log
@@ -243,6 +249,11 @@ class BroadbandFluxChi2:
                     size=filterWidthInPix,
                     mode="reflect",
                 )
+
+                spectrum.flux[
+                    (spectrum.wavelength < minIntegrandWavelength)
+                    | (maxIntegrandWavelength < spectrum.wavelength)
+                ] = np.nan
 
         self.fiberIdToPhotometries: dict[int, list[PhotometryPair]] = {}
         self._filterCurves: dict[str, FilterCurve] = {}
@@ -1054,6 +1065,16 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         doc="Width of smoothing filter (median filter) applied to spectra"
         " before they are used to compute broadband photometry [nm].",
     )
+    minIntegrandWavelength = Field(
+        dtype=float,
+        default=380,
+        doc="Mininum wavelength in the spectra to integrate for broadband photometry [nm].",
+    )
+    maxIntegrandWavelength = Field(
+        dtype=float,
+        default=math.inf,
+        doc="Maximum wavelength in the spectra to integrate for broadband photometry [nm].",
+    )
     minimizationTolerance = Field(
         dtype=float,
         default=1e-6,
@@ -1311,6 +1332,8 @@ class FitFluxCalTask(PipelineTask):
             self.config.broadbandFluxType,
             self.config.badMask,
             self.config.smoothFilterWidth,
+            self.config.minIntegrandWavelength,
+            self.config.maxIntegrandWavelength,
             self.log,
         )
         return self.fitFocalPlane.run(
