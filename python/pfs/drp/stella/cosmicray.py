@@ -34,10 +34,10 @@ class CosmicRayConnections(
         storageClass="Exposure",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    outputExposure = OutputConnection(
-        name="calexp",
-        doc="Repaired exposure",
-        storageClass="Exposure",
+    mask = OutputConnection(
+        name="crMask",
+        doc="Cosmic ray mask",
+        storageClass="Mask",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
@@ -74,7 +74,7 @@ class CosmicRayTask(PipelineTask):
         """Entry point for running the task under the Gen3 middleware"""
         exposure = butler.get(inputRefs.inputExposure)
         outputs = self.run(exposure)
-        butler.put(outputs.exposure, outputRefs.outputExposure)
+        butler.put(outputs.mask, outputRefs.mask)
 
     def run(self, exposure) -> Struct:
         """Perform cosmic-ray removal"""
@@ -85,7 +85,7 @@ class CosmicRayTask(PipelineTask):
         if self.config.doRepair:
             self.repair.run(exposure)
 
-        return Struct(exposure=exposure)
+        return Struct(mask=exposure.mask)
 
 
 class CompareCosmicRayConnections(
@@ -100,10 +100,10 @@ class CompareCosmicRayConnections(
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
-    outputExposures = OutputConnection(
+    masks = OutputConnection(
         name="calexp",
-        doc="Repaired exposure",
-        storageClass="Exposure",
+        doc="Cosmic ray mask",
+        storageClass="Mask",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
@@ -146,7 +146,7 @@ class CompareCosmicRayTask(PipelineTask):
         """Entry point for running the task under the Gen3 middleware"""
         exposures = butler.get(inputRefs.inputExposures)
         outputs = self.run(exposures)
-        butler.put(outputs.exposures, outputRefs.outputExposures)
+        butler.put(outputs.masks, outputRefs.masks)
 
     def run(self, exposures: List["Exposure"]) -> Struct:
         """Perform cosmic-ray removal
@@ -161,7 +161,7 @@ class CompareCosmicRayTask(PipelineTask):
         result : `lsst.pipe.base.Struct`
             Results of cosmic-ray removal.
         """
-        result = Struct(exposures=exposures)
+        result = Struct(masks=[exp.mask for exp in exposures])
         if len(exposures) == 0:
             return result
         if not self.config.doCosmicRay or exposures[0].getDetector().getName().startswith("n"):
@@ -287,3 +287,59 @@ class CompareCosmicRayTask(PipelineTask):
         self.log.info("Found %d overlapping cosmic ray pixels", select.sum())
         for mm in masks:
             mm.array[select] |= mm.getPlaneBitMask("CR")
+
+
+
+class ApplyCosmicRayMaskConnections(
+    PipelineTaskConnections,
+    dimensions=("instrument", "visit", "arm", "spectrograph"),
+):
+    inputExposure = InputConnection(
+        name="postISRCCD",
+        doc="Exposure to repair",
+        storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+    crMask = InputConnection(
+        name="crMask",
+        doc="Cosmic ray mask",
+        storageClass="Mask",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+    outputExposure = OutputConnection(
+        name="crExposure",
+        doc="Exposure with cosmic rays masked",
+        storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+
+    def __init__(self, *, config=None):
+        super().__init__(config=config)
+        if not config:
+            return
+        if not self.config.doApplyCrMask:
+            self.prerequisiteInputs.remove("crMask")
+
+
+class ApplyCosmicRayMaskConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnections):
+    """Configuration for CosmicRayTask"""
+    doApplyCrMask = Field(dtype=bool, default=True, doc="Apply cosmic-ray mask to input exposure?")
+
+
+class ApplyCosmicRayMaskTask(PipelineTask):
+    """Apply cosmic-ray mask to an exposure
+
+    This task applies a cosmic-ray mask to an exposure. This is not usually
+    something you want to do in a separate task (since it results in an extra
+    copy of the image) but there are cases where it is useful (e.g., when you
+    need an input for CalibCombineTask).
+    """
+    ConfigClass: ClassVar[Type[Config]] = ApplyCosmicRayMaskConfig
+
+    def run(self, inputExposure: Exposure, crMask: Mask | None = None) -> Struct:
+        """Apply cosmic-ray mask"""
+        if self.config.doApplyCrMask:
+            if not crMask:
+                raise ValueError("Cosmic-ray mask required but not provided")
+            inputExposure.mask |= crMask
+        return Struct(outputExposure=inputExposure)
