@@ -29,7 +29,7 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.daf.butler import DataCoordinate
-from lsst.afw.image import Exposure
+from lsst.afw.image import Exposure, Mask
 
 from .datamodel.pfsConfig import PfsConfig
 from .DetectorMapContinued import DetectorMap
@@ -63,9 +63,15 @@ class ReduceExposureConnections(
     PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     exposure = InputConnection(
-        name="calexp",
+        name="postISRCCD",
         doc="Exposure to reduce",
         storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+    crMask = InputConnection(
+        name="crMask",
+        doc="Cosmic-ray mask",
+        storageClass="Mask",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
@@ -97,6 +103,12 @@ class ReduceExposureConnections(
         isCalibration=True,
     )
 
+    outputExposure = OutputConnection(
+        name="calexp",
+        doc="Calibrated exposure",
+        storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
@@ -133,6 +145,8 @@ class ReduceExposureConnections(
 
         if not config:
             return
+        if not self.config.doApplyCrMask:
+            self.prerequisiteInputs.remove("crMask")
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
             self.prerequisiteInputs.remove("fiberNorms")
@@ -142,6 +156,7 @@ class ReduceExposureConnections(
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
     """Config for ReduceExposure"""
+    doApplyCrMask = Field(dtype=bool, default=True, doc="Apply cosmic-ray mask to input exposure?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
     readLineList = ConfigurableField(target=ReadLineListTask,
@@ -271,6 +286,7 @@ class ReduceExposureTask(PipelineTask):
         fiberNorms: PfsFiberNorms | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
+        crMask: Mask | None = None,
     ) -> Struct:
         """Process an arm exposure
 
@@ -288,6 +304,8 @@ class ReduceExposureTask(PipelineTask):
             Mapping of fiberId,wavelength to x,y.
         dataId : `dict` [`str`, `str`] or `DataCoordinate`
             Data identifier.
+        crMask : `lsst.afw.image.Mask`, optional
+            Cosmic-ray mask.
 
         Returns
         -------
@@ -323,6 +341,11 @@ class ReduceExposureTask(PipelineTask):
             for fid in pfsConfig.fiberId:
                 # the Gaussian will be replaced by a boxcar, so params don't matter
                 fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
+
+        if self.config.doApplyCrMask:
+            if crMask is None:
+                raise RuntimeError("crMask required but not provided")
+            exposure.mask |= crMask
 
         measurements = self.measure(exposure, pfsConfig, fiberProfiles, detectorMap, boxcarWidth, arm)
 
