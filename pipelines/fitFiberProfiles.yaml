@@ -8,6 +8,8 @@ tasks:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      - doWriteExposure: true
   profilesFitDetectorMap:
     class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
   fitProfiles:
