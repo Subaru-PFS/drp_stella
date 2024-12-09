@@ -55,6 +55,7 @@ from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .fluxCalibrate import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
+from .scatteredLight import ScatteredLightTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -194,6 +195,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
+    scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -258,6 +261,7 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
+        self.makeSubtask("scatteredLight")
 
     def runQuantum(
         self,
@@ -325,6 +329,15 @@ class ReduceExposureTask(PipelineTask):
 
         arm = dataId["arm"]
         spectrograph = dataId["spectrograph"]
+        visitInfo = exposure.visitInfo
+        identity = Identity(
+            visit=dataId["visit"],
+            arm=arm,
+            spectrograph=spectrograph,
+            pfsDesignId=dataId["pfs_design_id"],
+            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
+            expTime=visitInfo.exposureTime,
+        )
 
         spatialOffset = self.config.spatialOffset
         spectralOffset = self.config.spectralOffset
@@ -360,18 +373,21 @@ class ReduceExposureTask(PipelineTask):
             True if boxcarWidth > 0 else False,
         ).spectra
 
+        if self.config.doScatteredLight:
+            pfsArm = spectra.toPfsArm(identity)
+            self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
+            # Extract spectra again after scattered light correction
+            spectra = self.extractSpectra.run(
+                exposure.maskedImage,
+                measurements.fiberTraces,
+                measurements.detectorMap,
+                fiberId,
+                True if boxcarWidth > 0 else False,
+            ).spectra
+
         if self.config.doBlackSpotCorrection:
             self.blackSpotCorrection.run(pfsConfig, spectra)
 
-        visitInfo = exposure.visitInfo
-        identity = Identity(
-            visit=dataId["visit"],
-            arm=arm,
-            spectrograph=spectrograph,
-            pfsDesignId=dataId["pfs_design_id"],
-            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
-            expTime=visitInfo.exposureTime,
-        )
         pfsArm = spectra.toPfsArm(identity)
 
         if self.config.doApplyScreenResponse:
