@@ -7,7 +7,7 @@ from lsst.pex.config import Config, DictField, Field
 from lsst.pipe.base import Task, Struct
 from lsst.afw.image import Image, ImageF, MaskedImage
 
-from . import FiberTrace, FiberTraceSet, SpectrumSet, DetectorMap, LayeredDetectorMap
+from pfs.drp.stella import FiberTrace, FiberTraceSet, SpectrumSet, DetectorMap, LayeredDetectorMap
 from .datamodel import PfsArm
 
 __all__ = ("ScatteredLightTask", "ScatteredLightConfig", "ScatteredLightModel")

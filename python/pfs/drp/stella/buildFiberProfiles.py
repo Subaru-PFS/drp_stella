@@ -53,6 +53,7 @@ class BuildFiberProfilesConfig(Config):
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=3, doc="Number of iterations for spectral extraction loop")
     minFracMask = Field(dtype=float, default=0.1, doc="Minimum pixel fraction of profile to accumulate mask")
+    doScatteredLight = Field(dtype=bool, default=True, doc="Correct for scattered light?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light removal")
 
 
@@ -312,13 +313,14 @@ class BuildFiberProfilesTask(Task):
                     normList[jj][fiberIndices[ss.fiberId]] = flux
 
                 image = imageList[jj].clone()
-                self.scatteredLight.run(
-                    image,
-                    spectra.toPfsArm(
-                        Identity(visit=-1, arm=identity.arm, spectrograph=identity.spectrograph)
-                    ),
-                    detectorMapList[jj],
-                )
+                if self.config.doScatteredLight:
+                    self.scatteredLight.run(
+                        image,
+                        spectra.toPfsArm(
+                            Identity(visit=-1, arm=identity.arm, spectrograph=identity.spectrograph)
+                        ),
+                        detectorMapList[jj],
+                    )
                 scattered.append(image)
 
             self.log.info("Starting profile extraction iteration %d (sigma=%f)...", ii + 1, sigma)
