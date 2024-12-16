@@ -53,7 +53,7 @@ class CosmicRayConnections(
         if not config:
             return
         if not self.config.doWriteExposure:
-            self.prerequisiteOutputs.remove("outputExposure")
+            self.outputs.remove("outputExposure")
 
 
 class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnections):
