@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 
-from pfs.drp.stella.gen3 import defineVisitGroup
+from pfs.drp.stella.gen3 import createVisitGroups
 
 
 def main():
@@ -14,11 +14,14 @@ def main():
     parser.add_argument(
         "--update", default=False, action="store_true", help="Update an existing registry"
     )
+    parser.add_argument(
+        "--force", default=False, action="store_true", help="Force this selection of visits as a group?"
+    )
     parser.add_argument("visits", nargs="*", type=int, help="Exposure IDs to select")
 
     args = parser.parse_args()
-    return defineVisitGroup(
-        args.repo, args.instrument, args.where, args.visits, update=args.update
+    return createVisitGroups(
+        args.repo, args.instrument, args.where, args.visits, forceAll=args.force, update=args.update
     )
 
 

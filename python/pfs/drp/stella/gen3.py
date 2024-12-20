@@ -2,10 +2,11 @@
 
 import functools
 import os
+from collections import defaultdict
 from collections.abc import Sequence
 from glob import glob
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 from astropy.time import Time
@@ -17,6 +18,7 @@ from lsst.daf.butler import (
     DatasetRef,
     DatasetType,
     DimensionGraph,
+    DimensionRecord,
     DimensionUniverse,
     FileDataset,
     Registry,
@@ -32,6 +34,9 @@ from pfs.datamodel.target import Target
 from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
 from .utils.logging import getLogger
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
 
@@ -915,58 +920,42 @@ def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> Da
 
 
 def defineVisitGroup(
-    repo: str,
-    instrument: str,
-    where: Optional[str] = None,
-    visitList: Optional[List[int]] = None,
+    registry: Registry,
+    data: List[DimensionRecord],
     update: bool = False,
-) -> List[int]:
-    """Define a group of visits
+    log: Optional["Logger"] = None,
+) -> Tuple[int, List[int]]:
+    """Define a visit group
 
     Parameters
     ----------
-    repo : `str`
-        URI string of the Butler repo to use.
-    instrument : `str`
-        Instrument name or fully-qualified class name as a string.
-    where : `str`, optional
-        SQL WHERE clause to use for selecting visits.
-    visitList : list of `int`, optional
-        List of visit numbers to include in the group. If the ``where``
-        clause is provided, this list is used to further restrict the selection.
+    registry : `Registry`
+        Butler registry.
+    data : list of `DimensionRecord`
+        List of visit records.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
+    log : `Logger`, optional
+        Logger to use.
 
     Returns
     -------
-    visitList : list of `int`
-        List of visit numbers in the group.
+    group : `int`
+        Group number.
+    visitList : `list` of `int`
+        List of visit numbers
     """
-    if not where and not visitList:
-        raise ValueError("Must provide at least one of 'where' and 'visitList'")
-    bind = None
-    if visitList:
-        add = "visit IN (visitList)"
-        bind = dict(visitList=visitList)
-        if where is None:
-            where = add
-        else:
-            where = f"({where}) AND {add}"
+    if log is None:
+        log = getLogger("pfs.defineVisitGroup")
 
-    log = getLogger("pfs.defineVisitGroup")
-    butler = Butler(repo, writeable=True)
-    registry = butler.registry
-    instrumentName = Instrument.from_string(instrument, registry).getName()
-
-    query = registry.queryDimensionRecords("visit", where=where, bind=bind, instrument=instrumentName)
-    data = sorted(query, key=lambda row: row.id)
-    if not data:
-        log.warn("No visits found.")
-        return []
     visitList = [row.id for row in data]
+    instrumentSet = set(row.instrument for row in data)
+    if len(instrumentSet) != 1:
+        raise RuntimeError(f"Multiple instruments found: {instrumentSet}")
+    instrument = instrumentSet.pop()
 
-    group = visitList[0]  # Use the first visit as the group identifier
+    group = min(visitList)  # Use the minimum visit as the group identifier
     log.info("Defining visit group %d for visits: %s", group, visitList)
 
     def takeFirst(attr):
@@ -997,6 +986,9 @@ def defineVisitGroup(
     groupData["science_program"] = takeFirst("science_program")
     groupData["zenith_angle"] = np.average([row.zenith_angle for row in data])
 
+    log.warn("Actual visit_group definition disabled for testing")
+    return group, visitList
+
     with registry.transaction():
         registry.syncDimensionData(
             "visit_group", dict(**groupData), update=update
@@ -1008,4 +1000,94 @@ def defineVisitGroup(
                 update=update,
             )
 
-    return visitList
+    return group, visitList
+
+
+def createVisitGroups(
+    repo: str,
+    instrument: str,
+    where: Optional[str] = None,
+    visitList: Optional[List[int]] = None,
+    forceAll: bool = False,
+    update: bool = False,
+) -> Dict[int, List[int]]:
+    """Find group(s) for a list of visits
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting visits.
+    visitList : list of `int`, optional
+        List of visit numbers to include in the group. If the ``where``
+        clause is provided, this list is used to further restrict the selection.
+    forceAll : `bool`, optional
+        Force all visits to be in the same group? If `False`, we will determine
+        the groups algorithmically.
+    update : `bool`, optional
+        Update the record if it exists? Otherwise an exception will be generated
+        if the record exists.
+
+    Returns
+    -------
+    visitLists : `dict` mapping `int` to `list` of `int`
+        List of visit numbers in each group, indexed by group number.
+    """
+    if not where and not visitList:
+        raise ValueError("Must provide at least one of 'where' and 'visitList'")
+    bind = None
+    if visitList:
+        add = "visit IN (visitList)"
+        bind = dict(visitList=visitList)
+        if where is None:
+            where = add
+        else:
+            where = f"({where}) AND {add}"
+
+    log = getLogger("pfs.defineVisitGroup")
+    butler = Butler(repo, writeable=True)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    query = registry.queryDimensionRecords("visit", where=where, bind=bind, instrument=instrumentName)
+    data = sorted(query, key=lambda row: row.id)
+    if not data:
+        log.warn("No visits found.")
+        return []
+
+    if forceAll:
+        group, visitList = defineVisitGroup(registry, data, update=update, log=log)
+        return {group: visitList}
+
+    # Group visits
+    groupData = defaultdict(list)
+    for row in data:
+        group = (row.pfs_design_id, row.day_obs, row.target_name, row.observation_reason, row.science_program)
+        groupData[group].append(row)
+
+    result: Dict[int, List[int]] = {}
+    for group, rowList in groupData.items():
+        rowByVisit = {row.id: row for row in rowList}
+        visitList = sorted(rowByVisit.keys())
+
+        # Separate visitList into contiguous groups
+        last = visitList.pop()
+        groupLists = [[last]]
+        for visit in visitList[1:]:
+            if visit - last == 1:
+                # Contiguous: add to the list
+                groupLists[-1].append(visit)
+            else:
+                # Not contiguous: start a new list
+                groupLists.append([visit])
+            last = visit
+
+        for group in groupLists:
+            groupRows = [rowByVisit[visit] for visit in group]
+            groupId, visitList = defineVisitGroup(registry, groupRows, update=update, log=log)
+            result[groupId] = visitList
+
+    return result
