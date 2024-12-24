@@ -295,6 +295,8 @@ class BroadbandFluxChi2:
         Mask planes for bad pixels.
     softenBroadbandFluxErr: `float`
         Soften broadband flux errors: err**2 -> err**2 + (soften*flux)**2
+    unusedBroadbandFilters: `list` [`str`]
+        List of broadband filters not to use.
     smoothFilterWidth : `float`
         Width (nm) of smoothing filter.
         (A copy of) ``pfsMerged`` will be made smooth with this filter.
@@ -314,6 +316,7 @@ class BroadbandFluxChi2:
         broadbandFluxType: Literal["fiber", "psf", "total"],
         badMask: list[str],
         softenBroadbandFluxErr: float,
+        unusedBroadbandFilters: list[str],
         smoothFilterWidth: float,
         minIntegrandWavelength: float,
         maxIntegrandWavelength: float,
@@ -342,7 +345,11 @@ class BroadbandFluxChi2:
         self.arms: dict[int, str] = getExistentArms(pfsMerged)
 
         self.bbFlux: dict[int, list[tuple[float, float, str]]] = {
-            fiberId: list(zip(bbFlux, bbFluxErr, filterNames))
+            fiberId: [
+                (flux, err, filter)
+                for flux, err, filter in zip(bbFlux, bbFluxErr, filterNames)
+                if filter not in unusedBroadbandFilters
+            ]
             for fiberId, bbFlux, bbFluxErr, filterNames in zip(
                 pfsConfig.fiberId, bbFluxList, bbFluxErrList, pfsConfig.filterNames
             )
@@ -1209,6 +1216,9 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         default=0.01,
         optional=False,
     )
+    unusedBroadbandFilters = ListField(
+        dtype=str, default=["y_hsc", "y_ps1"], doc="Broadband filters not to use"
+    )
     fabricatedBroadbandFluxErrSNR = Field(
         dtype=float,
         default=0,
@@ -1488,6 +1498,7 @@ class FitFluxCalTask(PipelineTask):
             broadbandFluxType=self.config.broadbandFluxType,
             badMask=self.config.badMask,
             softenBroadbandFluxErr=self.config.softenBroadbandFluxErr,
+            unusedBroadbandFilters=self.config.unusedBroadbandFilters,
             smoothFilterWidth=self.config.smoothFilterWidth,
             minIntegrandWavelength=self.config.minIntegrandWavelength,
             maxIntegrandWavelength=self.config.maxIntegrandWavelength,
