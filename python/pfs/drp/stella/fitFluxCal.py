@@ -1139,11 +1139,11 @@ class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
     input parameters, but those can be determined from the data.
     """
 
-    polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
+    polyOrder = Field(dtype=int, default=5, doc="Polynomial order")
     polyWavelengthDependent = Field(
         dtype=bool,
-        default=False,
-        doc="Whether the polynomial is wavelength-dependent. ('this option=True' is deprecated)",
+        default=True,
+        doc="Whether the polynomial is wavelength-dependent.",
     )
     fitPrecisely = Field(
         dtype=bool, default=True, doc="If False, skip time-consuming refinement phase of fitting."
@@ -1218,7 +1218,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
     )
     minimizationTolerance = Field(
         dtype=float,
-        default=1e-6,
+        default=1e-3,
         doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
     )
 
