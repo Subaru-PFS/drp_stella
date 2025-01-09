@@ -46,6 +46,7 @@ import scipy.spatial
 import copy
 import dataclasses
 import math
+import warnings
 
 from typing import Literal, overload
 from collections.abc import Generator, Mapping, Sequence
@@ -145,6 +146,22 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         default=[735.0, 770.0, 835.0, 985.0, 1200.0],
         doc="Right ends of wavelength ranges ignored (because e.g. of strong atmospheric absorption)"
         " when comparing middle-resolution observation spectra to models.",
+    )
+    cutoffSNR = Field(
+        dtype=float,
+        default=10,
+        doc="Minimally required pixel-wise S/N of observed spectra."
+        " Spectra with S/N worse than this value will be discarded.",
+    )
+    cutoffSNRRangeLeft = Field(
+        dtype=float,
+        default=840,
+        doc="Left edge of the wavelength range in which S/N is averaged to be compared with ``cutoffSNR``",
+    )
+    cutoffSNRRangeRight = Field(
+        dtype=float,
+        default=880,
+        doc="Right edge of the wavelength range in which S/N is averaged to be compared with ``cutoffSNR``",
     )
     badMask = ListField(
         dtype=str, default=["BAD", "SAT", "CR", "NO_DATA", "SUSPECT"], doc="Mask planes for bad pixels"
@@ -408,6 +425,13 @@ class FitPfsFluxReferenceTask(PipelineTask):
             "DEFICIENT_BBFLUXES",
             [len(filterNames) >= self.config.minBroadbandFluxes for filterNames in pfsConfig.filterNames],
         )
+
+        pfsMerged = removeBadSpectra(
+            pfsMerged,
+            self.config.cutoffSNR,
+            (self.config.cutoffSNRRangeLeft, self.config.cutoffSNRRangeRight),
+        )
+        pfsConfig = selectPfsConfig(pfsConfig, "LOW_SNR_FIBER", np.isin(pfsConfig.fiberId, pfsMerged.fiberId))
 
         # Apply the Galactic extinction correction to observed broad-band fluxes in pfsConfig
         pfsConfigCorr = self.correctExtinction(copy.deepcopy(pfsConfig))
@@ -1994,6 +2018,42 @@ def removeBadFluxes(
     pfsConfig.psfFluxErr = psfFluxErrArrays
     pfsConfig.totalFlux = totalFluxArrays
     pfsConfig.totalFluxErr = totalFluxErrArrays
+
+
+def removeBadSpectra(
+    pfsMerged: PfsMerged,
+    cutoffSNR: float,
+    cutoffSNRRange: tuple[float, float],
+) -> PfsMerged:
+    """Remove bad spectra from ``pfsMerged``.
+
+    Spectra are bad if their average pixel-wise S/N is worse than ``cutoffSNR``.
+
+    Parameters
+    ----------
+    pfsMerged : `PfsMerged`
+        Merged spectra from exposure.
+    cutoffSNR : `float`
+        Cut-off S/N.
+    cutoffSNRRange : `tuple` [`float`, `float`]
+        Wavelength range (nm) in which pixel-wise S/N is averaged to be compared
+        with ``cutoffSNR``.
+
+    Returns
+    -------
+    pfsMerged : `PfsMerged`
+        PfsMerged from which bad spectra have been removed.
+    """
+    left, right = cutoffSNRRange
+    good = np.zeros(shape=(len(pfsMerged),), dtype=bool)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for i in range(len(pfsMerged)):
+            sampleIndex = (left <= pfsMerged.wavelength[i]) & (pfsMerged.wavelength[i] <= right)
+            snr = pfsMerged.flux[i, sampleIndex] / np.sqrt(pfsMerged.covar[i, 0, sampleIndex])
+            good[i] = np.nanmedian(snr) >= cutoffSNR
+
+    return pfsMerged[good]
 
 
 def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -> PfsFiberArray:
