@@ -169,6 +169,7 @@ class CompareCosmicRayTask(PipelineTask):
 
         # Sinle exposure cosmic-ray removal: use the repair task
         if len(exposures) == 1:
+            self.log.warn("No subtraction possible with single exposure; using sub-optimal CR removal")
             for exp in exposures:
                 modelPsfConfig = self.config.repair.interp.modelPsf
                 psf = modelPsfConfig.apply()
