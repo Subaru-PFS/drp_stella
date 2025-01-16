@@ -19,27 +19,27 @@ from .fitReference import FitReferenceTask
 from .selectFibers import SelectFibersTask
 
 
-class CalculateReferenceFluxConnections(PipelineTaskConnections, dimensions=("instrument", "exposure")):
+class CalculateReferenceFluxConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
     """Connections for CalculateReferenceFluxTask"""
 
     pfsMerged = InputConnection(
         name="pfsMerged",
         doc="Merged spectra from exposure",
         storageClass="PfsMerged",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
     references = OutputConnection(
         name="pfsFluxReference",
         doc="Fit reference spectrum of flux standards",
         storageClass="PfsFluxReference",
-        dimensions=("instrument", "exposure"),
+        dimensions=("instrument", "visit"),
     )
 
 
@@ -121,7 +121,7 @@ class CalculateReferenceFluxTask(CmdLineTask, PipelineTask):
             assert np.all(ss.wavelength == wavelength)
 
         references = PfsFluxReference(
-            Identity(visit=dataId["exposure"], pfsDesignId=dataId["pfs_design_id"]),
+            Identity(visit=dataId["visit"], pfsDesignId=dataId["pfs_design_id"]),
             results.pfsConfig.fiberId,
             wavelength,
             np.array([spectra[target].flux for target in results.pfsConfig]),
