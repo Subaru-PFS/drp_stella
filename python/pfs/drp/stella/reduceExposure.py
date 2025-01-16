@@ -154,6 +154,7 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     traceSpectralError = Field(dtype=float, default=5.0,
                                doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
+    doPhotometerLines = Field(dtype=bool, default=True, doc="Measure photometry for lines?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
     doBoxcarExtraction = Field(dtype=bool, default=False, doc="Extract with a boxcar of width boxcarWidth")
     boxcarWidth = Field(dtype=float, default=5,
@@ -461,14 +462,17 @@ class ReduceExposureTask(PipelineTask):
 
         # Update photometry using best detectorMap
         notTrace = lines.description != "Trace"
-        phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
-        apCorr = phot.apCorr
+        if not self.config.doPhotometerLines:
+            apCorr = None
+        else:
+            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+            apCorr = phot.apCorr
 
-        # Copy results to the one list of lines that we return
-        lines.flux[notTrace] = phot.lines.flux
-        lines.fluxErr[notTrace] = phot.lines.fluxErr
-        lines.fluxNorm[notTrace] = phot.lines.fluxNorm
-        lines.flag[notTrace] |= phot.lines.flag
+            # Copy results to the one list of lines that we return
+            lines.flux[notTrace] = phot.lines.flux
+            lines.fluxErr[notTrace] = phot.lines.fluxErr
+            lines.fluxNorm[notTrace] = phot.lines.fluxNorm
+            lines.flag[notTrace] |= phot.lines.flag
 
         return Struct(
             refLines=refLines,
