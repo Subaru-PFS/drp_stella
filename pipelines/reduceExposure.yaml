@@ -1,4 +1,6 @@
 description: Reduce an exposure
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+
 tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
