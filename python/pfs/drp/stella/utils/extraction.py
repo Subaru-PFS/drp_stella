@@ -1,6 +1,6 @@
 from functools import partial
 from textwrap import dedent
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Iterable, Literal, Optional, Tuple
 
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.backend_bases import KeyEvent
@@ -44,6 +44,8 @@ class ExtractionExplorer:
         Minimum and maximum value for the spectra display.
     imin, imax : `float`, optional
         Minimum and maximum value for the image display.
+    mask : iterable of `str`, optional
+        Mask planes to recognize as bad.
     """
     def __init__(
         self,
@@ -55,8 +57,20 @@ class ExtractionExplorer:
         zoom: float = 100.0,
         smin: Optional[float] = None,
         smax: Optional[float] = None,
-        imin: Optional[float] = None,
+        imin: float | Literal["minmax"] | Literal["zscale"] = "zscale",
         imax: Optional[float] = None,
+        mask: Iterable[str] = (
+            "BAD",
+            "SUSPECT",
+            "SAT",
+            "NO_DATA",
+            "CR",
+            "BAD_FLAT",
+            "BAD_FIBERTRACE",
+            "BAD_FIBERNORMS",
+            "BAD_SKY",
+            "BAD_FLUXCAL",
+        ),
     ):
         self._pfsArm = pfsArm
         self._exposure = exposure
@@ -69,7 +83,9 @@ class ExtractionExplorer:
         cmapBad = LinearSegmentedColormap.from_list(
             "truncated_reds", plt.get_cmap("Reds")(np.linspace(0.3, 0.8, 10))
         )
-        showAllSpectraAsImage(pfsArm, detectorMap, vmin=smin, vmax=smax, cmap="viridis", cmap_bad=cmapBad)
+        showAllSpectraAsImage(
+            pfsArm, detectorMap, vmin=smin, vmax=smax, cmap="viridis", cmap_bad=cmapBad, mask=mask
+        )
         self._sFig = plt.gcf()
         self._sAx = self._sFig.gca()
         self._iFig = plt.figure()
@@ -224,6 +240,7 @@ class ExtractionExplorer:
         box = self.getSpectraBox()
         wlMin = self.getSpectraWavelength(box.getMinX(), event.ydata)
         wlMax = self.getSpectraWavelength(box.getMaxX(), event.ydata)
+        wl = self.getSpectraWavelength(event.xdata, event.ydata)
         select = (self._pfsArm.wavelength[fiberIndex] >= wlMin)
         select &= (self._pfsArm.wavelength[fiberIndex] <= wlMax)
         fluxMin = np.nanmin(self._pfsArm.flux[fiberIndex][select])
@@ -231,6 +248,7 @@ class ExtractionExplorer:
         fluxRange = fluxMax - fluxMin
         self._pAx.set_xlim(wlMin, wlMax)
         self._pAx.set_ylim(fluxMin - 0.05*fluxRange, fluxMax + 0.15*fluxRange)
+        self._pAx.axvline(wl, color="k", linestyle=":")
 
         # Show masks
         mask = self._pfsArm.mask[fiberIndex]
