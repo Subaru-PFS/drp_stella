@@ -173,7 +173,7 @@ class EstimateRadialVelocityTask(Task):
         )
         wavelength = spectrum.wavelength[goodIndex]
         flux = spectrum.flux[goodIndex] - 1.0
-        variance = spectrum.covar[0][goodIndex]
+        variance = spectrum.variance[goodIndex]
 
         goodIndex = 0 == (
             modelSpectrum.mask

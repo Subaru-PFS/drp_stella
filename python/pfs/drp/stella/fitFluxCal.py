@@ -412,7 +412,7 @@ class BroadbandFluxChi2:
             )
             isGood = (
                 np.isfinite(calibrated.flux)
-                & np.isfinite(calibrated.covar[0, :])
+                & np.isfinite(calibrated.variance)
                 & np.isfinite(calib)
                 & (calib != 0)
             )
