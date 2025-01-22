@@ -42,7 +42,7 @@ from .utils import debugging
 from .utils.polynomialND import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Collection, Generator, Iterable
 from typing import Literal, overload
 
 __all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
@@ -293,6 +293,10 @@ class BroadbandFluxChi2:
         Type of broadband flux to use.
     badMask : `list` [`str`]
         Mask planes for bad pixels.
+    softenBroadbandFluxErr: `float`
+        Soften broadband flux errors: err**2 -> err**2 + (soften*flux)**2
+    ignoredBroadbandFilters: `list` [`str`]
+        List of broadband filters not to use.
     smoothFilterWidth : `float`
         Width (nm) of smoothing filter.
         (A copy of) ``pfsMerged`` will be made smooth with this filter.
@@ -311,13 +315,18 @@ class BroadbandFluxChi2:
         pfsMerged: PfsMerged,
         broadbandFluxType: Literal["fiber", "psf", "total"],
         badMask: list[str],
+        softenBroadbandFluxErr: float,
+        ignoredBroadbandFilters: Collection[str],
         smoothFilterWidth: float,
         minIntegrandWavelength: float,
         maxIntegrandWavelength: float,
         log: logging.Logger | None,
     ) -> None:
+        ignoredBroadbandFilters = set(ignoredBroadbandFilters)
+
         self.log = log
         self.badMask = badMask
+        self.softenBroadbandFluxErr = softenBroadbandFluxErr
 
         self.obsSpectra: dict[int, PfsSingle] = {
             fiberId: pfsMerged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in pfsConfig.fiberId
@@ -338,7 +347,11 @@ class BroadbandFluxChi2:
         self.arms: dict[int, str] = getExistentArms(pfsMerged)
 
         self.bbFlux: dict[int, list[tuple[float, float, str]]] = {
-            fiberId: list(zip(bbFlux, bbFluxErr, filterNames))
+            fiberId: [
+                (flux, err, filter)
+                for flux, err, filter in zip(bbFlux, bbFluxErr, filterNames)
+                if filter not in ignoredBroadbandFilters
+            ]
             for fiberId, bbFlux, bbFluxErr, filterNames in zip(
                 pfsConfig.fiberId, bbFluxList, bbFluxErrList, pfsConfig.filterNames
             )
@@ -393,6 +406,7 @@ class BroadbandFluxChi2:
         chi2 : float
             Chi^2.
         """
+        soften = self.softenBroadbandFluxErr
         lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
         fiberIdToPhotometries: dict[int, list[PhotometryPair]] = {}
@@ -430,7 +444,7 @@ class BroadbandFluxChi2:
             for bbFlux, bbFluxErr, filterName in self.bbFlux[fId]:
                 if np.isfinite(bbFlux) and bbFluxErr > 0:
                     photometry, photoError = self.photometer(calibrated, filterName, doComputeError=True)
-                    relativeErr = (bbFlux - photometry) / math.hypot(bbFluxErr, photoError)
+                    relativeErr = (bbFlux - photometry) / math.hypot(bbFluxErr, photoError, soften * bbFlux)
                     chi2 += lossFunc(relativeErr)
                     if save:
                         photometries.append(
@@ -473,13 +487,14 @@ class BroadbandFluxChi2:
         chi2 : float
             Chi^2.
         """
+        soften = self.softenBroadbandFluxErr
         lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
 
         for fId, scale in zip(fiberId, scales):
             for pair in self.fiberIdToPhotometries[fId]:
                 relativeErr = (pair.truth - pair.model / scale) / math.hypot(
-                    pair.truthError, pair.modelError / scale
+                    pair.truthError, pair.modelError / scale, soften * pair.truth
                 )
                 chi2 += lossFunc(relativeErr)
 
@@ -514,6 +529,7 @@ class BroadbandFluxChi2:
         chi2 : float
             Chi^2.
         """
+        soften = self.softenBroadbandFluxErr
         lossFunc = self._getLossFunction(l1=l1)
         chi2 = 0.0
 
@@ -539,7 +555,9 @@ class BroadbandFluxChi2:
 
             for pair in self.fiberIdToPhotometries[fId]:
                 s = self.photometer(scaleArray, pair.filterName)
-                relativeErr = (pair.truth - pair.model / s) / math.hypot(pair.truthError, pair.modelError / s)
+                relativeErr = (pair.truth - pair.model / s) / math.hypot(
+                    pair.truthError, pair.modelError / s, soften * pair.truth
+                )
                 chi2 += lossFunc(relativeErr)
 
         return chi2
@@ -1139,11 +1157,11 @@ class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
     input parameters, but those can be determined from the data.
     """
 
-    polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
+    polyOrder = Field(dtype=int, default=5, doc="Polynomial order")
     polyWavelengthDependent = Field(
         dtype=bool,
-        default=False,
-        doc="Whether the polynomial is wavelength-dependent. ('this option=True' is deprecated)",
+        default=True,
+        doc="Whether the polynomial is wavelength-dependent.",
     )
     fitPrecisely = Field(
         dtype=bool, default=True, doc="If False, skip time-consuming refinement phase of fitting."
@@ -1194,6 +1212,15 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
         default="psf",
         optional=False,
     )
+    softenBroadbandFluxErr = Field(
+        doc="Soften broadband flux errors: err**2 -> err**2 + (soften*flux)**2",
+        dtype=float,
+        default=0.01,
+        optional=False,
+    )
+    ignoredBroadbandFilters = ListField(
+        dtype=str, default=["y_hsc", "y_ps1"], doc="Broadband filters not to use"
+    )
     fabricatedBroadbandFluxErrSNR = Field(
         dtype=float,
         default=0,
@@ -1218,7 +1245,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConn
     )
     minimizationTolerance = Field(
         dtype=float,
-        default=1e-6,
+        default=1e-3,
         doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
     )
 
@@ -1468,14 +1495,16 @@ class FitFluxCalTask(PipelineTask):
         fluxStdConfig = pfsConfig[np.isin(pfsConfig.fiberId, pfsFluxReference.fiberId)]
         fluxStdMerged = pfsMerged[np.isin(pfsMerged.fiberId, pfsFluxReference.fiberId)]
         bbChi2 = BroadbandFluxChi2(
-            fluxStdConfig,
-            fluxStdMerged,
-            self.config.broadbandFluxType,
-            self.config.badMask,
-            self.config.smoothFilterWidth,
-            self.config.minIntegrandWavelength,
-            self.config.maxIntegrandWavelength,
-            self.log,
+            pfsConfig=fluxStdConfig,
+            pfsMerged=fluxStdMerged,
+            broadbandFluxType=self.config.broadbandFluxType,
+            badMask=self.config.badMask,
+            softenBroadbandFluxErr=self.config.softenBroadbandFluxErr,
+            ignoredBroadbandFilters=self.config.ignoredBroadbandFilters,
+            smoothFilterWidth=self.config.smoothFilterWidth,
+            minIntegrandWavelength=self.config.minIntegrandWavelength,
+            maxIntegrandWavelength=self.config.maxIntegrandWavelength,
+            log=self.log,
         )
         return self.fitFocalPlane.run(
             calibVectors,
