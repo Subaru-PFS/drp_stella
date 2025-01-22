@@ -1712,7 +1712,7 @@ def calculateSpecChiSquare(
 
     modelFlux = model.flux[good]
     flux = np.copy(obsSpectrum.flux)[good]
-    invVar = 1.0 / obsSpectrum.covar[0, good]
+    invVar = 1.0 / obsSpectrum.variance[good]
 
     chi2 = np.sum(np.square(flux - modelFlux) * invVar)
     # Degree of freedom must be decremented by 1 because we are comparing
@@ -1751,7 +1751,7 @@ def calculateSpecChiSquareWithVelocity(
 
     modelFlux = shifted.flux[good]
     flux = np.copy(obsSpectrum.flux)[good]
-    invVar = 1.0 / obsSpectrum.covar[0, good]
+    invVar = 1.0 / obsSpectrum.variance[good]
 
     chi2 = np.sum(np.square(flux - modelFlux) * invVar)
     # Degree of freedom must be decremented by 1 because we are comparing
@@ -2050,7 +2050,7 @@ def removeBadSpectra(
         warnings.simplefilter("ignore")
         for i in range(len(pfsMerged)):
             sampleIndex = (left <= pfsMerged.wavelength[i]) & (pfsMerged.wavelength[i] <= right)
-            snr = pfsMerged.flux[i, sampleIndex] / np.sqrt(pfsMerged.covar[i, 0, sampleIndex])
+            snr = pfsMerged.flux[i, sampleIndex] / np.sqrt(pfsMerged.variance[i, sampleIndex])
             good[i] = np.nanmedian(snr) >= cutoffSNR
 
     return pfsMerged[good]
@@ -2097,7 +2097,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -
     )
 
     noise = np.nanmedian(spectrum.flux) / snr
-    spectrum.covar[0, :] = noise**2
+    spectrum.variance[:] = noise**2
 
     return spectrum
 
