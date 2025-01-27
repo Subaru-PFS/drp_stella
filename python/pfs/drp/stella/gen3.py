@@ -9,12 +9,13 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 
 from lsst.daf.butler import (
     Butler,
     CollectionType,
     DataCoordinate,
+    DatasetAssociation,
     DatasetRef,
     DatasetType,
     DimensionGraph,
@@ -24,6 +25,7 @@ from lsst.daf.butler import (
     Registry,
     Timespan,
 )
+from lsst.daf.butler.registry._registry import CollectionArgType
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
 from lsst.pipe.base import QuantumContext
@@ -778,6 +780,50 @@ def certifyCalibrations(
     registry.certify(outputCollection, refs, timespan)
 
 
+def findAssociations(
+    repo: str,
+    inputCollections: CollectionArgType,
+    datasetType: DatasetType | str,
+    dataId: dict[str, int | str] | None = None,
+    time: Time | Timespan | None = None,
+) -> list[DatasetAssociation]:
+    """Find a list of dataset associations
+
+    Parameters
+    ----------
+    repo : `str`
+        URI to the location of the repo or URI to a config file describing the
+        repo and its location.
+    inputCollections : collection expression
+       Data collections to search.
+    datasetType : `DatasetType` or `str`
+        Type of dataset to find.
+    dataId : `dict` mapping `str` to `int`/`str`, or `None`
+        Data identifier to limit the query results.
+    time : `Time` or `Timespan`, optional
+        Time or Timespan to limit the query results.
+
+    Returns
+    -------
+    associations : `list` of `DatasetAssociation`
+        Dataset associations, with of ``ref``, ``collection``, ``run`` (and
+        in the case of certified calibrations, ``timespan``) elements.
+    """
+    butler = Butler(repo, writeable=False)
+    dataCoord = getDataCoordinate(dataId, butler.dimensions) if dataId else None
+    query = butler.registry.queryDatasetAssociations(
+        datasetType, inputCollections, collectionTypes=[CollectionType.CALIBRATION], flattenChains=True
+    )
+    results = [rr for rr in query]
+    if dataCoord:
+        results = [rr for rr in results if rr.ref.dataId.subset(dataCoord.graph) == dataCoord]
+    if time:
+        results = [
+            rr for rr in results if not hasattr(rr, "timespan") or rr.timespan.overlaps(time)
+        ]
+    return results
+
+
 def defineCombination(
     repo: str,
     instrument: str,
@@ -1117,3 +1163,45 @@ def createVisitGroups(
             result[groupId] = visitList
 
     return result
+
+
+def timespanFromDayObs(day_obs: int, offset: int = 0) -> Timespan:
+    """Construct a timespan for a 24-hour period based on the day of
+    observation.
+
+    Copied from daf_butler main because it's not implemented in the current
+    version of the LSST stack we're using. We can replace this with
+    ``Timespan.from_day_obs`` when we upgrade to a version more recent than
+    ``w.2024.10``.
+
+    Parameters
+    ----------
+    day_obs : `int`
+        The day of observation as an integer of the form YYYYMMDD.
+        The year must be at least 1970 since these are converted to TAI.
+    offset : `int`, optional
+        Offset in seconds from TAI midnight to be applied.
+
+    Returns
+    -------
+    day_span : `Timespan`
+        A timespan corresponding to a full day of observing.
+
+    Notes
+    -----
+    If the observing day is 20240229 and the offset is 12 hours the
+    resulting time span will be 2024-02-29T12:00 to 2024-03-01T12:00.
+    """
+    if day_obs < 1970_00_00 or day_obs > 1_0000_00_00:
+        raise ValueError(f"day_obs must be in form yyyyMMDD and be newer than 1970, not {day_obs}.")
+
+    ymd = str(day_obs)
+    t1 = Time(f"{ymd[0:4]}-{ymd[4:6]}-{ymd[6:8]}T00:00:00", format="isot", scale="tai")
+
+    if offset != 0:
+        t_delta = TimeDelta(offset, format="sec", scale="tai")
+        t1 += t_delta
+
+    t2 = t1 + TimeDelta("1d", scale="tai")
+
+    return Timespan(t1, t2)
