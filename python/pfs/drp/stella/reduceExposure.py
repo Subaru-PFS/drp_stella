@@ -135,7 +135,6 @@ class ReduceExposureConnections(
             return
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
-            self.prerequisiteInputs.remove("fiberNorms")
         if not self.config.doApplyFiberNorms:
             self.prerequisiteInputs.remove("fiberNorms")
 
