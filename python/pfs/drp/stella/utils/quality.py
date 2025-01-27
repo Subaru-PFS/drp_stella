@@ -166,13 +166,10 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
             if butler is None:
                 raise RuntimeError(f"I'm unable to read data for {dataIdStr} without a butler")
 
-            try:
-                detMap = butler.get("detectorMap_used", dataId, visit=0)
-            except dafPersist.NoResults:
-                detMap = butler.get("detectorMap", dataId)
+            detMap = butler.get("detectorMap", dataId)
 
             try:
-                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('arcLines', dataId), detMap)
+                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
             except dafPersist.NoResults:
                 alsCache[dataIdStr] = None
 
@@ -227,6 +224,9 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
             a, theta = als.xx, np.NaN
         else:
             fwhm, theta = getFWHM(als)
+
+        if np.sum(np.isfinite(als.flux)) == 0:
+            raise RuntimeError("All the provided fluxes are NaN")
 
         if showWhisker or showFWHM or showFWHMAgainstLambda:
             q10 = np.nanpercentile(als.flux, [minFluxPercentile])
