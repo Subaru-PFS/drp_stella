@@ -18,10 +18,10 @@ from lsst.geom import SpherePoint, averageSpherePoint, degrees
 from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
+from pfs.datamodel.drp import PfsCoadd
 from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
-from .datamodel.pfsTargetSpectra import PfsObjectSpectra
 from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
@@ -109,7 +109,7 @@ class CoaddSpectraConnections(
     pfsCoadd = OutputConnection(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
-        storageClass="PfsObjectSpectra",
+        storageClass="PfsObjectSpectra",  # Deprecated in favor of PfsCoadd
         dimensions=("instrument", "combination", "cat_id"),
     )
     pfsCoaddLsf = OutputConnection(
@@ -226,7 +226,7 @@ class CoaddSpectraTask(PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsObjectSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
+        butler.put(PfsCoadd(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
