@@ -5,8 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from lsst.pex.config import Field, ConfigurableField
-from lsst.pipe.base import ArgumentParser, Struct
-from lsst.daf.persistence import Butler
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -353,77 +352,6 @@ class FluxCalibrateTask(PipelineTask):
         )
         butler.put(outputs, outputRefs)
 
-    @classmethod
-    def _makeArgumentParser(cls):
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged", level="Visit",
-                               help="data IDs, e.g. --id exp=12345")
-        return parser
-
-    def runDataRef(self, dataRef):
-        """Measure and apply the flux calibration
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for merged spectrum.
-
-        Returns
-        -------
-        fluxCal : `pfs.drp.stella.FocalPlaneFunction`
-            Flux calibration.
-        spectra : `list` of `pfs.datamodel.PfsSingle`
-            Calibrated spectra for each fiber.
-        """
-        pfsMerged = dataRef.get("pfsMerged")
-        pfsMergedLsf = dataRef.get("pfsMergedLsf")
-        pfsConfig = dataRef.get("pfsConfig")
-
-        butler = dataRef.getButler()
-        pfsMergedFluxCal = pfsMerged.select(pfsConfig, targetType=TargetType.FLUXSTD)
-        pfsConfigFluxCal = pfsConfig.select(fiberId=pfsMergedFluxCal.fiberId)
-        references = self.readReferences(butler, pfsConfigFluxCal)
-
-        armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
-        pfsArmList = [armRef.get("pfsArm") for armRef in armRefList]
-        sky1dList = [armRef.get("sky1d") for armRef in armRefList]
-
-        outputs = self.run(pfsMerged, pfsMergedLsf, references, pfsConfig, pfsArmList, sky1dList)
-
-        if self.config.doWrite:
-            dataRef.put(outputs.fluxCal, "fluxCal")
-
-            # Gen2 writes the pfsCalibrated spectra individually
-            for target in outputs.pfsCalibrated:
-                pfsSingle = outputs.pfsCalibrated[target]
-                dataId = pfsSingle.getIdentity().copy()
-                dataId.update(dataRef.dataId)
-                butler.put(pfsSingle, "pfsSingle", dataId)
-                butler.put(outputs.pfsCalibratedLsf[target], "pfsSingleLsf", dataId)
-
-        return outputs
-
-    def readReferences(self, butler: Butler, pfsConfig: PfsConfig) -> PfsReferenceSet:
-        """Read the physical reference fluxes
-
-        If you get a read error here, it's likely because you haven't got a
-        physical reference flux; try running ``calibrateReferenceFlux``.
-
-        Parameters
-        ----------
-        butler : `lsst.daf.persistence.Butler`
-            Data butler.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration, for identifying flux standards. This should
-            contain only the fibers of interest.
-
-        Returns
-        -------
-        references : `dict` mapping `int` to `pfs.datamodel.PfsSimpleSpectrum`
-            Reference spectra, indexed by fiber identifier.
-        """
-        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)) for ff in pfsConfig.fiberId}
-
     def calculateCalibrations(self, merged: PfsMerged, references: PfsReferenceSet) -> None:
         """Calculate the flux calibration vector for each fluxCal fiber
 
@@ -443,6 +371,3 @@ class FluxCalibrateTask(PipelineTask):
         merged /= merged.norm
         merged /= ref
         merged.norm[:] = 1.0  # We're deliberately changing the normalisation
-
-    def _getMetadataName(self):
-        return None

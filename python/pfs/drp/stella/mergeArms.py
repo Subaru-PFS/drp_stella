@@ -3,7 +3,7 @@ import numpy as np
 
 import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
-from lsst.pipe.base import ArgumentParser, TaskRunner, Struct
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -126,39 +126,14 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         self.fitContinuum.iterations = 0  # No rejection: normalisation doesn't need to be exact, just robust
 
 
-class MergeArmsRunner(TaskRunner):
-    """Runner for MergeArmsTask"""
-    @staticmethod
-    def getTargetList(parsedCmd, **kwargs):
-        """Produce list of targets for MergeArmsTask
-
-        We want to operate on all data within a single exposure at once.
-        """
-        exposures = defaultdict(lambda: defaultdict(list))
-        for ref in parsedCmd.id.refList:
-            visit = ref.dataId["visit"]
-            spectrograph = ref.dataId["spectrograph"]
-            exposures[visit][spectrograph].append(ref)
-        return [(list(specs.values()), kwargs) for specs in exposures.values()]
-
-
 class MergeArmsTask(PipelineTask):
     """Merge all extracted spectra from a single exposure"""
     _DefaultName = "mergeArms"
     ConfigClass = MergeArmsConfig
-    RunnerClass = MergeArmsRunner
 
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
     fitContinuum: FitContinuumTask
-
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Make an ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsArm",
-                               help="data IDs, e.g. --id exp=12345 spectrograph=1..3")
-        return parser
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -296,46 +271,6 @@ class MergeArmsTask(PipelineTask):
         for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
             if sky1d is not None:
                 butler.put(sky1d, ref)
-
-    def runDataRef(self, expSpecRefList):
-        """Merge all extracted spectra from a single exposure
-
-        Parameters
-        ----------
-        expSpecRefList : iterable of iterable of `lsst.daf.persistence.ButlerDataRef`
-            Data references for each sensor, grouped by spectrograph.
-
-        Returns
-        -------
-        spectra : `pfs.datamodel.PfsMerged`
-            Merged spectra.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration, fiber targets.
-        lsf : `pfs.drp.stella.Lsf`
-            Merged line-spread function.
-        sky1d : `pfs.drp.stella.FocalPlaneFunction`
-            1D sky model.
-        """
-        spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
-                   specRefList in expSpecRefList]
-        lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
-        if self.config.pfsConfigFile:
-            self.log.info("Reading alternate pfsConfig: %s", self.config.pfsConfigFile)
-            pfsConfig = PfsConfig.readFits(self.config.pfsConfigFile)
-        else:
-            pfsConfig = expSpecRefList[0][0].get("pfsConfig")
-
-        results = self.run(spectra, pfsConfig, lsfList)
-
-        expSpecRefList[0][0].put(results.pfsMerged, "pfsMerged")
-        expSpecRefList[0][0].put(results.pfsMergedLsf, "pfsMergedLsf")
-        if results.sky1d is not None:
-            for sky1d, ref in zip(results.sky1d, sum(expSpecRefList, [])):
-                if sky1d is not None:
-                    ref.put(sky1d, "sky1d")
-
-        results.pfsConfig = pfsConfig
-        return results
 
     def normalizeSpectra(self, spectra):
         """Calculate and apply a suitable target normalisation

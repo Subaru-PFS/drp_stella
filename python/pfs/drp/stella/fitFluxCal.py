@@ -13,7 +13,6 @@ from scipy.optimize import minimize
 
 import lsstDebug
 from lsst.pipe.base import (
-    ArgumentParser,
     PipelineTask,
     PipelineTaskConfig,
     QuantumContext,
@@ -21,7 +20,6 @@ from lsst.pipe.base import (
 )
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
-import lsst.daf.persistence
 from lsst.pex.config import Field, ChoiceField, ListField, ConfigurableField
 
 from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
@@ -1363,57 +1361,6 @@ class FitFluxCalTask(PipelineTask):
         outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
         butler.put(outputs, outputRefs)
 
-    @classmethod
-    def _makeArgumentParser(cls) -> ArgumentParser:
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(
-            name="--id", datasetType="pfsMerged", level="Visit", help="data IDs, e.g. --id exp=12345"
-        )
-        return parser
-
-    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> Struct:
-        """Measure and apply the flux calibration
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for merged spectrum.
-
-        Returns
-        -------
-        fluxCal : `FluxCalib`
-            Flux calibration.
-        pfsCalibrated : `PfsCalibratedSpectra`
-            Calibrated spectra.
-        pfsCalibratedLsf : `LsfDict`
-            Line-spread functions for calibrated spectra.
-        """
-        pfsMerged = dataRef.get("pfsMerged")
-        pfsMergedLsf = dataRef.get("pfsMergedLsf")
-        pfsConfig = dataRef.get("pfsConfig")
-        references = dataRef.get("pfsFluxReference")
-
-        butler = dataRef.getButler()
-        armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
-        pfsArmList = [armRef.get("pfsArm") for armRef in armRefList]
-        sky1dList = [armRef.get("sky1d") for armRef in armRefList]
-
-        outputs = self.run(pfsMerged, pfsMergedLsf, references, pfsConfig, pfsArmList, sky1dList)
-
-        if self.config.doWrite:
-            dataRef.put(outputs.fluxCal, "fluxCal")
-
-            # Gen2 writes the pfsCalibrated spectra individually
-            for target in outputs.pfsCalibrated:
-                pfsSingle = outputs.pfsCalibrated[target]
-                dataId = pfsSingle.getIdentity().copy()
-                dataId.update(dataRef.dataId)
-                self.forceSpectrumToBePersistable(pfsSingle)
-                butler.put(pfsSingle, "pfsSingle", dataId)
-                butler.put(outputs.pfsCalibratedLsf[target], "pfsSingleLsf", dataId)
-
-        return outputs
-
     def calculateCalibrations(
         self,
         pfsConfig: PfsConfig,
@@ -1568,6 +1515,3 @@ class FitFluxCalTask(PipelineTask):
             # (0, 0) looks more alarming than, say, (9.87654321, 0) to users.
             spectrum.target.ra = 0
             spectrum.target.dec = 0
-
-    def _getMetadataName(self) -> None:
-        return None
