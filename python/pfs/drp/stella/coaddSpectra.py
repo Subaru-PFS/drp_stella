@@ -126,6 +126,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    ignoreCatId = ListField(dtype=int, default=[-1], doc="List of catIds to ignore")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -195,6 +196,9 @@ class CoaddSpectraTask(PipelineTask):
         """
         assert butler.quantum.dataId is not None
         catId = butler.quantum.dataId["cat_id"]
+        if catId in self.config.ignoreCatId:
+            self.log.info("Ignoring catId=%d", catId)
+            return
 
         data: Dict[Identity, Struct] = {}
         for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
