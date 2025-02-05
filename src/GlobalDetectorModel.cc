@@ -2,16 +2,6 @@
 #include <numeric>
 #include <algorithm>
 
-#include "Minuit2/FunctionMinimum.h"
-#include "Minuit2/MnMigrad.h"
-#include "Minuit2/FCNBase.h"
-
-//#define DEBUG
-
-#ifdef DEBUG
-#include "Minuit2/MnPrint.h"
-#endif
-
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
