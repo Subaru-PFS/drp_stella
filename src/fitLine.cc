@@ -122,7 +122,12 @@ FitLineResult fitLine(
     std::vector<double> parameters = {amplitude, peakPosition, rmsSize, 0.0, 0.0};
     std::vector<double> steps = {0.1*amplitude, 0.1, 0.1, 1.0, 0.01};
 
-    auto const min = ROOT::Minuit2::MnMigrad(func, parameters, steps)();
+    ROOT::Minuit2::MnUserParameterState const state{
+        {parameters.begin(), parameters.end()},
+        {steps.begin(), steps.end()}
+    };
+    ROOT::Minuit2::MnStrategy const strategy{1};
+    auto const min = ROOT::Minuit2::MnMigrad(func, state, strategy)();
     assert(min.UserParameters().Params().size() == 5);
     return FitLineResult(
         std::sqrt(min.Fval()/count),
