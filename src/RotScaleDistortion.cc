@@ -4,10 +4,6 @@
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
-#include "Minuit2/FunctionMinimum.h"
-#include "Minuit2/MnMigrad.h"
-#include "Minuit2/FCNBase.h"
-
 #include "lsst/afw/table.h"
 #include "lsst/afw/table/io/OutputArchive.h"
 #include "lsst/afw/table/io/InputArchive.h"
