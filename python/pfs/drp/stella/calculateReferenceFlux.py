@@ -1,9 +1,8 @@
 import numpy as np
 
 from lsst.pex.config import ConfigurableField
-from lsst.pipe.base import ArgumentParser
 
-from lsst.pipe.base import CmdLineTask, PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
+from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
@@ -54,7 +53,7 @@ class CalculateReferenceFluxConfig(PipelineTaskConfig, pipelineConnections=Calcu
         self.selectFibers.targetType = ["FLUXSTD"]
 
 
-class CalculateReferenceFluxTask(CmdLineTask, PipelineTask):
+class CalculateReferenceFluxTask(PipelineTask):
     """Calculate the physical reference flux for flux standards
 
     The heavy lifting is done by the ``fitReference`` sub-task.
@@ -142,35 +141,3 @@ class CalculateReferenceFluxTask(CmdLineTask, PipelineTask):
             ),
         )
         butler.put(references, outputRefs.references)
-
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Make ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged",
-                               help="data IDs, e.g. --id exp=12345")
-        return parser
-
-    def runDataRef(self, dataRef):
-        """Run on an exposure
-
-        This is the entry point for the Gen2 middleware.
-
-        We write the reference spectra to individual files. This is in contrast
-        to the Gen3 middleware, which writes the reference spectra to a single
-        file.
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for exposure.
-        """
-        merged = dataRef.get("pfsMerged")
-        pfsConfig = dataRef.get("pfsConfig")
-        butler = dataRef.getButler()
-        spectra = self.run(merged, pfsConfig).references
-        for reference in spectra.values():
-            butler.put(reference, "pfsReference", reference.getIdentity())
-
-    def _getMetadataName(self):
-        return None

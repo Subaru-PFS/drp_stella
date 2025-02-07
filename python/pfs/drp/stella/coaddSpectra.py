@@ -229,39 +229,6 @@ class CoaddSpectraTask(PipelineTask):
         butler.put(PfsObjectSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
-    def runDataRef(self, dataRefList):
-        """Coadd multiple observations
-
-        We base the coaddition on the ``pfsArm`` files because that data hasn't
-        been interpolated. Of course, at the moment we immediately interpolate,
-        but we may choose not to in the future.
-
-        Parameters
-        ----------
-        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
-            Data references for all exposures observing the targets.
-        """
-        dataRefDict = {Identity.fromDict(dataRef.dataId): dataRef for dataRef in dataRefList}
-        data = {}
-        for dataId, dataRef in dataRefDict.items():
-            pfsArm = dataRef.get("pfsArm")
-            data[dataId] = Struct(
-                identity=Identity.fromDict(dataRef.dataId),
-                pfsArm=pfsArm,
-                pfsArmLsf=dataRef.get("pfsArmLsf"),
-                fiberNorms=dataRef.get("fiberNorms") if self.config.doApplyFiberNorms else None,
-                sky1d=dataRef.get("sky1d"),
-                fluxCal=dataRef.get("fluxCal"),
-                pfsConfig=dataRef.get("pfsConfig").select(fiberId=pfsArm.fiberId),
-            )
-
-        butler = dataRefList[0].getButler()
-        results = self.run(data)
-        for target, pfsObject in results.pfsCoadd.items():
-            identity = pfsObject.getIdentity()
-            butler.put(pfsObject, "pfsObject", identity)
-            butler.put(results.pfsCoaddLsf[target], "pfsObjectLsf", identity)
-
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
         """Generate a fully-populated `Target` for this target
 
@@ -453,6 +420,3 @@ class CoaddSpectraTask(PipelineTask):
 
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2, lsf=lsf)
-
-    def _getMetadataName(self):
-        return None

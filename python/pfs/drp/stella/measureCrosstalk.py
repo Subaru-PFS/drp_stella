@@ -29,20 +29,17 @@ __all__ = ["MeasureCrosstalkConfig", "MeasureCrosstalkTask"]
 import numpy as np
 
 from lsst.afw.math import LeastSquares
-from lsst.daf.persistence.butlerExceptions import NoResults
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
-from lsst.pipe.base import CmdLineTask, Struct, TaskRunner
+from lsst.pipe.base import Task, Struct
 
 from lsst.ip.isr.crosstalk import CrosstalkCalib
 
 from .images import getIndices
-from .reduceExposure import ReduceExposureTask
 from .selectFibers import SelectFibersTask
 
 
 class MeasureCrosstalkConfig(Config):
     """Configuration for MeasureCrosstalkTask"""
-    reduceExposure = ConfigurableField(target=ReduceExposureTask, doc="Reduce exposure")
     doSubtractBackground = Field(dtype=bool, default=True, doc="Subtract background?")
     backgroundMask = ListField(dtype=str, default=["BAD", "SAT", "CR", "NO_DATA", "CROSSTALK"])
     traceRadius = Field(dtype=float, default=24.0, doc="Half-width of trace to exclude from target")
@@ -56,38 +53,12 @@ class MeasureCrosstalkConfig(Config):
 
     def setDefaults(self):
         Config.setDefaults(self)
-        self.reduceExposure.isr.doLinearize = False
-        self.reduceExposure.isr.doCrosstalk = False
-        # Turn off all kinds of interpolation: we don't want the images corrected
-        self.reduceExposure.isr.growSaturationFootprintSize = 0  # Saturation spillover provides good signal
-        self.reduceExposure.isr.doDefect = True
-        self.reduceExposure.isr.doWidenSaturationTrails = False
-        self.reduceExposure.isr.doSaturationInterpolation = False
-        self.reduceExposure.isr.doInterpolate = False
-        self.reduceExposure.isr.maskListToInterpolate = []
-        self.reduceExposure.doRepair = False
-        self.reduceExposure.doBackground = False
         # Fiber selection
         self.selectFibers.fiberStatus = ["GOOD", "BROKENFIBER"]
         self.selectFibers.targetType = ["SCIENCE", "SKY", "DCB"]
 
 
-class MeasureCrosstalkRunner(TaskRunner):
-    def __call__(self, *args, **kwargs):
-        """Remove the dataRef from the result
-
-        Otherwise, running threaded yields:
-
-            sqlite3.ProgrammingError: SQLite objects created in a thread can
-            only be used in that same thread.
-        """
-        result = TaskRunner.__call__(self, *args, **kwargs)
-        if hasattr(result, "dataRef"):
-            del result.dataRef
-        return result
-
-
-class MeasureCrosstalkTask(CmdLineTask):
+class MeasureCrosstalkTask(Task):
     """Measure intra-CCD crosstalk
 
     Crosstalk coefficients are logged, and optionally written to a file.
@@ -97,76 +68,12 @@ class MeasureCrosstalkTask(CmdLineTask):
     * Gather: combine ratios to produce crosstalk coefficients.
     """
     ConfigClass = MeasureCrosstalkConfig
-    RunnerClass = MeasureCrosstalkRunner
     _DefaultName = "measureCrosstalk"
 
     def __init__(self, *args, **kwargs):
-        CmdLineTask.__init__(self, *args, **kwargs)
-        self.makeSubtask("reduceExposure")
+        super().__init__(*args, **kwargs)
         self.makeSubtask("selectFibers")
         self.makeSubtask("subtractBackground")
-
-    @classmethod
-    def _makeArgumentParser(cls):
-        parser = super(MeasureCrosstalkTask, cls)._makeArgumentParser()
-        parser.add_argument("--dump-data", dest="dumpData",
-                            help="Name of pickle file to which to write gathered data")
-        return parser
-
-    @classmethod
-    def parseAndRun(cls, *args, **kwargs):
-        """Implement scatter/gather
-
-        The gathered data may be dumped to a pickle file if ``--dump-data` is
-        specified.
-
-        Returns
-        -------
-        coeff : `numpy.ndarray`
-            Crosstalk coefficients.
-        coeffErr : `numpy.ndarray`
-            Crosstalk coefficient errors.
-        coeffNum : `numpy.ndarray`
-            Number of pixels used for crosstalk measurement.
-        """
-        kwargs["doReturnResults"] = True
-        results = super(MeasureCrosstalkTask, cls).parseAndRun(*args, **kwargs)
-        task = cls(config=results.parsedCmd.config, log=results.parsedCmd.log)
-        resultList = [rr.result for rr in results.resultList]
-        if results.parsedCmd.dumpData:
-            import pickle
-            pickle.dump(resultList, open(results.parsedCmd.dumpData, "wb"))
-        coeff = task.reduce(resultList)
-        return Struct(
-            coeff=coeff,
-        )
-
-    def runDataRef(self, dataRef):
-        """Get crosstalk ratios for CCD
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.peristence.ButlerDataRef`
-            Data reference for CCD.
-
-        Returns
-        -------
-        ratios : `list` of `list` of `numpy.ndarray`
-            A matrix of pixel arrays.
-        """
-        exposure = None
-        try:
-            exposure = dataRef.get("calexp")
-            detectorMap = dataRef.get("detectorMap_used")
-            pfsConfig = dataRef.get("pfsConfig")
-        except NoResults:
-            results = self.reduceExposure.runDataRef(dataRef)
-            exposure = results.exposure
-            detectorMap = results.detectorMap
-            pfsConfig = results.pfsConfig
-
-        results = self.run(exposure, detectorMap, pfsConfig)
-        return results.equation
 
     def run(self, exposure, detectorMap, pfsConfig):
         """Extract and return cross talk ratios for an exposure
@@ -382,11 +289,3 @@ class MeasureCrosstalkTask(CmdLineTask):
         numSignificant = (np.abs(crosstalk[crosstalk != 0.0] - med) > 2*rms).sum()
         self.log.info("Coefficients = %g +/- %g --> %d 2-sigma significant values", med, rms, numSignificant)
         return crosstalk
-
-    def _getConfigName(self):
-        """Disable config output"""
-        return None
-
-    def _getMetadataName(self):
-        """Disable metdata output"""
-        return None

@@ -1,7 +1,6 @@
 import lsstDebug
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base import (
-    ArgumentParser,
     PipelineTask,
     PipelineTaskConfig,
     PipelineTaskConnections,
@@ -12,7 +11,6 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
-import lsst.daf.persistence
 from lsst.pex.config import ConfigurableField, ChoiceField, Field, ListField
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
@@ -332,34 +330,6 @@ class FitPfsFluxReferenceTask(PipelineTask):
         inputs = butler.get(inputRefs)
         reference = self.run(**inputs)
         butler.put(reference, outputRefs.reference)
-
-    @classmethod
-    def _makeArgumentParser(cls) -> ArgumentParser:
-        """Make ArgumentParser"""
-        parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(
-            name="--id", datasetType="pfsMerged", level="Visit", help="data IDs, e.g. --id exp=12345"
-        )
-        return parser
-
-    def _getMetadataName(self) -> None:
-        return None
-
-    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> None:
-        """Run on an exposure
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for exposure.
-        """
-        self.log.info("Processing %s", str(dataRef.dataId))
-
-        merged = dataRef.get("pfsMerged")
-        mergedLsf = dataRef.get("pfsMergedLsf")
-        pfsConfig = dataRef.get("pfsConfig")
-        reference = self.run(pfsConfig, merged, mergedLsf)
-        dataRef.put(reference, "pfsFluxReference")
 
     def run(
         self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict

@@ -1,7 +1,6 @@
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 
 import lsstDebug
-import lsst.daf.persistence
 from lsst.pex.config import Config, ChoiceField, Field
 from lsst.pipe.base import Task
 from lsst.utils import getPackageDir
@@ -55,29 +54,6 @@ class FitBroadbandSEDTask(Task):
         super().__init__(*args, **kwargs)
         self.fluxLibrary = FluxModelSet(getPackageDir("fluxmodeldata")).parameters
         self.debugInfo = lsstDebug.Info(__name__)
-
-    def runDataRef(self, dataRef: lsst.daf.persistence.ButlerDataRef) -> Dict[int, NDArray[numpy.float64]]:
-        """For each spectrum,
-        calculate probabilities of model SEDs matching the spectrum.
-
-        Only spectra for which ``targetType == TargetType.FLUXSTD``
-        are processed.
-
-        Parameters
-        ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for merged spectrum.
-
-        Returns
-        -------
-        broadbandPDF : `Dict[int, NDArray[numpy.float64]]`
-            ``broadbandPDF[fiberId][iSED]`` is the normalized probability
-            of the SED ``iSED`` matching the spectrum ``fiberId``.
-            If the targetType of ``fiberId`` is not ``TargetType.FLUXSTD``,
-            ``broadbandPDF[fiberId]`` does not exist.
-        """
-        pfsConfig = dataRef.get("pfsConfig")
-        return self.run(pfsConfig)
 
     def run(self, pfsConfig: PfsConfig) -> Dict[int, NDArray[numpy.float64]]:
         """For each spectrum,
