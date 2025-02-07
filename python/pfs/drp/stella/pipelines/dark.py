@@ -3,7 +3,7 @@ import numpy as np
 
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
-from lsst.cp.pipe.cpDarkTask import CpDarkConnections, CpDarkTaskConfig, CpDarkTask
+from lsst.cp.pipe.cpDark import CpDarkConnections, CpDarkTaskConfig, CpDarkTask
 
 from lsst.afw.geom import SpanSet
 from lsst.pipe.base import Struct

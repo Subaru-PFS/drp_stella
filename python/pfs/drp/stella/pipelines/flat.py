@@ -81,7 +81,7 @@ class FlatDitherCombineTask(PfsCalibCombineTask):
             output connections.
         """
         inputs = butler.get(inputRefs)
-        inputs["inputDims"] = [exp.dataId.full for exp in inputRefs.inputExpHandles]
+        inputs["inputDims"] = [exp.dataId for exp in inputRefs.inputExpHandles]
         outputs = self.run(**inputs)
         butler.put(outputs, outputRefs)
 

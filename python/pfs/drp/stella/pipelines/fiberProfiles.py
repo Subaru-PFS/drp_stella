@@ -112,7 +112,6 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         detector = set((dataId.arm.name, dataId.spectrograph.num) for dataId in dataIdList)
         assert len(detector) == 1
         arm, spectrograph = detector.pop()
-        inputDims = [dataId.byName() for dataId in dataIdList]
 
         obsDate = min(dataId.timespan.begin.to_datetime().date().isoformat() for dataId in dataIdList)
         visit = min(dataId.visit.id for dataId in dataIdList)
@@ -121,7 +120,7 @@ class MeasureFiberProfilesTask(CalibCombineTask):
         inputExpHandles = butler.get(inputRefs.inputExpHandles)
         detectorMap = butler.get(min(inputRefs.detectorMap, key=lambda ref: ref.dataId["visit"]))
         pfsConfig = butler.get(inputRefs.pfsConfig[0])
-        outputs = self.run(inputExpHandles, detectorMap, pfsConfig, identity, inputDims)
+        outputs = self.run(inputExpHandles, detectorMap, pfsConfig, identity, dataIdList)
         butler.put(outputs, outputRefs)
 
     def run(

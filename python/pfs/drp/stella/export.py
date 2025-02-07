@@ -151,7 +151,7 @@ def getDataId(registry: Registry, dataId: DataCoordinate) -> Dict[str, Any]:
     result : `dict`
         Gen2-style data identifier.
     """
-    result = dict(zip(dataId.full.names, dataId.full.values()))
+    result = dict(**dataId.mapping)
     visit = getRecord(dataId, "visit", registry)
     if visit:
         for key, dtype in dict(
