@@ -752,7 +752,7 @@ def showGuiderErrors(agcData, config,
             drbar=("dr", "mean"),
         )
         tmp = tmp.merge(_tmp, on="guide_star_id")
-        tmp = tmp[tmp.drbar > 1e-3*config.maxPosError]
+        tmp = tmp[tmp.drbar < 1e-3*config.maxPosError]
 
     grouped = tmp.groupby(["agc_exposure_id", "agc_camera_id"], as_index=False)
     guideErrorByCamera = grouped.agg(
