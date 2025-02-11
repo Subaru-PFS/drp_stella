@@ -183,7 +183,10 @@ class MergeArmsTask(PipelineTask):
         for spec in spectra:
             self.normalizeSpectra(spec)
 
-        haveSky = not getLamps(allSpectra[0].metadata)  # No lamps means sky exposure
+        md = allSpectra[0].metadata
+        haveSky = not getLamps(md)  # No lamps probably means sky exposure, but might be a dark
+        if haveSky and md.get("DATA-TYP", "").lower().strip() == "dark":
+            haveSky = False
         sky1d = []
         if self.config.doSubtractSky1d:
             if haveSky:
