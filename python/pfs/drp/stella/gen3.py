@@ -18,7 +18,7 @@ from lsst.daf.butler import (
     DatasetAssociation,
     DatasetRef,
     DatasetType,
-    DimensionGraph,
+    DimensionGroup,
     DimensionRecord,
     DimensionUniverse,
     FileDataset,
@@ -54,11 +54,11 @@ class DatasetRefList(Sequence):
     ----------
     datasetType : `DatasetType`
         The dataset type.
-    dimensions : `DimensionGraph`
+    dimensions : `DimensionGroup`
         The set of dimensions associated with this ``datasetType``.
     """
 
-    def __init__(self, datasetType: DatasetType, dimensions: DimensionGraph):
+    def __init__(self, datasetType: DatasetType, dimensions: DimensionGroup):
         self.datasetType = datasetType
         self.dimensions = dimensions
         self._byIndex: List[DatasetRef] = []
@@ -580,11 +580,10 @@ def certifyDetectorMaps(
 
     fromType = registry.getDatasetType(datasetType)
     toType = registry.getDatasetType("detectorMap_calib")
-    dimensions = registry.dimensions.extract(["instrument"])
 
-    query = list(registry.queryDatasets(
-        fromType, collections=collection, dimensions=dimensions, instrument=instrumentName
-    ))
+    query = [ref for ref in registry.queryDatasets(
+        fromType, collections=collection, instrument=instrumentName
+    )]
     if not query:
         log.warn("No detectorMaps found.")
         return

@@ -204,7 +204,7 @@ class CoaddSpectraTask(PipelineTask):
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
-            dataId = pfsArmRef.dataId.full
+            dataId = pfsArmRef.dataId
             visit = dataId["visit"]
             arm = dataId["arm"]
             identity = Identity(

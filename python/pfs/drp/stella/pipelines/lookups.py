@@ -1,11 +1,11 @@
 from typing import List
-from lsst.daf.butler import DataCoordinate, DatasetRef, Registry
+from lsst.daf.butler import DataCoordinate, DatasetRef, DatasetType, Registry
 
 __all__ = ("lookupDetectorMap", "lookupFiberNorms")
 
 
 def lookupDetectorMap(
-    datasetType: str, registry: Registry, dataId: DataCoordinate, collections: List[str]
+    datasetType: str | DatasetType, registry: Registry, dataId: DataCoordinate, collections: List[str]
 ) -> List[DatasetRef]:
     """Look up a detectorMap
 
@@ -14,7 +14,7 @@ def lookupDetectorMap(
 
     Parameters
     ----------
-    datasetType : `str`
+    datasetType : `str` or `lsst.daf.butler.DatasetType`
         The dataset type to look up.
     registry : `lsst.daf.butler.Registry`
         The butler registry.
@@ -28,11 +28,23 @@ def lookupDetectorMap(
     refs : `list` of `lsst.daf.butler.DatasetRef`
         The references to the bias or dark frame.
     """
+    if isinstance(datasetType, str):
+        datasetType: DatasetType = registry.getDatasetType(datasetType)
+
+    component: str | None = None
+    if datasetType.isComponent():
+        parent, component = datasetType.nameAndComponent()
+    else:
+        parent = datasetType.name
+
     if "visit" not in dataId or dataId.timespan is None:
         # We need to provide the entire set of available detectorMaps for the join
-        result = registry.queryDatasets(datasetType, dataId=dataId, collections=collections)
-        return [ref for ref in result]
-    return [registry.findDataset(datasetType, dataId, collections=collections, timespan=dataId.timespan)]
+        result = list(registry.queryDatasets(parent, dataId=dataId, collections=collections))
+    else:
+        result = [registry.findDataset(parent, dataId, collections=collections, timespan=dataId.timespan)]
+    if component is not None:
+        result = [ref.makeComponentRef(component) for ref in result]
+    return result
 
 
 def lookupFiberNorms(
