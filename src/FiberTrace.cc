@@ -126,10 +126,20 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     }
 
     // Set up image of trace
-    auto const centersMinMax = std::minmax_element(centers.begin(), centers.end());
-    int const xMin = std::max(0, int(*centersMinMax.first) - radius);
-    int const xMax = std::min(dims.getX() - 1, int(std::ceil(*centersMinMax.second)) + radius);
-    if (xMin > int(width) || xMax < 0) {
+    int xMin = width + radius;
+    int xMax = -radius;
+    for (std::size_t yy = 0; yy < height; ++yy) {
+        double const xx = centers[yy];
+        if (!std::isfinite(xx)) {
+            continue;
+        }
+        xMin = std::min(xMin, int(std::floor(xx)));
+        xMax = std::max(xMax, int(std::ceil(xx)));
+    }
+    xMin = std::max(0, xMin - radius);
+    xMax = std::min(width - 1, xMax + radius);
+    if (xMin >= width - 1 || xMax <= 0) {
+        // No valid centers --> no trace
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Centers extend beyond bounds of the image");
     }
     lsst::geom::Box2I box{lsst::geom::Point2I(xMin, 0),
@@ -195,8 +205,8 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
-        int const xStart = std::max(0, int(std::ceil(centers[yy] - radius)));
-        int const xStop = std::min(dims.getX(), xStart + 2*radius);
+        int const xStart = std::max(xMin, int(std::ceil(centers[yy] - radius)));
+        int const xStop = std::min(xMax, xStart + 2*radius);
         double xRel = xStart - centers[yy];
         auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
         auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
