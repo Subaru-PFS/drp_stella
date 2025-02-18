@@ -1,0 +1,16 @@
+description: Reduce an exposure
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray2:
+    class: pfs.drp.stella.cosmicray.CompareCosmicRayTask
+  reduceExposure:
+    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+    config:
+      requireAdjustDetectorMap: True
+  mergeArms:
+    class: pfs.drp.stella.mergeArms.MergeArmsTask
+    config:
+      doSubtractSky1d: False
