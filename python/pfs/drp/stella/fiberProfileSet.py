@@ -309,7 +309,11 @@ class FiberProfileSet:
         """
         traces = FiberTraceSet(len(self), self.metadata)
         for fiberId in self:
-            traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+            try:
+                traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+            except RuntimeError:
+                # Failed to make a trace, possibly because the fiber is off the image
+                pass
         return traces
 
     def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.3):
