@@ -17,6 +17,7 @@ from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantized
 from pfs.datamodel.pfsConfig import PfsConfig, TargetType
 from pfs.datamodel import FiberStatus, Target
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
+from pfs.datamodel.drp import PfsCalibrated
 from pfs.drp.stella.lsf import Lsf, LsfDict
 
 from .focalPlaneFunction import FocalPlaneFunction
@@ -27,7 +28,6 @@ from .subtractSky1d import subtractSky1d
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .gen3 import readDatasetRefs
-from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .barycentricCorrection import applyBarycentricCorrection
 
 
@@ -213,7 +213,7 @@ class FluxCalibrateConnections(PipelineTaskConnections, dimensions=("instrument"
     pfsCalibrated = OutputConnection(
         name="pfsCalibrated",
         doc="Flux-calibrated object spectrum",
-        storageClass="PfsCalibratedSpectra",
+        storageClass="PfsCalibratedSpectra",  # deprecated in favor of PfsCalibrated
         dimensions=("instrument", "visit"),
     )
     pfsCalibratedLsf = OutputConnection(
@@ -278,7 +278,7 @@ class FluxCalibrateTask(PipelineTask):
         -------
         fluxCal : `FocalPlaneFunction`
             Flux calibration solution.
-        pfsCalibrated : `PfsCalibratedSpectra`
+        pfsCalibrated : `PfsCalibrated`
             Calibrated spectra.
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
@@ -316,7 +316,7 @@ class FluxCalibrateTask(PipelineTask):
 
         return Struct(
             fluxCal=fluxCal,
-            pfsCalibrated=PfsCalibratedSpectra(pfsCalibrated.values()),
+            pfsCalibrated=PfsCalibrated(pfsCalibrated.values()),
             pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 

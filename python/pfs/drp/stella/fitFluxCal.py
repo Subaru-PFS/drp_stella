@@ -24,9 +24,9 @@ from lsst.pex.config import Field, ChoiceField, ListField, ConfigurableField
 
 from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
+from pfs.datamodel.drp import PfsCalibrated
 
 from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
-from .datamodel.pfsTargetSpectra import PfsCalibratedSpectra
 from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
 from .fitPfsFluxReference import removeBadFluxes
 from .fitReference import FilterCurve
@@ -1294,7 +1294,7 @@ class FitFluxCalTask(PipelineTask):
         -------
         fluxCal : `FluxCalib`
             Flux calibration solution.
-        pfsCalibrated : `PfsCalibratedSpectra`
+        pfsCalibrated : `PfsCalibrated`
             Calibrated spectra.
         pfsCalibratedLsf : `LsfDict`
             Line-spread functions for calibrated spectra.
@@ -1332,7 +1332,7 @@ class FitFluxCalTask(PipelineTask):
 
         return Struct(
             fluxCal=fluxCal,
-            pfsCalibrated=PfsCalibratedSpectra(pfsCalibrated.values()),
+            pfsCalibrated=PfsCalibrated(pfsCalibrated.values()),
             pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 

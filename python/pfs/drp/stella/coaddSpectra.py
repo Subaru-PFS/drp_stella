@@ -18,10 +18,10 @@ from lsst.geom import SpherePoint, averageSpherePoint, degrees
 from pfs.datamodel import Target, Observations, PfsConfig, Identity
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
+from pfs.datamodel.drp import PfsCoadd
 from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
-from .datamodel.pfsTargetSpectra import PfsObjectSpectra
 from .fluxCalibrate import calibratePfsArm
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
@@ -109,7 +109,7 @@ class CoaddSpectraConnections(
     pfsCoadd = OutputConnection(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
-        storageClass="PfsObjectSpectra",
+        storageClass="PfsObjectSpectra",  # Deprecated in favor of PfsCoadd
         dimensions=("instrument", "combination", "cat_id"),
     )
     pfsCoaddLsf = OutputConnection(
@@ -126,6 +126,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    ignoreCatId = ListField(dtype=int, default=[-1], doc="List of catIds to ignore")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -195,6 +196,9 @@ class CoaddSpectraTask(PipelineTask):
         """
         assert butler.quantum.dataId is not None
         catId = butler.quantum.dataId["cat_id"]
+        if catId in self.config.ignoreCatId:
+            self.log.info("Ignoring catId=%d", catId)
+            return
 
         data: Dict[Identity, Struct] = {}
         for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
@@ -226,7 +230,7 @@ class CoaddSpectraTask(PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsObjectSpectra(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
+        butler.put(PfsCoadd(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:

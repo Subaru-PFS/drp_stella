@@ -83,11 +83,11 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
         """
         return Struct(
             wavelength=np.linspace(minWavelength, maxWavelength, length, dtype=float),
-            flux=self.rng.uniform(size=length),
+            flux=self.rng.uniform(size=length).astype(np.float32),
             mask=self.rng.randint(0xFFFF, size=length),
-            sky=self.rng.uniform(size=length),
-            covar=self.rng.uniform(size=(3, length)),
-            covar2=self.rng.uniform(size=(5, 5)),
+            sky=self.rng.uniform(size=length).astype(np.float32),
+            covar=self.rng.uniform(size=(3, length)).astype(np.float32),
+            covar2=self.rng.uniform(size=(5, 5)).astype(np.float32),
         )
 
     def makeFlags(self) -> MaskHelper:
@@ -129,8 +129,8 @@ class PfsTargetSpectraTestCase(lsst.utils.tests.TestCase):
         """
         return FluxTable(
             wavelength=np.linspace(minWavelength, maxWavelength, length, dtype=float),
-            flux=self.rng.uniform(size=length),
-            error=self.rng.uniform(size=length),
+            flux=self.rng.uniform(size=length).astype(np.float32),
+            error=self.rng.uniform(size=length).astype(np.float32),
             mask=self.rng.randint(0xFFFF, size=length),
             flags=self.makeFlags(),
         )
