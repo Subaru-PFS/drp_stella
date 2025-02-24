@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mplColors
 from matplotlib.animation import FuncAnimation
 
-import lsst.daf.persistence as dafPersist
+from lsst.daf.butler import DatasetNotFoundError
 
 from pfs.drp.stella.utils import addPfsCursor
 
@@ -453,8 +453,8 @@ class PlotArcLines:
         detectorMap = self.butler.get("detectorMap", dataId) if self.getDetectorMap is None else \
             self.getDetectorMap(self.butler, dataId)
         try:
-            als = addTraceLambdaToArclines(self.butler.get('arcLines', dataId), detectorMap)
-        except dafPersist.NoResults as e:
+            als = addTraceLambdaToArclines(self.butler.get('lines', dataId), detectorMap)
+        except DatasetNotFoundError as e:
             print(e)
             return self._label, self._pobj
         if len(als.fiberId) == 0:
