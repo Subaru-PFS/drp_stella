@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import lsst.daf.persistence as dafPersist
+from lsst.daf.butler import DatasetNotFoundError
 
 from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
@@ -170,7 +170,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
 
             try:
                 alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
-            except dafPersist.NoResults:
+            except DatasetNotFoundError:
                 alsCache[dataIdStr] = None
 
     # We need to fake SMs if we've been given a list of dataIds, but don't want to assemble
