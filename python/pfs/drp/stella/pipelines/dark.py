@@ -9,17 +9,6 @@ from lsst.afw.geom import SpanSet
 from lsst.pipe.base import Struct
 from lsst.meas.algorithms import SingleGaussianPsf
 
-from .calibCombine import PfsCalibCombineConnections, PfsCalibCombineConfig, PfsCalibCombineTask
-
-__all__ = (
-    "PfsDarkConnections",
-    "PfsDarkConfig",
-    "PfsDarkTask",
-    "PfsDarkCombineConnections",
-    "PfsDarkCombineConfig",
-    "PfsDarkCombineTask",
-)
-
 
 class PfsDarkConnections(CpDarkConnections, dimensions=("instrument", "visit", "arm", "spectrograph")):
     inputExp = InputConnection(
@@ -97,25 +86,3 @@ class PfsDarkTask(CpDarkTask):
         return Struct(
             outputExp=inputExp,
         )
-
-
-class PfsDarkCombineConnections(PfsCalibCombineConnections):
-    """Connections for PfsDarkCombineTask"""
-    outputExp = OutputConnection(
-        name="cpDark",
-        doc="Output combined dark frame.",
-        storageClass="PfsDark",
-        dimensions=("instrument", "arm", "spectrograph"),
-    )
-
-
-class PfsDarkCombineConfig(
-    PfsCalibCombineConfig, pipelineConnections=PfsCalibCombineConnections
-):
-    """Configuration for PfsDarkCombineTask"""
-    pass
-
-
-class PfsDarkCombineTask(PfsCalibCombineTask):
-    """Combine dark frames to create a master dark"""
-    ConfigClass = PfsDarkCombineConfig

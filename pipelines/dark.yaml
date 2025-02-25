@@ -24,7 +24,7 @@ tasks:
       repair.interp.modelPsf.defaultFwhm: 1.5
       repair.cosmicray.nCrPixelMax: 5000000
   darkCombine:
-    class: pfs.drp.stella.pipelines.dark.PfsDarkCombineTask
+    class: pfs.drp.stella.pipelines.calibCombine.PfsCalibCombineTask
     config:
       connections.inputExpHandles: darkScaled
       connections.outputData: dark
