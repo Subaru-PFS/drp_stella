@@ -90,6 +90,7 @@ class ScatteredLightModel:
         rr2 = dx**2 + soften**2
         if doSpectral:
             rr2 += dy**2
+        rr2 = np.maximum(rr2, 1.0)  # Avoid division by zero
         kernel = rr2**(-powerLaw/2)
         kernel *= frac/np.sum(kernel)
         return kernel
@@ -112,7 +113,7 @@ class ScatteredLightModel:
         kernel : `numpy.ndarray`
             Kernel for the second component of the scattered light model.
         """
-        return self._makeKernelImpl(self.frac2, self.powerLaw2, self.soften2, self.grid, doSpectral=False)
+        return self._makeKernelImpl(self.frac2, self.powerLaw2, self.soften2, self.grid, doSpectral=True)
 
     def makeKernel(self):
         """Make the kernel for the scattered light model
@@ -147,7 +148,13 @@ class ScatteredLightModel:
         traces = FiberTraceSet(len(pfsArm))
         for fid in pfsArm.fiberId:
             centers = detectorMap.getXCenter(fid)
-            traces.add(FiberTrace.boxcar(fid, dims, 0.5, centers))
+            if False:
+                tt = FiberTrace.boxcar(fid, dims, 0.5, centers)
+            else:
+                from .fiberProfile import FiberProfile
+                profile = FiberProfile.makeGaussian(2.0, dims.getY(), 7, 3)
+                tt = profile.makeFiberTraceFromDetectorMap(detectorMap, fid)
+            traces.add(tt)
 
         spectra = SpectrumSet.fromPfsArm(pfsArm)
         model = spectra.makeImage(dims, traces).array
