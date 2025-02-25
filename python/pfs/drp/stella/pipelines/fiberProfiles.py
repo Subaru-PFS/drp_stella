@@ -25,8 +25,8 @@ class MeasureFiberProfilesConnections(
     """Connections for MeasureFiberProfilesTask"""
 
     inputExpHandles = InputConnection(
-        name="calexp",
-        doc="Input combined profiles.",
+        name="postISRCCD",
+        doc="Input exposures.",
         storageClass="Exposure",
         dimensions=("instrument", "visit", "spectrograph", "arm", "spectrograph"),
         multiple=True,
