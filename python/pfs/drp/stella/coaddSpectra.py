@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField, ConfigField
+from lsst.pex.config import ConfigurableField, ListField
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -23,7 +23,7 @@ from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
 from .fluxCalibrate import calibratePfsArm
-from .mergeArms import WavelengthSamplingConfig
+from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, LsfDict, warpLsf, coaddLsf
@@ -122,7 +122,7 @@ class CoaddSpectraConnections(
 
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
-    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
+    wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
@@ -138,6 +138,7 @@ class CoaddSpectraTask(PipelineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("wavelength")
         self.makeSubtask("fluxTable")
 
     def run(self, data: Mapping[Identity, Struct]) -> Struct:
@@ -349,11 +350,12 @@ class CoaddSpectraTask(PipelineTask):
         pfsConfigList = [dd.pfsConfig.select(catId=target.catId, objId=target.objId) for dd in data.values()]
         target = self.getTarget(target, pfsConfigList)
         observations = self.getObservations(data.keys(), pfsConfigList)
+        wavelength = self.wavelength.run(any(ident.arm == "m" for ident in data))
 
         spectra = [self.getSpectrum(target, dd) for dd in data.values()]
         lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
-        combination = self.combine(spectra, lsfList, flags)
+        combination = self.combine(spectra, lsfList, flags, wavelength)
         fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra)
 
         coadd = PfsObject(target, observations, combination.wavelength, combination.flux,
@@ -361,7 +363,7 @@ class CoaddSpectraTask(PipelineTask):
                           getPfsVersions(), fluxTable)
         return Struct(pfsObject=coadd, pfsObjectLsf=combination.lsf)
 
-    def combine(self, spectraList, lsfList, flags):
+    def combine(self, spectraList, lsfList, flags, wavelength: np.ndarray):
         """Combine spectra
 
         Parameters
@@ -372,6 +374,8 @@ class CoaddSpectraTask(PipelineTask):
             List of line-spread functions for each arm for each visit.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
+        wavelength : `np.ndarray`
+            Wavelength array for the combined spectrum.
 
         Returns
         -------
@@ -385,7 +389,6 @@ class CoaddSpectraTask(PipelineTask):
             Mask for combined spectrum.
         """
         # First, resample to a common wavelength sampling
-        wavelength = self.config.wavelength.wavelength
         resampled = []
         resampledLsf = []
         for spectrum, lsf in zip(spectraList, lsfList):
