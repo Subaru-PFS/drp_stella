@@ -1,16 +1,19 @@
 from abc import ABC, abstractmethod
 from functools import partial
+from typing import TYPE_CHECKING
+from collections.abc import Callable, Iterable, Iterator
 import numbers
 import pickle
 import numpy as np
 import scipy
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz
+from numpy.typing import NDArray, ArrayLike
 
-from lsst.geom import Point2D, Point2I, Extent2I
+from lsst.geom import Point2D, Point2I, Extent2I, Box2I
 from lsst.afw.image import ImageF, ImageD, MaskedImageF
 from lsst.afw.math import FixedKernel
-from lsst.afw.geom.ellipses import Quadrupole
+from lsst.afw.geom.ellipses import Quadrupole, BaseCore
 
 from .FiberTraceSetContinued import FiberTraceSet
 
@@ -20,6 +23,18 @@ __all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpirical
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
                                assume_sorted=True)
+
+# Floating-point types
+FloatingPoint = np.float32 | np.float64
+
+# Interpolator type
+Interpolator = Callable[[ArrayLike], ArrayLike]
+
+# Interpolator factory type
+InterpolatorFactory = Callable[[NDArray[FloatingPoint], NDArray[FloatingPoint]], Interpolator]
+
+if TYPE_CHECKING:
+    from pfs.drp.stella import SpectralPsf, FiberTrace
 
 
 class Kernel1D:
@@ -39,7 +54,7 @@ class Kernel1D:
     normalize : `bool`, optional
         Normalize the kernel to unity?
     """
-    def __init__(self, values, center, normalize=True):
+    def __init__(self, values: NDArray[FloatingPoint], center: int, normalize: bool = True):
         self.length = len(values)
         self.center = center
         self.values = values
@@ -50,7 +65,7 @@ class Kernel1D:
             self.values /= self.normalization()
 
     @classmethod
-    def makeEmpty(cls, halfSize):
+    def makeEmpty(cls, halfSize: int) -> "Kernel1D":
         """Create an empty ``Kernel1D``
 
         Parameters
@@ -66,11 +81,11 @@ class Kernel1D:
         size = 2*halfSize + 1
         return cls(np.zeros(size, dtype=float), halfSize, normalize=False)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Number of elements in kernel array"""
         return self.length
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> float:
         """Get value(s) from the kernel
 
         Supports integer or array indexing.
@@ -82,7 +97,7 @@ class Kernel1D:
         ii, vv = np.broadcast_arrays(index, self.values)
         return vv[ii + self.center]
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: int, value: FloatingPoint):
         """Set value(s) in the kernel.
 
         Supports integer or array indexing.
@@ -92,14 +107,14 @@ class Kernel1D:
         ii, vv = np.broadcast_arrays(index, value)
         self.values[ii + self.center] = vv
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[int, FloatingPoint]]:
         """Iterator
 
         Produces ``index,value`` pairs.
         """
         return zip(iter(self.indices), iter(self.values))
 
-    def _getOtherValues(self, other):
+    def _getOtherValues(self, other: "Kernel1D | NDArray[FloatingPoint]") -> NDArray[FloatingPoint]:
         """Get values from another Kernel1D IFF dimensions match"""
         if isinstance(other, Kernel1D):
             if self.min != other.min or self.max != other.max:
@@ -108,14 +123,14 @@ class Kernel1D:
             other = other.values
         return other
 
-    def __eq__(self, other):
+    def __eq__(self, other: "Kernel1D") -> bool:
         """Test for equality"""
         return (self.__class__ == other.__class__ and
                 self.min == other.min and
                 self.max == other.max and
                 np.all(self.values == other.values))
 
-    def __imul__(self, other):
+    def __imul__(self, other: "Kernel1D | FloatingPoint") -> "Kernel1D":
         """Multiplication in-place
 
         Supports multiplication by a scalar or an array.
@@ -123,7 +138,7 @@ class Kernel1D:
         self.values *= self._getOtherValues(other)
         return self
 
-    def __itruediv__(self, other):
+    def __itruediv__(self, other: "Kernel1D | FloatingPoint") -> "Kernel1D":
         """Division in-place
 
         Supports division by a scalar or an array.
@@ -135,15 +150,15 @@ class Kernel1D:
         """Pickle prescription"""
         return self.__class__, (self.values, self.center, False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation"""
         return "%s(%s, %f)" % (self.__class__.__name__, self.values, self.center)
 
-    def normalization(self):
+    def normalization(self) -> FloatingPoint:
         """Return the normalization"""
         return np.sum(self.values)
 
-    def convolve(self, array):
+    def convolve(self, array: NDArray[FloatingPoint]) -> NDArray[FloatingPoint]:
         """Convolve an array by the kernel
 
         The convolved array has the same length as the input array in the usual
@@ -157,6 +172,11 @@ class Kernel1D:
         ----------
         array : `numpy.ndarray`, floating-point, shape ``(M,)``
             Array to convolve.
+
+        Returns
+        -------
+        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Convolved array.
 
         Raises
         ------
@@ -177,7 +197,9 @@ class Kernel1D:
             kernel = self.values
         return np.convolve(array, kernel, "same")
 
-    def toArray(self, length, center, interpolator=DEFAULT_INTERPOLATOR):
+    def toArray(
+        self, length: int, center: float, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR
+    ) -> NDArray[FloatingPoint]:
         """Convert to an array at a nominated position
 
         Parameters
@@ -198,12 +220,12 @@ class Kernel1D:
         """
         return interpolator(self.indices + center, self.values)(np.arange(length))
 
-    def computeStdev(self):
+    def computeStdev(self) -> float:
         """Compute standard deviation of kernel"""
         centroid = np.sum((self.indices*self.values).astype(np.float64))
         return np.sqrt(np.sum((self.values*(self.indices - centroid)**2).astype(np.float64)))
 
-    def interpolate(self, indices):
+    def interpolate(self, indices: ArrayLike) -> NDArray[FloatingPoint]:
         """Interpolate the kernel at provided indices
 
         Parameters
@@ -251,11 +273,11 @@ class Lsf(ABC):
         ``y`` should produce an interpolator that can be called with an array of
         ``x`` values at which to interpolate.
     """
-    def __init__(self, length, interpolator=DEFAULT_INTERPOLATOR):
+    def __init__(self, length: int, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR):
         self.length = length
         self.interpolator = interpolator
 
-    def computeImage(self, point=None):
+    def computeImage(self, point: Point2D | None = None) -> ImageF:
         """Return an image with the LSF inserted at the nominated position
 
         This method does the same as the ``computeArray`` method, but packages
@@ -275,7 +297,7 @@ class Lsf(ABC):
             point = self.getAveragePosition()
         return ImageF(self.computeArray(point.getX())[np.newaxis, :].astype(np.float32))
 
-    def computeArray(self, center):
+    def computeArray(self, center: float) -> NDArray[FloatingPoint]:
         """Return an array with the LSF inserted at the nominated position
 
         Besides the difference in return types from the ``computeKernel``
@@ -297,7 +319,7 @@ class Lsf(ABC):
         """
         return self.computeKernel(center).toArray(self.length, center, interpolator=self.interpolator)
 
-    def computeKernelImage(self, point=None):
+    def computeKernelImage(self, point: Point2D | None = None) -> ImageF:
         """Return an image of the kernel for the nominated position
 
         This method does the same as the ``computeKernel`` method, but packages
@@ -319,7 +341,7 @@ class Lsf(ABC):
         return ImageF(kernel.values[np.newaxis, :].astype(np.float32), True, Point2I(-kernel.center, 0))
 
     @abstractmethod
-    def computeKernel(self, center):
+    def computeKernel(self, center: float) -> Kernel1D:
         """Return a kernel for the nominated position
 
         Besides the difference in return types from the ``computeArray``
@@ -341,7 +363,7 @@ class Lsf(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def computePeak(self, point=None):
+    def computePeak(self, point: Point2D | None = None) -> float:
         """Return the value of the peak pixel in the LSF image
 
         Parameters
@@ -358,7 +380,7 @@ class Lsf(ABC):
             point = self.getAveragePosition()
         return self.computeKernel(point.getX())[0]
 
-    def computeShape(self, point=None):
+    def computeShape(self, point: Point2D | None = None) -> BaseCore:
         """Return the shape of the Lsf as if it's a ``Psf``
 
         This method is included for compatibility with `lsst.afw.detection.Psf`.
@@ -378,7 +400,7 @@ class Lsf(ABC):
         sigma = self.computeShape1D(point.getX())
         return Quadrupole(sigma**2, 0, 0)
 
-    def computeShape1D(self, center):
+    def computeShape1D(self, center: float) -> float:
         """Return the standard deviation at the nominated position
 
         The standard deviation is a measure of the width of the LSF.
@@ -395,11 +417,13 @@ class Lsf(ABC):
         """
         return self.computeKernel(center).computeStdev()
 
-    def computeApertureFlux(self, radius, point=None):
+    def computeApertureFlux(self, radius: float, point=None) -> float:
         """Return the flux within the nominated radius
 
         Parameters
         ----------
+        radius : `float`
+            (1 dimensional) radius within which to measure the flux.
         point : `lsst.geom.Point2D`, optional
             Position at which to evaluate the LSF.
 
@@ -421,7 +445,7 @@ class Lsf(ABC):
             flux += 0.5*residual*(kernel[intRadius + 1] + kernel[intRadius])
         return flux
 
-    def getLocalKernel(self, point=None):
+    def getLocalKernel(self, point: Point2D | None = None) -> FixedKernel:
         """Return a 2D ``FixedKernel`` representing the Lsf at a point
 
         Parameters
@@ -440,7 +464,7 @@ class Lsf(ABC):
         image = ImageD(kernel.values[np.newaxis, :], True, Point2I(-kernel.center, 0))
         return FixedKernel(image)
 
-    def getAveragePosition(self):
+    def getAveragePosition(self) -> Point2D:
         """Return the average position for which the Lsf is defined
 
         Returns
@@ -450,7 +474,7 @@ class Lsf(ABC):
         """
         return Point2D(0.5*self.length, 0)
 
-    def computeBBox(self, point=None):
+    def computeBBox(self, point: Point2D | None = None) -> Box2I:
         """Return the bounding box of the kernel image
 
         Parameters
@@ -468,7 +492,7 @@ class Lsf(ABC):
         return self.computeKernelImage(point.getX()).getBBox()
 
     @classmethod
-    def readFits(cls, filename):
+    def readFits(cls, filename: str) -> "Lsf":
         """Read from file
 
         We don't yet know exactly what datamodel we want to use for sharing
@@ -489,7 +513,7 @@ class Lsf(ABC):
         with open(filename, "rb") as fd:
             return pickle.load(fd)
 
-    def writeFits(self, filename):
+    def writeFits(self, filename: str) -> None:
         """Write to file
 
         We don't yet know exactly what datamodel we want to use for sharing
@@ -506,7 +530,7 @@ class Lsf(ABC):
             pickle.dump(self, fd)
 
 
-def gaussian(indices, width):
+def gaussian(indices: ArrayLike, width: float) -> ArrayLike:
     """Evaluate an un-normalized Gaussian
 
     Parameters
@@ -534,21 +558,21 @@ class GaussianKernel1D(Kernel1D):
     nWidth : `float`, optional
         Multiple of ``width`` for the width of the kernel.
     """
-    def __init__(self, width, nWidth=4.0):
+    def __init__(self, width: float, nWidth: float = 4.0):
         halfSize = int(width*nWidth + 0.5)
         size = 2*halfSize + 1
         indices = np.arange(size)
         super().__init__(gaussian(indices - halfSize, width), halfSize)
         self.width = width
 
-    def computeShape1D(self):
+    def computeShape1D(self) -> float:
         """Compute standard deviation of kernel
 
         We know it, so we don't have to calculate it.
         """
         return self.width
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: int, value: FloatingPoint):
         """Prevent setting values"""
         raise NotImplementedError("If you modify the values directly, this won't be a Gaussian any more!")
 
@@ -563,13 +587,13 @@ class GaussianLsf(Lsf):
     width : `float`
         Gaussian RMS width.
     """
-    def __init__(self, length, width):
+    def __init__(self, length: int, width: float):
         super().__init__(length)
         self.width = width
         self.kernel = GaussianKernel1D(width)
         self.norm = 1.0/(width*np.sqrt(2*np.pi))
 
-    def computeArray(self, center):
+    def computeArray(self, center: float) -> NDArray[FloatingPoint]:
         """Return an array with the LSF inserted at the nominated position
 
         Besides the difference in return types from the ``computeKernel``
@@ -592,7 +616,7 @@ class GaussianLsf(Lsf):
         xx = np.arange(self.length)
         return self.norm*gaussian(xx - center, self.width)
 
-    def computeKernel(self, center):
+    def computeKernel(self, center: float) -> Kernel1D:
         """Return a kernel for the nominated position
 
         Besides the difference in return types from the ``computeArray``
@@ -613,7 +637,7 @@ class GaussianLsf(Lsf):
         """
         return self.kernel
 
-    def computeApertureFlux(self, radius, point=None):
+    def computeApertureFlux(self, radius: float, point: Point2D | None = None) -> float:
         """Return the flux within the nominated radius
 
         Parameters
@@ -628,7 +652,7 @@ class GaussianLsf(Lsf):
         """
         return scipy.special.erf(np.sqrt(0.5)*radius/self.width)
 
-    def computeShape1D(self, center):
+    def computeShape1D(self, center: float) -> float:
         """Return the standard deviation at the nominated position
 
         The standard deviation is a measure of the width of the LSF.
@@ -665,11 +689,13 @@ class FixedEmpiricalLsf(Lsf):
         ``y`` should produce an interpolator that can be called with an array of
         ``x`` values at which to interpolate.
     """
-    def __init__(self, kernel, length, interpolator=DEFAULT_INTERPOLATOR):
+    def __init__(
+        self, kernel: Kernel1D, length: int, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR
+    ):
         super().__init__(length, interpolator=interpolator)
         self.kernel = kernel
 
-    def computeKernel(self, center):
+    def computeKernel(self, center: float) -> Kernel1D:
         """Return a kernel for the nominated position
 
         Besides the difference in return types from the ``computeArray``
@@ -707,13 +733,13 @@ class ExtractionLsf(Lsf):
     length : `int`
         Array length.
     """
-    def __init__(self, psf, fiberTrace, length):
+    def __init__(self, psf: "SpectralPsf", fiberTrace: "FiberTrace", length: int):
         self.psf = psf
         self.fiberTrace = fiberTrace
         self.fiberId = fiberTrace.fiberId
         super().__init__(length)
 
-    def computeKernel(self, yy):
+    def computeKernel(self, center: float) -> Kernel1D:
         """Return a kernel for the nominated position
 
         Besides the difference in return types from the ``computeArray``
@@ -736,18 +762,18 @@ class ExtractionLsf(Lsf):
             Kernel with a model of the LSF at the nominated position.
         """
         detMap = self.psf.getDetectorMap()
-        xx = detMap.getXCenter(self.fiberId, yy)
-        psfImage = MaskedImageF(self.psf.computeKernelImage(Point2D(xx, yy)).convertF())
+        xx = detMap.getXCenter(self.fiberId, center)
+        psfImage = MaskedImageF(self.psf.computeKernelImage(Point2D(xx, center)).convertF())
         psfImage.variance.set(1.0)
         xy0 = psfImage.getXY0()
-        psfImage.setXY0(xy0 + Extent2I(int(xx + 0.5), int(yy + 0.5)))  # So extraction works properly
+        psfImage.setXY0(xy0 + Extent2I(int(xx + 0.5), int(center + 0.5)))  # So extraction works properly
         traces = FiberTraceSet(1)
         traces.add(self.fiberTrace)
         spectra = traces.extractSpectra(psfImage)
         assert len(spectra) == 1
         return Kernel1D(spectra[0].flux, -xy0.getY())
 
-    def computeArray(self, yy):
+    def computeArray(self, center: float) -> NDArray[FloatingPoint]:
         """Return an array with the LSF inserted at the nominated position
 
         Besides the difference in return types from the ``computeKernel``
@@ -773,8 +799,8 @@ class ExtractionLsf(Lsf):
             Array containing the LSF inserted.
         """
         detMap = self.psf.getDetectorMap()
-        xx = detMap.getXCenter(self.fiberId, yy)
-        psfImage = MaskedImageF(self.psf.computeImage(Point2D(xx, yy)).convertF())
+        xx = detMap.getXCenter(self.fiberId, center)
+        psfImage = MaskedImageF(self.psf.computeImage(Point2D(xx, center)).convertF())
         psfImage.variance.set(1.0)
         psfBox = psfImage.getBBox()
         traces = FiberTraceSet(1)
@@ -794,7 +820,7 @@ class ExtractionLsf(Lsf):
         return self.__class__, (self.psf, self.fiberTrace, self.length)
 
 
-def warpLsf(lsf, inWavelength, outWavelength):
+def warpLsf(lsf: Lsf, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]) -> Lsf:
     """Warp a line-spread function
 
     This is a placeholder implementation that generates a `GaussianLsf` with
@@ -828,7 +854,7 @@ def warpLsf(lsf, inWavelength, outWavelength):
     inToWavelength = interp1d(inPixels, inWavelength, kind="linear", assume_sorted=True)
     wavelengthToOut = interp1d(outWavelength, outPixels, kind="linear", assume_sorted=True)
 
-    def transform(inRow):
+    def transform(inRow: float) -> float:
         """Transform input row value to output row value
 
         Parameters
@@ -849,7 +875,7 @@ def warpLsf(lsf, inWavelength, outWavelength):
     return GaussianLsf(outLength, outWidth)
 
 
-def coaddLsf(lsfList, weights=None):
+def coaddLsf(lsfList: Iterable[Lsf], weights: ArrayLike | None = None) -> Lsf:
     """Coadd line-spread functions
 
     This is a placeholder implementation that returns a Gaussian LSF with
