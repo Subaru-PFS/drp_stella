@@ -156,11 +156,12 @@ class ScatteredLightModel:
                 tt = profile.makeFiberTraceFromDetectorMap(detectorMap, fid)
             traces.add(tt)
 
-        if False:
+        if True:
             flux_new = []
-            for flx, msk in zip(pfsArm.flux, pfsArm.mask):
+            for wav, flx, msk in zip(pfsArm.wavelength, pfsArm.flux, pfsArm.mask):
                 bad = msk & pfsArm.flags.get("CR") != 0
-                flx[bad] = 0.0
+                #flx[bad] = 0.0
+                flx[bad] = np.nanmedian(flx[~bad])
                 flux_new.append(flx)
             pfsArm.flux = np.array(flux_new)
 
