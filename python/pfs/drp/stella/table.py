@@ -97,7 +97,7 @@ class Table:
         """
         return cls.fromColumns(
             **{
-                name: np.array([getattr(ll, name) for ll in rows], dtype=dtype)
+                name: np.array([getattr(ll, name) for ll in rows], dtype=dtype.dtype)
                 for name, dtype in cls._schema.items()
             }
         )
@@ -113,7 +113,9 @@ class Table:
             and each column must be ``array_like``.
         """
         return cls(
-            DataFrame({name: np.array(columns[name], dtype=dtype) for name, dtype in cls._schema.items()})
+            DataFrame(
+                {name: np.array(columns[name], dtype=dtype.dtype) for name, dtype in cls._schema.items()}
+            )
         )
 
     @classmethod
