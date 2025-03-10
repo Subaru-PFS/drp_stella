@@ -201,7 +201,7 @@ class ScatteredLightConfig(Config):
     frac1 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.035, r2=0.040, r3=0.040, r4=0.060),
+        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.035, r2=0.040, r3=0.045, r4=0.060),
         doc="Fraction of the total power in the first component, indexed by camera name or 'default'",
     )
     powerLaw1 = DictField(
@@ -219,7 +219,7 @@ class ScatteredLightConfig(Config):
     frac2 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.01, b1=0.025, b2=0.045, b3=0.032, b4=0.045, r1=0.025, r2=0.020, r3=0.020, r4=0.024),
+        default=dict(default=0.01, b1=0.025, b2=0.045, b3=0.032, b4=0.045, r1=0.025, r2=0.020, r3=0.013, r4=0.024),
         doc="Fraction of the total power in the second component, indexed by camera name or 'default'",
     )
     powerLaw2 = DictField(
