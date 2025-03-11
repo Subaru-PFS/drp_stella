@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import scipy
 from scipy.interpolate import interp1d
-from scipy.integrate import trapz
+from scipy.integrate import trapezoid
 from numpy.typing import NDArray, ArrayLike
 
 from lsst.geom import Point2D, Point2I, Extent2I, Box2I
@@ -18,7 +18,7 @@ from lsst.afw.geom.ellipses import Quadrupole, BaseCore
 from .FiberTraceSetContinued import FiberTraceSet
 
 __all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf", "ExtractionLsf",
-           "warpLsf", "coaddLsf", "LsfDict")
+           "CoaddLsf", "LsfDict")
 
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
@@ -63,6 +63,10 @@ class Kernel1D:
         self.max = self.indices[-1]
         if normalize:
             self.values /= self.normalization()
+
+    def copy(self) -> "Kernel1D":
+        """Return a copy of the kernel"""
+        return self.__class__(self.values.copy(), self.center, normalize=False)
 
     @classmethod
     def makeEmpty(cls, halfSize: int) -> "Kernel1D":
@@ -146,6 +150,43 @@ class Kernel1D:
         self.values /= self._getOtherValues(other)
         return self
 
+    def __iadd__(self, other: "Kernel1D") -> "Kernel1D":
+        """Addition in-place"""
+        if self.min == other.min and self.max == other.max:
+            self.values += self._getOtherValues(other)
+        elif self.min <= other.min and self.max >= other.max:
+            self.values[other.min - self.min:other.max - self.min + 1] += other.values
+        else:
+            newMin = min(self.min, other.min)
+            newMax = max(self.max, other.max)
+            length = newMax - newMin + 1
+            center = -newMin
+            indices = np.arange(length) - center
+            values = np.zeros(length, dtype=self.values.dtype)
+
+            selfSlice = slice(self.min - newMin, self.max - newMin + 1)
+            assert np.all(indices[selfSlice] == self.indices)
+            values[selfSlice] += self.values
+
+            otherSlice = slice(other.min - newMin, other.max - newMin + 1)
+            assert np.all(indices[otherSlice] == other.indices)
+            values[otherSlice] += other.values
+
+            self.min = newMin
+            self.max = newMax
+            self.center = center
+            self.values = values
+            self.indices = indices
+            self.length = length
+
+        return self
+
+    def __add__(self, other: "Kernel1D") -> "Kernel1D":
+        """Addition"""
+        result = self.copy()
+        result += other
+        return result
+
     def __reduce__(self):
         """Pickle prescription"""
         return self.__class__, (self.values, self.center, False)
@@ -183,8 +224,10 @@ class Kernel1D:
         RuntimeError
             If the array is shorter than the kernel.
         """
+        buffer = 0
         if len(array) < self.length:
-            raise RuntimeError("Array too short for convolution by this kernel")
+            buffer = (self.length - len(array) + 1)//2
+            array = np.pad(array, buffer, mode="constant")
         if self.center != (self.length - 1)//2:
             # Pad to put center of kernel in the middle, so we don't introduce a shift
             left = self.center
@@ -195,7 +238,10 @@ class Kernel1D:
             kernel[middle - left:middle + right + 1] = self.values
         else:
             kernel = self.values
-        return np.convolve(array, kernel, "same")
+        convolved = np.convolve(array, kernel, "same")
+        if buffer != 0:
+            convolved = convolved[buffer:-buffer]
+        return convolved
 
     def toArray(
         self, length: int, center: float, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR
@@ -222,8 +268,10 @@ class Kernel1D:
 
     def computeStdev(self) -> float:
         """Compute standard deviation of kernel"""
-        centroid = np.sum((self.indices*self.values).astype(np.float64))
-        return np.sqrt(np.sum((self.values*(self.indices - centroid)**2).astype(np.float64)))
+        values = self.values.astype(np.float64)
+        norm = np.sum(values)
+        centroid = np.sum(self.indices*values)/norm
+        return np.sqrt(np.sum((values*(self.indices - centroid)**2))/norm)
 
     def interpolate(self, indices: ArrayLike) -> NDArray[FloatingPoint]:
         """Interpolate the kernel at provided indices
@@ -437,7 +485,7 @@ class Lsf(ABC):
         kernel = self.computeKernel(point.getX())
         intRadius = int(radius)
 
-        flux = trapz([kernel[ii] for ii in range(-intRadius, intRadius + 1)])
+        flux = trapezoid([kernel[ii] for ii in range(-intRadius, intRadius + 1)])
         if radius != intRadius:
             residual = radius - intRadius
             left, right = kernel.interpolate([-radius, radius])
@@ -529,6 +577,38 @@ class Lsf(ABC):
         with open(filename, "wb") as fd:
             pickle.dump(self, fd)
 
+    def convolve(self, array: NDArray[FloatingPoint]) -> NDArray[FloatingPoint]:
+        """Convolve an array by the LSF
+
+        Parameters
+        ----------
+        array : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Array to convolve.
+
+        Returns
+        -------
+        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Convolved array.
+        """
+        return self.computeKernel(0.5*self.length).convolve(array)
+
+    def warp(self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]) -> "Lsf":
+        """Warp the LSF to a new wavelength frame
+
+        Parameters
+        ----------
+        inWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the same frame as for ``lsf``.
+        outWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the target frame.
+
+        Returns
+        -------
+        warpedLsf : `pfs.drp.stella.Lsf`
+            LSF in the warped frame.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
 
 def gaussian(indices: ArrayLike, width: float) -> ArrayLike:
     """Evaluate an un-normalized Gaussian
@@ -564,6 +644,17 @@ class GaussianKernel1D(Kernel1D):
         indices = np.arange(size)
         super().__init__(gaussian(indices - halfSize, width), halfSize)
         self.width = width
+        self.nWidth = nWidth
+
+    def copy(self) -> "GaussianKernel1D":
+        """Return a copy of the kernel"""
+        return self.__class__(self.width, self.nWidth)
+
+    def toKernel1D(self) -> Kernel1D:
+        """Convert to a generic Kernel1D (without the Gaussian-specific
+        attributes)
+        """
+        return Kernel1D(self.values.copy(), self.center, normalize=False)
 
     def computeShape1D(self) -> float:
         """Compute standard deviation of kernel
@@ -575,6 +666,44 @@ class GaussianKernel1D(Kernel1D):
     def __setitem__(self, index: int, value: FloatingPoint):
         """Prevent setting values"""
         raise NotImplementedError("If you modify the values directly, this won't be a Gaussian any more!")
+
+    def __imul__(self, other: "Kernel1D | FloatingPoint") -> "GaussianKernel1D":
+        """Multiplication in-place
+
+        This changes the type, which is a bit unexpected for an in-place
+        operation, but we can't compute the product otherwise.
+        """
+        new = self.toKernel1D()
+        new *= other
+        return new
+
+    def __itruediv__(self, other: "Kernel1D | FloatingPoint") -> "GaussianKernel1D":
+        """Division in-place
+
+        This changes the type, which is a bit unexpected for an in-place
+        operation, but we can't compute the quotient otherwise.
+        """
+        new = self.toKernel1D()
+        new /= other
+        return new
+
+    def __iadd__(self, other: "Kernel1D") -> "GaussianKernel1D":
+        """Addition in-place
+
+        This changes the type, which is a bit unexpected for an in-place
+        operation, but we can't compute the sum otherwise.
+        """
+        new = self.toKernel1D()
+        new += other
+        return new
+
+    def __add__(self, other: "Kernel1D") -> "Kernel1D":
+        """Addition"""
+        return self.toKernel1D() + other
+
+    def __reduce__(self):
+        """Pickle prescription"""
+        return self.__class__, (self.width, self.nWidth)
 
 
 class GaussianLsf(Lsf):
@@ -669,6 +798,53 @@ class GaussianLsf(Lsf):
             Standard deviation of the LSF at the nominated position.
         """
         return self.width
+
+    def warp(
+        self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]
+    ) -> "GaussianLsf":
+        """Warp the LSF to a new wavelength frame
+
+        Parameters
+        ----------
+        inWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the same frame as for ``lsf``.
+        outWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the target frame.
+
+        Returns
+        -------
+        warpedLsf : `pfs.drp.stella.GaussianLsf`
+            LSF in the warped frame.
+        """
+        inLength = len(inWavelength)
+        if self.length != inLength:
+            raise RuntimeError(f"Length mismatch between LSF ({self.length}) and wavelength ({inLength})")
+        outLength = len(outWavelength)
+        inPixels = np.arange(inLength, dtype=inWavelength.dtype)
+        outPixels = np.arange(outLength, dtype=outWavelength.dtype)
+
+        inToWavelength = interp1d(inPixels, inWavelength, kind="linear", assume_sorted=True)
+        wavelengthToOut = interp1d(outWavelength, outPixels, kind="linear", assume_sorted=True)
+
+        def transform(inRow: float) -> float:
+            """Transform input row value to output row value
+
+            Parameters
+            ----------
+            inRow : `float`
+                Input row value.
+
+            Returns
+            -------
+            outRow : `float`
+                Output row value.
+            """
+            return wavelengthToOut(inToWavelength(inRow))
+
+        inMiddle = 0.5*inLength
+        inWidth = self.computeShape1D(inMiddle)
+        outWidth = abs(transform(inMiddle + 0.5*inWidth) - transform(inMiddle - 0.5*inWidth))
+        return GaussianLsf(outLength, outWidth)
 
     def __reduce__(self):
         """Pickling"""
@@ -820,109 +996,178 @@ class ExtractionLsf(Lsf):
         return self.__class__, (self.psf, self.fiberTrace, self.length)
 
 
-def warpLsf(lsf: Lsf, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]) -> Lsf:
-    """Warp a line-spread function
-
-    This is a placeholder implementation that generates a `GaussianLsf` with
-    the warped width of the input.
-
-    Parameters
-    ----------
-    lsf : `pfs.drp.stella.Lsf`
-        Line-spread function to warp.
-    inWavelength : `numpy.ndarray` of `float`
-        Wavelength array in the same frame as for ``lsf``.
-    outWavelength : `numpy.ndarray` of `float`
-        Wavelength array in the target frame. This may have a different length
-        than the ``inWavelength``.
-
-    Returns
-    -------
-    warpedLsf : `pfs.drp.stella.GaussianLsf`
-        Line-spread function in the warped frame.
-    """
-    if lsf is None:
-        return lsf
-
-    inLength = len(inWavelength)
-    if lsf.length != inLength:
-        raise RuntimeError(f"Length mismatch between LSF ({lsf.length}) and wavelength ({inLength})")
-    outLength = len(outWavelength)
-    inPixels = np.arange(inLength, dtype=inWavelength.dtype)
-    outPixels = np.arange(outLength, dtype=outWavelength.dtype)
-
-    inToWavelength = interp1d(inPixels, inWavelength, kind="linear", assume_sorted=True)
-    wavelengthToOut = interp1d(outWavelength, outPixels, kind="linear", assume_sorted=True)
-
-    def transform(inRow: float) -> float:
-        """Transform input row value to output row value
-
-        Parameters
-        ----------
-        inRow : `float`
-            Input row value.
-
-        Returns
-        -------
-        outRow : `float`
-            Output row value.
-        """
-        return wavelengthToOut(inToWavelength(inRow))
-
-    inMiddle = 0.5*inLength
-    inWidth = lsf.computeShape1D(inMiddle)
-    outWidth = abs(transform(inMiddle + 0.5*inWidth) - transform(inMiddle - 0.5*inWidth))
-    return GaussianLsf(outLength, outWidth)
+class NoLsfsError(RuntimeError):
+    """Exception for no LSFs at a position"""
+    pass
 
 
-def coaddLsf(lsfList: Iterable[Lsf], weights: ArrayLike | None = None) -> Lsf:
-    """Coadd line-spread functions
-
-    This is a placeholder implementation that returns a Gaussian LSF with
-    a width equal to the weighted mean of the widths of the input LSFs.
-
-    The input LSFs must have the same length (warped appropriately).
+class CoaddLsf(Lsf):
+    """Coadded line-spread functions
 
     Parameters
     ----------
     lsfList : iterable of `pfs.drp.stella.Lsf`
-        List of input line-spread functions.
-    weights : array_like of `float`
-        Weight factors for each input.
-
-    Returns
-    -------
-    lsf : `pfs.drp.stella.GaussianLsf`
-        Coadded line-spread function.
+        Line-spread functions to coadd.
+    minIndex, maxIndex : array-like of `int`
+        Minimum and maximum indices for each LSF.
+    weights : array-like of `float`
+        Weights for each LSF.
     """
-    if weights is None:
-        weights = np.ones(len(lsfList), dtype=float)
 
-    # Calculate average width and verify common lsf.length
-    realWeights = []                    # i.e. lsf is not None
-    widths = []
+    def __init__(
+        self,
+        lsfList: Iterable[Lsf],
+        minIndex: ArrayLike,
+        maxIndex: ArrayLike,
+        weights: ArrayLike | None = None,
+    ):
+        self.lsfList = [lsf for lsf in lsfList]
+        self.minIndex = np.asarray(minIndex, dtype=int)
+        self.maxIndex = np.asarray(maxIndex, dtype=int)
+        self.weights = np.asarray(weights, dtype=float) if weights is not None else np.ones(len(self.lsfList))
+        length = set(lsf.length for lsf in self.lsfList)
+        if len(length) != 1:
+            raise ValueError("LSFs have different lengths")
+        super().__init__(length.pop())
 
-    length = -1
-    for ii, lsf in enumerate(lsfList):
-        if lsf is None:
-            continue
+    def _iterateLsfs(self, center: float) -> Iterator[tuple[Lsf, float]]:
+        """Iterate over LSFs and weights"""
+        for ii in range(len(self.lsfList)):
+            lsf = self.lsfList[ii]
+            if lsf is not None and center >= self.minIndex[ii] and center <= self.maxIndex[ii]:
+                yield lsf, self.weights[ii]
 
-        if length < 0:
-            length = lsf.length
-            middle = 0.5*length
+    def computeArray(self, center: float) -> NDArray[FloatingPoint]:
+        """Return an array with the LSF inserted at the nominated position
 
-        if lsf.length != length:
-            raise RuntimeError(f"LSF length mismatch for {ii}: {lsf.length} vs {length}")
+        Besides the difference in return types from the ``computeKernel``
+        method (this returns an array, while ``computeKernel`` returns a
+        `Kernel1D`), this method allows positioning of the LSF at sub-pixel
+        positions. This is the method you want to use if you want a model for
+        a particular line in a spectrum, e.g., to measure the flux and/or
+        subtract the line.
 
-        widths.append(lsfList[ii].computeShape1D(middle))
-        realWeights.append(weights[ii])
+        Parameters
+        ----------
+        center : `float`, pixels
+            Position at which to insert the LSF.
 
-    if len(widths) == 0:
-        return None
-    else:
-        avgWidth = np.average(widths, weights=realWeights)
+        Returns
+        -------
+        array : `numpy.ndarray`, floating-point, shape ``(length,)``
+            Array containing the LSF inserted.
+        """
+        array = np.zeros(self.length)
+        for lsf, weight in self._iterateLsfs(center):
+            array += weight*lsf.computeArray(center)
+        return array
 
-        return GaussianLsf(length, avgWidth)
+    def computeKernel(self, center: float) -> Kernel1D:
+        """Return a kernel for the nominated position
+
+        Besides the difference in return types from the ``computeArray``
+        method (this returns a `Kernel1D`, while ``computeArray`` returns a
+        an array), this method provides a model for the LSF centered at zero.
+        This serves as the foundation for the other methods in the class.
+
+        Parameters
+        ----------
+        center : `float`, pixels
+            Position at which to evaluate the LSF.
+
+        Returns
+        -------
+        kernel : `Kernel1D`
+            Kernel with a model of the LSF at the nominated position.
+
+        Raises
+        ------
+        NoLsfsError
+            If there are no LSFs overlapping the ``center``.
+        """
+        lsfList = [(lsf, weight) for lsf, weight in self._iterateLsfs(center)]
+        if not lsfList:
+            raise NoLsfsError("No LSFs at this position")
+        sumWeight = 0.0
+        lsf, weight = lsfList.pop(0)
+        kernel = lsf.computeKernel(center).copy()
+        kernel *= weight
+        sumWeight += weight
+        for lsf, weight in lsfList:
+            kk = lsf.computeKernel(center)
+            kk *= weight
+            kernel += kk
+            sumWeight += weight
+        kernel /= sumWeight
+        return kernel
+
+    def convolve(self, array: NDArray[FloatingPoint], sampling: int = 100) -> NDArray[FloatingPoint]:
+        """Convolve an array by the LSF
+
+        Parameters
+        ----------
+        array : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Array to convolve.
+        sampling : `int`
+            Sampling length for convolution, pixels.
+
+        Returns
+        -------
+        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Convolved array.
+        """
+        length = len(array)
+        convolved = np.zeros_like(array)
+        for start in range(0, length, sampling):
+            stop = min(start + sampling, length)  # exclusive
+            center = 0.5*(start + stop)
+            try:
+                kernel = self.computeKernel(center)
+            except NoLsfsError:
+                convolved[start:stop] = 0.0
+                continue
+
+            # We're going to convolve a section of the array from start to stop,
+            # with a buffer on either side to allow for boundary effects.
+
+            # Range of pixels on the full array that we will convolve
+            beginFull = max(0, start + kernel.min)
+            endFull = min(length, stop + kernel.max + 1)
+
+            # Range of pixels on the convolved subarray
+            beginSub = start - beginFull
+            endSub = beginSub + stop - start
+
+            conv = kernel.convolve(array[beginFull:endFull])
+            convolved[start:stop] = conv[beginSub:endSub]
+
+        return convolved
+
+    def warp(
+        self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]
+    ) -> "CoaddLsf":
+        """Warp the LSF to a new wavelength frame
+
+        Parameters
+        ----------
+        inWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the same frame as for ``lsf``.
+        outWavelength : `numpy.ndarray` of `float`
+            Wavelength array in the target frame.
+
+        Returns
+        -------
+        warpedLsf : `pfs.drp.stella.CoaddLsf`
+            LSF in the warped frame.
+        """
+        lsfList = [lsf.warp(inWavelength, outWavelength) for lsf in self.lsfList]
+        minIndex = [np.searchsorted(outWavelength, inWavelength[minIndex]) for minIndex in self.minIndex]
+        maxIndex = [np.searchsorted(outWavelength, inWavelength[maxIndex]) for maxIndex in self.maxIndex]
+        return self.__class__(lsfList, minIndex, maxIndex, self.weights)
+
+    def __reduce__(self):
+        """Pickling"""
+        return self.__class__, (self.lsfList, self.minIndex, self.maxIndex, self.weights)
 
 
 class LsfDict(dict):

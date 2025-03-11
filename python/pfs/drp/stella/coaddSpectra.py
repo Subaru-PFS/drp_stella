@@ -26,7 +26,7 @@ from .fluxCalibrate import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
-from .lsf import Lsf, LsfDict, warpLsf, coaddLsf
+from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -391,10 +391,14 @@ class CoaddSpectraTask(PipelineTask):
         # First, resample to a common wavelength sampling
         resampled = []
         resampledLsf = []
+        resampledRange = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
             resampled.append(spectrum.resample(wavelength))
-            resampledLsf.append(warpLsf(lsf[fiberId], spectrum.wavelength, wavelength))
+            resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
+            minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
+            maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
+            resampledRange.append((minIndex, maxIndex))
 
         # Now do a weighted coaddition
         archetype = resampled[0]
@@ -423,7 +427,7 @@ class CoaddSpectraTask(PipelineTask):
         covar[1:2] = np.where(good, 0.0, np.inf)
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        lsf = coaddLsf(resampledLsf)
+        lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
 
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2, lsf=lsf)

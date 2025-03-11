@@ -25,7 +25,7 @@ from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
 from .utils import getPfsVersions
-from .lsf import LsfDict, warpLsf, coaddLsf
+from .lsf import LsfDict, CoaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
@@ -424,15 +424,27 @@ class MergeArmsTask(PipelineTask):
         for lsf in lsfList:
             assert set(lsf.keys()) == fiberId
         warpedLsfList = []
+        minIndexList = []
+        maxIndexList = []
         for lsf, spectra in zip(lsfList, spectraList):
             warpedLsf = {}
+            minIndex = {}
+            maxIndex = {}
             for ii in range(len(spectra)):
                 ff = spectra.fiberId[ii]
-                warpedLsf[ff] = warpLsf(lsf.get(ff), spectra.wavelength[ii], wavelength)
+                warpedLsf[ff] = lsf.get(ff).warp(spectra.wavelength[ii], wavelength)
+                minIndex[ff] = np.searchsorted(wavelength, spectra.wavelength[ii][0], "left")
+                maxIndex[ff] = np.searchsorted(wavelength, spectra.wavelength[ii][-1], "right")
 
             warpedLsfList.append(warpedLsf)
+            minIndexList.append(minIndex)
+            maxIndexList.append(maxIndex)
 
-        return {ff: coaddLsf([ww.get(ff, None) for ww in warpedLsfList]) for ff in fiberId}
+        return {ff: CoaddLsf(
+            [ww.get(ff, None) for ww in warpedLsfList],
+            [minIndex[ff] for minIndex in minIndexList],
+            [maxIndex[ff] for maxIndex in maxIndexList],
+        ) for ff in fiberId}
 
     def combineLsfs(self, lsfList):
         """Combine LSFs for different spectrographs

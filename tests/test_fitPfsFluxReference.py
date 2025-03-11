@@ -14,7 +14,7 @@ from pfs.drp.stella.fitPfsFluxReference import FitPfsFluxReferenceTask, FitPfsFl
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
-from pfs.drp.stella.lsf import GaussianLsf, warpLsf
+from pfs.drp.stella.lsf import GaussianLsf
 from pfs.drp.stella.utils.psf import fwhmToSigma
 
 import numpy as np
@@ -108,7 +108,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             spectrum.flux *= self.extinctionCurve.attenuation(spectrum.wavelength, ebv)
             convolvedFlux, lsf = convolveLsf(spectrum.wavelength, spectrum.flux)
             flux[i] = interpolateFlux(spectrum.wavelength, convolvedFlux, wavelength[i])
-            pfsMergedLsf[fiberId[i]] = warpLsf(lsf, spectrum.wavelength, wavelength[i])
+            pfsMergedLsf[fiberId[i]] = lsf.warp(spectrum.wavelength, wavelength[i])
 
         mask = np.zeros(shape=wavelength.shape, dtype=np.uint32)
         sky = np.zeros(shape=wavelength.shape, dtype=float)

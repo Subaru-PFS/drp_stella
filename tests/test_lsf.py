@@ -13,7 +13,7 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 import lsst.afw.display
 
-from pfs.drp.stella import Kernel1D, GaussianLsf, FixedEmpiricalLsf
+from pfs.drp.stella import Kernel1D, GaussianLsf, FixedEmpiricalLsf, CoaddLsf
 
 display = None
 
@@ -34,8 +34,9 @@ def calculateMoments(array):
         Square root of the second moment.
     """
     indices = np.arange(len(array))
-    centroid = np.sum((indices*array).astype(np.float64))
-    rms = np.sqrt(np.sum((array*(indices - centroid)**2).astype(np.float64)))
+    norm = np.sum(array)
+    centroid = np.sum((indices*array).astype(np.float64))/norm
+    rms = np.sqrt(np.sum((array*(indices - centroid)**2).astype(np.float64))/norm)
     return centroid, rms
 
 
@@ -254,6 +255,62 @@ class FixedEmpiricalLsfTestCase(GaussianLsfTestCase):
         exact value.
         """
         super().testComputeShape(atol=5.0e-3)
+
+
+class CoaddLsfTestCase(lsst.utils.tests.TestCase):
+    """Test CoaddLsf"""
+    def setUp(self):
+        self.length = 1234
+        self.width = [2.345, 3.456, 4.567]
+        self.minIndex = [0, 345, 678]
+        self.maxIndex = [345, 678, 1234]
+        self.center = [0.5*(minIndex + maxIndex) for minIndex, maxIndex in zip(self.minIndex, self.maxIndex)]
+        self.weights = [0.1, 0.2, 0.3]
+        self.lsfList = [GaussianLsf(self.length, width) for width in self.width]
+        self.lsf = CoaddLsf(self.lsfList, self.minIndex, self.maxIndex, self.weights)
+        self.rng = np.random.RandomState(12345)  # I have the same combination on my luggage
+
+    def testBasic(self):
+        """Test basic functionality"""
+        for center, width in zip(self.center, self.width):
+            self.assertFloatsAlmostEqual(self.lsf.computeShape1D(center), width, rtol=1.0e-3)
+
+    def testIO(self):
+        """Test persistence"""
+        copy = pickle.loads(pickle.dumps(self.lsf))
+        for ii in range(len(self.lsfList)):
+            self.assertEqual(self.lsfList[ii].width, copy.lsfList[ii].width)
+            self.assertFloatsEqual(self.lsf.weights[ii], copy.weights[ii])
+            self.assertFloatsEqual(self.lsf.minIndex[ii], copy.minIndex[ii])
+            self.assertFloatsEqual(self.lsf.maxIndex[ii], copy.maxIndex[ii])
+
+    def testConvolve(self):
+        """Test convolution"""
+        # Check that we get the widths we expect from convolving a delta function
+        array = np.zeros(self.length, dtype=float)
+        for center in self.center:
+            array[int(center)] = 1.0
+        convolved = self.lsf.convolve(array)
+        for minIndex, maxIndex, center, width in zip(self.minIndex, self.maxIndex, self.center, self.width):
+            centroid, rms = calculateMoments(convolved[minIndex:maxIndex])
+            self.assertFloatsAlmostEqual(centroid + minIndex, center, atol=0.7)  # Not very precise
+            self.assertFloatsAlmostEqual(rms, width, atol=0.1)
+
+        # Check that we get the centroids we expect from convolving a Gaussian
+        xx = np.arange(self.length)
+        width = 1.234
+        offset = 12
+        sampling = 10
+        for center in np.arange(offset, self.length - offset, offset):
+            if np.min(np.abs(np.array(self.minIndex) - center)) < sampling:
+                # Large change in the LSF width can cause problems
+                continue
+
+            center += self.rng.uniform(-0.5, 0.5)  # Introduce a sub-pixel shift
+            array = np.exp(-0.5*(xx - center)**2/width**2)/np.sqrt(2*np.pi)/width
+            convolved = self.lsf.convolve(array, sampling)
+            centroid, rms = calculateMoments(convolved)
+            self.assertFloatsAlmostEqual(centroid, center, atol=1.0e-2)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

@@ -33,7 +33,7 @@ from .fitReference import FilterCurve
 from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
 from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib
 from .gen3 import readDatasetRefs
-from .lsf import warpLsf, Lsf, LsfDict
+from .lsf import Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import getPfsVersions
 from .utils import debugging
@@ -1403,8 +1403,8 @@ class FitFluxCalTask(PipelineTask):
             # We convolve `refSpec` with LSF before resampling
             # because the resampling interval is not short enough
             # compared to `refSpec`'s inherent LSF.
-            refLsf = warpLsf(pfsMergedLsf[fiberId], calibVectors.wavelength[i, :], refSpec.wavelength)
-            refSpec.flux = refLsf.computeKernel((len(refSpec) - 1) / 2.0).convolve(refSpec.flux)
+            refLsf = pfsMergedLsf[fiberId].warp(calibVectors.wavelength[i, :], refSpec.wavelength)
+            refSpec.flux = refLsf.convolve(refSpec.flux)
 
             # Then we stretch `refSpec` according to its radial velocity.
             # (Resampling takes place in so doing.)

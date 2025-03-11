@@ -31,7 +31,7 @@ from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fitReference import FilterCurve
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
-from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict, warpLsf
+from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict
 from pfs.drp.stella.utils.math import ChisqList
 from pfs.drp.stella.utils import debugging
 
@@ -1567,8 +1567,8 @@ def convolveLsf(
         with the same sampling points as the input spectrum's.
     """
     spectrum = copy.deepcopy(spectrum)
-    lsf = warpLsf(lsf, lsfWavelength, spectrum.wavelength)
-    spectrum.flux = lsf.computeKernel((len(spectrum) - 1) / 2.0).convolve(spectrum.flux)
+    lsf = lsf.warp(lsfWavelength, spectrum.wavelength)
+    spectrum.flux = lsf.convolve(spectrum.flux)
     return spectrum
 
 
