@@ -21,7 +21,7 @@ from lsst.utils import getPackageDir
 
 from pfs.datamodel import FiberStatus, CalibIdentity
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
+from pfs.drp.stella.referenceLine import ReferenceLineStatus
 from .datamodel import PfsConfig
 from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
@@ -426,7 +426,7 @@ class BootstrapTask(PipelineTask):
         obsLines : `list` of `list` of `types.SimpleNamespace`
             Observed lines in each spectrum (returned from ``findArcLines``);
             should have attributes ``flux`` and ``y``.
-        refLines : `list` of `pfs.drp.stella.ReferenceLine`
+        refLines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Map of fiberId,wavelength to x,y.
@@ -444,18 +444,21 @@ class BootstrapTask(PipelineTask):
         """
         matches = []
         badLineStatus = ReferenceLineStatus.fromNames(*self.config.badLineStatus)
-        refLines = ReferenceLineSet.fromRows([rl for rl in refLines if (rl.status & badLineStatus) == 0])
+        select = (refLines.status & badLineStatus == 0)
+        refLines = refLines[select]
+
+        wavelength = refLines.wavelength
         for obs in obsLines:
             used = set()
             obs = sorted(obs, key=attrgetter("flux"), reverse=True)  # Brightest first
             for line in obs:
                 wl = detectorMap.findWavelength(line.fiberId, line.y)
-                candidates = [ref for ref in refLines if
-                              ref.wavelength not in used and
-                              abs(ref.wavelength - wl) < self.config.matchRadius]
-                if not candidates:
+                select = np.isin(wavelength, list(used), invert=True)
+                select &= (np.abs(wavelength - wl) < self.config.matchRadius)
+                if not np.any(select):
                     continue
-                ref = max(candidates, key=attrgetter("intensity"))
+                candidates = refLines[select]
+                ref = candidates[np.argmax(candidates.intensity)]
                 matches.append(SimpleNamespace(obs=line, ref=ref))
                 used.add(ref.wavelength)
         self.log.info("Matched %d lines", len(matches))

@@ -168,7 +168,7 @@ class Table:
 
     def __getitem__(self, index: Union[int, slice, np.ndarray]) -> Union[Row, "Table"]:
         """Retrieve row(s)"""
-        if isinstance(index, int):
+        if isinstance(index, (int, np.integer)):
             return self.RowClass(**self.data.iloc[index].to_dict())
         if isinstance(index, (slice, np.ndarray)):
             return type(self)(self.data.iloc[index])
