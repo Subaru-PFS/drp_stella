@@ -60,7 +60,9 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
         axes : `matplotlib.axes.Axes`, optional
             Axes to plot on; if None, create a new figure and axes.
         lower, upper : `float`
-            Lower and upper bounds for plot, in units of standard deviations.
+            Lower and upper bounds for plot. This is in units of standard
+            deviations if positive; otherwise it is in units of the data. In
+            both cases, the bounds are relative to the median value.
         size : `float`
             Size of the markers.
 
@@ -95,9 +97,15 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
         good = np.isfinite(values)
         median = np.median(values[good])
         rms = robustRms(values[good])
-        lower = max(median - lower*rms, np.nanmin(values))
-        upper = min(median + upper*rms, np.nanmax(values))
-        norm = Normalize(vmin=lower, vmax=upper)
+        if lower > 0:
+            vmin = max(median - lower*rms, np.nanmin(values))
+        else:
+            vmin = median - abs(lower)
+        if upper > 0:
+            vmax = min(median + upper*rms, np.nanmax(values))
+        else:
+            vmax = median + abs(upper)
+        norm = Normalize(vmin=vmin, vmax=vmax)
 
         axes.scatter(xx, yy, marker="o", c=values, cmap=cmap, norm=norm, s=size)
         axes.set_aspect("equal")
