@@ -780,3 +780,63 @@ def showColorbar(S, *args, **kwargs):
     S.set_alpha(a)
 
     return C
+
+
+def addFiberCursor(axes, pfsConfig, values=None):
+    """Add a cursor to a plot of a PFS fiber positions
+
+    Parameters
+    ----------
+    axes : `matplotlib.axes.Axes`
+        Axes to which to add the cursor.
+    pfsConfig : `pfs.datamodel.PfsConfig`
+        PFS fiber configuration.
+    values : `numpy.ndarray` or `None`
+        Values for each fiber in the ``pfsConfig``.
+    """
+    from scipy.spatial import KDTree
+
+    if values is not None and len(values) != len(pfsConfig):
+        raise ValueError("Length of values must match length of pfsConfig")
+
+    fiberIds = fiberids.FiberIds()
+
+    select = np.all(np.isfinite(pfsConfig.pfiCenter), axis=1)
+    pfsConfig = pfsConfig[select]
+    if values is not None:
+        values = values[select]
+    tree = KDTree(pfsConfig.pfiCenter)
+
+    def format_coord(x, y):
+        """Format the cursor position
+
+        Parameters
+        ----------
+        x : `float`
+            X-coordinate of the cursor.
+        y : `float`
+            Y-coordinate of the cursor.
+
+        Returns
+        -------
+        coord : `str`
+            Formatted cursor position.
+        """
+        _, index = tree.query([x, y])
+        fiberId = pfsConfig.fiberId[index]
+        targetType = TargetType(pfsConfig.targetType[index]).name
+        fiberStatus = FiberStatus(pfsConfig.fiberStatus[index]).name
+        try:
+            mtp = fiberIds.fiberIdToMTP([fiberId], pfsConfig)[0][0]
+        except RuntimeError:
+            mtp = "UNKNOWN"
+
+        string = (
+            f"x={x:.3f}, y={y:.3f}: fiberId={fiberId}, targetType={targetType}, "
+            f"fiberStatus={fiberStatus}, MTP={mtp}"
+        )
+        if values is not None:
+            string += f" ({values[index]})"
+        return string
+
+    axes.format_coord = format_coord
