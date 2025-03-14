@@ -1,5 +1,6 @@
 import pickle
 from itertools import product
+import warnings
 
 import numpy as np
 
@@ -272,7 +273,9 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         config = FitDifferentialDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True
-        task = FitDifferentialDetectorMapTask(name="fitDifferentialDetectorMap", config=config)
+        with warnings.catch_warnings(category=DeprecationWarning):
+            warnings.simplefilter("ignore")
+            task = FitDifferentialDetectorMapTask(name="fitDifferentialDetectorMap", config=config)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
         self.assertFloatsAlmostEqual(detMap.model.getXCoefficients(), 0.0, atol=1.0e-6)

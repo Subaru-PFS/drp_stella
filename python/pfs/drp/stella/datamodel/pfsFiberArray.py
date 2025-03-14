@@ -15,12 +15,14 @@ __all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
     def __imul__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux multiplication, in-place"""
-        self.flux *= rhs
+        with np.errstate(invalid="ignore"):
+            self.flux *= rhs
         return self
 
     def __itruediv__(self, rhs: ArrayLike) -> "PfsSimpleSpectrum":
         """Flux division, in-place"""
-        self.flux /= rhs
+        with np.errstate(invalid="ignore", divide="ignore"):
+            self.flux /= rhs
         return self
 
     def plot(self, ignorePixelMask: Optional[int] = None,
