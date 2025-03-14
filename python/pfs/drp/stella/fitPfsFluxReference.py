@@ -45,6 +45,7 @@ import copy
 import dataclasses
 import math
 import warnings
+from deprecated import deprecated
 
 from typing import Literal, overload
 from collections.abc import Generator, Mapping, Sequence
@@ -1572,6 +1573,7 @@ def convolveLsf(
     return spectrum
 
 
+@deprecated("No longer valid since PIPE2D-1643")
 def getAverageLsf(lsfs: Sequence[Lsf]) -> Lsf:
     """Get the average LSF.
 
