@@ -643,24 +643,9 @@ class FitFluxReferenceTask(PipelineTask):
             ]
         )
 
-        fiberIdToIndex = {fiberId: index for index, fiberId in enumerate(spectra.fiberId)}
-
         # Get the continuum for each fiber
-        continuumList = fitContinuum.run(specset, lines=lines)
-
-        continua = np.ones_like(spectra.flux)
-        for continuum in continuumList:
-            continua[fiberIdToIndex[continuum.fiberId], :] = continuum.flux
-
-        absentIndex = np.array(
-            [
-                fiberIdToIndex[fiberId]
-                for fiberId in set(spectra.fiberId) - set(continuum.fiberId for continuum in continuumList)
-            ],
-            dtype=int,
-        )
-
-        return Continuum(continua, absentIndex)
+        continuum = fitContinuum.run(specset, lines=lines)
+        return Continuum(continuum, np.array([], dtype=int))
 
     def fitModelsToSpectra(
         self,
