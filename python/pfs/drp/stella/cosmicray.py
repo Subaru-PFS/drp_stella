@@ -116,6 +116,10 @@ class CompareCosmicRayConfig(PipelineTaskConfig, pipelineConnections=CompareCosm
     cosmicray = ConfigField(dtype=FindCosmicRaysConfig, doc="Find cosmic rays")
     grow = Field(dtype=int, default=3, doc="Radius to grow CRs")
     doCosmicRay = Field(dtype=bool, default=True, doc="Remove cosmic rays?")
+    doH4MorphologicalCRs = Field(dtype=bool, default=False, doc="""Use morphological CR rejection for H4RGs?
+    This is usually handled in the up-the-ramp code""")
+    crMinReadsH4 = Field(dtype=int, default=4,
+                         doc="Minimum number of reads for up-the-ramp CR rejection in H4RGs")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts; used for single exposure")
 
     def setDefaults(self):
@@ -164,10 +168,15 @@ class CompareCosmicRayTask(PipelineTask):
         result = Struct(exposures=exposures)
         if len(exposures) == 0:
             return result
-        if not self.config.doCosmicRay or exposures[0].getDetector().getName().startswith("n"):
+        if not self.config.doCosmicRay:
             return result
+        if exposures[0].getDetector().getName().startswith("n") and not self.config.doH4MorphologicalCRs:
+            nRead = exposures[0].getMetadata()["W_H4NRED"]
+            if nRead >= self.config.crMinReadsH4:  # we already ran the CR rejection code
+                self.log.info("Assuming that up-the-ramp CR code was already run (nread = %d)", nRead)
+                return result
 
-        # Sinle exposure cosmic-ray removal: use the repair task
+        # Single exposure cosmic-ray removal: use the repair task
         if len(exposures) == 1:
             self.log.warn("No subtraction possible with single exposure; using sub-optimal CR removal")
             for exp in exposures:
@@ -212,7 +221,7 @@ class CompareCosmicRayTask(PipelineTask):
         fluxes = np.zeros(num, dtype=float)
         stack = np.empty((num, dims.getY(), dims.getX()), dtype=np.float32)
         for ii, image in enumerate(images):
-            fluxes[ii] = np.median(image.image.array)
+            fluxes[ii] = np.nanmedian(image.image.array)
 
         fluxes /= np.mean(fluxes)
 
