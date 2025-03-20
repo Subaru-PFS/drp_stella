@@ -85,7 +85,7 @@ class FitContinuumTask(Task):
         if isinstance(spectra, PfsFiberArraySet):
             spectra = SpectrumSet.fromPfsArm(spectra)
 
-        continua = np.full((spectra.getLength(), len(spectra)), np.nan, dtype=np.float32)
+        continua = np.full((len(spectra), spectra.getLength()), np.nan, dtype=np.float32)
         for ii, spec in enumerate(spectra):
             try:
                 continua[ii] = self.fitContinuum(spec, lines)
@@ -246,8 +246,8 @@ class FitContinuumTask(Task):
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
         continua = self.run(spectra, lines)
-        continuumSpectra = SpectrumSet(len(spectra))
-        for cc, ff in zip(continua, spectra.getFiberId()):
+        continuumSpectra = SpectrumSet(spectra.getLength())
+        for cc, ff in zip(continua, spectra.getAllFiberIds()):
             continuumSpectra.add(self.wrapArray(cc, ff))
         continuumImage = continuumSpectra.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage

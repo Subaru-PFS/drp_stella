@@ -231,7 +231,7 @@ def calculateFitStatistics(
             chi2 : `float`
                 chi^2/dof - 1
             """
-            with np.errstate(invalid="ignore"):
+            with np.errstate(invalid="ignore", divide="ignore"):
                 return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
         if softenChi2(0.0) < 0:
