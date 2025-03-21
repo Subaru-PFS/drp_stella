@@ -15,8 +15,11 @@ from pfs.drp.stella.tests import runTests, classParameters
 display = None
 
 
-@classParameters(Task=(FitFocalPlaneTask, FitOversampledSplineTask, FitBlockedOversampledSplineTask),
-                 ditherWavelength=(False, True, True))
+@classParameters(
+    Task=(FitFocalPlaneTask, FitOversampledSplineTask, FitBlockedOversampledSplineTask),
+    ditherWavelength=(False, True, True),
+    params=(dict(), dict(oversample=3.0), dict(oversample=3.0)),
+)
 class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
     """Test `FitFocalPlaneTask` and subclasses"""
     def setUp(self):
@@ -86,6 +89,8 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
             Spectral function fit to the inputs.
         """
         config = self.Task.ConfigClass()
+        for name in self.params:
+            setattr(config, name, self.params[name])
         for name in kwargs:
             setattr(config, name, kwargs[name])
         task = self.Task(name="fit", config=config, log=getLogger("pfs.drp.stella.tests"))

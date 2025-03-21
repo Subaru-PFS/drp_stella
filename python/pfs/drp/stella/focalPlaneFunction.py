@@ -637,7 +637,7 @@ class OversampledSpline(FocalPlaneFunction):
         variances: np.ndarray,
         positions: np.ndarray,
         robust: bool = False,
-        oversample: float = 3.0,
+        oversample: float = 1.25,
         splineOrder: int = 3,
         defaultValue: float = 0.0,
         **kwargs,
@@ -789,7 +789,7 @@ class BlockedOversampledSpline(FocalPlaneFunction):
         variances: np.ndarray,
         positions: np.ndarray,
         robust: bool = False,
-        blockSize: int = 5,
+        blockSize: int = 20,
         **kwargs,
     ) -> FocalPlaneFunction:
         """Fit a spectral function on the focal plane to arrays
