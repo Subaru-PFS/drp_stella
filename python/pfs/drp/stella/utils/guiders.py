@@ -272,7 +272,9 @@ def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords
         tmp = pd_read_sql(f'''
            SELECT
                agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
-               agc_match.guide_star_id, agc_match.agc_camera_id,
+               agc_exposure.agc_exptime, agc_exposure.m2_pos3, agc_exposure.altitude,
+               agc_data.flags as agc_data_flags,
+               agc_match.guide_star_id, agc_data.agc_camera_id,
                agc_match.flags as agc_match_flags,
                agc_nominal_x_mm, agc_nominal_y_mm,
                CASE
@@ -282,15 +284,17 @@ def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords
                    ELSE 0
                END AS shutter_open,
                image_moment_00_pix, centroid_x_pix, centroid_y_pix,
-               central_image_moment_20_pix,
-               central_image_moment_11_pix,
-               central_image_moment_02_pix,
+               central_image_moment_20_pix as mxx,
+               central_image_moment_11_pix as mxy,
+               central_image_moment_02_pix as myy,
                peak_pixel_x_pix, peak_pixel_y_pix,
                peak_intensity, background,
-               estimated_magnitude
+               estimated_magnitude,
+               guide_delta_z,
+               guide_delta_z1, guide_delta_z2, guide_delta_z3, guide_delta_z4, guide_delta_z5, guide_delta_z6
            FROM agc_exposure
            JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
-           JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+           LEFT JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
                              agc_match.agc_camera_id = agc_data.agc_camera_id AND
                              agc_match.spot_id = agc_data.spot_id
            JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
@@ -298,6 +302,45 @@ def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords
            WHERE
                agc_exposure.pfs_visit_id = {pfs_visit_id}
            ''', opdb)
+
+    tmp.drop_duplicates(inplace=True)   # the LEFT JOINs can generate duplicate rows
+
+    # m2_off3 isn't available from the agc_exposure table
+    #
+    # We rely on the fact that both agc_exposure_id and status_sequence_id are monotonic increasing,
+    # and the the latter is incremented every time that the former is
+    with opdb:
+        tmp1 = pd_read_sql(f'''
+           SELECT
+               agc_exposure_id
+           FROM
+               agc_exposure
+           WHERE
+               pfs_visit_id = {pfs_visit_id}
+           ORDER BY agc_exposure_id
+           ''', opdb)
+
+        tmp2 = pd_read_sql(f'''
+           SELECT
+               m2_off3
+           FROM
+               tel_status
+           WHERE
+               pfs_visit_id = {pfs_visit_id} AND caller = 'ag'
+           ORDER BY status_sequence_id
+           ''', opdb)
+
+        if len(tmp1) != len(tmp2):      # should be impossible, but seen while fiddling/debugging AG actors
+            print(f"Mismatch in number of agc_exposures ({len(tmp1)}) and "
+                  f"number of AG entries in tel_status ({len(tmp2)}); m2_off3 set to NaN")
+            tmp["m2_off3"] = np.full(len(tmp), np.NaN)
+        else:
+            if np.sum(~pd.isnull(tmp2.m2_off3)) == 0:
+                tmp2.fillna(np.NaN, inplace=True)  # generates a pandas 3.0 warning which I don't understand
+
+            tmp1 = pd.concat([tmp1, tmp2], axis=1)
+
+            tmp = pd.merge(tmp, tmp1, on='agc_exposure_id')
 
     if flipToHardwareCoords:
         tmp.agc_nominal_y_mm *= -1
@@ -1733,6 +1776,592 @@ def compareAGCPfsUtils(opdb, pfs_visit_id, nAgcExposures=10, instPaCorrection=0,
         plt.title('\n'.join(title))
 
     return agcStars
+
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+def MomentDifferenceToMmPiston(deltaMxx1D, includePistonCorrection=False):
+    """From Kawanomoto-san's ics_agActor code
+
+    deltaMxx1D is the 1-D image second moment (e.g. <x^2>) """
+    deltaMxx2D = 2*deltaMxx1D
+
+    piston = 0.0086*deltaMxx2D
+    if includePistonCorrection:
+        piston -= 0.026
+
+    return piston
+
+
+def getMA(npt, nptCrit=100):
+    small = npt < nptCrit
+    marker = 'o' if small else '.'
+    alpha = 0.5 if small else 0.25
+
+    return marker, alpha
+
+
+def showVisitBoundaries(tmp, visits):
+    for v in visits[:-1]:
+        plt.axvline(np.max(tmp.agc_exposure_id[tmp.pfs_visit_id == v]), color='black', zorder=-1, alpha=0.25)
+
+
+def averageArraysByFocusPosition(focusPosition, xx, yy):
+    """Return xx, yy grouped by focusPosition"""
+
+    focusPositions = np.sort(list(set(focusPosition)))
+    focusPositions = (1e3*focusPositions + 0.5).astype(int)/1e3  # round to the nearest micron
+
+    _xx = np.empty_like(focusPositions, dtype=float)
+    _yy = np.empty_like(_xx)
+    for i, fp in enumerate(focusPositions):
+        ll = focusPosition == fp
+        _xx[i] = np.mean(xx[ll])
+        _yy[i] = np.mean(yy[ll])
+
+    return _xx, _yy
+
+
+def find_W_M2OFF3(butler, visit, nTry=100, key="W_M2OFF3"):
+    """Search back from visit looking for metadata"""
+    if butler is None:
+        raise RuntimeError(f"I need a butler in order to find {key}")
+
+    md = None
+    for i in range(nTry):
+        dateRefList = list(butler.registry.queryDatasets('raw', visit=visit))
+        if len(dateRefList) > 0:
+            md = butler.get("raw.metadata", dateRefList[0].dataId)
+            return md[key]
+
+        visit -= 1
+
+    raise RuntimeError(f"Failed to find a value of {key} in visit, "
+                       f"or within {nTry - 1} visits preceding, {visit}")
+
+
+def plotFocus(opdb, visits, AGC=range(1, 6+1),
+              showVisits=False,
+              showAltitude=False,
+              byExposureId=False,
+              averageByFocusPosition=False,
+              showMedian=False,
+              showOnlyMedian=False,
+              showFocusErrorByCamera=True,
+              showCameraId=False,
+              onlyGuideStars=True,
+              plotFrac=1,
+              ditherScale=5e-3,
+              yLimitsMicron=180,
+              magMin=None,
+              magMax=None,
+              minFWHM=None,
+              maxFWHM=None,
+              mmToMicrons=1e3,
+              useM2Off3=True,
+              butler=None,
+              figure=None):
+    """
+    Parameters:
+    opdb:
+        Connection to opdb
+    visits: `list` of `int`
+        The visits of interest
+    AGC:  `list` of `int`
+        The AG cameras to show (1-indexed; default all)
+    showVisits = False
+    showAltitude = False
+    byExposureId = False # Plot against agc_exposure_id as opposed to focus position
+    averageByFocusPosition = False
+    showMedian = False
+    showOnlyMedian = False
+    showFocusErrorByCamera = True      # Applies to dFocus panels
+    showCameraId = False                 # Applies to FWHM panel;  if False, colour by L/R
+    onlyGuideStars = True # and byExposureId
+
+    plotFrac = 1 # 0.01    # fraction of agc star data points to show
+    ditherScale = 5e-3
+    mmToMicrons = 1e3      # conversion from mm to microns; if set to 1 then plots will be in mm (!)
+    yLimitsMicron = 180    # if >= 0, set focus error scale to +- yLimitsMicron (or the given tuple)
+    magMin = None
+    magMax = None
+    minFWHM = None if False else 0.45
+    maxFWHM = None if False else 1.89
+    useM2Off3 = True   # I.e. not M2POS3; almost always what you want;
+              byExposureId == False to plot against focus
+    """
+
+    assert not (showVisits and showAltitude), "Please plot by visits _or_ altitude"
+
+    what = "agc_exposure_id" if byExposureId else "focusPosition"
+
+    try:
+        yLimitsMicron[0]
+    except TypeError:
+        if yLimitsMicron is None or yLimitsMicron < 0:
+            yLimitsMicron = 0
+
+        yLimitsMicron = (-yLimitsMicron, yLimitsMicron)
+    #
+    # Read the data
+    #
+    dd = []
+    for v in visits:
+        dd.append(readAGCStarsForVisitByAgcExposureId(opdb, v, False))
+    tmp = pd.concat(dd)
+    del dd
+
+    ll = np.ones(len(tmp), dtype=bool)
+    ll &= (tmp.agc_data_flags & ~0x1) == 0
+
+    tmp["rms"] = (tmp.mxx*tmp.myy - tmp.mxy**2)**0.25 if False else np.sqrt(0.5*(tmp.mxx + tmp.myy))  # 1-D
+    tmp["FWHM"] = 2*np.sqrt(2*np.log(2))*tmp.rms   # Gaussian equivalent
+    tmp.FWHM *= 0.14  # Convert to arcsec
+    tmp["left"] = (tmp.agc_data_flags & 0x1) == 0x0
+
+    try:
+        ll &= np.isfinite(tmp.agc_camera_id)
+    except TypeError:   # Pandas sometimes converts the camera ID to float if it needs NaNs (from a join?)
+        pass
+    if magMin is not None:
+        ll &= tmp.estimated_magnitude >= magMin
+    if magMax is not None:
+        ll &= tmp.estimated_magnitude <= magMax
+
+    if onlyGuideStars:
+        try:
+            ll &= np.isfinite(tmp.guide_star_id)
+        except TypeError:
+            print("No guide stars are found; disabling onlyGuideStars")
+            onlyGuideStars = False
+
+    AGC = list(AGC)
+    if len(AGC) != 6:
+        keep = np.zeros(len(tmp), dtype=bool)
+        for c in AGC:
+            keep |= (tmp.agc_camera_id == c - 1)
+        ll &= keep
+
+    tmp = tmp[ll]
+
+    if len(tmp) > 0 and \
+       np.sum(np.isfinite(tmp.m2_off3)) == 0:   # Not available from tel_status until 2025-03-21.
+        #  Fake it from m2_pos3
+        W_M2OFF3 = np.zeros(len(tmp))
+        for v in tmp.pfs_visit_id.unique():
+            ll = tmp.pfs_visit_id == v
+            W_M2OFF3[ll] = find_W_M2OFF3(butler, v) + (tmp.m2_pos3[ll] - tmp.m2_pos3[ll].iloc[0])
+        tmp["m2_off3"] = W_M2OFF3
+
+    tmp["focusPosition"] = tmp.m2_off3 if useM2Off3 else tmp.m2_pos3
+
+    tmp = tmp.sample(frac=1)
+
+    # The Focus Offset assumed in the AGActor
+    focusOffset = MomentDifferenceToMmPiston(0, includePistonCorrection=True)
+    if True:
+        # Kawanomoto-san uses 4*(a**2 + b**2) rather than (a**2 + b**2) in the focus code; this is a bug
+        for c in range(0, 6):
+            if c == 0:
+                c = ""
+            tmp[f"guide_delta_z{c}"] = focusOffset + (tmp[f"guide_delta_z{c}"] - focusOffset)/4
+
+    grouped = tmp.groupby(["agc_exposure_id", "left", "agc_camera_id"])
+    focus = grouped.agg(
+        pfs_visit_id=("pfs_visit_id", "first"),
+        altitude=("altitude", "mean"),
+        focusPosition=("focusPosition", "mean"),
+        rms=("rms", "median"),
+        FWHM=("FWHM", "median"),
+        guide_delta_z=("guide_delta_z", "first"),
+        guide_delta_z1=("guide_delta_z1", "first"),
+        guide_delta_z2=("guide_delta_z2", "first"),
+        guide_delta_z3=("guide_delta_z3", "first"),
+        guide_delta_z4=("guide_delta_z4", "first"),
+        guide_delta_z5=("guide_delta_z5", "first"),
+        guide_delta_z6=("guide_delta_z6", "first"),
+    )
+    focus.reset_index(inplace=True)
+
+    figure, axs = plt.subplots(3, 1, num=figure, sharex=True, height_ratios=[2, 2, 3])
+    figure.subplots_adjust(hspace=0.025)
+
+    #
+    # Make top two plots, one from AGActor one from our private analysis
+    #
+    for ax, AGActor in zip(axs[:2], [True, False]):
+        plt.sca(ax)
+
+        marker, alpha = ('o', 1) if averageByFocusPosition else \
+            getMA(len(focus)/(1 + focus.agc_camera_id.nunique()))
+
+        if AGActor:
+            #
+            # Use analysis written to opdb by AGActor
+            #
+            if showFocusErrorByCamera:
+                xx = focus[what]
+                for ic in focus.agc_camera_id.unique():
+                    ic = int(ic)
+                    ll = focus.agc_camera_id == ic
+                    _x, _y = xx[ll].to_numpy(), mmToMicrons*focus[ll][f"guide_delta_z{ic + 1}"].to_numpy()
+                    if averageByFocusPosition:
+                        _x, _y = averageArraysByFocusPosition(focus.focusPosition[ll], _x, _y)
+                    plt.plot(_x, _y, marker, alpha=alpha, color=f"C{ic}")
+            else:
+                grouped = focus.groupby(["agc_exposure_id"])
+                _focus = grouped.agg(
+                    pfs_visit_id=("pfs_visit_id", "first"),
+                    altitude=("altitude", "first"),
+                    guide_delta_z=("guide_delta_z", "first"),
+                    focusPosition=("focusPosition", "first"),
+                )
+                _focus.reset_index(inplace=True)
+
+                xx = _focus[what]
+                yy = mmToMicrons*_focus.guide_delta_z
+                cc = _focus.pfs_visit_id if showVisits else focus.altitude
+
+            ylab = "AG Actor Focus error"
+        else:
+            #
+            # Estimate and plot a focus correction
+            #
+            # Handle the case where all the stars are on either the left or right sides
+            #
+            for ic in np.sort(focus.agc_camera_id.unique()):
+                ic = int(ic)
+                if showFocusErrorByCamera:
+                    _focus = focus[focus.agc_camera_id == ic]
+                else:
+                    grouped = focus.groupby(["agc_exposure_id"])
+                    _focus = grouped.agg(
+                        pfs_visit_id=("pfs_visit_id", "first"),
+                        altitude=("altitude", "mean"),
+                        rms=("rms", "median"),
+                        focusPosition=("focusPosition", "first"),
+                    )
+                    _focus.reset_index(inplace=True)
+
+                # noLR == not left AND right
+                noLR = set(_focus.agc_exposure_id[~_focus.left]) ^ set(_focus.agc_exposure_id[_focus.left])
+                _focus = _focus[~np.isin(_focus.agc_exposure_id, list(noLR))]
+                x = _focus[what]
+
+                deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - _focus.rms[~_focus.left].to_numpy()**2
+                focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D, includePistonCorrection=False)
+
+                xx = x[_focus.left]
+                yy = focusError
+
+                if not showFocusErrorByCamera:
+                    cc = (_focus.pfs_visit_id if showVisits else _focus.altitude)[_focus.left]
+                    break
+
+                if averageByFocusPosition:
+                    xx, yy = averageArraysByFocusPosition(_focus.focusPosition[_focus.left], xx, yy)
+
+                color = f"C{ic}"
+                plt.plot(xx, yy, marker, alpha=alpha, color=color)
+                if len(xx) > 0:
+                    plt.plot([np.NaN], [np.NaN], marker, color=color, label=f"AG{ic + 1}")
+
+                del _focus
+
+            if showFocusErrorByCamera:
+                plt.legend(ncols=6)
+
+            ylab = r"$\Delta$ focus"
+
+        S = None
+        if not showFocusErrorByCamera:
+            nVisit = len(focus.pfs_visit_id.unique())
+            if (showVisits and nVisit > 1) or showAltitude:
+                plt.scatter(xx, yy, c=cc, marker=marker, alpha=alpha, zorder=10)
+                S = plt.scatter(xx + np.NaN, yy, c=cc)   # Just for the colorbar, with alpha==1
+            else:
+                plt.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
+
+        if AGActor:
+            plt.axhline(0, color='red')  # AG already corrects for an estimage of AG -> PFI correction
+        else:
+            plt.axhline(0, color='magenta', alpha=0.5)
+            # correction for AG -> PFI focal planes
+            plt.axhline(-mmToMicrons*focusOffset, color='red')
+
+        if yLimitsMicron[0] != 0:
+            plt.ylim(1e-3*mmToMicrons*np.array(yLimitsMicron))
+
+        plt.ylabel(f"{ylab}\n({'mm' if mmToMicrons == 1 else 'micron'})")
+
+    if S is not None:
+        plt.colorbar(S, label="pfs_visit_id" if showVisits else "altitude",
+                     ax=axs[0], location='top', aspect=45)
+
+    # -------------
+
+    plt.sca(axs[2])
+    x = tmp[what]
+
+    if not showOnlyMedian:
+        dither = ditherScale*(np.max(x) - np.min(x))/np.nanmean(tmp.centroid_y_pix)  # dither points a little
+
+        xx = x + dither*(tmp.centroid_y_pix - np.nanmean(tmp.centroid_y_pix))
+        yy = tmp.FWHM
+        if plotFrac < 1:
+            ll = np.random.choice([True, False], len(x), p=[plotFrac, 1 - plotFrac])
+            xx = xx[ll]
+            yy = yy[ll]
+        else:
+            ll = np.ones(len(tmp), dtype=bool)
+
+        marker, alpha = getMA(len(xx))
+        if showCameraId:
+            cmap = plt.matplotlib.colors.ListedColormap([f"C{i}" for i in range(6)])
+            norm = plt.matplotlib.colors.Normalize(0, 5)
+            plt.scatter(xx, yy, c=tmp.agc_camera_id[ll], marker=marker, alpha=alpha, cmap=cmap, norm=norm)
+        else:
+            plt.scatter(xx, yy, c=np.where(tmp.left, 'red', 'green'), marker=marker, alpha=alpha)
+            if not byExposureId:
+                for lr, color in zip([tmp.left, ~tmp.left], ["red", "green"]):
+                    ii = np.argsort(tmp.agc_exposure_id[lr])
+                    _xx, _yy = xx[lr].iloc[ii], yy[lr].iloc[ii]
+                    if maxFWHM is not None:
+                        _yy[_yy > maxFWHM] = np.NaN
+
+                    plt.plot(_xx, _yy, color=color, alpha=alpha)
+
+    if showOnlyMedian and not showCameraId:
+        plt.plot([np.NaN], [np.NaN], 'o', color="red", label="left")
+        plt.plot([np.NaN], [np.NaN], 'o', color="green", label="right")
+        plt.legend()
+
+    x = focus[what]
+    if showMedian or showOnlyMedian:
+        if showCameraId:
+            marker, alpha = getMA(len(focus)/6)[0], 1
+            for c in range(1, 6+1):
+                color = f"C{c - 1}"
+                ll = focus.agc_camera_id == c - 1
+                xx, yy = x[ll].to_numpy(), focus.FWHM[ll].to_numpy()
+
+                for left in [True, False]:
+                    lll = focus.left[ll] == left
+                    plt.plot(xx[lll], yy[lll], '*' if left else '.', alpha=alpha, color=color)
+                # just for the legend
+                if c == 1:
+                    plt.plot([np.NaN], [np.NaN], '*', color='black', label="left")
+                    plt.plot([np.NaN], [np.NaN], '.', color='black', label="right")
+
+                if sum(ll) > 0:
+                    plt.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{c}")
+
+            plt.legend(ncols=2)
+        else:
+            for left in [True, False]:
+                ll = focus.left == left
+                plt.plot(x[ll], focus.FWHM[ll], '-', color='red' if left else 'green')
+
+    plt.ylim(minFWHM, maxFWHM)
+
+    plt.ylabel(r"FWHM (arcsec)")
+    figure.supxlabel("agc_exposure_id" if byExposureId else ("M2_OFF3" if useM2Off3 else "M2_POS3") + " (mm)")
+
+    visits = np.sort(focus.pfs_visit_id.unique())
+    magLimitsStr = ""
+    if magMin is None:
+        if magMax is not None:
+            magLimitsStr = f"mag < {magMax}"
+    else:
+        magLimitsStr = f"{magMin} < mag"
+        if magMax is not None:
+            magLimitsStr += f" < {magMax}"
+
+    plt.suptitle("pfs_visit_id "
+                 + (f"{','.join(str(v) for v in visits)}" if len(visits) < 5 else
+                    f"{visits[0]}..{visits[-1]}")
+                 + (" only GAIA" if onlyGuideStars else "")
+                 + (f"\n{', '.join(f'AG{int(c) + 1}' for c in np.sort(focus.agc_camera_id.unique()))}")
+                 + (f"  {magLimitsStr}" if magLimitsStr else ""),
+                 y=1
+                 )
+    #
+    # Define a formatter to add the pfs_visit_id to the cursor readout
+    #
+
+    class FormatCoord:
+        def __init__(self, dataFrame):
+            self._dataFrame = dataFrame
+
+        def __call__(self, x, y):
+            x = int(x + 0.5)
+            label = f"(x, y) = ({x:.2f}, y: {y:.2f})"
+
+            pfs_visit_ids = self._dataFrame[self._dataFrame.agc_exposure_id == x].pfs_visit_id.unique()
+            if len(pfs_visit_ids) > 0:
+                pfs_visit_id = pfs_visit_ids[0]
+                label += f"  pfs_visit_id: {pfs_visit_id}"
+
+            return label
+
+    axs[1].sharey(axs[0])
+    for ax in axs:
+        plt.sca(ax)
+
+        if what == "agc_exposure_id":
+            showVisitBoundaries(tmp, visits)
+
+        if byExposureId:
+            ax.format_coord = FormatCoord(tmp)
+
+
+def plotFocusByAG(opdb, visits,
+                  onlyGuideStars=True,
+                  byExposureId=False,
+                  byCamera=True,
+                  maxFocusError=0,
+                  minAgcExposureId=0,
+                  maxAgcExposureId=0,
+                  mmToMicrons=1e3,
+                  showLegend=False
+                  ):
+    """
+    byExposureId = False # Plot against agc_exposure_id as opposed to focus position
+    """
+    #
+    # Read the data
+    #
+    dd = []
+    for v in visits:
+        dd.append(readAGCStarsForVisitByAgcExposureId(opdb, v, False))
+    tmp = pd.concat(dd)
+    del dd
+
+    tmp["rms"] = (tmp.mxx*tmp.myy - tmp.mxy**2)**0.25 if False else np.sqrt(0.5*(tmp.mxx + tmp.myy))  # 1-D
+    tmp["FWHM"] = 2*np.sqrt(2*np.log(2))*tmp.rms   # Gaussian equivalent
+    tmp.FWHM *= 0.14  # Convert to arcsec
+    tmp["left"] = (tmp.agc_data_flags & 0x1) == 0x0
+
+    ff = []
+    for c in range(1, 6+1):
+        grouped = tmp[c == tmp.agc_camera_id + 1].groupby(["agc_exposure_id", "left",])
+        focus = grouped.agg(
+            agc_exposure_id=("agc_exposure_id", "first"),
+            pfs_visit_id=("pfs_visit_id", "first"),
+            agc_camera_id=("agc_camera_id", "first"),
+            left=("left", "first"),
+            altitude=("altitude", "mean"),
+            focusPosition=("m2_off3", "mean"),
+            rms=("rms", "median"),
+            FWHM=("FWHM", "median"),
+        )
+
+        #
+        # Estimate and plot a focus correction
+        #
+        # Handle the case where all the stars are on either the left or right sides
+        # noLR == not left AND right
+        noLR = set(focus.agc_exposure_id[~focus.left]) ^ set(focus.agc_exposure_id[focus.left])
+        _focus = focus[~np.isin(focus.agc_exposure_id, list(noLR))].copy()
+
+        focusError = _focus.rms[_focus.left].to_numpy()**2 - _focus.rms[~_focus.left].to_numpy()**2
+        focusError = mmToMicrons*MomentDifferenceToMmPiston(focusError, includePistonCorrection=False)
+
+        # Extend focusError to be the same length as _focus
+        # It'd probably be OK to do this with numpy stacking,
+        # but I'm not quite sure that pandas defines the order
+
+        tmpVec = np.empty(len(_focus))
+        tmpVec[_focus.left] = focusError
+        tmpVec[~_focus.left] = focusError
+        _focus["focusError"] = tmpVec
+        del tmpVec
+
+        ff.append(_focus)
+
+    _focus = pd.concat(ff)
+    del ff
+
+    ll = np.ones(len(_focus), dtype=bool)
+    if maxFocusError > 0:
+        ll &= np.abs(_focus.focusError) < maxFocusError
+    if minAgcExposureId > 0:
+        ll &= _focus.agc_exposure_id >= minAgcExposureId
+    if maxAgcExposureId > 0:
+        ll &= _focus.agc_exposure_id <= maxAgcExposureId
+
+    if False:
+        print(f"RHL {len(_focus)} {sum(ll)}")
+        print(f"RHL {np.sort(_focus.agc_exposure_id.unique())}")
+
+    if sum(ll) != len(ll):
+        _focus = _focus[ll]
+
+    if byExposureId:
+        xname = "agc_exposure_id"
+    else:
+        xname = "pfs_visit_id"
+
+    _focus.reset_index(drop=True, inplace=True)
+    vgrouped = _focus.groupby([xname, "agc_camera_id"], as_index=True)
+    focusByVisit = vgrouped.agg(
+        focusError=("focusError", "median"),
+        focusPosition=("focusPosition", "median"),
+        nAGCExposure=("agc_camera_id", "count"),
+        _pfs_visit_id=("pfs_visit_id", "first"),  # might also be an index field
+        _agc_camera_id=("agc_camera_id", "first"),  # also an index field
+    )
+    #
+    # subtract off the per-visit values
+    #
+    agc = 1                             # Ignore AG1 when taking the average
+    grouped = focusByVisit[focusByVisit._agc_camera_id + 1 != agc].groupby(xname)
+    focusByVisit.focusError -= grouped.agg(fp=("focusError", "mean")).fp
+    focusByVisit.focusError -= np.mean(focusByVisit.focusError)
+
+    focusByVisit.reset_index(inplace=True)
+
+    ll = focusByVisit.nAGCExposure > 20
+
+    focusByVisit.focusError *= -1  # Match Kawanomoto-san's plot
+
+    if byCamera:
+        for v in np.sort(focusByVisit[xname].unique()):
+            ll = (v == focusByVisit[xname])
+            plt.plot(focusByVisit.agc_camera_id[ll] + 1, focusByVisit.focusError[ll],
+                     '-o', label=f"{v}", alpha=0.5)
+
+    focusErrorPerCamera = np.full(6, np.NaN)
+    for c in range(1, 6+1):
+        ll = (focusByVisit.agc_camera_id == c - 1)
+        if sum(ll) == 0:
+            continue
+
+        if not byCamera:
+            plt.plot(focusByVisit[xname][ll], focusByVisit.focusError[ll], '-o',
+                     color=f"C{c - 1}", label=f"AG{c}", alpha=1)
+
+        focusErrorPerCamera[c - 1] = np.nanmean(focusByVisit.focusError[ll])
+        plt.axhline(focusErrorPerCamera[c - 1], color=f"C{c-1}", alpha=1,
+                    label=None if not byCamera else f"AG{c}")
+
+    if byCamera:
+        plt.plot(range(1, 6+1), focusErrorPerCamera, marker="*", markersize=10, color="black")
+
+    if showLegend:
+        plt.legend(ncols=2)
+
+    xlab = "AG Camera" if byCamera else xname
+    plt.xlabel(xlab)
+    plt.ylabel(r"$\Delta$ focus AG (micron)")
+
+    visits = np.sort(_focus[xname].unique())
+    plt.suptitle(f"{xname} "
+                 + (f"{','.join(str(v) for v in visits)}" if len(visits) < 5 else
+                    f"{visits[0]}..{visits[-1]}")
+                 + (" only GAIA" if onlyGuideStars else "")
+                 + (f"\n{', '.join(f'AG{int(c) + 1}' for c in np.sort(tmp.agc_camera_id.unique()))}")
+                 )
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
