@@ -236,11 +236,12 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
     """Provide zip iteration over separate lists of `DatasetRef`
 
     Each input list should contain references for a single ``datasetType``,
-    with differing ``dataId`` and the same dimensions ``dataId.graph``.
+    with differing ``dataId`` and the same dimensions ``dataId.dimensions``.
 
-    For ease of calculation, the set of dimensions (``DatasetRef.dataId.graph``)
-    of all of the references must be a subset of the set of dimensions of one of
-    the lists. You cannot have mutually exclusive sets of dimensions.
+    For ease of calculation, the set of dimensions
+    (``DatasetRef.dataId.dimensions``) of all of the references must be a subset
+    of the set of dimensions of one of the lists. You cannot have mutually
+    exclusive sets of dimensions.
 
     We iterate over the `DataCoordinate`s, and ensure that the `DatasetRef`s are
     matched in the appropriate dimensions.
@@ -333,11 +334,12 @@ def readDatasetRefs(
     """Performs a coordinated read of datasets
 
     Each input list should contain data for a single dataset, with
-    differing ``dataId`` and the same dimensions ``dataId.graph``.
+    differing ``dataId`` and the same dimensions ``dataId.dimensions``.
 
-    For ease of calculation, the set of dimensions (``DatasetRef.dataId.graph``)
-    of all of the references must be a subset of the set of dimensions of one of
-    the lists. You cannot have mutually exclusive sets of dimensions.
+    For ease of calculation, the set of dimensions
+    (``DatasetRef.dataId.dimensions``) of all of the references must be a subset
+    of the set of dimensions of one of the lists. You cannot have mutually
+    exclusive sets of dimensions.
 
     We iterate over the `DataCoordinate`s, and ensure that the `DatasetRef`s are
     matched in the appropriate dimensions.
@@ -815,7 +817,7 @@ def findAssociations(
     )
     results = [rr for rr in query]
     if dataCoord:
-        results = [rr for rr in results if rr.ref.dataId.subset(dataCoord.graph) == dataCoord]
+        results = [rr for rr in results if rr.ref.dataId.subset(dataCoord.dimensions) == dataCoord]
     if time:
         results = [
             rr for rr in results if not hasattr(rr, "timespan") or rr.timespan.overlaps(time)
