@@ -200,7 +200,12 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
         try:
             detectorMap = self.adjustDetectorMap.run(
-                detectorMap, data.centroids, arm, exposure.visitInfo.id
+                detectorMap,
+                data.centroids,
+                arm,
+                exposure.visitInfo,
+                exposure.metadata,
+                exposure.visitInfo.id,
             ).detectorMap
         except FittingError as exc:
             if self.config.requireAdjustDetectorMap:

@@ -211,7 +211,9 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         lines += tracesToLines(self.distorted, traces, 10.0)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
-            adjusted = task.run(self.distorted, lines, arm="n")
+            adjusted = task.run(
+                self.distorted, lines, "n", self.distorted.visitInfo, self.distorted.metadata
+            )
         finally:
             logger.removeHandler(handler)
 
@@ -358,7 +360,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         lines += tracesToLines(self.distorted, traces, 10.0)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
-            adjusted = task.run(self.distorted, lines, arm="n")
+            adjusted = task.run(self.distorted, lines, "n", self.distorted.visitInfo)
         finally:
             logger.removeHandler(handler)
 

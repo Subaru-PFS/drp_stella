@@ -1,4 +1,4 @@
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 import numpy as np
 
@@ -14,6 +14,9 @@ from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetector
 from .PolynomialDistortionContinued import PolynomialDistortion
 from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
 
+if TYPE_CHECKING:
+    from .arcLine import ArcLineSet
+
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 
@@ -28,7 +31,15 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
-    def run(self, detectorMap, lines, arm: str, seed=0):
+    def run(
+        self,
+        detectorMap: DetectorMap,
+        lines: "ArcLineSet",
+        arm: str,
+        visitInfo: VisitInfo,
+        metadata: PropertyList | None = None,
+        seed: int = 0,
+    ):
         """Adjust a DistortedDetectorMap to fit arc line measurements
 
         We fit only the lowest order terms.
@@ -42,6 +53,10 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             indicate which lines were used and reserved.
         arm : `str`
             Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
+        visitInfo : `lsst.afw.image.VisitInfo`
+            Visit information for exposure.
+        metadata : `lsst.daf.base.PropertyList`, optional
+            DetectorMap metadata (FITS header).
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
 
@@ -90,7 +105,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
                 seed=seed,
                 DistortionClass=DistortionClass,
             )
-            detectorMap = self.makeDetectorMap(base, fit.distortion, base.visitInfo, base.metadata)
+            detectorMap = self.makeDetectorMap(base, fit.distortion, visitInfo, metadata)
 
             numParameters = fit.numParameters
             if self.config.doSlitOffsets:

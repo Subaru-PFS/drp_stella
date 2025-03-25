@@ -449,7 +449,14 @@ class ReduceExposureTask(PipelineTask):
 
         if self.config.doAdjustDetectorMap:
             try:
-                detectorMap = self.adjustDetectorMap.run(detectorMap, lines, arm, seed=seed).detectorMap
+                detectorMap = self.adjustDetectorMap.run(
+                    detectorMap,
+                    lines,
+                    arm,
+                    exposure.visitInfo,
+                    exposure.metadata,
+                    seed=seed,
+                ).detectorMap
             except (FittingError, RuntimeError) as exc:
                 if self.config.requireAdjustDetectorMap:
                     raise
