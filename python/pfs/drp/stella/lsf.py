@@ -1009,7 +1009,7 @@ class CoaddLsf(Lsf):
     lsfList : iterable of `pfs.drp.stella.Lsf`
         Line-spread functions to coadd.
     minIndex, maxIndex : array-like of `int`
-        Minimum and maximum indices for each LSF.
+        Minimum (inclusive) and maximum (inclusive) indices for each LSF.
     weights : array-like of `float`
         Weights for each LSF.
     """
