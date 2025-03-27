@@ -12,7 +12,7 @@ from pfs.datamodel.pfsFocalPlaneFunction import PfsFocalPlaneFunction, PfsSkyMod
 from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
-from .math import NormalizedPolynomial1D
+from .math import NormalizedPolynomial1D, calculateMedian
 from .referenceLine import ReferenceLineSet
 from .selectFibers import SelectFibersTask
 from .utils.math import robustRms
@@ -140,6 +140,7 @@ class FitSky1dConfig(Config):
     )
     minRatio = Field(dtype=float, default=0.5, doc="Minimum data/sky ratio for good data")
     maxRatio = Field(dtype=float, default=2.0, doc="Maximum data/sky ratio for good data")
+    rejectRatio = Field(dtype=float, default=0.1, doc="Rejection limit of data/sky ratio")
     iterations = Field(dtype=int, default=2, doc="Number of iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
 
@@ -337,7 +338,10 @@ class FitSky1dTask(Task):
             good.append(select)
             with np.errstate(invalid="ignore", divide="ignore"):
                 reject = ~select & (flux/np.sqrt(pfsArm.variance) < self.config.minSignalToNoise)
-                reject |= (flux/skyFlux < self.config.minRatio) | (flux/skyFlux > self.config.maxRatio)
+                ratio = flux/skyFlux
+                reject |= (ratio < self.config.minRatio) | (ratio > self.config.maxRatio)
+                factor = np.array([calculateMedian(rat, rej) for rat, rej in zip(ratio, reject)])
+                reject |= np.abs(ratio - factor[:, None]) > self.config.rejectRatio
 
             armContinuumList.append(armContinuum)
             skyContinuumList.append(skyContinuum)
