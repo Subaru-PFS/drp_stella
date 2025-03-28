@@ -580,12 +580,14 @@ std::pair<int, ndarray::Array<double, 1, 1>> LayeredDetectorMap::getTracePositio
         }
     }
 
+#if 0
     if (fiberId == 41) {
         std::cerr << "fiberId = " << fiberId << " row = " << row;
         std::cerr << " xCenter = " << xCenter;
         std::cerr << " xStart = " << xStart << " xStop = " << xStop;
         std::cerr << std::endl;
     }
+#endif
 
     xStart = std::max(xStart, getBBox().getMinX());
     xStop = std::min(xStop, getBBox().getMaxX());
@@ -601,9 +603,11 @@ std::pair<int, ndarray::Array<double, 1, 1>> LayeredDetectorMap::getTracePositio
                 xMin = xx;
             }
             xRel.push_back(dx);
+#if 0
             if (fiberId == 41) {
                 std::cerr << "xx = " << xx << " --> " << point.getX() << " --> " << xRel.back() << std::endl;
             }
+#endif
         }
     }
 

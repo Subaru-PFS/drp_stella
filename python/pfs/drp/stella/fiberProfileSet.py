@@ -8,7 +8,6 @@ from lsst.daf.base import PropertyList
 from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTrace, FiberTraceSet
-from .spline import SplineD
 from .profile import fitSwathProfiles
 
 if TYPE_CHECKING:
@@ -316,7 +315,7 @@ class FiberProfileSet:
         for fiberId in self:
             try:
                 traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
-            except RuntimeError as exc:
+            except RuntimeError:
                 # Failed to make a trace, possibly because the fiber is off the image
                 pass
         return traces

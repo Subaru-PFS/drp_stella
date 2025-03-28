@@ -377,14 +377,6 @@ class FiberProfile:
             A pixellated version of the profile, at a fixed trace position.
         """
         dimensions = detectorMap.bbox.getDimensions()
-
-
-        if fiberId == 41:
-            print(f"fiberId={fiberId}")
-            positions = detectorMap.getTracePosition(fiberId, self.radius)
-            print(f"positions={positions}")
-
-
         return self.__makeFiberTrace(
             dimensions, detectorMap.getTracePosition(fiberId, self.radius), fiberId
         )

@@ -136,7 +136,6 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         xMin = std::min(xMin, xLow);
         xMax = std::max(xMax, xHigh);
     }
-    std::cerr << "fiberId=" << fiberId << " xMin=" << xMin << " xMax=" << xMax << std::endl;
     if (xMin >= width - 1 || xMax <= 0) {
         // No valid centers --> no trace
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Trace does not touch image");
