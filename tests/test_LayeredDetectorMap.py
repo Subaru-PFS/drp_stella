@@ -10,14 +10,16 @@ from lsst.afw.image import ExposureF
 from lsst.geom import Point2D, Box2D
 from lsst.pex.exceptions import DomainError
 
+from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DetectorMap, PolynomialDistortion
 from pfs.drp.stella import LayeredDetectorMap, ReferenceLineStatus, ImagingSpectralPsf
+from pfs.drp.stella import FiberProfile, FiberProfileSet
+from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.referenceLine import ReferenceLineSource
-
 
 display = None
 
@@ -328,6 +330,56 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         """Test that findFiberId works with out-of-range input"""
         detMap = self.makeLayeredDetectorMap(True)
         self.assertRaises(DomainError, detMap.findFiberId, Point2D(6000, -20000))
+
+    def testChipGapTraces(self):
+        """Test that traces can go through chip gaps"""
+        distortionOrder = 1
+        numCoeffs = PolynomialDistortion.getNumDistortionForOrder(distortionOrder)
+        xCoeff = np.zeros(numCoeffs, dtype=float)
+        yCoeff = np.zeros(numCoeffs, dtype=float)
+        spatial = np.zeros(self.base.getNumFibers(), dtype=float)
+        spectral = np.zeros(self.base.getNumFibers(), dtype=float)
+        rightCcd = np.zeros(6, dtype=float)
+        rightCcd[4] = -12.34
+        distortion = PolynomialDistortion(distortionOrder, Box2D(self.base.bbox), xCoeff, yCoeff)
+        visitInfo = lsst.afw.image.VisitInfo(darkTime=123.45)
+        detectorMap = LayeredDetectorMap(
+            self.base.getBBox(), spatial, spectral, self.base, [distortion], True, rightCcd, visitInfo
+        )
+
+        width = 3.21
+        radius = 15
+        oversample = 3.0
+        profiles = FiberProfileSet(
+            {
+                fiberId: FiberProfile.makeGaussian(width, self.synthConfig.height, radius, oversample)
+                for fiberId in self.synthConfig.fiberId
+            },
+            CalibIdentity(obsDate="2025-03-26", spectrograph=3, arm="r", visit0=12345),
+        )
+
+        spectra = SpectrumSet(self.synthConfig.numFibers, self.synthConfig.height)
+        wavelength = np.linspace(self.minWl, self.maxWl, self.synthConfig.height)
+        for ss, ff in zip(spectra, self.synthConfig.fiberId):
+            ss.setFiberId(ff)
+            ss.flux[:] = 1.0
+            ss.variance[:] = 0.0
+            ss.wavelength[:] = wavelength
+
+        traces = profiles.makeFiberTracesFromDetectorMap(detectorMap)
+        flux = [tt.getTrace().image.array.sum() for tt in traces]
+        median = np.median(flux)
+        # fiberId=41 disappears down the chip gap for some rows
+        for ii, ff in enumerate(flux):
+            if self.synthConfig.fiberId[ii] != 41:
+                self.assertAlmostEqual(ff, median)
+            else:
+                self.assertLess(ff, 0.5*median)
+
+        if False:
+            image = spectra.makeImage(detectorMap.bbox, traces)
+            display = lsst.afw.display.Display(frame=1)
+            display.mtv(image)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

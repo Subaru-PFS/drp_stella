@@ -8,7 +8,6 @@ from lsst.daf.base import PropertyList
 from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTrace, FiberTraceSet
-from .spline import SplineD
 from .profile import fitSwathProfiles
 
 if TYPE_CHECKING:
@@ -270,14 +269,18 @@ class FiberProfileSet:
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         """
+        fiberTraces = FiberTraceSet(len(detectorMap), self.metadata)
         if boxcarWidth <= 0:
-            rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
-            centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
-            return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
+            for fiberId in self:
+                try:
+                    fiberTraces.add(self[fiberId].makeFiberTraceFromDetectorMap(detectorMap, fiberId))
+                except RuntimeError:
+                    # Failed to make a trace, possibly because the fiber is off the image
+                    pass
+            return fiberTraces
         else:
             dims = detectorMap.getBBox().getDimensions()
 
-            fiberTraces = FiberTraceSet(len(detectorMap))
             norm = None
             for fiberId in detectorMap.fiberId:
                 if fiberId in self.fiberId:

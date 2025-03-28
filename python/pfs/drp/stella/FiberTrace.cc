@@ -52,8 +52,12 @@ void declareFiberTrace(py::module &mod)
         "image"_a, "flux"_a
     );
 
-    cls.def_static("fromProfile", &Class::fromProfile, "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
-                   "rows"_a, "profiles"_a, "good"_a, "centers"_a, "norm"_a=nullptr);
+    cls.def_static(
+        "fromProfile",
+        &Class::fromProfile,
+        "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
+        "rows"_a, "profiles"_a, "good"_a, "positions"_a, "norm"_a=nullptr
+    );
     cls.def_static("boxcar", &Class::boxcar,
                    "fiberId"_a, "dims"_a, "radius"_a, "centers"_a, "norm"_a=nullptr);
     cls.def("extractAperture", &Class::extractAperture, "image"_a, "badBitmask"_a);

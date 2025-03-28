@@ -152,6 +152,16 @@ void declareDetectorMap(py::module & mod) {
                 }
                 return result;
             });
+    cls.def(
+        "getTracePosition",
+        py::overload_cast<int, int, int>(&Class::getTracePosition, py::const_),
+        "fiberId"_a, "row"_a, "halfWidth"_a
+    );
+    cls.def(
+        "getTracePosition",
+        py::overload_cast<int, int>(&Class::getTracePosition, py::const_),
+        "fiberId"_a, "halfWidth"_a
+    );
     cls.def("getVisitInfo", &Class::getVisitInfo);
     cls.def("setVisitInfo", &Class::setVisitInfo, "visitInfo"_a);
     cls.def_property("visitInfo", &Class::getVisitInfo, &Class::setVisitInfo);

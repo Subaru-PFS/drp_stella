@@ -109,7 +109,7 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     ndarray::Array<double, 1, 1> const& rows,
     ndarray::Array<double, 2, 1> const& profiles,
     ndarray::Array<bool, 2, 1> const& good,
-    ndarray::Array<double, 1, 1> const& centers,
+    std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> const& positions,
     ndarray::Array<Spectrum::ImageT, 1, 1> const& norm
 ) {
     int const width = dims.getX();
@@ -120,27 +120,29 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     auto const profileShape = ndarray::makeVector<std::size_t>(numSwaths, profileSize);
     utils::checkSize(profiles.getShape(), profileShape, "profiles");
     utils::checkSize(good.getShape(), profileShape, "good");
-    utils::checkSize(centers.size(), height, "centers");
+    utils::checkSize(positions.size(), height, "positions");
     if (!norm.isEmpty()) {
         utils::checkSize(norm.size(), height, "norm");
     }
 
     // Set up image of trace
-    int xMin = width + radius;
-    int xMax = -radius;
+    int xMin = width;
+    int xMax = 0;
     for (std::size_t yy = 0; yy < height; ++yy) {
-        double const xx = centers[yy];
-        if (!std::isfinite(xx)) {
+        std::size_t const size = positions[yy].second.size();
+        if (size == 0) {
             continue;
         }
-        xMin = std::min(xMin, int(std::floor(xx)));
-        xMax = std::max(xMax, int(std::ceil(xx)));
+        int const xLow = positions[yy].first;
+        assert(xLow >= 0);
+        int const xHigh = xLow + size - 1;  // Inclusive
+        assert(xHigh < width);
+        xMin = std::min(xMin, xLow);
+        xMax = std::max(xMax, xHigh);
     }
-    xMin = std::max(0, xMin - radius);
-    xMax = std::min(width - 1, xMax + radius);
     if (xMin >= width - 1 || xMax <= 0) {
         // No valid centers --> no trace
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Centers extend beyond bounds of the image");
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Trace does not touch image");
     }
     lsst::geom::Box2I box{lsst::geom::Point2I(xMin, 0),
                           lsst::geom::Point2I(xMax, height - 1)};
@@ -205,13 +207,16 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
-        int const xStart = std::max(xMin, int(std::ceil(centers[yy] - radius)));
-        int const xStop = std::min(xMax, xStart + 2*radius);
-        double xRel = xStart - centers[yy];
+        int const xStart = positions[yy].first;  // inclusive
+        ndarray::Array<double, 1, 1> const& dx = positions[yy].second;
+        int const xStop = xStart + dx.size();  // exclusive
+
         auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
         auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
         double sum = 0.0;
-        for (int xx = xStart; xx < xStop; ++xx, xRel += 1.0, ++imgIter, ++mskIter) {
+        auto dxIter = dx.begin();
+        for (int xx = xStart; xx < xStop; ++xx, ++imgIter, ++mskIter, ++dxIter) {
+                double const xRel = *dxIter;
                 bool const prevOk = xRel >= prevLow && xRel <= prevHigh;
                 bool const nextOk = xRel >= nextLow && xRel <= nextHigh;
                 double const prevValue = prevOk ? prevInterp(xRel) : 0.0;
