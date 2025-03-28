@@ -231,7 +231,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         image = self.fiberTrace.constructImage(spectrum, self.bbox)
         self.assertEqual(image.getBBox(), self.bbox)
 
-        expected = self.subimage.image.array/self.subimage.image.array.sum(axis=1)[:, np.newaxis]
+        expected = self.subimage.image.array
         self.assertFloatsAlmostEqual(image[self.bbox, lsst.afw.image.PARENT].array, expected, atol=1.0e-7)
         image[self.bbox, lsst.afw.image.PARENT].set(0.0)
         self.assertFloatsEqual(image.array, 0.0)

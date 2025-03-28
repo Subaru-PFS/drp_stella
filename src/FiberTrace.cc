@@ -209,7 +209,6 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
 
         auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
         auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
-        double sum = 0.0;
         auto dxIter = dx.begin();
         for (int xx = xStart; xx < xStop; ++xx, ++imgIter, ++mskIter, ++dxIter) {
                 double const xRel = *dxIter;
@@ -226,7 +225,9 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
 
                 *imgIter = value;
                 *mskIter = (prevOk || nextOk) ? ftMask : 0;
-                sum += value;
+        }
+        if (!norm.isEmpty()) {
+            ndarray::asEigenArray(image.getImage()->getArray()[yy]) *= norm[yy];
         }
     }
 
