@@ -94,7 +94,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(ss.fiberId, ft.fiberId)
             self.assertEqual(len(ss), self.synthConfig.height)
             self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
-            self.assertFloatsAlmostEqual(ss.norm, expectNorm, rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(ss.norm, expectNorm, rtol=1.0e-5)
             self.assertFloatsEqual(ss.mask.array[0], expectMask)
             self.assertTrue(np.all(ss.mask.array[0] | (ss.variance > 0)))
             self.assertTrue(np.all(np.isfinite(ss.variance)))

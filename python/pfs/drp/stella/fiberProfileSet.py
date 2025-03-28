@@ -199,8 +199,9 @@ class FiberProfileSet:
                 pp = np.ma.MaskedArray(pp, mm)
                 profileList[ff].append(pp/np.ma.sum(pp, axis=0))
 
+        norm = np.full(height, oversample, dtype=np.float32)
         return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
-                                     np.ma.masked_array(profileList[ff])) for
+                                     np.ma.masked_array(profileList[ff]), norm) for
                     ff in fiberId}, identity, visitInfo, metadata)
 
     @property

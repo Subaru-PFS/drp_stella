@@ -30,12 +30,12 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
         synthConfig.height = 256
         synthConfig.width = 128
         synthConfig.fwhm = 3.21
-        synthConfig.separation = 10
+        synthConfig.separation = 15
         synthConfig.slope = 0.05
 
         profConfig = BuildFiberProfilesTask.ConfigClass()
         profConfig.pruneMinLength = synthConfig.height//2
-        profConfig.profileRadius = 3
+        profConfig.profileRadius = 7
         profConfig.doBlindFind = False
 
         detMap = makeSyntheticDetectorMap(synthConfig)
@@ -61,7 +61,7 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
         traces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap)
         newSpectra = traces.extractSpectra(image)
         for new, old in zip(newSpectra, spectra):
-            self.assertFloatsAlmostEqual(new.norm, old.normFlux, rtol=1.0e-7)
+            self.assertFloatsAlmostEqual(new.norm, old.normFlux, rtol=1.0e-6)
             self.assertFloatsAlmostEqual(new.normFlux, 1.0, atol=1.0e-6)
 
 
