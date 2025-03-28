@@ -169,6 +169,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             double sumModel = 0.0;  // sum of model values
             auto const& iTrace = _traces[ii]->getTrace();
             auto const iyModel = yActual - iTrace.getBBox().getMinY();
+            if (!(iTrace.getBBox().getMinX() >= 0 && iTrace.getBBox().getMinY() >= 0)) {
+                std::cerr << "Trace " << ii << " has negative bbox: " << iTrace.getBBox() << std::endl;
+            }
             assert(iTrace.getBBox().getMinX() >= 0 && iTrace.getBBox().getMinY() >= 0);
             std::size_t const ixMin = iTrace.getBBox().getMinX();
             std::size_t const ixMax = iTrace.getBBox().getMaxX();

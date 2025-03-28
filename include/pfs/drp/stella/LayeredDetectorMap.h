@@ -102,10 +102,26 @@ class LayeredDetectorMap : public ModelBasedDetectorMap {
 
   protected:
     /// Evaluate the model
+    ///
+    /// This handles the first three layers.
     virtual lsst::geom::PointD evalModel(int fiberId, double wavelength) const override;
+
+    /// Transform the point to the detector frame
+    ///
+    /// This handles the final layer (layer 4).
+    lsst::geom::Point2D toDetectorFrame(lsst::geom::Point2D const& point) const;
+
+    /// Transform the point from the detector frame to the model frame
+    ///
+    /// This is the inverse of the layer 4 transformation.
+    lsst::geom::Point2D fromDetectorFrame(lsst::geom::Point2D const& point) const;
 
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
+
+    /// Find the position of a fiber on the detector
+    ///
+    /// Allows the position to be off the detector bbox (contrary to findPointImpl).
     lsst::geom::Point2D findPointPermissive(int fiberId, double wavelength) const;
 
     /// Return the fiber center
@@ -113,6 +129,11 @@ class LayeredDetectorMap : public ModelBasedDetectorMap {
 
     /// Return the wavelength of a point on the detector, given a fiberId and row
     virtual double findWavelengthImpl(int fiberId, double row) const override;
+
+    /// Return the position of the fiber trace
+    virtual std::pair<int, ndarray::Array<double, 1, 1>> getTracePositionImpl(
+        int fiberId, int row, int halfWidth
+    ) const override;
 
     std::string getPythonModule() const override { return "pfs.drp.stella"; }
     std::string getPersistenceName() const override { return "LayeredDetectorMap"; }
@@ -133,6 +154,8 @@ class LayeredDetectorMap : public ModelBasedDetectorMap {
     float _middleFiber;  ///< Middle fiberId
     bool _increasing;  ///< x position increases with increasing fiberId?
     lsst::geom::Box2D _precisionBBox;  ///< Bounding box allowing for precision
+
+    double _xOffset, _xScale, _yOffset, _yScale;  ///< Normalization for right CCD transformation
 
     mutable lsst::cpputils::Cache<std::ptrdiff_t, std::size_t> _fiberIndexCache;
 };

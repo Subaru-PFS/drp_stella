@@ -334,7 +334,7 @@ class FiberProfile:
             variation=variation,
         )
 
-    def __makeFiberTrace(self, dimensions, xCenter, fiberId):
+    def __makeFiberTrace(self, dimensions, positions, fiberId):
         """Make a FiberTrace object
 
         Helper function for makeFiberTrace/makeFiberTraceFromDetectorMap to get the numpy types right
@@ -345,8 +345,17 @@ class FiberProfile:
         else:
             good = np.ones_like(self.profiles, dtype=bool)
             data = self.profiles
+
+        if True:
+            for pos in positions:
+                length = pos[1].size
+                if length == 0:
+                    continue
+                assert pos[0] >= 0
+                assert pos[0] + length <= dimensions.getX()
+
         return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
-                                      data, good, xCenter, self.norm)
+                                      data, good, positions, self.norm)
 
     def makeFiberTraceFromDetectorMap(self, detectorMap, fiberId):
         """Make a FiberTrace object
@@ -368,9 +377,17 @@ class FiberProfile:
             A pixellated version of the profile, at a fixed trace position.
         """
         dimensions = detectorMap.bbox.getDimensions()
-        xCenter = detectorMap.getXCenter(fiberId)
 
-        return self.__makeFiberTrace(dimensions, xCenter, fiberId)
+
+        if fiberId == 41:
+            print(f"fiberId={fiberId}")
+            positions = detectorMap.getTracePosition(fiberId, self.radius)
+            print(f"positions={positions}")
+
+
+        return self.__makeFiberTrace(
+            dimensions, detectorMap.getTracePosition(fiberId, self.radius), fiberId
+        )
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
         """Make a FiberTrace object
@@ -394,7 +411,17 @@ class FiberProfile:
         """
         rows = np.arange(dimensions.getY(), dtype=float)
         xCenter = centerFunc(rows)
-        return self.__makeFiberTrace(dimensions, xCenter, fiberId)
+        with np.errstate(invalid="ignore"):
+            xMin = (xCenter - self.radius).astype(np.int32)
+        xPixel = xMin[:, None] + np.arange(2*self.radius + 1)
+        xRel = xPixel - xCenter[:, None]
+        good = (xPixel >= 0) & (xPixel < dimensions.getX())
+        positions = [
+            (xPix[gg][0] if xPix[gg].size > 0 else 0, dx[gg])
+            for xPix, dx, gg in zip(xPixel, xRel, good)
+        ]
+
+        return self.__makeFiberTrace(dimensions, positions, fiberId)
 
     def extractSpectrum(self, maskedImage, detectorMap, fiberId, badBitmask, minFracMask=0.0):
         """Extract a single spectrum from an image

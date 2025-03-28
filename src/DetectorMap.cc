@@ -1,6 +1,9 @@
 #include <algorithm>
 
+#include "ndarray.h"
+
 #include "pfs/drp/stella/utils/checkSize.h"
+#include "pfs/drp/stella/utils/math.h"
 
 #include "pfs/drp/stella/DetectorMap.h"
 
@@ -366,6 +369,38 @@ int DetectorMap::findFiberId(
         }
     }
     return std::abs(xx - xLow) < std::abs(xx - xHigh) ? fiberId[lowIndex] : fiberId[highIndex];
+}
+
+
+std::vector<std::pair<int, ndarray::Array<double, 1, 1>>>
+DetectorMap::getTracePosition(
+    int fiberId,
+    int halfWidth
+) const {
+    std::size_t const height = _bbox.getHeight();
+    std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> result;
+    result.reserve(height);
+    for (int yy = 0; yy < _bbox.getHeight(); ++yy) {
+        result.emplace_back(getTracePosition(fiberId, yy, halfWidth));
+    }
+    return result;
+}
+
+
+std::pair<int, ndarray::Array<double, 1, 1>> DetectorMap::getTracePositionImpl(
+    int fiberId,
+    int row,
+    int halfWidth
+) const {
+    double const xCenter = getXCenter(fiberId, row);
+    int const xMin = std::max<int>(int(xCenter) - halfWidth, _bbox.getMinX());
+    int const xMax = std::min<int>(int(xCenter + 0.5) + halfWidth, _bbox.getMaxX());
+    ndarray::Array<double, 1, 1> dx = ndarray::allocate(xMax - xMin + 1);
+    double xx = xMin - xCenter;
+    for (std::size_t ii = 0; ii < dx.size(); ++ii, ++xx) {
+        dx[ii] = xx;
+    }
+    return std::make_pair(xMin, dx);
 }
 
 

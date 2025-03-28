@@ -6,6 +6,7 @@
 
 #include "lsst/afw/image/MaskedImage.h"
 
+#include "pfs/drp/stella/DetectorMap.h"
 #include "pfs/drp/stella/Spectrum.h"
 
 namespace pfs { namespace drp { namespace stella {
@@ -126,7 +127,7 @@ class FiberTrace {
      * @param profiles : profiles for each swath, each of length Nswath and
      *     width = 2*(radius + 1)*oversample + 1.
      * @param good : indicates which values in the profiles may be used.
-     * @param centers : center of profile for each row in the image.
+     * @param positions : xMin, dx: output of detectorMap.getTracePosition
      * @param norm : normalisation to apply
      */
     static FiberTrace fromProfile(
@@ -137,7 +138,7 @@ class FiberTrace {
         ndarray::Array<double, 1, 1> const& rows,
         ndarray::Array<double, 2, 1> const& profiles,
         ndarray::Array<bool, 2, 1> const& good,
-        ndarray::Array<double, 1, 1> const& centers,
+        std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> const& positions,
         ndarray::Array<Spectrum::ImageT, 1, 1> const& norm=ndarray::Array<Spectrum::ImageT, 1, 1>()
     );
 
