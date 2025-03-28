@@ -85,15 +85,11 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
         auto maskIter = _trace.getMask()->row_begin(row) + xStart;
         auto imageIter = image.row_begin(row) + xStart;
 
-        double const invNorm = 1.0/ndarray::asEigenArray(
-            _trace.getImage()->getArray()[row][ndarray::view(xStart, xStop + 1)]
-        ).template cast<double>().sum();
-
         float const specValue = *spec;
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
              ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *imageIter += specValue*(*profileIter)*invNorm;
+                *imageIter += specValue*(*profileIter);
             }
         }
     }
@@ -232,9 +228,6 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
                 *imgIter = value;
                 *mskIter = (prevOk || nextOk) ? ftMask : 0;
                 sum += value;
-        }
-        if (sum != 0.0) {
-            ndarray::asEigenArray(image.getImage()->getArray()[yy]) *= (norm.isEmpty() ? 1.0 : norm[yy])/sum;
         }
     }
 
