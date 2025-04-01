@@ -8,7 +8,6 @@ from lsst.daf.base import PropertyList
 from pfs.datamodel import PfsFiberProfiles, CalibIdentity
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTrace, FiberTraceSet
-from .spline import SplineD
 from .profile import fitSwathProfiles
 
 if TYPE_CHECKING:
@@ -200,8 +199,9 @@ class FiberProfileSet:
                 pp = np.ma.MaskedArray(pp, mm)
                 profileList[ff].append(pp/np.ma.sum(pp, axis=0))
 
+        norm = np.full(height, oversample, dtype=np.float32)
         return cls({ff: FiberProfile(radius, oversample, np.array(yProfile),
-                                     np.ma.masked_array(profileList[ff])) for
+                                     np.ma.masked_array(profileList[ff]), norm) for
                     ff in fiberId}, identity, visitInfo, metadata)
 
     @property
@@ -270,14 +270,18 @@ class FiberProfileSet:
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         """
+        fiberTraces = FiberTraceSet(len(detectorMap), self.metadata)
         if boxcarWidth <= 0:
-            rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
-            centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
-            return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
+            for fiberId in self:
+                try:
+                    fiberTraces.add(self[fiberId].makeFiberTraceFromDetectorMap(detectorMap, fiberId))
+                except RuntimeError:
+                    # Failed to make a trace, possibly because the fiber is off the image
+                    pass
+            return fiberTraces
         else:
             dims = detectorMap.getBBox().getDimensions()
 
-            fiberTraces = FiberTraceSet(len(detectorMap))
             norm = None
             for fiberId in detectorMap.fiberId:
                 if fiberId in self.fiberId:
@@ -309,7 +313,11 @@ class FiberProfileSet:
         """
         traces = FiberTraceSet(len(self), self.metadata)
         for fiberId in self:
-            traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+            try:
+                traces.add(self[fiberId].makeFiberTrace(dimensions, centers[fiberId], fiberId))
+            except RuntimeError:
+                # Failed to make a trace, possibly because the fiber is off the image
+                pass
         return traces
 
     def extractSpectra(self, maskedImage, detectorMap, badBitMask=0, minFracMask=0.3):

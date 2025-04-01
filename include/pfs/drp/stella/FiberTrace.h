@@ -126,7 +126,8 @@ class FiberTrace {
      * @param profiles : profiles for each swath, each of length Nswath and
      *     width = 2*(radius + 1)*oversample + 1.
      * @param good : indicates which values in the profiles may be used.
-     * @param centers : center of profile for each row in the image.
+     * @param positions : for each row, the minimum x index and an array containing the distance from the
+     *     center of the trace for each pixel. This is the output of DetectorMap::getTracePosition.
      * @param norm : normalisation to apply
      */
     static FiberTrace fromProfile(
@@ -137,7 +138,7 @@ class FiberTrace {
         ndarray::Array<double, 1, 1> const& rows,
         ndarray::Array<double, 2, 1> const& profiles,
         ndarray::Array<bool, 2, 1> const& good,
-        ndarray::Array<double, 1, 1> const& centers,
+        std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> const& positions,
         ndarray::Array<Spectrum::ImageT, 1, 1> const& norm=ndarray::Array<Spectrum::ImageT, 1, 1>()
     );
 

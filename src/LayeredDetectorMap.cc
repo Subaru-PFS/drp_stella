@@ -83,6 +83,10 @@ LayeredDetectorMap::LayeredDetectorMap(
     _dividedDetector(dividedDetector),
     _rightCcd(rightCcd),
     _precisionBBox(base.getBBox()),
+    _xOffset(0.5*(getBBox().getMinX() + getBBox().getMaxX())),
+    _xScale(2.0/(getBBox().getMaxX() - getBBox().getMinX())),
+    _yOffset(0.5*(getBBox().getMinY() + getBBox().getMaxY())),
+    _yScale(2.0/(getBBox().getMaxY() - getBBox().getMinY())),
     _fiberIndexCache(1000)
 {
     for (auto const& distortion : _distortions) {
@@ -332,32 +336,77 @@ lsst::geom::PointD LayeredDetectorMap::evalModel(
 }
 
 
-lsst::geom::PointD LayeredDetectorMap::findPointPermissive(int fiberId, double wavelength) const {
-    lsst::geom::Point2D point = ModelBasedDetectorMap::findPointImpl(fiberId, wavelength);
+lsst::geom::Point2D LayeredDetectorMap::toDetectorFrame(lsst::geom::Point2D const& point) const {
+    if (!_dividedDetector) {
+        return point;
+    }
 
     // Layer 4: transform to the detector frame
-    if (_dividedDetector) {
-        float const xCenterBase = _base.getBBox().getCenterX();
-        float const xCenterThis = getBBox().getCenterX();
-        if (point.getX() > xCenterBase) {
-            double const xOffset = 0.5*(getBBox().getMinX() + getBBox().getMaxX());
-            double const xScale = 2.0/(getBBox().getMaxX() - getBBox().getMinX());
-            double const yOffset = 0.5*(getBBox().getMinY() + getBBox().getMaxY());
-            double const yScale = 2.0/(getBBox().getMaxY() - getBBox().getMinY());
-            lsst::geom::Point2D normalized{
-                (point.getX() - xOffset)*xScale,
-                (point.getY() - yOffset)*yScale
-            };
-            point += lsst::geom::Extent2D(_rightCcd(normalized));
-            if (point.getX() < xCenterThis) {
-                // Off the right detector in the chip gap
-                point.setX(std::numeric_limits<double>::quiet_NaN());
-            }
-        } else if (point.getX() > xCenterThis) {
-            // Off the left detector in the chip gap
-            point.setX(std::numeric_limits<double>::quiet_NaN());
+    float const xCenterBase = _base.getBBox().getCenterX();
+    float const xCenterThis = getBBox().getCenterX();
+    if (point.getX() > xCenterBase) {
+        lsst::geom::Point2D normalized{
+            (point.getX() - _xOffset)*_xScale,
+            (point.getY() - _yOffset)*_yScale
+        };
+        lsst::geom::Point2D result = point + lsst::geom::Extent2D(_rightCcd(normalized));
+        if (result.getX() < xCenterThis) {
+            // Off the right detector in the chip gap
+            result.setX(std::numeric_limits<double>::quiet_NaN());
         }
+        return result;
     }
+    if (point.getX() > xCenterThis) {
+        // Off the left detector in the chip gap
+        return lsst::geom::Point2D(std::numeric_limits<double>::quiet_NaN(), point.getY());
+    }
+    return point;
+}
+
+
+lsst::geom::Point2D LayeredDetectorMap::fromDetectorFrame(lsst::geom::Point2D const& point) const {
+    lsst::geom::Point2D const nanPoint = lsst::geom::Point2D(
+        std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()
+    );
+    if (!_dividedDetector) {
+        return point;
+    }
+    if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
+        // No idea where we are
+        return nanPoint;
+    }
+    if (point.getX() < getBBox().getCenterX()) {
+        // On the left detector: no transformation
+        return point;
+    }
+
+    // We need to find the model point for which
+    //     toDetectorFrame(modelPoint) == point
+
+    lsst::geom::Point2D modelPoint = point - _rightCcd.getTranslation();
+    lsst::geom::Extent2D delta;
+    int iter = 0;
+    do {
+        if (++iter > 100) {
+            return nanPoint;
+            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "fromDetectorFrame did not converge");
+        }
+        lsst::geom::Point2D newPoint = toDetectorFrame(modelPoint);
+        if (!std::isfinite(newPoint.getX()) || !std::isfinite(newPoint.getY())) {
+            // Is there something I can do here?
+            return nanPoint;
+        }
+        delta = newPoint - point;
+        modelPoint -= delta;
+    } while (delta.computeSquaredNorm() > getPrecision()*getPrecision());
+    return modelPoint;
+}
+
+
+lsst::geom::PointD LayeredDetectorMap::findPointPermissive(int fiberId, double wavelength) const {
+    lsst::geom::Point2D const point = toDetectorFrame(
+        ModelBasedDetectorMap::findPointImpl(fiberId, wavelength)
+    );
 
 #ifdef DEBUG_FIBERID
     if (fiberId == DEBUG_FIBERID) {
@@ -465,6 +514,94 @@ double LayeredDetectorMap::findWavelengthImpl(int fiberId, double row) const {
     return wavelength;
 }
 
+
+std::pair<int, ndarray::Array<double, 1, 1>> LayeredDetectorMap::getTracePositionImpl(
+    int fiberId,
+    int row,
+    int halfWidth
+) const {
+    // Layer 1: apply the slit offsets
+    double const fiber = fiberId + getSpatialOffset(fiberId)/_fiberPitch;
+    double const yy = row + getSpectralOffset(fiberId);
+
+    // Layer 2: apply the base detectorMap
+    auto const interp = _interpolateFiberIndices(fiber);
+    double const prev = _base.getXCenter(interp.first.first, yy);
+    double const next = _base.getXCenter(interp.second.first, yy);
+    double const base = prev*interp.first.second + next*interp.second.second;
+    lsst::geom::Point2D model{base, yy};
+
+    // Layer 3: apply the distortions
+    for (auto const& dd : _distortions) {
+        lsst::geom::Extent2D const dist{(*dd)(model)};
+        model += dist;
+    }
+
+    // 'model' is the position before the detector layer
+    lsst::geom::Point2D const center = toDetectorFrame(model);
+    double const xCenter = center.getX();
+
+    int xStart;  // Left pixel of the fiber on the detector; inclusive
+    int xStop; // Right pixel of the fiber on the detector; inclusive
+
+    // Case 0: the fiber center is on the detector --> need to find the left and right sides of the fiber
+    if (std::isfinite(xCenter)) {
+        int const xCenterInt = std::floor(xCenter);
+        xStart = xCenterInt - halfWidth;
+        xStop = xCenterInt + halfWidth + 1;
+    } else {
+        // The center is off the detector to the left or right, or in the chip gap
+        // Check both extents to see if those are on the detector
+        lsst::geom::Point2D const left = toDetectorFrame(model - lsst::geom::Extent2D(halfWidth, 0));
+        lsst::geom::Point2D const right = toDetectorFrame(model + lsst::geom::Extent2D(halfWidth, 0));
+        int const xChipGap = 0.5*(getBBox().getMinX() + getBBox().getMaxX());
+
+        // If the left side is on the detector, we're either off the detector to the right,
+        // or in the chip gap.
+        // If the halfWidth is a reasonable size, we can tell the difference between these cases
+        // by the position of the left side: is it on the left chip or the right chip?
+        // Similarly for the right side.
+
+        if (std::isfinite(left.getX())) {
+            xStart = left.getX();
+            if (std::isfinite(right.getX())) {
+                xStop = right.getX() + 0.5;
+            } else {
+                xStop = _dividedDetector && (left.getX() <= xChipGap) ? xChipGap : getBBox().getMaxX();
+            }
+        } else if (std::isfinite(right.getX())) {
+            xStart = _dividedDetector && (right.getX() > xChipGap) ? getBBox().getMinX() : xChipGap + 1;
+            xStop = right.getX() + 0.5;
+        } else {
+            // If neither side is on the detector, we're so far off to the side, or the halfWidth is so small
+            // that it fits in the chip gap (or so large that it spans the entire detector).
+            // In any case there's nothing to do.
+            return std::make_pair(0, ndarray::allocate(0));
+        }
+    }
+
+    xStart = std::max(xStart, getBBox().getMinX());
+    xStop = std::min(xStop, getBBox().getMaxX());
+    if (xStart > xStop) {
+        return std::make_pair(0, ndarray::allocate(0));
+    }
+
+    std::vector<double> xRel; // x positions relative to the fiber center
+    xRel.reserve(xStop - xStart + 1);
+    int xMin = -1;
+    for (int xx = xStart; xx <= xStop; ++xx) {
+        lsst::geom::Point2D const point = fromDetectorFrame(lsst::geom::Point2D(xx, row));
+        double const dx = point.getX() - model.getX();
+        if (std::isfinite(point.getX()) && std::abs(dx) <= halfWidth) {
+            if (xMin == -1) {
+                xMin = xx;
+            }
+            xRel.push_back(dx);
+        }
+    }
+
+    return std::make_pair(xMin, ndarray::copy(utils::vectorToArray(xRel)));
+}
 
 namespace {
 

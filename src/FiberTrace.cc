@@ -85,15 +85,11 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
         auto maskIter = _trace.getMask()->row_begin(row) + xStart;
         auto imageIter = image.row_begin(row) + xStart;
 
-        double const invNorm = 1.0/ndarray::asEigenArray(
-            _trace.getImage()->getArray()[row][ndarray::view(xStart, xStop + 1)]
-        ).template cast<double>().sum();
-
         float const specValue = *spec;
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
              ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *imageIter += specValue*(*profileIter)*invNorm;
+                *imageIter += specValue*(*profileIter);
             }
         }
     }
@@ -109,7 +105,7 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     ndarray::Array<double, 1, 1> const& rows,
     ndarray::Array<double, 2, 1> const& profiles,
     ndarray::Array<bool, 2, 1> const& good,
-    ndarray::Array<double, 1, 1> const& centers,
+    std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> const& positions,
     ndarray::Array<Spectrum::ImageT, 1, 1> const& norm
 ) {
     int const width = dims.getX();
@@ -120,17 +116,29 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
     auto const profileShape = ndarray::makeVector<std::size_t>(numSwaths, profileSize);
     utils::checkSize(profiles.getShape(), profileShape, "profiles");
     utils::checkSize(good.getShape(), profileShape, "good");
-    utils::checkSize(centers.size(), height, "centers");
+    utils::checkSize(positions.size(), height, "positions");
     if (!norm.isEmpty()) {
         utils::checkSize(norm.size(), height, "norm");
     }
 
     // Set up image of trace
-    auto const centersMinMax = std::minmax_element(centers.begin(), centers.end());
-    int const xMin = std::max(0, int(*centersMinMax.first) - radius);
-    int const xMax = std::min(dims.getX() - 1, int(std::ceil(*centersMinMax.second)) + radius);
-    if (xMin > int(width) || xMax < 0) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Centers extend beyond bounds of the image");
+    int xMin = width;
+    int xMax = 0;
+    for (std::size_t yy = 0; yy < height; ++yy) {
+        std::size_t const size = positions[yy].second.size();
+        if (size == 0) {
+            continue;
+        }
+        int const xLow = positions[yy].first;
+        assert(xLow >= 0);
+        int const xHigh = xLow + size - 1;  // Inclusive
+        assert(xHigh < width);
+        xMin = std::min(xMin, xLow);
+        xMax = std::max(xMax, xHigh);
+    }
+    if (xMin >= width - 1 || xMax <= 0) {
+        // No valid centers --> no trace
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Trace does not touch image");
     }
     lsst::geom::Box2I box{lsst::geom::Point2I(xMin, 0),
                           lsst::geom::Point2I(xMax, height - 1)};
@@ -195,13 +203,15 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
         double const nextWeight = (yy - yPrev)/(yNext - yPrev);
         double const prevWeight = 1.0 - nextWeight;
 
-        int const xStart = std::max(0, int(std::ceil(centers[yy] - radius)));
-        int const xStop = std::min(dims.getX(), xStart + 2*radius);
-        double xRel = xStart - centers[yy];
+        int const xStart = positions[yy].first;  // inclusive
+        ndarray::Array<double, 1, 1> const& dx = positions[yy].second;
+        int const xStop = xStart + dx.size();  // exclusive
+
         auto imgIter = image.getImage()->row_begin(yy) + xStart - xMin;
         auto mskIter = image.getMask()->row_begin(yy) + xStart - xMin;
-        double sum = 0.0;
-        for (int xx = xStart; xx < xStop; ++xx, xRel += 1.0, ++imgIter, ++mskIter) {
+        auto dxIter = dx.begin();
+        for (int xx = xStart; xx < xStop; ++xx, ++imgIter, ++mskIter, ++dxIter) {
+                double const xRel = *dxIter;
                 bool const prevOk = xRel >= prevLow && xRel <= prevHigh;
                 bool const nextOk = xRel >= nextLow && xRel <= nextHigh;
                 double const prevValue = prevOk ? prevInterp(xRel) : 0.0;
@@ -215,10 +225,9 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::fromP
 
                 *imgIter = value;
                 *mskIter = (prevOk || nextOk) ? ftMask : 0;
-                sum += value;
         }
-        if (sum != 0.0) {
-            ndarray::asEigenArray(image.getImage()->getArray()[yy]) *= (norm.isEmpty() ? 1.0 : norm[yy])/sum;
+        if (!norm.isEmpty()) {
+            ndarray::asEigenArray(image.getImage()->getArray()[yy]) *= norm[yy];
         }
     }
 

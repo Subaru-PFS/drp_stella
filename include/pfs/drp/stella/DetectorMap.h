@@ -148,6 +148,31 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     ) const;
     //@}
 
+    //@{
+    /// Return the position of the fiber trace
+    ///
+    /// Returns the minimum x index and an array containing the distance from
+    /// the center of the trace for each pixel. Note that because of chip gaps,
+    /// this may be shorter than the range implied by the halfWidth, and the
+    /// difference between successive values may not be constant.
+    ///
+    /// @param fiberId : Fiber identifier.
+    /// @param row : Row on the detector (pixels).
+    /// @param halfWidth : Half-width of the trace (pixels).
+    /// @returns xMin, dxCenter
+    std::pair<int, ndarray::Array<double, 1, 1>> getTracePosition(
+        int fiberId,
+        int row,
+        int halfWidth
+    ) const {
+        return getTracePositionImpl(fiberId, row, halfWidth);
+    }
+    std::vector<std::pair<int, ndarray::Array<double, 1, 1>>> getTracePosition(
+        int fiberId,
+        int halfWidth
+    ) const;
+    //@}
+
     VisitInfo getVisitInfo() const { return _visitInfo; }
     void setVisitInfo(VisitInfo &visitInfo) { _visitInfo = visitInfo; };
 
@@ -195,6 +220,15 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     ///
     /// Implementation of getXCenter, for subclasses to define.
     virtual double getXCenterImpl(int fiberId, double row) const = 0;
+
+    /// Return the position of the fiber trace
+    ///
+    /// Implementation of getTracePosition, allowing subclasses to override.
+    virtual std::pair<int, ndarray::Array<double, 1, 1>> getTracePositionImpl(
+        int fiberId,
+        int row,
+        int halfWidth
+    ) const;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() {}
