@@ -1,7 +1,8 @@
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from functools import reduce
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from lsst.pex.config import Config, ConfigurableField, Field, ListField
 from lsst.pipe.base import Task, Struct
@@ -74,6 +75,11 @@ class SkyModel(FocalPlaneFunction):
         }
         self._spectra = FocalPlaneFunction.fromDatamodel(self.spectra)
 
+    @property
+    def fiberId(self) -> np.ndarray:
+        """Fiber identifiers"""
+        return np.array(list(self._polynomials.keys()), dtype=np.int32)
+
     @classmethod
     def fitArrays(cls, *args, **kwargs) -> FocalPlaneFunction:
         """Fit a sky model to arrays
@@ -124,6 +130,26 @@ class SkyModel(FocalPlaneFunction):
             masks[ii] = skySpectra.masks[ii]
             variances[ii] = skySpectra.variances[ii]*norm**2
         return Struct(values=values, masks=masks, variances=variances)
+
+    def calculateNormalization(self, fiberId: Iterable[int], wavelength: ArrayLike) -> np.ndarray:
+        """Get the normalization for fibers at a given wavelength
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers.
+        wavelength : `float`
+            Wavelength at which to evaluate the normalization.
+
+        Returns
+        -------
+        normalization : `numpy.ndarray` of `float`
+            Normalization for each fiber at the given wavelength.
+        """
+        return np.array([
+            self._polynomials[ff](wavelength) if ff in self._polynomials else np.nan
+            for ff in fiberId
+        ])
 
 
 class FitSky1dConfig(Config):
