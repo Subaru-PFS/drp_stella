@@ -11,7 +11,6 @@ from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .fitContinuum import FitContinuumTask
 from .photometry import photometer
 from .utils.psf import checkPsf
-from pfs.drp.stella import FiberProfileSet, FiberTraceSet
 from .apertureCorrections import MeasureApertureCorrectionsTask, calculateApertureCorrection
 
 import lsstDebug
@@ -104,8 +103,8 @@ class PhotometerLinesTask(Task):
         else:
             phot = self.photometerLines(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
 
-        if fiberTraces is not None:
-            self.addFluxNormalizations(phot.lines, fiberTraces, fiberNorms)
+        if fiberNorms is not None:
+            self.addFluxNormalizations(phot.lines, fiberNorms)
         else:
             self.log.warning("Not normalizing measured line fluxes")
         self.log.info("Photometered %d lines", len(phot.lines))
@@ -185,13 +184,13 @@ class PhotometerLinesTask(Task):
 
         return Struct(lines=lines, apCorr=apCorr)
 
-    def getNormalizations(self, tracesOrProfiles):
+    def getNormalizations(self, profiles):
         """Get an object that can be used for normalization
 
         Parameters
         ----------
-        tracesOrProfiles : `FiberTraceSet` or `FiberProfilesSet`
-            Fiber traces or fiber profiles, which contain the normalization.
+        profiles : `FiberProfilesSet`
+            Fiber profiles, which contain the normalization.
 
         Returns
         -------
@@ -203,15 +202,10 @@ class PhotometerLinesTask(Task):
             """Return interpolator for an array of values"""
             return interp1d(np.arange(len(array)), array, bounds_error=False, fill_value=np.nan)
 
-        if isinstance(tracesOrProfiles, FiberTraceSet):
-            norm = {ft.fiberId: ft.trace.image.array.sum(axis=1) for ft in tracesOrProfiles}
-        elif isinstance(tracesOrProfiles, FiberProfileSet):
-            norm = {ff: tracesOrProfiles[ff].norm for ff in tracesOrProfiles}
-        else:
-            raise RuntimeError(f"Unrecognised traces/profiles object: {tracesOrProfiles}")
-        return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in norm}
+        norm = {ff: profiles[ff].norm for ff in profiles}
+        return {ff: getInterpolator(np.where(np.isfinite(norm[ff]), norm[ff], 0.0)) for ff in profiles}
 
-    def addFluxNormalizations(self, lines, tracesOrProfiles, fiberNorms):
+    def addFluxNormalizations(self, lines, fiberNorms):
         """Add the trace normalization
 
         We provide the normalization, which is typically the extracted flux of
@@ -222,19 +216,15 @@ class PhotometerLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             Measured lines. This will be modified with the normalization
             applied.
-        tracesOrProfiles : `FiberTraceSet` or `FiberProfilesSet`
-            Fiber traces or fiber profiles, which contain the normalization.
         fiberNorms : `pfs.drp.stella.datamodel.PfsFiberNorms`
             Fiber normalizations.
         """
-        interpolators = self.getNormalizations(tracesOrProfiles)
-        lines.fluxNorm[:] = [
-            interpolators[ff](yy) if ff in interpolators else np.nan for ff, yy in zip(lines.fiberId, lines.y)
-        ]
-        if fiberNorms is not None:
-            for i, (ff, wavelength) in enumerate(zip(lines.fiberId, lines.wavelength)):
-                if ff in fiberNorms.coeff:
-                    lines.fluxNorm[i] = fiberNorms.calculate(ff, wavelength)
+        for ii, fiberId in enumerate(fiberNorms.fiberId):
+            interp = interp1d(
+                fiberNorms.wavelength[ii], fiberNorms.values[ii], bounds_error=False, fill_value=np.nan
+            )
+            select = lines.fiberId == fiberId
+            lines.fluxNorm[select] = interp(lines.wavelength[select])
 
     def subtractLines(self, exposure, lines, apCorr, pfsConfig):
         """Subtract lines from the image

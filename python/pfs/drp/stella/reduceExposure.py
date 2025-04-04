@@ -323,7 +323,9 @@ class ReduceExposureTask(PipelineTask):
                 # the Gaussian will be replaced by a boxcar, so params don't matter
                 fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
 
-        measurements = self.measure(exposure, pfsConfig, fiberProfiles, detectorMap, boxcarWidth, arm)
+        measurements = self.measure(
+            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
+        )
 
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
 
@@ -433,8 +435,9 @@ class ReduceExposureTask(PipelineTask):
         self,
         exposure: Exposure,
         pfsConfig: PfsConfig,
-        fiberProfiles: FiberProfileSet | None,
+        fiberProfiles: FiberProfileSet,
         detectorMap: DetectorMap,
+        fiberNorms: PfsFiberNorms | None,
         boxcarWidth: int,
         arm: str,
     ) -> Struct:
@@ -474,7 +477,9 @@ class ReduceExposureTask(PipelineTask):
         if not self.config.doPhotometerLines:
             apCorr = None
         else:
-            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+            phot = self.photometerLines.run(
+                exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces, fiberNorms
+            )
             apCorr = phot.apCorr
 
             # Copy results to the one list of lines that we return
