@@ -90,7 +90,7 @@ class ModelBasedDetectorMap : public DetectorMap {
   private:
     // Splines are: row->wavelength, row->xCenter, wavelength->row
     using SplineGroup = std::tuple<Spline, Spline, Spline>;
-    using SplineCache = lsst::utils::Cache<int, std::shared_ptr<SplineGroup>>;
+    using SplineCache = lsst::cpputils::Cache<int, std::shared_ptr<SplineGroup>>;
 
     /// Construct wavelength and xCenter splines for a fiber
     SplineGroup _makeSplines(int fiberId) const;

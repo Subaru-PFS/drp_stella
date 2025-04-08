@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/PolynomialDistortion.h"
 #include "pfs/drp/stella/python/Distortion.h"
 
@@ -28,8 +28,8 @@ void declarePolynomialDistortion(py::module & mod) {
     cls.def("getYCoefficients", &Class::getYCoefficients);
     cls.def("getXPoly", &Class::getXPoly);
     cls.def("getYPoly", &Class::getYPoly);
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 

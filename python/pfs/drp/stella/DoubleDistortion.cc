@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/DoubleDistortion.h"
 #include "pfs/drp/stella/python/Distortion.h"
 
@@ -37,8 +37,8 @@ void declareDoubleDistortion(py::module & mod) {
     cls.def("getYRight", &Class::getYRight);
     cls.def("getLeft", &Class::getLeft);
     cls.def("getRight", &Class::getRight);
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 

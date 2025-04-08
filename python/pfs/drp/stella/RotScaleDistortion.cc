@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/RotScaleDistortion.h"
 #include "pfs/drp/stella/python/Distortion.h"
 
@@ -24,8 +24,8 @@ auto declareRotScaleDistortion(py::module & mod, char const* name) {
     cls.def_static("fit", &Class::fit, "range"_a, "x"_a, "y"_a, "xMeas"_a, "yMeas"_a,
                    "xErr"_a, "yErr"_a, "isLine"_a, "slope"_a, "threshold"_a=1.0e-6,
                    "forced"_a=nullptr, "params"_a=nullptr);
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
     return cls;
 }
 
