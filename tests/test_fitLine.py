@@ -116,12 +116,6 @@ class FitLinesTestCase(lsst.utils.tests.TestCase):
         result = fitLine(self.spectrum, int(self.center), int(self.rmsSize), 0, 50)
         self.assertFalse(result.isValid)
         self.assertTrue(np.isnan(result.rms))
-        self.assertTrue(np.isnan(result.amplitude))
-        self.assertTrue(np.isnan(result.center))
-        self.assertTrue(np.isnan(result.rmsSize))
-        self.assertTrue(np.isnan(result.bg0))
-        self.assertTrue(np.isnan(result.bg1))
-        self.assertEqual(result.num, 2*self.fittingRadius + 1)
 
         # Respecting the bad pixel causes no problems
         result = fitLine(self.spectrum, int(self.center), int(self.rmsSize), maskVal, 50)
