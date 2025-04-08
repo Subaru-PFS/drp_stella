@@ -3,7 +3,7 @@
 
 #include "ndarray/pybind11.h"
 
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 
 #include "pfs/drp/stella/traces.h"
 
@@ -28,8 +28,8 @@ void declareTracePeak(py::module &mod) {
     cls.def_property_readonly("row", [](TracePeak const& self) { return self.span.getY(); });
     cls.def_property_readonly("low", [](TracePeak const& self) { return self.span.getX0(); });
     cls.def_property_readonly("high", [](TracePeak const& self) { return self.span.getX1(); });
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 

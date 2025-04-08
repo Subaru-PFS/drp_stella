@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/MosaicPolynomialDistortion.h"
 #include "pfs/drp/stella/python/Distortion.h"
 
@@ -33,8 +33,8 @@ void declareMosaicPolynomialDistortion(py::module & mod) {
     cls.def("getYPoly", &Class::getYPoly);
     cls.def("getOnRightCcd", py::overload_cast<double>(&Class::getOnRightCcd, py::const_));
     cls.def("getOnRightCcd", py::overload_cast<Array1D const&>(&Class::getOnRightCcd, py::const_));
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 

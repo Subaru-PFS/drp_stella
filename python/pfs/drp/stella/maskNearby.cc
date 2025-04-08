@@ -4,7 +4,7 @@
 #include "ndarray/pybind11.h"
 
 #include "lsst/base.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/maskNearby.h"
 
 namespace py = pybind11;
