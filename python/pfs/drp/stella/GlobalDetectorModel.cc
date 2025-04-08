@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/GlobalDetectorModel.h"
 
 namespace py = pybind11;
@@ -33,8 +33,8 @@ void declareGlobalDetectorModelScaling(py::module & mod) {
                               ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("getRange", &Class::getRange);
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 
@@ -98,8 +98,8 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def("getXDistortion", &Class::getXDistortion);
     cls.def("getYDistortion", &Class::getYDistortion);
     cls.def("getHighCcdCoefficients", &Class::getHighCcdCoefficients);
-    lsst::utils::python::addOutputOp(cls, "__str__");
-    lsst::utils::python::addOutputOp(cls, "__repr__");
+    lsst::cpputils::python::addOutputOp(cls, "__str__");
+    lsst::cpputils::python::addOutputOp(cls, "__repr__");
 }
 
 
