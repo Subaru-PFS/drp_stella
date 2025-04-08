@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "lsst/utils/python.h"
+#include "lsst/cpputils/python.h"
 #include "pfs/drp/stella/DoubleDetectorMap.h"
 #include "pfs/drp/stella/python/DistortionBasedDetectorMap.h"
 
