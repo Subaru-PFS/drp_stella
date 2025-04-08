@@ -121,7 +121,7 @@ def combineSpectraSets(
 
     good = (goodData.count > 0) & (goodData.sumWeights > 0)
     calculate(goodData, goodData, good)
-    goodData.mask[good] &= goodData.mask.dtype.type(~flags.get(*badMasks))
+    goodData.mask[good] &= ~goodData.mask.dtype.type(flags.get(*badMasks))
     bad = ~good
 
     if suspectMasks:
