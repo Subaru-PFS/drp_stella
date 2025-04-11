@@ -121,6 +121,19 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
         return result;
     }
 
+    /// Calculate the design matrix for a least-squares fit
+    ///
+    /// This is the result from getDFuncDParameters, for each point in x.
+    ndarray::Array<double, 2, 2> calculateDesignMatrix(ndarray::Array<double, 1, 1> const& x) const {
+        std::size_t const numPoints = x.size();
+        std::size_t const numParams = this->getNParameters();
+        ndarray::Array<double, 2, 2> design = ndarray::allocate(numPoints, numParams);
+        for (std::size_t ii = 0; ii < numPoints; ++ii) {
+            design[ii].deep() = utils::vectorToArray(getDFuncDParameters(x[ii]));
+        }
+        return design;
+    }
+
     /// Not persistable because we haven't written the persistence code
     bool isPersistable() const noexcept override { return false; }
 
@@ -235,6 +248,23 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
             (x - _xOffset)*_xScale,
             (y - _yOffset)*_yScale
         );
+    }
+
+    /// Calculate the design matrix for a least-squares fit
+    ///
+    /// This is the result from getDFuncDParameters, for each point in x,y.
+    ndarray::Array<double, 2, 2> calculateDesignMatrix(
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y
+    ) const {
+        utils::checkSize(x.size(), y.size(), "x vs y");
+        std::size_t const numPoints = x.size();
+        std::size_t const numParams = this->getNParameters();
+        ndarray::Array<double, 2, 2> design = ndarray::allocate(numPoints, numParams);
+        for (std::size_t ii = 0; ii < numPoints; ++ii) {
+            design[ii].deep() = utils::vectorToArray(getDFuncDParameters(x[ii], y[ii]));
+        }
+        return design;
     }
 
     /// Not persistable because we haven't written the persistence code
