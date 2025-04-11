@@ -36,6 +36,7 @@ void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
+    cls.def("calculateDesignMatrix", &Class::calculateDesignMatrix);
     cls.def("getMin", &Class::getMin);
     cls.def("getMax", &Class::getMax);
 }
@@ -60,6 +61,7 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
+    cls.def("calculateDesignMatrix", &Class::calculateDesignMatrix);
     cls.def("getXYRange", &Class::getXYRange);
 }
 
