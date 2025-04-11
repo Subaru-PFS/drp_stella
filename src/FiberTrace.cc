@@ -80,7 +80,6 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     for (std::ptrdiff_t y = box.getMinY(), row = box.getMinY() - _trace.getY0();
          y <= box.getMaxY(); ++y, ++row, ++spec) {
         std::ptrdiff_t const xStart = box.getMinX() - _trace.getX0();
-        std::ptrdiff_t const xStop = box.getMaxX() - _trace.getX0();  // Inclusive
         auto profileIter = _trace.getImage()->row_begin(row) + xStart;
         auto maskIter = _trace.getMask()->row_begin(row) + xStart;
         auto imageIter = image.row_begin(row) + xStart;
