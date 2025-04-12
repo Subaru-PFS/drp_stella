@@ -10,6 +10,8 @@ from pfs.datamodel import (
     PfsOversampledSpline,
     PfsPolynomialPerFiber,
     PfsFluxCalib,
+    PfsFocalPlanePolynomial,
+    PfsSkyModel,
 )
 from pfs.datamodel.utils import subclasses
 from pfs.drp.stella.datamodel import PfsFiberArraySet
@@ -17,7 +19,7 @@ from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask, interpo
 from scipy.interpolate import BSpline, InterpolatedUnivariateSpline, LSQUnivariateSpline, interp1d
 from scipy.stats import binned_statistic
 
-from .math import NormalizedPolynomial1D, calculateMedian, solveLeastSquaresDesign
+from .math import NormalizedPolynomial1D, NormalizedPolynomial2D, calculateMedian, solveLeastSquaresDesign
 from .struct import Struct
 from .utils.math import robustRms
 from .utils.polynomialND import NormalizedPolynomialND
@@ -930,6 +932,11 @@ class PolynomialPerFiber(FocalPlaneFunction):
         """Return the polynomial for a particular fiber"""
         return NormalizedPolynomial1D(self.coeffs[fiberId], self.minWavelength, self.maxWavelength)
 
+    @property
+    def fiberId(self) -> np.ndarray:
+        """Return the fiberIds"""
+        return np.array(sorted(list(self.coeffs.keys())), dtype=int)
+
     @classmethod
     def fitArrays(
         cls,
@@ -997,7 +1004,7 @@ class PolynomialPerFiber(FocalPlaneFunction):
                 coeffs[ff] = np.full(numParams, np.nan, dtype=float)
                 rms[ff] = np.nan
                 continue
-            design = np.array([poly.getDFuncDParameters(wl) for wl in wavelengths[ii][choose]])
+            design = poly.calculateDesignMatrix(wavelengths[ii][choose])
             coeffs[ff] = solveLeastSquaresDesign(design, values[ii][choose], errors[ii][choose])
             residuals = design @ coeffs[ff] - values[ii][choose]
             if robust:
@@ -1172,3 +1179,325 @@ class FluxCalib(FocalPlaneFunction):
         retvalue.variances *= np.square(scales)
 
         return retvalue
+
+
+class FocalPlanePolynomial(FocalPlaneFunction):
+    """A 2D polynomial on the focal plane
+
+    There is no wavelength dependence.
+
+    Parameters
+    ----------
+    datamodel : `PfsFocalPlanePolynomial`
+        Datamodel representation. Either this may be specified, or the other
+        parameters must be specified.
+    coeffs : `numpy.ndarray` of `float`
+        Coefficients of the polynomial.
+    radius : `float`
+        Radius of the focal plane, in mm.
+    rms : `float`
+        RMS of the fit.
+    """
+
+    DamdClass = PfsFocalPlanePolynomial
+
+    def __init__(self, *args, datamodel: Optional[PfsFocalPlanePolynomial] = None, **kwargs):
+        super().__init__(*args, datamodel=datamodel, **kwargs)
+        from lsst.geom import Box2D, Point2D
+        radius = self.radius
+        box = Box2D(Point2D(-radius, -radius), Point2D(radius, radius))
+        self.polynomial = NormalizedPolynomial2D(self.coeffs, box)
+
+    @classmethod
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        order: int = 2,
+        radius: float = 250.0,
+        **kwargs,
+    ) -> FocalPlaneFunction:
+        """Fit a polynomial on the focal plane to arrays
+
+        This is wavelength-independent, so if there are multiple wavelengths
+        we reduce to a single wavelength by taking the median.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber identifiers.
+        wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Wavelength array.
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Values to fit.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Boolean array indicating values to ignore from the fit.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variance values to use in fit.
+        positions : `numpy.ndarray` of `float`, shape ``(2, N)``
+            Focal-plane positions of fibers.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        order : `int`
+            Order of polynomial.
+        radius : `float`
+            Radius of the focal plane, in mm.
+
+        Returns
+        -------
+        fit : `FocalPlanePolynomial`
+            Function fit to input arrays.
+        """
+        if kwargs:
+            raise RuntimeError(f"Unrecognised parameters: {kwargs}")
+
+        from lsst.geom import Box2D, Point2D
+
+        box = Box2D(Point2D(-radius, -radius), Point2D(radius, radius))
+        poly = NormalizedPolynomial2D(order, box)
+
+        numPoints = wavelengths.shape[0]
+        numWavelengths = wavelengths.shape[1]
+        if numWavelengths > 1:
+            bad = masks | ~np.isfinite(values) | ~np.isfinite(variances)
+            values = np.ma.median(np.ma.masked_where(bad, values), axis=1)
+            masks = np.isfinite(values)
+            if not robust:
+                errors = np.ma.median(np.ma.masked_where(bad, np.sqrt(variances)), axis=1)
+        else:
+            values = np.reshape(values, numPoints)
+            masks = np.reshape(masks, numPoints)
+            if not robust:
+                errors = np.reshape(np.sqrt(variances), numPoints)
+
+        if robust:
+            errors = np.ones_like(values)
+
+        good = ~masks
+        design = poly.calculateDesignMatrix(positions[good, 0], positions[good, 1])
+        coeffs = solveLeastSquaresDesign(design, values[good], errors[good])
+        residuals = design @ coeffs - values[good]
+        if robust:
+            rms = robustRms(residuals)
+        else:
+            with np.errstate(divide="ignore"):
+                weights = 1.0 / errors[good] ** 2
+                rms = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
+
+        return cls(coeffs=coeffs, radius=radius, rms=rms)
+
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
+        """Evaluate the function at the provided positions
+
+        Parameters
+        ----------
+        wavelengths : `numpy.ndarray` of shape ``(N, M)``
+            Wavelength arrays.
+        fiberIds : `numpy.ndarray` of `int` of shape ``(N,)``
+            Fiber identifiers.
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Vector function evaluated at each position.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Indicates whether the value at each position is valid.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variances for each position.
+        """
+        values = self.polynomial(positions[:, 0], positions[:, 1])
+        masks = np.isnan(values)
+        variances = np.full_like(values, self.rms**2)
+        shape = wavelengths.shape
+        return Struct(
+            values=values.reshape(shape),
+            masks=masks.reshape(shape),
+            variances=variances.reshape(shape),
+        )
+
+
+class SkyModel(FocalPlaneFunction):
+    """Model of the sky
+
+    Consists of a spectral reproduction of the sky using
+    `BlockedOversampledSpline`, with a polynomial correction to the
+    normalization for each fiber.
+
+    Parameters
+    ----------
+    datamodel : `PfsSkyModel`
+        Datamodel representation. Either this may be specified, or the other
+        parameters must be specified.
+    splines : `BlockedOversampledSpline`
+        Sky spectra model.
+    fiberPoly : `PolynomialPerFiber`
+        Polynomial normalization for each fiber.
+    focalPlanePoly : `FocalPlanePolynomial`
+        Polynomial over the focal plane.
+    """
+    DamdClass = PfsSkyModel
+
+    def __init__(self, *args, datamodel: PfsSkyModel | None = None, **kwargs):
+        super().__init__(*args, datamodel=datamodel, **kwargs)
+        self._splines = BlockedOversampledSpline(self.splines)
+        self._fiberPoly = PolynomialPerFiber(self.fiberPoly)
+        self._focalPlanePoly = FocalPlanePolynomial(self.focalPlanePoly)
+
+    @property
+    def fiberId(self) -> np.ndarray:
+        """Fiber identifiers"""
+        return self._fiberPoly.fiberId
+
+    @classmethod
+    def fitArrays(
+        cls,
+        fiberId: np.ndarray,
+        wavelengths: np.ndarray,
+        values: np.ndarray,
+        masks: np.ndarray,
+        variances: np.ndarray,
+        positions: np.ndarray,
+        robust: bool = False,
+        blockSize: int = 20,
+        oversample: float = 1.25,
+        splineOrder: int = 3,
+        defaultValue: float = 0.0,
+        fiberPoly: PolynomialPerFiber | None = None,
+        polyOrder: int = 2,
+        radius: float = 250.0,
+        **kwargs,
+    ) -> FocalPlaneFunction:
+        """Fit a polynomial on the focal plane to arrays
+
+        This is wavelength-independent, so if there are multiple wavelengths
+        we reduce to a single wavelength by taking the median.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber identifiers.
+        wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Wavelength array.
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Values to fit.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Boolean array indicating values to ignore from the fit.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variance values to use in fit.
+        positions : `numpy.ndarray` of `float`, shape ``(2, N)``
+            Focal-plane positions of fibers.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        blockSize : `int`, optional
+            Size of fiberId blocks.
+        oversample : `float`
+            Oversampling factor for spline.
+        splineOrder : `int`
+            Order of spline.
+        defaultValue : `float`
+            Default value for out-of-range data.
+        fiberPoly : `PolynomialPerFiber`
+            Normalizations to apply.
+        polyOrder : `int`
+            Order of polynomial.
+        radius : `float`
+            Radius of the focal plane, in mm.
+
+        Returns
+        -------
+        fit : `PolynomialPerFiber`
+            Function fit to input arrays.
+        """
+        splines = BlockedOversampledSpline.fitArrays(
+            fiberId,
+            wavelengths,
+            values,
+            masks,
+            variances,
+            positions,
+            robust=robust,
+            blockSize=blockSize,
+            oversample=oversample,
+            splineOrder=splineOrder,
+            defaultValue=defaultValue,
+        )
+        splinesEval = splines.evaluate(wavelengths, fiberId, positions)
+        fiberEval = fiberPoly.evaluate(wavelengths, fiberId, positions)
+
+        focalPlanePoly = FocalPlanePolynomial.fitArrays(
+            fiberId,
+            wavelengths,
+            values - splinesEval.values*fiberEval.values,
+            masks | splinesEval.masks | fiberEval.masks,
+            variances,
+            positions,
+            robust=robust,
+            order=polyOrder,
+            radius=radius,
+        )
+        return cls(splines=splines, fiberPoly=fiberPoly, focalPlanePoly=focalPlanePoly)
+
+    def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
+        """Evaluate the function at the provided positions
+
+        Parameters
+        ----------
+        wavelengths : `numpy.ndarray` of shape ``(N, M)``
+            Wavelength arrays.
+        fiberIds : `numpy.ndarray` of `int` of shape ``(N,)``
+            Fiber identifiers.
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Vector function evaluated at each position.
+        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Indicates whether the value at each position is valid.
+        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Variances for each position.
+        """
+        splines = self._splines.evaluate(wavelengths, fiberIds, positions)
+        norm = self.calculateNormalization(wavelengths, fiberIds, positions)
+        return Struct(
+            values=splines.values*norm,
+            masks=splines.masks,
+            variances=splines.variances*norm**2,
+        )
+
+    def calculateNormalization(
+        self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray
+    ) -> np.ndarray:
+        """Get the normalization for fibers at a given wavelength
+
+        Parameters
+        ----------
+        wavelengths : `numpy.ndarray` of shape ``(N, M)``
+            Wavelength arrays.
+        fiberIds : `numpy.ndarray` of `int` of shape ``(N,)``
+            Fiber identifiers.
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        normalization : `numpy.ndarray` of `float`
+            Normalization for each fiber at the given wavelength.
+        """
+        fiberPoly = self._fiberPoly.evaluate(wavelengths, fiberIds, positions)
+        focalPlanePoly = self._focalPlanePoly.evaluate(wavelengths, fiberIds, positions)
+        return fiberPoly.values * focalPlanePoly.values
