@@ -52,7 +52,7 @@ class PfsArmTestCase(lsst.utils.tests.TestCase):
         for name in ("fiberId", "wavelength", "flux", "mask", "sky", "norm", "covar"):
             self.assertFloatsEqual(getattr(spectra, name), getattr(self, name), msg=name)
         self.assertDictEqual(spectra.flags.flags, self.flags.flags)
-        self.assertDictEqual({**self.metadata, **spectra.metadata}, spectra.metadata)
+        self.assertDictEqual({**self.metadata, **dict(spectra.metadata)}, dict(spectra.metadata))
 
     def testBasic(self):
         """Test basic functionality"""

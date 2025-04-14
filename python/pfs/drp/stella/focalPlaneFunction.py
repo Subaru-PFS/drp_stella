@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 import numpy as np
 from pfs.datamodel import (
@@ -25,6 +25,9 @@ from .utils.math import robustRms
 from .utils.polynomialND import NormalizedPolynomialND
 
 from typing import Callable
+
+if TYPE_CHECKING:
+    import matplotlib
 
 
 __all__ = (
@@ -1325,6 +1328,85 @@ class FocalPlanePolynomial(FocalPlaneFunction):
             variances=variances.reshape(shape),
         )
 
+    def plot(
+        self,
+        wavelength: float,
+        pfsConfig: PfsConfig,
+        axes: "matplotlib.Axes | None" = None,
+        vmin: float = 0.98,
+        vmax: float = 1.02,
+        cmap: "matplotlib.colors.Colormap | None" = None,
+    ) -> "matplotlib.Axes":
+        """Plot on the focal plane
+
+        Parameters
+        ----------
+        wavelength : `float`
+            Wavelength at which to plot.
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        axes : `matplotlib.Axes`, optional
+            Axes object to plot on. If not specified, a new figure is created.
+        vmin, vmax : `float`, optional
+            Minimum and maximum values for the color scale.
+        cmap : `matplotlib.colors.Colormap`, optional
+            Colormap to use. If not specified, a default colormap is used.
+
+        Returns
+        -------
+        axes : `matplotlib.Axes`
+            Axes object.
+        """
+        from matplotlib.colors import Normalize
+        from pfs.datamodel import TargetType
+
+        if axes is None:
+            import matplotlib.pyplot as plt
+            _, axes = plt.subplots()
+        if cmap is None:
+            import matplotlib.cm
+            cmap = matplotlib.cm.coolwarm
+
+        norm = Normalize(vmin=vmin, vmax=vmax)
+
+        values = self.evaluate(wavelength, pfsConfig.fiberId, pfsConfig.pfiCenter).values
+
+        xx = pfsConfig.pfiCenter[:, 0]
+        yy = pfsConfig.pfiCenter[:, 1]
+        good = np.isfinite(values)
+
+        axes.scatter(xx[good], yy[good], marker="o", c=values[good], cmap=cmap, norm=norm, s=10)
+
+        allRms = robustRms(values[good])
+        axes.text(0.05, 0.05, f"RMS = {allRms:.3f}", transform=axes.transAxes, ha="left", va="bottom")
+
+        select = pfsConfig.getSelection(targetType=TargetType.SKY)
+        select &= good
+        if np.any(select):
+            axes.scatter(
+                xx[select],
+                yy[select],
+                marker="o",
+                edgecolors="grey",
+                s=30,
+                facecolors="none",
+                ls="-",
+                lw=0.5,
+                label="Sky",
+                alpha=0.4,
+            )
+
+            skyRms = robustRms(values[select])
+            axes.text(
+                0.95, 0.05, f"Sky RMS = {skyRms:.3f}", transform=axes.transAxes, ha="right", va="bottom"
+            )
+
+        axes.set_xlabel("X (mm)")
+        axes.set_ylabel("Y (mm)")
+        axes.legend()
+
+        return axes
+
 
 class SkyModel(FocalPlaneFunction):
     """Model of the sky
@@ -1359,96 +1441,13 @@ class SkyModel(FocalPlaneFunction):
         return self._fiberPoly.fiberId
 
     @classmethod
-    def fitArrays(
-        cls,
-        fiberId: np.ndarray,
-        wavelengths: np.ndarray,
-        values: np.ndarray,
-        masks: np.ndarray,
-        variances: np.ndarray,
-        positions: np.ndarray,
-        robust: bool = False,
-        blockSize: int = 20,
-        oversample: float = 1.25,
-        splineOrder: int = 3,
-        defaultValue: float = 0.0,
-        fiberPoly: PolynomialPerFiber | None = None,
-        polyOrder: int = 2,
-        radius: float = 250.0,
-        **kwargs,
-    ) -> FocalPlaneFunction:
-        """Fit a polynomial on the focal plane to arrays
+    def fitArrays(cls, *args, **kwargs) -> FocalPlaneFunction:
+        """Fit from arrays.
 
-        This is wavelength-independent, so if there are multiple wavelengths
-        we reduce to a single wavelength by taking the median.
-
-        Parameters
-        ----------
-        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
-            Fiber identifiers.
-        wavelengths : `numpy.ndarray` of `float`, shape ``(N, M)``
-            Wavelength array.
-        values : `numpy.ndarray` of `float`, shape ``(N, M)``
-            Values to fit.
-        masks : `numpy.ndarray` of `bool`, shape ``(N, M)``
-            Boolean array indicating values to ignore from the fit.
-        variances : `numpy.ndarray` of `float`, shape ``(N, M)``
-            Variance values to use in fit.
-        positions : `numpy.ndarray` of `float`, shape ``(2, N)``
-            Focal-plane positions of fibers.
-        robust : `bool`
-            Perform robust fit? A robust fit should provide an accurate answer
-            in the presense of outliers, even if the answer is less precise
-            than desired. A non-robust fit should provide the most precise
-            answer while assuming there are no outliers.
-        blockSize : `int`, optional
-            Size of fiberId blocks.
-        oversample : `float`
-            Oversampling factor for spline.
-        splineOrder : `int`
-            Order of spline.
-        defaultValue : `float`
-            Default value for out-of-range data.
-        fiberPoly : `PolynomialPerFiber`
-            Normalizations to apply.
-        polyOrder : `int`
-            Order of polynomial.
-        radius : `float`
-            Radius of the focal plane, in mm.
-
-        Returns
-        -------
-        fit : `PolynomialPerFiber`
-            Function fit to input arrays.
+        This method has not been implemented because it is complicated.
+        See the FitSky1dTask.
         """
-        splines = BlockedOversampledSpline.fitArrays(
-            fiberId,
-            wavelengths,
-            values,
-            masks,
-            variances,
-            positions,
-            robust=robust,
-            blockSize=blockSize,
-            oversample=oversample,
-            splineOrder=splineOrder,
-            defaultValue=defaultValue,
-        )
-        splinesEval = splines.evaluate(wavelengths, fiberId, positions)
-        fiberEval = fiberPoly.evaluate(wavelengths, fiberId, positions)
-
-        focalPlanePoly = FocalPlanePolynomial.fitArrays(
-            fiberId,
-            wavelengths,
-            values - splinesEval.values*fiberEval.values,
-            masks | splinesEval.masks | fiberEval.masks,
-            variances,
-            positions,
-            robust=robust,
-            order=polyOrder,
-            radius=radius,
-        )
-        return cls(splines=splines, fiberPoly=fiberPoly, focalPlanePoly=focalPlanePoly)
+        raise NotImplementedError("SkyModel.fitArrays has not been implemented")
 
     def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
