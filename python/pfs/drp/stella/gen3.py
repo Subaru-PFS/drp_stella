@@ -328,7 +328,7 @@ def readDatasetRefs(
     inputRefs: InputQuantizedConnection,
     *names: str,
     allowMissing: bool = False,
-) -> Dict[str, List[Any]]:
+) -> SimpleNamespace:
     """Performs a coordinated read of datasets
 
     Each input list should contain data for a single dataset, with
