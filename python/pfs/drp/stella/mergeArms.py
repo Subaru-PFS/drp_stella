@@ -426,6 +426,7 @@ class MergeArmsTask(PipelineTask):
         warpedLsfList = []
         minIndexList = []
         maxIndexList = []
+        last = wavelength.size - 1
         for lsf, spectra in zip(lsfList, spectraList):
             warpedLsf = {}
             minIndex = {}
@@ -433,8 +434,8 @@ class MergeArmsTask(PipelineTask):
             for ii in range(len(spectra)):
                 ff = spectra.fiberId[ii]
                 warpedLsf[ff] = lsf.get(ff).warp(spectra.wavelength[ii], wavelength)
-                minIndex[ff] = np.searchsorted(wavelength, spectra.wavelength[ii][0], "left")
-                maxIndex[ff] = np.searchsorted(wavelength, spectra.wavelength[ii][-1], "right")
+                minIndex[ff] = max(0, np.searchsorted(wavelength, spectra.wavelength[ii][0], "left"))
+                maxIndex[ff] = min(last, np.searchsorted(wavelength, spectra.wavelength[ii][-1], "right"))
 
             warpedLsfList.append(warpedLsf)
             minIndexList.append(minIndex)
