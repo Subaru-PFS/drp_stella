@@ -123,8 +123,16 @@ class MeasureSkyNormsTask(PipelineTask):
 
         Returns
         -------
-        skyNorms : `pfs.drp.stella.FocalPlaneFunction`
-            Sky normalizations.
+        sky : `FocalPlaneFunction`
+            Sky spectral model.
+        skyNorms : `PolynomialPerFiber`
+            Normalizations of sky data.
+        armContinuum : `np.ndarray`
+            Continuum fit to the ``pfsArm``.
+        skyContinuum : `np.ndarray`
+            Continuum fit to the sky spectral model.
+        refLines : `ReferenceLineSet`
+            Sky line list, used for fitting continuum.
         """
         result = self.run([pfsArm], [pfsConfig], skyNorms)
         result.sky = result.sky[0]
@@ -140,6 +148,8 @@ class MeasureSkyNormsTask(PipelineTask):
     ) -> Struct:
         """Measure sky normalizations
 
+        This operates on multiple instances of the same arm+spectrograph.
+
         Parameters
         ----------
         pfsArmList : collection of `pfs.datamodel.pfsFiberArraySet`
@@ -152,8 +162,16 @@ class MeasureSkyNormsTask(PipelineTask):
 
         Returns
         -------
-        skyNorms `pfs.drp.stella.FocalPlaneFunction`
-            Sky normalizations.
+        sky : list of `FocalPlaneFunction`
+            Sky spectral model for each arm.
+        skyNorms : list of `PolynomialPerFiber`
+            Normalizations of sky data for each arm.
+        armContinuum : list of `np.ndarray`
+            Continuum fit to the ``pfsArm``.
+        skyContinuum : list of `np.ndarray`
+            Continuum fit to the sky spectral model.
+        refLines : `ReferenceLineSet`
+            Sky line list, used for fitting continuum.
         """
         fiberId: np.ndarray | None = None
         skyList: list[FocalPlaneFunction] = []  # Sky model for each arm

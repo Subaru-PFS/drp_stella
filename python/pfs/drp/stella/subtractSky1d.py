@@ -1,7 +1,8 @@
+from collections.abc import Collection
 import numpy as np
 
 from lsst.pex.config import Config, ConfigurableField
-from lsst.pipe.base import Task, Struct
+from lsst.pipe.base import Task
 
 from pfs.datamodel import PfsConfig
 from pfs.datamodel import PfsFiberArraySet
@@ -62,51 +63,68 @@ class FitSky1dTask(Task):
 
     def run(
         self,
-        pfsArm: PfsFiberArraySet,
+        pfsArmList: Collection[PfsFiberArraySet],
         pfsConfig: PfsConfig,
-        skyNorms: FocalPlaneFunction,
-    ) -> Struct:
+        skyNormsList: Collection[FocalPlaneFunction],
+    ) -> list[SkyModel]:
         """Fit 1D sky model
+
+        Operates on all arms of the same kind from a single exposure.
 
         Parameters
         ----------
-        pfsArm : `PfsFiberArraySet`
-            Spectra from which to subtract sky model. The spectra are modified.
+        pfsArmList : collection of `PfsFiberArraySet`
+            Spectra from which to subtract sky model.
         pfsConfig : `PfsConfig`
             Top-end configuration.
-        skyNorms : `FocalPlaneFunction`
-            Common-mode sky normalizations for each fiber.
+        skyNormsList : collection of `FocalPlaneFunction`
+            Common-mode sky normalizations.
 
         Returns
         -------
-        sky1d : `SkyModel`
+        sky1d : `list` of `SkyModel`
             Sky models subtracted.
         """
-        pfsConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
-        skyConfig = self.skyNorms.selectSky.run(pfsConfig)
-        skyArm = pfsArm.select(fiberId=skyConfig.fiberId)
+        numFibers = len(pfsConfig)
+        values = np.full(numFibers, np.nan, dtype=float)
+        variances = np.full(numFibers, np.nan, dtype=float)
+        masks = np.full(numFibers, True, dtype=bool)
+        wavelength = np.median(pfsArmList[0].wavelength)
+        splinesList = []
 
-        wavelength = np.median(skyArm.wavelength)
+        for pfsArm, skyNorms in zip(pfsArmList, skyNormsList):
+            skyConfig = self.skyNorms.selectSky.run(pfsConfig.select(fiberId=pfsArm.fiberId))
+            skyArm = pfsArm.select(fiberId=skyConfig.fiberId)
 
-        sky = self.skyNorms.runSingle(skyArm, skyConfig, skyNorms)
-        data = sky.skyNorms([wavelength], skyConfig)
-        covar = np.zeros((len(skyConfig), 3, 1), dtype=float)
-        covar[:, 0, :] = data.variances
+            sky = self.skyNorms.runSingle(skyArm, skyConfig, skyNorms)
+            splinesList.append(sky.sky)
+            data = sky.skyNorms([wavelength], skyConfig)
 
-        mask = np.zeros_like(data.masks, dtype=int)
-        mask[data.masks] = pfsArm.flags.get("NO_DATA")
+            indices = np.searchsorted(pfsConfig.fiberId, skyConfig.fiberId)
+            values[indices] = data.values
+            variances[indices] = data.variances
+            masks[indices] = data.masks
+
+        covar = np.zeros((numFibers, 3, 1), dtype=float)
+        covar[:, 0, :] = variances
 
         dummy = PfsFiberArraySet(
-            pfsArm.identity,
-            skyArm.fiberId,
-            np.full_like(skyArm.fiberId, wavelength, dtype=float),
-            data.values,
-            mask,
-            np.zeros_like(skyArm.fiberId, dtype=float),
-            np.ones_like(skyArm.fiberId, dtype=float),
+            pfsArmList[0].identity,
+            pfsConfig.fiberId,
+            np.full(numFibers, wavelength, dtype=float),
+            values,
+            np.where(masks, pfsArm.flags.get("NO_DATA"), 0),
+            np.zeros(numFibers, dtype=float),
+            np.ones(numFibers, dtype=float),
             covar,
             pfsArm.flags,
         )
 
         focalPlanePoly = self.focalPlanePoly.run(dummy, skyConfig)
-        return SkyModel(splines=sky.sky, fiberPoly=skyNorms, focalPlanePoly=focalPlanePoly)
+
+        sky1d = [
+            SkyModel(splines=splines, fiberPoly=skyNorms, focalPlanePoly=focalPlanePoly)
+            for pfsArm, splines, skyNorms in zip(pfsArmList, splinesList, skyNormsList)
+        ]
+
+        return sky1d
