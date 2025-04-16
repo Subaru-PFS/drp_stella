@@ -66,6 +66,8 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     minRatio = Field(dtype=float, default=0.5, doc="Minimum data/sky ratio for good data")
     maxRatio = Field(dtype=float, default=2.0, doc="Maximum data/sky ratio for good data")
     rejectRatio = Field(dtype=float, default=0.1, doc="Rejection limit of data/sky ratio")
+    iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
+    rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
 
     def setDefaults(self):
         super().setDefaults()
@@ -183,17 +185,17 @@ class MeasureSkyNormsTask(PipelineTask):
                 raise ValueError("fiberId mismatch")
             sky = self.measureSky(pfsArm, pfsConfig)
             skyList.append(sky)
-            skyData = sky(pfsArm.wavelength, pfsConfig)
+            skyData = sky(pfsArm.wavelength, pfsConfig.select(fiberId=pfsArm.fiberId))
             if skyNorms is not None:
                 normData = skyNorms(pfsArm.wavelength, pfsConfig)
-                skyData.values *= normData.values[:, None]
-                skyData.variances *= normData.values[:, None]**2
-                skyData.masks |= normData.masks[:, None]
+                skyData.values *= normData.values
+                skyData.variances *= normData.values**2
+                skyData.masks |= normData.masks
 
             skyDataList.append(skyData)
 
         refLines = self.readLineList.run(metadata=pfsArmList[0].metadata)
-        result = self.measureNormalizations(pfsArmList, skyDataList, skyNorms, refLines)
+        result = self.measureNormalizations(pfsArmList, skyDataList, refLines)
 
         result.sky = skyList
         result.refLines = refLines
@@ -337,11 +339,8 @@ class MeasureSkyNormsTask(PipelineTask):
                 np.nanmedian(np.array(factor)),
                 robustRms(factor[np.isfinite(factor)]),
             )
-            for dd, mm, vv, gg in zip(data, model, variance, good):
+            for dd, mm, vv in zip(data, model, variance):
                 residuals = dd - factor[:, None]*mm
-                with np.errstate(invalid="ignore", divide="ignore"):
-                    rr = np.array(residuals)/np.sqrt(vv)
-                self.log.debug("    RMS normalized residuals = %.1f", robustRms(rr[gg]))
                 reject = np.abs(residuals) > self.config.rejection*np.sqrt(vv)
                 dd.mask |= reject
                 mm.mask |= reject
@@ -354,12 +353,13 @@ class MeasureSkyNormsTask(PipelineTask):
             robustRms(factor[np.isfinite(factor)]),
         )
         with np.errstate(invalid="ignore", divide="ignore"):
+            residuals = [dd - factor[:, None]*mm for dd, mm in zip(data, model)]
             rms = {
-                ff: robustRms((np.array(dd - factor[:, None]*mm)/np.sqrt(vv))[gg])
-                for ff, dd, mm, vv, gg in zip(pfsArm.fiberId, data, model, variance, good)
+                ff: robustRms(np.concatenate([res[ii].compressed() for res in residuals]))
+                for ii, ff in enumerate(pfsArm.fiberId)
             }
 
-        coeffs = dict(zip(pfsArm.fiberId, factor))
+        coeffs = {ff: np.array([xx]) for ff, xx in zip(pfsArm.fiberId, factor)}
         return Struct(
             skyNorms=PolynomialPerFiber(coeffs, rms, minWavelength, maxWavelength),
             armContinuum=armContinuumList,

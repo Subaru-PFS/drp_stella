@@ -31,7 +31,6 @@ from .fitContinuum import FitContinuumTask
 from .subtractSky1d import FitSky1dTask, subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
 from .wavelengthSampling import WavelengthSamplingTask
-from .skyNorms import SkyNorms
 
 __all__ = ("MergeArmsTask",)
 
@@ -61,8 +60,8 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
     skyNorms = PrerequisiteConnection(
         name="skyNorms",
         doc="Sky normalizations",
-        storageClass="SkyNorms",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "arm", "spectrograph"),
         multiple=True,
         isCalibration=True,
     )
@@ -92,7 +91,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
 
         if not config:
             return
-        if self.config.doSubtractSky1d:
+        if not self.config.doSubtractSky1d:
             self.prerequisiteInputs.remove("skyNorms")
 
 
@@ -140,7 +139,7 @@ class MergeArmsTask(PipelineTask):
         spectra: List[List[PfsArm]],
         pfsConfig: PfsConfig,
         lsfList: List[List[Lsf]],
-        skyNormsList: List[List[SkyNorms]] | None = None,
+        skyNormsList: List[List[FocalPlaneFunction]] | None = None,
         haveMedRes: bool = False,
     ) -> Struct:
         """Merge all extracted spectra from a single exposure
@@ -154,7 +153,7 @@ class MergeArmsTask(PipelineTask):
         lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
             Line-spread functions from the different arms, for each
             spectrograph.
-        skyNormsList : iterable of iterable of `pfs.drp.stella.skyNorms.SkyNorms`
+        skyNormsList : iterable of iterable of `FocalPlaneFunction`
             Sky normalizations from the different arms, for each
             spectrograph.
         haveMedRes : `bool`
@@ -266,7 +265,7 @@ class MergeArmsTask(PipelineTask):
         for pfsArm, lsf, skyNorms, sky1d in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsArm),
             DatasetRefList.fromList(inputRefs.lsf),
-            DatasetRefList.fromList(inputRefs.skyNorms) if inputRefs.skyNorms else None,
+            DatasetRefList.fromList(inputRefs.skyNorms) if self.config.doSubtractSky1d else None,
             DatasetRefList.fromList(outputRefs.sky1d),
         ):
             dataId = pfsArm.dataId
@@ -500,7 +499,7 @@ class MergeArmsTask(PipelineTask):
         self,
         pfsArmList: List[List[PfsArm]],
         pfsConfig: PfsConfig,
-        skyNormsList: List[List[SkyNorms]],
+        skyNormsList: List[List[FocalPlaneFunction]],
     ) -> List[List[FocalPlaneFunction]]:
         """Fit and subtract sky model
 
@@ -510,7 +509,7 @@ class MergeArmsTask(PipelineTask):
             Extracted spectra from the different arms, for each spectrograph.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, fiber targets.
-        skyNormsList : iterable of iterable of `pfs.drp.stella.skyNorms.SkyNorms`
+        skyNormsList : iterable of iterable of `FocalPlaneFunction`
             Sky normalizations from the different arms, for each
             spectrograph.
 
@@ -520,7 +519,7 @@ class MergeArmsTask(PipelineTask):
             Sky models for each arm.
         """
         pfsArmMap: dict[str, list[PfsArm]] = defaultdict(list)
-        skyNormsMap: dict[str, list[SkyNorms]] = defaultdict(list)
+        skyNormsMap: dict[str, list[FocalPlaneFunction]] = defaultdict(list)
         for pfsArm, skyNorms in zip(sum(pfsArmList, []), sum(skyNormsList, [])):
             arm = pfsArm.identity.arm
             pfsArmMap[arm].append(pfsArm)

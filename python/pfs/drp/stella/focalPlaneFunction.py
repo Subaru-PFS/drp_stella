@@ -232,7 +232,7 @@ class FocalPlaneFunction(ABC):
             Variances for each position.
         """
         isSingle = False  # Only a single fiber?
-        if len(wavelengths.shape) == 1:
+        if len(np.array(wavelengths).shape) == 1:
             isSingle = True
             wavelengths = np.array([wavelengths] * len(pfsConfig))
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
@@ -1261,6 +1261,7 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         """
         if kwargs:
             raise RuntimeError(f"Unrecognised parameters: {kwargs}")
+        positions = positions.astype(np.float64)  # Because we're passing into pybind
 
         from lsst.geom import Box2D, Point2D
 
@@ -1318,10 +1319,13 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         variances : `numpy.ndarray` of `float`, shape ``(N, M)``
             Variances for each position.
         """
+        positions = positions.astype(np.float64)  # Because we're passing into pybind
         values = self.polynomial(positions[:, 0], positions[:, 1])
         masks = np.isnan(values)
         variances = np.full_like(values, self.rms**2)
         shape = wavelengths.shape
+        numPixels = shape[1]
+        XXXXX
         return Struct(
             values=values.reshape(shape),
             masks=masks.reshape(shape),
@@ -1431,9 +1435,9 @@ class SkyModel(FocalPlaneFunction):
 
     def __init__(self, *args, datamodel: PfsSkyModel | None = None, **kwargs):
         super().__init__(*args, datamodel=datamodel, **kwargs)
-        self._splines = BlockedOversampledSpline(self.splines)
-        self._fiberPoly = PolynomialPerFiber(self.fiberPoly)
-        self._focalPlanePoly = FocalPlanePolynomial(self.focalPlanePoly)
+        self._splines = BlockedOversampledSpline(datamodel=self.splines)
+        self._fiberPoly = PolynomialPerFiber(datamodel=self.fiberPoly)
+        self._focalPlanePoly = FocalPlanePolynomial(datamodel=self.focalPlanePoly)
 
     @property
     def fiberId(self) -> np.ndarray:

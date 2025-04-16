@@ -85,6 +85,7 @@ class FitSky1dTask(Task):
         sky1d : `list` of `SkyModel`
             Sky models subtracted.
         """
+        pfsConfig = self.skyNorms.selectSky.run(pfsConfig)
         numFibers = len(pfsConfig)
         values = np.full(numFibers, np.nan, dtype=float)
         variances = np.full(numFibers, np.nan, dtype=float)
@@ -93,7 +94,7 @@ class FitSky1dTask(Task):
         splinesList = []
 
         for pfsArm, skyNorms in zip(pfsArmList, skyNormsList):
-            skyConfig = self.skyNorms.selectSky.run(pfsConfig.select(fiberId=pfsArm.fiberId))
+            skyConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
             skyArm = pfsArm.select(fiberId=skyConfig.fiberId)
 
             sky = self.skyNorms.runSingle(skyArm, skyConfig, skyNorms)
@@ -106,18 +107,21 @@ class FitSky1dTask(Task):
             masks[indices] = data.masks
 
         covar = np.zeros((numFibers, 3, 1), dtype=float)
-        covar[:, 0, :] = variances
+        covar[:, 0, :] = variances[:, None]
+
+        shape = (numFibers, 1)
 
         dummy = PfsFiberArraySet(
             pfsArmList[0].identity,
             pfsConfig.fiberId,
-            np.full(numFibers, wavelength, dtype=float),
-            values,
-            np.where(masks, pfsArm.flags.get("NO_DATA"), 0),
-            np.zeros(numFibers, dtype=float),
-            np.ones(numFibers, dtype=float),
+            np.full(shape, wavelength, dtype=float),
+            values.reshape(shape),
+            np.where(masks, pfsArm.flags.get("NO_DATA"), 0).reshape(shape),
+            np.zeros(shape, dtype=float),
+            np.ones(shape, dtype=float),
             covar,
             pfsArm.flags,
+            {},
         )
 
         focalPlanePoly = self.focalPlanePoly.run(dummy, skyConfig)
