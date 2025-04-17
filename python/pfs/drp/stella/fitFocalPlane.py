@@ -255,7 +255,7 @@ class FitPolynomialPerFiberTask(FitFocalPlaneTask):
 class FitFocalPlanePolynomialTask(FitFocalPlaneConfig):
     """Configuration for fitting a `FocalPlanPolynomial`"""
     order = Field(dtype=int, default=2, doc="Polynomial order")
-    radius = Field(dtype=float, default=250.0, doc="Radius of the focal plane (mm)")
+    halfWidth = Field(dtype=float, default=250.0, doc="Half-width of the focal plane (mm)")
 
 
 class FitFocalPlanePolynomialTask(FitFocalPlaneTask):

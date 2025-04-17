@@ -260,7 +260,7 @@ class MergeArmsTask(PipelineTask):
         pfsArmList = defaultdict(list)
         lsfList = defaultdict(list)
         skyNormsList = defaultdict(list)
-        sky1dRefs = defaultdict(list)
+        sky1dRefs = defaultdict(dict)
         haveMedRes = False
         for pfsArm, lsf, skyNorms, sky1d in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsArm),
@@ -274,7 +274,7 @@ class MergeArmsTask(PipelineTask):
             lsfList[spectrograph].append(butler.get(lsf))
             if skyNorms is not None:
                 skyNormsList[spectrograph].append(butler.get(skyNorms))
-            sky1dRefs[spectrograph].append(sky1d)
+            sky1dRefs[spectrograph][dataId["arm"]] = sky1d
             if dataId["arm"] == "m":
                 haveMedRes = True
 
@@ -289,8 +289,13 @@ class MergeArmsTask(PipelineTask):
 
         butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
         butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)
-        for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
-            if sky1d is not None:
+        for spectra, sky1dList in zip(pfsArmList.values(), outputs.sky1d):
+            if sky1dList is None:
+                continue
+            for ss, sky1d in zip(spectra, sky1dList):
+                if sky1d is None:
+                    continue
+                ref = sky1dRefs[ss.identity.spectrograph][ss.identity.arm]
                 butler.put(sky1d, ref)
 
     def normalizeSpectra(self, spectra, wavelength: np.ndarray):
@@ -525,7 +530,7 @@ class MergeArmsTask(PipelineTask):
             pfsArmMap[arm].append(pfsArm)
             skyNormsMap[arm].append(skyNorms)
 
-        skyModelMap: dict[str, dict[int, FocalPlaneFunction]] = defaultdict(lambda: dict)
+        skyModelMap: dict[str, dict[int, FocalPlaneFunction]] = defaultdict(lambda: dict())
         for arm in pfsArmMap:
             assert len(pfsArmMap[arm]) == len(skyNormsMap[arm])
             skyModelList = self.fitSky1d.run(pfsArmMap[arm], pfsConfig, skyNormsMap[arm])
