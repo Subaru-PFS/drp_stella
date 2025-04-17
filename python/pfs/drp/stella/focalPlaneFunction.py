@@ -1196,8 +1196,8 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         parameters must be specified.
     coeffs : `numpy.ndarray` of `float`
         Coefficients of the polynomial.
-    radius : `float`
-        Radius of the focal plane, in mm.
+    halfWidth : `float`
+        Half-width of the focal plane, in mm.
     rms : `float`
         RMS of the fit.
     """
@@ -1207,8 +1207,8 @@ class FocalPlanePolynomial(FocalPlaneFunction):
     def __init__(self, *args, datamodel: Optional[PfsFocalPlanePolynomial] = None, **kwargs):
         super().__init__(*args, datamodel=datamodel, **kwargs)
         from lsst.geom import Box2D, Point2D
-        radius = self.radius
-        box = Box2D(Point2D(-radius, -radius), Point2D(radius, radius))
+        halfWidth = self.halfWidth
+        box = Box2D(Point2D(-halfWidth, -halfWidth), Point2D(halfWidth, halfWidth))
         self.polynomial = NormalizedPolynomial2D(self.coeffs, box)
 
     @classmethod
@@ -1222,7 +1222,7 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         positions: np.ndarray,
         robust: bool = False,
         order: int = 2,
-        radius: float = 250.0,
+        halfWidth: float = 250.0,
         **kwargs,
     ) -> FocalPlaneFunction:
         """Fit a polynomial on the focal plane to arrays
@@ -1251,8 +1251,8 @@ class FocalPlanePolynomial(FocalPlaneFunction):
             answer while assuming there are no outliers.
         order : `int`
             Order of polynomial.
-        radius : `float`
-            Radius of the focal plane, in mm.
+        halfWidth : `float`
+            Half-width of the focal plane, in mm.
 
         Returns
         -------
@@ -1265,22 +1265,22 @@ class FocalPlanePolynomial(FocalPlaneFunction):
 
         from lsst.geom import Box2D, Point2D
 
-        box = Box2D(Point2D(-radius, -radius), Point2D(radius, radius))
+        box = Box2D(Point2D(-halfWidth, -halfWidth), Point2D(halfWidth, halfWidth))
         poly = NormalizedPolynomial2D(order, box)
 
-        numPoints = wavelengths.shape[0]
-        numWavelengths = wavelengths.shape[1]
-        if numWavelengths > 1:
+        numFibers = wavelengths.shape[0]
+        numPixels = wavelengths.shape[1]
+        if numPixels > 1:
             bad = masks | ~np.isfinite(values) | ~np.isfinite(variances)
-            values = np.ma.median(np.ma.masked_where(bad, values), axis=1)
-            masks = np.isfinite(values)
+            values = np.ma.median(np.ma.masked_where(bad, values), axis=1).filled(np.nan)
+            masks = ~np.isfinite(values)
             if not robust:
-                errors = np.ma.median(np.ma.masked_where(bad, np.sqrt(variances)), axis=1)
+                errors = np.ma.median(np.ma.masked_where(bad, np.sqrt(variances)), axis=1).filled(np.nan)
         else:
-            values = np.reshape(values, numPoints)
-            masks = np.reshape(masks, numPoints)
+            values = np.reshape(values, numFibers)
+            masks = np.reshape(masks, numFibers)
             if not robust:
-                errors = np.reshape(np.sqrt(variances), numPoints)
+                errors = np.reshape(np.sqrt(variances), numFibers)
 
         if robust:
             errors = np.ones_like(values)
@@ -1296,7 +1296,7 @@ class FocalPlanePolynomial(FocalPlaneFunction):
                 weights = 1.0 / errors[good] ** 2
                 rms = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
 
-        return cls(coeffs=coeffs, radius=radius, rms=rms)
+        return cls(coeffs=coeffs, halfWidth=halfWidth, rms=rms)
 
     def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
@@ -1323,13 +1323,11 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         values = self.polynomial(positions[:, 0], positions[:, 1])
         masks = np.isnan(values)
         variances = np.full_like(values, self.rms**2)
-        shape = wavelengths.shape
-        numPixels = shape[1]
-        XXXXX
+        numPixels = wavelengths.shape[1]
         return Struct(
-            values=values.reshape(shape),
-            masks=masks.reshape(shape),
-            variances=variances.reshape(shape),
+            values=np.tile(values, (numPixels, 1)).T,
+            masks=np.tile(masks, (numPixels, 1)).T,
+            variances=np.tile(variances, (numPixels, 1)).T,
         )
 
     def plot(

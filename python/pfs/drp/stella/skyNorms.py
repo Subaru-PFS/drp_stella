@@ -284,8 +284,9 @@ class MeasureSkyNormsTask(PipelineTask):
             skyContinuum = self.fitContinuum.run(skySpectra, refLines)
 
             norm = pfsArm.norm
-            flux = pfsArm.flux/norm - armContinuum
-            skyFlux = skySpectra.flux - skyContinuum  # norm is unity as skySpectra.flux is already normalized
+            with np.errstate(invalid="ignore", divide="ignore"):
+                flux = pfsArm.flux/norm - armContinuum
+                skyFlux = skySpectra.flux - skyContinuum  # norm is unity: flux is already normalized
             select = ((pfsArm.mask & pfsArm.flags.get(*self.config.mask)) == 0)
             good.append(select)
 
