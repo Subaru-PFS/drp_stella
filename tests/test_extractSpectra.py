@@ -211,19 +211,23 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         # With bad pixel at fraction=0 and minFracMask=0 --> unmasked
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.0)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+        self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
 
         # With bad pixel at fraction=0 and minFracMask=0.5 --> unmasked
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.0)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+        self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
 
         # With bad pixel at fraction=0.5 and minFracMask=0.3 --> masked but no sign of it
         ft[col - x0] = norm
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.3)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+        self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
 
         # With bad pixel at fraction=0.5 and minFracMask = 0.7 --> unmasked
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.7)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
+        self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
