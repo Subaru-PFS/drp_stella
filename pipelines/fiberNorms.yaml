@@ -13,5 +13,7 @@ tasks:
       doApplyFiberNorms: False
   measureFiberNorms:
     class: pfs.drp.stella.measureFiberNorms.MeasureFiberNormsTask
+    config:
+      rejIter: 0  # We're not dividing by a quartz, so there isn't a constant value
 contracts:
   - reduceExposure.doApplyFiberNorms == False
