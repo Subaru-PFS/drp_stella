@@ -557,8 +557,6 @@ class FitDistortedDetectorMapTask(Task):
         else:
             raise RuntimeError(f"Unknown distortion type: {distortion}")
 
-#        breakpoint()
-
         return LayeredDetectorMap(
             bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
         )
