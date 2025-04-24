@@ -231,7 +231,7 @@ class CoaddSpectraTask(PipelineTask):
 
         outputs = self.run(data)
 
-        butler.put(PfsCoadd(outputs.pfsCoadd.values()), outputRefs.pfsCoadd)
+        butler.put(PfsCoadd(outputs.pfsCoadd.values(), getPfsVersions()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
 
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
