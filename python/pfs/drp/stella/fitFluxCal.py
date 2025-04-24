@@ -1332,7 +1332,7 @@ class FitFluxCalTask(PipelineTask):
 
         return Struct(
             fluxCal=fluxCal,
-            pfsCalibrated=PfsCalibrated(pfsCalibrated.values()),
+            pfsCalibrated=PfsCalibrated(pfsCalibrated.values(), getPfsVersions()),
             pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
         )
 
