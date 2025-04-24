@@ -7,6 +7,7 @@ from lsst.daf.base import PropertyList
 from lsst.geom import Box2D
 
 from . import ReferenceLineStatus
+from .calibs import setCalibHeader
 from .DetectorMapContinued import DetectorMap
 from .DistortionContinued import Distortion
 from .LayeredDetectorMapContinued import LayeredDetectorMap
@@ -84,6 +85,25 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         pfs.drp.stella.fitDistortedDetectorMap.FittingError
             If the data is not of sufficient quality to fit.
         """
+        if metadata is None:
+            metadata = detectorMap.metadata.deepCopy()
+        # Strip CALIB_INPUT_* from base detectorMap metadata (because it gets written to the PHDU
+        # along with the adjusted detectorMap's metadata); other keywords will get overwritten,
+        # but these will not because there's only one input now.
+        for key in detectorMap.metadata.names():
+            if key.startswith("CALIB_INPUT_"):
+                detectorMap.metadata.remove(key)
+        if hasattr(detectorMap, "base"):
+            for key in detectorMap.base.metadata.names():
+                if key.startswith("CALIB_INPUT_"):
+                    detectorMap.base.metadata.remove(key)
+        setCalibHeader(
+            metadata,
+            "detectorMap",
+            [visitInfo.id],
+            dict(arm=arm, spectrograph=detectorMap.metadata.get("SPECTROGRAPH", "unknown")),
+        )
+
         base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
         DistortionClass = self.getDistortionClass(arm)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])

@@ -16,6 +16,7 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from pfs.drp.stella.gen3 import readDatasetRefs
 
 from ..arcLine import ArcLineSet
+from ..calibs import setCalibHeader
 from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from .lookups import lookupDetectorMap
 
@@ -137,11 +138,14 @@ class FitDetectorMapTask(PipelineTask):
         data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "bbox")
         first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
 
+        metadata = data.metadata[first]
+        setCalibHeader(metadata, "detectorMap", sorted([vi.id for vi in data.visitInfo]), dataId)
+
         outputs = self.run(
             dataId,
             data.arcLines,
             data.visitInfo[first],
-            data.metadata[first],
+            metadata,
             data.bbox[first],
             butler.get(inputRefs.slitOffsets) if not self.config.fitDetectorMap.doSlitOffsets else None,
         )
