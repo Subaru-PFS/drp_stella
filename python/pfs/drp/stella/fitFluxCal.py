@@ -8,6 +8,7 @@ import warnings
 
 from astropy import constants as const
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy.ndimage import median_filter
 from scipy.optimize import minimize
 
@@ -15,35 +16,156 @@ import lsstDebug
 from lsst.pipe.base import (
     PipelineTask,
     PipelineTaskConfig,
+    PipelineTaskConnections,
     QuantumContext,
     Struct,
 )
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+from lsst.pipe.base.connectionTypes import Output as OutputConnection
+from lsst.pipe.base.connectionTypes import Input as InputConnection
+from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
 from lsst.pex.config import Field, ChoiceField, ListField, ConfigurableField
 
-from pfs.datamodel import FiberStatus, PfsConfig, Target, TargetType
-from pfs.datamodel.pfsFluxReference import PfsFluxReference
+from pfs.datamodel import FiberStatus, PfsConfig, PfsFiberNorms, Target, TargetType
 from pfs.datamodel.drp import PfsCalibrated
+from pfs.datamodel.pfsFluxReference import PfsFluxReference
 
-from .datamodel import PfsArm, PfsFiberArray, PfsMerged, PfsSimpleSpectrum, PfsSingle
+from .barycentricCorrection import applyBarycentricCorrection
+from .datamodel import PfsArm, PfsFiberArray, PfsFiberArraySet, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
-from .fitPfsFluxReference import removeBadFluxes
-from .fitReference import FilterCurve
-from .fluxCalibrate import fluxCalibrate, FluxCalibrateConnections
-from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib
+from .fitPfsFluxReference import FilterCurve, removeBadFluxes
+from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib, FocalPlaneFunction
 from .gen3 import readDatasetRefs
+from .interpolate import calculateDispersion
 from .lsf import Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
-from .utils import getPfsVersions
-from .utils import debugging
+from .utils import debugging, getPfsVersions
 from .utils.polynomialND import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
 from collections.abc import Callable, Collection, Generator, Iterable
 from typing import Literal, overload
 
-__all__ = ["FitFluxCalConfig", "FitFluxCalTask"]
+__all__ = ("applyFiberNorms", "calibratePfsArm", "fluxCalibrate", "FitFluxCalConfig", "FitFluxCalTask")
+
+
+def applyFiberNorms(
+    pfsArm: PfsArm,
+    fiberNorms: PfsFiberNorms,
+    doCheckHashes: bool = True,
+) -> set[int]:
+    """Apply fiber normalisation to a PfsArm
+
+    Parameters
+    ----------
+    pfsArm : `PfsArm`
+        Arm spectra to which to apply normalisation.
+    fiberNorms : `PfsFiberNorms`
+        Fiber normalisations.
+    doCheckHashes : `bool`, optional
+        Check hashes for consistency?
+
+    Returns
+    -------
+    missingFiberId : `set` of `int`
+        FiberIds for which we don't have a normalisation.
+    """
+    if doCheckHashes:
+        spectrograph = pfsArm.identity.spectrograph
+        if spectrograph in fiberNorms.fiberProfilesHash:
+            expectHash = fiberNorms.fiberProfilesHash[spectrograph]
+            gotHash = pfsArm.metadata["PFS.HASH.FIBERPROFILES"]
+            if gotHash != expectHash:
+                raise RuntimeError(f"Hash mismatch for fiberProfiles: {gotHash} != {expectHash}")
+
+    badFiberNorms = pfsArm.flags.add("BAD_FIBERNORMS")
+    fiberNorms = fiberNorms.select(fiberId=pfsArm.fiberId)
+
+    # Catch fibers without a fiberNorms entry
+    missingFiberId = set(pfsArm.fiberId) - set(fiberNorms.fiberId)
+    if missingFiberId:
+        missing = pfsArm.select(fiberId=list(missingFiberId))
+        missing.mask |= badFiberNorms
+        pfsArm = pfsArm.select(fiberId=fiberNorms.fiberId)
+
+    # Apply the fiberNorms
+    assert np.array_equal(pfsArm.fiberId, fiberNorms.fiberId)
+    bad = (fiberNorms.values == 0.0) | ~np.isfinite(fiberNorms.values)
+    if np.any(bad):
+        fiberNorms.values[bad] = 1.0
+        pfsArm.mask[bad] |= badFiberNorms
+    pfsArm.norm *= fiberNorms.values
+
+    return missingFiberId
+
+
+def fluxCalibrate(
+    spectra: PfsFiberArray | PfsFiberArraySet, pfsConfig: PfsConfig, fluxCal: FocalPlaneFunction
+) -> None:
+    """Apply flux calibration to spectra
+
+    Parameters
+    ----------
+    spectra : subclass of `PfsFiberArray` or `PfsFiberArraySet`
+        Spectra (or spectrum) to flux-calibrate.
+    pfsConfig : `PfsConfig`
+        Top-end configuration.
+    fluxCal : subclass of `FocalPlaneFunction`
+        Flux calibration model.
+    """
+    cal = fluxCal(spectra.wavelength, pfsConfig.select(fiberId=spectra.fiberId))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        spectra /= spectra.norm
+        spectra /= cal.values  # includes spectrum.variance /= cal.values**2
+        spectra.variance[:] += cal.variances * spectra.flux**2 / cal.values**2
+    spectra.norm[:] = 1.0  # We've deliberately changed the normalisation
+    bad = np.array(cal.masks) | (np.array(cal.values) == 0.0)
+    bad |= ~np.isfinite(cal.values) | ~np.isfinite(cal.variances)
+    spectra.mask[bad] |= spectra.flags.add("BAD_FLUXCAL")
+
+
+def calibratePfsArm(
+    spectra: PfsArm,
+    pfsConfig: PfsConfig,
+    sky1d: FocalPlaneFunction,
+    fluxCal: FocalPlaneFunction,
+    fiberNorms: PfsFiberNorms | None = None,
+    doCheckFiberNormsHashes: bool = True,
+    wavelength: ArrayLike | None = None,
+) -> PfsArm:
+    """Calibrate a PfsArm
+
+    Parameters
+    ----------
+    spectra : `PfsArm`
+        PfsArm spectra, modified.
+    sky1d : `FocalPlaneFunction`
+        1d sky model.
+    fluxCal : `FocalPlaneFunction`
+        Flux calibration model.
+    fiberNorms : `PfsFiberNorms`, optional
+        Fiber normalisations.
+    doCheckFiberNormsHashes : `bool`, optional
+        Check hashes in the fiberNorms for consistency?
+    wavelength : `numpy.ndarray` of `float`, optional
+        Wavelength array for optional resampling.
+
+    Returns
+    -------
+    spectra : `PfsArm`
+        Calibrated PfsArm spectra.
+    """
+    pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
+    spectra /= calculateDispersion(spectra.wavelength)  # Convert to electrons/nm
+    if fiberNorms is not None:
+        applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
+    subtractSky1d(spectra, pfsConfig, sky1d)
+    applyBarycentricCorrection(spectra)
+    fluxCalibrate(spectra, pfsConfig, fluxCal)
+    if wavelength is not None:
+        spectra = spectra.resample(wavelength)  # sampling of pfsArm related to the flux values
+    return spectra
 
 
 class Photometerer:
@@ -1173,7 +1295,69 @@ class FitFluxCalibFocalPlaneFunctionTask(FitFocalPlaneTask):
     Function = FluxCalib
 
 
-class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FluxCalibrateConnections):
+class FitFluxCalConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
+    """Connections for FitFluxCalTask"""
+
+    pfsMerged = InputConnection(
+        name="pfsMerged",
+        doc="Merged spectra from exposure",
+        storageClass="PfsMerged",
+        dimensions=("instrument", "visit"),
+    )
+    pfsMergedLsf = InputConnection(
+        name="pfsMergedLsf",
+        doc="Line-spread function of merged spectra",
+        storageClass="LsfDict",
+        dimensions=("instrument", "visit"),
+    )
+    pfsConfig = PrerequisiteConnection(
+        name="pfsConfig",
+        doc="Top-end fiber configuration",
+        storageClass="PfsConfig",
+        dimensions=("instrument", "visit"),
+    )
+    references = InputConnection(
+        name="pfsFluxReference",
+        doc="Fit reference spectrum of flux standards",
+        storageClass="PfsFluxReference",
+        dimensions=("instrument", "visit"),
+    )
+    pfsArm = InputConnection(
+        name="pfsArm",
+        doc="Extracted spectra",
+        storageClass="PfsArm",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+    sky1d = InputConnection(
+        name="sky1d",
+        doc="1d sky model",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+
+    fluxCal = OutputConnection(
+        name="fluxCal",
+        doc="Flux calibration model",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "visit"),
+    )
+    pfsCalibrated = OutputConnection(
+        name="pfsCalibrated",
+        doc="Flux-calibrated object spectrum",
+        storageClass="PfsCalibratedSpectra",  # deprecated in favor of PfsCalibrated
+        dimensions=("instrument", "visit"),
+    )
+    pfsCalibratedLsf = OutputConnection(
+        name="pfsCalibratedLsf",
+        doc="Line-spread function for pfsCalibrated",
+        storageClass="LsfDict",
+        dimensions=("instrument", "visit"),
+    )
+
+
+class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnections):
     """Configuration for FitFluxCalTask"""
 
     sysErr = Field(

@@ -4,14 +4,19 @@ from pfs.drp.stella.tests import runTests
 
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel.observations import Observations
 from pfs.datamodel.pfsConfig import FiberStatus, PfsConfig, TargetType
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel.target import Target
-from pfs.drp.stella.datamodel import PfsFiberArraySet
+from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
-from pfs.drp.stella.fitPfsFluxReference import FitPfsFluxReferenceTask, FitPfsFluxReferenceConfig
-from pfs.drp.stella.fitReference import FilterCurve
+from pfs.drp.stella.fitPfsFluxReference import (
+    _trapezoidal,
+    FilterCurve,
+    FitPfsFluxReferenceTask,
+    FitPfsFluxReferenceConfig,
+)
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
 from pfs.drp.stella.lsf import GaussianLsf
@@ -20,6 +25,73 @@ from pfs.drp.stella.utils.psf import fwhmToSigma
 import numpy as np
 
 import unittest
+
+
+class FilterCurveTestCase(lsst.utils.tests.TestCase):
+    def setUp(self):
+        try:
+            self.np_random = np.random.default_rng(0x981808A8FA8A744C)
+        except AttributeError:
+            self.np_random = np.random
+            self.np_random.seed(0xF6503311)
+
+    def testTrapezoidal(self):
+        """Test ``_trapezoidal()`` method."""
+        x = np.array([2, 3, 5, 7, 11, 13, 17], dtype=float)
+        y = w = np.ones_like(x)
+        # assert _exact_ equality
+        self.assertEqual(_trapezoidal(x, y, w), x[-1] - x[0])
+
+    def testPhotometer(self):
+        """Test ``TransmissionCurve.photometer()`` method"""
+        nSamples = 50
+        wavelength = np.linspace(400, 1000, num=nSamples)
+        expectedFlux = (wavelength - wavelength[0]) * (3 / (wavelength[-1] - wavelength[0]))
+        variance = 2 + np.sin((wavelength - wavelength[0]) * (4 * np.pi / (wavelength[-1] - wavelength[0])))
+        stddev = np.sqrt(variance)
+
+        covar = np.zeros(shape=(3, nSamples))
+        covar[0, :] = variance
+
+        filterCurve = FilterCurve("i2_hsc")
+        target = Target(0, 0, "0,0", 0)
+        observations = Observations(
+            visit=np.zeros(shape=1),
+            arm=["b"],
+            spectrograph=np.ones(shape=1),
+            pfsDesignId=np.zeros(shape=1),
+            fiberId=np.zeros(shape=1),
+            pfiNominal=np.zeros(shape=(1, 2)),
+            pfiCenter=np.zeros(shape=(1, 2)),
+        )
+        maskHelper = MaskHelper()
+
+        photometries = []
+        photoVars = []
+
+        for i in range(1000):
+            flux = expectedFlux + stddev * self.np_random.normal(size=nSamples)
+
+            spectrum = PfsSingle(
+                target=target,
+                observations=observations,
+                wavelength=wavelength,
+                flux=flux,
+                mask=np.zeros(shape=nSamples, dtype=int),
+                sky=np.zeros(shape=nSamples, dtype=int),
+                covar=covar,
+                covar2=np.zeros(shape=(1, 1), dtype=int),
+                flags=maskHelper,
+            )
+
+            photo, error = filterCurve.photometer(spectrum, doComputeError=True)
+            photometries.append(photo)
+            photoVars.append(error**2)
+
+        measuredPhotoVar = np.var(photometries, ddof=1)
+        estimatedPhotoVar = np.mean(photoVars)
+        self.assertAlmostEqual(measuredPhotoVar, estimatedPhotoVar, places=1)
+
 
 try:
     fluxmodeldataDir = lsst.utils.getPackageDir("fluxmodeldata")
@@ -30,15 +102,15 @@ except LookupError:
 
 
 @unittest.skipIf(
-    (fluxmodeldataDir is None) or (dustmapsDir is None),
-    "fluxmodeldata or dustmaps_cachedata not setup")
+    (fluxmodeldataDir is None) or (dustmapsDir is None), "fluxmodeldata or dustmaps_cachedata not setup"
+)
 class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         try:
-            self.np_random = np.random.default_rng(0x981808a8fa8a744c)
+            self.np_random = np.random.default_rng(0x981808A8FA8A744C)
         except AttributeError:
             self.np_random = np.random
-            self.np_random.seed(0xf6503311)
+            self.np_random.seed(0xF6503311)
 
         self.task = FitPfsFluxReferenceTask(config=FitPfsFluxReferenceConfig())
         self.dustMap = DustMap()
@@ -46,8 +118,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         self.modelSet = FluxModelSet(fluxmodeldataDir)
 
     def testRun(self):
-        """Test run() method
-        """
+        """Test run() method"""
         nFluxStd = 1
         parameters, pfsConfig, pfsMerged, pfsMergedLsf = self.inventPfsMerged(
             nFluxStd=nFluxStd, nFibers=10, nSamples=1000, snr=10, bbSnr=100
@@ -103,7 +174,10 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
 
         for i, (m, ebv) in enumerate(zip(parameters, ebvs)):
             spectrum = self.modelSet.getSpectrum(
-                m["teff"], m["logg"], m["m"], m["alpha"],
+                m["teff"],
+                m["logg"],
+                m["m"],
+                m["alpha"],
             )
             spectrum.flux *= self.extinctionCurve.attenuation(spectrum.wavelength, ebv)
             convolvedFlux, lsf = convolveLsf(spectrum.wavelength, spectrum.flux)
@@ -179,7 +253,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         tract = np.full(fiberId.shape, 0, dtype=np.int32)
         patch = np.full(fiberId.shape, "0,0", dtype="U8")
         catId = np.full(fiberId.shape, 0, dtype=np.int32)
-        objId = np.arange(100, 100+len(fiberId), dtype=np.int64)
+        objId = np.arange(100, 100 + len(fiberId), dtype=np.int64)
 
         targetType = np.full(fiberId.shape, TargetType.SCIENCE, dtype=int)
         targetType[self.np_random.choice(len(targetType), nFluxStd, replace=False)] = TargetType.FLUXSTD
@@ -262,11 +336,11 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
         xyz = np.empty(shape=size + (3,), dtype=float).reshape(-1, 3)
         n = len(xyz)
         while n > 0:
-            chunk = self.np_random.uniform(-1, 1, size=(2*n, 3))
+            chunk = self.np_random.uniform(-1, 1, size=(2 * n, 3))
             r = np.hypot(chunk[:, 0], np.hypot(chunk[:, 1], chunk[:, 2]))
             chunk = chunk[(0.5 < r) & (r < 1.0)]
             chunk = chunk[:n]
-            xyz[(len(xyz) - n):(len(xyz) - n + len(chunk))] = chunk
+            xyz[(len(xyz) - n) : (len(xyz) - n + len(chunk))] = chunk
             n -= len(chunk)
 
         lonlat = np.empty(shape=(len(xyz), 2), dtype=float).reshape(-1, 2)
@@ -295,7 +369,7 @@ def convolveLsf(wavelength, flux, fwhm=0.2):
         Used LSF.
     """
     n = len(wavelength)
-    dlambda = wavelength[n//2 + 1] - wavelength[n//2]
+    dlambda = wavelength[n // 2 + 1] - wavelength[n // 2]
     sigma = fwhmToSigma(fwhm)
     lsf = GaussianLsf(length=n, width=sigma / dlambda)
     convolvedFlux = lsf.computeKernel((n - 1) / 2.0).convolve(flux)
