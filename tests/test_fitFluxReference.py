@@ -11,11 +11,11 @@ from pfs.datamodel.target import Target
 from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
-from pfs.drp.stella.fitPfsFluxReference import (
+from pfs.drp.stella.fitFluxReference import (
     _trapezoidal,
     FilterCurve,
-    FitPfsFluxReferenceTask,
-    FitPfsFluxReferenceConfig,
+    FitFluxReferenceTask,
+    FitFluxReferenceConfig,
 )
 from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux
@@ -104,7 +104,7 @@ except LookupError:
 @unittest.skipIf(
     (fluxmodeldataDir is None) or (dustmapsDir is None), "fluxmodeldata or dustmaps_cachedata not setup"
 )
-class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
+class FitFluxReferenceTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         try:
             self.np_random = np.random.default_rng(0x981808A8FA8A744C)
@@ -112,7 +112,7 @@ class FitPfsFluxReferenceTestCase(lsst.utils.tests.TestCase):
             self.np_random = np.random
             self.np_random.seed(0xF6503311)
 
-        self.task = FitPfsFluxReferenceTask(config=FitPfsFluxReferenceConfig())
+        self.task = FitFluxReferenceTask(config=FitFluxReferenceConfig())
         self.dustMap = DustMap()
         self.extinctionCurve = F99ExtinctionCurve()
         self.modelSet = FluxModelSet(fluxmodeldataDir)

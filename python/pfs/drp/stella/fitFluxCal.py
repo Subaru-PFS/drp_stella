@@ -34,7 +34,7 @@ from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from .barycentricCorrection import applyBarycentricCorrection
 from .datamodel import PfsArm, PfsFiberArray, PfsFiberArraySet, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
-from .fitPfsFluxReference import FilterCurve, removeBadFluxes
+from .fitFluxReference import FilterCurve, removeBadFluxes
 from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib, FocalPlaneFunction
 from .gen3 import readDatasetRefs
 from .interpolate import calculateDispersion

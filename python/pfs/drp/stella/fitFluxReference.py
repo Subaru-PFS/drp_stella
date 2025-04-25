@@ -53,11 +53,11 @@ from collections.abc import Generator, Mapping, Sequence
 from numpy.typing import NDArray
 
 
-__all__ = ["FitPfsFluxReferenceConnections", "FitPfsFluxReferenceConfig", "FitPfsFluxReferenceTask"]
+__all__ = ["FitFluxReferenceConnections", "FitFluxReferenceConfig", "FitFluxReferenceTask"]
 
 
-class FitPfsFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
-    """Connections for FitPfsFluxReferenceTask"""
+class FitFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
+    """Connections for FitFluxReferenceTask"""
 
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -86,8 +86,8 @@ class FitPfsFluxReferenceConnections(PipelineTaskConnections, dimensions=("instr
     )
 
 
-class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFluxReferenceConnections):
-    """Configuration for FitPfsFluxReferenceTask"""
+class FitFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitFluxReferenceConnections):
+    """Configuration for FitFluxReferenceTask"""
 
     fitBroadbandSED = ConfigurableField(
         target=FitBroadbandSEDTask, doc="Get probabilities of SEDs from broadband photometries."
@@ -278,11 +278,11 @@ class FitPfsFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitPfsFl
         self.fitDownsampledContinuum.maskLineRadius = 25
 
 
-class FitPfsFluxReferenceTask(PipelineTask):
+class FitFluxReferenceTask(PipelineTask):
     """Construct reference for flux calibration."""
 
-    ConfigClass = FitPfsFluxReferenceConfig
-    _DefaultName = "fitPfsFluxReference"
+    ConfigClass = FitFluxReferenceConfig
+    _DefaultName = "fitFluxReference"
 
     fitBroadbandSED: FitBroadbandSEDTask
     fitObsContinuum: FitContinuumTask
@@ -408,7 +408,7 @@ class FitPfsFluxReferenceTask(PipelineTask):
         bbPdfs = self.fitBroadbandSED.run(pfsConfigCorr)
         if self.debugInfo.doWritePrior:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/prior-{pfsMerged.filename}.pickle",
+                f"fitFluxReference-output/prior-{pfsMerged.filename}.pickle",
                 prior=bbPdfs,
             )
 
@@ -446,13 +446,13 @@ class FitPfsFluxReferenceTask(PipelineTask):
         pfsMerged = self.maskUninterestingRegions(pfsMerged)
 
         if self.debugInfo.doWriteWhitenedFlux:
-            pfsMerged.writeFits(f"fitPfsFluxReference-output/whitened-{pfsMerged.filename}")
+            pfsMerged.writeFits(f"fitFluxReference-output/whitened-{pfsMerged.filename}")
 
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, bbPdfs)
 
         if self.debugInfo.doWriteCrossCorr:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/crossCorr-{pfsMerged.filename}.pickle",
+                f"fitFluxReference-output/crossCorr-{pfsMerged.filename}.pickle",
                 crossCorr={fiberId: record.crossCorr for fiberId, record in radialVelocities.items()},
             )
 
@@ -857,7 +857,7 @@ class FitPfsFluxReferenceTask(PipelineTask):
 
         if self.debugInfo.doWriteWhitenedFlux:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
+                f"fitFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
                 whitenedModel=whitenedModels,
             )
 
@@ -1015,13 +1015,13 @@ class FitPfsFluxReferenceTask(PipelineTask):
                 whitenedModels[fiberId] = convolvedModel
 
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
+                f"fitFluxReference-output/whitenedModel-{obsSpectra.filename}.pickle",
                 whitenedModel=whitenedModels,
             )
 
         if self.debugInfo.doWriteChisq:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/chisq-{obsSpectra.filename}.pickle",
+                f"fitFluxReference-output/chisq-{obsSpectra.filename}.pickle",
                 chisq=chisqLists,
             )
 
@@ -1030,7 +1030,7 @@ class FitPfsFluxReferenceTask(PipelineTask):
 
         if self.debugInfo.doWritePosterior:
             debugging.writeExtraData(
-                f"fitPfsFluxReference-output/posterior-{obsSpectra.filename}.pickle",
+                f"fitFluxReference-output/posterior-{obsSpectra.filename}.pickle",
                 posterior=pdfs,
             )
 
@@ -1490,7 +1490,7 @@ class Continuum:
     """Continuous spectra.
 
     This class is the return type of
-    ``FitPfsFluxReferenceTask.computeContinuum()``
+    ``FitFluxReferenceTask.computeContinuum()``
 
     Parameters
     ----------
