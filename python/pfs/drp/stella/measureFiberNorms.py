@@ -226,7 +226,7 @@ class MeasureFiberNormsTask(PipelineTask):
             flux = np.ma.masked_where(bad, values[select])
             with np.errstate(invalid="ignore", divide="ignore"):
                 weights = np.ma.masked_where(bad, ss.norm**2/ss.variance)
-                error = np.sqrt(ss.variance)
+                error = np.sqrt(ss.variance)/ss.norm
 
             rejected = np.zeros_like(flux, dtype=bool)
             for _ in range(self.config.rejIter):

@@ -188,9 +188,6 @@ class MeasureFiberProfilesTask(CalibCombineTask):
             raise RuntimeError("No profiles found")
         self.log.info("%d fiber profiles found", len(profiles))
 
-        # Set the normalisation of the FiberProfiles
-        # The normalisation is the flat: we want extracted spectra to be relative to the flat.
-
         return Struct(outputData=profiles)
 
 
