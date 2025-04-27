@@ -22,7 +22,7 @@ from pfs.datamodel.drp import PfsCoadd
 from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
-from .fluxCalibrate import calibratePfsArm
+from .fitFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions

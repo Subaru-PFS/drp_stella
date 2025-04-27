@@ -53,7 +53,7 @@ from .utils.sysUtils import metadataToHeader, getPfsVersions
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
-from .fluxCalibrate import applyFiberNorms
+from .fitFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]

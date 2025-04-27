@@ -2,7 +2,7 @@ description: Reduce and calibrate exposure
 imports:
   - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
 tasks:
-  fitPfsFluxReference:
-    class: pfs.drp.stella.fitPfsFluxReference.FitPfsFluxReferenceTask
+  fitFluxReference:
+    class: pfs.drp.stella.fitFluxReference.FitFluxReferenceTask
   fitFluxCal:
     class: pfs.drp.stella.fitFluxCal.FitFluxCalTask

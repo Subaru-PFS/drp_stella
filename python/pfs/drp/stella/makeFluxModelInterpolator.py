@@ -112,7 +112,7 @@ def main():
         description=textwrap.dedent(
             """
             Make `interpolator.pickle` in `fluxmodeldata` package.
-            This pickle file is required by `fitPfsFluxReference.py`.
+            This pickle file is required by `fitFluxReference.py`.
         """
         ),
     )
