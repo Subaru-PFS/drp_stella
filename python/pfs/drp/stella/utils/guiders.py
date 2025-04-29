@@ -378,7 +378,6 @@ def readAGCStarsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCoords
            ORDER BY status_sequence_id
            ''', opdb)
 
-
         doConcat = True                 # OK to merge tmp1 and tmp2
         if len(tmp1) != len(tmp2):      # should be impossible, but seen while fiddling/debugging AG actors
             if len(tmp1) == len(tmp2) - 1:
@@ -2081,7 +2080,7 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
     if showFWHM:
         nPanel += 1
         height_ratios.append(3)
- 
+
     figure, axs = plt.subplots(nPanel, 1, num=figure, sharex=True, height_ratios=height_ratios, squeeze=False)
     axs = axs.flatten()
     figure.subplots_adjust(hspace=0.025)
@@ -2090,17 +2089,19 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
     # Make top two plots, one from AGActor one from our private analysis from opdb guide star parameters
     #
     ai = 0
-    
+
     for AGActor in [True, False]:
         if AGActor:
             if showAGActorFocus:
-                ax = axs[ai]; ai += 1
+                ax = axs[ai]
+                ai += 1
                 plt.sca(ax)
             else:
                 continue
         else:
             if showOpdbFocus:
-                ax = axs[ai]; ai += 1
+                ax = axs[ai]
+                ai += 1
                 plt.sca(ax)
             else:
                 continue
@@ -2222,13 +2223,14 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
     # -------------
 
     if showFWHM:
-        ax = axs[ai]; ai += 1
+        ax = axs[ai]
+        ai += 1
         plt.sca(ax)
 
         x = tmp[what]
 
         if not showOnlyMedian:
-            dither = ditherScale*(np.max(x) - np.min(x))/np.nanmean(tmp.centroid_y_pix)  # dither points a little
+            dither = ditherScale*(np.max(x) - np.min(x))/np.nanmean(tmp.centroid_y_pix)  # dither a little
 
             xx = x + dither*(tmp.centroid_y_pix - np.nanmean(tmp.centroid_y_pix))
             yy = tmp.FWHM
@@ -2276,7 +2278,7 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                 FWHM = yy
 
                 for isLeft in [True, False]:
-                    R = (dfocus + delta*(-1 if isLeft else 1))/(2*f_ratio)   # Radius of pupil image in microns
+                    R = (dfocus + delta*(-1 if isLeft else 1))/(2*f_ratio)  # Radius of pupil image in microns
                     R *= plateScale/pixelSize
 
                     # Moment of inertia of disk is R^2/2
