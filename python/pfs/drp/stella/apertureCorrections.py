@@ -301,8 +301,9 @@ class MeasureApertureCorrectionsTask(Task):
                                    wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}
 
         values = np.array([lookup[ff][wl] for ff, wl in zip(lines.fiberId, lines.wavelength)])
-        lines.flux[:] = values[:, 0]
-        lines.fluxErr[:] = values[:, 1]
+        with np.errstate(over="ignore"):
+            lines.flux[:] = values[:, 0]
+            lines.fluxErr[:] = values[:, 1]
 
 
 def calculateApertureCorrection(apCorr: FocalPlaneFunction, fiberId: int, wavelength, pfsConfig: PfsConfig,
