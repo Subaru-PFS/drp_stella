@@ -259,8 +259,9 @@ class CentroidLinesTask(Task):
                 source.setFootprint(footprint)
 
                 if bbox.contains(peak):
-                    sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
-                    ignore = sn < self.config.threshold
+                    with np.errstate(invalid="ignore", divide="ignore"):
+                        sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
+                        ignore = sn < self.config.threshold
                 else:
                     ignore = True
 
