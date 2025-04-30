@@ -24,6 +24,8 @@ def robustRms(array: ArrayLike) -> float:
     rms : `float`
         Robust RMS.
     """
+    if array.size == 0:
+        return np.nan
     lq, uq = np.percentile(array, (25.0, 75.0))
     return 0.741 * (uq - lq)
 
