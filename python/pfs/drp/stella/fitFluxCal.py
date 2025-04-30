@@ -133,6 +133,7 @@ def calibratePfsArm(
     fiberNorms: PfsFiberNorms | None = None,
     doCheckFiberNormsHashes: bool = True,
     wavelength: ArrayLike | None = None,
+    wlSysErr: float = 0.05,
 ) -> PfsArm:
     """Calibrate a PfsArm
 
@@ -150,6 +151,9 @@ def calibratePfsArm(
         Check hashes in the fiberNorms for consistency?
     wavelength : `numpy.ndarray` of `float`, optional
         Wavelength array for optional resampling.
+    wlSysErr : `float`, optional
+        Systematic error in wavelength dimension (pixels). To disable the
+        systematic error, set to ``0.0`` or ``NaN``.
 
     Returns
     -------
@@ -160,7 +164,7 @@ def calibratePfsArm(
     spectra /= calculateDispersion(spectra.wavelength)  # Convert to electrons/nm
     if fiberNorms is not None:
         applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
-    subtractSky1d(spectra, pfsConfig, sky1d)
+    subtractSky1d(spectra, pfsConfig, sky1d, wlSysErr=wlSysErr)
     applyBarycentricCorrection(spectra)
     fluxCalibrate(spectra, pfsConfig, fluxCal)
     if wavelength is not None:
@@ -1430,6 +1434,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         default=1e-3,
         doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
     )
+    wavelengthSysErr = Field(dtype=float, default=0.05, doc="Wavelength systematic error (pixels)")
 
 
 class FitFluxCalTask(PipelineTask):
@@ -1490,8 +1495,7 @@ class FitFluxCalTask(PipelineTask):
         calibrated = []
         fiberToArm = defaultdict(list)
         for ii, (pfsArm, sky1d) in enumerate(zip(pfsArmList, sky1dList)):
-            subtractSky1d(pfsArm, pfsConfig, sky1d)
-            fluxCalibrate(pfsArm, pfsConfig, fluxCal)
+            calibratePfsArm(pfsArm, pfsConfig, sky1d, fluxCal, wlSysErr=self.config.wavelengthSysErr)
             for ff in pfsArm.fiberId:
                 fiberToArm[ff].append(ii)
             calibrated.append(pfsArm)
