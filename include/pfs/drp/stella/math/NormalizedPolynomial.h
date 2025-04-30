@@ -48,8 +48,9 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
     /// @param parameters : Polynomial coefficients
     /// @param min : Minimum input value
     /// @param max : Maximum input value
+    template <int C>
     explicit NormalizedPolynomial1(
-        ndarray::Array<double, 1, 1> const& parameters,
+        ndarray::Array<double, 1, C> const& parameters,
         double min=-1,
         double max=1
     ) : NormalizedPolynomial1(utils::arrayToVector(parameters), min, max)
@@ -95,11 +96,14 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
     T operator()(double x) const noexcept override {
         return lsst::afw::math::PolynomialFunction1<T>::operator()(normalize(x));
     }
-    ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 1> const& x) const noexcept {
+    ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 0> const& x) const noexcept {
         ndarray::Array<T, 1, 1> result = ndarray::allocate(x.size());
         std::transform(x.begin(), x.end(), result.begin(),
                        [this](double value) { return operator()(value); });
         return result;
+    }
+    ndarray::Array<T, 1, 1> operator()(ndarray::Array<double, 1, 1> const& x) const noexcept {
+        return operator()(ndarray::Array<double, 1, 0>(x));
     }
     //@}
 
@@ -124,7 +128,8 @@ class NormalizedPolynomial1 : public lsst::afw::math::PolynomialFunction1<T> {
     /// Calculate the design matrix for a least-squares fit
     ///
     /// This is the result from getDFuncDParameters, for each point in x.
-    ndarray::Array<double, 2, 2> calculateDesignMatrix(ndarray::Array<double, 1, 1> const& x) const {
+    template <int C>
+    ndarray::Array<double, 2, 2> calculateDesignMatrix(ndarray::Array<double, 1, C> const& x) const {
         std::size_t const numPoints = x.size();
         std::size_t const numParams = this->getNParameters();
         ndarray::Array<double, 2, 2> design = ndarray::allocate(numPoints, numParams);
@@ -177,8 +182,9 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     ///
     /// @param parameters : Polynomial coefficients
     /// @param range : Bounds of input coordinates, for normalization
+    template <int C>
     explicit NormalizedPolynomial2(
-        ndarray::Array<double, 1, 1> const& parameters,
+        ndarray::Array<double, 1, C> const& parameters,
         lsst::geom::Box2D const& range=lsst::geom::Box2D(
             lsst::geom::Point2D(-1.0, -1.0),
             lsst::geom::Point2D(1.0, 1.0))
@@ -227,8 +233,8 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
         return lsst::afw::math::PolynomialFunction2<T>::operator()(norm.getX(), norm.getY());
     }
     ndarray::Array<double, 1, 1> operator()(
-        ndarray::Array<double, 1, 1> const& x,
-        ndarray::Array<double, 1, 1> const& y
+        ndarray::Array<double, 1, 0> const& x,
+        ndarray::Array<double, 1, 0> const& y
     ) const noexcept {
         utils::checkSize(x.size(), y.size(), "x vs y");
         std::size_t const num = x.size();
@@ -237,6 +243,12 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
             result[ii] = operator()(x[ii], y[ii]);
         }
         return result;
+    }
+    ndarray::Array<double, 1, 1> operator()(
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y
+    ) const noexcept {
+        return operator()(ndarray::Array<double, 1, 0>(x), ndarray::Array<double, 1, 0>(y));
     }
     //@}
 
@@ -253,9 +265,10 @@ class NormalizedPolynomial2 : public lsst::afw::math::PolynomialFunction2<T> {
     /// Calculate the design matrix for a least-squares fit
     ///
     /// This is the result from getDFuncDParameters, for each point in x,y.
+    template <int C1, int C2>
     ndarray::Array<double, 2, 2> calculateDesignMatrix(
-        ndarray::Array<double, 1, 1> const& x,
-        ndarray::Array<double, 1, 1> const& y
+        ndarray::Array<double, 1, C1> const& x,
+        ndarray::Array<double, 1, C2> const& y
     ) const {
         utils::checkSize(x.size(), y.size(), "x vs y");
         std::size_t const numPoints = x.size();
