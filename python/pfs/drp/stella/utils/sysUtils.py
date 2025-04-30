@@ -61,6 +61,8 @@ def getPfsVersions(prefix="VERSION_"):
                          ):
         importlib.import_module(module + ".version")
         key = (prefix + name).upper()
+        if len(key) > 8:
+            key = "HIERARCH " + key
         versions[key] = sys.modules[module + ".version"].__version__
     return versions
 
@@ -107,6 +109,8 @@ def metadataToHeader(metadata):
     """
     header = {}
     for key in metadata.names():
+        if len(key) > 8:
+            key = "HIERARCH " + key
         header[key] = metadata.get(key)
     return header
 
