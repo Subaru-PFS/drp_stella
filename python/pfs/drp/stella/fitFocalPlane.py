@@ -7,7 +7,7 @@ from lsst.pipe.base import Task
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
-from .focalPlaneFunction import PolynomialPerFiber
+from .focalPlaneFunction import PolynomialPerFiber, FocalPlanePolynomial
 
 import lsstDebug
 
@@ -250,3 +250,19 @@ class FitPolynomialPerFiberTask(FitFocalPlaneTask):
     """
     ConfigClass = FitPolynomialPerFiberConfig
     Function = PolynomialPerFiber
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneConfig):
+    """Configuration for fitting a `FocalPlanPolynomial`"""
+    order = Field(dtype=int, default=2, doc="Polynomial order")
+    halfWidth = Field(dtype=float, default=250.0, doc="Half-width of the focal plane (mm)")
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneTask):
+    """Fit a `FocalPlanPolynomial`
+
+    The `FocalPlanPolynomial` is a polynomial function of position on the
+    focal plane. It is not a function of wavelength.
+    """
+    ConfigClass = FitFocalPlanePolynomialTask
+    Function = FocalPlanePolynomial
