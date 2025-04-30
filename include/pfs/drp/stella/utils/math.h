@@ -53,8 +53,8 @@ ndarray::Array<T const, 1, 1> vectorToArray(
 ///
 /// Some things in LSST still use std::vector, and there's no simple way to
 /// construct a std::vector from an ndarray::Array.
-template <typename T>
-std::vector<T> arrayToVector(ndarray::Array<T, 1, 1> const& array) {
+template <typename T, int C>
+std::vector<T> arrayToVector(ndarray::Array<T, 1, C> const& array) {
     std::vector<T> vector(array.size());
     std::copy(array.begin(), array.end(), vector.begin());
     return vector;
