@@ -9,7 +9,7 @@ from scipy.signal import savgol_coeffs
 __all__ = ("robustRms", "fitStraightLine", "ChisqList", "savgol_filter")
 
 
-def robustRms(array: ArrayLike) -> float:
+def robustRms(array: ArrayLike, nanSafe=False) -> float:
     """Calculate a robust RMS of the array using the inter-quartile range
 
     Uses the standard conversion of IQR to RMS for a Gaussian.
@@ -18,12 +18,17 @@ def robustRms(array: ArrayLike) -> float:
     ----------
     array : `numpy.ndarray`
         Array for which to calculate RMS.
+    nanSafe : `bool`, optional
+        If `True`, ignore NaN values in the array.
 
     Returns
     -------
     rms : `float`
         Robust RMS.
     """
+    if nanSafe:
+        array = np.asarray(array)
+        array = array[np.isfinite(array)]
     if array.size == 0:
         return np.nan
     lq, uq = np.percentile(array, (25.0, 75.0))

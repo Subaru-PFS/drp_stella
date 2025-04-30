@@ -215,7 +215,7 @@ class MeasureSkyNormsTask(PipelineTask):
             self.log.info(
                 "Applying prior sky norms = %.3f +/- %.3f",
                 np.nanmedian(skyNormsValues),
-                robustRms(skyNormsValues),
+                robustRms(skyNormsValues, True),
             )
 
         refLines = self.readLineList.run(metadata=pfsArmList[0].metadata)
@@ -225,8 +225,8 @@ class MeasureSkyNormsTask(PipelineTask):
             before = result.values/skyNormsValues
             self.log.info(
                 "With prior sky norms: RMS %.3f --> %.3f",
-                robustRms(before[np.isfinite(before)]),
-                robustRms(result.values[np.isfinite(result.values)]),
+                robustRms(before, True),
+                robustRms(result.values, True),
             )
 
         result.sky = skyList
@@ -377,7 +377,7 @@ class MeasureSkyNormsTask(PipelineTask):
                 "Iteration %d: factor = %.3f +/- %.3f",
                 iteration,
                 np.nanmedian(np.array(factor)),
-                robustRms(factor[np.isfinite(factor)]),
+                robustRms(factor, True),
             )
             for dd, mm, vv in zip(data, model, variance):
                 residuals = dd - factor[:, None]*mm
@@ -390,14 +390,14 @@ class MeasureSkyNormsTask(PipelineTask):
         self.log.info(
             "Sky norms = %.3f +/- %.3f",
             np.nanmedian(np.array(factor)),
-            robustRms(factor[np.isfinite(factor)]),
+            robustRms(factor, True),
         )
 
         if len(pfsArmList) > 1:
             byExposure = np.array(
                 [doFit([dd], [mm], [vv]) for dd, mm, vv in zip(data, model, variance)]
             )
-            rms = {ff: robustRms(byExposure[:, ii]) for ii, ff in enumerate(fiberId)}
+            rms = {ff: robustRms(byExposure[:, ii], True) for ii, ff in enumerate(fiberId)}
         else:
             with np.errstate(invalid="ignore", divide="ignore"):
                 residuals = [dd - factor[:, None]*mm for dd, mm in zip(data, model)]
