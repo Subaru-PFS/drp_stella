@@ -306,7 +306,7 @@ class FitDistortedDetectorMapConfig(Config):
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
                                       "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
                  )
-    minSignalToNoise = Field(dtype=float, default=20.0,
+    minSignalToNoise = Field(dtype=float, default=10.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     maxRejectionFrac = Field(

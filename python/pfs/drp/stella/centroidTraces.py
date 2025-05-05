@@ -4,9 +4,7 @@ import numpy as np
 
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
-
 from lsst.afw.display import Display
-from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
 from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak, extractTraceData
@@ -23,10 +21,11 @@ __all__ = ("CentroidTracesConfig", "CentroidTracesTask", "tracesToLines")
 
 class CentroidTracesConfig(Config):
     """Configuration for CentroidLinesTask"""
-    fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
+    fwhmCol = Field(dtype=float, default=2.0, doc="FWHM (pixels) for smoothing columns")
+    fwhmRow = Field(dtype=float, default=5.0, doc="FWHM (pixels) for smoothing rows")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
-    threshold = Field(dtype=float, default=20.0, doc="Signal-to-noise threshold for trace")
+    threshold = Field(dtype=float, default=10.0, doc="Signal-to-noise threshold for trace")
     searchRadius = Field(dtype=float, default=1, doc="Radius about the expected peak to search")
 
 
@@ -56,10 +55,7 @@ class CentroidTracesTask(Task):
         tracePeaks : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
             Peaks for each trace, indexed by fiberId.
         """
-        psf = exposure.getPsf()
-        if psf is None:
-            psf = createPsf(self.config.fwhm)
-        convolved = self.convolveImage(exposure, psf)
+        convolved = self.convolveImage(exposure)
         with np.errstate(invalid="ignore", divide="ignore"):
             convolved.image.array /= np.sqrt(convolved.variance.array)
         traces = self.findTracePeaks(convolved, detectorMap, pfsConfig)
@@ -68,26 +64,20 @@ class CentroidTracesTask(Task):
                       sum((len(tt)) for tt in traces.values()), len(traces))
         return traces
 
-    def convolveImage(self, exposure, psf):
+    def convolveImage(self, exposure):
         """Convolve image by Gaussian kernel
-
-        If the PSF isn't provided in the ``exposure``, then we use the ``fwhm``
-        from the config.
 
         Parameters
         ----------
         exposure : `lsst.afw.image.Exposure`
-            Image to convolve. The PSF must be set.
-        psf : `lsst.afw.detection.Psf`
-            Two-dimensional point-spread function.
+            Image to convolve.
 
         Returns
         -------
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        sigma = psf.computeShape(psf.getAveragePosition()).getTraceRadius()
-        convolvedImage = convolveImage(exposure.maskedImage, sigma, 0.0, sigmaNotFwhm=True)
+        convolvedImage = convolveImage(exposure.maskedImage, self.config.fwhmCol, self.config.fwhmRow)
         if self.debugInfo.displayConvolved:
             Display(frame=1).mtv(convolvedImage)
 
@@ -140,7 +130,7 @@ class CentroidTracesTask(Task):
             Peaks for each trace, indexed by fiberId.
         """
         badBitmask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        psfSigma = fwhmToSigma(self.config.fwhm)
+        psfSigma = fwhmToSigma(self.config.fwhmCol)
         for ff in tracePeaks:
             for pp in tracePeaks[ff]:
                 centroidPeak(pp, maskedImage, psfSigma, badBitmask)
