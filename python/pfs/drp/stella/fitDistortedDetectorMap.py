@@ -641,7 +641,7 @@ class FitDistortedDetectorMapTask(Task):
         good = self.getGoodLines(lines, dispersion)
         notTrace = lines.description != "Trace"
 
-        dx = 0.0  # np.median(lines.x[good])  # XXX: doesn't work any more due to the chip gap
+        dx = 0.0
         if np.any(notTrace):
             dy = np.median(lines.y[good & notTrace])
         else:
