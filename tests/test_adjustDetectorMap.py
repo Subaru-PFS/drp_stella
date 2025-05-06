@@ -175,7 +175,9 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         centroidTraces = CentroidTracesTask()
         centroidLines.config.fwhm = self.synthConfig.fwhm
         centroidLines.config.doSubtractContinuum = False  # Can bias the measurements if we're off by a lot
-        centroidTraces.config.fwhm = self.synthConfig.fwhm
+        centroidTraces.config.fwhmCol = self.synthConfig.fwhm
+        centroidTraces.config.fwhmRow = 0  # Don't smooth rows: the slope is too large
+        centroidTraces.config.threshold = 20  # The traceTol values were set using this
         centroidTraces.config.searchRadius = 5  # Our distorted detectorMap can be a bit off
         if numLines > 0:
             lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
@@ -331,7 +333,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         profilesConfig.doBlindFind = False
 
         centroidTraces = CentroidTracesTask()
-        centroidTraces.config.fwhm = self.synthConfig.fwhm
+        centroidTraces.config.fwhmCol = self.synthConfig.fwhm
         centroidTraces.config.searchRadius = 13  # We've made a fairly large distortion
         lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, self.pfsConfig)
