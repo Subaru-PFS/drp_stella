@@ -526,7 +526,7 @@ def ingestPfsConfig(
                 try:
                     addPfsConfigRecords(registry, pfsConfig, instrumentName, update=update)
                 except NoResultsError as exc:
-                    log.warn(str(exc))
+                    log.warning(str(exc))
                     continue
 
                 datasets.append(FileDataset(path=uri, refs=[ref], formatter=FitsGenericFormatter))
@@ -587,7 +587,7 @@ def certifyDetectorMaps(
         fromType, collections=collection, instrument=instrumentName
     )]
     if not query:
-        log.warn("No detectorMaps found.")
+        log.warning("No detectorMaps found.")
         return
     datasets = []
     for ref in query:
@@ -881,12 +881,14 @@ def defineCombination(
     )
     visitList = sorted([ref.dataId["visit"] for ref in query])
     if not visitList:
-        log.warn("No data found.")
+        log.warning("No data found.")
         return
     visitHash = calculatePfsVisitHash(visitList)
     log.info(
         "Defining combination %s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
     )
+
+
 
     with registry.transaction():
         registry.syncDimensionData(
@@ -1023,7 +1025,7 @@ def defineVisitGroup(
         values = set(getattr(row, attr) for row in data)
         first = getattr(data[0], attr)
         if len(values) != 1:
-            log.warn("Multiple %s found (%s); using %s", attr, values, first)
+            log.warning("Multiple %s found (%s); using %s", attr, values, first)
         return first
 
     groupData = dict(instrument=instrument, id=group)
@@ -1037,7 +1039,7 @@ def defineVisitGroup(
 
     log.info("Defining visit group %d (%s) for visits: %s", group, groupData, visitList)
     if dryRun:
-        log.warn("Dry run: not actually modifying the database.")
+        log.warning("Dry run: not actually modifying the database.")
         return group, visitList
 
     with registry.transaction():
@@ -1115,7 +1117,7 @@ def createVisitGroups(
     query = registry.queryDimensionRecords("visit", where=where, bind=bind, instrument=instrumentName)
     data = sorted(query, key=lambda row: row.id)
     if not data:
-        log.warn("No visits found.")
+        log.warning("No visits found.")
         return []
 
     if forceAll:
