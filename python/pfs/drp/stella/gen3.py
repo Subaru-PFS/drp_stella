@@ -32,6 +32,8 @@ from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.obs.pfs.formatters import DetectorMapFormatter
+from pfs.datamodel import TargetType
+from pfs.datamodel.objectGroupMap import ObjectGroupMap
 from pfs.datamodel.target import Target
 from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
@@ -825,12 +827,110 @@ def findAssociations(
     return results
 
 
+def calculateObjectGroups(
+    pfsConfigList: list[PfsConfig],
+    catId: int,
+    maxGroupSize: int = 2000,
+) -> ObjectGroupMap:
+    """Calculate the object groups from a list of PfsConfig objects.
+
+    We attempt to group objects that have the same pfsDesignId, within the
+    maximum group size. If the number of objects in a group is less than the
+    maximum group size, we combine smaller groups while staying under the
+    maximum group size. If the number of objects in a group is greater than
+    the maximum group size, we split the group into smaller groups.
+
+    Parameters
+    ----------
+    pfsConfigList : iterable of `PfsConfig`
+        PFS fiber configurations for each visit.
+    catId : `int`
+        The catId of interest.
+    maxGroupSize : `int`
+        The maximum number of objects per group.
+
+    Returns
+    -------
+    mapping : `ObjectGroupMap`
+        The mapping of ``catId, objId`` to ``objGroup``.
+    """
+    # Get a list of all unique objId values, while also grouping them by pfsDesignId
+    objDesigns: dict[int, int] = defaultdict(set)  # mapping of objId to set of pfsDesignId
+    for pfsConfig in pfsConfigList:
+        pfsDesignId = pfsConfig.pfsDesignId
+        pfsConfig = pfsConfig.select(catId=catId)
+        for objId in pfsConfig.objId:
+            objDesigns[objId].add(pfsDesignId)
+    objId = np.array(sorted(objDesigns.keys()), dtype=np.int64)
+    numObj = objId.size
+
+    if numObj == 0:
+        raise RuntimeError(f"No objects found for catId {catId}")
+    if numObj < maxGroupSize:
+        # We can put everything in a single group!
+        return ObjectGroupMap(objId, np.ones(numObj, dtype=np.int32))
+
+    # Create an initial assignment of groups to objects
+    objGroup = np.zeros(numObj, dtype=np.int32)
+    groupIds = {
+        frozenset(gg): ii + 1 for ii, gg in enumerate(set(frozenset(dd) for dd in objDesigns.values()))
+    }
+    for ii in range(numObj):
+        objGroup[ii] = groupIds[frozenset(objDesigns[objId[ii]])]
+
+    numGroups = len(groupIds)
+    numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
+    indices = np.argsort(numPerGroup)
+
+    def renumber(objGroup: np.ndarray) -> np.ndarray:
+        """Renumber the groups so that they are contiguous and start at 1"""
+        old = np.sort(np.unique(objGroup))
+        new = np.arange(1, len(old) + 1, dtype=np.int32)
+        newObjGroup = np.zeros_like(objGroup, dtype=np.int32)
+        for ii, oo in enumerate(old):
+            newObjGroup[objGroup == oo] = new[ii]
+        return newObjGroup
+
+    # Combine groups so long as we stay under the maxGroupSize limit
+    while numGroups > 1 and np.sum(numPerGroup[indices[:2]]) < maxGroupSize:
+        # Combine the two smallest groups
+        remove = indices[0] + 1
+        keep = indices[1] + 1
+        objGroup[objGroup == remove] = keep
+        objGroup = renumber(objGroup)
+        numGroups -= 1
+        numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
+        indices = np.argsort(numPerGroup)
+
+    # Split up any groups that are too big
+    tooBig = numPerGroup > maxGroupSize
+    if np.any(tooBig):
+        for gg in np.where(tooBig)[0]:
+            select = objGroup == gg + 1  # gg is an index into numPerGroup, which starts with groupId=1
+            num = np.sum(select)
+            numNew = int(np.ceil(num / maxGroupSize))
+            objGroup[select] = np.linspace(numGroups + 1, numGroups + 1 + numNew, num, False, dtype=np.int32)
+            numGroups += numNew - 1  # Replaced one group with numNew groups
+        objGroup = renumber(objGroup)
+
+    # Final check
+    assert np.min(objGroup) == 1
+    assert np.max(objGroup) == np.unique(objGroup).size
+    numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
+    assert np.all(numPerGroup > 0)
+    assert np.all(numPerGroup <= maxGroupSize)
+
+    return ObjectGroupMap(objId, objGroup)
+
+
 def defineCombination(
     repo: str,
     instrument: str,
     name: str,
+    collections: str = "PFS/raw/pfsConfig",
     where: Optional[str] = None,
     visitList: Optional[List[int]] = None,
+    maxGroupSize: int = 2000,
     update: bool = False,
 ):
     """Define a combination of visits
@@ -844,11 +944,15 @@ def defineCombination(
     name : `str`
         Name of the combination. This is a symbolic name that can be used to
         refer to this combination in the future.
+    collections : `str`, optional
+        Collections to search for pfsConfig files.
     where : `str`, optional
         SQL WHERE clause to use for selecting visits.
     visitList : list of `int`, optional
         List of visit numbers to include in the combination. If the ``where``
         clause is provided, this list is used to further restrict the selection.
+    maxGroupSize : `int`, optional
+        Maximum number of objects per group.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
@@ -872,9 +976,18 @@ def defineCombination(
             where = f"({where}) AND {add}"
 
     log = getLogger("pfs.defineCombination")
-    butler = Butler(repo, writeable=True)
+    run = instrument + "/objectGroups"
+    butler = Butler(repo, run=run, collections=collections, writeable=True)
     registry = butler.registry
     instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    datasetType = DatasetType(
+        "objectGroupMap",
+        ("instrument", "combination", "cat_id"),
+        "ObjectGroupMap",
+        universe=registry.dimensions,
+    )
+    registry.registerDatasetType(datasetType)
 
     query = registry.queryDimensionRecords(
         "visit", where=where, bind=bind, instrument=instrumentName
@@ -885,21 +998,39 @@ def defineCombination(
         return
     visitHash = calculatePfsVisitHash(visitList)
     log.info(
-        "Defining combination %s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
+        "Defining combination=%s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
     )
 
+    pfsConfigList = [
+        butler.get("pfsConfig", visit=vv, instrument=instrument).select(targetType=TargetType.SCIENCE)
+        for vv in visitList
+    ]
+    catId = set(sum((np.unique(pfsConfig.catId).tolist() for pfsConfig in pfsConfigList), []))
 
+    # Get object groups
+    ogm = {int(cc): calculateObjectGroups(pfsConfigList, cc, maxGroupSize) for cc in catId}
 
     with registry.transaction():
         registry.syncDimensionData(
             "combination", dict(instrument=instrument, name=name, pfs_visit_hash=visitHash), update=update
         )
+        log.info("Registering visits for combination=%s: %s", name, visitList)
         for visit in visitList:
             registry.syncDimensionData(
                 "combination_join",
                 dict(instrument=instrument, combination=name, visit=visit),
                 update=update,
             )
+        for cc in catId:
+            objGroups = np.unique(ogm[cc].objGroup)
+            log.info("Registering object groups for catId=%d: %s", cc, objGroups)
+            for gg in objGroups:
+                registry.syncDimensionData(
+                    "obj_group",
+                    dict(instrument=instrument, combination=name, cat_id=cc, obj_group=int(gg)),
+                    update=update,
+                )
+            butler.put(ogm[cc], "objectGroupMap", instrument=instrument, combination=name, cat_id=cc)
 
     return visitHash, visitList
 
