@@ -829,6 +829,7 @@ def defineCombination(
     repo: str,
     instrument: str,
     name: str,
+    collections: str = "PFS/raw/pfsConfig",
     where: Optional[str] = None,
     visitList: Optional[List[int]] = None,
     update: bool = False,
@@ -844,6 +845,8 @@ def defineCombination(
     name : `str`
         Name of the combination. This is a symbolic name that can be used to
         refer to this combination in the future.
+    collections : `str`, optional
+        Collections to search for pfsConfig files.
     where : `str`, optional
         SQL WHERE clause to use for selecting visits.
     visitList : list of `int`, optional
@@ -888,7 +891,13 @@ def defineCombination(
         "Defining combination %s with pfsVisitHash=%016x for visits: %s", name, visitHash, visitList
     )
 
+    pfsConfigs = {
+        vv: butler.get("pfsConfig", collections=collections, visit=vv, instrument="PFS")
+        for vv in visitList
+    }
 
+    # Get object groups
+    objGroups = calculateObjectGroups(pfsConfigs)
 
     with registry.transaction():
         registry.syncDimensionData(
