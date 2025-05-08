@@ -1,11 +1,24 @@
 description: Reduce an exposure
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 
+parameters:
+  h4_doCR: True                         # Pass to isr.h4.doCR, and pass negation to cosmicray2
+  h4_crMinReads: 4                      # Minimum number of reads for up-the-ramp CR rejection
+
 tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
+    config:
+      h4.doCR: parameters.h4_doCR
+      h4.crMinReads: parameters.h4_crMinReads
   cosmicray2:
     class: pfs.drp.stella.cosmicray.CompareCosmicRayTask
+    config:
+      crMinReadsH4: parameters.h4_crMinReads
+      python: |
+        # The use of 'eval' is evil, but necessary for now
+        h4_doCR = eval(parameters.h4_doCR) if isinstance(parameters.h4_doCR, str) else parameters.h4_doCR
+        config.doH4MorphologicalCRs = not h4_doCR
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
