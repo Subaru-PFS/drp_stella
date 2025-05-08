@@ -16,7 +16,9 @@ tasks:
     config:
       crMinReadsH4: parameters.h4_crMinReads
       python: |
-        doH4MorphologicalCRs = not parameters.h4_doCR
+        # The use of 'eval' is evil, but necessary for now
+        h4_doCR = eval(parameters.h4_doCR) if isinstance(parameters.h4_doCR, str) else parameters.h4_doCR
+        config.doH4MorphologicalCRs = not h4_doCR
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
