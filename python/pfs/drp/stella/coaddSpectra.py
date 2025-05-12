@@ -66,7 +66,7 @@ class SetWithNaN:
 
 class CoaddSpectraConnections(
     PipelineTaskConnections,
-    dimensions=("instrument", "combination", "cat_id"),
+    dimensions=("instrument", "combination", "cat_id", "obj_group"),
 ):
     """Connections for CoaddSpectraTask"""
 
@@ -76,6 +76,12 @@ class CoaddSpectraConnections(
         storageClass="PfsConfig",
         dimensions=("instrument", "visit"),
         multiple=True,
+    )
+    objectGroupMap = PrerequisiteConnection(
+        name="objectGroupMap",
+        doc="Object group map",
+        storageClass="ObjectGroupMap",
+        dimensions=("instrument", "combination", "cat_id"),
     )
     pfsArm = InputConnection(
         name="pfsArm",
@@ -110,13 +116,13 @@ class CoaddSpectraConnections(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
         storageClass="PfsObjectSpectra",  # Deprecated in favor of PfsCoadd
-        dimensions=("instrument", "combination", "cat_id"),
+        dimensions=("instrument", "combination", "cat_id", "obj_group"),
     )
     pfsCoaddLsf = OutputConnection(
         name="pfsCoaddLsf",
         doc="Line-spread function for pfsCoadd",
         storageClass="LsfDict",
-        dimensions=("instrument", "combination", "cat_id"),
+        dimensions=("instrument", "combination", "cat_id", "obj_group"),
     )
 
 
@@ -126,7 +132,6 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
-    ignoreCatId = ListField(dtype=int, default=[-1], doc="List of catIds to ignore")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -196,10 +201,10 @@ class CoaddSpectraTask(PipelineTask):
             output connections.
         """
         assert butler.quantum.dataId is not None
+        ogm = butler.get(inputRefs.objectGroupMap)
         catId = butler.quantum.dataId["cat_id"]
-        if catId in self.config.ignoreCatId:
-            self.log.info("Ignoring catId=%d", catId)
-            return
+        objGroup = butler.quantum.dataId["obj_group"]
+        objId = ogm.objId[ogm.objGroup == objGroup]
 
         data: Dict[Identity, Struct] = {}
         for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
@@ -219,7 +224,7 @@ class CoaddSpectraTask(PipelineTask):
                 pfsDesignId=dataId["pfs_design_id"]
             )
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
-            pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId)
+            pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId, objId=objId)
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
