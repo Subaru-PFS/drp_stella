@@ -7,6 +7,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
+from lsst.pipe.base.connections import QuantaAdjuster
 from lsst.pex.config import Config, ConfigField, ConfigurableField, Field, makePropertySet
 
 from lsst.afw.detection import setMaskFromFootprintList
@@ -90,7 +91,7 @@ class CosmicRayTask(PipelineTask):
 
 class CompareCosmicRayConnections(
     PipelineTaskConnections,
-    dimensions=("instrument", "visit_group", "arm", "spectrograph"),
+    dimensions=("instrument", "arm", "spectrograph"),
 ):
     """Connections for CompareCosmicRayTask"""
     inputExposures = InputConnection(
@@ -107,6 +108,24 @@ class CompareCosmicRayConnections(
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
+
+    def adjust_all_quanta(self, adjuster: QuantaAdjuster) -> None:
+        """Customize the set of quanta predicted for this task during quantum
+        graph generation.
+        Parameters
+        ----------
+        adjuster : `QuantaAdjuster`
+            A helper object that implementations can use to modify the
+            under-construction quantum graph.
+        Notes
+        -----
+        This hook is called before `adjustQuantum`, which is where built-in
+        checks for `NoWorkFound` cases and missing prerequisites are handled.
+        This means that the set of preliminary quanta seen by this method could
+        include some that would normally be dropped later.
+        """
+        breakpoint()
+        pass
 
 
 class CompareCosmicRayConfig(PipelineTaskConfig, pipelineConnections=CompareCosmicRayConnections):
