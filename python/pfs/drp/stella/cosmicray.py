@@ -1,4 +1,9 @@
-from typing import ClassVar, List, Type, TYPE_CHECKING
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Mapping
+import itertools
+from typing import ClassVar, Iterable, List, Type, TYPE_CHECKING
 
 import numpy as np
 
@@ -7,7 +12,9 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
-from lsst.pex.config import Config, ConfigField, ConfigurableField, Field, makePropertySet
+from lsst.pipe.base.connections import QuantaAdjuster
+from lsst.pex.config import Config, ChoiceField, ConfigField, ConfigurableField, DictField, Field
+from lsst.pex.config import makePropertySet
 
 from lsst.afw.detection import setMaskFromFootprintList
 from lsst.afw.image import ImageF, MaskedImageF
@@ -17,82 +24,18 @@ from lsst.ip.isr.isrFunctions import growMasks
 from .repair import PfsRepairTask
 
 if TYPE_CHECKING:
+    from lsst.daf.butler import Butler, DataCoordinate
     from lsst.afw.image import Exposure, MaskedImage, Mask
     from lsst.afw.detection import Psf
 
 
-__all__ = ("CosmicRayTask", "CompareCosmicRayTask")
+__all__ = ("CosmicRayTask",)
 
 
 class CosmicRayConnections(
     PipelineTaskConnections,
     dimensions=("instrument", "visit", "arm", "spectrograph"),
 ):
-    inputExposure = InputConnection(
-        name="postISRCCD",
-        doc="Exposure to repair",
-        storageClass="Exposure",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
-    outputExposure = OutputConnection(
-        name="calexp",
-        doc="Repaired exposure",
-        storageClass="Exposure",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
-
-
-class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnections):
-    """Configuration for CosmicRayTask"""
-    doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
-    repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts")
-
-    def setDefaults(self):
-        super().setDefaults()
-        self.repair.interp.modelPsf.defaultFwhm = 1.5  # FWHM of the PSF in pixels
-
-
-class CosmicRayTask(PipelineTask):
-    """Perform cosmic-ray removal
-
-    We use the standard single-exposure cosmic-ray removal task, but in the
-    future we intend to upgrade this to use a more sophisticated algorithm using
-    multiple exposures.
-    """
-    ConfigClass: ClassVar[Type[Config]] = CosmicRayConfig
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.makeSubtask("repair")
-
-    def runQuantum(
-        self,
-        butler: QuantumContext,
-        inputRefs: InputQuantizedConnection,
-        outputRefs: OutputQuantizedConnection
-    ) -> None:
-        """Entry point for running the task under the Gen3 middleware"""
-        exposure = butler.get(inputRefs.inputExposure)
-        outputs = self.run(exposure)
-        butler.put(outputs.exposure, outputRefs.outputExposure)
-
-    def run(self, exposure) -> Struct:
-        """Perform cosmic-ray removal"""
-        modelPsfConfig = self.config.repair.interp.modelPsf
-        psf = modelPsfConfig.apply()
-        exposure.setPsf(psf)
-
-        if self.config.doRepair:
-            self.repair.run(exposure)
-
-        return Struct(exposure=exposure)
-
-
-class CompareCosmicRayConnections(
-    PipelineTaskConnections,
-    dimensions=("instrument", "visit_group", "arm", "spectrograph"),
-):
-    """Connections for CompareCosmicRayTask"""
     inputExposures = InputConnection(
         name="postISRCCD",
         doc="Exposure to repair",
@@ -108,9 +51,160 @@ class CompareCosmicRayConnections(
         multiple=True,
     )
 
+    def groupingAuto(self, instrument: str, visitList: Iterable[int], butler: Butler) -> dict[int, int]:
+        """Adjust the quanta using the 'auto' grouping algorithm.
 
-class CompareCosmicRayConfig(PipelineTaskConfig, pipelineConnections=CompareCosmicRayConnections):
-    """Configuration for CompareCosmicRayTask"""
+        We group visits by their pfsDesignId and visit0, which are stored in the
+        pfsConfig.
+
+        Parameters
+        ----------
+        instrument : `str`
+            Name of the instrument.
+        visitList : `iterable` of `int`
+            List of visit numbers to group.
+        butler : `lsst.daf.butler.Butler`
+            Butler to use to retrieve data.
+
+        Returns
+        -------
+        grouping : `dict` mapping `int` to `int`
+            Mapping of visit to group numbers.
+        """
+        pfsConfigList = {
+            visit: butler.get("pfsConfig", instrument=instrument, visit=visit) for visit in visitList
+        }
+        groupMapping = {
+            visit: (pfsConfig.pfsDesignId, pfsConfig.visit0) for visit, pfsConfig in pfsConfigList.items()
+        }
+        groups = set(groupMapping.values())
+        groupIds = dict(zip(groups, range(len(groups))))
+        return {dataId: groupIds[gg] for dataId, gg in groupMapping.items()}
+
+    def groupingSeparate(self, instrument: str, visitList: Iterable[int], butler: Butler) -> dict[int, int]:
+        """Adjust the quanta using the separate grouping algorithm.
+
+        Visits are assigned to separate groups.
+
+        Parameters
+        ----------
+        instrument : `str`
+            Name of the instrument.
+        visitList : `iterable` of `int`
+            List of visit numbers to group.
+        butler : `lsst.daf.butler.Butler`
+            Butler to use to retrieve data (unused).
+
+        Returns
+        -------
+        grouping : `dict` mapping `int` to `int`
+            Mapping of visit to group numbers.
+        """
+        return dict(zip(visitList, itertools.count()))
+
+    def groupingAll(self, instrument: str, visitList: Iterable[int], butler: Butler) -> dict[int, int]:
+        """Adjust the quanta using the all grouping algorithm.
+
+        All visits are assigned to the same group.
+
+        Parameters
+        ----------
+        instrument : `str`
+            Name of the instrument.
+        visitList : `iterable` of `int`
+            List of visit numbers to group.
+        butler : `lsst.daf.butler.Butler`
+            Butler to use to retrieve data (unused).
+
+        Returns
+        -------
+        grouping : `dict` mapping `int` to `int`
+            Mapping of visit to group numbers.
+        """
+        return {visit: 0 for visit in visitList}
+
+    def groupingManual(self, instrument: str, visitList: Iterable[int], butler: Butler) -> dict[int, int]:
+        """Adjust the quanta using the manual grouping algorithm.
+
+        Visits are assigned to groups according to the ``groups`` configuration
+        parameter.
+
+        Parameters
+        ----------
+        instrument : `str`
+            Name of the instrument.
+        visitList : `iterable` of `int`
+            List of visit numbers to group.
+        butler : `lsst.daf.butler.Butler`
+            Butler to use to retrieve data (unused).
+
+        Returns
+        -------
+        grouping : `dict` mapping `int` to `int`
+            Mapping of visit to group numbers.
+        """
+        groups = self.config.groups
+        return {visit: groups[visit] for visit in visitList}
+
+    def adjust_all_quanta(self, adjuster: QuantaAdjuster) -> None:
+        """Customize the set of quanta predicted for this task during quantum
+        graph generation.
+
+        Parameters
+        ----------
+        adjuster : `QuantaAdjuster`
+            A helper object that implementations can use to modify the
+            under-construction quantum graph.
+
+        Notes
+        -----
+        This hook is called before `adjustQuantum`, which is where built-in
+        checks for `NoWorkFound` cases and missing prerequisites are handled.
+        This means that the set of preliminary quanta seen by this method could
+        include some that would normally be dropped later.
+        """
+        instrument = set(dataId["instrument"] for dataId in adjuster.iter_data_ids())
+        if len(instrument) != 1:
+            raise RuntimeError("Cannot group data from different instruments")
+        instrument = instrument.pop()
+
+        # Get the groups
+        menu = dict(
+            auto=self.groupingAuto,
+            separate=self.groupingSeparate,
+            all=self.groupingAll,
+            manual=self.groupingManual,
+        )
+        method = menu[self.config.grouping]
+        visitList = set(dataId["visit"] for dataId in adjuster.iter_data_ids())
+        grouping: Mapping[int, int] = method(instrument, visitList, adjuster.butler)  # visit -> group
+        groups: set[int] = set(grouping.values())
+
+        # Sort the dataId list by arm+spectrograph
+        camera: dict[(str, int), list[DataCoordinate]] = defaultdict(list)
+        for dataId in adjuster.iter_data_ids():
+            name = (dataId["arm"], dataId["spectrograph"])
+            camera[name].append(dataId)
+
+        # Divide each list of dataIds into groups
+        for dataIdList in camera.values():
+            target: dict[int, list[DataCoordinate]] = {gg: [] for gg in groups}  # group -> list of dataIds
+            for dataId in dataIdList:
+                visit = dataId["visit"]
+                target[grouping[visit]].append(dataId)
+            for coordList in target.values():
+                if len(coordList) <= 1:
+                    continue
+                coordList.sort()
+                first = coordList[0]
+                for other in coordList[1:]:
+                    adjuster.add_input(first, "inputExposures", other)
+                    adjuster.move_output(first, "outputExposures", other)
+                    adjuster.remove_quantum(other)
+
+
+class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnections):
+    """Configuration for CosmicRayTask"""
     minVisitsMedian = Field(dtype=int, default=5, doc="Minimum number of visits to use median")
     modelPsf = GaussianPsfFactory.makeField(doc="Model PSF")
     cosmicray = ConfigField(dtype=FindCosmicRaysConfig, doc="Find cosmic rays")
@@ -121,6 +215,26 @@ class CompareCosmicRayConfig(PipelineTaskConfig, pipelineConnections=CompareCosm
     crMinReadsH4 = Field(dtype=int, default=4,
                          doc="Minimum number of reads for up-the-ramp CR rejection in H4RGs")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts; used for single exposure")
+    grouping = ChoiceField(
+        dtype=str,
+        default="auto",
+        allowed=dict(
+            auto="Select groupings automatically, using pfsConfig",
+            separate="Visits are in separate groups",
+            all="Use all visits in a group",
+            manual="Specify the grouping manually",
+        ),
+        doc="Algorithm to use for grouping visits",
+    )
+    groups = DictField(
+        keytype=int,
+        itemtype=int,
+        default={},
+        doc=(
+            "Manual specification of visit groups; only used if grouping=manual. "
+            "Keys are the visit numbers, and the values are the group numbers (which may be arbitrary)."
+        ),
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -129,13 +243,14 @@ class CompareCosmicRayConfig(PipelineTaskConfig, pipelineConnections=CompareCosm
         self.cosmicray.nCrPixelMax = 100000000
 
 
-class CompareCosmicRayTask(PipelineTask):
+class CosmicRayTask(PipelineTask):
     """Perform cosmic-ray removal
 
-    We use comparison of multiple exposures of the same targets to identify
-    cosmic rays.
+    We use the standard single-exposure cosmic-ray removal task, but in the
+    future we intend to upgrade this to use a more sophisticated algorithm using
+    multiple exposures.
     """
-    ConfigClass: ClassVar[Type[Config]] = CompareCosmicRayConfig
+    ConfigClass: ClassVar[Type[Config]] = CosmicRayConfig
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -180,10 +295,7 @@ class CompareCosmicRayTask(PipelineTask):
         if len(exposures) == 1:
             self.log.warn("No subtraction possible with single exposure; using sub-optimal CR removal")
             for exp in exposures:
-                modelPsfConfig = self.config.repair.interp.modelPsf
-                psf = modelPsfConfig.apply()
-                exp.setPsf(psf)
-                self.repair.run(exp)
+                self.runSingle(exp)
             return result
 
         # Multiple exposure cosmic-ray removal
@@ -195,6 +307,14 @@ class CompareCosmicRayTask(PipelineTask):
         self.findOverlaps([exp.mask for exp in exposures])
 
         return result
+
+    def runSingle(self, exposure: "Exposure") -> None:
+        """Perform cosmic-ray removal on a single exposure"""
+        modelPsfConfig = self.config.repair.interp.modelPsf
+        psf = modelPsfConfig.apply()
+        exposure.setPsf(psf)
+        self.repair.run(exposure)
+        return exposure
 
     def calculateCleanImage(self, images: List["MaskedImage"]) -> ImageF:
         """Calculate a cleaned image from a list of images
