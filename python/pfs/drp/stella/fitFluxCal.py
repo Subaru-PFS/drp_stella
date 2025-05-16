@@ -1277,7 +1277,7 @@ class FitFluxCalibFocalPlaneFunctionConfig(FitFocalPlaneConfig):
     input parameters, but those can be determined from the data.
     """
 
-    polyOrder = Field(dtype=int, default=5, doc="Polynomial order")
+    polyOrder = Field(dtype=int, default=3, doc="Polynomial order")
     polyWavelengthDependent = Field(
         dtype=bool,
         default=True,
@@ -1401,7 +1401,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         optional=False,
     )
     ignoredBroadbandFilters = ListField(
-        dtype=str, default=["y_hsc", "y_ps1"], doc="Broadband filters not to use"
+        dtype=str, default=[], doc="Broadband filters not to use"
     )
     fabricatedBroadbandFluxErrSNR = Field(
         dtype=float,
