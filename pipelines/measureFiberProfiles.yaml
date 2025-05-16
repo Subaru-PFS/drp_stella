@@ -8,6 +8,8 @@ tasks:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      grouping: separate  # We combine exposures to remove CRs
   measureDetectorMap:
     class: pfs.drp.stella.pipelines.MeasureDetectorMapTask
   measureProfiles:

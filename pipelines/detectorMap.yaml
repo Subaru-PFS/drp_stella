@@ -8,6 +8,8 @@ tasks:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      grouping: separate  # We have lots of different kinds of exposures, with lamps warming up
   measureCentroids:
     class: pfs.drp.stella.pipelines.MeasureCentroidsTask
   gatherSlitOffsets:
