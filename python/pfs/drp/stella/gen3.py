@@ -2,11 +2,10 @@
 
 import functools
 import os
-from collections import defaultdict
 from collections.abc import Sequence
 from glob import glob
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 from astropy.time import Time, TimeDelta
@@ -19,7 +18,6 @@ from lsst.daf.butler import (
     DatasetRef,
     DatasetType,
     DimensionGroup,
-    DimensionRecord,
     DimensionUniverse,
     FileDataset,
     Registry,
@@ -38,9 +36,6 @@ from pfs.datamodel.target import Target
 from pfs.datamodel.utils import calculatePfsVisitHash
 from pfs.drp.stella.datamodel import PfsConfig
 from .utils.logging import getLogger
-
-if TYPE_CHECKING:
-    from logging import Logger
 
 __all__ = ("DatasetRefList", "zipDatasetRefs", "readDatasetRefs", "targetFromDataId")
 
@@ -1097,206 +1092,6 @@ def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> Da
         dtype = universe[key].primaryKey.dtype().python_type
         coord[key] = dtype(value)
     return DataCoordinate.standardize(coord, universe=universe)
-
-
-def defineVisitGroup(
-    registry: Registry,
-    data: List[DimensionRecord],
-    update: bool = False,
-    log: Optional["Logger"] = None,
-    dryRun: bool = False,
-) -> Tuple[int, List[int]]:
-    """Define a visit group
-
-    Parameters
-    ----------
-    registry : `Registry`
-        Butler registry.
-    data : list of `DimensionRecord`
-        List of visit records.
-    update : `bool`, optional
-        Update the record if it exists? Otherwise an exception will be generated
-        if the record exists.
-    log : `Logger`, optional
-        Logger to use.
-    dryRun : `bool`, optional
-        Perform a dry run (do not write to the database)?
-
-    Returns
-    -------
-    group : `int`
-        Group number.
-    visitList : `list` of `int`
-        List of visit numbers
-    """
-    if log is None:
-        log = getLogger("pfs.defineVisitGroup")
-
-    visitList = [row.id for row in data]
-    instrumentSet = set(row.instrument for row in data)
-    if len(instrumentSet) != 1:
-        raise RuntimeError(f"Multiple instruments found: {instrumentSet}")
-    instrument = instrumentSet.pop()
-
-    group = min(visitList)  # Use the minimum visit as the group identifier
-
-    def takeFirst(attr):
-        """Take the first value, but warn if there are multiple
-
-        Parameters
-        ----------
-        attr : `str`
-            Attribute name.
-
-        Returns
-        -------
-        value : `Any`
-            Value of the attribute.
-        """
-        values = set(getattr(row, attr) for row in data)
-        first = getattr(data[0], attr)
-        if len(values) != 1:
-            log.warning("Multiple %s found (%s); using %s", attr, values, first)
-        return first
-
-    groupData = dict(instrument=instrument, id=group)
-    groupData["day_obs"] = min(row.day_obs for row in data)
-    groupData["seq_num"] = min(row.seq_num for row in data)
-    groupData["exposure_time"] = sum(row.exposure_time for row in data)
-    groupData["target_name"] = takeFirst("target_name")
-    groupData["observation_reason"] = takeFirst("observation_reason")
-    groupData["science_program"] = takeFirst("science_program")
-    groupData["zenith_angle"] = np.average([row.zenith_angle for row in data])
-
-    log.info("Defining visit group %d (%s) for visits: %s", group, groupData, visitList)
-    if dryRun:
-        log.warning("Dry run: not actually modifying the database.")
-        return group, visitList
-
-    with registry.transaction():
-        registry.syncDimensionData(
-            "visit_group", dict(**groupData), update=update
-        )
-        for visit in visitList:
-            registry.syncDimensionData(
-                "visit_group_join",
-                dict(instrument=instrument, visit_group=group, visit=visit),
-                update=update,
-            )
-
-    return group, visitList
-
-
-def createVisitGroups(
-    repo: str,
-    instrument: str,
-    collections: str | List[str],
-    where: Optional[str] = None,
-    visitList: Optional[List[int]] = None,
-    forceAll: bool = False,
-    contiguous: bool = False,
-    update: bool = False,
-    dryRun: bool = False,
-) -> Dict[int, List[int]]:
-    """Find group(s) for a list of visits
-
-    Parameters
-    ----------
-    repo : `str`
-        URI string of the Butler repo to use.
-    instrument : `str`
-        Instrument name or fully-qualified class name as a string.
-    collections : `str` or list of `str`
-        Collection(s) to search for pfsConfig.
-    where : `str`, optional
-        SQL WHERE clause to use for selecting visits.
-    visitList : list of `int`, optional
-        List of visit numbers to include in the group. If the ``where``
-        clause is provided, this list is used to further restrict the selection.
-    forceAll : `bool`, optional
-        Force all visits to be in the same group? If `False`, we will determine
-        the groups algorithmically.
-    contiguous : `bool`, optional
-        Split visit groups into sets of contiguous visit number?
-    update : `bool`, optional
-        Update the record if it exists? Otherwise an exception will be generated
-        if the record exists.
-    dryRun : `bool`, optional
-        Perform a dry run (do not write to the database)?
-
-    Returns
-    -------
-    visitLists : `dict` mapping `int` to `list` of `int`
-        List of visit numbers in each group, indexed by group number.
-    """
-    if not where and not visitList:
-        raise ValueError("Must provide at least one of 'where' and 'visitList'")
-    bind = None
-    if visitList:
-        add = "visit IN (visitList)"
-        bind = dict(visitList=visitList)
-        if where is None:
-            where = add
-        else:
-            where = f"({where}) AND {add}"
-
-    log = getLogger("pfs.defineVisitGroup")
-    butler = Butler(repo, writeable=True, collections=collections)
-    registry = butler.registry
-    instrumentName = Instrument.from_string(instrument, registry).getName()
-
-    query = registry.queryDimensionRecords("visit", where=where, bind=bind, instrument=instrumentName)
-    data = sorted(query, key=lambda row: row.id)
-    if not data:
-        log.warning("No visits found.")
-        return []
-
-    if forceAll:
-        group, visitList = defineVisitGroup(registry, data, update=update, log=log)
-        return {group: visitList}
-
-    # Group visits
-    groupData = defaultdict(list)
-    for row in data:
-        pfsConfig = butler.get("pfsConfig", instrument=row.instrument, visit=row.id)
-        group = (
-            row.pfs_design_id,
-            row.day_obs,
-            tuple(sorted(pfsConfig.arms)),
-            row.target_name,
-            row.observation_reason,
-            row.science_program,
-            row.lamps,
-        )
-        log.debug("Visit %d: %s", row.id, group)
-        groupData[group].append(row)
-
-    result: Dict[int, List[int]] = {}
-    for group, rowList in groupData.items():
-        rowByVisit = {row.id: row for row in rowList}
-        visitList = sorted(rowByVisit.keys())
-
-        if contiguous:
-            # Separate visitList into contiguous groups
-            last = visitList.pop(0)
-            groupLists = [[last]]
-            for visit in visitList:
-                if visit - last == 1:
-                    # Contiguous: add to the list
-                    groupLists[-1].append(visit)
-                else:
-                    # Not contiguous: start a new list
-                    groupLists.append([visit])
-                last = visit
-        else:
-            groupLists = [visitList]
-
-        for group in groupLists:
-            groupRows = [rowByVisit[visit] for visit in group]
-            groupId, visitList = defineVisitGroup(registry, groupRows, update=update, log=log, dryRun=dryRun)
-            result[groupId] = visitList
-
-    return result
 
 
 def timespanFromDayObs(day_obs: int, offset: int = 0) -> Timespan:
