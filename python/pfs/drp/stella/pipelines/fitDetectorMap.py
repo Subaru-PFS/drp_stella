@@ -6,7 +6,7 @@ from lsst.geom import Box2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 from lsst.daf.butler import DataCoordinate
-from lsst.pex.config import ConfigurableField
+from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
@@ -20,7 +20,82 @@ from ..calibs import setCalibHeader
 from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from .lookups import lookupDetectorMap
 
-__all__ = ("FitDetectorMapTask",)
+__all__ = ("GatherSlitOffsetsTask", "FitDetectorMapTask")
+
+
+class GatherSlitOffsetsConnections(
+    PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
+):
+    """Connections for GatherSlitOffsetsTask"""
+    # This connection is only here to ensure that the task runs on data that exists. It is not actually used.
+    dummy = InputConnection(
+        name="centroids",
+        doc="Emission line measurements",
+        storageClass="ArcLineSet",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+
+    slitOffsets = PrerequisiteConnection(
+        name="detectorMap_calib.slitOffsets",
+        doc="Slit offsets from mapping of fiberId,wavelength to x,y",
+        storageClass="NumpyArray",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        isCalibration=True,
+        lookupFunction=lookupDetectorMap,
+        minimum=0,
+    )
+
+    output = OutputConnection(
+        name="slitOffsets",
+        doc="Slit offsets from mapping of fiberId,wavelength to x,y",
+        storageClass="NumpyArray",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+
+
+class GatherSlitOffsetsConfig(
+    PipelineTaskConfig, pipelineConnections=GatherSlitOffsetsConnections
+):
+    """Configuration for GatherSlitOffsetsTask"""
+    doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for slit offsets?")
+
+
+class GatherSlitOffsetsTask(PipelineTask):
+    """Gather slit offsets from multiple exposures
+
+    This task gathers slit offsets from multiple exposures and writes them to
+    a single output file. The output file is a Numpy array with the same
+    dimensions as the input files.
+    """
+
+    ConfigClass = GatherSlitOffsetsConfig
+    _DefaultName = "gatherSlitOffsets"
+
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ) -> None:
+        """Entry point with butler I/O
+
+        Parameters
+        ----------
+        butler : `QuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        if self.config.doSlitOffsets:
+            # We're going to measure slit offsets; don't need to gather them
+            return
+
+        offsets = butler.get(inputRefs.slitOffsets)
+        butler.put(offsets, outputRefs.output)
 
 
 class FitDetectorMapConnections(
@@ -36,13 +111,12 @@ class FitDetectorMapConnections(
         multiple=True,
     )
 
-    slitOffsets = PrerequisiteConnection(
-        name="detectorMap_calib.slitOffsets",
-        doc="Mapping from fiberId,wavelength to x,y: measured from real data",
+    slitOffsets = InputConnection(
+        name="slitOffsets",
+        doc="Slit offsets from mapping of fiberId,wavelength to x,y",
         storageClass="NumpyArray",
-        dimensions=("instrument", "arm", "spectrograph"),
-        isCalibration=True,
-        lookupFunction=lookupDetectorMap,
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
     )
 
     bbox = InputConnection(
@@ -81,7 +155,7 @@ class FitDetectorMapConnections(
         if not config:
             return
         if config.fitDetectorMap.doSlitOffsets:
-            self.prerequisiteInputs.remove("slitOffsets")
+            self.inputs.remove("slitOffsets")
 
 
 class FitDetectorMapConfig(PipelineTaskConfig, pipelineConnections=FitDetectorMapConnections):
@@ -141,13 +215,21 @@ class FitDetectorMapTask(PipelineTask):
         metadata = data.metadata[first]
         setCalibHeader(metadata, "detectorMap", sorted([vi.id for vi in data.visitInfo]), dataId)
 
+        slitOffsets: Optional[np.ndarray] = None
+        if not self.config.fitDetectorMap.doSlitOffsets:
+            visitSlitOffsets = butler.get(inputRefs.slitOffsets)
+            for slitOffsets in visitSlitOffsets[1:]:
+                if not np.array_equal(slitOffsets, visitSlitOffsets[0]):
+                    raise RuntimeError("Different slit offsets")
+            slitOffsets = visitSlitOffsets[0]
+
         outputs = self.run(
             dataId,
             data.arcLines,
             data.visitInfo[first],
             metadata,
             data.bbox[first],
-            butler.get(inputRefs.slitOffsets) if not self.config.fitDetectorMap.doSlitOffsets else None,
+            slitOffsets,
         )
         butler.put(outputs, outputRefs)
 

@@ -1,4 +1,8 @@
 description: Measure detectorMap
+
+parameters:
+  doSlitOffsets: True  # Fit for slit offsets?
+
 tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
@@ -6,5 +10,11 @@ tasks:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
   measureCentroids:
     class: pfs.drp.stella.pipelines.MeasureCentroidsTask
+  gatherSlitOffsets:
+    class: pfs.drp.stella.pipelines.GatherSlitOffsetsTask
+    config:
+      doSlitOffsets: parameters.doSlitOffsets
   fitDetectorMap:
     class: pfs.drp.stella.pipelines.FitDetectorMapTask
+    config:
+      fitDetectorMap.doSlitOffsets: parameters.doSlitOffsets

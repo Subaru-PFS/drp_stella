@@ -43,7 +43,7 @@ def lookupDetectorMap(
     else:
         result = [registry.findDataset(parent, dataId, collections=collections, timespan=dataId.timespan)]
     if component is not None:
-        result = [ref.makeComponentRef(component) for ref in result]
+        result = [ref.makeComponentRef(component) for ref in result if ref is not None]
     return result
 
 
