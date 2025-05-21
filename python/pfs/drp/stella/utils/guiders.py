@@ -489,7 +489,7 @@ def showAgcErrorsForVisits(agcData,
         fig, axs = plt.subplots(3, 1, num=figure, sharex=True, sharey=False, squeeze=False)
         axs = axs.flatten()
     else:
-        fig, axs = livePlot.fig, livePlot.axs
+        fig, axs = livePlot.fig, livePlot.axes[:3]
 
     if pfs_visit_ids is not None:
         agcData = agcData[agcData.isin(dict(pfs_visit_id=pfs_visit_ids)).pfs_visit_id]
@@ -513,44 +513,33 @@ def showAgcErrorsForVisits(agcData,
                             dy=agcData.agc_nominal_y_mm - agcData.agc_center_y_mm))
     grouped = tmp.groupby("agc_exposure_id")
     xbar, ybar = grouped.agg(xbar=('dx', 'mean')), grouped.agg(ybar=('dy', 'mean')).to_numpy()
+    rbar = np.hypot(xbar, ybar)
 
-    def plot_zbar(zbar, xvec=agc_exposure_ids):
-        plt.gca().set_prop_cycle(None)
+    def plot_zbar(ax, zbar, xvec=agc_exposure_ids):
+        ax.set_prop_cycle(None)
         for pfs_visit_id in sorted(set(pfs_visit_ids)):
             sel = pfs_visit_ids == pfs_visit_id
-            color = plt.plot(xvec[sel], 1e3*zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
+            color = ax.plot(xvec[sel], 1e3 * zbar[sel], '.-', label=f"{int(pfs_visit_id)}")[0].get_color()
             sel &= shutter_open > 0
-            plt.plot(xvec[sel], 1e3*zbar[sel], 'o', color=color)
+            ax.plot(xvec[sel], 1e3 * zbar[sel], 'o', color=color)
 
-        plt.axhline(0, color='black')
+        ax.axhline(0, color='black')
         if showLegend:
-            plt.legend(ncol=6)
+            ax.legend(ncol=6)
 
-    j = 0
-    plt.sca(axs[j]); j += 1             # noqa E702
+    for ax, vals, label in zip(axs, [rbar, xbar, ybar], ['rerror', 'xerror', 'yerror']):
+        plot_zbar(ax, vals, taken_ats if byTime else agc_exposure_ids)
+        ax.set_ylabel(f"{label} (microns)")
 
-    plot_zbar(np.hypot(xbar, ybar), taken_ats if byTime else agc_exposure_ids)
-    plt.ylabel("rerror (microns)")
-    if yminmax is not None:
-        plt.ylim(yminmax*np.array([-0.1, np.sqrt(2)]))
+        if yminmax is not None:
+            scale = np.array([-0.1, np.sqrt(2)]) if label == 'rerror' else np.array([-1, 1])
+            ax.set_ylim(yminmax * scale)
 
-    plt.sca(axs[j]); j += 1             # noqa E702
-
-    plot_zbar(xbar, taken_ats if byTime else agc_exposure_ids)
-    plt.ylabel("xerror (microns)")
-    if yminmax is not None:
-        plt.ylim(yminmax*np.array([-1, 1]))
-
-    plt.sca(axs[j]); j += 1             # noqa E702
-    plot_zbar(ybar, taken_ats if byTime else agc_exposure_ids)
-    plt.ylabel("yerror (microns)")
-    if yminmax is not None:
-        plt.ylim(yminmax*np.array([-1, 1]))
-
-    plt.xlabel("HST" if byTime else "agc_exposure_id")
+    ax.set_xlabel("HST" if byTime else "agc_exposure_id")
 
     visits = sorted(set(pfs_visit_ids))
-    plt.suptitle(f"pfs_visit_ids {visits[0]:.0f}..{visits[-1]:.0f}")
+    fig.suptitle(f"pfs_visit_ids {visits[0]:.0f}..{visits[-1]:.0f}")
+
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -798,8 +787,7 @@ def showGuiderErrors(agcData, config,
     name:  a string to show in the header; or None
     """
     if livePlot is not None:
-        plt.sca(livePlot.ax)
-        colorbar = livePlot.colorbar
+        fig, ax, colorbar = livePlot.fig, livePlot.axes[-1], livePlot.colorbar
     else:
         colorbar = None
 
@@ -816,9 +804,9 @@ def showGuiderErrors(agcData, config,
 
             if verbose:
                 print(f"Solving for offsets/rotations for {aid}")
-                transform = MeasureXYRot(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel],
-                                         agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
-                                         nsigma=3)
+            transform = MeasureXYRot(agcData.agc_center_x_mm[sel], agcData.agc_center_y_mm[sel],
+                                     agcData.agc_nominal_x_mm[sel], agcData.agc_nominal_y_mm[sel],
+                                     nsigma=3)
 
             res = scipy.optimize.minimize(transform, transform.getArgs(), method='Powell')
             transform.setArgs(res.x)
@@ -918,7 +906,7 @@ def showGuiderErrors(agcData, config,
 
     S = None                  # returned by scatter
     Q = None                  # and quiver
-    plt.gca().set_prop_cycle(None)
+    ax.set_prop_cycle(None)
 
     agc_ring_R = np.mean(np.hypot(*np.array(list(agcCameraCenters.values())).T))  # Approx. radius of AGs
 
@@ -970,9 +958,9 @@ def showGuiderErrors(agcData, config,
         # OK, ready to plot
         #
         if config.rotateToAG1Down:
-            plt.gca().add_patch(Circle((0, 0), agc_ring_R, fill=False, color="red"))
+            ax.add_patch(Circle((0, 0), agc_ring_R, fill=False, color="red"))
         else:
-            plt.plot(plotData.xbar, plotData.ybar, '+',
+            ax.plot(plotData.xbar, plotData.ybar, '+',
                      color='red' if
                      config.showByVisit or (config.showAverageGuideStarPos and
                                             not (config.showGuideStarsAsArrows or
@@ -991,17 +979,17 @@ def showGuiderErrors(agcData, config,
             xend, yend = xg + 1e3*plotData.dx, yg + 1e3*plotData.dy
             if config.showGuideStarsAsPoints:
                 if config.showByVisit:
-                    S = plt.scatter(xend, yend, s=config.showByVisitSize,
+                    S = ax.scatter(xend, yend, s=config.showByVisitSize,
                                     alpha=config.showByVisitAlpha,
                                     vmin=np.min(agcData.agc_exposure_id),
                                     vmax=np.max(agcData.agc_exposure_id),
                                     c=plotData.agc_exposure_id, cmap=config.agc_exposure_cm)
                 else:
-                    plt.plot(xend, yend, '.', color=color, label=label, alpha=config.showByVisitAlpha,
+                    ax.plot(xend, yend, '.', color=color, label=label, alpha=config.showByVisitAlpha,
                              markersize=config.showByVisitSize)
                     labelled = True
             elif config.showGuideStarsAsArrows:
-                Q = plt.quiver(xg, yg, xend - xg, yend - yg, alpha=0.5, color=color, label=label)
+                Q = ax.quiver(xg, yg, xend - xg, yend - yg, alpha=0.5, color=color, label=label)
                 labelled = True
             else:
                 pass   # useful code path if config.showAverageGuideStarPos is true
@@ -1012,11 +1000,11 @@ def showGuiderErrors(agcData, config,
             ya = np.mean(tmp.agc_nominal_y_mm)/config.pfiScaleReduction + 1e3*tmp.dy
 
             if config.showAverageGuideStarPath:
-                plt.plot(xa.iloc[0], ya.iloc[0], '.', color='black', zorder=-10)
-                plt.plot(xa, ya, '-', color='black', alpha=0.25, zorder=-10)
+                ax.plot(xa.iloc[0], ya.iloc[0], '.', color='black', zorder=-10)
+                ax.plot(xa, ya, '-', color='black', alpha=0.25, zorder=-10)
 
             if config.showAverageGuideStarPos:
-                S = plt.scatter(xa, ya, s=config.showByVisitSize, alpha=config.showByVisitAlpha,
+                S = ax.scatter(xa, ya, s=config.showByVisitSize, alpha=config.showByVisitAlpha,
                                 vmin=tmp.agc_exposure_id.min(), vmax=tmp.agc_exposure_id.max(),
                                 c=tmp.agc_exposure_id, cmap=config.agc_exposure_cm)
 
@@ -1024,7 +1012,8 @@ def showGuiderErrors(agcData, config,
         if colorbar is None:
             a = S.get_alpha()
             S.set_alpha(1)
-            colorbar = plt.colorbar(S).set_label("agc_exposure_id")
+            colorbar = fig.colorbar(S, ax=ax)
+            colorbar.set_label("agc_exposure_id")
             S.set_alpha(a)
         else:
             colorbar.update_normal(S)
@@ -1034,16 +1023,16 @@ def showGuiderErrors(agcData, config,
 
     if Q is not None:
         qlen = config.guideErrorEstimate   # microns
-        plt.quiverkey(Q, 0.1, 0.9, qlen, f"{qlen} micron", color='black')
+        ax.quiverkey(Q, 0.1, 0.9, qlen, f"{qlen} micron", color='black')
 
     if not config.showGuideStarsAsArrows:
-        showAGCameraCartoon(showInstrot=True, showUp=config.rotateToAG1Down)
+        showAGCameraCartoon(showInstrot=True, showUp=config.rotateToAG1Down, ax1=ax)
     elif labelled:
-        L = plt.legend(loc="lower right", markerscale=1)
+        L = ax.legend(loc="lower right", markerscale=1)
         for lh in L.legendHandles:
             lh.set_alpha(1)
 
-    plt.gca().set_aspect(1)
+    ax.set_aspect(1)
     #
     # Fiddle limits
     #
@@ -1052,17 +1041,17 @@ def showGuiderErrors(agcData, config,
         lims = axScale*np.array([plt.xlim(), plt.ylim()])
     else:
         lims = 350/config.pfiScaleReduction*np.array([-1, 1])
-        plt.xlim(plt.ylim(np.min(lims), np.max(lims)))
+    ax.set_xlim(ax.set_ylim(np.min(lims), np.max(lims)))
 
-    plt.plot([0], [0], '+', color='red')
+    ax.plot([0], [0], '+', color='red')
 
     if Q is not None:
-        plt.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
+        ax.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     else:
-        plt.xlabel(r"$\delta$x (microns)")
-        plt.ylabel(r"$\delta$y (microns)")
+        ax.set_xlabel(r"$\delta$x (microns)")
+        ax.set_ylabel(r"$\delta$y (microns)")
 
-    plt.suptitle(config.make_title(agcData, name))
+    fig.suptitle(config.make_title(agcData, name))
 
     return guideErrorByCamera
 
@@ -2712,8 +2701,8 @@ def drawCircularArrow(radius, cen, theta12, clockwise=True, angle=0, ax=None, **
                                 **kwargs))
 
 
-def showAGCameraCartoon(showInstrot=False, showUp=False, lookingAtHardware=True, insrot=None):
-    ax = plt.gca().inset_axes([0.01, 0.01, 0.2, 0.2])
+def showAGCameraCartoon(ax1, showInstrot=False, showUp=False, lookingAtHardware=True, insrot=None):
+    ax = ax1.inset_axes([0.01, 0.01, 0.2, 0.2])
     ax.set_aspect(1)
     ax.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     ax.set_zorder(-1)
