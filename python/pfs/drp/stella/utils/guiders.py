@@ -481,6 +481,8 @@ def showAgcErrorsForVisits(agcData,
                            showLegend=True):
     """
     agcData: pandas DataFrame as returned by readAgcDataFromOpdb
+    pfs_visit_ids: only show these visits (default: None => all)
+    agc_exposure_ids: only show these agc exposures (default: None => all)
     byTime:  use time, not agc_exposure_id, as x-axis (default: False)
     yminmax: float Scale figures into +- yminmax (or 0, sqrt(2)*yminmax for rerror); or None
     figure:  matplotlib figure to use, or None
@@ -1991,7 +1993,9 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
               butler=None,
               forceAlpha=None,
               guiderFocus_to_M2_OFF3=1/800,
-              figure=None):
+              figure=None,
+              axes=None,
+              ):
     """
     Parameters:
     opdb:
@@ -2030,6 +2034,8 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
     useM2Off3 = True   # I.e. not M2POS3; almost always what you want;
               Used when plotBy == "focus"
     guiderFocus_to_M2_OFF3: convert guiderFocus (microns) to M2_OFF3 (mm)
+    figure: the matplotlib.Figure to use; or None
+    axes: An array of the appropriate number of matplotlib.Axes to use; or None
     """
 
     possibleArrays = ["focus", "agc_exposure_id", "altitude", "insrot"]
@@ -2141,8 +2147,13 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
         nPanel += 1
         height_ratios.append(3)
 
-    figure, axs = plt.subplots(nPanel, 1, num=figure, sharex=True, height_ratios=height_ratios, squeeze=False)
-    axs = axs.flatten()
+    if axes is None:
+        figure, axes = plt.subplots(nPanel, 1, num=figure, sharex=True,
+                                    height_ratios=height_ratios, squeeze=False)
+        axes = axes.flatten()
+    else:
+        assert len(axes) == nPanel, f"I need {nPanel} axes; you gave me {len(axes)}"
+
     figure.subplots_adjust(hspace=0.025)
 
     #
@@ -2153,16 +2164,14 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
     for AGActor in [True, False]:
         if AGActor:
             if showAGActorFocus:
-                ax = axs[ai]
+                ax = axes[ai]
                 ai += 1
-                plt.sca(ax)
             else:
                 continue
         else:
             if showOpdbFocus:
-                ax = axs[ai]
+                ax = axes[ai]
                 ai += 1
-                plt.sca(ax)
             else:
                 continue
 
@@ -2186,7 +2195,7 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                     _x, _y = xx[ll].to_numpy(), mmToMicrons*focus[ll][f"guide_delta_z{ic + 1}"].to_numpy()
                     if averageByFocusPosition:
                         _x, _y = averageArraysByFocusPosition(focus.focusPosition[ll], _x, _y)
-                    plt.plot(_x, _y, marker, alpha=alpha, color=f"C{ic}", label=f"AG{ic + 1}")
+                    ax.plot(_x, _y, marker, alpha=alpha, color=f"C{ic}", label=f"AG{ic + 1}")
             else:
                 grouped = focus.groupby(["agc_exposure_id"])
                 _focus = grouped.agg(
@@ -2250,9 +2259,9 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
 
                 color = f"C{ic}"
                 if not (showMedian and showOnlyMedian):
-                    plt.plot(xx, yy, marker, alpha=alpha, color=color)
+                    ax.plot(xx, yy, marker, alpha=alpha, color=color)
                 if len(xx) > 0:
-                    plt.plot([np.NaN], [np.NaN], marker, color=color, label=f"AG{ic + 1}")
+                    ax.plot([np.NaN], [np.NaN], marker, color=color, label=f"AG{ic + 1}")
 
                 if showMedian:
                     if plotBy == "focus":
@@ -2268,8 +2277,8 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                     for i, xv in enumerate(xvals):
                         _xx[i] = xv
                         _yy[i] = np.nanmedian(yy[np.abs(xx - xv) < 1/scaling])
-                    plt.plot(_xx, _yy, '-' if connectMedian else marker,
-                             color=color, alpha=1 if connectMedian else alpha)
+                    ax.plot(_xx, _yy, '-' if connectMedian else marker,
+                            color=color, alpha=1 if connectMedian else alpha)
 
                 del _focus
 
@@ -2277,50 +2286,49 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
 
         S = None
         if colorBy == "camera":
-            plt.legend(ncols=6)
+            ax.legend(ncols=6)
         else:
             if len(focus[colorBy].unique()) == 0:
-                plt.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
+                ax.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
             else:
                 markByCamera = False   # doesn't work -- need to groupby camera
                 if markByCamera:
                     for c in sorted(set(agc_camera_id)):
                         m = {0: 'o', 1: 'v', 2: '^', 3: '<', 4: '>', 5: 'P', 6: 'h'}[c]
                         ll = agc_camera_id == c
-                        S = plt.scatter(xx[ll], yy[ll], c=cc[ll], marker=m, label=f"AG{c+1}",
-                                        alpha=alpha, zorder=10)
+                        S = ax.scatter(xx[ll], yy[ll], c=cc[ll], marker=m, label=f"AG{c+1}",
+                                       alpha=alpha, zorder=10)
                 else:
-                    S = plt.scatter(xx, yy, c=cc, marker=marker, alpha=alpha, zorder=10)
+                    S = ax.scatter(xx, yy, c=cc, marker=marker, alpha=alpha, zorder=10)
 
-        plt.axhline(0, color='black', alpha=0.5)
+        ax.axhline(0, color='black', alpha=0.5)
         if showPfiFocusPosition:
             if AGActor:
                 # N.b. AG already corrects for an estimate of AG -> PFI correction
-                plt.axhline(0, color='red', label="PFI")
+                ax.axhline(0, color='red', label="PFI")
             else:
                 # correction for AG -> PFI focal planes
-                plt.axhline(-mmToMicrons*focusOffset, color='red', label="PFI")
-            plt.legend(ncols=7)
+                ax.axhline(-mmToMicrons*focusOffset, color='red', label="PFI")
+            ax.legend(ncols=7)
 
         if yLimitsMicron[0] != 0:
-            plt.ylim(1e-3*mmToMicrons*np.array(yLimitsMicron))
+            ax.set_ylim(1e-3*mmToMicrons*np.array(yLimitsMicron))
 
-        plt.ylabel(f"{ylab}\n({'mm' if mmToMicrons == 1 else 'micron'})")
+        ax.set_ylabel(f"{ylab}\n({'mm' if mmToMicrons == 1 else 'micron'})")
 
     if S is not None:
         with opaqueColorbar(S):
-            plt.colorbar(S, label=colorBy, ax=axs[0], location='top', aspect=45)
+            ax.colorbar(S, label=colorBy, ax=axes[0], location='top', aspect=45)
 
-    secay = plt.gca().secondary_yaxis('right',
-                                      functions=(lambda x: x*guiderFocus_to_M2_OFF3,
-                                                 lambda x: x/guiderFocus_to_M2_OFF3))
+    secay = axes[0].secondary_yaxis('right',
+                                    functions=(lambda x: x*guiderFocus_to_M2_OFF3,
+                                               lambda x: x/guiderFocus_to_M2_OFF3))
     secay.set_ylabel(r"$\Delta$ M2_OFF3 (mm)")
     # -------------
 
     if showFWHM:
-        ax = axs[ai]
+        ax = axes[ai]
         ai += 1
-        plt.sca(ax)
 
         x = tmp[what]
 
@@ -2348,19 +2356,19 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                     m = marker if show_left else '*'
                     s = (6 if show_left else 4.5)**2
 
-                    plt.scatter(xx[lll], yy[lll], c=tmp.agc_camera_id[lll],
-                                s=s, marker=m, alpha=alpha, cmap=cmap, norm=norm)
-                    plt.scatter([np.nan], [np.nan], marker=m, s=s,
-                                label="left" if show_left else "right", c="black")
+                    ax.scatter(xx[lll], yy[lll], c=tmp.agc_camera_id[lll],
+                               s=s, marker=m, alpha=alpha, cmap=cmap, norm=norm)
+                    ax.scatter([np.nan], [np.nan], marker=m, s=s,
+                               label="left" if show_left else "right", c="black")
 
                 for agc_camera_id in range(6):
                     if np.sum(ll & (tmp.agc_camera_id == agc_camera_id)) > 0:
                         color = f"C{agc_camera_id}"
-                        plt.plot([np.nan], [np.nan], marker, color=color, label=f"AG{agc_camera_id + 1}")
+                        ax.plot([np.nan], [np.nan], marker, color=color, label=f"AG{agc_camera_id + 1}")
 
-                plt.legend(ncol=8, columnspacing=1.3)
+                ax.legend(ncol=8, columnspacing=1.3)
             else:
-                plt.scatter(xx, yy, c=np.where(tmp.left, 'red', 'green'), marker=marker, alpha=alpha)
+                ax.scatter(xx, yy, c=np.where(tmp.left, 'red', 'green'), marker=marker, alpha=alpha)
                 if what == "focusPosition":
                     for lr, color in zip([tmp.left, ~tmp.left], ["red", "green"]):
                         ii = np.argsort(tmp.agc_exposure_id[lr])
@@ -2368,12 +2376,12 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                         if maxFWHM is not None:
                             _yy[_yy > maxFWHM] = np.NaN
 
-                        plt.plot(_xx, _yy, 'o', color=color, alpha=alpha)
+                        ax.plot(_xx, _yy, 'o', color=color, alpha=alpha)
 
         if showOnlyMedian and not showCameraId:
-            plt.plot([np.NaN], [np.NaN], 'o', color="red", label="left")
-            plt.plot([np.NaN], [np.NaN], 'o', color="green", label="right")
-            plt.legend()
+            ax.plot([np.NaN], [np.NaN], 'o', color="red", label="left")
+            ax.plot([np.NaN], [np.NaN], 'o', color="green", label="right")
+            ax.legend()
 
         if False:
             f_ratio = 2.2
@@ -2391,7 +2399,7 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                     R *= plateScale/pixelSize
 
                     # Moment of inertia of disk is R^2/2
-                    plt.plot(xx, np.sqrt(FWHM**2 - (R**2)/2), '.', color="black")
+                    ax.plot(xx, np.sqrt(FWHM**2 - (R**2)/2), '.', color="black")
 
         x = focus[what]
         if showMedian or showOnlyMedian:
@@ -2404,16 +2412,16 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
 
                     for left in [True, False]:
                         lll = focus.left[ll] == left
-                        plt.plot(xx[lll], yy[lll], '*' if left else '.', alpha=alpha, color=color)
+                        ax.plot(xx[lll], yy[lll], '*' if left else '.', alpha=alpha, color=color)
                     # just for the legend
                     if c == 1:
-                        plt.plot([np.NaN], [np.NaN], '*', color='black', label="left")
-                        plt.plot([np.NaN], [np.NaN], '.', color='black', label="right")
+                        ax.plot([np.NaN], [np.NaN], '*', color='black', label="left")
+                        ax.plot([np.NaN], [np.NaN], '.', color='black', label="right")
 
                     if sum(ll) > 0:
-                        plt.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{c}")
+                        ax.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{c}")
 
-                plt.legend(ncol=8, columnspacing=1.3)
+                ax.legend(ncol=8, columnspacing=1.3)
 
             else:
                 focusOffsets = (np.sort(list(set(1000*x))).astype(int) + 0.5)/1000  # round to the nearest um
@@ -2424,11 +2432,11 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                     for i, f in enumerate(focusOffsets):
                         _x[i] = f
                         _FWHM[i] = np.nanmedian(focus.FWHM[ll & (np.abs(x - f) < 2e-3)])
-                    plt.plot(_x, _FWHM, '-', color='red' if left else 'green')
+                    ax.plot(_x, _FWHM, '-', color='red' if left else 'green')
 
-        plt.ylim(minFWHM, maxFWHM)
+        ax.set_ylim(minFWHM, maxFWHM)
 
-        plt.ylabel(r"FWHM (arcsec)")
+        ax.set_ylabel(r"FWHM (arcsec)")
 
     visits = np.sort(focus.pfs_visit_id.unique())
     magLimitsStr = ""
@@ -2441,15 +2449,15 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
             magLimitsStr += f" < {magMax}"
 
     figure.supxlabel((("M2_OFF3" if useM2Off3 else "M2_POS3") + " (mm)") if what == "focusPosition" else what)
-    plt.suptitle("pfs_visit_id "
-                 + (f"{','.join(str(v) for v in visits)}" if len(visits) < 5 else
-                    f"{visits[0]}..{visits[-1]}")
-                 + (" only GAIA stars" if onlyGuideStars else "")
-                 + (f"\n{', '.join(f'AG{int(c) + 1}' for c in np.sort(focus.agc_camera_id.unique()))}")
-                 + (f"  {magLimitsStr}" if magLimitsStr else "")
-                 + "  " + ("traceRadius" if useTraceRadius else "detRadius"),
-                 y=1
-                 )
+    figure.suptitle("pfs_visit_id "
+                    + (f"{','.join(str(v) for v in visits)}" if len(visits) < 5 else
+                       f"{visits[0]}..{visits[-1]}")
+                    + (" only GAIA stars" if onlyGuideStars else "")
+                    + (f"\n{', '.join(f'AG{int(c) + 1}' for c in np.sort(focus.agc_camera_id.unique()))}")
+                    + (f"  {magLimitsStr}" if magLimitsStr else "")
+                    + "  " + ("traceRadius" if useTraceRadius else "detRadius"),
+                    y=1
+                    )
 
     if showFocusSets:
         focusPosition = np.round(1e3*focus.focusPosition.to_numpy())/1e3  # round to nearest micron
@@ -2458,10 +2466,8 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
         change = focus[what][:-1].to_numpy()[np.where(np.abs(np.diff(focusPosition)) > 1e-3)]
         what0 = np.min(focus[what])
         for i, what1 in enumerate(list(change) + [np.max(focus[what])]):
-            for ax in axs:
-                plt.sca(ax)
-
-                plt.axvspan(what0, what1, color='black' if i%2 == 0 else 'brown', alpha=0.1, zorder=-1)
+            for ax in axes:
+                ax.axvspan(what0, what1, color='black' if i%2 == 0 else 'brown', alpha=0.1, zorder=-1)
             what0 = what1
 
     #
@@ -2488,7 +2494,7 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
 
     class ShowFocusFit:
         def __init__(self):
-            ax = axs[0]
+            ax = axes[0]
 
             self._ax = ax
             self._text = ax.text(0.99, 0.02, "Click to set M2_OFF3",
@@ -2516,11 +2522,9 @@ def plotFocus(opdb, visits, AGC=range(1, 6+1),
                 ax.set_ylim(ylim)
 
     if showAGActorFocus and showOpdbFocus:
-        axs[1].sharey(axs[0])
+        axes[1].sharey(axes[0])
 
-    for ax in axs:
-        plt.sca(ax)
-
+    for ax in axes:
         if what == "agc_exposure_id":
             showVisitBoundaries(tmp, visits)
             ax.format_coord = FormatCoord(tmp)
