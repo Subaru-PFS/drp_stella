@@ -1026,7 +1026,7 @@ def showGuiderErrors(agcData, config,
         for aid in agc_exposure_ids:
             if (config.onlyShutterOpen and (agcData.shutter_open == 0)[agcData.agc_exposure_id == aid].any()):
                 continue
-            if (config.maxGuideError > 0 and float(guidingErrors.loc[aid]) > 1e-3*config.maxGuideError):
+            if (config.maxGuideError > 0 and float(guidingErrors.loc[aid].squeeze()) > 1e-3*config.maxGuideError):
                 continue
 
             config.agc_exposure_id0 = np.where(agc_exposure_ids == aid)[0][0]
