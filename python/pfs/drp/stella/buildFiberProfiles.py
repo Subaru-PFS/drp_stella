@@ -11,7 +11,7 @@ from lsst.afw.geom import SpanSet
 from lsst.afw.image import ExposureF, MaskedImageF
 from lsst.afw.display import Display
 
-from pfs.datamodel import FiberStatus, CalibIdentity
+from pfs.datamodel import FiberStatus, CalibIdentity, Identity
 from pfs.drp.stella.traces import findTracePeaks, centroidPeak, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
@@ -19,6 +19,7 @@ from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.images import convolveImage
 from pfs.drp.stella import DetectorMap
 from .datamodel import PfsConfig
+from .scatteredLight import ScatteredLightTask
 
 import lsstDebug
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -50,8 +51,10 @@ class BuildFiberProfilesConfig(Config):
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
     profileTol = Field(dtype=float, default=1.0e-4, doc="Tolerance for matrix inversion when fitting profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
-    extractIter = Field(dtype=int, default=2, doc="Number of iterations for spectral extraction loop")
+    extractIter = Field(dtype=int, default=3, doc="Number of iterations for spectral extraction loop")
     minFracMask = Field(dtype=float, default=0.1, doc="Minimum pixel fraction of profile to accumulate mask")
+    doScatteredLight = Field(dtype=bool, default=True, doc="Correct for scattered light?")
+    scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light removal")
 
 
 class BuildFiberProfilesTask(Task):
@@ -62,6 +65,7 @@ class BuildFiberProfilesTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("centerFit")
+        self.makeSubtask("scatteredLight")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def run(
@@ -295,6 +299,7 @@ class BuildFiberProfilesTask(Task):
                     sigma, height, self.config.profileRadius, self.config.profileOversample
                 )
 
+            scattered: List[MaskedImageF] = []  # Images corrected for scattered light
             for jj in range(num):
                 badBitMask = imageList[jj].mask.getPlaneBitMask(self.config.mask)
                 spectra = fluxProfiles.extractSpectra(
@@ -307,10 +312,21 @@ class BuildFiberProfilesTask(Task):
                         flux[isBad] = np.interp(rows[isBad], rows[~isBad], flux[~isBad], 0.0, 0.0)
                     normList[jj][fiberIndices[ss.fiberId]] = flux
 
+                image = imageList[jj].clone()
+                if self.config.doScatteredLight:
+                    self.scatteredLight.run(
+                        image,
+                        spectra.toPfsArm(
+                            Identity(visit=-1, arm=identity.arm, spectrograph=identity.spectrograph)
+                        ),
+                        detectorMapList[jj],
+                    )
+                scattered.append(image)
+
             self.log.info("Starting profile extraction iteration %d (sigma=%f)...", ii + 1, sigma)
             profiles = FiberProfileSet.fromImages(
                 identity,
-                imageList,
+                scattered,
                 fiberId,
                 centersList,
                 normList,
@@ -658,9 +674,11 @@ class BuildFiberProfilesTask(Task):
         if self.config.badFibers:
             fiberId = np.array(list(set(fiberId) - set(self.config.badFibers)))
         traces = {}
+        rows = np.arange(detectorMap.bbox.getMaxY() + 1)
         for ff in fiberId:
             xCenter = detectorMap.getXCenter(ff)
-            traces[ff] = [TracePeak(yy, int(xx), xx, int(xx)) for yy, xx in enumerate(xCenter)]
+            good = np.isfinite(xCenter)
+            traces[ff] = [TracePeak(yy, int(xx), xx, int(xx)) for yy, xx in zip(rows[good], xCenter[good])]
         return traces
 
     def centroidTrace(self, maskedImage, peakList):
