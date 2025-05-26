@@ -304,6 +304,11 @@ def readAGCStarsForVisitSetByPfsVisitId(opdb, visits, flipToHardwareCoords=True,
         stars = readAGCStarsForVisitByPfsVisitId(opdb, v, flipToHardwareCoords,
                                                  useTraceRadius=useTraceRadius, butler=butler)
         if len(stars) > 0:
+            if False:
+                for f in stars:
+                    if np.sum(stars[f].isna()) == len(stars):
+                        stars[f] = 0
+
             dd.append(stars)
 
     if len(dd) == 0:
@@ -561,14 +566,17 @@ def showAgcErrorsForVisits(agcData,
 
 def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                                    AGC=range(1, 6+1), plotBy="agc_exposure_id", colorBy="camera",
-                                   showAltInsrot=False, plotXY=False,
+                                   showCamerasAsLegend=True,
+                                   showAltInsrot=False, plotXY=False, connectDxDy=False, plotXYStride=1,
+                                   nVisitMin=0,
                                    yminmax=0, what="agc_exposure_id", showFocusSets=False,
                                    alpha=0.5, figure=None, axes=None):
     """
     Break down AGC errors per camera
 
-    Note the this routine can read from the database, or it can reuse a passed-in dataframe.  Either
-    way it returns the dataframe, which may be used next time (and the requested visits are silently ignored)
+    Note the this routine can read from the database using readAGCStarsForVisitSetByPfsVisitId(), or it
+    can reuse a passed-in dataframe.  Either way it returns the dataframe, which may be used next time
+    (and the requested visits are silently ignored). It may also be passed to plotFocus
 
        agcData = None
        agcData = showAgcErrorsForVisitsByCamera(opdb, agcData=agcData, ...)
@@ -576,6 +584,12 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
        ...
 
     showAltInsrot:  show offsets as a function of altitude and insrot
+    showCamerasAsLegend: If true, identify cameras in a legend not a colorbar (True)
+    plotXY: `bool`  plot the per-camera offsets
+    connectDxDy: `bool` Connect the offsets when plotXY is True
+    plotXYStride: `int` Only plot every plotXYStride'th agc_exposure when plotXY is True
+       If None, plot averages per visits
+    nVisitMin: `int` only plot visits when plotXY with more than this many points in a camera
     figure: the matplotlib.Figure to use; or None
     axes: An array of the appropriate number of matplotlib.Axes to use; or None
     """
@@ -620,15 +634,26 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
     agcData["dx"] = agcData.agc_nominal_x_mm - agcData.agc_center_x_mm
     agcData["dy"] = agcData.agc_nominal_y_mm - agcData.agc_center_y_mm
 
+    if True:
+        # unpack 6 guide_delta_zN columns into guide_delta_z_camera
+        guide_delta_z_cid = np.empty(len(agcData))
+        for ic in agcData.agc_camera_id.unique():
+            ic = int(ic)
+            ll = agcData.agc_camera_id == ic
+            guide_delta_z_cid = np.where(agcData.agc_camera_id == ic,
+                                         agcData[f"guide_delta_z{ic + 1}"], guide_delta_z_cid)
+        agcData["guide_delta_z_cid"] = guide_delta_z_cid
+
     grouped = agcData.groupby(["agc_exposure_id", "agc_camera_id"], as_index=True)
     tmp_ac = grouped.agg(dx=("dx", "mean"),
                          dy=("dy", "mean"),
                          altitude=("altitude", "first"),
                          insrot=("insrot", "first"),
                          pfs_visit_id=("pfs_visit_id", "first"),
+                         guide_delta_z_cid=("guide_delta_z_cid", "first"),
                          )
-    tmp_a = tmp_ac.groupby("agc_exposure_id", as_index=True).agg(dx=("dx", "median"), dy=("dy", "mean"))
-    tmp_c = tmp_ac.groupby("agc_camera_id", as_index=True).agg(dx=("dx", "median"), dy=("dy", "mean"))
+    tmp_a = tmp_ac.groupby("agc_exposure_id", as_index=True).agg(dx=("dx", "mean"), dy=("dy", "mean"))
+    tmp_c = tmp_ac.groupby("agc_camera_id", as_index=True).agg(dx=("dx", "median"), dy=("dy", "median"))
 
     tmp_ac.dx -= tmp_c.dx   # correct for unknown positions of the cameras
     tmp_ac.dy -= tmp_c.dy
@@ -649,18 +674,38 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
             cmap = plt.matplotlib.colors.ListedColormap([f"C{i}" for i in range(6)])
             norm = plt.matplotlib.colors.Normalize(0.5, 6.5)
 
-            grouped = tmp_ac.groupby(["pfs_visit_id", "agc_camera_id"], as_index=False)
-            tmp_acv = grouped.agg(dx=("dx", "median"),
-                                  dy=("dy", "median"),
-                                  altitude=("altitude", "first"),
-                                  insrot=("insrot", "first"),
-                                  )
+            if plotXYStride is None:    # plot per pfs_visit instead
+                grouped = tmp_ac[np.isfinite(tmp_ac.dx + tmp_ac.dy)].groupby(
+                    ["pfs_visit_id", "agc_camera_id"], as_index=False)
+                tmp_acv = grouped.agg(dx=("dx", "mean"),
+                                      dy=("dy", "mean"),
+                                      altitude=("altitude", "first"),
+                                      insrot=("insrot", "first"),
+                                      nagc_exposures_per_visit=("agc_exposure_id", "count"),
+                                      )
+                if nVisitMin > 0:
+                    tmp_acv = tmp_acv[tmp_acv.nagc_exposures_per_visit > nVisitMin]
+                plotXYStride = 1
+            else:
+                tmp_acv = tmp_ac
 
-            c = tmp_acv.agc_camera_id + 1
-            S = ax.scatter(1e3*tmp_acv.dx, 1e3*tmp_acv.dy, c=c, norm=norm, cmap=cmap, alpha=alpha)
-            for c in tmp_acv.agc_camera_id:
-                ll = tmp_acv.agc_camera_id == c
-                plt.plot(1e3*tmp_acv.dx[ll], 1e3*tmp_acv.dy[ll], color=f"C{c}", alpha=1)
+            for cid in tmp_acv.agc_camera_id.unique():
+                dx, dy = 1e3*tmp_acv.dx, 1e3*tmp_acv.dy
+                c = tmp_acv.agc_camera_id + 1
+
+                ll = tmp_acv.agc_camera_id == cid
+                dx = dx[ll]
+                dy = dy[ll]
+                c = c[ll]
+
+                if plotXYStride > 0:
+                    dx = dx[::plotXYStride]
+                    dy = dy[::plotXYStride]
+                    c = c[::plotXYStride]
+
+                S = ax.scatter(dx, dy, c=c, norm=norm, cmap=cmap, alpha=alpha)
+                if connectDxDy:
+                    plt.plot(dx, dy, color=f"C{cid}", alpha=alpha)
 
             if yminmax > 0:
                 ax.set_xlim(ax.set_ylim(yminmax*np.array([-1, 1])))
@@ -703,11 +748,17 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                 if yminmax > 0:
                     ax.set_ylim(yminmax*np.array([-1, 1]))
 
-        with opaqueColorbar(S):
-            from mpl_toolkits.axes_grid1 import make_axes_locatable
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            figure.colorbar(S, label=colorbarLabel, cax=cax, orientation='vertical')
+        if colorBy == "camera" and showCamerasAsLegend:
+            if z == "y":
+                for cid in np.sort(tmp_ac.agc_camera_id.unique()):
+                    ax.plot([np.nan], 'o', color=f"C{cid}", label=f"AG{cid + 1}")
+                ax.legend(ncol=6)
+        else:
+            with opaqueColorbar(S):
+                from mpl_toolkits.axes_grid1 import make_axes_locatable
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                figure.colorbar(S, label=colorbarLabel, cax=cax, orientation='vertical')
 
         if plotBy == "agc_exposure_id":
             visits = np.sort(agcData.pfs_visit_id.unique())
@@ -730,7 +781,7 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                     y=1
                     )
 
-    return agcData0
+    return agcData0, tmp_ac
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -2150,7 +2201,8 @@ def setImageSizes(tmp, useTraceRadius=True):
         tmp["rms"] = np.where(bad, np.nan, (tmp.mxx*tmp.myy - tmp.mxy**2)**0.25)
 
     tmp["FWHM"] = 2*np.sqrt(2*np.log(2))*tmp.rms   # Gaussian equivalent
-    tmp.FWHM *= 0.14  # Convert to arcsec
+    tmp.FWHM *= 0.137                              # Convert to arcsec; 13micron pixels
+    pass                                           # The scale at the AG cameras is 94.7micron/arcsec (JEG)
     tmp["left"] = (tmp.agc_data_flags & 0x1) == 0x0
 
     return tmp
@@ -2263,8 +2315,9 @@ def plotFocus(opdb, visits, agcData=None,
               axes=None,
               ):
     """
-    Note the this routine can read from the database, or it can reuse a passed-in dataframe.  Either
-    way it returns the dataframe, which may be used next time (and the requested visits are silently ignored)
+    Note the this routine can read from the database using readAGCStarsForVisitSetByPfsVisitId(), or it
+    can reuse a passed-in dataframe.  Either way it returns the dataframe, which may be used next time
+    (and the requested visits are silently ignored). It may also be passed to showAgcErrorsForVisitsByCamera
 
        agcData = None
        agcData = plotFocus(opdb, agcData=agcData, ...)
@@ -2545,7 +2598,7 @@ def plotFocus(opdb, visits, agcData=None,
                 if not (showMedian and showOnlyMedian):
                     ax.plot(xx, yy, marker, alpha=alpha, color=color)
                 if len(xx) > 0:
-                    ax.plot([np.NaN], [np.NaN], marker, color=color, label=f"AG{ic + 1}")
+                    ax.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{ic + 1}")
 
                 if showMedian:
                     if plotBy == "focus":
@@ -2575,15 +2628,7 @@ def plotFocus(opdb, visits, agcData=None,
             if len(focus[colorBy].unique()) == 0:
                 ax.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
             else:
-                markByCamera = False   # doesn't work -- need to groupby camera
-                if markByCamera:
-                    for c in sorted(set(agc_camera_id)):
-                        m = {0: 'o', 1: 'v', 2: '^', 3: '<', 4: '>', 5: 'P', 6: 'h'}[c]
-                        ll = agc_camera_id == c
-                        S = ax.scatter(xx[ll], yy[ll], c=cc[ll], marker=m, label=f"AG{c+1}",
-                                       alpha=alpha, zorder=10)
-                else:
-                    S = ax.scatter(xx, yy, c=cc, marker=marker, alpha=alpha, zorder=10)
+                S = ax.scatter(xx, yy, c=cc, marker=marker, alpha=alpha, zorder=10)
 
         ax.axhline(0, color='black', alpha=0.5)
         if showPfiFocusPosition:
@@ -2652,7 +2697,7 @@ def plotFocus(opdb, visits, agcData=None,
                 for agc_camera_id in range(6):
                     if np.sum(ll & (agcData.agc_camera_id == agc_camera_id)) > 0:
                         color = f"C{agc_camera_id}"
-                        ax.plot([np.nan], [np.nan], marker, color=color, label=f"AG{agc_camera_id + 1}")
+                        ax.plot([np.nan], [np.nan], 'o', color=color, label=f"AG{agc_camera_id + 1}")
 
                 ax.legend(ncol=8, columnspacing=1.3)
             else:
