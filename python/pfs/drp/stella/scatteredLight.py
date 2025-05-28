@@ -159,7 +159,7 @@ class ScatteredLightModel:
         if True:
             flux_new = []
             for wav, flx, msk in zip(pfsArm.wavelength, pfsArm.flux, pfsArm.mask):
-                bad = msk != 0
+                bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
                 flx[bad] = np.nan
                 invalid_indices = np.where(bad)[0]
                 for i in invalid_indices:
