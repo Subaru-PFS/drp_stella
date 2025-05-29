@@ -26,8 +26,10 @@ class ScatteredLightModel:
 
     Parameters
     ----------
-    scale : `float`
-        Overall scale factor for the scattered light model.
+    top : `float`
+        Scale factor for the scattered light model at top.
+    bottom : `float`
+        Scale factor for the scattered light model at bottom.
     frac1 : `float`
         Fraction of the total power in the first component.
     powerLaw1 : `float`
@@ -43,14 +45,15 @@ class ScatteredLightModel:
     halfSize : `int`
         Half-size of the kernel (pixels).
     """
-    scale: float = 1.0  # Overall scale factor for the scattered light model
-    frac1: float = 0.048  # Fraction of the total power in the first component
+    top: float = 1.0        # Scale factor for the scattered light model at top
+    bottom: float = 1.0     # Scale factor for the scattered light model at bottom
+    frac1: float = 0.048    # Fraction of the total power in the first component
     powerLaw1: float = 1.5  # Power-law index (2-D) of the first component
-    soften1: float = 1.0  # Softening (pixels) of the first component
-    frac2: float = 0.010  # Fraction of the total power in the second component
+    soften1: float = 1.0    # Softening (pixels) of the first component
+    frac2: float = 0.010    # Fraction of the total power in the second component
     powerLaw2: float = 3.0  # Power-law index (2-D) of the second component
-    soften2: float = 5.0  # Softening (pixels) of the second component
-    halfSize: int = 4096  # Half-size of the kernel (pixels)
+    soften2: float = 5.0    # Softening (pixels) of the second component
+    halfSize: int = 4096    # Half-size of the kernel (pixels)
 
     @property
     def grid(self):
@@ -185,6 +188,7 @@ class ScatteredLightModel:
             model = gapped
 
         # Convolve; zero-padded but that's OK as we're using a model with a background of zero
+        self.scale = np.interp(np.arange(0, height), [0, height-1], [self.bottom, self.top])[:, np.newaxis]
         scattered = self.scale*signal.convolve(model, self.makeKernel(), mode='same')
 
         if xGap is not None:
@@ -197,16 +201,22 @@ class ScatteredLightModel:
 
 
 class ScatteredLightConfig(Config):
-    scale = DictField(
+    top = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=1.0),
-        doc="Scale factor for the scattered light model, indexed by camera name or 'default'",
+        default=dict(default=1.0, b1=1.0, b2=1.0, b3=1.0, b4=1.0, r1=0.8, r2=0.8, r3=0.8, r4=0.8, n1=1.0, n2=1.0, n3=1.0, n4=1.0, m1=0.9, m2=0.9, m3=0.9, m4=0.9),
+        doc="Scale factor for the scattered light model at top, indexed by camera name or 'default'",
+    )
+    bottom = DictField(
+        keytype=str,
+        itemtype=float,
+        default=dict(default=1.0, b1=1.0, b2=1.0, b3=1.0, b4=1.0, r1=1.1, r2=1.1, r3=1.1, r4=1.1, n1=1.0, n2=1.0, n3=1.0, n4=1.0, m1=1.1, m2=1.1, m3=1.1, m4=1.1),
+        doc="Scale factor for the scattered light model at bottom, indexed by camera name or 'default'",
     )
     frac1 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.035, r2=0.040, r3=0.045, r4=0.070, n1=0.065, n2=0.068, n3=0.050, n4=0.060, m1=0.040, m2=0.040, m3=0.053, m4=0.060),
+        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.037, r2=0.040, r3=0.043, r4=0.070, n1=0.065, n2=0.068, n3=0.050, n4=0.060, m1=0.040, m2=0.040, m3=0.053, m4=0.060),
         doc="Fraction of the total power in the first component, indexed by camera name or 'default'",
     )
     powerLaw1 = DictField(
@@ -279,7 +289,8 @@ class ScatteredLightConfig(Config):
         """
         camera = f"{arm}{spectrograph}"
         return ScatteredLightModel(
-            scale=self.getValue("scale", camera),
+            top=self.getValue("top", camera),
+            bottom=self.getValue("bottom", camera),
             frac1=self.getValue("frac1", camera),
             powerLaw1=self.getValue("powerLaw1", camera),
             soften1=self.getValue("soften1", camera),
@@ -314,7 +325,7 @@ class ScatteredLightTask(Task):
             Scattered light model image.
         """
         model = self.config.getModel(pfsArm.identity.arm, pfsArm.identity.spectrograph)
-        if model.scale == 0.0:
+        if model.top == 0.0 and model.bottom == 0.0:
             self.log.warn("Scattered light model scale is zero; not subtracting")
             return Struct(model=None)
         self.log.info("Subtracting scattered light model: %s", model)
