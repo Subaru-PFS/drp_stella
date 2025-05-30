@@ -1,12 +1,21 @@
 import numpy as np
 
 import lsst.utils.tests
+from lsst.pex.exceptions import InvalidParameterError
 from pfs.drp.stella.tests.utils import runTests, methodParameters
-from pfs.drp.stella.utils.polynomialND import NormalizedPolynomialND, getPolynomialOrder, getExponents
+from pfs.drp.stella.math import NormalizedPolynomialND
 
 import math
 
 eps = np.nextafter(np.float64(1), np.inf) - np.float64(1)
+
+
+def getExponents(order, nVars):
+    """Get the exponents for a normalized polynomial of given order and number of variables."""
+    return np.array(NormalizedPolynomialND.getExponents(nVars, order))
+
+
+getPolynomialOrder = NormalizedPolynomialND.orderFromNParameters
 
 
 class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
@@ -14,13 +23,13 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
 
     def testGetPolynomialOrder(self):
         """Test getPolynomialOrder(nVars, nParams)"""
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             getPolynomialOrder(0, 1)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             getPolynomialOrder(1, 0)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             getPolynomialOrder(4, 2)
 
         self.assertEqual(getPolynomialOrder(4, math.comb(4 + 9, 9)), 9)
@@ -47,13 +56,7 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
         )
 
     def testUnivariate(self):
-        """Test `NormalizedPolynomialND` when N = 1
-
-        ``NormalizedPolynomialND(params, left, right)``, when ``left`` and
-        ``right`` are scalars, behaves differently from
-        ``NormalizedPolynomialND(params, [left], [right])``.
-        We test the former here.
-        """
+        """Test `NormalizedPolynomialND` when N = 1"""
         np.random.seed(54321)
 
         order = 5
@@ -64,14 +67,12 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
         right = 2.0
 
         params = np.random.uniform(-2, 2, size=(nParams,))
-        x = np.random.uniform(-2, 2, size=(nPoints,))
+        x = np.random.uniform(-2, 2, size=(nPoints, 1))
 
-        poly = NormalizedPolynomialND(params, left, right)
+        poly = NormalizedPolynomialND(params, np.array([left]), np.array([right]))
 
-        self.assertEqual(poly(x[0]).shape, ())
+        self.assertIsInstance(poly(x[0]), float)
         self.assertEqual(poly(x).shape, (nPoints,))
-
-        self.assertFloatsAlmostEqual(poly(x), poly(x.reshape(-1, 2, nVars)).reshape(-1), rtol=16 * eps)
 
         self.assertFloatsAlmostEqual(poly(x)[0], poly(x[0]), rtol=16 * eps)
 
@@ -96,13 +97,11 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
 
         poly = NormalizedPolynomialND(params, minVertex, maxVertex)
 
-        self.assertFloatsAlmostEqual(
-            poly(x).reshape(-1), poly(x.reshape(-1, 2, nVars)).reshape(-1), rtol=16 * eps
-        )
-
         self.assertFloatsAlmostEqual(poly(x)[0], poly(x[0, :]), rtol=16 * eps)
 
         normalizedX1 = (x[1, :] - minVertex) / (maxVertex - minVertex)
+
+        self.assertFloatsAlmostEqual(poly.normalize(x[1, :]), normalizedX1)
 
         self.assertFloatsAlmostEqual(
             np.prod(normalizedX1.reshape(1, nVars) ** getExponents(order, nVars), axis=(1,)) @ params,
