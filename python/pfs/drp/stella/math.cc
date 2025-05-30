@@ -64,6 +64,98 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
 }
 
 
+template <typename T>
+void declarePolynomialN(py::module & mod, std::string const& suffix) {
+    using Class = PolynomialFunctionN<T>;
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("PolynomialFunctionN" + suffix).c_str());
+
+    cls.def(py::init<unsigned int, unsigned int>(), "dims"_a, "order"_a);
+    cls.def(py::init<unsigned int, ndarray::Array<double, 1, 1> const&>(), "dims"_a, "params"_a);
+
+    // These inherited from lsst::afw::math::Function
+    cls.def("getNParameters", &Class::getNParameters);
+    cls.def("getParameter", &Class::getParameter, "index"_a);
+
+    cls.def("clone", &Class::clone);
+    cls.def("getDimensions", &Class::getDimensions);
+    cls.def("getParameters", &Class::getParameters);
+    cls.def("getOrder", &Class::getOrder);
+    cls.def_static("nParametersFromOrder", &Class::nParametersFromOrder, "dims"_a, "order"_a);
+    cls.def_static("orderFromNParameters", &Class::orderFromNParameters, "dims"_a, "nParameters"_a);
+
+    cls.def(
+        "__call__",
+        py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_),
+        "x"_a
+    );
+    cls.def(
+        "__call__",
+        [](Class const& self, ndarray::Array<double, 2, 1> const& position) {
+            utils::checkSize(position.getShape()[0], std::size_t(self.getDimensions()), "position vs dims");
+            ndarray::Array<T, 1, 1> result = ndarray::allocate(position.getShape()[1]);
+            for (std::size_t ii = 0; ii < position.getShape()[1]; ++ii) {
+                result[ii] = self(position[ii]);
+            }
+            return result;
+        },
+        "x"_a
+    );
+    cls.def("getDFuncDParameters", &Class::getDFuncDParameters, "x"_a);
+}
+
+
+template <typename T>
+void declareNormalizedPolynomialN(py::module & mod, std::string const& suffix) {
+    using Class = NormalizedPolynomialN<T>;
+    py::class_<Class, std::shared_ptr<Class>, PolynomialFunctionN<T>> cls(
+        mod, ("NormalizedPolynomialN" + suffix).c_str()
+    );
+
+    cls.def(
+        py::init<
+        unsigned int,
+        ndarray::Array<double, 1, 1> const&,
+        ndarray::Array<double, 1, 1> const&>(),
+        "order"_a, "min"_a, "max"_a
+    );
+    cls.def(
+        py::init<
+            ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&
+        >(),
+        "params"_a, "min"_a, "max"_a
+    );
+
+    cls.def("clone", &Class::clone);
+    cls.def("getMin", &Class::getMin);
+    cls.def("getMax", &Class::getMax);
+    cls.def(
+        "normalize",
+        py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::normalize, py::const_),
+        "x"_a
+    );
+    cls.def(
+        "__call__",
+        py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_),
+        "x"_a
+    );
+    cls.def(
+        "__call__",
+        [](Class const& self, ndarray::Array<double, 2, 1> const& position) {
+            utils::checkSize(position.getShape()[0], std::size_t(self.getDimensions()), "position vs dims");
+            ndarray::Array<T, 1, 1> result = ndarray::allocate(position.getShape()[1]);
+            for (std::size_t ii = 0; ii < position.getShape()[1]; ++ii) {
+                result[ii] = self(position[ii]);
+            }
+            return result;
+        },
+        "x"_a
+    );
+    cls.def("getDFuncDParameters", &Class::getDFuncDParameters, "x"_a);
+}
+
+
 // Evaluate a 2D function
 template <typename FuncT, typename T, int N, int C>
 ndarray::Array<T, N, C> evaluateFunction2(
@@ -160,6 +252,8 @@ PYBIND11_PLUGIN(math) {
     py::module::import("lsst.afw.math");
     declareNormalizedPolynomial1<double>(mod, "D");
     declareNormalizedPolynomial2<double>(mod, "D");
+    declarePolynomialN<double>(mod, "D");
+    declareNormalizedPolynomialN<double>(mod, "D");
     python::wrapQuartiles<float>(mod);
     python::wrapQuartiles<double>(mod);
     mod.def("evaluatePolynomial",
