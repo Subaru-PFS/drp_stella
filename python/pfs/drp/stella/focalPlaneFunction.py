@@ -17,10 +17,9 @@ from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask, interpo
 from scipy.interpolate import BSpline, InterpolatedUnivariateSpline, LSQUnivariateSpline, interp1d
 from scipy.stats import binned_statistic
 
-from .math import NormalizedPolynomial1D, calculateMedian, solveLeastSquaresDesign
+from .math import NormalizedPolynomial1D, NormalizedPolynomialND, calculateMedian, solveLeastSquaresDesign
 from .struct import Struct
 from .utils.math import robustRms
-from .utils.polynomialND import NormalizedPolynomialND
 
 from typing import Callable
 
@@ -1046,6 +1045,11 @@ class FluxCalib(FocalPlaneFunction):
         self.constantFocalPlaneFunction = ConstantFocalPlaneFunction(
             datamodel=self._damdObj.constantFocalPlaneFunction,
         )
+        self.poly = NormalizedPolynomialND(
+            self._damdObj.polyParams,
+            self._damdObj.polyMin,
+            self._damdObj.polyMax,
+        )
 
     @classmethod
     def fitArrays(
@@ -1132,13 +1136,11 @@ class FluxCalib(FocalPlaneFunction):
         assert len(wavelengths) == len(positions)
         nFibers, nSamples = wavelengths.shape
 
-        poly = NormalizedPolynomialND(self.polyParams, self.polyMin, self.polyMax)
-
         x = np.empty(shape=(nFibers, nSamples, 3), dtype=float)
         x[:, :, :2] = positions.reshape(nFibers, 1, 2)
         x[:, :, 2] = wavelengths
 
-        scales = np.exp(poly(x))
+        scales = np.exp(self.poly(x.reshape(-1, 3))).reshape(nFibers, nSamples)
 
         retvalue = self.constantFocalPlaneFunction.evaluate(wavelengths, fiberIds, positions)
         retvalue.values *= scales
