@@ -127,19 +127,22 @@ void declareNormalizedPolynomialN(py::module & mod, std::string const& suffix) {
         py::init<
         unsigned int,
         ndarray::Array<double, 1, 1> const&,
-        ndarray::Array<double, 1, 1> const&>(),
-        "order"_a, "min"_a, "max"_a
+        ndarray::Array<double, 1, 1> const&,
+        bool>(),
+        "order"_a, "min"_a, "max"_a, "newNorm"_a=true
     );
     cls.def(
         py::init<
             ndarray::Array<double, 1, 1> const&,
             ndarray::Array<double, 1, 1> const&,
-            ndarray::Array<double, 1, 1> const&
+            ndarray::Array<double, 1, 1> const&,
+            bool
         >(),
-        "params"_a, "min"_a, "max"_a
+        "params"_a, "min"_a, "max"_a, "newNorm"_a=true
     );
 
     cls.def("clone", &Class::clone);
+    cls.def("getNewNorm", &Class::getNewNorm);
     cls.def("getMin", &Class::getMin);
     cls.def("getMax", &Class::getMax);
     cls.def(

@@ -600,14 +600,16 @@ class NormalizedPolynomialN : public PolynomialFunctionN<T> {
     using Array1T = typename PolynomialFunctionN<T>::Array1T;
 
     /// Ctor
-    explicit NormalizedPolynomialN(unsigned int order, Array1D const& min, Array1D const& max)
-        : PolynomialFunctionN<T>(min.size(), order) {
-            _initialize(min, max);
-        }
-    explicit NormalizedPolynomialN(Array1D const& parameters, Array1D const& min, Array1D const& max)
-        : PolynomialFunctionN<T>(min.size(), parameters) {
-            _initialize(min, max);
-        }
+    explicit NormalizedPolynomialN(
+        unsigned int order, Array1D const& min, Array1D const& max, bool newNorm=true
+    ) : PolynomialFunctionN<T>(min.size(), order) {
+        _initialize(min, max, newNorm);
+    }
+    explicit NormalizedPolynomialN(
+        Array1D const& parameters, Array1D const& min, Array1D const& max, bool newNorm=false
+    ) : PolynomialFunctionN<T>(min.size(), parameters) {
+        _initialize(min, max, newNorm);
+    }
 
     NormalizedPolynomialN(NormalizedPolynomialN const&) = default;
     NormalizedPolynomialN(NormalizedPolynomialN&&) = default;
@@ -619,6 +621,9 @@ class NormalizedPolynomialN : public PolynomialFunctionN<T> {
     std::shared_ptr<FunctionN<T>> clone() const override {
         return std::make_shared<NormalizedPolynomialN<T>>(this->getParameters(), getMin(), getMax());
     }
+
+    /// Return whether we're using the new normalization scheme
+    bool getNewNorm() const noexcept { return _newNorm; }
 
     /// Return the bounds of input coordinates used for normalization
     Array1D getMin() const { return _min; }
@@ -655,32 +660,35 @@ class NormalizedPolynomialN : public PolynomialFunctionN<T> {
 
   protected:
     /// Initialize values used for normalization
-    void _initialize(Array1D const& min, Array1D const& max) {
+    void _initialize(Array1D const& min, Array1D const& max, bool newNorm) {
         if (min.size() != this->getDimensions() || max.size() != this->getDimensions()) {
             throw LSST_EXCEPT(
                 lsst::pex::exceptions::InvalidParameterError,
                 "min and max must have the same size as dims"
             );
         }
-        _min = min;
-        _max = max;
+        _newNorm = newNorm;
+        _min = ndarray::copy(min);
+        _max = ndarray::copy(max);
 
-#if 0
-        // Traditional, LSST offset/scale: normalizes to [-1, 1]
-        _offset = ndarray::allocate(this->getDimensions());
-        ndarray::asEigenArray(_offset) = 0.5 * (ndarray::asEigenArray(min) + ndarray::asEigenArray(max));
+        if (newNorm) {
+            // New offset/scale (matches LSST): normalizes to [-1, 1]
+            _offset = ndarray::allocate(this->getDimensions());
+            ndarray::asEigenArray(_offset) = 0.5 * (ndarray::asEigenArray(min) + ndarray::asEigenArray(max));
 
-        _scale = ndarray::allocate(this->getDimensions());
-        ndarray::asEigenArray(_scale) = 2.0 / (ndarray::asEigenArray(max) - ndarray::asEigenArray(min));
-#else
-        // Mineo offset/scale: normalizes to [0, 1]
-        _offset = ndarray::copy(min);
-        _scale = ndarray::allocate(this->getDimensions());
-        ndarray::asEigenArray(_scale) = 1.0 / (ndarray::asEigenArray(max) - ndarray::asEigenArray(min));
-#endif
+            _scale = ndarray::allocate(this->getDimensions());
+            ndarray::asEigenArray(_scale) = 2.0 / (ndarray::asEigenArray(max) - ndarray::asEigenArray(min));
+        } else {
+            // Old offset/scale: normalizes to [0, 1]
+            _offset = ndarray::copy(min);
+            _scale = ndarray::allocate(this->getDimensions());
+            ndarray::asEigenArray(_scale) = 1.0 / (ndarray::asEigenArray(max) - ndarray::asEigenArray(min));
+        }
 
         _normalized = ndarray::allocate(this->getDimensions());
     }
+
+    bool _newNorm;  ///< Use new normalization (-1..1) scheme? Otherwise, use old (0..1) scheme.
     Array1D _min;  ///< Minimum input values for normalization
     Array1D _max;  ///< Maximum input values for normalization
     Array1D _offset;  ///< Offset for normalization

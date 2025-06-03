@@ -1036,6 +1036,9 @@ class FluxCalib(FocalPlaneFunction):
         at which ``(x, y, \lambda)`` are maximal.
     constantFocalPlaneFunction : `PfsConstantFocalPlaneFunction`
         ``h(\lambda)`` as explaned above.
+    polyNewNorm : `bool`, optional
+        Whether the polynomial uses the new normalization scheme (default:
+        ``True``).
     """
 
     DamdClass = PfsFluxCalib
@@ -1049,6 +1052,7 @@ class FluxCalib(FocalPlaneFunction):
             self._damdObj.polyParams,
             self._damdObj.polyMin,
             self._damdObj.polyMax,
+            self._damdObj.polyNewNorm
         )
 
     @classmethod

@@ -69,14 +69,14 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
         params = np.random.uniform(-2, 2, size=(nParams,))
         x = np.random.uniform(-2, 2, size=(nPoints, 1))
 
-        poly = NormalizedPolynomialND(params, np.array([left]), np.array([right]))
+        poly = NormalizedPolynomialND(params, np.array([left]), np.array([right]), False)  # using old norm
 
         self.assertIsInstance(poly(x[0]), float)
         self.assertEqual(poly(x).shape, (nPoints,))
 
         self.assertFloatsAlmostEqual(poly(x)[0], poly(x[0]), rtol=16 * eps)
 
-        normalizedX1 = (x[1] - left) / (right - left)
+        normalizedX1 = (x[1] - left) / (right - left)  # Old normalization scheme
         exponents = np.asarray(getExponents(order, nVars))[:, 0]
 
         self.assertFloatsAlmostEqual(normalizedX1**exponents @ params, poly(x[1]), rtol=16 * eps)
@@ -95,11 +95,11 @@ class NormalizedPolynomialNDTestCase(lsst.utils.tests.TestCase):
         params = np.random.uniform(-2, 2, size=(nParams,))
         x = np.random.uniform(-2, 2, size=(nPoints, nVars))
 
-        poly = NormalizedPolynomialND(params, minVertex, maxVertex)
+        poly = NormalizedPolynomialND(params, minVertex, maxVertex, False)  # using old normalization
 
         self.assertFloatsAlmostEqual(poly(x)[0], poly(x[0, :]), rtol=16 * eps)
 
-        normalizedX1 = (x[1, :] - minVertex) / (maxVertex - minVertex)
+        normalizedX1 = (x[1, :] - minVertex) / (maxVertex - minVertex)  # Old normalization scheme
 
         self.assertFloatsAlmostEqual(poly.normalize(x[1, :]), normalizedX1)
 
