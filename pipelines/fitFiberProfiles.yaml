@@ -8,6 +8,8 @@ tasks:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      grouping: separate  # Exposures can have different dither values
   profilesFitDetectorMap:
     class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
   fitProfiles:

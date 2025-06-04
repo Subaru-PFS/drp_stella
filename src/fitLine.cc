@@ -122,10 +122,13 @@ FitLineResult fitLine(
     std::vector<double> parameters = {amplitude, peakPosition, rmsSize, 0.0, 0.0};
     std::vector<double> steps = {0.1*amplitude, 0.1, 0.1, 1.0, 0.01};
 
-    ROOT::Minuit2::MnUserParameterState const state{
-        {parameters.begin(), parameters.end()},
-        {steps.begin(), steps.end()}
-    };
+    ROOT::Minuit2::MnUserParameterState state;
+    state.Add("amplitude", parameters[0], steps[0]);
+    state.Add("center", parameters[1], steps[1]);
+    state.Add("rmsSize", parameters[2], steps[2]);
+    state.Add("bg0", parameters[3], steps[3]);
+    state.Add("bg1", parameters[4], steps[4]);
+
     ROOT::Minuit2::MnStrategy const strategy{1};
     auto const min = ROOT::Minuit2::MnMigrad(func, state, strategy)();
     assert(min.UserParameters().Params().size() == 5);

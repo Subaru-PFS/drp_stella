@@ -9,9 +9,8 @@ bin
 doc/html
 doc/doxygen.conf
 doc/drp_stella.tag
-python/pfs/drp/stella/stellaLib.py
-python/pfs/drp/stella/stellaLib_wrap.cc
 python/pfs/drp/stella/version.py
+python/drp_stella.dist-info
 tests/.tests/
 ups/drp_stella.cfgc
 sphinx/_build/

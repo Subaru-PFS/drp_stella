@@ -199,7 +199,7 @@ def showAllSpectraAsImage(spec, detMap=None, vmin=None, vmax=None, lines=None, l
         # Only show wavelengths for which we have data; especially interesting
         # if we only merged e.g. b and r
         have_data = np.sum((maskArray & spec.flags["NO_DATA"]) == 0, axis=0)
-        ll = np.where(have_data > 0, spec.wavelength[0], np.NaN)
+        ll = np.where(have_data > 0, spec.wavelength[0], np.nan)
         plt.xlim(np.nanmin(ll), np.nanmax(ll))
     else:
         fiberIdBar = spec.fiberId[ibar]
@@ -559,7 +559,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             if ctype == "IGNORE":
                 continue
 
-            xy = np.zeros((2, len(fiberIds))) + np.NaN
+            xy = np.zeros((2, len(fiberIds))) + np.nan
 
             for i, fid in enumerate(fiberIds):
                 if i%stride != 0 and i not in (firstGood, lastGood):
@@ -660,7 +660,7 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, thres
     fs = afwDetect.FootprintSet(fs, rGrow, isotropic)
     footprints = fs.getFootprints()
 
-    mos = afwDisplayUtils.Mosaic(gutter=1 if raw is None else 2, background=np.NaN)
+    mos = afwDisplayUtils.Mosaic(gutter=1 if raw is None else 2, background=np.nan)
     mos.xy0 = []
     rawGutter = 1
     for foot in footprints:
@@ -672,7 +672,7 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, thres
         crBBox.clip(exposure.getBBox())
 
         if raw:
-            rmos = afwDisplayUtils.Mosaic(gutter=rawGutter, background=np.NaN, mode='x')
+            rmos = afwDisplayUtils.Mosaic(gutter=rawGutter, background=np.nan, mode='x')
             rmos.append(raw.maskedImage[crBBox])
             rmos.append(exposure.maskedImage[crBBox])
 
@@ -753,7 +753,7 @@ def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, c
 
     for i, fname in enumerate(sorted(masksSet)):
         if np.any(mask & spec.flags.get(fname)):
-            ax.plot(wavelength, np.where(mask & spec.flags.get(fname), y0 - i*dy, np.NaN),
+            ax.plot(wavelength, np.where(mask & spec.flags.get(fname), y0 - i*dy, np.nan),
                     '.-', transform=myTrans, label=fname if showLegend else None)
 
     if showLegend:

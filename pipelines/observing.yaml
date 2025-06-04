@@ -1,12 +1,10 @@
 description: Observing reduction of an exposure
+imports:
+  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
 tasks:
-  isr:
-    class: lsst.obs.pfs.isrTask.PfsIsrTask
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
-  reduceExposure:
-    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+    config:
+      grouping: separate  # Reducing as exposures are observed
   fiberNorms:  # Produce residual fiberNorms for quartz exposures only
     class: pfs.drp.stella.measureFiberNorms.ExposureFiberNormsTask
-  mergeArms:
-    class: pfs.drp.stella.mergeArms.MergeArmsTask
