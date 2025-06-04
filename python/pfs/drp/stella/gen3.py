@@ -2,6 +2,7 @@
 
 import functools
 import os
+from collections import defaultdict
 from collections.abc import Sequence
 from glob import glob
 from types import SimpleNamespace
