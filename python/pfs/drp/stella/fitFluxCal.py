@@ -41,7 +41,7 @@ from .interpolate import calculateDispersion
 from .lsf import Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import debugging, getPfsVersions
-from .utils.polynomialND import NormalizedPolynomialND
+from .math import NormalizedPolynomialND
 from .FluxTableTask import FluxTableTask
 
 from collections.abc import Callable, Collection, Generator, Iterable
@@ -992,6 +992,7 @@ def fitFluxCalibToArrays(
     fit : `FluxCalib`
         Function fit to input arrays.
     """
+    positions = np.array(positions, dtype=float)  # Ensure float type, for pybind
     if scales is None:
         scales = np.nanmean(values, axis=(1,))
 
@@ -1016,12 +1017,14 @@ def fitFluxCalibToArrays(
         # average flux calibration vector.
         bbChi2(fiberId, averageCalibVector, save=True)
 
-        posMin = np.min(positions, axis=(0,))
-        posMax = np.max(positions, axis=(0,))
+        posMin = np.min(positions, axis=(0,)).astype(float)
+        posMax = np.max(positions, axis=(0,)).astype(float)
         wlMin = wavelengths[0, 0]
         wlMax = wavelengths[0, -1]
         polyMin = np.array(list(posMin) + [wlMin], dtype=float)
         polyMax = np.array(list(posMax) + [wlMax], dtype=float)
+        poly = NormalizedPolynomialND(polyOrder, posMin, posMax)
+        params = poly.getParameters()
 
         # First, fit a function independent of \lambda.
         def objective1(params: np.ndarray) -> float:
@@ -1037,12 +1040,11 @@ def fitFluxCalibToArrays(
             objective : `float`
                 Objective.
             """
-            poly = NormalizedPolynomialND(params, posMin, posMax)
-            scales = np.exp(poly(positions))
+            poly.setParameters(params)
+            scales = np.exp(poly(positions)).reshape(len(fiberId), -1)
             return bbChi2.rescaleFluxCalib(fiberId, scales, l1=robust)
 
         monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
-        params = NormalizedPolynomialND(polyOrder, posMin, posMax).getParams()
 
         if log is not None:
             log.debug("Start phase-1 fitting...")
@@ -1056,7 +1058,8 @@ def fitFluxCalibToArrays(
             # is not caught by ``minimize()``. So we catch it for ourselves.
             params = monitor1.x
 
-        params = NormalizedPolynomialND.getParamsFromLowerVariatePoly(params, [0, 1, None])
+        poly.setParameters(params)
+        params = poly.addDimension()
 
         if not polyWavelengthDependent:
             return FluxCalib(params, polyMin, polyMax, constantFocalPlaneFunction)
@@ -1069,6 +1072,7 @@ def fitFluxCalibToArrays(
         polyArgs = np.empty(shape=(len(fiberId), len(lowResWL), 3), dtype=float)
         polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
         polyArgs[:, :, 2] = lowResWL.reshape(1, -1)
+        poly = NormalizedPolynomialND(params, polyMin, polyMax)
 
         def objective2(params: np.ndarray) -> float:
             """Objective function to minimize.
@@ -1083,8 +1087,8 @@ def fitFluxCalibToArrays(
             objective : `float`
                 Objective.
             """
-            poly = NormalizedPolynomialND(params, polyMin, polyMax)
-            scales = np.exp(poly(polyArgs))
+            poly.setParameters(params)
+            scales = np.exp(poly(polyArgs.reshape(-1, 3))).reshape(len(fiberId), -1)
             return bbChi2.rescaleFluxCalibEx(fiberId, scales, polyArgs[:, :, 2], l1=robust)
 
         monitor2 = MinimizationMonitor(objective2, tol=tol, log=log)
@@ -1111,6 +1115,7 @@ def fitFluxCalibToArrays(
         polyArgs = np.empty(shape=values.shape + (3,), dtype=float)
         polyArgs[:, :, :2] = positions.reshape(len(fiberId), 1, 2)
         polyArgs[:, :, 2] = wavelengths
+        poly = NormalizedPolynomialND(params, polyMin, polyMax)
 
         def objective3(params: np.ndarray) -> float:
             """Objective function to minimize.
@@ -1125,8 +1130,8 @@ def fitFluxCalibToArrays(
             objective : `float`
                 Objective.
             """
-            poly = NormalizedPolynomialND(params, polyMin, polyMax)
-            fluxCalib = np.exp(poly(polyArgs))
+            poly.setParameters(params)
+            fluxCalib = np.exp(poly(polyArgs.reshape(-1, 3))).reshape(averageCalibVector.shape)
             fluxCalib *= averageCalibVector
             return bbChi2(fiberId, fluxCalib, l1=robust)
 
