@@ -195,7 +195,7 @@ def getWindowedFluxes(butler, dataId, fiberTraces=None, darkVariance=30,
         maskVal = exp.mask.getPlaneBitMask(["SAT", "NO_DATA"])
         exp.mask.array[0:row0] = maskVal
         exp.mask.array[row1 + 1:] = maskVal
-        exp.image.array[exp.mask.array != 0] = np.NaN  # not 0; we're going to use np.nanmedian later
+        exp.image.array[exp.mask.array != 0] = np.nan  # not 0; we're going to use np.nanmedian later
 
         for amp in exp.getDetector():
             exp[amp.getRawBBox()].image.array -= \
@@ -207,7 +207,7 @@ def getWindowedFluxes(butler, dataId, fiberTraces=None, darkVariance=30,
 
         spectra = extractSpectra.run(exp.maskedImage, fiberTrace, detectorMap).spectra.toPfsArm(dataId)
 
-    spectra.flux[spectra.mask != 0] = np.NaN
+    spectra.flux[spectra.mask != 0] = np.nan
 
     return pfsConfig, md, np.nanmedian(spectra.flux, axis=1)
 
@@ -218,7 +218,7 @@ def makeDither(butler, dataId, lmin=665, lmax=700, targetType=None, fiberTraces=
 
     pfsConfig, md, fluxes = getWindowedFluxes(butler, dataId, fiberTraces, useButler=useButler, visit0=visit0,
                                               usePfsArm=usePfsArm, camera=camera)
-    fluxes[np.isnan(pfsConfig.pfiNominal.T[0])] = np.NaN
+    fluxes[np.isnan(pfsConfig.pfiNominal.T[0])] = np.nan
 
     ra, dec = raDecStrToDeg(md['RA_CMD'], md['DEC_CMD'])
     pa = md['INST-PA']
@@ -312,7 +312,7 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
         if icrosstalk is not None:
             fluxes = icrosstalk@np.where(np.isfinite(fluxes), fluxes, 0)
 
-        fluxes[d.pfsConfig.fiberStatus != FiberStatus.GOOD] = np.NaN
+        fluxes[d.pfsConfig.fiberStatus != FiberStatus.GOOD] = np.nan
 
         if extinction is not None:
             fluxes = fluxes*10**(0.4*extinction.get(d.visit, 0.0))
@@ -419,8 +419,8 @@ def makeCobraImages(dithers, side=4, pixelScale=0.025, R=50, fiberIds=None,
 
     images /= np.where(weights == 0, 1, weights)
     if setUnimagedPixelsToNaN:
-        images[weights == 0] = np.NaN
-        visitImage[weights[ii] == 0] = np.NaN
+        images[weights == 0] = np.nan
+        visitImage[weights[ii] == 0] = np.nan
 
     return images, extent, visitImage
 
@@ -507,7 +507,7 @@ def makeSkyImageFromCobras(pfsConfig, images, pixelScale, setUnimagedPixelsToNaN
             print(f"fiberId {pfsConfig.fiberId[i]} doesn't fit in image")
 
     if setUnimagedPixelsToNaN:
-        pfiIm[pfiImMask == False] = np.NaN  # noqa: E712  "is False" doesn't produce an array of bool
+        pfiIm[pfiImMask == False] = np.nan  # noqa: E712  "is False" doesn't produce an array of bool
 
     pfiIm /= np.where(weights == 0, 1, weights)
 
@@ -631,8 +631,8 @@ def calculateOffsets(images, extent_CI):
 
     weights = np.where(np.isfinite(images), images, 0)
     image_weight = np.nansum(weights, axis=(1, 2))
-    xoff = np.full(len(images), np.NaN)
-    yoff = np.full_like(xoff, np.NaN)
+    xoff = np.full(len(images), np.nan)
+    yoff = np.full_like(xoff, np.nan)
 
     good = image_weight > 0
     xoff[good] = np.average(x[good], axis=(1, 2), weights=weights[good])
@@ -761,7 +761,7 @@ def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
     guide_star_ids = sorted(list(set(tmp.guide_star_id)))
     mag = zeroPoint - 2.5*np.log10(tmp.image_moment_00_pix)
 
-    mm = np.full((len(guide_star_ids), len(taken_ats)), np.NaN)
+    mm = np.full((len(guide_star_ids), len(taken_ats)), np.nan)
     for i, gid in enumerate(guide_star_ids):
         ll = tmp.guide_star_id == gid
         if np.mean(tmp.guide_star_magnitude[ll] > magLim):
@@ -835,7 +835,7 @@ def getDitherRaDec(opdb, visit):
             ''', opdb)
 
     if len(tmp) == 0:
-        return np.NaN, np.NaN, tmp
+        return np.nan, np.nan, tmp
 
     if len(set(tmp.dither_ra)) != 1 or len(set(tmp.dither_dec)) != 1:
         print(f"getDitherRaDec: detected multiple dither_XXX values for visit {visit}:\n", tmp)
@@ -969,8 +969,8 @@ class ShowCobra:
         #
         self.cobraId = -1
         self.fiberId = -1
-        self.ra = np.NaN
-        self.dec = np.NaN
+        self.ra = np.nan
+        self.dec = np.nan
         #
         # For debugging
         #

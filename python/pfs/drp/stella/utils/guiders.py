@@ -433,7 +433,7 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
                     tmp2 = tmp2[:-1]
                     action = "dropping last row of tel_status"
                 else:
-                    tmp["m2_off3"] = np.full(len(tmp), np.NaN)
+                    tmp["m2_off3"] = np.full(len(tmp), np.nan)
                     action = "m2_off3 set to NaN"
                     doConcat = False
 
@@ -442,7 +442,7 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
 
         if doConcat:
             if np.sum(~pd.isnull(tmp2.m2_off3)) == 0:
-                tmp2.fillna(np.NaN, inplace=True)  # generates a pandas 3.0 warning which I don't understand
+                tmp2.fillna(np.nan, inplace=True)  # generates a pandas 3.0 warning which I don't understand
 
             tmp1 = pd.concat([tmp1, tmp2], axis=1)
 
@@ -2599,7 +2599,7 @@ def plotFocus(opdb, visits, agcData=None,
                 if not (showMedian and showOnlyMedian):
                     ax.plot(xx, yy, marker, alpha=alpha, color=color)
                 if len(xx) > 0:
-                    ax.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{ic + 1}")
+                    ax.plot([np.nan], [np.nan], 'o', color=color, label=f"AG{ic + 1}")
 
                 if showMedian:
                     if plotBy == "focus":
@@ -2708,13 +2708,13 @@ def plotFocus(opdb, visits, agcData=None,
                         ii = np.argsort(agcData.agc_exposure_id[lr])
                         _xx, _yy = xx[lr].iloc[ii], yy[lr].iloc[ii]
                         if maxFWHM is not None:
-                            _yy[_yy > maxFWHM] = np.NaN
+                            _yy[_yy > maxFWHM] = np.nan
 
                         ax.plot(_xx, _yy, 'o', color=color, alpha=alpha)
 
         if showOnlyMedian and not showCameraId:
-            ax.plot([np.NaN], [np.NaN], 'o', color="red", label="left")
-            ax.plot([np.NaN], [np.NaN], 'o', color="green", label="right")
+            ax.plot([np.nan], [np.nan], 'o', color="red", label="left")
+            ax.plot([np.nan], [np.nan], 'o', color="green", label="right")
             ax.legend()
 
         if False:
@@ -2749,11 +2749,11 @@ def plotFocus(opdb, visits, agcData=None,
                         ax.plot(xx[lll], yy[lll], '*' if left else '.', alpha=alpha, color=color)
                     # just for the legend
                     if c == 1:
-                        ax.plot([np.NaN], [np.NaN], '*', color='black', label="left")
-                        ax.plot([np.NaN], [np.NaN], '.', color='black', label="right")
+                        ax.plot([np.nan], [np.nan], '*', color='black', label="left")
+                        ax.plot([np.nan], [np.nan], '.', color='black', label="right")
 
                     if sum(ll) > 0:
-                        ax.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{c}")
+                        ax.plot([np.nan], [np.nan], 'o', color=color, label=f"AG{c}")
 
                 ax.legend(ncol=8, columnspacing=1.3)
 
@@ -2918,7 +2918,7 @@ def plotFocusByAG(opdb, visits,
             plt.plot(focusByVisit.agc_camera_id[ll] + 1, focusByVisit.focusError[ll],
                      '-o', label=f"{v}", alpha=0.5)
 
-    focusErrorPerCamera = np.full(6, np.NaN)
+    focusErrorPerCamera = np.full(6, np.nan)
     for c in range(1, 6+1):
         ll = (focusByVisit.agc_camera_id == c - 1)
         if sum(ll) == 0:

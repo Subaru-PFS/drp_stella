@@ -181,7 +181,7 @@ def plotArcResiduals(als,
             yUnit = "pixel"
 
         if sum(ll) == 0:
-            xlim = (np.NaN, np.NaN)
+            xlim = (np.nan, np.nan)
         elif byFiberId:
             xlim = plt.xlim(np.min(als.fiberId) - 1, np.max(als.fiberId) + 1)
         else:
@@ -214,7 +214,7 @@ def plotArcResiduals(als,
             plt.axhline(0, color="black", zorder=-1)
 
         if sum(ll) == 0:
-            rms = np.NaN
+            rms = np.nan
         else:
             clippedL = ll
             if nsigma > 0:

@@ -221,7 +221,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
             continue
 
         if traceOnly:
-            a, theta = als.xx, np.NaN
+            a, theta = als.xx, np.nan
         else:
             fwhm, theta = getFWHM(als)
 
@@ -231,7 +231,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         if showWhisker or showFWHM or showFWHMAgainstLambda:
             q10 = np.nanpercentile(als.flux, [minFluxPercentile])
             if np.isnan(q10).any():     # nanpercentile returns NaN not [NaN] in case of problems grrr
-                q10 = [np.NaN]
+                q10 = [np.nan]
             q10 = q10[0]
 
             ll = np.isfinite(als.xx if traceOnly else als.xx + als.xy + als.yy)

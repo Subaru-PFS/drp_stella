@@ -287,7 +287,7 @@ class MeasureApertureCorrectionsTask(Task):
             select = lines.fiberId == fiberId
             wavelength = lines.wavelength[select]
             if apCorr is None:
-                lookup[fiberId] = {wl: (np.NaN, np.NaN) for wl in wavelength}
+                lookup[fiberId] = {wl: (np.nan, np.nan) for wl in wavelength}
             else:
                 try:
                     result = calculateApertureCorrection(
@@ -295,7 +295,7 @@ class MeasureApertureCorrectionsTask(Task):
                     )
                 except Exception as exc:
                     self.log.warn("Failed to apply aperture correction for fiber %d: %s", fiberId, exc)
-                    lookup[fiberId] = {wl: (np.NaN, np.NaN) for wl in wavelength}
+                    lookup[fiberId] = {wl: (np.nan, np.nan) for wl in wavelength}
                     continue
                 lookup[fiberId] = {wl: (flux, fluxErr) for
                                    wl, flux, fluxErr in zip(wavelength, result.flux, result.fluxErr)}

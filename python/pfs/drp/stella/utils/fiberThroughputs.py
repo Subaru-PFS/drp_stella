@@ -93,7 +93,7 @@ def measureFlux(y, lam, arm, std=None, fitLine=True):
     for (lamc, lam0, lam1, bkgd0, bkgd1) in selectWavelengthInterval(arm):
 
         if not fitLine:
-            flux = np.nanmean(np.where((lam > lam0) & (lam < lam1), y, np.NaN), axis=1)
+            flux = np.nanmean(np.where((lam > lam0) & (lam < lam1), y, np.nan), axis=1)
             totflux += flux
             continue
 
@@ -122,7 +122,7 @@ def measureFlux(y, lam, arm, std=None, fitLine=True):
                 popt, pcov = curve_fit(func, lam[i][ll], y[i][ll], p0=[0, 10000, 0.09, 0][:3],
                                        sigma=std[i][ll], check_finite=False)
             except RuntimeError:
-                flux[i] = np.NaN
+                flux[i] = np.nan
             else:
                 flux[i] = popt[0]
 
@@ -546,14 +546,14 @@ def throughputByVisit(cache, arms, what="flux", medianPerArm={}, figure=None, ti
     perSpec = {}
     perSpecVisit = {}
     for arm in arms:
-        perSpec[arm] = np.full((len(visitC[what][arm]), 1 + 4), np.NaN)  # there's no spectrograph 0
+        perSpec[arm] = np.full((len(visitC[what][arm]), 1 + 4), np.nan)  # there's no spectrograph 0
         perSpecVisit[arm] = np.empty(perSpec[arm].shape[0])
         for iv, visit in enumerate(sorted(visitC[what][arm])):
             c = visitC[what][arm][visit].copy()
             pfsConfig = visitConfig[what][arm][visit]
 
             if np.sum(pfsConfig.targetType == TargetType.SKY) > 0:
-                c[pfsConfig.targetType != TargetType.SKY] = np.NaN
+                c[pfsConfig.targetType != TargetType.SKY] = np.nan
 
             c /= np.nanmedian(c[pfsConfig.spectrograph == 1])
             perSpecVisit[arm][iv] = visit
@@ -635,7 +635,7 @@ def throughputPerSpectrograph(cache, visit, arm, what="flux", title="",
     y = pfsConfig.spectrograph
 
     im = np.zeros((len(set(y)), np.max(x)))
-    im *= np.NaN
+    im *= np.nan
     im[y-1, x-1] = c
     im /= np.nanmedian(im)
 

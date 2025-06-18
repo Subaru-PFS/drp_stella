@@ -109,11 +109,11 @@ def estimateFiberFluxes(butler, visits, windows=["b", "r"], cache={},
                 dataId["spectrograph"] = s
                 # filter out not-GOOD and UNASSIGNED fibres
                 spec = butler.get("pfsArm", dataId)
-                spec.flux[(spec.mask & ~spec.flags["REFLINE"]) != 0] = np.NaN
+                spec.flux[(spec.mask & ~spec.flags["REFLINE"]) != 0] = np.nan
                 with np.testing.suppress_warnings() as suppress:
                     suppress.filter(RuntimeWarning, "All-NaN slice encountered")
                     fluxes[window][v].append(list(np.nanmedian(
-                        np.where((spec.wavelength > lam0) & (spec.wavelength < lam1), spec.flux, np.NaN),
+                        np.where((spec.wavelength > lam0) & (spec.wavelength < lam1), spec.flux, np.nan),
                         axis=1)))
 
             pfsConfigs[v] = pfsConfigs[v]
@@ -216,16 +216,16 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
     for window in windows:
         arm = window[:1]
 
-        binnedDs[window] = np.full((len(visits) - 1, nbin), np.NaN)
-        binnedDErrors[window] = np.full_like(binnedDs[window], np.NaN)
-        binnedFluxes[window] = np.full_like(binnedDs[window], np.NaN)
-        binnedFluxErrors[window] = np.full_like(binnedFluxes[window], np.NaN)
+        binnedDs[window] = np.full((len(visits) - 1, nbin), np.nan)
+        binnedDErrors[window] = np.full_like(binnedDs[window], np.nan)
+        binnedFluxes[window] = np.full_like(binnedDs[window], np.nan)
+        binnedFluxErrors[window] = np.full_like(binnedFluxes[window], np.nan)
         rms[window] = {}
         meanCenteredFlux[window] = {}
 
         for quadrant in ["NW", "NE", "SE", "SW", None]:
-            rms[window][quadrant] = np.full(len(visits) - 1, np.NaN)
-            meanCenteredFlux[window][quadrant] = np.full_like(rms[window][quadrant], np.NaN)
+            rms[window][quadrant] = np.full(len(visits) - 1, np.nan)
+            meanCenteredFlux[window][quadrant] = np.full_like(rms[window][quadrant], np.nan)
 
         flux0 = fluxes[window][visit0]
         isSky = pfsConfig0.getSelection(targetType=TargetType.SKY)
@@ -400,7 +400,7 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
 def plotRms(rms, windows=None, byQuadrant=True, title="", figure=None, cache={}):
     visits = cache.get("visits", [])
     focuszDict = cache.get("focusz", {})
-    focusz = np.full(len(visits), np.NaN)
+    focusz = np.full(len(visits), np.nan)
     for iv, v in enumerate(visits):
         focusz[iv] = focuszDict[v]
 
@@ -443,7 +443,7 @@ def rmsFromCenteredFibers(meanCenteredFlux, windows=None, byQuadrant=True, cache
     """
     visits = cache.get("visits", [])
     focuszDict = cache.get("focusz", {})
-    focusz = np.full(len(visits), np.NaN)
+    focusz = np.full(len(visits), np.nan)
     for iv, v in enumerate(visits):
         focusz[iv] = focuszDict[v]
 

@@ -116,7 +116,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
         lam = pfsSpec.wavelength[i]
         # Is there  data in at least one fibre?
         have_data = np.sum((pfsSpec.mask & pfsSpec.flags["NO_DATA"]) == 0, axis=0)
-        lam = np.where(have_data, lam, np.NaN)
+        lam = np.where(have_data, lam, np.nan)
 
         if lam0 is None:
             lam0 = np.nanmin(lam)
@@ -145,14 +145,14 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             for DI in [TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]:
                 if subtractSky:
                     ll = pfsConfig.selectByTargetType(DI)
-                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[ll] == 0, pfsFlux[ll], np.NaN), axis=0)
+                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[ll] == 0, pfsFlux[ll], np.nan), axis=0)
                     pfsFlux[ll] -= sky[DI]  # median per spectral element
                     sky[DI] = np.nanmean(sky[DI])
                 else:
                     sky[DI] = 0
 
             windowed = np.where(np.logical_and(pfsSpec.wavelength >= lam0, pfsSpec.wavelength <= lam1),
-                                pfsFlux, np.NaN)
+                                pfsFlux, np.nan)
 
             med = nanStatsOp(windowed, axis=1)
 
