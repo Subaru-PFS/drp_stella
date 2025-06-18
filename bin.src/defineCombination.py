@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 
 from pfs.drp.stella.gen3 import defineCombination
+from pfs.datamodel import TargetType
 
 
 def main():
@@ -16,12 +17,19 @@ def main():
     parser.add_argument(
         "--max-group-size", type=int, default=2000, help="Maximum number of objects in a group"
     )
+    parser.add_argument("--targetType", default=[], action="append", help="Target types for the combination")
     parser.add_argument(
         "--update", default=False, action="store_true", help="Update an existing registry"
     )
     parser.add_argument("visits", nargs="*", type=int, help="Visit IDs to select")
 
     args = parser.parse_args()
+
+    if args.targetType:
+        targetType = [TargetType.fromString(tt) for tt in args.targetType]
+    else:
+        targetType = None
+
     return defineCombination(
         args.repo,
         args.instrument,
@@ -30,6 +38,7 @@ def main():
         where=args.where,
         visitList=args.visits,
         maxGroupSize=args.max_group_size,
+        targetType=targetType,
         update=args.update,
     )
 
