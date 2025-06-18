@@ -927,6 +927,7 @@ def defineCombination(
     where: Optional[str] = None,
     visitList: Optional[List[int]] = None,
     maxGroupSize: int = 2000,
+    targetType: Union[TargetType, np.ndarray, None] = None,
     update: bool = False,
 ):
     """Define a combination of visits
@@ -949,6 +950,9 @@ def defineCombination(
         clause is provided, this list is used to further restrict the selection.
     maxGroupSize : `int`, optional
         Maximum number of objects per group.
+    targetType : `TargetType` or `np.ndarray`, optional
+        Target type to use for the combination. Defaults to ``SCIENCE``, ``SKY``
+        and ``FLUXSTD``.
     update : `bool`, optional
         Update the record if it exists? Otherwise an exception will be generated
         if the record exists.
@@ -970,6 +974,8 @@ def defineCombination(
             where = add
         else:
             where = f"({where}) AND {add}"
+    if targetType is None:
+        targetType = [TargetType.SCIENCE, TargetType.SKY, TargetType.FLUXSTD]
 
     log = getLogger("pfs.defineCombination")
     run = instrument + "/objectGroups"
@@ -998,7 +1004,7 @@ def defineCombination(
     )
 
     pfsConfigList = [
-        butler.get("pfsConfig", visit=vv, instrument=instrument).select(targetType=TargetType.SCIENCE)
+        butler.get("pfsConfig", visit=vv, instrument=instrument).select(targetType=targetType)
         for vv in visitList
     ]
     catId = set(sum((np.unique(pfsConfig.catId).tolist() for pfsConfig in pfsConfigList), []))
