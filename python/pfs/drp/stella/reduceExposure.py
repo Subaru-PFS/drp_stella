@@ -350,6 +350,9 @@ class ReduceExposureTask(PipelineTask):
         )
         pfsArm = spectra.toPfsArm(identity)
 
+        pfsArm = pfsArm.select(pfsConfig, targetType=~TargetType.SCIENCE_MASKED)
+        lsf = LsfDict({ff: lsf[ff] for ff in pfsArm.fiberId})
+
         if self.config.doApplyScreenResponse:
             self.screen.run(exposure.getMetadata(), pfsArm, pfsConfig)
         if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
