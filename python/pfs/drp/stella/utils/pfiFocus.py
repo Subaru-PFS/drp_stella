@@ -294,10 +294,10 @@ def plotRadialProfiles(windows=["b1", "b2", "r1", "r2"],
                 annularFlux = binnedFluxes[window][iv]*2*np.pi*binnedDs[window][iv]
 
                 good = np.isfinite(annularFlux + binnedDs[window][iv])
-                flux = np.trapz(annularFlux[good], binnedDs[window][iv][good])
+                flux = np.trapezoid(annularFlux[good], binnedDs[window][iv][good])
                 rms[window][quadrant][iv] = \
-                    np.sqrt(np.trapz(annularFlux[good]*binnedDs[window][iv][good]**2,
-                                     binnedDs[window][iv][good])/flux)
+                    np.sqrt(np.trapezoid(annularFlux[good]*binnedDs[window][iv][good]**2,
+                                         binnedDs[window][iv][good])/flux)
 
                 meanCenteredFlux[window][quadrant][iv] = \
                     np.nanmean(II[keep[ll] & (d[ll] < 10)])  # < 1 micron offset
