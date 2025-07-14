@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Arc, Circle, RegularPolygon
 import pandas as pd
 
-from pfs.datamodel.guideStars import AutoGuiderStarMask
+from pfs.utils.datamodel.ag import AutoGuiderStarMask
 from pfs.utils.coordinates.transform import MeasureDistortion
 import pfs.utils.coordinates.CoordTransp as ct
 from .sysUtils import pd_read_sql
