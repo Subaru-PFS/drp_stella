@@ -67,5 +67,5 @@ class SlitOffsetsConfig(Config):
         if self.spatial:
             spatial += self.spatial
         if self.spectral:
-            spatial += self.spectral
+            spectral += self.spectral
         detectorMap.setSlitOffsets(spatial, spectral)
