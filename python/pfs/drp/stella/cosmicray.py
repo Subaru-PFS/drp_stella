@@ -214,7 +214,9 @@ class CosmicRayConnections(
                 first = coordList[0]
                 for other in coordList[1:]:
                     adjuster.add_input(first, "inputExposures", other)
-                    adjuster.move_output(first, "outputExposures", other)
+                    if self.config.doWriteExposure:
+                        adjuster.move_output(first, "outputExposures", other)
+                    adjuster.move_output(first, "masks", other)
                     adjuster.remove_quantum(other)
 
 
