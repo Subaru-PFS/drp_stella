@@ -60,6 +60,7 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.config.centerFit.order = 2
         self.config.rowFwhm = self.synth.fwhm
         self.config.columnFwhm = self.synth.fwhm
+        self.config.doScatteredLight = False
         self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
@@ -428,6 +429,7 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         self.config.extractFwhm = 0.5*self.synth.fwhm
         self.config.doBlindFind = False
         self.config.profileRadius = 10  # Very broad!
+        self.config.doScatteredLight = False
         self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 

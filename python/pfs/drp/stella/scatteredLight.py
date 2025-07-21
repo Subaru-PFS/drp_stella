@@ -176,6 +176,8 @@ class ScatteredLightModel:
         spectra = SpectrumSet.fromPfsArm(pfsArm)
         model = spectra.makeImage(dims, traces).array
 
+        width = dims.getX()
+        height = dims.getY()
         xGap: int | None = None
         from .LayeredDetectorMapContinued import LayeredDetectorMap  # import here to avoid circular import
         if isinstance(detectorMap, LayeredDetectorMap):
