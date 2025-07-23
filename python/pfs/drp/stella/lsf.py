@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from functools import partial
+from functools import partial, lru_cache
 from typing import TYPE_CHECKING
 from collections.abc import Callable, Iterable, Iterator
 import numbers
@@ -610,7 +610,29 @@ class Lsf(ABC):
         raise NotImplementedError("Subclasses must implement this method")
 
 
-def gaussian(indices: ArrayLike, width: float) -> ArrayLike:
+@lru_cache
+def _gaussian_impl(indices: tuple[int, ...], width: float) -> np.ndarray:
+    """Implementation of evaluation of an un-normalized Gaussian
+
+    Parameters
+    ----------
+    indices : array-like
+        Positions at which to evaluate.
+    width : `float`
+        Gaussian RMS width.
+
+    Returns
+    -------
+    values : array-like
+        Gaussian evaluations.
+    """
+    xx = np.array(indices, dtype=np.float64)
+    gaussian = np.exp(-0.5*(xx/width)**2)
+    gaussian.flags["WRITEABLE"] = False  # Don't allow cached value to be modified
+    return gaussian
+
+
+def gaussian(indices: np.ndarray, width: float) -> np.ndarray:
     """Evaluate an un-normalized Gaussian
 
     Parameters
@@ -625,7 +647,8 @@ def gaussian(indices: ArrayLike, width: float) -> ArrayLike:
     values : array-like
         Gaussian evaluations.
     """
-    return np.exp(-0.5*(indices/width)**2)
+    values = _gaussian_impl(tuple(indices), width)
+    return values.copy()
 
 
 class GaussianKernel1D(Kernel1D):
@@ -637,18 +660,26 @@ class GaussianKernel1D(Kernel1D):
         Gaussian RMS width.
     nWidth : `float`, optional
         Multiple of ``width`` for the width of the kernel.
+    _array : `np.ndarray`, optional
+        Pre-computed array of normalized values; intended for internal use only.
     """
-    def __init__(self, width: float, nWidth: float = 4.0):
+    def __init__(self, width: float, nWidth: float = 4.0, *, _array: np.ndarray | None = None):
         halfSize = int(width*nWidth + 0.5)
         size = 2*halfSize + 1
         indices = np.arange(size)
-        super().__init__(gaussian(indices - halfSize, width), halfSize)
+        if _array is None:
+            _array = gaussian(indices - halfSize, width)
+            normalize = True
+        else:
+            assert _array.size == size, "Array length does not match expected size"
+            normalize = False
+        super().__init__(_array, halfSize, normalize=normalize)
         self.width = width
         self.nWidth = nWidth
 
     def copy(self) -> "GaussianKernel1D":
         """Return a copy of the kernel"""
-        return self.__class__(self.width, self.nWidth)
+        return self.__class__(self.width, self.nWidth, _array=self.values.copy())
 
     def toKernel1D(self) -> Kernel1D:
         """Convert to a generic Kernel1D (without the Gaussian-specific

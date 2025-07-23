@@ -8,3 +8,17 @@ tasks:
       grouping: separate  # Reducing as exposures are observed
   fiberNorms:  # Produce residual fiberNorms for quartz exposures only
     class: pfs.drp.stella.measureFiberNorms.ExposureFiberNormsTask
+  determineFluxReference:
+    class: pfs.drp.stella.determineFluxReference.DetermineFluxReferenceTask
+  fitFluxCal:
+    class: pfs.drp.stella.fitFluxCal.FitFluxCalTask
+
+subsets:
+  processExposure:
+    - isr
+    - cosmicray
+    - reduceExposure
+    - fiberNorms
+  fluxCal:
+    - determineFluxReference
+    - fitFluxCal

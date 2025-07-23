@@ -1,9 +1,15 @@
 import numpy as np
 from scipy import interpolate
+from typing import TYPE_CHECKING
 
+from lsst.afw.image import Mask
 from lsst.utils import continueClass
 
 from .Spectrum import Spectrum
+
+if TYPE_CHECKING:
+    from pfs.datamodel import PfsSimpleSpectrum
+
 
 __all__ = ["Spectrum"]
 
@@ -106,3 +112,37 @@ class Spectrum:  # noqa: F811 (redefinition)
             Corresponding wavelength value(s).
         """
         return interpolate.interp1d(np.arange(len(self)), self.wavelength, assume_sorted=True)(pixels)
+
+    @classmethod
+    def fromPfsSpectrum(cls, spectrum: "PfsSimpleSpectrum", fiberId: int = 0) -> "Spectrum":
+        """Create a `Spectrum` from a PFS spectrum
+
+        Like a `pfs.datamodel.PfsSimpleSpectrum`, `pfs.datamodel.PfsFiberArray`,
+        `pfs.datamodel.PfsCalibrated` or `pfs.datamodel.PfsObject`.
+
+        Parameters
+        ----------
+        spectrum : `pfs.datamodel.PfsSimpleSpectrum`
+            PFS spectrum to convert.
+        fiberId : `int`, optional
+            Fiber ID to use for the spectrum.
+
+        Returns
+        -------
+        spectrum : `Spectrum`
+            Converted spectrum.
+        """
+        length = len(spectrum.flux)
+        norm = np.ones_like(spectrum.flux, dtype=np.float32)
+        mask = Mask(length, 1)
+        mask.array[:] = spectrum.mask
+        if hasattr(spectrum, "variance"):
+            variance = spectrum.variance
+        else:
+            variance = np.ones_like(spectrum.flux, dtype=np.float32)
+        wavelength = np.array(spectrum.wavelength, dtype=np.float64)  # Ensure this is a regular array
+        result = cls(
+            spectrum.flux.astype(np.float32), mask, norm, variance.astype(np.float32), wavelength
+        )
+        result.setFiberId(fiberId)
+        return result
