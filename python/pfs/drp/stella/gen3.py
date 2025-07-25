@@ -927,6 +927,7 @@ def defineCombination(
     where: Optional[str] = None,
     visitList: Optional[List[int]] = None,
     maxGroupSize: int = 2000,
+    fiberStatus: Union[TargetType, np.ndarray, None] = None,
     targetType: Union[TargetType, np.ndarray, None] = None,
     update: bool = False,
 ):
@@ -950,6 +951,8 @@ def defineCombination(
         clause is provided, this list is used to further restrict the selection.
     maxGroupSize : `int`, optional
         Maximum number of objects per group.
+    fiberStatus : `TargetType` or `np.ndarray`, optional
+        Fiber status to use for the combination. Defaults to ``GOOD``.
     targetType : `TargetType` or `np.ndarray`, optional
         Target type to use for the combination. Defaults to ``SCIENCE``, ``SKY``
         and ``FLUXSTD``.
@@ -976,6 +979,8 @@ def defineCombination(
             where = f"({where}) AND {add}"
     if targetType is None:
         targetType = [TargetType.SCIENCE, TargetType.SKY, TargetType.FLUXSTD]
+    if fiberStatus is None:
+        fiberStatus = TargetType.GOOD
 
     log = getLogger("pfs.defineCombination")
     run = instrument + "/objectGroups"
@@ -1004,8 +1009,9 @@ def defineCombination(
     )
 
     pfsConfigList = [
-        butler.get("pfsConfig", visit=vv, instrument=instrument).select(targetType=targetType)
-        for vv in visitList
+        butler.get("pfsConfig", visit=vv, instrument=instrument).select(
+            fiberStatus=fiberStatus, targetType=targetType
+        ) for vv in visitList
     ]
     catId = set(sum((np.unique(pfsConfig.catId).tolist() for pfsConfig in pfsConfigList), []))
 

@@ -17,6 +17,7 @@ def main():
     parser.add_argument(
         "--max-group-size", type=int, default=2000, help="Maximum number of objects in a group"
     )
+    parser.add_argument("--fiberStatus", default=[], action="append", help="Fiber status for the combination")
     parser.add_argument("--targetType", default=[], action="append", help="Target types for the combination")
     parser.add_argument(
         "--update", default=False, action="store_true", help="Update an existing registry"
@@ -24,6 +25,11 @@ def main():
     parser.add_argument("visits", nargs="*", type=int, help="Visit IDs to select")
 
     args = parser.parse_args()
+
+    if args.fiberStatus:
+        fiberStatus = [TargetType.fromString(fs) for fs in args.fiberStatus]
+    else:
+        fiberStatus = None
 
     if args.targetType:
         targetType = [TargetType.fromString(tt) for tt in args.targetType]
@@ -38,6 +44,7 @@ def main():
         where=args.where,
         visitList=args.visits,
         maxGroupSize=args.max_group_size,
+        fiberStatus=fiberStatus,
         targetType=targetType,
         update=args.update,
     )
