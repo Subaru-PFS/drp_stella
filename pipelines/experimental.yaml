@@ -1,0 +1,20 @@
+description: Experimental pipeline
+
+imports:
+  -
+    location: $DRP_STELLA_DIR/pipelines/science.yaml
+    exclude: fitFluxReference  # Replace with determineFluxReference
+
+tasks:
+  determineFluxReference:  # Replaces fitFluxReference
+    class: pfs.drp.stella.determineFluxReference.DetermineFluxReferenceTask
+
+subsets:
+  processExposure:
+    - isr
+    - cosmicray
+    - reduceExposure
+    - mergeArms
+  fluxCal:
+    - determineFluxReference
+    - fitFluxCal
