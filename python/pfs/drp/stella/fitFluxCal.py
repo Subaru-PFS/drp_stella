@@ -1405,9 +1405,7 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         default=0.01,
         optional=False,
     )
-    ignoredBroadbandFilters = ListField(
-        dtype=str, default=[], doc="Broadband filters not to use"
-    )
+    ignoredBroadbandFilters = ListField(dtype=str, default=[], doc="Broadband filters not to use")
     fabricatedBroadbandFluxErrSNR = Field(
         dtype=float,
         default=0,
