@@ -298,7 +298,7 @@ class FitDistortedDetectorMapConfig(Config):
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
-    lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
+    lsqThreshold = Field(dtype=float, default=1.0e-4, doc="Eigenvalue threshold for solving least-squares")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
     slitOffsetIterations = Field(dtype=int, default=3, doc="Number of iterations for measuring slit offsets")
     base = Field(dtype=str,
