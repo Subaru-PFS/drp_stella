@@ -68,12 +68,14 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
         fitFlagArray[~np.isin(fiberId, pfsMerged.fiberId)] |= self.fitFlagNames.add("NO_MERGED_SPECTRUM")
 
         pfsMerged = removeBadSpectra(
-            pfsMerged,
+            pfsMerged.select(fiberId=pfsConfig.fiberId),
             self.config.cutoffSNR,
             (self.config.cutoffSNRRangeLeft, self.config.cutoffSNRRangeRight),
         )
         isBadSnr = (fitFlagArray == 0) & ~np.isin(fiberId, pfsMerged.fiberId)
         fitFlagArray[isBadSnr] |= self.fitFlagNames.add("BAD_SNR")
+        pfsConfig = pfsConfig.select(fiberId=pfsMerged.fiberId)
+        assert np.array_equal(pfsConfig.fiberId, pfsMerged.fiberId)
 
         models = self.findRoughlyBestModel(pfsConfig)
         pfsMerged = pfsMerged.select(fiberId=list(models.keys()))
