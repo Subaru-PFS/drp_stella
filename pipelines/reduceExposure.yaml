@@ -2,7 +2,7 @@ description: Reduce an exposure
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 
 parameters:
-  h4_doCR: True                         # Pass to isr.h4.doCR, and pass negation to cosmicray
+  h4_doCR: False                        # Pass to isr.h4.doCR, and pass negation to cosmicray
   h4_crMinReads: 4                      # Minimum number of reads for up-the-ramp CR rejection
 
 tasks:
