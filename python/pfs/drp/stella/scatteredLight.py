@@ -44,6 +44,8 @@ class ScatteredLightModel:
         Softening (pixels) of the second component.
     halfSize : `int`
         Half-size of the kernel (pixels).
+    interpWinSize : `int`
+        Interpolation window size (pixels).
     """
     top: float = 1.0        # Scale factor for the scattered light model at top
     bottom: float = 1.0     # Scale factor for the scattered light model at bottom
@@ -54,6 +56,7 @@ class ScatteredLightModel:
     powerLaw2: float = 3.0  # Power-law index (2-D) of the second component
     soften2: float = 5.0    # Softening (pixels) of the second component
     halfSize: int = 4096    # Half-size of the kernel (pixels)
+    interpWinSize: int = 5  # Interpolation window size (pixels)
 
     @property
     def grid(self):
@@ -159,19 +162,19 @@ class ScatteredLightModel:
                 tt = profile.makeFiberTraceFromDetectorMap(detectorMap, fid)
             traces.add(tt)
 
-        if True:
-            flux_new = []
-            for wav, flx, msk in zip(pfsArm.wavelength, pfsArm.flux, pfsArm.mask):
-                bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
-                flx[bad] = np.nan
-                invalid_indices = np.where(bad)[0]
-                for i in invalid_indices:
-                    start = max(0, i - 5)
-                    end = min(i + 6, len(invalid_indices))
-                    flx[i] = np.nanmedian(flx[start:end])
-                flx[bad] = np.nanmedian(flx[~bad])
-                flux_new.append(flx)
-            pfsArm.flux = np.array(flux_new)
+        # Interpolate masked pixels in pfsArm.flux
+        flux_new = []
+        for wav, flx, msk in zip(pfsArm.wavelength, pfsArm.flux, pfsArm.mask):
+            bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
+            flx[bad] = np.nan
+            invalid_indices = np.where(bad)[0]
+            for i in invalid_indices:
+                start = max(0, i - self.interpWinSize)
+                end = min(i + self.interpWinSize+1, len(invalid_indices))
+                flx[i] = np.nanmedian(flx[start:end])
+            flx[bad] = np.nanmedian(flx[~bad])
+            flux_new.append(flx)
+        pfsArm.flux = np.array(flux_new)
 
         spectra = SpectrumSet.fromPfsArm(pfsArm)
         model = spectra.makeImage(dims, traces).array
@@ -276,6 +279,7 @@ class ScatteredLightConfig(Config):
         doc="Softening (pixels) of the second component, indexed by camera name or 'default'",
     )
     halfSize = Field(dtype=int, default=4096, doc="Half-size of the kernel")
+    interpWinSize = Field(dtype=int, default=5, doc="Interpolation window size in pixel")
 
     def getValue(self, name: str, camera: str) -> float:
         """Get a value for a camera from the configuration
@@ -324,6 +328,7 @@ class ScatteredLightConfig(Config):
             powerLaw2=self.getValue("powerLaw2", camera),
             soften2=self.getValue("soften2", camera),
             halfSize=self.halfSize,
+            interpWinSize=self.interpWinSize,
         )
 
 
