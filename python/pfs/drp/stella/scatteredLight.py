@@ -201,19 +201,37 @@ class ScatteredLightConfig(Config):
     top = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=1.0, b1=1.0, b2=1.0, b3=1.0, b4=1.0, r1=0.8, r2=0.8, r3=0.8, r4=0.8, n1=1.0, n2=1.0, n3=1.0, n4=1.0, m1=0.9, m2=0.9, m3=0.9, m4=0.9),
+        default=dict(
+            default=1.0,
+            b1=1.0, b2=1.0, b3=1.0, b4=1.0,
+            r1=0.8, r2=0.8, r3=0.8, r4=0.8,
+            n1=1.0, n2=1.0, n3=1.0, n4=1.0,
+            m1=0.9, m2=0.9, m3=0.9, m4=0.9,
+        ),
         doc="Scale factor for the scattered light model at top, indexed by camera name or 'default'",
     )
     bottom = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=1.0, b1=1.0, b2=1.0, b3=1.0, b4=1.0, r1=1.1, r2=1.1, r3=1.1, r4=1.1, n1=1.0, n2=1.0, n3=1.0, n4=1.0, m1=1.1, m2=1.1, m3=1.1, m4=1.1),
+        default=dict(
+            default=1.0,
+            b1=1.0, b2=1.0, b3=1.0, b4=1.0,
+            r1=1.1, r2=1.1, r3=1.1, r4=1.1,
+            n1=1.0, n2=1.0, n3=1.0, n4=1.0,
+            m1=1.1, m2=1.1, m3=1.1, m4=1.1,
+        ),
         doc="Scale factor for the scattered light model at bottom, indexed by camera name or 'default'",
     )
     frac1 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.037, r2=0.040, r3=0.043, r4=0.070, n1=0.065, n2=0.068, n3=0.050, n4=0.060, m1=0.040, m2=0.040, m3=0.053, m4=0.060),
+        default=dict(
+            default=0.048,
+            b1=0.055, b2=0.050, b3=0.060, b4=0.100,
+            r1=0.037, r2=0.040, r3=0.043, r4=0.070,
+            n1=0.065, n2=0.068, n3=0.050, n4=0.060,
+            m1=0.040, m2=0.040, m3=0.053, m4=0.060,
+        ),
         doc="Fraction of the total power in the first component, indexed by camera name or 'default'",
     )
     powerLaw1 = DictField(
@@ -231,7 +249,13 @@ class ScatteredLightConfig(Config):
     frac2 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.01, b1=0.025, b2=0.055, b3=0.032, b4=0.045, r1=0.025, r2=0.020, r3=0.013, r4=0.021, n1=0.010, n2=0.010, n3=0.010, n4=0.017, m1=0.025, m2=0.020, m3=0.014, m4=0.021),
+        default=dict(
+            default=0.01,
+            b1=0.025, b2=0.055, b3=0.032, b4=0.045,
+            r1=0.025, r2=0.020, r3=0.013, r4=0.021,
+            n1=0.010, n2=0.010, n3=0.010, n4=0.017,
+            m1=0.025, m2=0.020, m3=0.014, m4=0.021,
+        ),
         doc="Fraction of the total power in the second component, indexed by camera name or 'default'",
     )
     powerLaw2 = DictField(
