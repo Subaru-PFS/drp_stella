@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField
+from lsst.pex.config import ChoiceField, ConfigurableField, Field, ListField
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -22,6 +22,7 @@ from pfs.datamodel.drp import PfsCoadd
 from pfs.drp.stella.datamodel.drp import PfsArm
 
 from .datamodel import PfsObject, PfsSingle
+from .filterCurve import FilterCurve
 from .fitFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
@@ -132,6 +133,31 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    doFluxScaling = Field(dtype=bool, default=True, doc="Scale fluxes to match broadband photometry?")
+    fluxStyle = ChoiceField(
+        doc="Type of broadband fluxes to use.",
+        dtype=str,
+        allowed={
+            "fiber": "Use `psfConfig.fiberFlux`",
+            "psf": "Use `psfConfig.psfFlux`",
+            "total": "Use `psfConfig.totalFlux`",
+        },
+        default="psf",
+        optional=False,
+    )
+    filterPreference = ListField(
+        dtype=str,
+        default=[
+            "r2_hsc", "i2_hsc", "i_old_hsc", "g_hsc",
+            "r_ps1", "i_ps1", "g_ps1",
+            "g_gaia", "rp_gaia", "bp_gaia",
+            "r_sdss", "i_sdss", "g_sdss"
+        ],
+        doc="Preferred order of filters for flux calibration",
+    )
+    fluxScaleMaxMaskFrac = Field(
+        dtype=float, default=0.05, doc="Maximum allowed fraction of masked pixels in flux scale"
+    )
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -145,6 +171,9 @@ class CoaddSpectraTask(PipelineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("wavelength")
         self.makeSubtask("fluxTable")
+        self.filterCurves = {
+            filterName: FilterCurve(filterName) for filterName in self.config.filterPreference
+        }
 
     def run(self, data: Mapping[Identity, Struct]) -> Struct:
         """Coadd multiple observations
@@ -328,7 +357,57 @@ class CoaddSpectraTask(PipelineTask):
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
         spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
-        return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
+        spectrum = spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
+
+        XXXX Need to get scaling from flux-calibrated merged spectrum (pfsSingle)
+        if self.config.doFluxScaling and target.targetType in (TargetType.SCIENCE, TargetType.FLUXSTD):
+            self.scaleFlux(spectrum, data.pfsConfig)
+
+
+        return spectrum
+
+    def scaleFlux(self, spectrum: PfsSingle, pfsConfig: PfsConfig) -> None:
+        """Scale the flux of the spectrum to match the fiber flux in the PfsConfig
+
+        Parameters
+        ----------
+        spectrum : `PfsSingle`
+            Spectrum to scale.
+        pfsConfig : `PfsConfig`
+            Top-end configuration for the target.
+        """
+        mask = spectrum.flags.get(*self.config.mask)
+        isGood = (spectrum.mask & mask) == 0
+        maskArray = np.where(isGood, 1.0, 0.0)
+
+        targetFluxes = getattr(pfsConfig, self.config.fluxStyle + "Flux")
+
+        for filterName in self.config.filterPreference:
+            try:
+                index = pfsConfig.filterNames[0].index(filterName)
+            except ValueError:
+                self.log.debug("Filter %s not found in pfsConfig" % filterName)
+                continue
+            desiredFlux = targetFluxes[0][index]
+            if not np.isfinite(desiredFlux) or desiredFlux <= 0:
+                self.log.debug("No flux for filter %s in pfsConfig" % filterName)
+                continue
+            filterCurve = self.filterCurves[filterName]
+            maskFrac = filterCurve.integrateArrays(spectrum.wavelength, maskArray) / filterCurve.normalization
+            if maskFrac > self.config.fluxScaleMaxMaskFrac:
+                self.log.debug("Mask fraction %f for filter %s exceeds maximum %f; skipping flux scaling")
+                continue
+            spectrumFlux = filterCurve.photometer(spectrum, mask=self.config.mask)
+            if not np.isfinite(spectrumFlux) or spectrumFlux <= 0:
+                self.log.debug("Invalid flux in spectrum for filter %s" % filterName)
+                continue
+            self.log.debug(
+                "Filter %s: spectrum flux %.3e, desired flux %.3e", filterName, spectrumFlux, desiredFlux
+            )
+            spectrum *= desiredFlux/spectrumFlux
+            return
+
+        raise RuntimeError(f"Unable to find suitable flux scaling for target {spectrum.target}")
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
         """Generate coadded spectra for a single target
