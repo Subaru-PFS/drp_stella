@@ -5,6 +5,7 @@ import os
 from typing import TYPE_CHECKING, Literal, overload
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 if TYPE_CHECKING:
     from pfs.datamodel import PfsFiberArray, PfsSimpleSpectrum
@@ -28,7 +29,7 @@ class TransmissionCurve:
         Array of corresponding transmission values.
     """
 
-    def __init__(self, wavelength, transmission):
+    def __init__(self, wavelength: np.ndarray, transmission: np.ndarray):
         if len(wavelength) != len(transmission):
             raise RuntimeError(
                 "Mismatched lengths for wavelength and transmission: "
@@ -36,8 +37,12 @@ class TransmissionCurve:
             )
         self.wavelength = wavelength
         self.transmission = transmission
+        self._interpolator = interp1d(self.wavelength, self.transmission, bounds_error=False, fill_value=0.0)
+        self.normalization = trapezoidal(
+            self.wavelength, np.ones_like(self.wavelength), weight=self.transmission / self.wavelength
+        )
 
-    def interpolate(self, wavelength):
+    def interpolate(self, wavelength: np.ndarray) -> np.ndarray:
         """Interpolate the filter transmission curve at the provided wavelength
 
         Parameters
@@ -50,12 +55,12 @@ class TransmissionCurve:
         transmission : array_like
             Transmission at the provided wavelength.
         """
-        return np.interp(wavelength, self.wavelength, self.transmission, 0.0, 0.0)
+        return self._interpolator(wavelength)
 
-    def _integrate(
+    def integrateArrays(
         self,
-        specFlux: np.ndarray | None = None,
         specWavelength: np.ndarray | None = None,
+        specFlux: np.ndarray | None = None,
         power: float = 1.0,
     ) -> float:
         r"""Integrate the filter transmission curve for synthetic photometry
@@ -71,26 +76,29 @@ class TransmissionCurve:
 
         Parameters
         ----------
-        specFlux : `numpy.ndarray`, optional
-            Spectrum to integrate. If not provided, use unity.
         specWavelength : `numpy.ndarray`, optional
             Wavelength array for ``flux``. This is ignored if ``flux`` is ``None``.
+        specFlux : `numpy.ndarray`, optional
+            Spectrum to integrate. If not provided, use unity.
         power : `float`
             :math:`p` in the integral (default: ``1``). This should usually be ``1``.
         """
-        if specFlux is not None:
+        if specFlux is None:
+            if specWavelength is not None:
+                raise RuntimeError("specWavelength must be None if specFlux is None")
+            if power == 1:
+                return self.normalization
+            specFlux = np.ones_like(specWavelength)
+            specWavelength = self.wavelength
+            weight = self.transmission / self.wavelength
+        else:
             if specWavelength is None:
                 raise RuntimeError("specWavelength must be provided if specFlux is provided")
-            x = specWavelength
-            y = specFlux
             weight = self.interpolate(specWavelength) / specWavelength
-        else:
-            x = self.wavelength
-            y = np.ones(shape=len(self.wavelength))
-            weight = self.transmission / self.wavelength
-        return trapezoidal(x, y, weight, power=power)
 
-    def integrate(self, spectrum=None, power=1):
+        return trapezoidal(specWavelength, specFlux, weight, power=power)
+
+    def integrate(self, spectrum=None, *, power=1, mask: list[str] | None = None) -> float:
         r"""Integrate the filter transmission curve for synthetic photometry
 
         The integral is:
@@ -108,21 +116,41 @@ class TransmissionCurve:
             Spectrum to integrate. If not provided, use unity.
         power : `int`
             :math:`p` in the integral (default: ``1``). This should usually be ``1``.
+        mask : `list[str]`, optional
+            List of mask planes to ignore when integrating.
         """
-        if spectrum is not None:
-            return self._integrate(spectrum.flux, spectrum.wavelength, power=power)
-        else:
-            return self._integrate(None, None, power=power)
+        if spectrum is None:
+            if power == 1:
+                return self.normalization
+            return self.integrateArrays(None, None, power=power)
+
+        wavelength = spectrum.wavelength
+        flux = spectrum.flux
+        if mask is not None:
+            isGood = (spectrum.mask & spectrum.flags.get(*mask)) == 0
+            wavelength = wavelength[isGood]
+            flux = flux[isGood]
+
+        return self.integrateArrays(wavelength, flux, power=power)
 
     @overload
-    def photometer(self, spectrum: PfsSimpleSpectrum, doComputeError: Literal[False]) -> float:
+    def photometer(
+        self, spectrum: PfsSimpleSpectrum, doComputeError: Literal[False], mask: list[str] | None = None
+    ) -> float:
         ...
 
     @overload
-    def photometer(self, spectrum: PfsFiberArray, doComputeError: Literal[True]) -> tuple[float, float]:
+    def photometer(
+        self, spectrum: PfsFiberArray, doComputeError: Literal[True], mask: list[str] | None
+    ) -> tuple[float, float]:
         ...
 
-    def photometer(self, spectrum, doComputeError=False):
+    def photometer(
+        self,
+        spectrum: PfsSimpleSpectrum | PfsFiberArray,
+        doComputeError: bool = False,
+        mask: list[str] | None = None,
+    ) -> float | tuple[float, float]:
         """Measure flux with this filter.
 
         Parameters
@@ -133,6 +161,8 @@ class TransmissionCurve:
             Whether to compute an error bar (standard deviation).
             If ``doComputeError=True``, ``spectrum`` must be of
             `pfs.datamodel.PfsFiberArray` type.
+        mask : `list[str]`, optional
+            List of mask planes to ignore when integrating.
 
         Returns
         -------
@@ -141,16 +171,27 @@ class TransmissionCurve:
         error : `float`
             Standard deviation of ``flux``. (Returned only if ``doComputeError=True``).
         """
-        fluxNumer = self._integrate(spectrum.flux, spectrum.wavelength)
-        fluxDenom = self._integrate(None, None)
+        wavelength = spectrum.wavelength
+        flux = spectrum.flux
+        isGood = None
+        if mask is not None:
+            isGood = (spectrum.mask & spectrum.flags.get(*mask)) == 0
+            wavelength = wavelength[isGood]
+            flux = flux[isGood]
+
+        fluxNumer = self.integrateArrays(wavelength, flux)
+        fluxDenom = self.normalization
         flux = fluxNumer / fluxDenom
 
-        if doComputeError:
-            varianceNumer = self._integrate(spectrum.covar[0, :], spectrum.wavelength, power=2)
-            error = np.sqrt(varianceNumer) / fluxDenom
-            return flux, error
-        else:
+        if not doComputeError:
             return flux
+
+        variance = spectrum.covar[0, :]
+        if mask is not None:
+            variance = variance[isGood]
+        varianceNumer = self.integrateArrays(wavelength, variance, power=2)
+        error = np.sqrt(varianceNumer) / fluxDenom
+        return flux, error
 
 
 class FilterCurve(TransmissionCurve):
