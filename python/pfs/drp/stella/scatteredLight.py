@@ -43,11 +43,11 @@ class ScatteredLightModel:
     halfSize : `int`
         Half-size of the kernel (pixels).
     """
-    scale: float = 0.0  # Overall scale factor for the scattered light model
-    frac1: float = 1.0  # Fraction of the total power in the first component
+    scale: float = 1.0  # Overall scale factor for the scattered light model
+    frac1: float = 0.048  # Fraction of the total power in the first component
     powerLaw1: float = 1.5  # Power-law index (2-D) of the first component
     soften1: float = 1.0  # Softening (pixels) of the first component
-    frac2: float = 0.2  # Fraction of the total power in the second component
+    frac2: float = 0.010  # Fraction of the total power in the second component
     powerLaw2: float = 3.0  # Power-law index (2-D) of the second component
     soften2: float = 5.0  # Softening (pixels) of the second component
     halfSize: int = 4096  # Half-size of the kernel (pixels)
@@ -90,6 +90,7 @@ class ScatteredLightModel:
         rr2 = dx**2 + soften**2
         if doSpectral:
             rr2 += dy**2
+        rr2 = np.maximum(rr2, 1.0)  # Avoid division by zero
         kernel = rr2**(-powerLaw/2)
         kernel *= frac/np.sum(kernel)
         return kernel
@@ -112,7 +113,7 @@ class ScatteredLightModel:
         kernel : `numpy.ndarray`
             Kernel for the second component of the scattered light model.
         """
-        return self._makeKernelImpl(self.frac2, self.powerLaw2, self.soften2, self.grid, doSpectral=False)
+        return self._makeKernelImpl(self.frac2, self.powerLaw2, self.soften2, self.grid, doSpectral=True)
 
     def makeKernel(self):
         """Make the kernel for the scattered light model
@@ -147,7 +148,27 @@ class ScatteredLightModel:
         traces = FiberTraceSet(len(pfsArm))
         for fid in pfsArm.fiberId:
             centers = detectorMap.getXCenter(fid)
-            traces.add(FiberTrace.boxcar(fid, dims, 0.5, centers))
+            if True:
+                tt = FiberTrace.boxcar(fid, dims, 0.5, centers)
+            else:
+                from .fiberProfile import FiberProfile
+                profile = FiberProfile.makeGaussian(2.0, dims.getY(), 7, 3)
+                tt = profile.makeFiberTraceFromDetectorMap(detectorMap, fid)
+            traces.add(tt)
+
+        if True:
+            flux_new = []
+            for wav, flx, msk in zip(pfsArm.wavelength, pfsArm.flux, pfsArm.mask):
+                bad = msk != 0
+                flx[bad] = np.nan
+                invalid_indices = np.where(bad)[0]
+                for i in invalid_indices:
+                    start = max(0, i - 5)
+                    end = min(i + 6, len(invalid_indices))
+                    flx[i] = np.nanmedian(flx[start:end])
+                flx[bad] = np.nanmedian(flx[~bad])
+                flux_new.append(flx)
+            pfsArm.flux = np.array(flux_new)
 
         spectra = SpectrumSet.fromPfsArm(pfsArm)
         model = spectra.makeImage(dims, traces).array
@@ -179,13 +200,13 @@ class ScatteredLightConfig(Config):
     scale = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.0, r3=1.0),
+        default=dict(default=1.0),
         doc="Scale factor for the scattered light model, indexed by camera name or 'default'",
     )
     frac1 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=1.0, r3=0.048),
+        default=dict(default=0.048, b1=0.055, b2=0.050, b3=0.060, b4=0.100, r1=0.035, r2=0.040, r3=0.045, r4=0.070, n1=0.065, n2=0.068, n3=0.050, n4=0.060, m1=0.040, m2=0.040, m3=0.053, m4=0.060),
         doc="Fraction of the total power in the first component, indexed by camera name or 'default'",
     )
     powerLaw1 = DictField(
@@ -203,7 +224,7 @@ class ScatteredLightConfig(Config):
     frac2 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=0.2, r3=0.01),
+        default=dict(default=0.01, b1=0.025, b2=0.055, b3=0.032, b4=0.045, r1=0.025, r2=0.020, r3=0.013, r4=0.021, n1=0.010, n2=0.010, n3=0.010, n4=0.017, m1=0.025, m2=0.020, m3=0.014, m4=0.021),
         doc="Fraction of the total power in the second component, indexed by camera name or 'default'",
     )
     powerLaw2 = DictField(
