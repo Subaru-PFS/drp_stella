@@ -2308,6 +2308,7 @@ class FilterCurve(TransmissionCurve):
         "r_sdss": "SDSS/r_all_tel_atm13.dat",
         "i_sdss": "SDSS/i_all_tel_atm13.dat",
         "z_sdss": "SDSS/z_all_tel_atm13.dat",
+        "nj_fake": "fake/fake_narrow_J.dat",
     }
     """Mapping of filter name to filename"""
 
