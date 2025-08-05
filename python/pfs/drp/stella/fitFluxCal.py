@@ -417,6 +417,9 @@ class BroadbandFluxChi2:
         Soften broadband flux errors: err**2 -> err**2 + (soften*flux)**2
     ignoredBroadbandFilters: `list` [`str`]
         List of broadband filters not to use.
+    fabricatedNarrowJFluxErrSNR: `float`
+        If positive, fabricate both narrow-J-band fluxes and their errors"
+        " such that S/N is this much. Disabled otherwise.
     smoothFilterWidth : `float`
         Width (nm) of smoothing filter.
         (A copy of) ``pfsMerged`` will be made smooth with this filter.
@@ -437,6 +440,7 @@ class BroadbandFluxChi2:
         badMask: list[str],
         softenBroadbandFluxErr: float,
         ignoredBroadbandFilters: Collection[str],
+        fabricatedNarrowJFluxErrSNR: float,
         smoothFilterWidth: float,
         minIntegrandWavelength: float,
         maxIntegrandWavelength: float,
@@ -447,6 +451,7 @@ class BroadbandFluxChi2:
         self.log = log
         self.badMask = badMask
         self.softenBroadbandFluxErr = softenBroadbandFluxErr
+        self.fabricatedNarrowJFluxErrSNR = fabricatedNarrowJFluxErrSNR
 
         self.obsSpectra: dict[int, PfsSingle] = {
             fiberId: pfsMerged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in pfsConfig.fiberId
@@ -721,6 +726,7 @@ class BroadbandFluxChi2:
                 spectrum /= calib
 
             self._addressAbsentArms(spectrum, bbFlux, self.arms[fId])
+            self._fabricateNarrowJ(bbFlux, self.arms[fId])
 
             self.bbFlux[fId] = bbFlux
             self.obsSpectra[fId] = spectrum
@@ -865,6 +871,55 @@ class BroadbandFluxChi2:
             )
         bbFlux[:] = []
         return
+
+    def _fabricateNarrowJ(self, bbFlux: list[tuple[float, float, str]], arms: str) -> None:
+        """Make a fake "narrow J-band" flux and put it into ``bbFlux``
+        if possible.
+
+        The narrow J-band flux, guessed from the other bands, would be useful
+        because it would limit the IR-end of the flux calibration vector.
+        See PIPE2D-1594.
+
+        Parameters
+        ----------
+        bbFlux : `list` [`tuple` [`float`, `float`, `str`]]
+            Broadband fluxes. Each element of the list is a tuple of
+            ``(flux, fluxErr, filterName)``
+        arms : `str`
+            Existent arms. "brn" and "bmn" for example.
+        """
+        if not (self.fabricatedNarrowJFluxErrSNR > 0):
+            return
+
+        if "n" not in arms:
+            return
+
+        fluxDict = {filterName: flux for flux, fluxErr, filterName in bbFlux}
+
+        g = fluxDict.get("g_ps1")
+        r = fluxDict.get("r_ps1")
+        y = fluxDict.get("y_ps1")
+        if (g is not None) and (r is not None) and (y is not None):
+            if g > 0 and r > 0:
+                # Equation from PIPE2D-1594, converted from magnitudes to flux
+                x = math.log(g / r)
+                nj = y * math.exp(-0.15916481300215762 + x * (-0.362018 + x * 0.0024277821553735104))
+                bbFlux.append((nj, abs(nj) / self.fabricatedNarrowJFluxErrSNR, "nj_fake"))
+            return
+
+        bp = fluxDict.get("bp_gaia")
+        rp = fluxDict.get("rp_gaia")
+        g = fluxDict.get("g_gaia")
+        if (bp is not None) and (rp is not None) and (g is not None):
+            if bp > 0 and rp > 0:
+                # Equation from PIPE2D-1594, converted from magnitudes to flux
+                x = math.log(bp / rp)
+                nj = g * math.exp(
+                    -0.2908100500068876
+                    + x * (-1.16624 + x * (-0.09839983794274737 + x * (-0.015395194003951717)))
+                )
+                bbFlux.append((nj, abs(nj) / self.fabricatedNarrowJFluxErrSNR, "nj_fake"))
+            return
 
     @staticmethod
     def _getLossFunction(*, l1: bool) -> Callable[[float], float]:
@@ -1406,6 +1461,12 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         optional=False,
     )
     ignoredBroadbandFilters = ListField(dtype=str, default=[], doc="Broadband filters not to use")
+    fabricatedNarrowJFluxErrSNR = Field(
+        dtype=float,
+        default=25,
+        doc="If positive, fabricate both narrow-J-band fluxes and their errors"
+        " such that S/N is this much. Disabled otherwise.",
+    )
     fabricatedBroadbandFluxErrSNR = Field(
         dtype=float,
         default=0,
@@ -1635,6 +1696,7 @@ class FitFluxCalTask(PipelineTask):
             badMask=self.config.badMask,
             softenBroadbandFluxErr=self.config.softenBroadbandFluxErr,
             ignoredBroadbandFilters=self.config.ignoredBroadbandFilters,
+            fabricatedNarrowJFluxErrSNR=self.config.fabricatedNarrowJFluxErrSNR,
             smoothFilterWidth=self.config.smoothFilterWidth,
             minIntegrandWavelength=self.config.minIntegrandWavelength,
             maxIntegrandWavelength=self.config.maxIntegrandWavelength,
