@@ -111,9 +111,12 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        flux = spectrum.flux
-        if hasattr(flux, "norm"):
-            flux /= flux.norm  # Normalize the flux to 1.0
+        if hasattr(spectrum, "normFlux"):
+            flux = spectrum.normFlux
+        else:
+            flux = spectrum.flux
+            if hasattr(flux, "norm"):
+                flux /= flux.norm  # Normalize the flux to 1.0
         good = np.isfinite(flux)
         if self.config.doMaskLines and lines and spectrum.isWavelengthSet():
             good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
