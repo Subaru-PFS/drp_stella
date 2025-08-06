@@ -214,17 +214,9 @@ class CoaddSpectraTask(PipelineTask):
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
-            dataId = pfsArmRef.dataId
-            visit = dataId["visit"]
-            arm = dataId["arm"]
-            identity = Identity(
-                visit=visit,
-                arm=arm,
-                spectrograph=dataId["spectrograph"],
-                pfsDesignId=dataId["pfs_design_id"]
-            )
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
             pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId, objId=objId)
+            identity = pfsArm.identity
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
