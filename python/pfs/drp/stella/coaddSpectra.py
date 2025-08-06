@@ -214,17 +214,9 @@ class CoaddSpectraTask(PipelineTask):
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
-            dataId = pfsArmRef.dataId
-            visit = dataId["visit"]
-            arm = dataId["arm"]
-            identity = Identity(
-                visit=visit,
-                arm=arm,
-                spectrograph=dataId["spectrograph"],
-                pfsDesignId=dataId["pfs_design_id"]
-            )
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
             pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId, objId=objId)
+            identity = pfsArm.identity
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
@@ -313,7 +305,11 @@ class CoaddSpectraTask(PipelineTask):
         fiberId = np.array([pfsConfig.fiberId[0] for pfsConfig in pfsConfigList])
         pfiNominal = np.array([pfsConfig.pfiNominal[0] for pfsConfig in pfsConfigList])
         pfiCenter = np.array([pfsConfig.pfiCenter[0] for pfsConfig in pfsConfigList])
-        return Observations(visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter)
+        obsTime = [dataId.obsTime for dataId in dataIdList]
+        expTime = np.array([dataId.expTime for dataId in dataIdList])
+        return Observations(
+            visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter, obsTime, expTime
+        )
 
     def getSpectrum(self, target: Target, data: Struct) -> PfsSingle:
         """Return a calibrated spectrum for the nominated target
