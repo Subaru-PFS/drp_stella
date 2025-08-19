@@ -1,8 +1,10 @@
-from collections.abc import Collection
-from functools import reduce
+from __future__ import annotations
+
+from collections.abc import Sequence
 
 import numpy as np
 
+from lsst.afw.math import makeStatistics, MEANCLIP, StatisticsControl
 from lsst.pex.config import Field, ConfigurableField, ListField
 from lsst.pipe.base import Struct
 
@@ -10,14 +12,11 @@ from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnect
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
-from lsst.pipe.base import QuantumContext
-from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 from pfs.datamodel import PfsFiberArraySet, PfsConfig
 from .focalPlaneFunction import FocalPlaneFunction, PolynomialPerFiber
 from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask
-from .gen3 import readDatasetRefs
 from .math import calculateMedian
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
@@ -25,29 +24,57 @@ from .selectFibers import SelectFibersTask
 from .utils.math import robustRms
 
 
-class MeasureSkyNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")):
+def fitScales(data: np.ndarray, model: np.ndarray, variance: np.ndarray) -> np.ndarray:
+    """Fit model scale factors to spectra
+
+    We fit a single scale factor for each spectrum.
+
+    The inputs may be masked arrays.
+
+    Parameters
+    ----------
+    data : `numpy.ndarray`, shape ``(numSpectra, numSamples)``
+        Data to fit.
+    model : `numpy.ndarray`, shape ``(numSpectra, numSamples)``
+        Model to fit (evaluated at the same points as ``data``).
+    variance : `numpy.ndarray`, shape ``(numSpectra, numSamples)``
+        Variance of the data.
+
+    Returns
+    -------
+    factor : `numpy.ndarray`, shape ``(numSpectra,)``
+        Factor by which to multiply the model to best fit the data.
+    """
+    if data.shape != model.shape or data.shape != variance.shape:
+        raise ValueError("data, model, and variance must have the same shape")
+    modelDotModel = np.ma.sum(model**2/variance, axis=1).filled(0.0)
+    dataDotModel = np.ma.sum(data*model/variance, axis=1).filled(0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.array(dataDotModel/modelDotModel)
+
+
+class MeasureSkyNormsConnections(
+    PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
+):
     """Connections for MeasureSkyNormsTask"""
     pfsArm = InputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
         storageClass="PfsArm",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
-        multiple=True,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
         doc="Top-end fiber configuration",
         storageClass="PfsConfig",
         dimensions=("instrument", "visit"),
-        multiple=True,
     )
 
     skyNorms = OutputConnection(
         name="skyNorms",
         doc="Sky normalizations",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "arm", "spectrograph"),
-        isCalibration=True,
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
 
 
@@ -87,6 +114,7 @@ class MeasureSkyNormsTask(PipelineTask):
     _DefaultName = "measureSkyNorms"
     ConfigClass = MeasureSkyNormsConfig
 
+    config: MeasureSkyNormsConfig
     readLineList: ReadLineListTask
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
@@ -99,21 +127,10 @@ class MeasureSkyNormsTask(PipelineTask):
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
 
-    def runQuantum(
-        self,
-        butler: QuantumContext,
-        inputRefs: InputQuantizedConnection,
-        outputRefs: OutputQuantizedConnection,
-    ) -> None:
-        """Run the task with the given quantum context and input/output references"""
-        refs = readDatasetRefs(butler, inputRefs, "pfsArm", "pfsConfig")
-        result = self.run(refs.pfsArm, refs.pfsConfig)
-        butler.put(result.skyNorms, outputRefs.skyNorms)
-
-    def runSingle(
+    def run(
         self, pfsArm: PfsFiberArraySet, pfsConfig: PfsConfig, skyNorms: FocalPlaneFunction | None = None
     ) -> Struct:
-        """Measure sky normalizations for a single arm
+        """Measure sky normalizations
 
         Parameters
         ----------
@@ -138,98 +155,18 @@ class MeasureSkyNormsTask(PipelineTask):
         refLines : `ReferenceLineSet`
             Sky line list, used for fitting continuum.
         """
-        result = self.run([pfsArm], [pfsConfig], skyNorms)
-        result.sky = result.sky[0]
-        result.armContinuum = result.armContinuum[0]
-        result.skyContinuum = result.skyContinuum[0]
-        return result
-
-    def run(
-        self,
-        pfsArmList: Collection[PfsFiberArraySet],
-        pfsConfigList: Collection[PfsConfig],
-        skyNorms: FocalPlaneFunction | None = None,
-    ) -> Struct:
-        """Measure sky normalizations
-
-        This operates on multiple instances of the same arm+spectrograph.
-
-        Parameters
-        ----------
-        pfsArmList : collection of `pfs.datamodel.pfsFiberArraySet`
-            Extracted spectra from arm.
-        pfsConfigList : collection of `pfs.datamodel.PfsConfig`
-            PFS fiber configurations.
-        skyNorms : `pfs.drp.stella.FocalPlaneFunction`, optional
-            Common-mode sky normalizations to remove before measuring the
-            residual.
-
-        Returns
-        -------
-        sky : list of `FocalPlaneFunction`
-            Sky spectral model for each arm.
-        skyNorms : list of `PolynomialPerFiber`
-            Normalizations of sky data for each arm.
-        values : `numpy.ndarray`, shape ``(numFibers,)``
-            Normalization values for each fiber. This data is contained in the
-            ``skyNorms``, but this is a more convenient form.
-        armContinuum : list of `np.ndarray`
-            Continuum fit to the ``pfsArm``.
-        skyContinuum : list of `np.ndarray`
-            Continuum fit to the sky spectral model.
-        refLines : `ReferenceLineSet`
-            Sky line list, used for fitting continuum.
-        """
-        fiberId: np.ndarray | None = None
-        skyList: list[FocalPlaneFunction] = []  # Sky model for each arm
-        skyDataList: list[Struct] = []  # Realized sky spectra for each arm
-        skyNormValues: list[np.ndarray] = []  # Sky normalization values for each arm
-        for pfsArm, pfsConfig in zip(pfsArmList, pfsConfigList):
-            if fiberId is None:
-                fiberId = pfsArm.fiberId
-            elif not np.array_equal(fiberId, pfsArm.fiberId):
-                raise ValueError("fiberId mismatch")
-            sky = self.measureSky(pfsArm, pfsConfig)
-            skyList.append(sky)
-            skyData = sky(pfsArm.wavelength, pfsConfig.select(fiberId=pfsArm.fiberId))
-            if skyNorms is not None:
-                skyNormValues.append(
-                    skyNorms(
-                        np.full(
-                            (len(pfsConfig), 1),
-                            0.5*(skyNorms.minWavelength + skyNorms.maxWavelength),
-                            dtype=float,
-                        ),
-                        pfsConfig,
-                    ).values
-                )
-                normData = skyNorms(pfsArm.wavelength, pfsConfig)
-                skyData.values *= normData.values
-                skyData.variances *= normData.values**2
-                skyData.masks |= normData.masks
-
-            skyDataList.append(skyData)
-
+        sky = self.measureSky(pfsArm, pfsConfig)
+        skyData = sky(pfsArm.wavelength, pfsConfig.select(fiberId=pfsArm.fiberId))
         if skyNorms is not None:
-            skyNormsValues = np.concatenate(skyNormValues)
-            self.log.info(
-                "Applying prior sky norms = %.3f +/- %.3f",
-                np.nanmedian(skyNormsValues),
-                robustRms(skyNormsValues, True),
-            )
+            normData = skyNorms(pfsArm.wavelength, pfsConfig)
+            skyData.values *= normData.values
+            skyData.variances *= normData.values**2
+            skyData.masks |= normData.masks
 
-        refLines = self.readLineList.run(metadata=pfsArmList[0].metadata)
-        result = self.measureNormalizations(pfsArmList, skyDataList, refLines)
+        refLines = self.readLineList.run(metadata=pfsArm.metadata)
+        result = self.measureNormalizations(pfsArm, skyData, refLines)
 
-        if skyNorms is not None:
-            before = result.values/skyNormsValues
-            self.log.info(
-                "With prior sky norms: RMS %.3f --> %.3f",
-                robustRms(before, True),
-                robustRms(result.values, True),
-            )
-
-        result.sky = skyList
+        result.sky = sky
         result.refLines = refLines
 
         return result
@@ -257,10 +194,10 @@ class MeasureSkyNormsTask(PipelineTask):
 
     def measureNormalizations(
         self,
-        pfsArmList: Collection[PfsFiberArraySet],
-        skyDataList: Collection[Struct],
+        pfsArm: PfsFiberArraySet,
+        skyData: Struct,
         refLines: ReferenceLineSet | None = None,
-    ) -> PolynomialPerFiber:
+    ) -> Struct:
         """Measure normalizations for sky model
 
         We currently measure a single normalization factor for each fiber, but
@@ -268,10 +205,10 @@ class MeasureSkyNormsTask(PipelineTask):
 
         Parameters
         ----------
-        pfsArmList : collection of `PfsFiberArraySet`
+        pfsArm : `PfsFiberArraySet`
             Spectra from which to subtract sky model.
-        skyDataList : collection of `Struct`
-            Sky spectra, from model realized for each ``pfsArm``.
+        skyData : `Struct`
+            Realized sky model spectra.
         refLines : `ReferenceLineSet`, optional
             Sky line list, used for fitting continuum.
 
@@ -287,129 +224,142 @@ class MeasureSkyNormsTask(PipelineTask):
         skyContinuum : `np.ndarray`
             Continuum fit to the sky model.
         """
-        if len(pfsArmList) != len(skyDataList):
-            raise ValueError("pfsArm and skyModel must have the same length")
+        minWavelength = pfsArm.wavelength.min()
+        maxWavelength = pfsArm.wavelength.max()
 
-        minWavelength = min(pfsArm.wavelength.min() for pfsArm in pfsArmList)
-        maxWavelength = max(pfsArm.wavelength.max() for pfsArm in pfsArmList)
+        armContinuum = self.fitContinuum.run(pfsArm, refLines)
 
-        armContinuumList: list[np.ndarray] = []
-        skyContinuumList: list[np.ndarray] = []
-        data: list[np.ma.MaskedArray] = []
-        model: list[np.ma.MaskedArray] = []
-        variance: list[np.ndarray] = []
-        fiberId = pfsArmList[0].fiberId
-        for pfsArm, sky in zip(pfsArmList, skyDataList):
-            if not np.array_equal(fiberId, pfsArm.fiberId):
-                raise ValueError("fiberId mismatch")
-            armContinuum = self.fitContinuum.run(pfsArm, refLines)
+        covar = np.zeros_like(pfsArm.covar)
+        covar[:, 0, :] = skyData.variances
+        skySpectra = PfsFiberArraySet(
+            pfsArm.identity,
+            pfsArm.fiberId,
+            pfsArm.wavelength,
+            skyData.values,
+            skyData.masks,
+            np.zeros_like(pfsArm.flux),
+            np.ones_like(pfsArm.norm),
+            covar,
+            pfsArm.flags,
+            pfsArm.metadata,
+        )
+        skyContinuum = self.fitContinuum.run(skySpectra, refLines)
 
-            covar = np.zeros_like(pfsArm.covar)
-            covar[:, 0, :] = sky.variances
-            skySpectra = PfsFiberArraySet(
-                pfsArm.identity,
-                pfsArm.fiberId,
-                pfsArm.wavelength,
-                sky.values,
-                sky.masks,
-                np.zeros_like(pfsArm.flux),
-                np.ones_like(pfsArm.norm),
-                covar,
-                pfsArm.flags,
-                pfsArm.metadata,
-            )
-            skyContinuum = self.fitContinuum.run(skySpectra, refLines)
+        reject = ((pfsArm.mask & pfsArm.flags.get(*self.config.mask)) != 0)
+        norm = pfsArm.norm
+        with np.errstate(invalid="ignore", divide="ignore"):
+            flux = pfsArm.flux/norm - armContinuum
+            var = pfsArm.variance/norm**2
+            err = np.sqrt(var)
+            reject |= (flux/err < self.config.minSignalToNoise)
+            skyFlux = skySpectra.flux - skyContinuum  # norm is unity: flux is already normalized
+            ratio = flux/skyFlux
+            reject |= (ratio < self.config.minRatio) | (ratio > self.config.maxRatio)
+            factor = np.array([calculateMedian(rat, rej) for rat, rej in zip(ratio, reject)])
+            reject |= np.abs(ratio - factor[:, None]) > self.config.rejectRatio
 
-            reject = ((pfsArm.mask & pfsArm.flags.get(*self.config.mask)) != 0)
-            norm = pfsArm.norm
-            with np.errstate(invalid="ignore", divide="ignore"):
-                flux = pfsArm.flux/norm - armContinuum
-                var = pfsArm.variance/norm**2
-                err = np.sqrt(var)
-                reject |= (flux/err < self.config.minSignalToNoise)
-                skyFlux = skySpectra.flux - skyContinuum  # norm is unity: flux is already normalized
-                ratio = flux/skyFlux
-                reject |= (ratio < self.config.minRatio) | (ratio > self.config.maxRatio)
-                factor = np.array([calculateMedian(rat, rej) for rat, rej in zip(ratio, reject)])
-                reject |= np.abs(ratio - factor[:, None]) > self.config.rejectRatio
-
-            armContinuumList.append(armContinuum)
-            skyContinuumList.append(skyContinuum)
-            data.append(np.ma.masked_where(reject, flux))
-            model.append(np.ma.masked_where(reject, skyFlux))
-            variance.append(np.ma.masked_where(reject, var))
-
-        def doFit(data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]) -> np.ndarray:
-            """Fit model to data
-
-            The model is very simple: a single scale factor for each spectrum.
-
-            Parameters
-            ----------
-            data : `list` of `numpy.ndarray`, shape ``(numSpectra, numSamples)``
-                Data to fit.
-            model : `list` of `numpy.ndarray`, shape ``(numSpectra, numSamples)``
-                Model to fit (evaluated at the same points as ``data``).
-            variance : `list` of `numpy.ndarray`
-                Variance of the data.
-
-            Returns
-            -------
-            factor : `numpy.ndarray`, shape ``(numSpectra,)``
-                Factor by which to multiply the model to best fit the data.
-            """
-            for dd, mm, vv in zip(data, model, variance):
-                assert dd.shape == mm.shape and dd.shape == vv.shape
-            modelDotModel = reduce(
-                np.add,
-                (np.ma.sum(mm**2/vv, axis=1).filled(0.0) for mm, vv in zip(model, variance)),
-            )
-            dataDotModel = reduce(
-                np.add,
-                (np.ma.sum(dd*mm/vv, axis=1).filled(0.0) for dd, mm, vv in zip(data, model, variance)),
-            )
-            with np.errstate(invalid="ignore", divide="ignore"):
-                return np.array(dataDotModel/modelDotModel)
+        data = np.ma.masked_where(reject, flux)
+        model = np.ma.masked_where(reject, skyFlux)
+        variance = np.ma.masked_where(reject, var)
 
         for iteration in range(self.config.iterations):
-            factor = doFit(data, model, variance)
+            factor = fitScales(data, model, variance)
             self.log.debug(
                 "Iteration %d: factor = %.3f +/- %.3f",
                 iteration,
                 np.nanmedian(np.array(factor)),
                 robustRms(factor, True),
             )
-            for dd, mm, vv in zip(data, model, variance):
-                residuals = dd - factor[:, None]*mm
-                reject = np.abs(residuals) > self.config.rejection*np.sqrt(vv)
-                dd.mask |= reject
-                mm.mask |= reject
+            residuals = data - factor[:, None]*model
+            reject = np.abs(residuals) > self.config.rejection*np.sqrt(variance)
+            data.mask |= reject
+            model.mask |= reject
 
         # Final fit after rejection iterations
-        factor = doFit(data, model, variance)
+        factor = fitScales(data, model, variance)
         self.log.info(
             "Sky norms = %.3f +/- %.3f",
             np.nanmedian(np.array(factor)),
             robustRms(factor, True),
         )
 
-        if len(pfsArmList) > 1:
-            byExposure = np.array(
-                [doFit([dd], [mm], [vv]) for dd, mm, vv in zip(data, model, variance)]
-            )
-            rms = {ff: robustRms(byExposure[:, ii], True) for ii, ff in enumerate(fiberId)}
-        else:
-            with np.errstate(invalid="ignore", divide="ignore"):
-                residuals = [dd - factor[:, None]*mm for dd, mm in zip(data, model)]
-                rms = {
-                    ff: robustRms(np.concatenate([res[ii].compressed() for res in residuals]))
-                    for ii, ff in enumerate(pfsArm.fiberId)
-                }
+        with np.errstate(invalid="ignore", divide="ignore"):
+            residuals = data - factor[:, None]*model
+            rms = {ff: robustRms(residuals[ii].compressed()) for ii, ff in enumerate(pfsArm.fiberId)}
 
-        coeffs = {ff: np.array([xx]) for ff, xx in zip(fiberId, factor)}
+        coeffs = {ff: np.array([xx]) for ff, xx in zip(pfsArm.fiberId, factor)}
         return Struct(
             skyNorms=PolynomialPerFiber(coeffs, rms, minWavelength, maxWavelength),
             values=factor,
-            armContinuum=armContinuumList,
-            skyContinuum=skyContinuumList,
+            armContinuum=armContinuum,
+            skyContinuum=skyContinuum,
         )
+
+
+class CombineSkyNormsConnections(PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")):
+    """Connections for CombineSkyNormsTask"""
+    skyNormsList = InputConnection(
+        name="skyNorms",
+        doc="Sky normalizations",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+
+    combined = OutputConnection(
+        name="skyNorms_calib",
+        doc="Sky normalizations for calibration",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
+    )
+
+
+class CombineSkyNormsConfig(PipelineTaskConfig, pipelineConnections=CombineSkyNormsConnections):
+    """Configuration for CombineSkyNormsTask"""
+    iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
+    rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
+
+
+class CombineSkyNormsTask(PipelineTask):
+    """Combine sky normalizations from multiple visits"""
+    _DefaultName = "combineSkyNorms"
+    ConfigClass = CombineSkyNormsConfig
+
+    def run(self, skyNormsList: Sequence[FocalPlaneFunction]) -> Struct:
+        """Combine sky normalizations from multiple visits
+
+        Parameters
+        ----------
+        skyNormsList : collection of `FocalPlaneFunction`
+            Sky normalizations from multiple visits.
+
+        Returns
+        -------
+        combined : `FocalPlaneFunction`
+            Combined sky normalizations.
+        """
+        fiberId = skyNormsList[0].fiberId
+        for skyNorms in skyNormsList:
+            if not np.array_equal(skyNorms.fiberId, fiberId):
+                raise RuntimeError("Sky normalizations from different visits have different fiberId arrays")
+
+        minWavelength = min(skyNorms.minWavelength for skyNorms in skyNormsList)
+        maxWavelength = max(skyNorms.maxWavelength for skyNorms in skyNormsList)
+        wavelength = np.array([0.5*(minWavelength + maxWavelength)])
+        position = np.zeros((1, 2), dtype=float)  # Nothing depends on position
+
+        stats = StatisticsControl(self.config.rejection, self.config.iterations)
+        stats.setNanSafe(True)
+        average: dict[int, np.ndarray] = {}
+        rms: dict[int, np.ndarray] = {}
+        for ff in fiberId:
+            values = [
+                skyNorms.evaluate(wavelength, np.full_like(wavelength, ff), position).values[0]
+                for skyNorms in skyNormsList
+            ]
+            avg = makeStatistics(values, MEANCLIP, stats).getValue()
+            average[ff] = np.array([avg])
+            rms[ff] = np.array([robustRms(np.array(values) - avg, True)])
+
+        return Struct(combined=PolynomialPerFiber(average, rms, minWavelength, maxWavelength))
