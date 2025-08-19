@@ -21,7 +21,7 @@ from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 from pfs.datamodel.drp import PfsCoadd
 from pfs.drp.stella.datamodel.drp import PfsArm
 
-from .datamodel import PfsObject, PfsSingle
+from .datamodel import PfsObject, PfsSingle, PfsCalibratedSpectra
 from .filterCurve import FilterCurve
 from .fitFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
@@ -112,6 +112,13 @@ class CoaddSpectraConnections(
         dimensions=("instrument", "visit"),
         multiple=True,
     )
+    pfsCalibrated = InputConnection(
+        name="pfsCalibrated",
+        doc="Calibrated spectra",
+        storageClass="PfsCalibratedSpectra",  # deprecated in favor of PfsCalibrated
+        dimensions=("instrument", "visit"),
+        multiple=True,
+    )
 
     pfsCoadd = OutputConnection(
         name="pfsCoadd",
@@ -175,7 +182,9 @@ class CoaddSpectraTask(PipelineTask):
             filterName: FilterCurve(filterName) for filterName in self.config.filterPreference
         }
 
-    def run(self, data: Mapping[Identity, Struct]) -> Struct:
+    def run(
+        self, data: Mapping[Identity, Struct], pfsCalibrated: Mapping[int, PfsCalibratedSpectra]
+    ) -> Struct:
         """Coadd multiple observations
 
         data : `dict` mapping `Identity` to `Struct`
@@ -187,6 +196,8 @@ class CoaddSpectraTask(PipelineTask):
             - ``sky1d`` (`FocalPlaneFunction`): 1d sky subtraction model.
             - ``fluxCal`` (`FocalPlaneFunction`): flux calibration solution.
             - ``pfsConfig`` (`PfsConfig`): PFS fiber configuration.
+        pfsCalibrated : `dict` mapping `int` to `PfsCalibratedSpectra`
+            Calibrated spectra, indexed by visit number.
 
         Returns
         -------
@@ -204,7 +215,13 @@ class CoaddSpectraTask(PipelineTask):
         pfsCoadd: Dict[Target, PfsObject] = {}
         pfsCoaddLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
-            result = self.process(target, {identity: data[identity] for identity in sources})
+            visitList = set(identity.visit for identity in sources)
+            result = self.process(
+                target,
+                {identity: data[identity] for identity in sources},
+                {visit: pfsCalibrated[visit][target] for visit in visitList},
+            )
+
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
 
@@ -255,7 +272,9 @@ class CoaddSpectraTask(PipelineTask):
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),
             )
 
-        outputs = self.run(data)
+        pfsCalibrated = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs.pfsCalibrated}
+
+        outputs = self.run(data, pfsCalibrated)
 
         butler.put(PfsCoadd(outputs.pfsCoadd.values(), getPfsVersions()), outputRefs.pfsCoadd)
         butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
@@ -358,12 +377,6 @@ class CoaddSpectraTask(PipelineTask):
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
         spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
         spectrum = spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
-
-        XXXX Need to get scaling from flux-calibrated merged spectrum (pfsSingle)
-        if self.config.doFluxScaling and target.targetType in (TargetType.SCIENCE, TargetType.FLUXSTD):
-            self.scaleFlux(spectrum, data.pfsConfig)
-
-
         return spectrum
 
     def scaleFlux(self, spectrum: PfsSingle, pfsConfig: PfsConfig) -> None:
@@ -409,7 +422,9 @@ class CoaddSpectraTask(PipelineTask):
 
         raise RuntimeError(f"Unable to find suitable flux scaling for target {spectrum.target}")
 
-    def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
+    def process(
+        self, target: Target, data: Dict[Identity, Struct], calibrated: Dict[int, PfsSingle]
+    ) -> Struct:
         """Generate coadded spectra for a single target
 
         Parameters
@@ -419,6 +434,8 @@ class CoaddSpectraTask(PipelineTask):
         data : `dict` mapping `Identity` to `Struct`
             Data from which to generate coadded spectra. These are the results
             from the ``readData`` method.
+        calibrated : `dict` mapping `int` to `PfsSingle`
+            Calibrated spectra, indexed by visit number.
 
         Returns
         -------
@@ -427,6 +444,8 @@ class CoaddSpectraTask(PipelineTask):
         pfsObjectLsf : `Lsf`
             Line-spread function for coadded spectrum.
         """
+        scales = self.solveScales(calibrated)
+
         pfsConfigList = [dd.pfsConfig.select(catId=target.catId, objId=target.objId) for dd in data.values()]
         target = self.getTarget(target, pfsConfigList)
         observations = self.getObservations(data.keys(), pfsConfigList)
@@ -442,6 +461,21 @@ class CoaddSpectraTask(PipelineTask):
                           combination.mask, combination.sky, combination.covar, combination.covar2, flags,
                           getPfsVersions(), fluxTable)
         return Struct(pfsObject=coadd, pfsObjectLsf=combination.lsf)
+
+    def solveScales(self, calibrated: Dict[int, PfsSingle]) -> Dict[int, float]:
+        """Solve for the flux scaling factors for each visit
+
+        Parameters
+        ----------
+        calibrated : `dict` mapping `int` to `PfsSingle`
+            Calibrated spectra, indexed by visit number.
+
+        Returns
+        -------
+        scales : `dict` mapping `int` to `float`
+            Scaling factors for each visit.
+        """
+        average = 
 
     def combine(self, spectraList, lsfList, flags, wavelength: np.ndarray):
         """Combine spectra
