@@ -6,6 +6,7 @@ import astropy.constants
 import astropy.units as u
 import numpy as np
 
+from pfs.utils.location import SUBARU
 from pfs.datamodel import PfsArm, PfsConfig
 
 __all__ = ("calculateBarycentricCorrection", "applyBarycentricCorrection")
@@ -29,8 +30,7 @@ def calculateBarycentricCorrection(
         Observatory location. If ``None``, the Subaru location is used.
     """
     if location is None:
-        # From https://subarutelescope.org/en/about/
-        location = EarthLocation.from_geodetic("-155d28m34s", "19d49m32s", 4163.0*u.m)
+        location = SUBARU.location
     time = Time(pfsArm.identity.obsTime)
     pfsConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
     if not np.array_equal(pfsArm.fiberId, pfsConfig.fiberId):
