@@ -9,7 +9,8 @@ tasks:
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
     config:
-      grouping: separate  # Exposures can have different dither values
+      - grouping: separate  # Exposures can have different dither values
+      - doWriteExposure: true
   profilesFitDetectorMap:
     class: pfs.drp.stella.reduceProfiles.ProfilesFitDetectorMapTask
   fitProfiles:
