@@ -326,6 +326,8 @@ class CombineSkyNormsTask(PipelineTask):
     _DefaultName = "combineSkyNorms"
     ConfigClass = CombineSkyNormsConfig
 
+    config: CombineSkyNormsConfig
+
     def run(self, skyNormsList: Sequence[FocalPlaneFunction]) -> Struct:
         """Combine sky normalizations from multiple visits
 
