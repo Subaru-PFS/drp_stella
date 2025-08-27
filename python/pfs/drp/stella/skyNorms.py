@@ -16,7 +16,6 @@ from pfs.datamodel import PfsFiberArraySet, PfsConfig
 from .focalPlaneFunction import FocalPlaneFunction, ConstantPerFiber
 from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask, FitConstantPerFiberTask
-from .fitFocalPlane import FitFocalPlanePolynomialTask
 from .math import calculateMedian
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
@@ -76,12 +75,6 @@ class MeasureSkyNormsConnections(
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    focalPlaneFit = OutputConnection(
-        name="skyNorms_focalPlane",
-        doc="Focal plane fit to sky normalizations",
-        storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
 
 
 class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNormsConnections):
@@ -103,9 +96,6 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     rejectRatio = Field(dtype=float, default=0.1, doc="Rejection limit of data/sky ratio")
     iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
-    fitFocalPlane = ConfigurableField(
-        target=FitFocalPlanePolynomialTask, doc="Fit polynomial over the focal plane"
-    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -128,7 +118,6 @@ class MeasureSkyNormsTask(PipelineTask):
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
     fitContinuum: FitContinuumTask
-    fitFocalPlane: FitFocalPlanePolynomialTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -136,7 +125,6 @@ class MeasureSkyNormsTask(PipelineTask):
         self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
-        self.makeSubtask("fitFocalPlane")
 
     def run(
         self, pfsArm: PfsFiberArraySet, pfsConfig: PfsConfig, skyNorms: FocalPlaneFunction | None = None
@@ -165,8 +153,6 @@ class MeasureSkyNormsTask(PipelineTask):
             Continuum fit to the sky spectral model.
         refLines : `ReferenceLineSet`
             Sky line list, used for fitting continuum.
-        focalPlaneFit : `FocalPlaneFunction`
-            Fit to the sky normalizations over the focal plane.
         """
         sky = self.measureSky(pfsArm, pfsConfig)
         skyData = sky(pfsArm.wavelength, pfsConfig.select(fiberId=pfsArm.fiberId))
@@ -178,16 +164,6 @@ class MeasureSkyNormsTask(PipelineTask):
 
         refLines = self.readLineList.run(metadata=pfsArm.metadata)
         result = self.measureNormalizations(pfsArm, skyData, refLines)
-        result.focalPlaneFit = self.fitFocalPlane.fitArrays(
-            pfsArm.fiberId,
-            np.full((len(pfsArm), 1), np.nan, dtype=float),
-            result.values[:, None],
-            np.isnan(result.values)[:, None],
-            result.rms[:, None]**2,
-            pfsConfig.pfiCenter,
-        )
-        focalPlaneEval = result.focalPlaneFit.eval(pfsConfig.pfiCenter)
-        result.skyNorms.values -= focalPlaneEval.values
 
         result.sky = sky
         result.refLines = refLines
