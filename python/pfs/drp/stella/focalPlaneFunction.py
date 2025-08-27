@@ -202,48 +202,112 @@ class FocalPlaneFunction(ABC):
         fit : `FocalPlaneFunction`
             Fit function.
         """
-        if len(spectraList) != len(pfsConfigList):
-            raise RuntimeError(f"Length mismatch: {len(spectraList)} vs {len(pfsConfigList)}")
-        length: int | None = None
-        for spectra, pfsConfig in zip(spectraList, pfsConfigList):
-            if len(spectra) != len(pfsConfig):
-                raise RuntimeError(
-                    f"Length mismatch between spectra ({len(spectra)}) and pfsConfig ({len(pfsConfig)})"
-                )
-            if np.all(spectra.fiberId != pfsConfig.fiberId):
-                raise RuntimeError("fiberId mismatch between spectra and pfsConfig")
-            if length is None:
-                length = spectra.flux.shape[1]
-            elif length != spectra.flux.shape[1]:
-                raise RuntimeError("Wavelength array length mismatch between spectra")
+        fiberIdList = [spectra.fiberId for spectra in spectraList]
+        wavelengthList = [spectra.wavelength for spectra in spectraList]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            valuesList = [spectra.flux / spectra.norm for spectra in spectraList]
+            varianceList = [spectra.variance / spectra.norm**2 for spectra in spectraList]
+        maskList = [spectra.mask & spectra.flags.get(*maskFlags) != 0 for spectra in spectraList]
+        if rejected is not None:
+            maskList = [mm | rej for mm, rej in zip(maskList, rejected)]
+        positionsList = [pfsConfig.extractCenters(pfsConfig.fiberId) for pfsConfig in pfsConfigList]
+        return cls.fitMultipleArrays(
+            fiberIdList,
+            wavelengthList,
+            valuesList,
+            maskList,
+            varianceList,
+            positionsList,
+            robust=robust,
+            **kwargs,
+        )
 
-        num = sum(len(spectra) for spectra in spectraList)
+    @classmethod
+    def fitMultipleArrays(
+        cls,
+        fiberIdList: List[np.ndarray],
+        wavelengthList: List[np.ndarray],
+        valuesList: List[np.ndarray],
+        maskList: List[np.ndarray],
+        varianceList: List[np.ndarray],
+        positionsList: List[np.ndarray],
+        *,
+        robust: bool = False,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
+        """Fit a spectral function on the focal plane to multiple arrays
 
-        fiberId = np.zeros(num, dtype=int)
-        wavelength = np.zeros((num, length), dtype=float)
-        values = np.zeros((num, length), dtype=float)
-        variance = np.zeros((num, length), dtype=float)
-        masks = np.zeros((num, length), dtype=bool)
-        positions = np.zeros((2, num), dtype=float)
+        This method is intended as a convenience for developers.
+
+        Parameters
+        ----------
+        fiberIdList : list of `numpy.ndarray` of `float`, shape ``(N_i,)``
+            Fiber identifier arrays.
+        wavelengthList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Common wavelength array.
+        valuesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Measured values for each wavelength.
+        masksList : list of `numpy.ndarray` of `bool`, shape ``(N_i, M)``
+            Boolean flag indicating whether a point should be masked.
+        variancesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Variance values for each wavelength.
+        positionsList : list of `numpy.ndarray` of `float`, shape ``(N_i, 2)``
+            Focal plane positions (x, y) for each fiber.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        **kwargs : `dict`
+            Fitting parameters.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to input arrays.
+        """
+        numList = set([
+            len(fiberIdList), len(wavelengthList), len(valuesList),
+            len(maskList), len(varianceList), len(positionsList)
+        ])
+        if len(numList) != 1:
+            raise RuntimeError("Length mismatch")
+        num = numList.pop()
+        if num == 0:
+            raise RuntimeError("No input arrays provided")
+        length = valuesList[0].shape[1]
+        for ii in range(num):
+            lengthList = set([
+                fiberIdList[ii].shape[0],
+                wavelengthList[ii].shape[0],
+                valuesList[ii].shape[0],
+                maskList[ii].shape[0],
+                varianceList[ii].shape[0],
+                positionsList[ii].shape[1],
+            ])
+            if len(lengthList) != 1:
+                raise RuntimeError(f"Array {ii} length mismatch")
+
+        numSamples = sum(len(values) for values in valuesList)
+
+        fiberId = np.zeros(numSamples, dtype=int)
+        wavelength = np.zeros((numSamples, length), dtype=float)
+        values = np.zeros((numSamples, length), dtype=float)
+        variance = np.zeros((numSamples, length), dtype=float)
+        masks = np.zeros((numSamples, length), dtype=bool)
+        positions = np.zeros((numSamples, 2), dtype=float)
 
         start = 0
-        for spectra, pfsConfig in zip(spectraList, pfsConfigList):
-            stop = start + len(spectra)
+        for ii in range(num):
+            stop = start + len(valuesList[ii])
             select = slice(start, stop)
-            fiberId[select] = spectra.fiberId
-            wavelength[select, :] = spectra.wavelength
-            with np.errstate(invalid="ignore", divide="ignore"):
-                values[select, :] = spectra.flux / spectra.norm
-                variance[select, :] = spectra.variance / spectra.norm**2
-            masks[select, :] = spectra.mask & spectra.flags.get(*maskFlags) != 0
-            positions[:, select] = pfsConfig.pfiCenter
+            fiberId[select] = fiberIdList[ii]
+            wavelength[select, :] = wavelengthList[ii]
+            values[select, :] = valuesList[ii]
+            variance[select, :] = varianceList[ii]
+            masks[select, :] = maskList[ii]
+            positions[:, select] = positionsList[ii]
             start = stop
-
-        if rejected:
-            if len(rejected) != len(spectraList):
-                raise RuntimeError(f"Rejection length mismatch: {len(rejected)} vs {len(spectraList)}")
-            for mm, rej in zip(masks, rejected):
-                mm |= rej
 
         return cls.fitArrays(fiberId, wavelength, values, masks, variance, positions, robust=robust, **kwargs)
 
@@ -1392,6 +1456,31 @@ class FocalPlanePolynomial(FocalPlaneFunction):
 
         return cls(coeffs=coeffs, halfWidth=halfWidth, rms=rms)
 
+    def eval(self, positions: np.ndarray) -> Struct:
+        """Evaluate the function at the provided positions
+
+        This provides a single value per position.
+
+        Parameters
+        ----------
+        positions : `numpy.ndarray` of shape ``(N, 2)``
+            Focal-plane positions at which to evaluate.
+
+        Returns
+        -------
+        values : `numpy.ndarray` of `float`
+            Function evaluated at each position.
+        masks : `numpy.ndarray` of `bool`
+            Indicates whether the value at each position is valid.
+        variances : `numpy.ndarray` of `float`
+            Variance for each position.
+        """
+        positions = positions.astype(np.float64)  # Because we're passing into pybind
+        values = self.polynomial(positions[:, 0], positions[:, 1])
+        masks = np.isnan(values)
+        variances = np.full_like(values, self.rms**2)
+        return Struct(values=values, masks=masks, variances=variances)
+
     def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
 
@@ -1413,15 +1502,12 @@ class FocalPlanePolynomial(FocalPlaneFunction):
         variances : `numpy.ndarray` of `float`, shape ``(N, M)``
             Variances for each position.
         """
-        positions = positions.astype(np.float64)  # Because we're passing into pybind
-        values = self.polynomial(positions[:, 0], positions[:, 1])
-        masks = np.isnan(values)
-        variances = np.full_like(values, self.rms**2)
+        result = self.eval(positions)
         numPixels = wavelengths.shape[1]
         return Struct(
-            values=np.tile(values, (numPixels, 1)).T,
-            masks=np.tile(masks, (numPixels, 1)).T,
-            variances=np.tile(variances, (numPixels, 1)).T,
+            values=np.tile(result.values, (numPixels, 1)).T,
+            masks=np.tile(result.masks, (numPixels, 1)).T,
+            variances=np.tile(result.variances, (numPixels, 1)).T,
         )
 
     def plot(
