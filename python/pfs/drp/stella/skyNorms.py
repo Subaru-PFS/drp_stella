@@ -4,7 +4,6 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from lsst.afw.math import makeStatistics, MEANCLIP, StatisticsControl
 from lsst.pex.config import Field, ConfigurableField, ListField
 from lsst.pipe.base import Struct
 
@@ -14,9 +13,10 @@ from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
 from pfs.datamodel import PfsFiberArraySet, PfsConfig
-from .focalPlaneFunction import FocalPlaneFunction, PolynomialPerFiber
+from .focalPlaneFunction import FocalPlaneFunction, ConstantPerFiber
 from .fitContinuum import FitContinuumTask
-from .fitFocalPlane import FitBlockedOversampledSplineTask
+from .fitFocalPlane import FitBlockedOversampledSplineTask, FitConstantPerFiberTask
+from .fitFocalPlane import FitFocalPlanePolynomialTask
 from .math import calculateMedian
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
@@ -76,6 +76,12 @@ class MeasureSkyNormsConnections(
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
+    focalPlaneFit = OutputConnection(
+        name="skyNorms_focalPlane",
+        doc="Focal plane fit to sky normalizations",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
 
 
 class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNormsConnections):
@@ -97,6 +103,9 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     rejectRatio = Field(dtype=float, default=0.1, doc="Rejection limit of data/sky ratio")
     iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
+    fitFocalPlane = ConfigurableField(
+        target=FitFocalPlanePolynomialTask, doc="Fit polynomial over the focal plane"
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -119,6 +128,7 @@ class MeasureSkyNormsTask(PipelineTask):
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
     fitContinuum: FitContinuumTask
+    fitFocalPlane: FitFocalPlanePolynomialTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -126,6 +136,7 @@ class MeasureSkyNormsTask(PipelineTask):
         self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("fitFocalPlane")
 
     def run(
         self, pfsArm: PfsFiberArraySet, pfsConfig: PfsConfig, skyNorms: FocalPlaneFunction | None = None
@@ -146,7 +157,7 @@ class MeasureSkyNormsTask(PipelineTask):
         -------
         sky : `FocalPlaneFunction`
             Sky spectral model.
-        skyNorms : `PolynomialPerFiber`
+        skyNorms : `ConstantPerFiber`
             Normalizations of sky data.
         armContinuum : `np.ndarray`
             Continuum fit to the ``pfsArm``.
@@ -154,6 +165,8 @@ class MeasureSkyNormsTask(PipelineTask):
             Continuum fit to the sky spectral model.
         refLines : `ReferenceLineSet`
             Sky line list, used for fitting continuum.
+        focalPlaneFit : `FocalPlaneFunction`
+            Fit to the sky normalizations over the focal plane.
         """
         sky = self.measureSky(pfsArm, pfsConfig)
         skyData = sky(pfsArm.wavelength, pfsConfig.select(fiberId=pfsArm.fiberId))
@@ -165,6 +178,16 @@ class MeasureSkyNormsTask(PipelineTask):
 
         refLines = self.readLineList.run(metadata=pfsArm.metadata)
         result = self.measureNormalizations(pfsArm, skyData, refLines)
+        result.focalPlaneFit = self.fitFocalPlane.fitArrays(
+            pfsArm.fiberId,
+            np.full((len(pfsArm), 1), np.nan, dtype=float),
+            result.values[:, None],
+            np.isnan(result.values)[:, None],
+            result.rms[:, None]**2,
+            pfsConfig.pfiCenter,
+        )
+        focalPlaneEval = result.focalPlaneFit.eval(pfsConfig.pfiCenter)
+        result.skyNorms.values -= focalPlaneEval.values
 
         result.sky = sky
         result.refLines = refLines
@@ -214,19 +237,19 @@ class MeasureSkyNormsTask(PipelineTask):
 
         Returns
         -------
-        skyNorms : `PolynomialPerFiber`
+        skyNorms : `ConstantPerFiber`
             Normalizations of sky data for each fiber.
         values : `numpy.ndarray`, shape ``(numFibers,)``
             Normalization values for each fiber. This data is contained in the
             ``skyNorms``, but this is a more convenient form.
+        rms : `numpy.ndarray`, shape ``(numFibers,)``
+            RMS scatter of normalization values for each fiber. This data is
+            contained in the ``skyNorms``, but this is a more convenient form.
         armContinuum : `np.ndarray`
             Continuum fit to the ``pfsArm``.
         skyContinuum : `np.ndarray`
             Continuum fit to the sky model.
         """
-        minWavelength = pfsArm.wavelength.min()
-        maxWavelength = pfsArm.wavelength.max()
-
         armContinuum = self.fitContinuum.run(pfsArm, refLines)
 
         covar = np.zeros_like(pfsArm.covar)
@@ -285,14 +308,17 @@ class MeasureSkyNormsTask(PipelineTask):
 
         with np.errstate(invalid="ignore", divide="ignore"):
             residuals = data - factor[:, None]*model
-            rms = {ff: robustRms(residuals[ii].compressed()) for ii, ff in enumerate(pfsArm.fiberId)}
+            rms = np.array([robustRms(residuals[ii].compressed()) for ii, ff in enumerate(pfsArm.fiberId)])
 
-        coeffs = {ff: np.array([xx]) for ff, xx in zip(pfsArm.fiberId, factor)}
         return Struct(
-            skyNorms=PolynomialPerFiber(coeffs, rms, minWavelength, maxWavelength),
+            skyNorms=ConstantPerFiber(pfsArm.fiberId, factor, rms),
             values=factor,
+            rms=rms,
             armContinuum=armContinuum,
             skyContinuum=skyContinuum,
+            data=data,
+            model=model,
+            variance=variance,
         )
 
 
@@ -317,8 +343,7 @@ class CombineSkyNormsConnections(PipelineTaskConnections, dimensions=("instrumen
 
 class CombineSkyNormsConfig(PipelineTaskConfig, pipelineConnections=CombineSkyNormsConnections):
     """Configuration for CombineSkyNormsTask"""
-    iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
-    rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
+    fit = ConfigurableField(target=FitConstantPerFiberTask, doc="Fit constant per fiber")
 
 
 class CombineSkyNormsTask(PipelineTask):
@@ -327,6 +352,11 @@ class CombineSkyNormsTask(PipelineTask):
     ConfigClass = CombineSkyNormsConfig
 
     config: CombineSkyNormsConfig
+    fit: FitConstantPerFiberTask
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("fit")
 
     def run(self, skyNormsList: Sequence[FocalPlaneFunction]) -> Struct:
         """Combine sky normalizations from multiple visits
@@ -345,23 +375,20 @@ class CombineSkyNormsTask(PipelineTask):
         for skyNorms in skyNormsList:
             if not np.array_equal(skyNorms.fiberId, fiberId):
                 raise RuntimeError("Sky normalizations from different visits have different fiberId arrays")
+        numFibers = len(fiberId)
+        numMeasurements = len(skyNormsList)
+        shape = (numFibers, numMeasurements)
 
-        minWavelength = min(skyNorms.minWavelength for skyNorms in skyNormsList)
-        maxWavelength = max(skyNorms.maxWavelength for skyNorms in skyNormsList)
-        wavelength = np.array([0.5*(minWavelength + maxWavelength)])
-        position = np.zeros((1, 2), dtype=float)  # Nothing depends on position
+        wavelength = np.full(shape, np.nan, dtype=float)
+        values = np.full(shape, np.nan, dtype=float)
+        masks = np.zeros(shape, dtype=bool)
+        variances = np.full(shape, np.nan, dtype=float)
+        positions = np.full((numFibers, 2), np.nan, dtype=float)
+        for ii, skyNorms in enumerate(skyNormsList):
+            result = skyNorms.eval(fiberId)
+            values[:, ii] = result.values
+            masks[:, ii] = result.masks
+            variances[:, ii] = result.variances
 
-        stats = StatisticsControl(self.config.rejection, self.config.iterations)
-        stats.setNanSafe(True)
-        average: dict[int, np.ndarray] = {}
-        rms: dict[int, np.ndarray] = {}
-        for ff in fiberId:
-            values = [
-                skyNorms.evaluate(wavelength, np.full_like(wavelength, ff), position).values[0]
-                for skyNorms in skyNormsList
-            ]
-            avg = makeStatistics(values, MEANCLIP, stats).getValue()
-            average[ff] = np.array([avg])
-            rms[ff] = np.array([robustRms(np.array(values) - avg, True)])
-
-        return Struct(combined=PolynomialPerFiber(average, rms, minWavelength, maxWavelength))
+        combined = self.fit.fitArrays(fiberId, wavelength, values, masks, variances, positions)
+        return Struct(combined=combined)
