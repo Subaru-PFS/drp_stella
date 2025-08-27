@@ -7,7 +7,7 @@ from lsst.pipe.base import Task
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
-from .focalPlaneFunction import PolynomialPerFiber, FocalPlanePolynomial
+from .focalPlaneFunction import PolynomialPerFiber, FocalPlanePolynomial, ConstantPerFiber
 
 import lsstDebug
 
@@ -146,6 +146,114 @@ class FitFocalPlaneTask(Task):
 
         return func
 
+    def runMultiple(self, spectraList: list[PfsFiberArraySet], pfsConfigList: list[PfsConfig], **kwargs):
+        """Fit a vector function as a function of wavelength over the focal plane
+        to multiple sets of spectra
+
+        Parameters
+        ----------
+        spectraList : list of `PfsFiberArraySet`
+            Spectra to fit. This should contain only the fibers to be fit.
+        pfsConfigList : list of `PfsConfig`
+            Top-end configuration. This should contain only the fibers to be
+            fit.
+        **kwargs
+            Fitting parameters, overriding any provided in the configuration.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to the data.
+        """
+        fitParams = self.config.getFitParameters()
+        fitParams.update(kwargs)
+
+        numSpectra = len(spectraList)
+        if numSpectra != len(pfsConfigList):
+            raise RuntimeError(f"Wrong number of pfsConfigs: {len(pfsConfigList)} != {numSpectra}")
+        if numSpectra == 0:
+            raise RuntimeError("No spectra")
+        length = spectraList[0].length
+        numSamples = sum(len(ss) for ss in spectraList)
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = [ss.flux/ss.norm for ss in spectraList]
+            variances = [(ss.variance + self.config.sysErr*np.abs(ss.flux))/ss.norm**2 for ss in spectraList]
+        masks = [ss.mask & ss.flags.get(*self.config.mask) for ss in spectraList]
+
+        # Robust fitting with rejection
+        rejected = [np.zeros((len(ss), length), dtype=bool) for ss in spectraList]
+        for ii in range(self.config.rejIterations):
+            func = self.Function.fitMultiple(
+                spectraList, pfsConfigList, rejected=rejected, robust=True, **fitParams
+            )
+            funcEval = [
+                func.eval(ss.wavelength, pfsConfig) for ss, pfsConfig in zip(spectraList, pfsConfigList)
+            ]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                resid = [
+                    (val - fe.values)/np.sqrt(var + fe.variances)
+                    for val, var, fe in zip(values, variances, funcEval)
+                ]
+                newRejected = [
+                    ~rej & ~ss.mask & ~fe.masks & (np.abs(rs) > self.config.rejThreshold)
+                    for rej, ss, fe, rs in zip(rejected, spectraList, funcEval, resid)
+                ]
+            good = [
+                ~(rej | newRej | (ss.mask & ss.flags.get(*self.config.mask)) | fe.masks)
+                for rej, newRej, ss, fe in zip(rejected, newRejected, spectraList, funcEval)
+            ]
+            numGood = sum(gg.sum() for gg in good)
+            chi2 = sum(np.sum(res[gg]**2) for res, gg in zip(resid, good))
+            self.log.debug(
+                ("Fit focal plane function iteration %d: "
+                 "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d"),
+                ii,
+                chi2,
+                (~np.logical_and.reduce([fe.masks for fe in funcEval], axis=0)).sum(),
+                length,
+                numSamples,
+                numGood,
+                sum(((mm | fe.masks).sum() for mm, fe in zip(masks, funcEval))),
+                sum(rej.sum() for rej in rejected),
+            )
+            if numGood == 0:
+                raise RuntimeError("No good points")
+            if not np.any([np.any(nr) for nr in newRejected]):
+                break
+            for rej, newRej in zip(rejected, newRejected):
+                rej |= newRej
+
+        # A final fit with robust=False
+        func = self.Function.fitMultiple(
+            spectraList, pfsConfigList, rejected=rejected, robust=False, **fitParams
+        )
+        funcEval = [
+            func.eval(ss.wavelength, pfsConfig) for ss, pfsConfig in zip(spectraList, pfsConfigList)
+        ]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            resid = [
+                (val - fe.values)/np.sqrt(var + fe.variances)
+                for val, var, fe in zip(values, variances, funcEval)
+            ]
+        good = [~(rej | mm | fe.masks) for rej, mm, fe in zip(rejected, masks, funcEval)]
+        numGood = sum(gg.sum() for gg in good)
+        chi2 = sum(np.sum(rs[gg]**2) for rs, gg in zip(resid, good))
+        self.log.info(
+            ("Fit focal plane function: "
+             "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d"),
+            chi2,
+            (~np.logical_and.reduce([fe.masks for fe in funcEval], axis=0)).sum(),
+            length,
+            numSamples,
+            numGood,
+            sum(((mm | fe.masks).sum() for mm, fe in zip(masks, funcEval))),
+            sum(rej.sum() for rej in rejected),
+        )
+        if numGood == 0:
+            raise RuntimeError("No good points")
+        return func
+
     def plot(self, wavelength, values, masks, variances, funcEval, title, rejected=None):
         """Plot the input and fit values
 
@@ -260,9 +368,23 @@ class FitFocalPlanePolynomialTask(FitFocalPlaneConfig):
 
 class FitFocalPlanePolynomialTask(FitFocalPlaneTask):
     """Fit a `FocalPlanPolynomial`
-
     The `FocalPlanPolynomial` is a polynomial function of position on the
     focal plane. It is not a function of wavelength.
     """
     ConfigClass = FitFocalPlanePolynomialTask
     Function = FocalPlanePolynomial
+
+
+class FitConstantPerFiberConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `ConstantPerFiber`"""
+    pass
+
+
+class FitConstantPerFiberTask(FitFocalPlaneTask):
+    """Fit a `ConstantPerFiber`
+
+    The `ConstantPerFiber` is a constant value for each fiber. It is not a
+    function of wavelength or position.
+    """
+    ConfigClass = FitConstantPerFiberConfig
+    Function = ConstantPerFiber
