@@ -1605,6 +1605,32 @@ class ConstantPerFiber(FocalPlaneFunction):
 
     DamdClass = PfsConstantPerFiber
 
+    def __len__(self) -> int:
+        """Number of fibers with values"""
+        return len(self.fiberId)
+
+    @classmethod
+    def concatenate(cls, *args: "ConstantPerFiber") -> "ConstantPerFiber":
+        """Concatenate multiple ConstantPerFiber instances
+
+        Parameters
+        ----------
+        *args : `ConstantPerFiber`
+            Instances to concatenate.
+
+        Returns
+        -------
+        concatenated : `ConstantPerFiber`
+            Concatenated instance.
+        """
+        fiberId = np.concatenate([a.fiberId for a in args])
+        if np.unique(fiberId).size != fiberId.size:
+            raise ValueError("Cannot concatenate ConstantPerFiber with overlapping fiberId")
+        value = np.concatenate([a.value for a in args])
+        rms = np.concatenate([a.rms for a in args])
+        indices = np.argsort(fiberId)
+        return cls(fiberId=fiberId[indices], value=value[indices], rms=rms[indices])
+
     def eval(self, fiberIds: np.ndarray) -> Struct:
         """Evaluate the function
 
@@ -1765,7 +1791,7 @@ class FiberPolynomials(FocalPlaneFunction):
         }
         self.variance = {ff: rms**2 for ff, rms in zip(self.fiberId, self.rms)}
 
-    def eval(self, fiberId: int, x: float, y: float) -> float:
+    def evaluateSingle(self, fiberId: int, x: float, y: float) -> float:
         """Evaluate fiber throughput correction for a single fiber
 
         Parameters
@@ -1808,7 +1834,7 @@ class FiberPolynomials(FocalPlaneFunction):
         variances : `numpy.ndarray` of `float`, shape ``(N,)``
             Variances for each position.
         """
-        values = np.array([self.eval(ff, xx, yy) for ff, (xx, yy) in zip(fiberIds, positions)])
+        values = np.array([self.evaluateSingle(ff, xx, yy) for ff, (xx, yy) in zip(fiberIds, positions)])
         variances = np.array([self.variance.get(ff, np.nan) for ff in fiberIds])
         masks = ~np.isfinite(values) | ~np.isfinite(variances)
         return Struct(values=values, variances=variances, masks=masks)
