@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from lsst.pex.config import Config, ConfigurableField, Field, ListField
-from lsst.pipe.base import Struct, Task
+from lsst.pex.config import ConfigurableField, Field, ListField
+from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -15,7 +15,7 @@ from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
 from pfs.datamodel import PfsFiberArraySet, PfsConfig
-from .focalPlaneFunction import FocalPlaneFunction, ConstantPerFiber, FocalPlanePolynomial
+from .focalPlaneFunction import FocalPlaneFunction, ConstantPerFiber
 from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask, FitConstantPerFiberTask
 from .fitFocalPlane import FitFocalPlanePolynomialTask
@@ -83,7 +83,7 @@ def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np
 
 
 class MeasureSkyNormsConnections(
-    PipelineTaskConnections, dimensions=("instrument", "visit", "spectrograph")
+    PipelineTaskConnections, dimensions=("instrument", "visit")
 ):
     """Connections for MeasureSkyNormsTask"""
     pfsArm = InputConnection(
@@ -104,7 +104,7 @@ class MeasureSkyNormsConnections(
         name="skyNorms",
         doc="Sky normalizations",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "visit", "spectrograph"),
+        dimensions=("instrument", "visit"),
     )
 
 
@@ -127,6 +127,8 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     rejectRatio = Field(dtype=float, default=0.1, doc="Rejection limit of data/sky ratio")
     iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection limit for residuals")
+    doFitFocalPlane = Field(dtype=bool, default=True, doc="Fit focal plane model to sky norms?")
+    fitFocalPlane = ConfigurableField(target=FitFocalPlanePolynomialTask, doc="Fit focal plane model")
 
     def setDefaults(self):
         super().setDefaults()
@@ -140,7 +142,11 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
 
 
 class MeasureSkyNormsTask(PipelineTask):
-    """Merge all extracted spectra from a single exposure"""
+    """Measure sky norms for a single exposure
+
+    This task operates on the entire exposure at once, so that we can also
+    remove a fit over the focal plane.
+    """
     _DefaultName = "measureSkyNorms"
     ConfigClass = MeasureSkyNormsConfig
 
@@ -149,6 +155,7 @@ class MeasureSkyNormsTask(PipelineTask):
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
     fitContinuum: FitContinuumTask
+    fitFocalPlane: FitFocalPlanePolynomialTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -156,18 +163,73 @@ class MeasureSkyNormsTask(PipelineTask):
         self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("fitFocalPlane")
+
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection
+    ) -> None:
+        pfsArmList = defaultdict(list)
+        for inputRef in inputRefs.pfsArm:
+            pfsArm = butler.get(inputRef)
+            spectrograph = inputRef.dataId["spectrograph"]
+            pfsArmList[spectrograph].append(pfsArm)
+        pfsConfig = butler.get(inputRefs.pfsConfig)
+        outputs = self.run(pfsArmList, pfsConfig)
+        butler.put(outputs.skyNorms, outputRefs.skyNorms)
 
     def run(
         self,
-        pfsArm: list[PfsFiberArraySet],
+        pfsArmList: dict[int, list[PfsFiberArraySet]],
         pfsConfig: PfsConfig,
         skyNorms: FocalPlaneFunction | None = None,
     ) -> Struct:
-        """Measure sky normalizations
+        """Measure sky normalizations for the exposure
 
         Parameters
         ----------
-        pfsArm : list of `PfsFiberArraySet`
+        pfsArmList : `dict` mapping `int` to `list` of `PfsFiberArraySet`
+            Extracted spectra from each arm within a spectrograph module,
+            indexed by spectrograph number.
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        skyNorms : `pfs.drp.stella.FocalPlaneFunction`, optional
+            Common-mode sky normalizations to remove before measuring the
+            residual.
+
+        Returns
+        -------
+        skyNorms : `ConstantPerFiber`
+            Normalizations of sky data, after removing focal plane fit.
+        perSpectrograph : `dict` mapping `int` to `Struct`
+            Results for each spectrograph, indexed by spectrograph number.
+        focalPlane : `FocalPlanePolynomial`
+            Focal plane fit to sky normalizations.
+        """
+        results = {ss: self.runSpectrograph(pfsArmList[ss], pfsConfig, skyNorms) for ss in pfsArmList}
+        allSkyNorms = ConstantPerFiber.concatenate(*(results[ss].skyNorms for ss in results))
+
+        focalPlane = None
+        if self.config.doFitFocalPlane:
+            corrected = self.correctFocalPlane(allSkyNorms, pfsConfig)
+            allSkyNorms = corrected.skyNorms
+            focalPlane = corrected.fit
+
+        return Struct(skyNorms=allSkyNorms, perSpectrograph=results, focalPlane=focalPlane)
+
+    def runSpectrograph(
+        self,
+        pfsArmList: list[PfsFiberArraySet],
+        pfsConfig: PfsConfig,
+        skyNorms: FocalPlaneFunction | None = None,
+    ) -> Struct:
+        """Measure sky normalizations for a single spectrograph
+
+        Parameters
+        ----------
+        pfsArmList : `list` of `PfsFiberArraySet`
             Extracted spectra from each arm within a spectrograph module.
         pfsConfig : `PfsConfig`
             PFS fiber configuration.
@@ -188,9 +250,9 @@ class MeasureSkyNormsTask(PipelineTask):
         refLines : `ReferenceLineSet`
             Sky line list, used for fitting continuum.
         """
-        fiberId = pfsArm[0].fiberId
-        for arm in pfsArm:
-            if not np.array_equal(arm.fiberId, fiberId):
+        fiberId = pfsArmList[0].fiberId
+        for pfsArm in pfsArmList:
+            if not np.array_equal(pfsArm.fiberId, fiberId):
                 raise RuntimeError("Mismatched fiberId arrays")
         pfsConfig = pfsConfig.select(fiberId=fiberId)
 
@@ -198,11 +260,11 @@ class MeasureSkyNormsTask(PipelineTask):
             for arm in pfsArm:
                 applySkyNorms(arm, skyNorms)
 
-        skyModels = [self.measureSky(arm, pfsConfig) for arm in pfsArm]
-        skyData = [sm(arm.wavelength, pfsConfig) for sm, arm in zip(skyModels, pfsArm)]
-        refLines = [self.readLineList.run(metadata=arm.metadata) for arm in pfsArm]
+        skyModels = [self.measureSky(pfsArm, pfsConfig) for pfsArm in pfsArmList]
+        skyData = [sm(pfsArm.wavelength, pfsConfig) for sm, pfsArm in zip(skyModels, pfsArmList)]
+        refLines = [self.readLineList.run(metadata=pfsArm.metadata) for pfsArm in pfsArmList]
 
-        result = self.measureNormalizations(pfsArm, skyData, refLines)
+        result = self.measureNormalizations(pfsArmList, skyData, refLines)
 
         result.sky = skyModels
         result.refLines = refLines
@@ -361,48 +423,7 @@ class MeasureSkyNormsTask(PipelineTask):
             variance=varianceList,
         )
 
-
-class SkyNormsFocalPlaneCorrectionConfig(Config):
-    fit = ConfigurableField(target=FitFocalPlanePolynomialTask, doc="Fit focal plane model")
-
-
-class SkyNormsFocalPlaneCorrectionTask(Task):
-    """Apply focal plane correction to sky normalizations
-
-    This task applies a position-dependent correction to sky normalizations,
-    accounting for vignetting and fiber throughput variations.
-    """
-    ConfigClass = SkyNormsFocalPlaneCorrectionConfig
-    _DefaultName = "skyNormsFocalPlaneCorrection"
-
-    config: SkyNormsFocalPlaneCorrectionConfig
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.makeSubtask("fit")
-
-    def run(self, skyNorms: ConstantPerFiber, pfsConfig: PfsConfig) -> Struct:
-        """Apply focal plane correction to sky normalizations
-
-        Parameters
-        ----------
-        skyNorms : `ConstantPerFiber`
-            Sky normalizations to correct.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration of fibers on the focal plane.
-
-        Returns
-        -------
-        fit : `FocalPlanePolynomial`
-            Focal plane fit.
-        values : `list` of `Struct`
-            Values of focal plane fit for each of the skyNorms.
-        """
-        fit = self.fitFocalPlane(skyNorms, pfsConfig)
-        values = fit.eval(pfsConfig.select(fiberId=skyNorms.fiberId).pfiCenter)
-        return Struct(fit=fit, values=values)
-
-    def fitFocalPlane(self, skyNorms: ConstantPerFiber, pfsConfig: PfsConfig) -> FocalPlanePolynomial:
+    def correctFocalPlane(self, skyNorms: ConstantPerFiber, pfsConfig: PfsConfig) -> Struct:
         """Fit focal plane model to sky normalizations
 
         Parameters
@@ -414,34 +435,40 @@ class SkyNormsFocalPlaneCorrectionTask(Task):
 
         Returns
         -------
-        result : `FocalPlanePolynomial`
+        fit : `FocalPlanePolynomial`
             Result of fitting the focal plane model.
+        values : `np.ndarray`, shape ``(numFibers,)``
+            Focal plane correction values for each fiber.
+        skyNorms : `ConstantPerFiber`
+            Sky normalizations after removing focal plane fit.
         """
         numFibers = len(skyNorms)
-        return self.config.fit.fitArrays(
+        positions = pfsConfig.select(fiberId=skyNorms.fiberId).pfiCenter
+
+        fit = self.fitFocalPlane.fitArrays(
             skyNorms.fiberId,
-            np.full(numFibers, np.nan, dtype=float),
+            np.full((numFibers, 1), np.nan, dtype=float),
             skyNorms.value[:, None],
-            np.isfinite(skyNorms.value)[:, None],
+            (~np.isfinite(skyNorms.value) | np.any(~np.isfinite(positions), axis=1))[:, None],
             skyNorms.rms[:, None]**2,
-            pfsConfig.select(fiberId=skyNorms.fiberId).pfiCenter,
+            positions,
         )
+        correction = fit.eval(positions).values
+        corrected = ConstantPerFiber(
+            skyNorms.fiberId,
+            skyNorms.value - correction.reshape(-1),
+            skyNorms.rms,
+        )
+        return Struct(fit=fit, values=correction, skyNorms=corrected)
 
 
 class CombineSkyNormsConnections(PipelineTaskConnections, dimensions=("instrument",)):
     """Connections for CombineSkyNormsTask"""
-    pfsConfigList = PrerequisiteConnection(
-        name="pfsConfig",
-        doc="Top-end fiber configuration",
-        storageClass="PfsConfig",
-        dimensions=("instrument", "visit"),
-        multiple=True,
-    )
     skyNormsList = InputConnection(
         name="skyNorms",
         doc="Sky normalizations",
         storageClass="FocalPlaneFunction",
-        dimensions=("instrument", "visit", "spectrograph"),
+        dimensions=("instrument", "visit"),
         multiple=True,
     )
 
@@ -456,8 +483,7 @@ class CombineSkyNormsConnections(PipelineTaskConnections, dimensions=("instrumen
 
 class CombineSkyNormsConfig(PipelineTaskConfig, pipelineConnections=CombineSkyNormsConnections):
     """Configuration for CombineSkyNormsTask"""
-    focalPlane = ConfigurableField(target=SkyNormsFocalPlaneCorrectionTask, doc="Focal plane correction")
-    fitConstant = ConfigurableField(target=FitConstantPerFiberTask, doc="Fit constant per fiber")
+    fit = ConfigurableField(target=FitConstantPerFiberTask, doc="Fit constant per fiber")
 
 
 class CombineSkyNormsTask(PipelineTask):
@@ -466,13 +492,11 @@ class CombineSkyNormsTask(PipelineTask):
     ConfigClass = CombineSkyNormsConfig
 
     config: CombineSkyNormsConfig
-    focalPlane: SkyNormsFocalPlaneCorrectionTask
-    fitConstant: FitConstantPerFiberTask
+    fit: FitConstantPerFiberTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("focalPlane")
-        self.makeSubtask("fitConstant")
+        self.makeSubtask("fit")
 
     def runQuantum(
         self,
@@ -481,20 +505,16 @@ class CombineSkyNormsTask(PipelineTask):
         outputRefs: OutputQuantizedConnection
     ) -> None:
         skyNormsList = defaultdict(list)
-        pfsConfigList = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs["pfsConfig"]}
-        for inputRef in inputRefs["skyNormsList"]:
+        for inputRef in inputRefs.skyNormsList:
             skyNorms = butler.get(inputRef)
             visit = inputRef.dataId["visit"]
             skyNormsList[visit].append(skyNorms)
         visitList = sorted(skyNormsList)
-        outputs = self.run(
-            [ConstantPerFiber.concatenate(*skyNormsList[vv]) for vv in visitList],
-            [pfsConfigList[vv] for vv in visitList],
-        )
+        outputs = self.run([ConstantPerFiber.concatenate(*skyNormsList[vv]) for vv in visitList])
         butler.put(outputs, outputRefs)
 
     def run(
-        self, skyNormsList: list[ConstantPerFiber], pfsConfigList: list[PfsConfig]
+        self, skyNormsList: list[ConstantPerFiber]
     ) -> Struct:
         """Combine sky normalizations from multiple visits
 
@@ -502,17 +522,15 @@ class CombineSkyNormsTask(PipelineTask):
         ----------
         skyNormsList : `list` of `ConstantPerFiber`
             Sky normalizations for each visit.
-        pfsConfigList : `list` of `PfsConfig`
-            PFS fiber configuration for each visit.
 
         Returns
         -------
         combined : `FocalPlaneFunction`
             Combined sky normalizations.
         """
-        fiberId = pfsConfigList[0].fiberId
-        for pfsConfig in pfsConfigList:
-            if not np.array_equal(pfsConfig.fiberId, fiberId):
+        fiberId = skyNormsList[0].fiberId
+        for skyNorms in skyNormsList:
+            if not np.array_equal(skyNorms.fiberId, fiberId):
                 raise RuntimeError("Mismatched fiberId arrays")
 
         numFibers = len(fiberId)
@@ -522,16 +540,12 @@ class CombineSkyNormsTask(PipelineTask):
         values = np.full(shape, np.nan, dtype=float)
         variances = np.full(shape, np.nan, dtype=float)
 
-        for ii, (skyNorms, pfsConfig) in enumerate(zip(skyNormsList, pfsConfigList)):
-            focalPlane = self.focalPlane.run(skyNorms, pfsConfig)
-            indices = np.searchsorted(fiberId, skyNorms.fiberId)
-            if not np.all(fiberId[indices] == skyNorms.fiberId):
-                raise RuntimeError("Unable to match fiberId arrays")
-            values[indices, ii] = skyNorms.value - focalPlane.values.reshape(-1)
-            variances[indices, ii] = skyNorms.rms**2
+        for ii, skyNorms in enumerate(skyNormsList):
+            values[:, ii] = skyNorms.value
+            variances[:, ii] = skyNorms.rms**2
 
         masks = ~np.isfinite(values) | ~np.isfinite(variances)
         wavelength = np.full(shape, np.nan, dtype=float)  # Not used
         positions = np.full((numFibers, 2), np.nan, dtype=float)  # Not used
-        combined = self.fitConstant.fitArrays(fiberId, wavelength, values, masks, variances, positions)
+        combined = self.fit.fitArrays(fiberId, wavelength, values, masks, variances, positions)
         return Struct(combined=combined)
