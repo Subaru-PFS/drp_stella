@@ -1631,12 +1631,17 @@ class ConstantPerFiber(FocalPlaneFunction):
         indices = np.searchsorted(self.fiberId, fiberIds)
         good = (indices >= 0) & (indices < len(self.fiberId)) & (self.fiberId[indices] == fiberIds)
         indices = indices[good]
-        values[good] = self.values[indices]
+        values[good] = self.value[indices]
         variances[good] = self.rms[indices]**2
 
         masks = ~np.isfinite(values) | ~np.isfinite(variances)
+        shape = (len(fiberIds), 1)
 
-        return Struct(values=values, masks=masks, variances=variances)
+        return Struct(
+            values=values.reshape(shape),
+            masks=masks.reshape(shape),
+            variances=variances.reshape(shape),
+        )
 
     def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
@@ -1716,7 +1721,7 @@ class ConstantPerFiber(FocalPlaneFunction):
             values = np.ma.average(np.ma.masked_where(bad, values), axis=1, weights=weights).filled(np.nan)
             rms = np.ma.sqrt(1.0/np.ma.sum(np.ma.masked_where(bad, weights), axis=1)).filled(np.nan)
 
-        return cls(fiberId=fiberId, values=values, rms=rms)
+        return cls(fiberId=fiberId, value=values, rms=rms)
 
 
 class FiberPolynomials(FocalPlaneFunction):
