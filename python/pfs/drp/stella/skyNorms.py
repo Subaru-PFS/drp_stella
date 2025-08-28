@@ -362,9 +362,9 @@ class CombineSkyNormsTask(PipelineTask):
         positions = np.full((numFibers, 2), np.nan, dtype=float)
         for ii, skyNorms in enumerate(skyNormsList):
             result = skyNorms.eval(fiberId)
-            values[:, ii] = result.values
-            masks[:, ii] = result.masks
-            variances[:, ii] = result.variances
+            values[:, ii] = result.values.reshape(-1)
+            masks[:, ii] = result.masks.reshape(-1)
+            variances[:, ii] = result.variances.reshape(-1)
 
         combined = self.fit.fitArrays(fiberId, wavelength, values, masks, variances, positions)
         return Struct(combined=combined)
