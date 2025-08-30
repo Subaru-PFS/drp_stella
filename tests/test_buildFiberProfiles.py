@@ -60,7 +60,6 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.config.centerFit.order = 2
         self.config.rowFwhm = self.synth.fwhm
         self.config.columnFwhm = self.synth.fwhm
-        self.config.doScatteredLight = False
         self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
