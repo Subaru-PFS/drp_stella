@@ -44,6 +44,8 @@ class ScatteredLightModel:
         Softening (pixels) of the second component.
     halfSize : `int`
         Half-size of the kernel (pixels).
+    interpWinSize : `int`
+        Interpolation window size (pixels).
     """
     top: float = 1.0        # Scale factor for the scattered light model at top
     bottom: float = 1.0     # Scale factor for the scattered light model at bottom
@@ -216,7 +218,7 @@ class ScatteredLightConfig(Config):
         default=dict(
             default=1.0,
             b1=1.0, b2=1.0, b3=1.0, b4=1.0,
-            r1=1.1, r2=1.1, r3=1.1, r4=1.1,
+            r1=1.2, r2=1.2, r3=1.2, r4=1.2,
             n1=1.0, n2=1.0, n3=1.0, n4=1.0,
             m1=1.1, m2=1.1, m3=1.1, m4=1.1,
         ),
@@ -227,10 +229,10 @@ class ScatteredLightConfig(Config):
         itemtype=float,
         default=dict(
             default=0.048,
-            b1=0.055, b2=0.050, b3=0.060, b4=0.100,
-            r1=0.037, r2=0.040, r3=0.043, r4=0.070,
-            n1=0.065, n2=0.068, n3=0.050, n4=0.060,
-            m1=0.040, m2=0.040, m3=0.053, m4=0.060,
+            b1=0.054, b2=0.050, b3=0.060, b4=0.085,
+            r1=0.032, r2=0.040, r3=0.048, r4=0.058,
+            n1=0.065, n2=0.055, n3=0.050, n4=0.060,
+            m1=0.040, m2=0.040, m3=0.055, m4=0.062,
         ),
         doc="Fraction of the total power in the first component, indexed by camera name or 'default'",
     )
@@ -251,8 +253,8 @@ class ScatteredLightConfig(Config):
         itemtype=float,
         default=dict(
             default=0.01,
-            b1=0.025, b2=0.055, b3=0.032, b4=0.045,
-            r1=0.025, r2=0.020, r3=0.013, r4=0.021,
+            b1=0.026, b2=0.055, b3=0.032, b4=0.050,
+            r1=0.027, r2=0.020, r3=0.013, r4=0.026,
             n1=0.010, n2=0.010, n3=0.010, n4=0.017,
             m1=0.025, m2=0.020, m3=0.014, m4=0.021,
         ),
@@ -271,6 +273,7 @@ class ScatteredLightConfig(Config):
         doc="Softening (pixels) of the second component, indexed by camera name or 'default'",
     )
     halfSize = Field(dtype=int, default=4096, doc="Half-size of the kernel")
+    interpWinSize = Field(dtype=int, default=5, doc="Interpolation window size in pixel")
 
     def getValue(self, name: str, camera: str) -> float:
         """Get a value for a camera from the configuration
@@ -319,6 +322,7 @@ class ScatteredLightConfig(Config):
             powerLaw2=self.getValue("powerLaw2", camera),
             soften2=self.getValue("soften2", camera),
             halfSize=self.halfSize,
+            interpWinSize=self.interpWinSize,
         )
 
 
