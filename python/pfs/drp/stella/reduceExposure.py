@@ -29,7 +29,7 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.daf.butler import DataCoordinate
-from lsst.afw.image import Exposure
+from lsst.afw.image import Exposure, Mask
 
 from .datamodel.pfsConfig import PfsConfig
 from .DetectorMapContinued import DetectorMap
@@ -55,6 +55,7 @@ from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .fitFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
+from .scatteredLight import ScatteredLightTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -63,9 +64,15 @@ class ReduceExposureConnections(
     PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     exposure = InputConnection(
-        name="calexp",
+        name="postISRCCD",
         doc="Exposure to reduce",
         storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
+    crMask = InputConnection(
+        name="crMask",
+        doc="Cosmic-ray mask",
+        storageClass="Mask",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
@@ -97,6 +104,12 @@ class ReduceExposureConnections(
         isCalibration=True,
     )
 
+    outputExposure = OutputConnection(
+        name="calexp",
+        doc="Calibrated exposure",
+        storageClass="Exposure",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+    )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
@@ -133,6 +146,8 @@ class ReduceExposureConnections(
 
         if not config:
             return
+        if not self.config.doApplyCrMask:
+            self.prerequisiteInputs.remove("crMask")
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
         if not self.config.doApplyFiberNorms:
@@ -141,6 +156,7 @@ class ReduceExposureConnections(
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
     """Config for ReduceExposure"""
+    doApplyCrMask = Field(dtype=bool, default=True, doc="Apply cosmic-ray mask to input exposure?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
     readLineList = ConfigurableField(target=ReadLineListTask,
@@ -178,6 +194,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
+    scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -242,6 +260,7 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
+        self.makeSubtask("scatteredLight")
 
     def runQuantum(
         self,
@@ -270,6 +289,7 @@ class ReduceExposureTask(PipelineTask):
         fiberNorms: PfsFiberNorms | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
+        crMask: Mask | None = None,
     ) -> Struct:
         """Process an arm exposure
 
@@ -287,6 +307,8 @@ class ReduceExposureTask(PipelineTask):
             Mapping of fiberId,wavelength to x,y.
         dataId : `dict` [`str`, `str`] or `DataCoordinate`
             Data identifier.
+        crMask : `lsst.afw.image.Mask`, optional
+            Cosmic-ray mask.
 
         Returns
         -------
@@ -306,6 +328,15 @@ class ReduceExposureTask(PipelineTask):
 
         arm = dataId["arm"]
         spectrograph = dataId["spectrograph"]
+        visitInfo = exposure.visitInfo
+        identity = Identity(
+            visit=dataId["visit"],
+            arm=arm,
+            spectrograph=spectrograph,
+            pfsDesignId=dataId["pfs_design_id"],
+            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
+            expTime=visitInfo.exposureTime,
+        )
 
         spatialOffset = self.config.spatialOffset
         spectralOffset = self.config.spectralOffset
@@ -323,6 +354,11 @@ class ReduceExposureTask(PipelineTask):
                 # the Gaussian will be replaced by a boxcar, so params don't matter
                 fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
 
+        if self.config.doApplyCrMask:
+            if crMask is None:
+                raise RuntimeError("crMask required but not provided")
+            exposure.mask |= crMask
+
         measurements = self.measure(exposure, pfsConfig, fiberProfiles, detectorMap, boxcarWidth, arm)
 
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
@@ -336,18 +372,21 @@ class ReduceExposureTask(PipelineTask):
             True if boxcarWidth > 0 else False,
         ).spectra
 
+        if self.config.doScatteredLight:
+            pfsArm = spectra.toPfsArm(identity)
+            self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
+            # Extract spectra again after scattered light correction
+            spectra = self.extractSpectra.run(
+                exposure.maskedImage,
+                measurements.fiberTraces,
+                measurements.detectorMap,
+                fiberId,
+                True if boxcarWidth > 0 else False,
+            ).spectra
+
         if self.config.doBlackSpotCorrection:
             self.blackSpotCorrection.run(pfsConfig, spectra)
 
-        visitInfo = exposure.visitInfo
-        identity = Identity(
-            visit=dataId["visit"],
-            arm=arm,
-            spectrograph=spectrograph,
-            pfsDesignId=dataId["pfs_design_id"],
-            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
-            expTime=visitInfo.exposureTime,
-        )
         pfsArm = spectra.toPfsArm(identity)
 
         pfsArm = pfsArm.select(pfsConfig, targetType=~TargetType.SCIENCE_MASKED)
