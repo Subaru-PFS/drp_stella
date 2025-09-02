@@ -10,10 +10,35 @@ from lsst.pex.config import Config, Field
 from lsst.pipe.base import Task, Struct
 from lsst.utils import getPackageDir
 
-from pfs.datamodel import PfsFiberPolynomials
+from .focalPlaneFunction import FiberPolynomials
 
 if TYPE_CHECKING:
     from pfs.datamodel import PfsConfig
+
+
+class EdgeVignettingConfig(Config):
+    """Configuration for EdgeVignetting"""
+
+    pfiRadius = Field(
+        dtype=float,
+        default=200.0,
+        doc="Radius of the PFI hexagon (mm)",
+    )
+    powerLaw = Field(
+        dtype=float,
+        default=2.08321709,
+        doc="Power-law index for edge vignetting fall-off",
+    )
+    rScale = Field(
+        dtype=float,
+        default=0.54491177,
+        doc="Scale for radial distance from edge (mm)",
+    )
+    sScale = Field(
+        dtype=float,
+        default=15.74269352,
+        doc="Scale for tangential distance from edge (mm)",
+    )
 
 
 class EdgeVignetting:
@@ -25,15 +50,24 @@ class EdgeVignetting:
     ----------
     parameters : `numpy.ndarray`
         Array of parameters.
+    pfiRadius : `float`, optional
+        Radius of the PFI hexagon in mm.
     """
-    def __init__(self, parameters: np.ndarray) -> None:
-        if len(parameters) != 4:
-            raise ValueError("Expected 4 parameters for edge vignetting model")
+    def __init__(self, parameters: np.ndarray, pfiRadius: float = 200.0) -> None:
+        if len(parameters) != 3:
+            raise ValueError("Expected 3 parameters for edge vignetting model")
         self.parameters = parameters
-        self.pfiRadius = parameters[0]  # mm
-        self.powerLaw = parameters[1]  # Power-law index
-        self.rScale = parameters[2]  # Scale for radial distance
-        self.sScale = parameters[3]  # Scale for tangential distance
+        self.pfiRadius = pfiRadius
+
+        self.powerLaw = parameters[0]  # Power-law index
+        self.rScale = parameters[1]  # Scale for radial distance
+        self.sScale = parameters[2]  # Scale for tangential distance
+
+    @classmethod
+    def fromConfig(cls, config: EdgeVignettingConfig) -> EdgeVignetting:
+        """Create from configuration"""
+        parameters = np.array([config.powerLaw, config.rScale, config.sScale], dtype=float)
+        return cls(parameters, config.pfiRadius, )
 
     @classmethod
     def readFits(cls, path: str) -> EdgeVignetting:
@@ -74,14 +108,15 @@ class EdgeVignetting:
         # Tangential distance from the center of the closest edge of the hexagon
         ss = np.minimum.reduce([
             np.abs(y),
-            np.abs(0.5*np.sqrt(3)*x - 0.5*y),
-            np.abs(0.5*np.sqrt(3)*x + 0.5*y),
+            np.abs(0.5*(np.sqrt(3)*x - y)),
+            np.abs(0.5*(np.sqrt(3)*x + y)),
         ])
 
-        rPart = np.minimum(rr/self.rScale, 0.0)
-        sPart = np.minimum(ss/self.sScale, 0.0)
+        rPart = np.clip(rr/self.rScale, 0.0, None)
+        sPart = np.clip(ss/self.sScale, 0.0, None)
         distance = np.hypot(rPart, sPart)
-        return 1.0 - np.clip(distance**-self.powerLaw, 0.0, 1.0)
+        value = -np.clip(distance**-self.powerLaw, 0.0, 1.0)
+        return value
 
 
 class BlobVignetting:
@@ -181,19 +216,19 @@ class PfiCorrectionConfig(Config):
 
     edge = Field(
         dtype=str,
-        default="pfi_edge.fits",
+        default=None,
         optional=True,
         doc="Filename for edge vignetting model parameters"
     )
     blob = Field(
-        dtype=float,
+        dtype=str,
         default="pfi_blob.fits",
         optional=True,
         doc="Filename for for blob vignetting model parameters"
     )
-    fiber = Field(
+    fibers = Field(
         dtype=str,
-        default="pfi_fiber.fits",
+        default="pfi_fibers.fits",
         optional=True,
         doc="Filename for fiber throughput model parameters",
     )
@@ -224,9 +259,14 @@ class PfiCorrectionTask(Task):
                 path = os.path.join(drpPfsData, "pfi", path)
             return path
 
-        self.edge = EdgeVignetting.readFits(getAbsPath(self.config.edge))
+        if self.config.edge is None:
+            edgeConfig = EdgeVignettingConfig()
+            self.edge = EdgeVignetting.fromConfig(edgeConfig)
+        else:
+            self.edge = EdgeVignetting.readFits(getAbsPath(self.config.edge))
+
         self.blob = BlobVignetting.readFits(getAbsPath(self.config.blob))
-        self.fibers = PfsFiberPolynomials.readFits(getAbsPath(self.config.fiber))
+        self.fibers = FiberPolynomials.readFits(getAbsPath(self.config.fibers))
 
     def run(self, pfsConfig: PfsConfig) -> Struct:
         """Compute PFI corrections
@@ -252,7 +292,7 @@ class PfiCorrectionTask(Task):
         edge = self.edge(xx, yy)
         blob = self.blob(xx, yy)
         fibers = np.array([self.fibers.evaluateSingle(*args) for args in zip(pfsConfig.fiberId, xx, yy)])
-        correction = edge * blob * fibers
+        correction = edge + blob + fibers
         return Struct(
             correction=correction,
             edge=edge,

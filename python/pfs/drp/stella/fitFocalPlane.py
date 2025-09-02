@@ -8,12 +8,17 @@ from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
 from .focalPlaneFunction import FocalPlaneFunction, PolynomialPerFiber, FocalPlanePolynomial, ConstantPerFiber
+from .focalPlaneFunction import FiberPolynomials
 
 import lsstDebug
 
 __all__ = ("FitFocalPlaneConfig", "FitFocalPlaneTask",
            "FitOversampledSplineConfig", "FitOversampledSplineTask",
            "FitBlockedOversampledSplineConfig", "FitBlockedOversampledSplineTask",
+           "FitPolynomialPerFiberConfig", "FitPolynomialPerFiberTask",
+           "FitFocalPlanePolynomialTask", "FitFocalPlanePolynomialTask",
+           "FitConstantPerFiberConfig", "FitConstantPerFiberTask",
+          "FitFiberPolynomialsConfig", "FitFiberPolynomialsTask",
            )
 
 
@@ -289,7 +294,7 @@ class FitFocalPlaneTask(Task):
                 variancesList, positionsList, robust=True, **fitParams
             )
             funcEval = [
-                func.eval(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
+                func.evaluate(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
             ]
             with np.errstate(invalid="ignore", divide="ignore"):
                 resid = [
@@ -332,7 +337,7 @@ class FitFocalPlaneTask(Task):
             variancesList, positionsList, robust=False, **fitParams
         )
         funcEval = [
-            func.eval(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
+            func.evaluate(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
         ]
         with np.errstate(invalid="ignore", divide="ignore"):
             resid = [
@@ -498,3 +503,23 @@ class FitConstantPerFiberTask(FitFocalPlaneTask):
     """
     ConfigClass = FitConstantPerFiberConfig
     Function = ConstantPerFiber
+
+
+class FitFiberPolynomialsConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `FiberPolynomials`
+
+    The ``FiberPolynomials.fit`` method also needs ``minWavelength`` and
+    ``maxWavelength`` input parameters, but those can be determined from the
+    data.
+    """
+    order = Field(dtype=int, doc="Polynomial order")
+    radius = Field(dtype=float, default=4.5, doc="Radius of the fiber patrol region (mm)")
+
+
+class FitFiberPolynomialsTask(FitFocalPlaneTask):
+    """Fit a `FiberPolynomials`
+
+    We fit a polynomial as a function of wavelength for each fiber individually.
+    """
+    ConfigClass = FitFiberPolynomialsConfig
+    Function = FiberPolynomials

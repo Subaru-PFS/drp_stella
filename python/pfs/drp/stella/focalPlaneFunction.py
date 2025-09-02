@@ -283,7 +283,7 @@ class FocalPlaneFunction(ABC):
                 valuesList[ii].shape[0],
                 maskList[ii].shape[0],
                 varianceList[ii].shape[0],
-                positionsList[ii].shape[1],
+                positionsList[ii].shape[0],
             ])
             if len(lengthList) != 1:
                 raise RuntimeError(f"Array {ii} length mismatch")
@@ -306,7 +306,7 @@ class FocalPlaneFunction(ABC):
             values[select, :] = valuesList[ii]
             variance[select, :] = varianceList[ii]
             masks[select, :] = maskList[ii]
-            positions[:, select] = positionsList[ii]
+            positions[select, :] = positionsList[ii]
             start = stop
 
         return cls.fitArrays(fiberId, wavelength, values, masks, variance, positions, robust=robust, **kwargs)
@@ -1783,7 +1783,7 @@ class FiberPolynomials(FocalPlaneFunction):
         self.polynomials = {
             ff: NormalizedPolynomial2D(
                 coeff.astype(np.float64),
-                box=Box2D(
+                range=Box2D(
                     Point2D(xc - self.radius, yc - self.radius), Point2D(xc + self.radius, yc + self.radius)
                 ),
             )
@@ -1791,14 +1791,16 @@ class FiberPolynomials(FocalPlaneFunction):
         }
         self.variance = {ff: rms**2 for ff, rms in zip(self.fiberId, self.rms)}
 
-    def evaluateSingle(self, fiberId: int, x: float, y: float) -> float:
+    def evaluateSingle(
+        self, fiberId: int, x: float | np.ndarray, y: float | np.ndarray
+    ) -> float | np.ndarray:
         """Evaluate fiber throughput correction for a single fiber
 
         Parameters
         ----------
         fiberId : `int`
             Fiber identifier.
-        x, y : `float`
+        x, y : `float` or array
             Position of the fiber on the focal plane, in mm.
 
         Returns
@@ -1806,9 +1808,16 @@ class FiberPolynomials(FocalPlaneFunction):
         correction : `float`
             Fiber throughput correction factor.
         """
-        if fiberId not in self._polynomials:
-            raise ValueError(f"fiberId={fiberId} not found")
-        return self._polynomials[fiberId](x, y)
+        if np.isscalar(x) and np.isscalar(y):
+            if fiberId not in self.polynomials:
+                return np.nan
+            return self.polynomials[fiberId](x, y)
+
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+        if fiberId not in self.polynomials:
+            return np.full_like(x, np.nan, dtype=float)
+        return self.polynomials[fiberId](x, y)
 
     def evaluate(self, wavelengths: np.ndarray, fiberIds: np.ndarray, positions: np.ndarray) -> Struct:
         """Evaluate the function at the provided positions
@@ -1834,10 +1843,19 @@ class FiberPolynomials(FocalPlaneFunction):
         variances : `numpy.ndarray` of `float`, shape ``(N,)``
             Variances for each position.
         """
-        values = np.array([self.evaluateSingle(ff, xx, yy) for ff, (xx, yy) in zip(fiberIds, positions)])
-        variances = np.array([self.variance.get(ff, np.nan) for ff in fiberIds])
+        uniqueFiberIds = np.unique(fiberIds)
+        values = np.full_like(fiberIds, np.nan, dtype=float)
+        variances = np.full_like(fiberIds, np.nan, dtype=float)
+        for ff in uniqueFiberIds:
+            select = fiberIds == ff
+            values[select] = self.evaluateSingle(ff, positions[select, 0], positions[select, 1])
+            variances[select] = self.variance.get(ff, np.nan)
         masks = ~np.isfinite(values) | ~np.isfinite(variances)
-        return Struct(values=values, variances=variances, masks=masks)
+        return Struct(
+            values=values.reshape(wavelengths.shape),
+            variances=variances.reshape(wavelengths.shape),
+            masks=masks.reshape(wavelengths.shape),
+        )
 
     @classmethod
     def fitArrays(
@@ -1933,21 +1951,26 @@ class FiberPolynomials(FocalPlaneFunction):
             err = constErrors[select]
             mm = constMasks[select]
             good = ~mm & np.isfinite(zz) & np.isfinite(xx) & np.isfinite(yy) & np.isfinite(err) & (err > 0.0)
-
             box = Box2D(
                 Point2D(xCenter[ii] - radius, yCenter[ii] - radius),
                 Point2D(xCenter[ii] + radius, yCenter[ii] + radius),
             )
-            design = NormalizedPolynomial2D(order, box).calculateDesignMatrix(xx[good], yy[good])
-            solution = solveLeastSquaresDesign(design, zz[good], err[good])
+            poly = NormalizedPolynomial2D(order, box)
+            if not np.any(good):
+                coeffs.append(np.full(poly.getNParameters(), np.nan, dtype=float))
+                rms[ii] = np.nan
+                continue
+
+            design = poly.calculateDesignMatrix(xx[good].astype(np.float64), yy[good].astype(np.float64))
+            solution = solveLeastSquaresDesign(
+                design, zz[good].astype(np.float64), err[good].astype(np.float64)
+            )
             coeffs.append(solution)
             residuals = design @ solution - zz[good]
             if robust:
                 rms[ii] = robustRms(residuals)
             else:
-                with np.errstate(divide="ignore"):
-                    weights = 1.0 / err[good]**2
-                    rms[ii] = np.sqrt(np.sum(weights * residuals**2) / np.sum(weights))
+                rms[ii] = np.std(residuals)
 
         return cls(
             fiberId=uniqueFiberId,
