@@ -18,7 +18,7 @@ __all__ = ("FitFocalPlaneConfig", "FitFocalPlaneTask",
            "FitPolynomialPerFiberConfig", "FitPolynomialPerFiberTask",
            "FitFocalPlanePolynomialTask", "FitFocalPlanePolynomialTask",
            "FitConstantPerFiberConfig", "FitConstantPerFiberTask",
-          "FitFiberPolynomialsConfig", "FitFiberPolynomialsTask",
+           "FitFiberPolynomialsConfig", "FitFiberPolynomialsTask",
            )
 
 

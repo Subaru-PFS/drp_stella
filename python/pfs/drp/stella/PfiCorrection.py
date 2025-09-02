@@ -14,6 +14,7 @@ from .focalPlaneFunction import FiberPolynomials
 
 if TYPE_CHECKING:
     from pfs.datamodel import PfsConfig
+    from .datamodel.drp import PfsArm
 
 
 class EdgeVignettingConfig(Config):
@@ -145,7 +146,7 @@ class BlobVignetting:
 
     def writeFits(self, path: str) -> None:
         """Write parameters to FITS file"""
-        cols = [astropy.io.fits.Column(name="parameters", format=f"PD()", array=self.parameters)]
+        cols = [astropy.io.fits.Column(name="parameters", format="PD()", array=self.parameters)]
         hdu = astropy.io.fits.BinTableHDU.from_columns(cols)
         hdu.writeto(path, overwrite=True)
 
@@ -268,8 +269,8 @@ class PfiCorrectionTask(Task):
         self.blob = BlobVignetting.readFits(getAbsPath(self.config.blob))
         self.fibers = FiberPolynomials.readFits(getAbsPath(self.config.fibers))
 
-    def run(self, pfsConfig: PfsConfig) -> Struct:
-        """Compute PFI corrections
+    def calculate(self, pfsConfig: PfsConfig) -> Struct:
+        """Calculate PFI corrections
 
         Parameters
         ----------
@@ -299,3 +300,33 @@ class PfiCorrectionTask(Task):
             blob=blob,
             fibers=fibers,
         )
+
+    def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig) -> Struct:
+        """Calculate and apply the PFI corrections
+
+        Parameters
+        ----------
+        pfsArm : `pfs.datamodel.drp.PfsArm`
+            Arm data to be corrected.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Configuration of fibers on the focal plane.
+
+        Returns
+        -------
+        correction : `numpy.ndarray`
+            Total correction factors for each fiber.
+        edge : `numpy.ndarray`
+            Edge vignetting correction factors for each fiber.
+        blob : `numpy.ndarray`
+            Blob vignetting correction factors for each fiber.
+        fibers : `numpy.ndarray`
+            Fiber throughput correction factors for each fiber.
+        """
+        pfsConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
+        result = self.calculate(pfsConfig)
+
+        good = np.isfinite(result.correction)
+        pfsArm.norm[good] *= result.correction[good]
+        pfsArm.notes["pfiCorrection"][good] = result.correction[good]
+
+        return result

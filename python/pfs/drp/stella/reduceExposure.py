@@ -56,6 +56,7 @@ from .pipelines.lookups import lookupFiberNorms
 from .fitFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
+from .PfiCorrection import PfiCorrectionTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -196,6 +197,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
     doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
+    doApplyPfiCorrection = Field(dtype=bool, default=False, doc="Apply PFI correction?")
+    pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -261,6 +264,7 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
         self.makeSubtask("scatteredLight")
+        self.makeSubtask("pfiCorrection")
 
     def runQuantum(
         self,
@@ -409,6 +413,9 @@ class ReduceExposureTask(PipelineTask):
             missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
             if missingFiberIds:
                 self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
+
+        if self.config.doApplyPfiCorrection:
+            self.pfiCorrection.run(pfsArm, pfsConfig)
 
         metadata = exposure.getMetadata()
         versions = getPfsVersions()
