@@ -244,7 +244,7 @@ class MergeArmsTask(PipelineTask):
         merged = PfsMerged.fromMerge(spectrographs, metadata=metadata)  # Merge across spectrographs
         if self.config.doApplySkyNorms:
             assert skyNorms is not None
-            merged.notes["skyNorms"] = skyNorms.eval(merged.fiberId)
+            merged.notes.skyNorms[:] = skyNorms.eval(merged.fiberId).values.reshape(len(merged))
 
         lsfList = [self.mergeLsfs(ll, ss, wavelength) for ll, ss in zip(lsfList, spectra)]
         mergedLsf = self.combineLsfs(lsfList)

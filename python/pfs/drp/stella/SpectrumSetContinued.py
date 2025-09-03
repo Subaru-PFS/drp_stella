@@ -1,6 +1,7 @@
 import os
 import re
 import numpy as np
+from astropy.io.fits import Header
 
 from lsst.utils import continueClass
 from lsst.pipe.base import Struct
@@ -52,7 +53,8 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         covar = np.zeros((numSpectra, 3, self.getLength()))
         for ii, ss in enumerate(self):
             covar[ii, 0] = ss.getVariance()
-        metadata = getPfsVersions()
+        metadata = Header()
+        metadata.update(**getPfsVersions())
         notes = PfsArm.NotesClass(**{
             col.name: np.array([self[ii].notes.get(col.name, col.default) for ii in range(numSpectra)])
             for col in PfsArm.NotesClass.schema
