@@ -269,13 +269,15 @@ class PfiCorrectionTask(Task):
         self.blob = BlobVignetting.readFits(getAbsPath(self.config.blob))
         self.fibers = FiberPolynomials.readFits(getAbsPath(self.config.fibers))
 
-    def calculate(self, pfsConfig: PfsConfig) -> Struct:
+    def calculate(self, fiberId: np.ndarray, x: np.ndarray, y: np.ndarray) -> Struct:
         """Calculate PFI corrections
 
         Parameters
         ----------
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Configuration of fibers on the focal plane.
+        fiberId : `numpy.ndarray`
+            Fiber IDs.
+        x, y : `numpy.ndarray`
+            X and Y coordinates of fibers in mm.
 
         Returns
         -------
@@ -288,11 +290,9 @@ class PfiCorrectionTask(Task):
         fibers : `numpy.ndarray`
             Fiber throughput correction factors for each fiber.
         """
-        xx = pfsConfig.pfiCenter[:, 0]
-        yy = pfsConfig.pfiCenter[:, 1]
-        edge = self.edge(xx, yy)
-        blob = self.blob(xx, yy)
-        fibers = np.array([self.fibers.evaluateSingle(*args) for args in zip(pfsConfig.fiberId, xx, yy)])
+        edge = self.edge(x, y)
+        blob = self.blob(x, y)
+        fibers = np.array([self.fibers.evaluateSingle(*args) for args in zip(fiberId, x, y)])
         correction = edge + blob + fibers
         return Struct(
             correction=correction,
@@ -301,7 +301,7 @@ class PfiCorrectionTask(Task):
             fibers=fibers,
         )
 
-    def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig) -> Struct:
+    def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig, skyNorms: ConstantPerFiber | None = None) -> Struct:
         """Calculate and apply the PFI corrections
 
         Parameters
@@ -310,6 +310,8 @@ class PfiCorrectionTask(Task):
             Arm data to be corrected.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Configuration of fibers on the focal plane.
+        skyNorms : `ConstantPerFiber`, optional
+            Sky normalization corrections to apply (if any).
 
         Returns
         -------
@@ -321,12 +323,29 @@ class PfiCorrectionTask(Task):
             Blob vignetting correction factors for each fiber.
         fibers : `numpy.ndarray`
             Fiber throughput correction factors for each fiber.
+        skyNorms : `numpy.ndarray` or `None`
+            Sky normalization factors for each fiber (if `skyNorms` was provided).
         """
         pfsConfig = pfsConfig.select(fiberId=pfsArm.fiberId)
-        result = self.calculate(pfsConfig)
+        result = self.calculate(pfsConfig.fiberId, pfsConfig.pfiCenter[:, 0], pfsConfig.pfiCenter[:, 1])
+
+        self.log.info(
+            "Applying PFI correction: %.3f +/- %.3f",
+            np.nanmean(result.correction),
+            np.nanstd(result.correction),
+        )
+
+        result.skyNorms = None
+        if skyNorms is not None:
+            result.skyNorms = skyNorms.eval(pfsArm.fiberId).values.reshape(len(pfsArm))
+            self.log.info(
+                "Applying sky norms: %.3f +/- %.3f", np.nanmean(result.skyNorms), np.nanstd(result.skyNorms)
+            )
+            result.correction += result.skyNorms
 
         good = np.isfinite(result.correction)
-        pfsArm.norm[good] *= result.correction[good]
-        pfsArm.notes["pfiCorrection"][good] = result.correction[good]
+        pfsArm.norm[good] *= (1.0 + result.correction[good])[:, None]
+        pfsArm.mask[~good] |= pfsArm.flags.add("BAD_PFI_CORRECTION")
+        pfsArm.notes.pfiCorrection[:] = result.correction
 
         return result

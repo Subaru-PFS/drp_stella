@@ -30,22 +30,6 @@ if TYPE_CHECKING:
     from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 
-def applySkyNorms(pfsArm: PfsFiberArraySet, skyNorms: FocalPlaneFunction) -> None:
-    """Apply sky normalizations to a pfsArm in-place
-
-    Parameters
-    ----------
-    pfsArm : `PfsFiberArraySet`
-        Spectra to which to apply sky normalizations.
-    skyNorms : `ConstantPerFiber`
-        Sky normalizations to apply.
-    """
-    data = skyNorms.eval(pfsArm.fiberId)
-    pfsArm.norm *= data.values
-    # Dropping the variance on the floor for now
-    pfsArm.masks[data.masks[:, None]] |= pfsArm.flags.add("BAD_SKY_NORMS")
-
-
 def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]) -> np.ndarray:
     """Fit model scale factors to spectra
 

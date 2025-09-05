@@ -38,7 +38,7 @@ from .DetectorMapContinued import DetectorMap
 
 
 from lsst.obs.pfs.utils import getLamps
-from pfs.datamodel import FiberStatus, TargetType, Identity
+from pfs.datamodel import FiberStatus, TargetType, Identity, PfsFiberArraySet
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from .extractSpectraTask import ExtractSpectraTask
 from .lsf import GaussianLsf, LsfDict
@@ -58,6 +58,7 @@ from .fitFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
+from .focalPlaneFunction import ConstantPerFiber
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -97,6 +98,13 @@ class ReduceExposureConnections(
         dimensions=("instrument", "arm"),
         isCalibration=True,
         lookupFunction=lookupFiberNorms,
+    )
+    skyNorms = PrerequisiteConnection(
+        name="skyNorms_calib",
+        doc="Sky normalizations",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument",),
+        isCalibration=True,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
@@ -154,6 +162,8 @@ class ReduceExposureConnections(
             self.prerequisiteInputs.remove("fiberProfiles")
         if not self.config.doApplyFiberNorms:
             self.prerequisiteInputs.remove("fiberNorms")
+        if not self.config.doApplySkyNorms:
+            self.prerequisiteInputs.remove("skyNorms")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -196,9 +206,10 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    doApplySkyNorms = Field(dtype=bool, default=True, doc="Apply sky norms to extracted spectra?")
     doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
-    doApplyPfiCorrection = Field(dtype=bool, default=False, doc="Apply PFI correction?")
+    doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
 
 
@@ -280,6 +291,8 @@ class ReduceExposureTask(PipelineTask):
             inputs["fiberNorms"] = None
         if not self.config.doApplyFiberNorms:
             inputs["fiberNorms"] = None
+        if not self.config.doApplySkyNorms:
+            inputs["skyNorms"] = None
         outputs = self.run(**inputs, dataId=dataId)
         if outputs.apCorr is None:  # e.g., for a quartz
             del outputRefs.apCorr
@@ -292,6 +305,7 @@ class ReduceExposureTask(PipelineTask):
         pfsConfig: PfsConfig,
         fiberProfiles: FiberProfileSet | None,
         fiberNorms: PfsFiberNorms | None,
+        skyNorms: ConstantPerFiber | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
         crMask: Mask | None = None,
@@ -418,7 +432,7 @@ class ReduceExposureTask(PipelineTask):
                 self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
         if self.config.doApplyPfiCorrection:
-            self.pfiCorrection.run(pfsArm, pfsConfig)
+            self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
 
         return Struct(
             outputExposure=exposure,

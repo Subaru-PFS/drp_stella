@@ -10,6 +10,7 @@ tasks:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
       requireAdjustDetectorMap: True
+      doApplySkyNorms: False
   skyNorms:
     class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask
   combineSkyNorms:
