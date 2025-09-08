@@ -19,7 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+import warnings
 import numpy as np
+from astropy.io.fits.verify import VerifyWarning
 
 from lsst.pex.config import Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
@@ -49,7 +51,6 @@ from .blackSpotCorrection import BlackSpotCorrectionTask
 from .arcLine import ArcLineSet
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
-from .utils.sysUtils import metadataToHeader, getPfsVersions
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
@@ -417,7 +418,10 @@ class ReduceExposureTask(PipelineTask):
         if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
             self.log.info("Calculating barycentric correction")
             calculateBarycentricCorrection(pfsArm, pfsConfig)
-        pfsArm.metadata.update(metadataToHeader(exposure.getMetadata()))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=VerifyWarning)
+            pfsArm.metadata.update(exposure.getMetadata())
+
         if fiberProfiles is not None:
             pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
 
@@ -430,11 +434,6 @@ class ReduceExposureTask(PipelineTask):
 
         if self.config.doApplyPfiCorrection:
             self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
-        metadata = exposure.getMetadata()
-        versions = getPfsVersions()
-        for key, value in versions.items():
-            metadata.set(key, value)
-            pfsArm.metadata[key] = value
 
         return Struct(
             outputExposure=exposure,
