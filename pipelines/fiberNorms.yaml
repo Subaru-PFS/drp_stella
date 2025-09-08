@@ -11,6 +11,8 @@ tasks:
     config:
       requireAdjustDetectorMap: True
       doApplyFiberNorms: False
+      doApplySkyNorms: False
+      doApplyPfiCorrection: False
   measureFiberNorms:
     class: pfs.drp.stella.measureFiberNorms.MeasureFiberNormsTask
     config:
