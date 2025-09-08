@@ -7,13 +7,18 @@ from lsst.pipe.base import Task
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
-from .focalPlaneFunction import PolynomialPerFiber
+from .focalPlaneFunction import FocalPlaneFunction, PolynomialPerFiber, FocalPlanePolynomial, ConstantPerFiber
+from .focalPlaneFunction import FiberPolynomials
 
 import lsstDebug
 
 __all__ = ("FitFocalPlaneConfig", "FitFocalPlaneTask",
            "FitOversampledSplineConfig", "FitOversampledSplineTask",
            "FitBlockedOversampledSplineConfig", "FitBlockedOversampledSplineTask",
+           "FitPolynomialPerFiberConfig", "FitPolynomialPerFiberTask",
+           "FitFocalPlanePolynomialTask", "FitFocalPlanePolynomialTask",
+           "FitConstantPerFiberConfig", "FitConstantPerFiberTask",
+           "FitFiberPolynomialsConfig", "FitFiberPolynomialsTask",
            )
 
 
@@ -250,3 +255,53 @@ class FitPolynomialPerFiberTask(FitFocalPlaneTask):
     """
     ConfigClass = FitPolynomialPerFiberConfig
     Function = PolynomialPerFiber
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneConfig):
+    """Configuration for fitting a `FocalPlanPolynomial`"""
+    order = Field(dtype=int, default=2, doc="Polynomial order")
+    halfWidth = Field(dtype=float, default=250.0, doc="Half-width of the focal plane (mm)")
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneTask):
+    """Fit a `FocalPlanPolynomial`
+    The `FocalPlanPolynomial` is a polynomial function of position on the
+    focal plane. It is not a function of wavelength.
+    """
+    ConfigClass = FitFocalPlanePolynomialTask
+    Function = FocalPlanePolynomial
+
+
+class FitConstantPerFiberConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `ConstantPerFiber`"""
+    pass
+
+
+class FitConstantPerFiberTask(FitFocalPlaneTask):
+    """Fit a `ConstantPerFiber`
+
+    The `ConstantPerFiber` is a constant value for each fiber. It is not a
+    function of wavelength or position.
+    """
+    ConfigClass = FitConstantPerFiberConfig
+    Function = ConstantPerFiber
+
+
+class FitFiberPolynomialsConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `FiberPolynomials`
+
+    The ``FiberPolynomials.fit`` method also needs ``minWavelength`` and
+    ``maxWavelength`` input parameters, but those can be determined from the
+    data.
+    """
+    order = Field(dtype=int, doc="Polynomial order")
+    radius = Field(dtype=float, default=4.5, doc="Radius of the fiber patrol region (mm)")
+
+
+class FitFiberPolynomialsTask(FitFocalPlaneTask):
+    """Fit a `FiberPolynomials`
+
+    We fit a polynomial as a function of wavelength for each fiber individually.
+    """
+    ConfigClass = FitFiberPolynomialsConfig
+    Function = FiberPolynomials
