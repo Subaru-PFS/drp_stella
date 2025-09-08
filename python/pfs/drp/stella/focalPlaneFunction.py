@@ -78,6 +78,33 @@ class FocalPlaneFunction(ABC):
             return getattr(damdObj, name)
         return super().__getattribute__(name)
 
+    def asDatamodel(self) -> PfsFocalPlaneFunction:
+        """Return the datamodel representation
+
+        Returns
+        -------
+        datamodel : `pfs.datamodel.PfsFocalPlaneFunction`
+            Datamodel representation of the function.
+        """
+        return self._damdObj
+
+    @classmethod
+    def fromDatamodel(cls, datamodel: PfsFocalPlaneFunction) -> "FocalPlaneFunction":
+        """Construct from datamodel
+
+        Parameters
+        ----------
+        datamodel : `pfs.datamodel.PfsFocalPlaneFunction`
+            Datamodel representation of the function.
+
+        Returns
+        -------
+        self : subclass of `FocalPlaneFunction`
+            Constructed function.
+        """
+        subs = {ss.DamdClass: ss for ss in subclasses(cls)}
+        return subs[type(datamodel)](datamodel=datamodel)
+
     @classmethod
     def fit(
         cls,
