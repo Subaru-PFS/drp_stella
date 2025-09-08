@@ -1193,7 +1193,7 @@ class PolynomialPerFiber(FocalPlaneFunction):
         """
         values = np.array([self[ff](wavelengths[ii]) for ii, ff in enumerate(fiberIds)])
         rms = np.array([np.full_like(wavelengths[ii], self.rms[ff]) for ii, ff in enumerate(fiberIds)])
-        masks = ~np.isfinite(values) | ~np.isfinite(rms)
+        masks = ~np.isfinite(values) | ~np.isfinite(rms) | (rms <= 0.0)
         return Struct(values=values, variances=rms**2, masks=masks)
 
 
