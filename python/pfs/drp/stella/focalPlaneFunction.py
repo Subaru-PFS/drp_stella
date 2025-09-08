@@ -85,7 +85,7 @@ class FocalPlaneFunction(ABC):
         pfsConfig: PfsConfig,
         maskFlags: List[str],
         *,
-        rejected: bool = None,
+        rejected: np.ndarray | None = None,
         robust: bool = False,
         **kwargs,
     ) -> "FocalPlaneFunction":
@@ -137,6 +137,152 @@ class FocalPlaneFunction(ABC):
         return cls.fitArrays(
             spectra.fiberId, spectra.wavelength, values, masks, variance, positions, robust=robust, **kwargs
         )
+
+    @classmethod
+    def fitMultiple(
+        cls,
+        spectraList: list[PfsFiberArraySet],
+        pfsConfigList: list[PfsConfig],
+        maskFlags: List[str],
+        *,
+        rejected: list[np.ndarray] | None = None,
+        robust: bool = False,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
+        """Fit a spectral function on the focal plane to multiple spectra
+
+        Parameters
+        ----------
+        spectraList : list of `PfsFiberArraySet`
+            Spectra to fit. This should contain only the fibers to be fit.
+        pfsConfigList : list of `PfsConfig`
+            Top-end configurations. This should contain only the fibers to be
+            fit.
+        maskFlags : iterable of `str`
+            Mask flags to exclude from fit.
+        rejected : list of `np.ndarray` of `bool`, shape ``(Nspectra, length)``
+            Pixels to reject from the fit.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        **kwargs : `dict`
+            Fitting parameters.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Fit function.
+        """
+        fiberIdList = [spectra.fiberId for spectra in spectraList]
+        wavelengthList = [spectra.wavelength for spectra in spectraList]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            valuesList = [spectra.flux / spectra.norm for spectra in spectraList]
+            varianceList = [spectra.variance / spectra.norm**2 for spectra in spectraList]
+        maskList = [spectra.mask & spectra.flags.get(*maskFlags) != 0 for spectra in spectraList]
+        if rejected is not None:
+            maskList = [mm | rej for mm, rej in zip(maskList, rejected)]
+        positionsList = [pfsConfig.extractCenters(pfsConfig.fiberId) for pfsConfig in pfsConfigList]
+        return cls.fitMultipleArrays(
+            fiberIdList,
+            wavelengthList,
+            valuesList,
+            maskList,
+            varianceList,
+            positionsList,
+            robust=robust,
+            **kwargs,
+        )
+
+    @classmethod
+    def fitMultipleArrays(
+        cls,
+        fiberIdList: List[np.ndarray],
+        wavelengthList: List[np.ndarray],
+        valuesList: List[np.ndarray],
+        maskList: List[np.ndarray],
+        varianceList: List[np.ndarray],
+        positionsList: List[np.ndarray],
+        *,
+        robust: bool = False,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
+        """Fit a spectral function on the focal plane to multiple arrays
+
+        This method is intended as a convenience for developers.
+
+        Parameters
+        ----------
+        fiberIdList : list of `numpy.ndarray` of `float`, shape ``(N_i,)``
+            Fiber identifier arrays.
+        wavelengthList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Common wavelength array.
+        valuesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Measured values for each wavelength.
+        masksList : list of `numpy.ndarray` of `bool`, shape ``(N_i, M)``
+            Boolean flag indicating whether a point should be masked.
+        variancesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Variance values for each wavelength.
+        positionsList : list of `numpy.ndarray` of `float`, shape ``(N_i, 2)``
+            Focal plane positions (x, y) for each fiber.
+        robust : `bool`
+            Perform robust fit? A robust fit should provide an accurate answer
+            in the presense of outliers, even if the answer is less precise
+            than desired. A non-robust fit should provide the most precise
+            answer while assuming there are no outliers.
+        **kwargs : `dict`
+            Fitting parameters.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to input arrays.
+        """
+        numList = set([
+            len(fiberIdList), len(wavelengthList), len(valuesList),
+            len(maskList), len(varianceList), len(positionsList)
+        ])
+        if len(numList) != 1:
+            raise RuntimeError("Length mismatch")
+        num = numList.pop()
+        if num == 0:
+            raise RuntimeError("No input arrays provided")
+        length = valuesList[0].shape[1]
+        for ii in range(num):
+            lengthList = set([
+                fiberIdList[ii].shape[0],
+                wavelengthList[ii].shape[0],
+                valuesList[ii].shape[0],
+                maskList[ii].shape[0],
+                varianceList[ii].shape[0],
+                positionsList[ii].shape[0],
+            ])
+            if len(lengthList) != 1:
+                raise RuntimeError(f"Array {ii} length mismatch")
+
+        numSamples = sum(len(values) for values in valuesList)
+
+        fiberId = np.zeros(numSamples, dtype=int)
+        wavelength = np.zeros((numSamples, length), dtype=float)
+        values = np.zeros((numSamples, length), dtype=float)
+        variance = np.zeros((numSamples, length), dtype=float)
+        masks = np.zeros((numSamples, length), dtype=bool)
+        positions = np.zeros((numSamples, 2), dtype=float)
+
+        start = 0
+        for ii in range(num):
+            stop = start + len(valuesList[ii])
+            select = slice(start, stop)
+            fiberId[select] = fiberIdList[ii]
+            wavelength[select, :] = wavelengthList[ii]
+            values[select, :] = valuesList[ii]
+            variance[select, :] = varianceList[ii]
+            masks[select, :] = maskList[ii]
+            positions[select, :] = positionsList[ii]
+            start = stop
+
+        return cls.fitArrays(fiberId, wavelength, values, masks, variance, positions, robust=robust, **kwargs)
 
     @classmethod
     @abstractmethod
@@ -210,7 +356,7 @@ class FocalPlaneFunction(ABC):
             Variances for each position.
         """
         isSingle = False  # Only a single fiber?
-        if len(wavelengths.shape) == 1:
+        if len(np.array(wavelengths).shape) == 1:
             isSingle = True
             wavelengths = np.array([wavelengths] * len(pfsConfig))
         positions = pfsConfig.extractCenters(pfsConfig.fiberId)
