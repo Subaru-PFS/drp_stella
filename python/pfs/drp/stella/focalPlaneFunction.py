@@ -1158,7 +1158,7 @@ class PolynomialPerFiber(FocalPlaneFunction):
                 coeffs[ff] = np.full(numParams, np.nan, dtype=float)
                 rms[ff] = np.nan
                 continue
-            design = np.array([poly.getDFuncDParameters(wl) for wl in wavelengths[ii][choose]])
+            design = poly.calculateDesignMatrix(wavelengths[ii][choose])
             coeffs[ff] = solveLeastSquaresDesign(design, values[ii][choose], errors[ii][choose])
             residuals = design @ coeffs[ff] - values[ii][choose]
             if robust:
