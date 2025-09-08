@@ -1086,6 +1086,11 @@ class PolynomialPerFiber(FocalPlaneFunction):
         """Return the polynomial for a particular fiber"""
         return NormalizedPolynomial1D(self.coeffs[fiberId], self.minWavelength, self.maxWavelength)
 
+    @property
+    def fiberId(self) -> np.ndarray:
+        """Return the fiberIds"""
+        return np.array(sorted(list(self.coeffs.keys())), dtype=int)
+
     @classmethod
     def fitArrays(
         cls,
