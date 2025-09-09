@@ -1,0 +1,17 @@
+description: Measure skyNorms
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
+  reduceExposure:
+    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+    config:
+      requireAdjustDetectorMap: True
+      doApplySkyNorms: False
+  skyNorms:
+    class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask
+  combineSkyNorms:
+    class: pfs.drp.stella.skyNorms.CombineSkyNormsTask

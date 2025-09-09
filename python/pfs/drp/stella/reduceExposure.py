@@ -19,7 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+import warnings
 import numpy as np
+from astropy.io.fits.verify import VerifyWarning
 
 from lsst.pex.config import Field, ConfigurableField, DictField, ListField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
@@ -49,13 +51,14 @@ from .blackSpotCorrection import BlackSpotCorrectionTask
 from .arcLine import ArcLineSet
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
-from .utils.sysUtils import metadataToHeader, getPfsVersions
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .fitFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
+from .PfiCorrection import PfiCorrectionTask
+from .focalPlaneFunction import ConstantPerFiber
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -95,6 +98,13 @@ class ReduceExposureConnections(
         dimensions=("instrument", "arm"),
         isCalibration=True,
         lookupFunction=lookupFiberNorms,
+    )
+    skyNorms = PrerequisiteConnection(
+        name="skyNorms_calib",
+        doc="Sky normalizations",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument",),
+        isCalibration=True,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
@@ -152,6 +162,8 @@ class ReduceExposureConnections(
             self.prerequisiteInputs.remove("fiberProfiles")
         if not self.config.doApplyFiberNorms:
             self.prerequisiteInputs.remove("fiberNorms")
+        if not self.config.doApplySkyNorms:
+            self.prerequisiteInputs.remove("skyNorms")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -194,8 +206,11 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
+    doApplySkyNorms = Field(dtype=bool, default=True, doc="Apply sky norms to extracted spectra?")
     doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
+    doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
+    pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -261,6 +276,7 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
         self.makeSubtask("scatteredLight")
+        self.makeSubtask("pfiCorrection")
 
     def runQuantum(
         self,
@@ -275,6 +291,8 @@ class ReduceExposureTask(PipelineTask):
             inputs["fiberNorms"] = None
         if not self.config.doApplyFiberNorms:
             inputs["fiberNorms"] = None
+        if not self.config.doApplySkyNorms:
+            inputs["skyNorms"] = None
         outputs = self.run(**inputs, dataId=dataId)
         if outputs.apCorr is None:  # e.g., for a quartz
             del outputRefs.apCorr
@@ -287,6 +305,7 @@ class ReduceExposureTask(PipelineTask):
         pfsConfig: PfsConfig,
         fiberProfiles: FiberProfileSet | None,
         fiberNorms: PfsFiberNorms | None,
+        skyNorms: ConstantPerFiber | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
         crMask: Mask | None = None,
@@ -359,7 +378,9 @@ class ReduceExposureTask(PipelineTask):
                 raise RuntimeError("crMask required but not provided")
             exposure.mask |= crMask
 
-        measurements = self.measure(exposure, pfsConfig, fiberProfiles, detectorMap, boxcarWidth, arm)
+        measurements = self.measure(
+            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
+        )
 
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
 
@@ -397,7 +418,10 @@ class ReduceExposureTask(PipelineTask):
         if self.config.doBarycentricCorrection and not getLamps(exposure.getMetadata()):
             self.log.info("Calculating barycentric correction")
             calculateBarycentricCorrection(pfsArm, pfsConfig)
-        pfsArm.metadata.update(metadataToHeader(exposure.getMetadata()))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=VerifyWarning)
+            pfsArm.metadata.update(exposure.getMetadata())
+
         if fiberProfiles is not None:
             pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
 
@@ -408,11 +432,8 @@ class ReduceExposureTask(PipelineTask):
             if missingFiberIds:
                 self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
-        metadata = exposure.getMetadata()
-        versions = getPfsVersions()
-        for key, value in versions.items():
-            metadata.set(key, value)
-            pfsArm.metadata[key] = value
+        if self.config.doApplyPfiCorrection:
+            self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
 
         return Struct(
             outputExposure=exposure,
@@ -472,8 +493,9 @@ class ReduceExposureTask(PipelineTask):
         self,
         exposure: Exposure,
         pfsConfig: PfsConfig,
-        fiberProfiles: FiberProfileSet | None,
+        fiberProfiles: FiberProfileSet,
         detectorMap: DetectorMap,
+        fiberNorms: PfsFiberNorms | None,
         boxcarWidth: int,
         arm: str,
     ) -> Struct:
@@ -513,7 +535,9 @@ class ReduceExposureTask(PipelineTask):
         if not self.config.doPhotometerLines:
             apCorr = None
         else:
-            phot = self.photometerLines.run(exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces)
+            phot = self.photometerLines.run(
+                exposure, lines[notTrace], detectorMap, pfsConfig, fiberTraces, fiberNorms
+            )
             apCorr = phot.apCorr
 
             # Copy results to the one list of lines that we return

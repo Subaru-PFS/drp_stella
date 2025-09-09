@@ -7,8 +7,10 @@ import lsstDebug
 from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
+from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
+from .referenceLine import ReferenceLineSet
 
 from typing import Tuple
 
@@ -61,31 +63,34 @@ class FitContinuumTask(Task):
         super().__init__(*args, **kwargs)
         self.fitType = stringToInterpStyle(self.config.fitType)
 
-    def run(self, spectra, lines=None):
+    def run(
+        self, spectra: SpectrumSet | PfsFiberArraySet, lines: ReferenceLineSet | None = None
+    ) -> SpectrumSet:
         """Fit spectrum continua
 
         Fit the continuum for each spectrum.
 
         Parameters
         ----------
-        spectra : `pfs.drp.stella.SpectrumSet`
+        spectra : `pfs.drp.stella.SpectrumSet`/`pfs.datamodel.PfsFiberArraySet`
             Set of spectra to which to fit continua.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
         Returns
         -------
-        continuum : `pfs.drp.stella.SpectrumSet`
+        continuum : `np.ndarray` of `float`
             Continuum fit for each input spectrum.
         """
-        continua = SpectrumSet(spectra.getLength())
-        for spec in spectra:
+        if isinstance(spectra, PfsFiberArraySet):
+            spectra = SpectrumSet.fromPfsArm(spectra)
+
+        continua = np.full((len(spectra), spectra.getLength()), np.nan, dtype=np.float32)
+        for ii, spec in enumerate(spectra):
             try:
-                result = self.fitContinuum(spec, lines)
+                continua[ii] = self.fitContinuum(spec, lines)
             except FitContinuumError:
                 continue
-            continuum = self.wrapArray(result, spec.fiberId)
-            continua.add(continuum)
         return continua
 
     def fitContinuum(self, spectrum, lines=None):
@@ -235,7 +240,7 @@ class FitContinuumTask(Task):
         -------
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
-        continua : `pfs.drp.stella.SpectrumSet`
+        continua : `np.ndarray` of `float`
             Continuum fit for each input spectrum.
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
@@ -246,7 +251,10 @@ class FitContinuumTask(Task):
             for ss in spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
         continua = self.run(spectra, lines)
-        continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
+        continuumSpectra = SpectrumSet(spectra.getLength())
+        for cc, ff in zip(continua, spectra.getAllFiberIds()):
+            continuumSpectra.add(self.wrapArray(cc, ff))
+        continuumImage = continuumSpectra.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage
         bad = ~np.isfinite(continuumImage.array)
         maskedImage.mask.array[bad] |= maskedImage.mask.getPlaneBitMask("NO_DATA")
@@ -271,7 +279,7 @@ class FitContinuumTask(Task):
         ------
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
-        continua : `pfs.drp.stella.SpectrumSet`
+        continua : `np.ndarray` of `float`
             Continuum fit for each input spectrum.
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.

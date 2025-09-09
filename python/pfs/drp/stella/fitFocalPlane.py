@@ -7,13 +7,18 @@ from lsst.pipe.base import Task
 from pfs.datamodel import PfsConfig
 from pfs.drp.stella.datamodel import PfsFiberArraySet
 from .focalPlaneFunction import ConstantFocalPlaneFunction, OversampledSpline, BlockedOversampledSpline
-from .focalPlaneFunction import PolynomialPerFiber
+from .focalPlaneFunction import FocalPlaneFunction, PolynomialPerFiber, FocalPlanePolynomial, ConstantPerFiber
+from .focalPlaneFunction import FiberPolynomials
 
 import lsstDebug
 
 __all__ = ("FitFocalPlaneConfig", "FitFocalPlaneTask",
            "FitOversampledSplineConfig", "FitOversampledSplineTask",
            "FitBlockedOversampledSplineConfig", "FitBlockedOversampledSplineTask",
+           "FitPolynomialPerFiberConfig", "FitPolynomialPerFiberTask",
+           "FitFocalPlanePolynomialTask", "FitFocalPlanePolynomialTask",
+           "FitConstantPerFiberConfig", "FitConstantPerFiberTask",
+           "FitFiberPolynomialsConfig", "FitFiberPolynomialsTask",
            )
 
 
@@ -78,33 +83,76 @@ class FitFocalPlaneTask(Task):
         fit : `FocalPlaneFunction`
             Function fit to the data.
         """
+        fiberId = spectra.fiberId
+        wavelength = spectra.wavelength
+        with np.errstate(invalid="ignore", divide="ignore"):
+            values = spectra.flux / spectra.norm
+            variances = spectra.variance / spectra.norm**2
+        mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
+        positions = pfsConfig.pfiCenter
+        return self.fitArrays(fiberId, wavelength, values, mask, variances, positions, **kwargs)
+
+    def fitArrays(
+        self,
+        fiberId: np.ndarray,
+        wavelength: np.ndarray,
+        values: np.ndarray,
+        mask: np.ndarray,
+        variance: np.ndarray,
+        positions: np.ndarray,
+        **kwargs,
+    ) -> "FocalPlaneFunction":
+        """Fit a vector function as a function of wavelength over the focal plane
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber IDs for each fiber.
+        wavelength : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Common wavelength array.
+        values : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Measured values for each wavelength.
+        mask : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Boolean flag indicating whether a point should be masked.
+        variance : `numpy.ndarray` of `float`, shape ``(N, M)`
+            Variance values for each wavelength.
+        positions : `numpy.ndarray` of `float`, shape ``(N, 2)`
+            Focal plane positions (x, y) for each fiber.
+        **kwargs
+            Fitting parameters, overriding any provided in the configuration.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to the data.
+        """
         fitParams = self.config.getFitParameters()
         fitParams.update(kwargs)
 
-        mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
         badFiber = np.all(mask, axis=1)
         if np.all(badFiber):
             raise RuntimeError("No good fibers")
         if np.any(badFiber):
-            self.log.warn("Ignoring fibers with no good data: %s", spectra.fiberId[badFiber])
+            self.log.warn("Ignoring fibers with no good data: %s", fiberId[badFiber])
             goodFiber = ~badFiber
-            spectra = spectra[goodFiber]
+            fiberId = fiberId[goodFiber]
+            wavelength = wavelength[goodFiber]
+            values = values[goodFiber]
+            variance = variance[goodFiber]
             mask = mask[goodFiber]
-            pfsConfig = pfsConfig[goodFiber]
+            positions = positions[goodFiber]
 
-        numSamples = len(spectra)
-        length = spectra.length
-        wavelength = spectra.wavelength
-        with np.errstate(invalid="ignore", divide="ignore"):
-            values = spectra.flux/spectra.norm
-            variance = (spectra.variance + self.config.sysErr*np.abs(spectra.flux))/spectra.norm**2
+        with np.errstate(invalid="ignore"):
+            variance = variance + self.config.sysErr * np.abs(values)
 
         # Robust fitting with rejection
+        numSamples, length = values.shape
         rejected = np.zeros((numSamples, length), dtype=bool)
         for ii in range(self.config.rejIterations):
-            func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=True,
-                                     **fitParams)
-            funcEval = func(spectra.wavelength, pfsConfig)
+            func = self.Function.fitArrays(
+                fiberId, wavelength, values, mask | rejected, variance, positions, robust=True, **fitParams
+            )
+            funcEval = func.evaluate(wavelength, fiberId, positions)
             with np.errstate(invalid="ignore", divide="ignore"):
                 resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
                 newRejected = ~rejected & ~mask & ~funcEval.masks & (np.abs(resid) > self.config.rejThreshold)
@@ -125,9 +173,10 @@ class FitFocalPlaneTask(Task):
             rejected |= newRejected
 
         # A final fit with robust=False
-        func = self.Function.fit(spectra, pfsConfig, self.config.mask, rejected=rejected, robust=False,
-                                 **fitParams)
-        funcEval = func(spectra.wavelength, pfsConfig)
+        func = self.Function.fitArrays(
+            fiberId, wavelength, values, mask | rejected, variance, positions, robust=False, **fitParams
+        )
+        funcEval = func.evaluate(wavelength, fiberId, positions)
         with np.errstate(invalid="ignore", divide="ignore"):
             resid = (values - funcEval.values)/np.sqrt(variance + funcEval.variances)
 
@@ -144,6 +193,180 @@ class FitFocalPlaneTask(Task):
         if self.debugInfo.plot:
             self.plot(wavelength, values, mask | rejected, variance, funcEval, "Final")
 
+        return func
+
+    def runMultiple(
+        self, spectraList: list[PfsFiberArraySet], pfsConfigList: list[PfsConfig], **kwargs
+    ) -> "FocalPlaneFunction":
+        """Fit a vector function as a function of wavelength over the focal plane
+        to multiple sets of spectra
+
+        Parameters
+        ----------
+        spectraList : list of `PfsFiberArraySet`
+            Spectra to fit. This should contain only the fibers to be fit.
+        pfsConfigList : list of `PfsConfig`
+            Top-end configuration. This should contain only the fibers to be
+            fit.
+        **kwargs
+            Fitting parameters, overriding any provided in the configuration.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to the data.
+        """
+        fiberIdList = [ss.fiberId for ss in spectraList]
+        wavelengthList = [ss.wavelength for ss in spectraList]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            valuesList = [ss.flux/ss.norm for ss in spectraList]
+            variancesList = [ss.variance/ss.norm**2 for ss in spectraList]
+        masksList = [ss.mask & ss.flags.get(*self.config.mask) for ss in spectraList]
+        positionsList = [pfsConfig.pfiCenter for pfsConfig in pfsConfigList]
+        return self.fitMultipleArrays(
+            fiberIdList, wavelengthList, valuesList, masksList, variancesList, positionsList, **kwargs
+        )
+
+    def fitMultipleArrays(
+        self,
+        fiberIdList: list[np.ndarray],
+        wavelengthList: list[np.ndarray],
+        valuesList: list[np.ndarray],
+        masksList: list[np.ndarray],
+        variancesList: list[np.ndarray],
+        positionsList: list[np.ndarray],
+        **kwargs,
+    ) -> "FocalPlaneFunction":
+        """Fit a vector function as a function of wavelength over the focal plane
+
+        Parameters
+        ----------
+        fiberIdList : list of `numpy.ndarray` of `int`, shape ``(N_i,)``
+            Fiber IDs for each fiber.
+        wavelengthList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Common wavelength array.
+        valuesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Measured values for each wavelength.
+        masksList : list of `numpy.ndarray` of `bool`, shape ``(N_i, M)``
+            Boolean flag indicating whether a point should be masked.
+        variancesList : list of `numpy.ndarray` of `float`, shape ``(N_i, M)``
+            Variance values for each wavelength.
+        positionsList : list of `numpy.ndarray` of `float`, shape ``(N_i, 2)``
+            Focal plane positions (x, y) for each fiber.
+        **kwargs
+            Fitting parameters, overriding any provided in the configuration.
+
+        Returns
+        -------
+        fit : `FocalPlaneFunction`
+            Function fit to the data.
+        """
+        fitParams = self.config.getFitParameters()
+        fitParams.update(kwargs)
+
+        numList = set([len(lst) for lst in (fiberIdList, wavelengthList, valuesList,
+                                            masksList, variancesList, positionsList)])
+        if len(numList) != 1:
+            raise RuntimeError("Input length mismatch")
+        num = numList.pop()
+        if num == 0:
+            raise RuntimeError("No inputs")
+
+        length = valuesList[0].shape[1]
+        for ii in range(num):
+            lengthList = set([wavelengthList[ii].shape[1], valuesList[ii].shape[1],
+                              variancesList[ii].shape[1], masksList[ii].shape[1]])
+            if len(lengthList) != 1:
+                raise RuntimeError(f"Array {ii} length mismatch")
+        numSamples = sum(values.shape[0] for values in valuesList)
+
+        with np.errstate(invalid="ignore"):
+            variancesList = [
+                var + self.config.sysErr*np.abs(val) for val, var in zip(valuesList, variancesList)
+            ]
+
+        # Robust fitting with rejection
+        rejected = [np.zeros_like(val, dtype=bool) for val in valuesList]
+        for ii in range(self.config.rejIterations):
+            func = self.Function.fitMultipleArrays(
+                fiberIdList, wavelengthList, valuesList,
+                [mm | rej for mm, rej in zip(masksList, rejected)],
+                variancesList, positionsList, robust=True, **fitParams
+            )
+            funcEval = [
+                func.evaluate(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
+            ]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                resid = [
+                    (val - fe.values)/np.sqrt(var + fe.variances)
+                    for val, var, fe in zip(valuesList, variancesList, funcEval)
+                ]
+                newRejected = [
+                    ~rej & ~mm & ~fe.masks & (np.abs(rs) > self.config.rejThreshold)
+                    for rej, mm, fe, rs in zip(rejected, masksList, funcEval, resid)
+                ]
+            good = [
+                ~(rej | newRej | mm | fe.masks)
+                for rej, newRej, mm, fe in zip(rejected, newRejected, masksList, funcEval)
+            ]
+            numGood = sum(gg.sum() for gg in good)
+            chi2 = sum(np.sum(res[gg]**2) for res, gg in zip(resid, good))
+            self.log.debug(
+                ("Fit focal plane function iteration %d: "
+                 "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d"),
+                ii,
+                chi2,
+                (~np.logical_and.reduce([fe.masks for fe in funcEval], axis=0)).sum(),
+                length,
+                numSamples,
+                numGood,
+                sum(((mm | fe.masks).sum() for mm, fe in zip(masksList, funcEval))),
+                sum(rej.sum() for rej in rejected),
+            )
+            if numGood == 0:
+                raise RuntimeError("No good points")
+            if not np.any([np.any(nr) for nr in newRejected]):
+                break
+            for rej, newRej in zip(rejected, newRejected):
+                rej |= newRej
+
+        # A final fit with robust=False
+        func = self.Function.fitMultipleArrays(
+            fiberIdList, wavelengthList, valuesList,
+            [mm | rej for mm, rej in zip(masksList, rejected)],
+            variancesList, positionsList, robust=False, **fitParams
+        )
+        funcEval = [
+            func.evaluate(wl, ff, pos) for wl, ff, pos in zip(wavelengthList, fiberIdList, positionsList)
+        ]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            resid = [
+                (val - fe.values)/np.sqrt(var + fe.variances)
+                for val, var, fe in zip(valuesList, variancesList, funcEval)
+            ]
+            newRejected = [
+                ~rej & ~mm & ~fe.masks & (np.abs(rs) > self.config.rejThreshold)
+                for rej, mm, fe, rs in zip(rejected, masksList, funcEval, resid)
+            ]
+        good = [
+            ~(rej | newRej | mm | fe.masks)
+            for rej, newRej, mm, fe in zip(rejected, newRejected, masksList, funcEval)
+        ]
+        numGood = sum(gg.sum() for gg in good)
+        chi2 = sum(np.sum(res[gg]**2) for res, gg in zip(resid, good))
+        self.log.info(
+            ("Fit focal plane function: "
+             "chi^2=%f length=%d/%d numSamples=%d numGood=%d numBad=%d numRejected=%d"),
+            chi2,
+            (~np.logical_and.reduce([fe.masks for fe in funcEval], axis=0)).sum(),
+            length,
+            numSamples,
+            numGood,
+            sum(((mm | fe.masks).sum() for mm, fe in zip(masksList, funcEval))),
+            sum(rej.sum() for rej in rejected),
+        )
+        if numGood == 0:
+            raise RuntimeError("No good points")
         return func
 
     def plot(self, wavelength, values, masks, variances, funcEval, title, rejected=None):
@@ -250,3 +473,53 @@ class FitPolynomialPerFiberTask(FitFocalPlaneTask):
     """
     ConfigClass = FitPolynomialPerFiberConfig
     Function = PolynomialPerFiber
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneConfig):
+    """Configuration for fitting a `FocalPlanPolynomial`"""
+    order = Field(dtype=int, default=2, doc="Polynomial order")
+    halfWidth = Field(dtype=float, default=250.0, doc="Half-width of the focal plane (mm)")
+
+
+class FitFocalPlanePolynomialTask(FitFocalPlaneTask):
+    """Fit a `FocalPlanPolynomial`
+    The `FocalPlanPolynomial` is a polynomial function of position on the
+    focal plane. It is not a function of wavelength.
+    """
+    ConfigClass = FitFocalPlanePolynomialTask
+    Function = FocalPlanePolynomial
+
+
+class FitConstantPerFiberConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `ConstantPerFiber`"""
+    pass
+
+
+class FitConstantPerFiberTask(FitFocalPlaneTask):
+    """Fit a `ConstantPerFiber`
+
+    The `ConstantPerFiber` is a constant value for each fiber. It is not a
+    function of wavelength or position.
+    """
+    ConfigClass = FitConstantPerFiberConfig
+    Function = ConstantPerFiber
+
+
+class FitFiberPolynomialsConfig(FitFocalPlaneConfig):
+    """Configuration for fitting a `FiberPolynomials`
+
+    The ``FiberPolynomials.fit`` method also needs ``minWavelength`` and
+    ``maxWavelength`` input parameters, but those can be determined from the
+    data.
+    """
+    order = Field(dtype=int, doc="Polynomial order")
+    radius = Field(dtype=float, default=4.5, doc="Radius of the fiber patrol region (mm)")
+
+
+class FitFiberPolynomialsTask(FitFocalPlaneTask):
+    """Fit a `FiberPolynomials`
+
+    We fit a polynomial as a function of wavelength for each fiber individually.
+    """
+    ConfigClass = FitFiberPolynomialsConfig
+    Function = FiberPolynomials

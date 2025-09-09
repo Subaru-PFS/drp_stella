@@ -32,10 +32,14 @@ void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
 
     cls.def("__call__", py::overload_cast<double>(&Class::operator(), py::const_), "x"_a);
     cls.def("__call__",
+            py::overload_cast<ndarray::Array<double, 1, 0> const&>(&Class::operator(), py::const_), "x"_a);
+    cls.def("__call__",
             py::overload_cast<ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_), "x"_a);
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
+    cls.def("calculateDesignMatrix", &Class::template calculateDesignMatrix<0>);
+    cls.def("calculateDesignMatrix", &Class::template calculateDesignMatrix<1>);
     cls.def("getMin", &Class::getMin);
     cls.def("getMax", &Class::getMax);
 }
@@ -49,10 +53,16 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
 
     cls.def(py::init<unsigned int, lsst::geom::Box2D const&>(),
             "order"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
+    cls.def(py::init<ndarray::Array<double, 1, 0> const &, lsst::geom::Box2D const&>(),
+            "params"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
     cls.def(py::init<ndarray::Array<double, 1, 1> const &, lsst::geom::Box2D const&>(),
             "params"_a, "range"_a=lsst::geom::Box2D(lsst::geom::Point2D(-1, 1), lsst::geom::Point2D(-1, 1)));
 
     cls.def("__call__", py::overload_cast<double, double>(&Class::operator(), py::const_), "x"_a, "y"_a);
+    cls.def("__call__",
+        py::overload_cast<ndarray::Array<double, 1, 0> const&,
+                          ndarray::Array<double, 1, 0> const&>(&Class::operator(), py::const_),
+        "x"_a, "y"_a);
     cls.def("__call__",
             py::overload_cast<ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&>(&Class::operator(), py::const_),
@@ -60,6 +70,8 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
     cls.def("clone", &Class::clone);
     cls.def("getOrder", &Class::getOrder);
     cls.def("getDFuncDParameters", &Class::getDFuncDParameters);
+    cls.def("calculateDesignMatrix", &Class::template calculateDesignMatrix<0, 0>);
+    cls.def("calculateDesignMatrix", &Class::template calculateDesignMatrix<1, 1>);
     cls.def("getXYRange", &Class::getXYRange);
 }
 

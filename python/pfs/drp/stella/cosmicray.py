@@ -178,7 +178,11 @@ class CosmicRayConnections(
         This means that the set of preliminary quanta seen by this method could
         include some that would normally be dropped later.
         """
-        instrument = set(dataId["instrument"] for dataId in adjuster.iter_data_ids())
+        dataIdList = list(adjuster.iter_data_ids())
+        if len(dataIdList) == 0:
+            return
+
+        instrument = set(dataId["instrument"] for dataId in dataIdList)
         if len(instrument) != 1:
             raise RuntimeError("Cannot group data from different instruments")
         instrument = instrument.pop()
@@ -191,13 +195,13 @@ class CosmicRayConnections(
             manual=self.groupingManual,
         )
         method = menu[self.config.grouping]
-        visitList = set(dataId["visit"] for dataId in adjuster.iter_data_ids())
+        visitList = set(dataId["visit"] for dataId in dataIdList)
         grouping: Mapping[int, int] = method(instrument, visitList, adjuster.butler)  # visit -> group
         groups: set[int] = set(grouping.values())
 
         # Sort the dataId list by arm+spectrograph
         camera: dict[(str, int), list[DataCoordinate]] = defaultdict(list)
-        for dataId in adjuster.iter_data_ids():
+        for dataId in dataIdList:
             name = (dataId["arm"], dataId["spectrograph"])
             camera[name].append(dataId)
 

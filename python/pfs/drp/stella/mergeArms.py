@@ -94,7 +94,10 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     notesCopyFirst = ListField(
         dtype=str,
         doc="Notes for which we simply copy the first value from one of the arms",
-        default=["blackSpotId", "blackSpotDistance", "blackSpotCorrection", "barycentricCorrection"],
+        default=[
+            "blackSpotId", "blackSpotDistance", "blackSpotCorrection",
+            "barycentricCorrection", "pfiCorrection",
+        ],
     )
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
 
