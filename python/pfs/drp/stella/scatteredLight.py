@@ -146,7 +146,7 @@ class ScatteredLightModel:
 
         Returns
         -------
-        image : `Image`
+        model : `Image`
             Scattered light model image.
         """
         dims = detectorMap.getBBox().getDimensions()
