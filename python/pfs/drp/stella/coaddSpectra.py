@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField
+from lsst.pex.config import ConfigurableField, ListField, Field
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -28,6 +28,7 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
+from .fitContinuum import FitContinuumTask
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -132,6 +133,8 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    doSmoothWeights = Field(dtype=bool, default=True, doc="Smooth weights before combining?")
+    smoothWeights = ConfigurableField(target=FitContinuumTask, doc="Smoothing of weights")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -139,12 +142,16 @@ class CoaddSpectraTask(PipelineTask):
     _DefaultName = "coaddSpectra"
     ConfigClass = CoaddSpectraConfig
 
+    config: CoaddSpectraConfig
+    wavelength: WavelengthSamplingTask
     fluxTable: FluxTableTask
+    smoothWeights: FitContinuumTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("wavelength")
         self.makeSubtask("fluxTable")
+        self.makeSubtask("smoothWeights")
 
     def run(self, data: Mapping[Identity, Struct]) -> Struct:
         """Coadd multiple observations
@@ -393,13 +400,22 @@ class CoaddSpectraTask(PipelineTask):
         resampled = []
         resampledLsf = []
         resampledRange = []
+        resampledWeights = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
-            resampled.append(spectrum.resample(wavelength))
+            resampledSpectrum = spectrum.resample(wavelength)
+            resampled.append(resampledSpectrum)
             resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
             resampledRange.append((minIndex, maxIndex))
+
+            weight = 1.0/resampledSpectrum.covar[0]
+            if self.config.doSmoothWeights:
+                weightMask = (resampledSpectrum.mask & resampledSpectrum.flags.get(*self.config.mask)) != 0
+                resampledWeights.append(self.smoothWeights.fitArrays(weight, weightMask))
+            else:
+                resampledWeights.append(weight)
 
         # Now do a weighted coaddition
         archetype = resampled[0]
@@ -410,11 +426,10 @@ class CoaddSpectraTask(PipelineTask):
         covar = np.zeros((3, length), dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        for ss in resampled:
-            weight = np.zeros_like(flux)
+        for ii, ss in enumerate(resampled):
+            weight = resampledWeights[ii]
             with np.errstate(invalid="ignore", divide="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                weight[good] = 1.0/ss.covar[0][good]
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0) & (weight >= 0)
                 flux[good] += ss.flux[good]*weight[good]
                 sky[good] += ss.sky[good]*weight[good]
                 mask[good] |= ss.mask[good]
