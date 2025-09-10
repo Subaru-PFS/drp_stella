@@ -116,7 +116,7 @@ class CoaddSpectraConnections(
     pfsCoadd = OutputConnection(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
-        storageClass="PfsObjectSpectra",  # Deprecated in favor of PfsCoadd
+        storageClass="PfsCoadd",
         dimensions=("instrument", "combination", "cat_id", "obj_group"),
     )
     pfsCoaddLsf = OutputConnection(
@@ -410,12 +410,13 @@ class CoaddSpectraTask(PipelineTask):
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
             resampledRange.append((minIndex, maxIndex))
 
-            weight = 1.0/resampledSpectrum.covar[0]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                weight = 1.0/resampledSpectrum.covar[0]
+            bad = (resampledSpectrum.mask & resampledSpectrum.flags.get(*self.config.mask)) != 0
             if self.config.doSmoothWeights:
-                weightMask = (resampledSpectrum.mask & resampledSpectrum.flags.get(*self.config.mask)) != 0
-                resampledWeights.append(self.smoothWeights.fitArrays(weight, weightMask))
-            else:
-                resampledWeights.append(weight)
+                weight = self.smoothWeights.fitArray(weight, bad)
+            weight[bad] = 0.0
+            resampledWeights.append(weight)
 
         # Now do a weighted coaddition
         archetype = resampled[0]

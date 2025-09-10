@@ -49,7 +49,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 self.covar[:, ii, :] /= rhsSquared
         return self
 
-    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
+    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=False,
              figure=None, ax=None):
         """Plot the spectra
 

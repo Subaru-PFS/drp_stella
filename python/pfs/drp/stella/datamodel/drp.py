@@ -29,3 +29,11 @@ class PfsSingle(pfs.datamodel.drp.PfsSingle, PfsFiberArray):
 class PfsObject(pfs.datamodel.drp.PfsObject, PfsFiberArray):
     _ylabel = "nJy"
     pass
+
+
+class PfsCalibrated(pfs.datamodel.drp.PfsCalibrated):
+    PfsFiberArrayClass = PfsSingle
+
+
+class PfsCoadd(pfs.datamodel.drp.PfsCoadd):
+    PfsFiberArrayClass = PfsObject

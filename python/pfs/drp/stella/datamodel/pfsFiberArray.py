@@ -30,7 +30,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
              ax: Optional[Axes] if TYPE_CHECKING else [] = None,
              trimToUsable: Optional[bool] = False,
              title: Optional[str] = None,
-             show: bool = True) -> Tuple["Figure", "Axes"]:
+             show: bool = False) -> Tuple["Figure", "Axes"]:
         """Plot the object spectrum
 
         Parameters
