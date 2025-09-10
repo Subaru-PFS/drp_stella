@@ -45,6 +45,7 @@ from .LayeredDetectorMapContinued import *
 
 from lsst.afw.image import Mask
 for plane in (
-    "BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL", "IPC", "REFLINE", "BAD_FIBERNORMS"
+    "BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL", "IPC", "REFLINE", "BAD_FIBERNORMS",
+    "UNMASKEDNAN", "BAD_PFI_CORRECTION"
 ):
     Mask.addMaskPlane(plane)
