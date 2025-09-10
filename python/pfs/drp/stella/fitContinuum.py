@@ -11,6 +11,7 @@ from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
 from .referenceLine import ReferenceLineSet
+from .utils import robustRms
 
 from typing import Tuple
 
@@ -59,6 +60,8 @@ class FitContinuumTask(Task):
     ConfigClass = FitContinuumConfig
     _DefaultName = "fitContinuum"
 
+    config: FitContinuumConfig
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fitType = stringToInterpStyle(self.config.fitType)
@@ -101,7 +104,7 @@ class FitContinuumTask(Task):
 
         Parameters
         ----------
-        spectrum : `pfs.drp.stella.Spectrum`
+        spectrum : `pfs.drp.stella.Spectrum` or `pfs.datamodel.PfsFiberArray`
             Spectrum to fit.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
@@ -116,28 +119,62 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        if hasattr(spectrum, "normFlux"):
+        haveWavelength = False
+        if isinstance(spectrum, Spectrum):
             flux = spectrum.normFlux
-        else:
+            mask = spectrum.mask.array[0]
+            maskVal = spectrum.mask.getPlaneBitMask(self.config.mask)
+            haveWavelength = spectrum.isWavelengthSet()
+        else:  # PfsFiberArray or PfsFiberArraySet
             flux = spectrum.flux
-            if hasattr(flux, "norm"):
+            if hasattr(flux, "norm"):  # PfsFiberArraySet
                 flux /= flux.norm  # Normalize the flux to 1.0
-        good = np.isfinite(flux)
-        if self.config.doMaskLines and lines and spectrum.isWavelengthSet():
-            good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
-        good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
-        if not np.any(good):
+            mask = spectrum.mask
+            maskVal = spectrum.flags.get(*self.config.mask)
+            haveWavelength = True
+
+        bad = ~np.isfinite(flux)
+        if self.config.doMaskLines and lines and haveWavelength:
+            bad |= maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
+
+        bad |= (mask & maskVal) != 0
+        return self.fitArray(flux, bad)
+
+    def fitArray(self, array: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """Fit continuum to an array
+
+        Uses ``lsst.afw.math.Interpolate`` to fit, and performs iterative
+        rejection.
+
+        Parameters
+        ----------
+        array : `numpy.ndarray` of floating-point
+            Array to fit.
+        mask : `numpy.ndarray` of boolean
+            Mask array; non-zero values are considered bad.
+
+        Raises
+        ------
+        FitContinuumError
+            If we had no good values.
+
+        Returns
+        -------
+        fit : `numpy.ndarray`, floating-point
+            Fit array.
+        """
+        if np.all(mask):
             raise FitContinuumError("No good values when fitting continuum")
-        keep = np.ones_like(good, dtype=bool)
+        good = ~mask
+        keep = np.ones_like(mask, dtype=bool)
         for ii in range(self.config.iterations):
             use = good & keep
-            fit = self._fitContinuumImpl(flux, use)
-            diff = flux - fit
-            lq, uq = np.percentile(diff[use], [25.0, 75.0])
-            stdev = 0.741 * (uq - lq)
+            fit = self._fitContinuumImpl(array, use)
+            diff = array - fit
+            stdev = robustRms(diff[use])
             with np.errstate(invalid="ignore"):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
-        return self._fitContinuumImpl(flux, good & keep)
+        return self._fitContinuumImpl(array, good & keep)
 
     def _fitContinuumImpl(self, values, good):
         """Implementation of the business part of fitting
