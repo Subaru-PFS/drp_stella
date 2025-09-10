@@ -46,7 +46,8 @@ class CrossCorrelationFunction:
     ) -> None:
         self.__variance = variance
         self.__scaledModel = scaledModel
-        self.ccf = scaledModel @ flux
+        with np.errstate(invalid="ignore"):
+            self.ccf = scaledModel @ flux
 
     def getCovar(self, slice: Any, amplifier: float = 1) -> NDArray[np.float64]:
         """Get the covariance matrix of ``self.ccf``.

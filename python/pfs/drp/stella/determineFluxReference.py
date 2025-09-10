@@ -90,6 +90,7 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
         if self.debugInfo.doWriteWhitenedFlux:
             pfsMerged.writeFits(f"fitFluxReference-output/whitened-{pfsMerged.filename}")
 
+        pfsConfig = pfsConfig.select(fiberId=pfsMerged.fiberId)
         radialVelocities = self.getRadialVelocities(pfsConfig, pfsMerged, pfsMergedLsf, models)
         badModel = self.fitFlagNames.add("BAD_MODEL")
         badRadialVelocity = self.fitFlagNames.add("BAD_RADIAL_VELOCITY")
@@ -106,20 +107,21 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
 
         # Prepare the output
         flux = np.zeros(shape=(num, wavelength.size), dtype=np.float32)
-        fitParams = np.full(
-            num,
-            np.nan,
-            dtype=[
-                ("teff", np.float32),
-                ("logg", np.float32),
-                ("m", np.float32),
-                ("alpha", np.float32),
-                ("radial_velocity", np.float32),
-                ("radial_velocity_err", np.float32),
-                ("flux_scaling_chi2", np.float32),
-                ("flux_scaling_dof", np.int32),
-            ],
-        )
+        with np.errstate(invalid="ignore"):
+            fitParams = np.full(
+                num,
+                np.nan,
+                dtype=[
+                    ("teff", np.float32),
+                    ("logg", np.float32),
+                    ("m", np.float32),
+                    ("alpha", np.float32),
+                    ("radial_velocity", np.float32),
+                    ("radial_velocity_err", np.float32),
+                    ("flux_scaling_chi2", np.float32),
+                    ("flux_scaling_dof", np.int32),
+                ],
+            )
         for ii, ff in enumerate(fiberId):
             mm = models.get(ff, None)
             if mm is None:

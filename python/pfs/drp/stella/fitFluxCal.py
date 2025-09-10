@@ -1096,7 +1096,7 @@ def fitFluxCalibToArrays(
                 Objective.
             """
             poly.setParameters(params)
-            scales = np.exp(poly(positions)).reshape(len(fiberId), -1)
+            scales = np.exp(poly(positions))
             return bbChi2.rescaleFluxCalib(fiberId, scales, l1=robust)
 
         monitor1 = MinimizationMonitor(objective1, tol=tol, log=log)
