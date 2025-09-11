@@ -424,7 +424,7 @@ class CoaddSpectraTask(PipelineTask):
         mask = np.zeros(length, dtype=archetype.mask.dtype)
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
-        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        variance = np.zeros(length, dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
         for ii, ss in enumerate(resampled):
@@ -434,15 +434,19 @@ class CoaddSpectraTask(PipelineTask):
                 flux[good] += ss.flux[good]*weight[good]
                 sky[good] += ss.sky[good]*weight[good]
                 mask[good] |= ss.mask[good]
+                variance[good] += ss.variance[good]*weight[good]**2
                 sumWeights += weight
 
         good = sumWeights > 0
         flux[good] /= sumWeights[good]
         sky[good] /= sumWeights[good]
-        covar[0][good] = 1.0/sumWeights[good]
+        variance[good] /= sumWeights[good]**2
+        mask[~good] = flags["NO_DATA"]
+
+        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        covar[0][good] = variance[good]
         covar[0][~good] = np.inf
         covar[1:2] = np.where(good, 0.0, np.inf)
-        mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
 
