@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Mapping
+from typing import TYPE_CHECKING, Dict, Iterable, List, Mapping
 
 import numpy as np
 from collections import defaultdict, Counter
@@ -29,6 +29,9 @@ from .utils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
 from .fitContinuum import FitContinuumTask
+
+if TYPE_CHECKING:
+    from pfs.datamodel import PfsFiberArray
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -182,6 +185,8 @@ class CoaddSpectraTask(PipelineTask):
         pfsCoadd: Dict[Target, PfsObject] = {}
         pfsCoaddLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
+            if target.objId != 25769813468:
+                continue
             result = self.process(target, {identity: data[identity] for identity in sources})
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
@@ -418,8 +423,88 @@ class CoaddSpectraTask(PipelineTask):
             weight[bad] = 0.0
             resampledWeights.append(weight)
 
-        # Now do a weighted coaddition
-        archetype = resampled[0]
+
+        from .skyNorms import fitScales
+        iterations = 5
+        sigNoiseThreshold = 3.0
+        normThreshold = 0.03
+
+        numSpectra = len(spectraList)
+        mask = np.array([((ss.mask & ss.flags.get(self.config.mask)) != 0) for ss in resampled])
+        values = np.ma.masked_where(mask, np.array([ss.flux for ss in resampled]))
+        variances = np.ma.masked_where(mask, np.array([ss.variance for ss in resampled]))
+
+        values.mask |= (values**2/variances < (sigNoiseThreshold)**2)
+        variances.mask |= values.mask
+
+        norm = np.ones(numSpectra, dtype=float)
+        combination = self.combineResampled(resampled, resampledWeights, norm)
+        for ii in range(iterations):
+            newNorm, var = fitScales(values, combination.flux, variances)
+            self.log.info("Iteration %d: norm = %f, change = %f", ii, newNorm, np.sum(np.abs(newNorm - norm)))
+            newNorm = np.where(np.abs(newNorm - 1) < normThreshold, newNorm, 1.0)
+            if np.array_equal(newNorm, norm):
+                break
+            combination = self.combineResampled(resampled, resampledWeights, norm)
+        self.log.info("Final norms: %s", norm)
+
+        # Calculate the remaining ingredients of the output spectrum
+        archetype = spectraList[0]
+        length = archetype.length
+        combination.mask[~combination.good] |= flags.get("NO_DATA")
+        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        covar[0][combination.good] = combination.variance[combination.good]
+        covar[0][~combination.good] = np.inf
+        covar[1:2] = np.where(combination.good, 0.0, np.inf)
+        covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
+        lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
+
+        return Struct(
+            wavelength=combination.wavelength,
+            flux=combination.flux,
+            sky=combination.sky,
+            covar=covar,
+            mask=combination.mask,
+            covar2=covar2,
+            lsf=lsf,
+        )
+
+    def combineResampled(
+        self, spectra: list[PfsFiberArray], weights: list[np.ndarray], norm: np.ndarray | None = None
+    ) -> Struct:
+        """Combine spectra that have already been resampled to common
+        wavelengths
+
+        Parameters
+        ----------
+        spectra : `list` of `pfs.datamodel.PfsFiberArray`
+            List of spectra to combine for each visit. These must already be
+            resampled to a common wavelength array.
+        weights : `list` of `numpy.ndarray` of `float`
+            List of weights for each spectrum.
+        norm : `numpy.ndarray` of `float`, optional
+            Normalization to apply to each spectrum before combining. If
+            not specified, no normalization is applied.
+
+        Returns
+        -------
+        wavelength : `numpy.ndarray` of `float`
+            Wavelength array for combined spectrum.
+        flux : `numpy.ndarray` of `float`
+            Flux measurements for combined spectrum.
+        sky : `numpy.ndarray` of `float`
+            Sky measurements for combined spectrum.
+        mask : `numpy.ndarray` of `int`
+            Mask for combined spectrum.
+        variance : `numpy.ndarray` of `float`
+            Variance for combined spectrum.
+        good : `numpy.ndarray` of `bool`
+            Good-pixel mask for combined spectrum.
+        """
+        if norm is None:
+            norm = np.ones(len(spectra), dtype=float)
+
+        archetype = spectra[0]
         length = archetype.length
         mask = np.zeros(length, dtype=archetype.mask.dtype)
         flux = np.zeros(length, dtype=archetype.flux.dtype)
@@ -427,28 +512,20 @@ class CoaddSpectraTask(PipelineTask):
         variance = np.zeros(length, dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        for ii, ss in enumerate(resampled):
-            weight = resampledWeights[ii]
+        for ii, ss in enumerate(spectra):
+            wt = weights[ii]
+            nn = norm[ii]
             with np.errstate(invalid="ignore", divide="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0) & (weight >= 0)
-                flux[good] += ss.flux[good]*weight[good]
-                sky[good] += ss.sky[good]*weight[good]
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0) & (wt >= 0)
+                flux[good] += ss.flux[good]*wt[good]*nn
+                sky[good] += ss.sky[good]*wt[good]*nn
                 mask[good] |= ss.mask[good]
-                variance[good] += ss.variance[good]*weight[good]**2
-                sumWeights += weight
+                variance[good] += ss.variance[good]*wt[good]**2*nn**2
+                sumWeights[good] += wt[good]*nn
 
         good = sumWeights > 0
         flux[good] /= sumWeights[good]
         sky[good] /= sumWeights[good]
         variance[good] /= sumWeights[good]**2
-        mask[~good] = flags["NO_DATA"]
 
-        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
-        covar[0][good] = variance[good]
-        covar[0][~good] = np.inf
-        covar[1:2] = np.where(good, 0.0, np.inf)
-        covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
-
-        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
-                      mask=mask, covar2=covar2, lsf=lsf)
+        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, variance=variance, good=good)

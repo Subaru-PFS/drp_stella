@@ -30,7 +30,9 @@ if TYPE_CHECKING:
     from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 
-def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]) -> np.ndarray:
+def fitScales(
+    data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]
+) -> tuple[np.ndarray, np.ndarray]:
     """Fit model scale factors to spectra
 
     We fit a single scale factor for each fiber.
@@ -50,6 +52,8 @@ def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np
     -------
     factor : `numpy.ndarray`, shape ``(numSpectra,)``
         Factor by which to multiply the model to best fit the data.
+    variance : `numpy.ndarray`, shape ``(numSpectra,)``
+        Variance of the factor.
     """
     for dd, mm, vv in zip(data, model, variance):
         if dd.shape != mm.shape or dd.shape != vv.shape:
@@ -63,7 +67,7 @@ def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np
         (np.ma.sum(dd*mm/vv, axis=1).filled(0.0) for dd, mm, vv in zip(data, model, variance)),
     )
     with np.errstate(invalid="ignore", divide="ignore"):
-        return np.array(dataDotModel/modelDotModel)
+        return np.array(dataDotModel/modelDotModel), modelDotModel**-1
 
 
 class MeasureSkyNormsConnections(
@@ -347,7 +351,7 @@ class MeasureSkyNormsTask(PipelineTask):
             varianceList.append(np.ma.masked_where(reject, var))
 
         for iteration in range(self.config.iterations):
-            factor = fitScales(dataList, modelList, varianceList)
+            factor, _ = fitScales(dataList, modelList, varianceList)
             self.log.debug(
                 "Iteration %d: factor = %.3f +/- %.3f",
                 iteration,
@@ -361,7 +365,7 @@ class MeasureSkyNormsTask(PipelineTask):
                 mm.mask |= reject
 
         # Final fit after rejection iterations
-        factor = fitScales(dataList, modelList, varianceList)
+        factor, _ = fitScales(dataList, modelList, varianceList)
         self.log.info(
             "Sky norms = %.3f +/- %.3f",
             np.nanmedian(np.array(factor)),
