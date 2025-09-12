@@ -531,7 +531,8 @@ class ReduceExposureTask(PipelineTask):
             )
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+            if len(traces) > 0:
+                lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
         windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
 
