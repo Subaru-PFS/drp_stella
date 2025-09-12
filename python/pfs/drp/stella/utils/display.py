@@ -329,7 +329,11 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                     fidStr = f"{fid:3}"
                     if pfsConfig:
                         try:
-                            mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
+                            mtpInfo = list(fiberIds.fiberIdToMTP([fid], pfsConfig)[0])
+                            cobraId = mtpInfo[2]
+                            if cobraId == fiberIds.MISSING_VALUE:
+                                mtpInfo[2] = fiberIds.scienceFiberId[fid - 1]
+
                             fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
                         except RuntimeError:
                             pass            # fiber isn't in pfsConfig
@@ -433,7 +437,8 @@ def getCtypeFromReferenceLineDefault(line):
 
 def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None,
                     showEngineering=False, showLegend=True,
-                    lines=None, alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
+                    lines=None, alpha=1.0, fiberColor=None,
+                    getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
 
     Parameters:
@@ -455,6 +460,8 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
          Lines to show on the display
       alpha: `float`
          The transparency to use when plotting traces/lines
+      fiberColor: `str`
+         The colour to use for plotting fibres (if None, allow matplotlib to choose)
       getCtypeFromStatus: function returning `str`
         Function called to return the name of a colour, given a
         `pfs.drp.stella.referenceLine.ReferenceLineStatus`.  Return "IGNORE" to ignore the line;
@@ -529,7 +536,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         if showAll or (fiberIds is not None and len(fiberIds) > 1) or np.abs(fiberX - xcen) < width/2:
             fiberX = detMap.getXCenter(fid)
             plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
-                     color=color if showAll else None)
+                     color=color if showAll else fiberColor)
             nFiberShown += 1
     #
     # Plot the position of a set of lines
