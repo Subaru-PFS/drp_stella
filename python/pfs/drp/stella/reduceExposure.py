@@ -56,7 +56,6 @@ from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .applyFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
-from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
 from .focalPlaneFunction import ConstantPerFiber
 
@@ -67,15 +66,9 @@ class ReduceExposureConnections(
     PipelineTaskConnections, dimensions=("instrument", "visit", "arm", "spectrograph")
 ):
     exposure = InputConnection(
-        name="postISRCCD",
+        name="calexp",
         doc="Exposure to reduce",
         storageClass="Exposure",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
-    crMask = InputConnection(
-        name="crMask",
-        doc="Cosmic-ray mask",
-        storageClass="Mask",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
     pfsConfig = PrerequisiteConnection(
@@ -113,13 +106,6 @@ class ReduceExposureConnections(
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
-
-    outputExposure = OutputConnection(
-        name="calexp",
-        doc="Calibrated exposure",
-        storageClass="Exposure",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
     pfsArm = OutputConnection(
         name="pfsArm",
         doc="Extracted spectra from arm",
@@ -156,8 +142,6 @@ class ReduceExposureConnections(
 
         if not config:
             return
-        if not self.config.doApplyCrMask:
-            self.prerequisiteInputs.remove("crMask")
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
         if not self.config.doApplyFiberNorms:
@@ -168,7 +152,6 @@ class ReduceExposureConnections(
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
     """Config for ReduceExposure"""
-    doApplyCrMask = Field(dtype=bool, default=True, doc="Apply cosmic-ray mask to input exposure?")
     doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
     readLineList = ConfigurableField(target=ReadLineListTask,
@@ -207,8 +190,6 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
     doApplySkyNorms = Field(dtype=bool, default=True, doc="Apply sky norms to extracted spectra?")
-    doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
-    scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
     doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
 
@@ -275,7 +256,6 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("screen")
         self.makeSubtask("blackSpotCorrection")
-        self.makeSubtask("scatteredLight")
         self.makeSubtask("pfiCorrection")
 
     def runQuantum(
@@ -308,7 +288,6 @@ class ReduceExposureTask(PipelineTask):
         skyNorms: ConstantPerFiber | None,
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
-        crMask: Mask | None = None,
     ) -> Struct:
         """Process an arm exposure
 
@@ -326,8 +305,6 @@ class ReduceExposureTask(PipelineTask):
             Mapping of fiberId,wavelength to x,y.
         dataId : `dict` [`str`, `str`] or `DataCoordinate`
             Data identifier.
-        crMask : `lsst.afw.image.Mask`, optional
-            Cosmic-ray mask.
 
         Returns
         -------
@@ -372,11 +349,6 @@ class ReduceExposureTask(PipelineTask):
             for fid in pfsConfig.fiberId:
                 # the Gaussian will be replaced by a boxcar, so params don't matter
                 fiberProfiles[fid] = FiberProfile.makeGaussian(1, exposure.getHeight(), 5, 1)
-
-        if self.config.doApplyCrMask:
-            if crMask is None:
-                raise RuntimeError("crMask required but not provided")
-            exposure.mask |= crMask
 
         measurements = self.measure(
             exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
