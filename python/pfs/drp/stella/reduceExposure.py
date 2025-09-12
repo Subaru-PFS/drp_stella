@@ -31,7 +31,7 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.daf.butler import DataCoordinate
-from lsst.afw.image import Exposure, Mask
+from lsst.afw.image import Exposure
 
 from .datamodel.pfsConfig import PfsConfig
 from .DetectorMapContinued import DetectorMap

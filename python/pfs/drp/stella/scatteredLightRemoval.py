@@ -1,36 +1,25 @@
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
 import numpy as np
-import scipy.signal as signal
 
-from lsst.pex.config import Config, ConfigurableField, DictField, Field
-from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
+from lsst.pex.config import ConfigurableField, Field
+from lsst.pipe.base import PipelineTaskConnections, Struct
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 from lsst.daf.butler import DataCoordinate
-from lsst.afw.image import Exposure, Image, ImageF, Mask, MaskedImage
+from lsst.afw.image import Exposure, Mask
 
-from .pipelines.lookups import lookupFiberNorms
-from .FiberTraceContinued import FiberTrace
-from .FiberTraceSetContinued import FiberTraceSet
-from .SpectrumSetContinued import SpectrumSet
+from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
 from .datamodel.pfsConfig import PfsConfig
-from pfs.datamodel import FiberStatus, TargetType, Identity
-from .DetectorMapContinued import DetectorMap
+from pfs.datamodel import Identity
 from .reduceExposure import ReduceExposureConfig, ReduceExposureTask
 from .scatteredLight import ScatteredLightTask
-
-if TYPE_CHECKING:
-    from .datamodel import PfsArm
-    from .DetectorMapContinued import DetectorMap
+from .DetectorMapContinued import DetectorMap
 
 
-__all__ = ("ScatteredLightTask", "ScatteredLightConfig", "ScatteredLightModel")
+__all__ = ("ScatteredLightRemovalTask", "ScatteredLightRemovalConfig")
 
 
 class ScatteredLightRemovalConnections(
@@ -104,7 +93,7 @@ class ScatteredLightRemovalTask(ReduceExposureTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("scatteredLight")
-    
+
     def runQuantum(
         self,
         butler: QuantumContext,
@@ -159,7 +148,7 @@ class ScatteredLightRemovalTask(ReduceExposureTask):
                 raise RuntimeError("crMask required but not provided")
             exposure.mask |= crMask
 
-        if not config.doScatteredLight:
+        if not self.config.doScatteredLight:
             return Struct(
                 outputExposure=exposure,
             )
