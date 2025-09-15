@@ -1032,6 +1032,7 @@ def showGuiderErrors(agcData, config,
     if livePlot is not None:
         fig, ax, colorbar = livePlot.fig, livePlot.axes[-1], livePlot.colorbar
     else:
+        fig, ax = plt.subplots()
         colorbar = None
 
     agc_exposure_ids = np.sort(agcData.agc_exposure_id.unique())
