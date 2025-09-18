@@ -101,7 +101,10 @@ def applyFiberNorms(
 
 
 def fluxCalibrate(
-    spectra: PfsFiberArray | PfsFiberArraySet, pfsConfig: PfsConfig, fluxCal: FocalPlaneFunction
+    spectra: PfsFiberArray | PfsFiberArraySet,
+    pfsConfig: PfsConfig,
+    fluxCal: FocalPlaneFunction,
+    applyFluxCalError: bool = False
 ) -> None:
     """Apply flux calibration to spectra
 
@@ -113,12 +116,16 @@ def fluxCalibrate(
         Top-end configuration.
     fluxCal : subclass of `FocalPlaneFunction`
         Flux calibration model.
+    applyFluxCalError : `bool`, optional
+        Propagate the variance in the flux calibration? If there are large
+        systematic errors in the flux calibration, this may not be desirable.
     """
     cal = fluxCal(spectra.wavelength, pfsConfig.select(fiberId=spectra.fiberId))
     with np.errstate(divide="ignore", invalid="ignore"):
         spectra /= spectra.norm
         spectra /= cal.values  # includes spectrum.variance /= cal.values**2
-        spectra.variance[:] += cal.variances * spectra.flux**2 / cal.values**2
+        if applyFluxCalError:
+            spectra.variance[:] += cal.variances * spectra.flux**2 / cal.values**2
     spectra.norm[:] = 1.0  # We've deliberately changed the normalisation
     bad = np.array(cal.masks) | (np.array(cal.values) == 0.0)
     bad |= ~np.isfinite(cal.values) | ~np.isfinite(cal.variances)
@@ -133,6 +140,7 @@ def calibratePfsArm(
     fiberNorms: PfsFiberNorms | None = None,
     doCheckFiberNormsHashes: bool = True,
     wavelength: ArrayLike | None = None,
+    applyFluxCalError: bool = False,
 ) -> PfsArm:
     """Calibrate a PfsArm
 
@@ -150,6 +158,9 @@ def calibratePfsArm(
         Check hashes in the fiberNorms for consistency?
     wavelength : `numpy.ndarray` of `float`, optional
         Wavelength array for optional resampling.
+    applyFluxCalError : `bool`, optional
+        Propagate the variance in the flux calibration? If there are large
+        systematic errors in the flux calibration, this may not be desirable.
 
     Returns
     -------
@@ -162,7 +173,7 @@ def calibratePfsArm(
         applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
     subtractSky1d(spectra, pfsConfig, sky1d)
     applyBarycentricCorrection(spectra)
-    fluxCalibrate(spectra, pfsConfig, fluxCal)
+    fluxCalibrate(spectra, pfsConfig, fluxCal, applyFluxCalError=applyFluxCalError)
     if wavelength is not None:
         spectra = spectra.resample(wavelength)  # sampling of pfsArm related to the flux values
     return spectra

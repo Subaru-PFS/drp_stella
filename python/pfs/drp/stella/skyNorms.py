@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from functools import reduce
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -23,51 +22,11 @@ from .math import calculateMedian
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
 from .selectFibers import SelectFibersTask
-from .utils.math import robustRms
+from .utils.math import robustRms, fitScales
 
 if TYPE_CHECKING:
     from lsst.pipe.base import QuantumContext
     from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
-
-
-def fitScales(
-    data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]
-) -> tuple[np.ndarray, np.ndarray]:
-    """Fit model scale factors to spectra
-
-    We fit a single scale factor for each fiber.
-
-    The inputs may be masked arrays.
-
-    Parameters
-    ----------
-    data : `list` of `numpy.ndarray`, shape ``(numSpectra, numSamples)``
-        Data to fit.
-    model : `list` of `numpy.ndarray`, shape ``(numSpectra, numSamples)``
-        Model to fit (evaluated at the same points as ``data``).
-    variance : `list` of `numpy.ndarray`, shape ``(numSpectra, numSamples)``
-        Variance of the data.
-
-    Returns
-    -------
-    factor : `numpy.ndarray`, shape ``(numSpectra,)``
-        Factor by which to multiply the model to best fit the data.
-    variance : `numpy.ndarray`, shape ``(numSpectra,)``
-        Variance of the factor.
-    """
-    for dd, mm, vv in zip(data, model, variance):
-        if dd.shape != mm.shape or dd.shape != vv.shape:
-            raise ValueError("data, model, and variance must have the same shape")
-    modelDotModel = reduce(
-        np.add,
-        (np.ma.sum(mm**2/vv, axis=1).filled(0.0) for mm, vv in zip(model, variance)),
-    )
-    dataDotModel = reduce(
-        np.add,
-        (np.ma.sum(dd*mm/vv, axis=1).filled(0.0) for dd, mm, vv in zip(data, model, variance)),
-    )
-    with np.errstate(invalid="ignore", divide="ignore"):
-        return np.array(dataDotModel/modelDotModel), modelDotModel**-1
 
 
 class MeasureSkyNormsConnections(

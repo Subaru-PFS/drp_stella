@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Dict, Iterable, List, Mapping
 
 import numpy as np
@@ -26,6 +28,7 @@ from .fitFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
+from .utils.math import fitScales
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
 from .fitContinuum import FitContinuumTask
@@ -138,6 +141,17 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doSmoothWeights = Field(dtype=bool, default=True, doc="Smooth weights before combining?")
     smoothWeights = ConfigurableField(target=FitContinuumTask, doc="Smoothing of weights")
+    applyFluxCalError = Field(dtype=bool, default=False, doc="Propagate flux calibration errors?")
+    normIterations = Field(
+        dtype=int, default=5, doc="Maximum number of iterations for normalization measurement"
+    )
+    normSigNoiseThreshold = Field(
+        dtype=float, default=3.0, doc="Pixel signal-to-noise threshold for normalization measurement"
+    )
+    normThreshold = Field(dtype=float, default=2.5, doc="Normalization significance threshold for acceptance")
+    normConvergence = Field(
+        dtype=float, default=1e-3, doc="Convergence threshold for normalization measurement"
+    )
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -185,8 +199,8 @@ class CoaddSpectraTask(PipelineTask):
         pfsCoadd: Dict[Target, PfsObject] = {}
         pfsCoaddLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
-            if target.objId != 25769813468:
-                continue
+            # if target.objId != 25769807408:
+            #     continue
             result = self.process(target, {identity: data[identity] for identity in sources})
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
@@ -339,7 +353,13 @@ class CoaddSpectraTask(PipelineTask):
             Calibrated spectrum of the target.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
-        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
+        spectrum = calibratePfsArm(
+            spectrum,
+            data.pfsConfig,
+            data.sky1d,
+            data.fluxCal,
+            applyFluxCalError=self.config.applyFluxCalError,
+        )
         return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
@@ -423,36 +443,77 @@ class CoaddSpectraTask(PipelineTask):
             weight[bad] = 0.0
             resampledWeights.append(weight)
 
-
-        from .skyNorms import fitScales
-        iterations = 5
-        sigNoiseThreshold = 3.0
-        normThreshold = 0.03
-
+        # Prepare the inputs
         numSpectra = len(spectraList)
-        mask = np.array([((ss.mask & ss.flags.get(self.config.mask)) != 0) for ss in resampled])
-        values = np.ma.masked_where(mask, np.array([ss.flux for ss in resampled]))
-        variances = np.ma.masked_where(mask, np.array([ss.variance for ss in resampled]))
+        visitMap = defaultdict(list)
+        values = defaultdict(list)
+        variances = defaultdict(list)
+        for ii, ss in enumerate(resampled):
+            assert len(spectraList[ii].observations.visit) == 1
+            visit = spectraList[ii].observations.visit[0]
+            visitMap[visit].append(ii)
+            mask = (ss.mask & ss.flags.get(*self.config.mask)) != 0
+#            with np.errstate(invalid="ignore", divide="ignore"):
+#                mask |= ss.flux**2/ss.variance < self.config.normSigNoiseThreshold**2
+            values[visit].append(np.ma.masked_where(mask, ss.flux).reshape(1, -1))
+            variances[visit].append(np.ma.masked_where(mask, ss.variance).reshape(1, -1))
 
-        values.mask |= (values**2/variances < (sigNoiseThreshold)**2)
-        variances.mask |= values.mask
-
+        # Iteratively combine and fit for normalization of each visit
         norm = np.ones(numSpectra, dtype=float)
-        combination = self.combineResampled(resampled, resampledWeights, norm)
-        for ii in range(iterations):
-            newNorm, var = fitScales(values, combination.flux, variances)
-            self.log.info("Iteration %d: norm = %f, change = %f", ii, newNorm, np.sum(np.abs(newNorm - norm)))
-            newNorm = np.where(np.abs(newNorm - 1) < normThreshold, newNorm, 1.0)
-            if np.array_equal(newNorm, norm):
+        combination = self.combineResampled(resampled, resampledWeights, 1/norm)
+        for ii in range(self.config.normIterations):
+            newNorm = norm.copy()
+            newErr = np.zeros(numSpectra, dtype=float)
+            for visit in visitMap:
+                ratio = np.ma.concatenate(values[visit])/combination.flux
+                val = np.ma.median(ratio)
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    for rr, vv, ee in zip(ratio, values[visit], variances[visit]):
+                        mm = np.abs(rr - val) > 3.0*np.sqrt(ee)/combination.flux
+                        vv.mask |= mm
+                        ee.mask |= mm
+
+                val, var = fitScales(
+                    values[visit], [combination.flux.reshape(1, -1)]*len(values[visit]), variances[visit]
+                )
+                residual = ratio - val
+                from .utils.math import robustRms
+                rms = robustRms(residual.compressed())
+
+                assert len(val) == 1 and len(var) == 1
+                nn = val[0]
+                ee = np.sqrt(var[0]) + rms
+
+                if nn/ee < self.config.normThreshold:
+                    nn = 1.0
+                for index in visitMap[visit]:
+                    newNorm[index] = nn
+                    newErr[index] = ee
+
+            # if np.all(newNorm > 1) or np.all(newNorm < 1):
+            #     breakpoint()
+            # if np.any(newNorm <= 0):
+            #     breakpoint()
+            # if np.any(newNorm < 0.1) or np.any(newNorm > 10):
+            #     breakpoint()
+
+            change = np.sum(np.abs(newNorm - norm))
+            self.log.trace("Iteration %d: norm = %s +/- %s, change = %s", ii, newNorm, newErr, change)
+            if change < self.config.normConvergence:
                 break
-            combination = self.combineResampled(resampled, resampledWeights, norm)
-        self.log.info("Final norms: %s", norm)
+            norm = newNorm
+            combination = self.combineResampled(resampled, resampledWeights, 1/norm)
+        self.log.trace("Final norms: %s", norm)
+        self.log.debug(
+            "Normalizations for objId=%s: min, 25%%, 50%%, 75%%, max = %s",
+            spectraList[0].target.objId,
+            np.percentile(norm, [0, 25, 50, 75, 100]),
+        )
 
         # Calculate the remaining ingredients of the output spectrum
         archetype = spectraList[0]
-        length = archetype.length
         combination.mask[~combination.good] |= flags.get("NO_DATA")
-        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        covar = np.zeros((3, combination.variance.size), dtype=archetype.covar.dtype)
         covar[0][combination.good] = combination.variance[combination.good]
         covar[0][~combination.good] = np.inf
         covar[1:2] = np.where(combination.good, 0.0, np.inf)
@@ -513,19 +574,20 @@ class CoaddSpectraTask(PipelineTask):
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
         for ii, ss in enumerate(spectra):
-            wt = weights[ii]
-            nn = norm[ii]
             with np.errstate(invalid="ignore", divide="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0) & (wt >= 0)
-                flux[good] += ss.flux[good]*wt[good]*nn
-                sky[good] += ss.sky[good]*wt[good]*nn
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.variance > 0)
+                wt = norm[ii]*weights[ii][good]
+                flux[good] += ss.flux[good]*wt
+                sky[good] += ss.sky[good]*wt
                 mask[good] |= ss.mask[good]
-                variance[good] += ss.variance[good]*wt[good]**2*nn**2
-                sumWeights[good] += wt[good]*nn
+                variance[good] += ss.variance[good]*wt**2
+                sumWeights[good] += wt
 
         good = sumWeights > 0
         flux[good] /= sumWeights[good]
         sky[good] /= sumWeights[good]
         variance[good] /= sumWeights[good]**2
 
-        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, variance=variance, good=good)
+        return Struct(
+            wavelength=archetype.wavelength, flux=flux, sky=sky, mask=mask, variance=variance, good=good
+        )
