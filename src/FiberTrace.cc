@@ -268,10 +268,14 @@ FiberTrace<ImageT, MaskT, VarianceT> FiberTrace<ImageT, MaskT, VarianceT>::boxca
     // Expected contributions (before row normalisation): 0.2, 1.0, 0.8
     for (std::size_t yy = 0; yy < height; ++yy) {
         float const middle = centers[yy];
+        if (!std::isfinite(middle)) {
+            continue;
+        }
         float const left = middle - radius;
         float const right = middle + radius;
         std::ptrdiff_t const low = std::max(0L, std::ptrdiff_t(left));
         std::ptrdiff_t const high = std::min(width, std::size_t(std::ceil(right)) + 1);  // exclusive
+//        std::cerr << fiberId << " " << yy << " " << low << " " << left << " " << middle << " " << right << " " << high << std::endl;
         double sum = 0;
         auto iter = image.row_begin(yy) + (low - xMin);
         // Use linear interpolation. There's probably fancier stuff with Lanczos resampling that we could do,
