@@ -4,6 +4,7 @@ instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 parameters:
   h4_doCR: False                        # Pass to isr.h4.doCR, and pass negation to cosmicray
   h4_crMinReads: 4                      # Minimum number of reads for up-the-ramp CR rejection
+  windowed: False                       # Windowed mode? We don't process the entire detector
 
 tasks:
   isr:
@@ -11,6 +12,10 @@ tasks:
     config:
       h4.doCR: parameters.h4_doCR
       h4.crMinReads: parameters.h4_crMinReads
+      python: |
+        windowed = eval(parameters.windowed) if isinstance(parameters.windowed, str) else parameters.windowed
+        if windowed:
+          config.overscan.fitType = "MEDIAN"
   cosmicray:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
     config:
@@ -23,5 +28,10 @@ tasks:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
       requireAdjustDetectorMap: True
+      python: |
+        windowed = eval(parameters.windowed) if isinstance(parameters.windowed, str) else parameters.windowed
+        if windowed:
+            config.doAdjustDetectorMap = False
+            config.doPhotometerLines = False
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask
