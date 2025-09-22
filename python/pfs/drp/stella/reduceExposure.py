@@ -468,7 +468,8 @@ class ReduceExposureTask(PipelineTask):
 
         # Handle the IIS fibres for the user
         boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
-        if set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus) == set([FiberStatus.GOOD]):
+        if set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus) == set([FiberStatus.GOOD]) or\
+           set(kwargs["targetType"]) == set([TargetType.ENGINEERING]):
             if self.config.doDetectIIS:
                 if len(set(kwargs["targetType"]) ^ set(~TargetType.ENGINEERING)) == 0:
                     kwargs["targetType"] = [TargetType.ENGINEERING]
@@ -509,7 +510,8 @@ class ReduceExposureTask(PipelineTask):
             )
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+            if len(traces) > 0:
+                lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
         if self.config.doAdjustDetectorMap:
             try:
