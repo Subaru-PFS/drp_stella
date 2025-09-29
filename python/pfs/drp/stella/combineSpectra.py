@@ -78,8 +78,9 @@ def combineSpectraSets(
             Pixels to accumulate.
         """
         with np.errstate(invalid="ignore"):
-            data.flux[select] += spectrum.flux[select]*weight[select]/spectrum.norm[select]
-            data.sky[select] += spectrum.sky[select]*weight[select]/spectrum.norm[select]
+            factor = weight[select]/spectrum.norm[select]
+            data.flux[select] += spectrum.flux[select]*factor
+            data.sky[select] += spectrum.sky[select]*factor
             data.norm[select] += spectrum.norm[select]*weight[select]
         data.mask[select] |= spectrum.mask[select]
         data.count[select] += 1
@@ -114,10 +115,12 @@ def combineSpectraSets(
         select : `numpy.ndarray` of `bool`
             Pixels to calculate.
         """
-        target.flux[select] = source.flux[select]/source.sumWeights[select]
-        target.sky[select] = source.sky[select]/source.sumWeights[select]
-        target.norm[select] = source.norm[select]/source.sumWeights[select]
-        target.covar[:, 0][select] = 1.0/source.sumWeights[select]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            factor = 1.0/source.sumWeights[select]
+            target.flux[select] = source.flux[select]*factor
+            target.sky[select] = source.sky[select]*factor
+            target.norm[select] = source.norm[select]*factor
+            target.covar[:, 0][select] = factor
 
     good = (goodData.count > 0) & (goodData.sumWeights > 0)
     calculate(goodData, goodData, good)
