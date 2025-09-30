@@ -3,7 +3,7 @@ import pfs.datamodel
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
+from ..interpolate import interpolate, interpolateFlux
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -120,7 +120,14 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             figure.show()
         return figure, ax
 
-    def resample(self, wavelength, fiberId=None):
+    def resample(
+        self,
+        wavelength,
+        fiberId=None,
+        order: int = 3,
+        bad: list[str] | None = None,
+        minWeight: float = 0.1,
+    ) -> "PfsFiberArraySet":
         """Construct a new PfsFiberArraySet resampled to a common wavelength vector
 
         Parameters
@@ -129,6 +136,14 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             New wavelength values (nm).
         fiberId : `numpy.ndarray` of int, optional
             Fibers to resample. If ``None``, resample all fibers.
+        order : `int`, optional
+            Interpolation order to use. Less than or equal to 1 means linear
+            interpolation; higher orders use Lanczos interpolation of the given
+            order.
+        bad : `list` of `str`, optional
+            List of mask names to consider bad.
+        minWeight : `float`, optional
+            Minimum weight for Lanczos interpolation.
 
         Returns
         -------
@@ -146,28 +161,39 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
         covar = np.zeros((numSpectra, 3, numSamples), dtype=self.covar.dtype)
 
+        badMask = self.flags.get(*bad) if bad else 0
+        kwargs = dict(fill=0.0, order=order)
+
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength)
+            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength, **kwargs)
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badFlux = ~np.isfinite(self.flux[jj])
-            badVariance = badNorm | ~np.isfinite(self.variance[jj])
+            badVar = badNorm | ~np.isfinite(self.variance[jj])
             badSky = badNorm | ~np.isfinite(self.sky[jj])
-            bad = badFlux | badVariance | badSky
+            bad = badFlux | badVar | badSky
             mm = self.mask[jj].copy()
             mm[bad] |= self.flags["NO_DATA"]
-            flux[ii] = interpolateFlux(
-                self.wavelength[jj], np.where(badFlux, 0.0, self.flux[jj]), wavelength
+
+            result = interpolate(
+                self.wavelength[jj],
+                np.where(badFlux, 0.0, self.flux[jj]).astype(np.float32),
+                mm,
+                np.where(badVar, 0.0, np.where(badVar, 0.0, self.covar[jj][0])).astype(np.float32),
+                wavelength,
+                minWeight=minWeight,
+                badMask=badMask,
+                fillMask=self.flags.get("NO_DATA"),
+                **kwargs,
             )
-            sky[ii] = interpolateFlux(
-                self.wavelength[jj], np.where(badSky, 0.0, self.sky[jj]), wavelength
-            )
+            flux[ii] = result.flux
+            mask[ii] = result.mask
             # XXX dropping covariance on the floor: just doing the variance for now
-            covar[ii][0] = interpolateVariance(
-                self.wavelength[jj], np.where(badVariance, 0.0, self.covar[jj][0]), wavelength, fill=np.inf
+            covar[ii][0] = result.variance
+
+            sky[ii] = interpolateFlux(
+                self.wavelength[jj], np.where(badSky, 0.0, self.sky[jj]), wavelength, **kwargs
             )
-            mask[ii] = interpolateMask(self.wavelength[jj], mm, wavelength,
-                                       fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
                           flux, mask, sky, norm, covar, self.flags, self.metadata)

@@ -11,6 +11,8 @@ class FluxTableConfig(Config):
     ignoreFlags = ListField(dtype=str, default=[], doc="Flags to ignore in coadd")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
+    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
 
 
 class FluxTableTask(Task):
@@ -34,5 +36,12 @@ class FluxTableTask(Task):
         fluxTable : `pfs.datamodel.FluxTable`
             Fluxes at near the native resolution.
         """
-        return makeFluxTable(identities, spectra, self.config.ignoreFlags,
-                             self.config.rejIterations, self.config.rejThreshold)
+        return makeFluxTable(
+            identities,
+            spectra,
+            self.config.ignoreFlags,
+            self.config.rejIterations,
+            self.config.rejThreshold,
+            self.config.resampleOrder,
+            self.config.resampleMinWeight,
+        )

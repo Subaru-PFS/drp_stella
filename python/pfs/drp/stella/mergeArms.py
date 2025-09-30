@@ -81,6 +81,8 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
+    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
@@ -388,7 +390,14 @@ class MergeArmsTask(PipelineTask):
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
-        resampled = [ss.resample(wavelength) for ss in spectraList]
+        resampled = [
+            ss.resample(
+                wavelength,
+                order=self.config.resampleOrder,
+                minWeight=self.config.resampleMinWeight,
+                bad=self.config.mask,
+            ) for ss in spectraList
+        ]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = combineSpectraSets(resampled, flags, self.config.mask, self.config.suspect)
 
