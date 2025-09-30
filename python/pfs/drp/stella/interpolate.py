@@ -1,7 +1,12 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-__all__ = ["calculateDispersion", "interpolateFlux", "interpolateVariance", "interpolateMask"]
+from lsst.pipe.base import Struct
+
+from .math import lanczosInterpolate, lanczosInterpolateFlux, lanczosInterpolateVariance
+from .spline import SplineD
+
+__all__ = ["calculateDispersion", "interpolate", "interpolateFlux", "interpolateVariance", "interpolateMask"]
 
 
 def calculateDispersion(wavelength):
@@ -27,7 +32,121 @@ def calculateDispersion(wavelength):
     return np.abs(dispersion)
 
 
-def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
+def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> np.ndarray:
+    """Return indices to interpolate from one wavelength grid to another
+
+    Indices are floating-point values.
+
+    Parameters
+    ----------
+    fromWavelength : array-like of `float`
+        Source wavelength array.
+    toWavelength : array-like of `float`
+        Target wavelength array.
+
+    Returns
+    -------
+    indices : `numpy.ndarray` of `float`
+        Indices into the source wavelength array for each value in the target
+        wavelength array.
+    """
+    indices = np.arange(fromWavelength.size, dtype=np.float64)
+    spline = SplineD(fromWavelength.astype(np.float64), indices)
+    return spline(toWavelength.astype(np.float64))
+
+
+def interpolate(
+    fromWavelength: np.ndarray,
+    fromFlux: np.ndarray,
+    fromMask: np.ndarray,
+    fromVariance: np.ndarray,
+    toWavelength: np.ndarray,
+    *,
+    fill: float = 0.0,
+    order: int = 3,
+    minWeight: float = 0.1,
+    badMask: int = 0,
+    fillMask: int = 0,
+) -> Struct:
+    """Interpolate a spectrum
+
+    Parameters
+    ----------
+    fromWavelength : `np.ndarray` of `float`
+        Source wavelength array.
+    fromFlux : `np.ndarray` of `float`
+        Source flux array.
+    fromMask : `np.ndarray` of `integer`
+        Source mask array.
+    fromVariance : `np.ndarray` of `float`
+        Source variance array.
+    toWavelength : `np.ndarray` of `float`
+        Target wavelength array.
+    fill: `float`, optional
+        Fill value.
+    order : `int`, optional
+        Interpolation order to use. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
+    minWeight : `float`, optional
+        The minimum sum of weights to accept; if the sum of weights is less than
+        this value, the output will be masked.
+    badMask : `int`, optional
+        Value to use to identify bad pixels in the input mask. This is used only
+        for Lanczos interpolation.
+    fillMask : `int`, optional
+        Value to use to mark pixels in the output mask that failed
+        interpolation.
+
+    Returns
+    -------
+    spectrum : `Struct`
+        Struct with fields:
+        - wavelength: `numpy.ndarray` of `float`
+            Target wavelength array.
+        - flux: `numpy.ndarray` of `float`
+            Target flux array.
+        - mask: `numpy.ndarray` of `int`
+            Target mask array.
+        - variance: `numpy.ndarray` of `float`
+            Target variance array.
+    """
+    resultMask = interpolateMask(fromWavelength, fromMask, toWavelength, fillMask)
+    if order == 1:
+        resultFlux = interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=fill, order=order)
+        resultVariance = interpolateVariance(
+            fromWavelength, fromVariance, toWavelength, fill=fill, order=order
+        )
+    else:
+        length = len(toWavelength)
+        indices = interpolateIndices(fromWavelength, toWavelength)
+        resultFlux = np.empty(length, dtype=fromFlux.dtype)
+        interpMask = np.empty(length, dtype=bool)
+        resultVariance = np.empty(length, dtype=fromVariance.dtype)
+        lanczosInterpolate(
+            resultFlux,
+            interpMask,
+            resultVariance,
+            fromFlux,
+            (fromMask & badMask) != 0,
+            fromVariance,
+            indices,
+            fill,
+            order,
+            minWeight,
+        )
+        resultMask[interpMask] |= fillMask
+    return Struct(wavelength=toWavelength, flux=resultFlux, mask=resultMask, variance=resultVariance)
+
+
+def interpolateFlux(
+    fromWavelength: np.ndarray,
+    fromFlux: np.ndarray,
+    toWavelength: np.ndarray,
+    *,
+    fill: float = 0.0,
+    order: int = 3,
+) -> np.ndarray:
     """Interpolate a flux-like spectrum
 
     Basic linear interpolation, suitable for fluxes and flux-like (e.g., maybe
@@ -35,27 +154,41 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
 
     Parameters
     ----------
-    fromWavelength : array-like of `float`
+    fromWavelength : `np.ndarray` of `float`
         Source wavelength array.
-    fromFlux : array-like of `float`
+    fromFlux : `np.ndarray` of `float`
         Source flux(-like) array.
-    toWavelength : array-like of `float`
+    toWavelength : `np.ndarray` of `float`
         Target wavelength array.
     fill : `float`, optional
         Fill value.
+    order : `int`, optional
+        Interpolation order to use. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
 
     Returns
     -------
     toFlux : `numpy.ndarray` of `float`
         Target flux-(like) array.
     """
+    if order > 1:
+        indices = interpolateIndices(fromWavelength, toWavelength)
+        values = lanczosInterpolateFlux(fromFlux, indices, fill, order)
+        return values
     with np.errstate(invalid="ignore"):
         toFlux = interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
                           fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
     return toFlux
 
 
-def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0):
+def interpolateVariance(
+    fromWavelength: np.ndarray,
+    fromVariance: np.ndarray,
+    toWavelength: np.ndarray,
+    fill: float = 0.0,
+    order: int = 3,
+) -> np.ndarray:
     """Interpolate a variance-like spectrum
 
     Like ``interpolateFlux``, except we square all the coefficients that get
@@ -71,12 +204,20 @@ def interpolateVariance(fromWavelength, fromVariance, toWavelength, fill=0.0):
         Target wavelength array.
     fill : `float`, optional
         Fill value.
+    order : `int`, optional
+        Interpolation order to use. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
 
     Returns
     -------
     toVariance : `numpy.ndarray` of `float`
         Target variance array.
     """
+    if order > 1:
+        indices = interpolateIndices(fromWavelength, toWavelength)
+        return lanczosInterpolateVariance(fromVariance, indices, fill, order)
+
     length = len(fromWavelength)
     indices = np.arange(length, dtype=int)
     with np.errstate(invalid="ignore", divide="ignore"):

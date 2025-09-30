@@ -126,7 +126,9 @@ def maskOverlaps(wavelength1, sn1, mask1, wavelength2, sn2, mask2, maskVal):
         mask2[overlap2] |= maskVal
 
 
-def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0):
+def makeFluxTable(
+    identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0, order: int = 3, minWeight: float = 0.5
+) -> FluxTable:
     """Create a FluxTable from multiple spectra
 
     Parameters
@@ -142,6 +144,12 @@ def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0
         Number of rejection iterations.
     sigma : `float`
         k-sigma rejection threshold (standard deviations).
+    order : `int`
+        Interpolation order. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
+    minWeight : `float`
+        Minimum weight for Lanczos interpolation.
 
     Returns
     -------
@@ -176,7 +184,9 @@ def makeFluxTable(identities, spectra, ignoreFlags=None, iterations=3, sigma=3.0
         armWavelengths[arm] = np.array([ss.wavelength for ss in armSpectra[arm]]).mean(axis=0)
 
         # Resample all spectra to the common wavelength scale
-        resampled = [ss.resample(armWavelengths[arm]) for ss in armSpectra[arm]]
+        resampled = [
+            ss.resample(armWavelengths[arm], order, ignoreFlags, minWeight) for ss in armSpectra[arm]
+        ]
 
         # Convert lists to arrays, for convenience and speed
         resampledFlux = np.array([ss.flux for ss in resampled])

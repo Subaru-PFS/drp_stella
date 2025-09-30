@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField
+from lsst.pex.config import ConfigurableField, ListField, Field
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -129,6 +129,8 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
+    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
@@ -395,7 +397,13 @@ class CoaddSpectraTask(PipelineTask):
         resampledRange = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
-            resampled.append(spectrum.resample(wavelength))
+            new = spectrum.resample(
+                wavelength,
+                order=self.config.resampleOrder,
+                minWeight=self.config.resampleMinWeight,
+                bad=self.config.mask,
+            )
+            resampled.append(new)
             resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
