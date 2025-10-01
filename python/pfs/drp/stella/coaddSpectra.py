@@ -145,9 +145,9 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     normIterations = Field(
         dtype=int, default=5, doc="Maximum number of iterations for normalization measurement"
     )
-    normSigNoiseThreshold = Field(
-        dtype=float, default=3.0, doc="Pixel signal-to-noise threshold for normalization measurement"
-    )
+    # normSigNoiseThreshold = Field(
+    #     dtype=float, default=3.0, doc="Pixel signal-to-noise threshold for normalization measurement"
+    # )
     normThreshold = Field(dtype=float, default=2.5, doc="Normalization significance threshold for acceptance")
     normConvergence = Field(
         dtype=float, default=1e-3, doc="Convergence threshold for normalization measurement"
@@ -199,8 +199,8 @@ class CoaddSpectraTask(PipelineTask):
         pfsCoadd: Dict[Target, PfsObject] = {}
         pfsCoaddLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
-            # if target.objId != 25769807408:
-            #     continue
+            if target.objId != 25769806430:
+                continue
             result = self.process(target, {identity: data[identity] for identity in sources})
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
@@ -458,6 +458,13 @@ class CoaddSpectraTask(PipelineTask):
             values[visit].append(np.ma.masked_where(mask, ss.flux).reshape(1, -1))
             variances[visit].append(np.ma.masked_where(mask, ss.variance).reshape(1, -1))
 
+        sigNoise: dict[int, float] = {}  # Signal-to-noise squared, per pixel; indexed by visit
+        for visit in visitMap:
+            sigNoise[visit] = np.ma.median(np.ma.concatenate(
+                [val*val/var for val, var in zip(values[visit], variances[visit])]
+            ))
+        print("Signal-to-noise:", sigNoise)
+
         # Iteratively combine and fit for normalization of each visit
         norm = np.ones(numSpectra, dtype=float)
         combination = self.combineResampled(resampled, resampledWeights, 1/norm)
@@ -465,6 +472,9 @@ class CoaddSpectraTask(PipelineTask):
             newNorm = norm.copy()
             newErr = np.zeros(numSpectra, dtype=float)
             for visit in visitMap:
+                if sigNoise[visit] < self.config.normThreshold**2:
+                    continue
+
                 ratio = np.ma.concatenate(values[visit])/combination.flux
                 val = np.ma.median(ratio)
                 with np.errstate(invalid="ignore", divide="ignore"):
@@ -476,19 +486,19 @@ class CoaddSpectraTask(PipelineTask):
                 val, var = fitScales(
                     values[visit], [combination.flux.reshape(1, -1)]*len(values[visit]), variances[visit]
                 )
-                residual = ratio - val
-                from .utils.math import robustRms
-                rms = robustRms(residual.compressed())
+                # residual = ratio - val
+                # from .utils.math import robustRms
+                # rms = robustRms(residual.compressed())
 
                 assert len(val) == 1 and len(var) == 1
                 nn = val[0]
-                ee = np.sqrt(var[0]) + rms
+                # ee = np.sqrt(var[0]) + rms
 
-                if nn/ee < self.config.normThreshold:
-                    nn = 1.0
+                # if nn/ee < self.config.normThreshold:
+                #     nn = 1.0
                 for index in visitMap[visit]:
                     newNorm[index] = nn
-                    newErr[index] = ee
+#                    newErr[index] = ee
 
             # if np.all(newNorm > 1) or np.all(newNorm < 1):
             #     breakpoint()
@@ -509,6 +519,14 @@ class CoaddSpectraTask(PipelineTask):
             spectraList[0].target.objId,
             np.percentile(norm, [0, 25, 50, 75, 100]),
         )
+
+        for ii, ss in enumerate(resampled):
+            if ss.observations.arm[0] != 'm':
+                continue
+            select = (ss.wavelength > 730) & (ss.wavelength < 750)
+            print(ss.observations.visit[0], ss.observations.arm[0], norm[ii], np.median(ss.flux[select]/np.sqrt(ss.variance[select])))
+
+        breakpoint()
 
         # Calculate the remaining ingredients of the output spectrum
         archetype = spectraList[0]

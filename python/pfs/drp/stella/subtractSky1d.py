@@ -26,4 +26,4 @@ def subtractSky1d(spectra: PfsFiberArraySet, pfsConfig: PfsConfig, sky1d: FocalP
     spectra.sky += skyValues
     bitmask = spectra.flags.add("BAD_SKY")
     spectra.mask[np.array(sky.masks)] |= bitmask
-####    spectra.covar[:, 0, :] += skyVariances
+    spectra.covar[:, 0, :] += skyVariances
