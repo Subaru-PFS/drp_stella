@@ -37,7 +37,7 @@ from .datamodel.pfsConfig import PfsConfig
 from .DetectorMapContinued import DetectorMap
 
 
-from lsst.obs.pfs.utils import getLamps
+from lsst.obs.pfs.utils import getLamps, isWindowed
 from pfs.datamodel import FiberStatus, TargetType, Identity
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from .extractSpectraTask import ExtractSpectraTask
@@ -393,7 +393,7 @@ class ReduceExposureTask(PipelineTask):
             True if boxcarWidth > 0 else False,
         ).spectra
 
-        if self.config.doScatteredLight:
+        if self.config.doScatteredLight and not isWindowed(exposure.getMetadata(), exposure.getHeight()):
             pfsArm = spectra.toPfsArm(identity)
             self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
             # Extract spectra again after scattered light correction
@@ -511,7 +511,9 @@ class ReduceExposureTask(PipelineTask):
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
 
-        if self.config.doAdjustDetectorMap:
+        windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
+
+        if self.config.doAdjustDetectorMap and not windowed:
             try:
                 detectorMap = self.adjustDetectorMap.run(
                     detectorMap,
@@ -532,7 +534,7 @@ class ReduceExposureTask(PipelineTask):
 
         # Update photometry using best detectorMap
         notTrace = lines.description != "Trace"
-        if not self.config.doPhotometerLines:
+        if not self.config.doPhotometerLines or windowed:
             apCorr = None
         else:
             phot = self.photometerLines.run(
