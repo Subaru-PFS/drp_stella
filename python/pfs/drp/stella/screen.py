@@ -1,24 +1,20 @@
-from typing import Iterable
+import os
 
 import numpy as np
-
-from lsst.pex.config import Config, ListField
-from lsst.pipe.base import Task
 from lsst.daf.base import PropertyList
-
-from pfs.datamodel import PfsConfig, TargetType, PfsFiberArraySet
 from lsst.obs.pfs.utils import getLamps
+from lsst.pex.config import Config
+from lsst.pipe.base import Task
+from pfs.datamodel import *
+from pfs.datamodel import PfsConfig, TargetType, PfsFiberArraySet
+from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 
-
-__all__ = ("ScreenResponseConfig", "ScreenResponseTask", "screenResponse")
+__all__ = ("ScreenResponseConfig", "ScreenResponseTask", "ScreenModel")
 
 
 class ScreenResponseConfig(Config):
-    screenParams = ListField(
-        dtype=float,
-        default=[0, 0, -1.62131294e-07, -7.96517605e-05, -1.13541195e-04],
-        doc="Flat-field screen response parameters",
-    )
+    pass
 
 
 class ScreenResponseTask(Task):
@@ -79,24 +75,19 @@ class ScreenResponseTask(Task):
             raise RuntimeError("FiberId mismatch")
         if not np.isfinite(insrot):
             raise RuntimeError("Rotator angle is not finite")
-        screen = screenResponse(
-            pfsConfig.pfiCenter[:, 0],
-            pfsConfig.pfiCenter[:, 1],
-            insrot,
-            self.config.screenParams,
-        )
 
+        # just testing
+        screen = ScreenModel.loadModel('/home/alefur/screenModel')
+
+        # masking irrelevant fibers.
         noPosition = np.isnan(pfsConfig.pfiCenter).all(axis=1)
-        if np.any(noPosition):
-            screen[noPosition] = 1.0
+        select = (pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) & (~noPosition)
 
-        select = pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)
+        xyRot = rotateCoordinatesAroundCenter(pfsConfig.pfiCenter[select].T, x0=0, y0=0,
+                                              theta=np.deg2rad(insrot))
 
-        # The "screen response" is the quartz flux divided by the twilight flux.
-        # To get the twilight flux, we need to divide our quartz flux by the screen response.
-        # We have the quartz flux as the "norm" of the pfsMerged.
-        # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
-        spectra.norm[select] /= screen[select, np.newaxis]
+        correction = screen.evaluate(spectra.wavelength[select], xy=xyRot.T)
+        spectra.flux[select] /= correction
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
@@ -142,55 +133,145 @@ def rotateCoordinatesAroundCenter(x: np.ndarray, x0: float, y0: float, theta: fl
     return xRot
 
 
-def poly2dScreen(coords: Iterable[np.ndarray], a: float, b: float, c: float) -> np.ndarray:
-    """Define a 2D polynomial function with cross terms.
+class ScreenModel:
+    def __init__(self, wavelengths, meanResponse, components, scores, x, y, nComponents=None):
+        """
+        Initialize the PCAReconstructor.
 
-    Parameters
-    ----------
-    coords : `tuple` of `numpy.ndarray`
-        The x and y coordinates.
-    a, b, c : `float`
-        The coefficients of the 2D polynomial.
+        Parameters
+        ----------
+        wavelengths : np.ndarray
+            Array of shape (nSamples,) containing the wavelengths used during training.
+        meanResponse : np.ndarray
+            Mean fiber response used during PCA (shape: nFibers).
+        components : np.ndarray
+            PCA components (shape: nTotalComponents, nFibers).
+        scores : np.ndarray
+            PCA projection scores (shape: nSamples, nTotalComponents).
+        x, y : np.ndarray
+            Positions (shape: nFibers,) corresponding to each column in the components.
+        nComponents : int or None
+            Number of PCA components to retain. If None, use all components.
+        """
+        self.wavelengths = wavelengths
+        self.mean = meanResponse
+        self.components = components[:nComponents] if nComponents is not None else components
+        self.scores = scores[:, :nComponents] if nComponents is not None else scores
+        self.nComponents = self.components.shape[0]
 
-    Returns
-    -------
-    values : `numpy.ndarray`
-        The values of the 2D polynomial at the given coordinates.
-    """
-    x, y = coords
-    return a * x * y + b * x + c * y + 1
+        self.x = x
+        self.y = y
+        self.nFibers = self.mean.size
+        self.nSamples = self.scores.shape[0]
 
+    def evaluate(self, wavegrid=None, xy=None):
+        """
+        Reconstruct fiber response; returns (nFibers, nWaves). Uses batched matmul with simple reshapes.
+        """
+        scores = self.scores if wavegrid is None else self.interpolateScores(wavegrid)  # (nW,nC) or (nF,nW,nC)
 
-def screenResponse(x: np.ndarray, y: np.ndarray, insrot: float, params: np.ndarray) -> np.ndarray:
-    """Model of the screen response
+        if xy is None:
+            mean = self.mean  # (nF,)
+            components = self.components  # (nC, nF)
+        else:
+            extended = np.vstack([self.components, self.mean])
+            mean, components = self.interpolateComponents(xy, extended)  # (nF,), (nC, nF)
 
-    Provides a model of the screen response as a function of position on the
-    focal plane.
+        compPerFiber = components.T[:, :, None]
 
-    Parameters
-    ----------
-    x, y : `numpy.ndarray`
-        PFI coordinates.
-    insrot : `float`
-        The instrument rotator angle in degrees of the quartz exposure.
-    params : `numpy.ndarray`
-        The screen response parameters. The first two parameters are the
-        coordinates of the center of the screen, and the remaining three
-        parameters are the coefficients of the 2D polynomial.
+        scoresB = scores[None, :, :] if scores.ndim == 2 else scores
+        # final matmul
+        recon = (scoresB @ compPerFiber).squeeze(-1)
 
-    Returns
-    -------
-    values : `numpy.ndarray`
-        The simulated screen response values.
-    """
-    if len(params) != 5:
-        raise ValueError("The screen response model requires 5 parameters")
+        return recon + mean[:, None]
 
-    x0 = params[0]
-    y0 = params[1]
+    def interpolateScores(self, wavegrid):
+        """
+        Interpolate PCA scores across wavelength.
 
-    coords = np.vstack((x, y))
-    rotated = rotateCoordinatesAroundCenter(coords, x0, y0, np.deg2rad(insrot))
-    # You have to remember that we computed this model by dividing twilight by the quartzes.
-    # Providing the twilight is uniform, what you have left is actually the inverse of the screen response.
-    return 1 / poly2dScreen(rotated, *params[2:])
+        Parameters
+        ----------
+        wavegrid : np.ndarray
+            1D (nW,) or 2D per-fiber (nF, nW)
+
+        Returns
+        -------
+        np.ndarray
+            If 1D: (nW, nC)
+            If 2D: (nF, nW, nC)
+        """
+        wavegrid = np.asarray(wavegrid)
+        interpolated_scores = []
+
+        for i in range(self.nComponents):
+            f = interp1d(self.wavelengths, self.scores[:, i], kind='cubic',
+                         fill_value=(self.scores[0, i], self.scores[-1, i]), bounds_error=False)
+            interpolated_scores.append(f(wavegrid))
+
+        if wavegrid.ndim == 1:
+            return np.column_stack(interpolated_scores)
+        else:
+            return np.stack(interpolated_scores, axis=-1)
+
+    def interpolateComponents(self, xy, extendedComponent, method='linear'):
+        """
+        Interpolate PCA components and mean response at new positions.
+
+        Parameters
+        ----------
+        xy : np.ndarray
+            New (x,y) positions (nFibers,2)
+        extendedComponent : np.ndarray
+            Stack (nC+1, nFibersOld), last row = mean
+
+        Returns
+        -------
+        meanInterp : np.ndarray
+            Interpolated mean response (nFibers,)
+        componentsInterp : np.ndarray
+            Interpolated components (nC, nFibers)
+        """
+        points = np.vstack((self.x, self.y)).T
+        interpolated = []
+
+        for values in extendedComponent:
+            m = np.isfinite(values)
+            evaluated = griddata(points[m], values[m], xy, method=method)
+
+            # fallback for NaN points
+            if np.any(~np.isfinite(evaluated)):
+                evaluated[~np.isfinite(evaluated)] = griddata(points[m], values[m],
+                                                              xy[~np.isfinite(evaluated)], method='nearest')
+            interpolated.append(evaluated)
+
+        interpolated = np.array(interpolated)  # (nC+1, nFibers)
+        return interpolated[-1], interpolated[:-1]
+
+    def saveModel(self, exportDir):
+        """Save PCA model to disk in a new versioned folder."""
+        os.makedirs(exportDir, exist_ok=True)
+        saveDir = exportDir
+
+        np.save(os.path.join(saveDir, "wavelengths.npy"), self.wavelengths)
+        np.save(os.path.join(saveDir, "meanResponse.npy"), self.mean)
+        np.save(os.path.join(saveDir, "components.npy"), self.components)
+        np.save(os.path.join(saveDir, "scores.npy"), self.scores)
+        np.save(os.path.join(saveDir, "x.npy"), self.x)
+        np.save(os.path.join(saveDir, "y.npy"), self.y)
+
+        print(f"PCA model saved to {saveDir}")
+
+    @classmethod
+    def loadModel(cls, exportDir):
+        """Load PCA model from disk."""
+        loadDir = exportDir
+
+        wavelengths = np.load(os.path.join(loadDir, "wavelengths.npy"))
+        meanResponse = np.load(os.path.join(loadDir, "meanResponse.npy"))
+        components = np.load(os.path.join(loadDir, "components.npy"))
+        scores = np.load(os.path.join(loadDir, "scores.npy"))
+        x = np.load(os.path.join(loadDir, "x.npy"))
+        y = np.load(os.path.join(loadDir, "y.npy"))
+
+        print(f"Loaded PCA model from {loadDir}")
+        return cls(wavelengths, meanResponse, components, scores, x, y)
