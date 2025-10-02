@@ -1,17 +1,13 @@
-description: Measure skyNorms
+description: Combine skyNorms residuals into skyNorms_calib
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+imports:
+  - $DRP_STELLA_DIR/pipelines/measureSkyNorms.yaml
 
 tasks:
-  isr:
-    class: lsst.obs.pfs.isrTask.PfsIsrTask
-  cosmicray:
-    class: pfs.drp.stella.cosmicray.CosmicRayTask
   reduceExposure:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
-      requireAdjustDetectorMap: True
       doApplySkyNorms: False
-  skyNorms:
-    class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask
+      doApplyPfiCorrection: True  # PFI correction is applied in combineSkyNorms so skyNorms are uncorrected
   combineSkyNorms:
     class: pfs.drp.stella.skyNorms.CombineSkyNormsTask

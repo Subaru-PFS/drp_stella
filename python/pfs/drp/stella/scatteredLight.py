@@ -165,8 +165,13 @@ class ScatteredLightModel:
             for i in invalid_indices:
                 start = max(0, i - self.interpWinSize)
                 end = min(i + self.interpWinSize + 1, len(invalid_indices))
+                if end < start:
+                    continue
                 flx[i] = np.nanmedian(flx[start:end])
-            flx[bad] = np.nanmedian(flx[~bad])
+            if np.all(bad):
+                flx[:] = 0.0
+            else:
+                flx[bad] = np.nanmedian(flx[~bad])
             flux_new.append(flx)
         pfsArm.flux = np.array(flux_new)
 
