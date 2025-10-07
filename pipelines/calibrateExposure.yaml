@@ -6,3 +6,5 @@ tasks:
     class: pfs.drp.stella.fitFluxReference.FitFluxReferenceTask
   fitFluxCal:
     class: pfs.drp.stella.fitFluxCal.FitFluxCalTask
+  applyFluxCal:
+    class: pfs.drp.stella.applyFluxCal.ApplyFluxCalTask
