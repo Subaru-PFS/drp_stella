@@ -31,7 +31,7 @@ from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.obs.pfs.formatters import DetectorMapFormatter
-from pfs.datamodel import TargetType
+from pfs.datamodel import FiberStatus, TargetType
 from pfs.datamodel.objectGroupMap import ObjectGroupMap
 from pfs.datamodel.target import Target
 from pfs.datamodel.utils import calculatePfsVisitHash
@@ -1004,8 +1004,9 @@ def defineCombination(
     )
 
     pfsConfigList = [
-        butler.get("pfsConfig", visit=vv, instrument=instrument).select(targetType=targetType)
-        for vv in visitList
+        butler.get("pfsConfig", visit=vv, instrument=instrument).select(
+            fiberStatus=FiberStatus.GOOD, targetType=targetType
+        ) for vv in visitList
     ]
     catId = set(sum((np.unique(pfsConfig.catId).tolist() for pfsConfig in pfsConfigList), []))
 
