@@ -86,6 +86,7 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
 
         pfsMerged = self.computeContinuum(pfsMerged, mode="observed").whiten(pfsMerged)
         pfsMerged = self.maskUninterestingRegions(pfsMerged)
+        pfsConfig = pfsConfig.select(fiberId=pfsMerged.fiberId)
 
         if self.debugInfo.doWriteWhitenedFlux:
             pfsMerged.writeFits(f"fitFluxReference-output/whitened-{pfsMerged.filename}")
