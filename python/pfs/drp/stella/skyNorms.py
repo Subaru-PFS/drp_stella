@@ -492,11 +492,7 @@ class CombineSkyNormsTask(PipelineTask):
         combined : `FocalPlaneFunction`
             Combined sky normalizations.
         """
-        fiberId = skyNormsList[0].fiberId
-        for skyNorms in skyNormsList:
-            if not np.array_equal(skyNorms.fiberId, fiberId):
-                raise RuntimeError("Mismatched fiberId arrays")
-
+        fiberId = np.sort(np.unique(np.concatenate([skyNorms.fiberId for skyNorms in skyNormsList])))
         numFibers = len(fiberId)
         numMeasurements = len(skyNormsList)
         shape = (numFibers, numMeasurements)
@@ -505,8 +501,10 @@ class CombineSkyNormsTask(PipelineTask):
         variances = np.full(shape, np.nan, dtype=float)
 
         for ii, skyNorms in enumerate(skyNormsList):
-            values[:, ii] = skyNorms.value
-            variances[:, ii] = skyNorms.rms**2
+            index = np.searchsorted(fiberId, skyNorms.fiberId)
+            assert np.all(fiberId[index] == skyNorms.fiberId)
+            values[index, ii] = skyNorms.value
+            variances[index, ii] = skyNorms.rms**2
 
         masks = ~np.isfinite(values) | ~np.isfinite(variances)
         wavelength = np.full(shape, np.nan, dtype=float)  # Not used
