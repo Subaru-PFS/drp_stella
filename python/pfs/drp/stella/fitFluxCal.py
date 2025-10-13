@@ -563,6 +563,9 @@ class BroadbandFluxChi2:
                 & np.isfinite(calib)
                 & (calib != 0)
             )
+            if not np.any(isGood):
+                return np.nan
+
             calibrated.wavelength = calibrated.wavelength[isGood]
             calibrated.flux = calibrated.flux[isGood]
             calibrated.mask = calibrated.mask[isGood]
