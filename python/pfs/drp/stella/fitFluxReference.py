@@ -501,20 +501,21 @@ class FitFluxReferenceTask(PipelineTask):
             break
 
         flux = np.full(shape=(len(originalFiberId), len(wavelength)), fill_value=np.nan, dtype=np.float32)
-        fitParams = np.full(
-            shape=(len(originalFiberId),),
-            fill_value=np.nan,
-            dtype=[
-                ("teff", np.float32),
-                ("logg", np.float32),
-                ("m", np.float32),
-                ("alpha", np.float32),
-                ("radial_velocity", np.float32),
-                ("radial_velocity_err", np.float32),
-                ("flux_scaling_chi2", np.float32),
-                ("flux_scaling_dof", np.int32),
-            ],
-        )
+        with np.errstate(invalid="ignore"):
+            fitParams = np.full(
+                shape=(len(originalFiberId),),
+                fill_value=np.nan,
+                dtype=[
+                    ("teff", np.float32),
+                    ("logg", np.float32),
+                    ("m", np.float32),
+                    ("alpha", np.float32),
+                    ("radial_velocity", np.float32),
+                    ("radial_velocity_err", np.float32),
+                    ("flux_scaling_chi2", np.float32),
+                    ("flux_scaling_dof", np.int32),
+                ],
+            )
 
         fiberIdToIndex = {value: key for key, value in enumerate(originalFiberId)}
 
@@ -826,9 +827,10 @@ class FitFluxReferenceTask(PipelineTask):
 
             x0 = paramToX(param4d[np.argmax(priorPdf)])
 
-            result = scipy.optimize.minimize(
-                objective, x0, bounds=bounds, method=self.config.minimizationMethod
-            )
+            with np.errstate(invalid="ignore"):
+                result = scipy.optimize.minimize(
+                    objective, x0, bounds=bounds, method=self.config.minimizationMethod
+                )
             param = xToParam(result.x)
             chisq = objective(result.x, returnChisq=True)
 
