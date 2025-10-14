@@ -171,6 +171,7 @@ class EstimateRadialVelocityTask(Task):
         goodIndex = 0 == (
             spectrum.mask & spectrum.flags.get(*(m for m in self.config.mask if m in spectrum.flags))
         )
+        goodIndex &= np.isfinite(spectrum.flux) & (spectrum.variance > 0)
         wavelength = spectrum.wavelength[goodIndex]
         flux = spectrum.flux[goodIndex] - 1.0
         variance = spectrum.variance[goodIndex]
@@ -179,8 +180,14 @@ class EstimateRadialVelocityTask(Task):
             modelSpectrum.mask
             & modelSpectrum.flags.get(*(m for m in self.config.mask if m in modelSpectrum.flags))
         )
+        goodIndex &= np.isfinite(modelSpectrum.flux)
         modelWavelength = modelSpectrum.wavelength[goodIndex]
         modelFlux = modelSpectrum.flux[goodIndex] - 1.0
+
+        if len(flux) == 0:
+            raise RuntimeError("No good pixel in observed spectrum.")
+        if len(modelFlux) == 0:
+            raise RuntimeError("No good pixel in model spectrum.")
 
         # Make scaledModel[i,:] = modelSpectrum moving at searchVelocity[i]
         scaledWavelength = wavelength.reshape(1, -1) / doppler.reshape(-1, 1)
