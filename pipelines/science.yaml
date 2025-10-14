@@ -4,3 +4,14 @@ imports:
 tasks:
   coaddSpectra:
     class: pfs.drp.stella.coaddSpectra.CoaddSpectraTask
+
+subsets:
+  instrument:
+    - isr
+    - cosmicray
+  processExposure:
+    - reduceExposure
+    - mergeArms
+  fluxCal:
+    - fitFluxReference
+    - fitFluxCal
