@@ -86,10 +86,17 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spectrum = Spectrum(length)
             spectrum.fiberId = pfsArm.fiberId[ii]
             spectrum.flux[:] = pfsArm.flux[ii]
-            spectrum.mask.array[:] = pfsArm.mask[ii]
             spectrum.norm[:] = pfsArm.norm[ii]
             spectrum.variance[:] = pfsArm.covar[ii, 0]
             spectrum.wavelength[:] = pfsArm.wavelength[ii]
+
+            # We need to take care that the mask planes are copied across, not the values
+            spectrum.mask.array[:] = 0
+            for name in pfsArm.flags.flags:
+                source = pfsArm.flags.get(name)
+                target = 2**spectrum.mask.addMaskPlane(name)
+                select = (pfsArm.mask[ii] & source) != 0
+                spectrum.mask.array[0, select] |= target
 
             # Need to convert notes to pure-python types so PropertySet will recognise them
             notesTypes = {
