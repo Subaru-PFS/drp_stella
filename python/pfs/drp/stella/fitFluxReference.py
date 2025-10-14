@@ -590,6 +590,8 @@ class FitFluxReferenceTask(PipelineTask):
             if model is None or model.spectrum is None:
                 continue
             modelSpectrum = convolveLsf(model.spectrum, pfsMergedLsf[fiberId], spectrum.wavelength)
+            isBad = modelSpectrum.flux <= 0
+            modelSpectrum.mask[isBad] |= modelSpectrum.flags.add("NO_DATA")
             modelSpectrum = self.computeContinuum(modelSpectrum, mode="model").whiten(modelSpectrum)
             radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
 
