@@ -591,7 +591,10 @@ class FitFluxReferenceTask(PipelineTask):
                 continue
             modelSpectrum = convolveLsf(model.spectrum, pfsMergedLsf[fiberId], spectrum.wavelength)
             modelSpectrum = self.computeContinuum(modelSpectrum, mode="model").whiten(modelSpectrum)
-            radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
+            try:
+                radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
+            except Exception as e:
+                self.log.warn("Radial velocity estimation (fiberId=%s) failed: '%s'", fiberId, str(e))
 
         return radialVelocities
 
