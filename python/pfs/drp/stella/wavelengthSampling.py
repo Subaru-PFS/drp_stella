@@ -10,7 +10,7 @@ __all__ = ("WavelengthSamplingConfig", "WavelengthSamplingTask")
 
 class WavelengthSamplingConfig(Config):
     """Configuration for wavelength sampling"""
-    minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
+    minWavelength = Field(dtype=float, default=370, doc="Minimum wavelength (nm)")
     maxWavelength = Field(dtype=float, default=1270, doc="Maximum wavelength (nm)")
     resolution = Field(dtype=float, default=0.08, doc="Resolution (nm/pixel)")
 
