@@ -5,12 +5,106 @@ from lsst.daf.base import PropertyList
 from lsst.obs.pfs.utils import getLamps
 from lsst.pex.config import Config
 from lsst.pipe.base import Task
-from pfs.datamodel import *
 from pfs.datamodel import PfsConfig, TargetType, PfsFiberArraySet
-from scipy.interpolate import griddata
-from scipy.interpolate import interp1d
+from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator, interp1d
+from scipy.ndimage import map_coordinates
+from scipy.spatial import Delaunay
 
 __all__ = ("ScreenResponseConfig", "ScreenResponseTask", "ScreenModel")
+
+
+def bilinearInterpolation(xgrid, ygrid, fields, xy, nearestFallback=True):
+    """
+    Bilinear eval on a regular grid for one or many fields.
+
+    Parameters
+    ----------
+    xgrid, ygrid : ndarray
+        Grid centers (len nx, ny).
+    fields : ndarray
+        Shape (nField, ny, nx) or (nField, ny*nx) or (ny, nx) or (ny*nx,).
+        Last axis must match nx*ny when flattened.
+    xy : ndarray, shape (N, 2)
+        Query [[x, y], ...].
+    nearestFallback : bool, optional
+        If True, clamp out-of-bounds with nearest; else return NaN outside.
+
+    Returns
+    -------
+    out : ndarray, shape (nField, N)  or (N,) if a single field
+    """
+    xgrid = np.asarray(xgrid)
+    ygrid = np.asarray(ygrid)
+    xy = np.asarray(xy)
+
+    nx = xgrid.size
+    ny = ygrid.size
+
+    arr = np.asarray(fields)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, ny, nx)
+    elif arr.ndim == 2:
+        print(arr.shape)
+        if arr.shape[1] == ny * nx:
+            arr = arr.reshape(arr.shape[0], ny, nx)
+        elif arr.shape == (ny, nx):
+            arr = arr.reshape(1, ny, nx)
+        else:
+            raise ValueError("fields shape incompatible with (ny, nx)")
+
+    dx = xgrid[1] - xgrid[0]
+    dy = ygrid[1] - ygrid[0]
+
+    ix = (xy[:, 0] - xgrid[0]) / dx
+    iy = (xy[:, 1] - ygrid[0]) / dy
+    coords = np.vstack([iy, ix])
+
+    mode = 'nearest' if nearestFallback else 'constant'
+    out = [map_coordinates(f, coords, order=1, mode=mode, cval=np.nan, prefilter=False) for f in arr]
+    out = np.asarray(out)
+
+    return out[0] if fields.ndim in (1, 2) and fields.shape == (ny, nx) else out
+
+
+def delaunayInterpolation(XY, fields, xy, nearestFallback=True):
+    """
+    Piecewise-linear interpolation on a Delaunay triangulation (grid-agnostic).
+
+    Parameters
+    ----------
+    XY : ndarray, shape (M, 2)
+        Source points [[x, y], ...].
+    fields : ndarray
+        Shape (nField, M) or (M,).
+    xy : ndarray, shape (N, 2)
+        Query [[x, y], ...].
+    nearestFallback : bool, optional
+        If True, fill failed linear evals with nearest neighbor.
+
+    Returns
+    -------
+    out : ndarray, shape (nField, N) or (N,) if a single field
+    """
+    XY = np.asarray(XY)
+    xy = np.asarray(xy)
+
+    arr = np.asarray(fields)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+
+    tri = Delaunay(XY)
+    lin = [LinearNDInterpolator(tri, v, fill_value=np.nan) for v in arr]
+    out = [f(xy) for f in lin]
+    out = np.asarray(out)
+
+    if nearestFallback and np.any(~np.isfinite(out)):
+        near = [NearestNDInterpolator(XY, v) for v in arr]
+        for i in range(out.shape[0]):
+            bad = ~np.isfinite(out[i])
+            if np.any(bad):
+                out[i, bad] = near[i](xy[bad])
+
+    return out[0] if fields.ndim == 1 else out
 
 
 class ScreenResponseConfig(Config):
@@ -38,7 +132,7 @@ class ScreenResponseTask(Task):
             return
         insrot = metadata["INSROT"]
         if np.sum(pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) > 0:
-            self.log.info("Applying screen response correction to quartz lamp spectra, INSROT=%f", insrot)
+            self.log.info("Applying new screen response correction to quartz lamp spectra, INSROT=%f", insrot)
             self.apply(spectra, pfsConfig, insrot)
 
     def isQuartz(self, metadata: PropertyList) -> bool:
@@ -58,36 +152,79 @@ class ScreenResponseTask(Task):
         return bool(lamps & set(("Quartz", "Quartz_eng")))
 
     def apply(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, insrot: float):
-        """Correct the spectra for the screen response.
+        """Correct spectra.norm for the *screen response* (store the pattern in norm).
+
+        Conventions (read this first!)
+        -------------------------------
+        - Response R(x, λ): multiplicative pattern from the screen (quartz flat), defined so that
+            quartz_flux / R  ≈  1
+          i.e. R is what imprints non-uniformity on quartz exposures.
+
+        - Correction C(x, λ): the inverse of the response:
+            C = 1 / R
+          C is what you would *multiply* a quartz frame by to flatten it.
+
+        Why `norm /= correction` ?
+        --------------------------
+        We want `norm` to *carry* the screen pattern used by downstream ratios. If we set
+            norm_applied = norm_base / C = norm_base * R
+        then for a quartz exposure Q:
+            Q / norm_applied = (Q / (norm_base * R))  ≈  R    (since Q / norm_base ≈ 1 initially)
+        which is exactly what we want: quartz divided by the applied norm reveals the response.
+        For a uniform twilight T:
+            T / norm_applied  ≈  1
+        if `norm_base` already encapsulates throughput and we only inject/remove the screen via R or C.
+
+        TL;DR: We *divide by C* (i.e. multiply by R) because `norm` is the container for the response pattern.
 
         Parameters
         ----------
-        spectra : `PfsFiberArraySet`
-            The spectra to be corrected.
-        pfsConfig : `PfsConfig`
-            Fiber configuration.
-        insrot : `float`
-            The instrument rotator angle (degrees) of the exposure.
+        spectra : PfsFiberArraySet
+            Spectra whose .norm will be updated in place to include the screen response R.
+        pfsConfig : PfsConfig
+            Fiber configuration (used for fiber selection and PFI coordinates).
+        insrot : float
+            Instrument rotator angle [deg] for the exposure; used to rotate PFI coordinates.
+
+        Raises
+        ------
+        RuntimeError
+            If fiber IDs mismatch or `insrot` is not finite.
         """
-        # Apply screen response correction
+        # Align config to spectra; sanity checks
         pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
         if not np.array_equal(pfsConfig.fiberId, spectra.fiberId):
             raise RuntimeError("FiberId mismatch")
         if not np.isfinite(insrot):
             raise RuntimeError("Rotator angle is not finite")
 
-        # just testing
+        # Load the screen model (produces R when evaluated); keep as-is for your local test
         screen = ScreenModel.loadModel('/home/alefur/screenModel')
 
-        # masking irrelevant fibers.
+        # Select only “real” science fibers with known positions
         noPosition = np.isnan(pfsConfig.pfiCenter).all(axis=1)
         select = (pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) & (~noPosition)
+        if not np.any(select):
+            return
 
-        xyRot = rotateCoordinatesAroundCenter(pfsConfig.pfiCenter[select].T, x0=0, y0=0,
-                                              theta=np.deg2rad(insrot))
+        # Rotate PFI (x, y) by insrot so the screen model is queried in the proper orientation
+        xyRot = rotateCoordinatesAroundCenter(
+            pfsConfig.pfiCenter[select].T, x0=0, y0=0, theta=np.deg2rad(insrot)
+        )
 
-        correction = screen.evaluate(spectra.wavelength[select], xy=xyRot.T)
-        spectra.flux[select] /= correction
+        # Evaluate RESPONSE R(λ, x, y); shapes: (nSel, nλ)
+        response = screen.evaluate(spectra.wavelength[select], xy=xyRot.T)
+
+        # Compute CORRECTION C = 1 / R; we *divide norm by C* to *insert R* into norm (see doc above)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            correction = 1 / response
+            bad = ~np.isfinite(correction) | (correction == 0)
+            if np.any(bad):
+                # If the screen model is undefined somewhere, fall back to neutral correction = 1
+                correction[bad] = 1.0
+
+            # The key step: norm_applied = norm_base / C = norm_base * R
+            spectra.norm[select] /= correction
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
@@ -168,14 +305,14 @@ class ScreenModel:
         """
         Reconstruct fiber response; returns (nFibers, nWaves). Uses batched matmul with simple reshapes.
         """
-        scores = self.scores if wavegrid is None else self.interpolateScores(wavegrid)  # (nW,nC) or (nF,nW,nC)
+        scores = self.scores if wavegrid is None else self.interpolateScores(wavegrid)
 
         if xy is None:
             mean = self.mean  # (nF,)
             components = self.components  # (nC, nF)
         else:
             extended = np.vstack([self.components, self.mean])
-            mean, components = self.interpolateComponents(xy, extended)  # (nF,), (nC, nF)
+            mean, components = self.interpolateComponents(extended, xy)  # (nF,), (nC, nF)
 
         compPerFiber = components.T[:, :, None]
 
@@ -213,39 +350,35 @@ class ScreenModel:
         else:
             return np.stack(interpolated_scores, axis=-1)
 
-    def interpolateComponents(self, xy, extendedComponent, method='linear'):
+    def interpolateComponents(self, extendedComponent, xy, mode='bilinear', nearestFallback=True):
         """
-        Interpolate PCA components and mean response at new positions.
-
-        Parameters
-        ----------
-        xy : np.ndarray
-            New (x,y) positions (nFibers,2)
-        extendedComponent : np.ndarray
-            Stack (nC+1, nFibersOld), last row = mean
-
-        Returns
-        -------
-        meanInterp : np.ndarray
-            Interpolated mean response (nFibers,)
-        componentsInterp : np.ndarray
-            Interpolated components (nC, nFibers)
+        Interpolate components (last row = mean) at xy using either bilinear or Delaunay.
         """
-        points = np.vstack((self.x, self.y)).T
-        interpolated = []
+        xy = np.asarray(xy)
 
-        for values in extendedComponent:
-            m = np.isfinite(values)
-            evaluated = griddata(points[m], values[m], xy, method=method)
+        if mode == 'bilinear':
+            xgrid = np.unique(self.x)
+            ygrid = np.unique(self.y)
+            nx = xgrid.size
+            ny = ygrid.size
+            if nx * ny != self.x.size:
+                raise ValueError("self.x/self.y are not a regular grid; use mode='tri'.")
 
-            # fallback for NaN points
-            if np.any(~np.isfinite(evaluated)):
-                evaluated[~np.isfinite(evaluated)] = griddata(points[m], values[m],
-                                                              xy[~np.isfinite(evaluated)], method='nearest')
-            interpolated.append(evaluated)
+            fields = np.asarray(extendedComponent)
+            if fields.ndim == 2 and fields.shape[1] == ny * nx:
+                fields = fields.reshape(fields.shape[0], ny, nx)
 
-        interpolated = np.array(interpolated)  # (nC+1, nFibers)
-        return interpolated[-1], interpolated[:-1]
+            vals = bilinearInterpolation(xgrid, ygrid, fields, xy, nearestFallback=nearestFallback)
+
+        elif mode == 'tri':
+            XY = np.column_stack([self.x, self.y])
+            fields = np.asarray(extendedComponent)
+            vals = delaunayInterpolation(XY, fields, xy, nearestFallback=nearestFallback)
+
+        else:
+            raise ValueError("mode must be 'bilinear' or 'tri'")
+
+        return vals[-1], vals[:-1]
 
     def saveModel(self, exportDir):
         """Save PCA model to disk in a new versioned folder."""
@@ -273,5 +406,5 @@ class ScreenModel:
         x = np.load(os.path.join(loadDir, "x.npy"))
         y = np.load(os.path.join(loadDir, "y.npy"))
 
-        print(f"Loaded PCA model from {loadDir}")
+        print(f"Please help me, Loaded PCA model from {loadDir}")
         return cls(wavelengths, meanResponse, components, scores, x, y)
