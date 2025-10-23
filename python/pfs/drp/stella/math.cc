@@ -10,6 +10,7 @@
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
+#include "pfs/drp/stella/math/lanczos.h"
 #include "pfs/drp/stella/python/math.h"
 
 namespace py = pybind11;
@@ -276,6 +277,105 @@ void declareSparseSquareMatrix(py::module & mod, char const* name) {
 }
 
 
+template <typename T, typename U, int C1, int C2>
+void declareLanczos(py::module & mod) {
+    mod.def(
+        "lanczosInterpolate",
+        &lanczosInterpolate<T, U, C1, C1, C1, C1, C1, C1, C2>,
+        "resultValues"_a,
+        "resultMask"_a,
+        "resultVariance"_a,
+        "inputValues"_a,
+        "inputMask"_a,
+        "inputVariance"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER,
+        "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
+    );
+
+    mod.def(
+        "lanczosInterpolateFlux",
+        &lanczosInterpolateFlux<T, U, C1, C1, C1, C1, C2>,
+        "resultValues"_a,
+        "resultMask"_a,
+        "inputValues"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER,
+        "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
+    );
+    mod.def(
+        "lanczosInterpolateFlux",
+        &lanczosInterpolateFlux<T, U, C1, C1, C1, C2>,
+        "resultValues"_a,
+        "inputValues"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+    mod.def(
+        "lanczosInterpolateFlux",
+        &lanczosInterpolateFlux<T, U, C1, C1, C2>,
+        "inputValues"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+    mod.def(
+        "lanczosInterpolateFlux",
+        &lanczosInterpolateFlux<T, U, C1, C2>,
+        "inputValues"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+
+    mod.def(
+        "lanczosInterpolateVariance",
+        &lanczosInterpolateVariance<T, U, C1, C1, C1, C1, C2>,
+        "resultVariance"_a,
+        "resultMask"_a,
+        "inputVariance"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER,
+        "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
+    );
+    mod.def(
+        "lanczosInterpolateVariance",
+        &lanczosInterpolateVariance<T, U, C1, C1, C1, C2>,
+        "resultVariance"_a,
+        "inputVariance"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+    mod.def(
+        "lanczosInterpolateVariance",
+        &lanczosInterpolateVariance<T, U, C1, C1, C2>,
+        "inputVariance"_a,
+        "inputMask"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+    mod.def(
+        "lanczosInterpolateVariance",
+        &lanczosInterpolateVariance<T, U, C1, C2>,
+        "inputVariance"_a,
+        "indices"_a,
+        "fill"_a=INTERPOLATE_DEFAULT_FILL,
+        "order"_a=INTERPOLATE_DEFAULT_ORDER
+    );
+}
+
+
 PYBIND11_PLUGIN(math) {
     py::module mod("math");
     py::module::import("lsst.afw.math");
@@ -300,6 +400,11 @@ PYBIND11_PLUGIN(math) {
     declareMatrixTriplets(mod);
     declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
     declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
+
+    declareLanczos<double, double, 1, 1>(mod);
+    declareLanczos<double, double, 0, 1>(mod);
+    declareLanczos<float, double, 1, 1>(mod);
+    declareLanczos<float, double, 0, 1>(mod);
     return mod.ptr();
 }
 

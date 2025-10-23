@@ -185,7 +185,7 @@ class EstimateRadialVelocityTask(Task):
         # Make scaledModel[i,:] = modelSpectrum moving at searchVelocity[i]
         scaledWavelength = wavelength.reshape(1, -1) / doppler.reshape(-1, 1)
         scaledModel = interpolateFlux(
-            modelWavelength, modelFlux, scaledWavelength.reshape(-1)
+            modelWavelength, modelFlux, scaledWavelength.reshape(-1), order=1
         ).reshape(len(searchVelocity), -1)
         # We divide the model flux by `dopper`
         # assuming that line spectra contribute to the correlation

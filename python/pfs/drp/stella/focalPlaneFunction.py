@@ -16,7 +16,7 @@ from pfs.datamodel import (
 )
 from pfs.datamodel.utils import subclasses
 from pfs.drp.stella.datamodel import PfsFiberArraySet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask, interpolateVariance
+from pfs.drp.stella.interpolate import interpolate
 from pfs.utils.fiberids import FiberIds
 from scipy.interpolate import BSpline, InterpolatedUnivariateSpline, LSQUnivariateSpline, interp1d
 from scipy.stats import binned_statistic
@@ -579,22 +579,30 @@ class ConstantFocalPlaneFunction(FocalPlaneFunction):
         """
         assert len(wavelengths) == len(positions)
 
-        doResample = [
-            wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for wl in wavelengths
-        ]
+        values = []
+        masks = []
+        variances = []
+        for wl in wavelengths:
+            if wl.shape == self.wavelength.shape and np.all(wl == self.wavelength):
+                values.append(self.value)
+                masks.append(self.mask)
+                variances.append(self.variance)
+                continue
+            resampled = interpolate(
+                self.wavelength,
+                self.value,
+                self.mask.astype(int),
+                self.variance,
+                wl,
+                fill=0.0,
+                order=3,
+                badMask=1,
+                fillMask=1,
+            )
+            values.append(resampled.flux)
+            masks.append(resampled.mask.astype(bool))
+            variances.append(resampled.variance)
 
-        values = [
-            interpolateFlux(self.wavelength, self.value, wl) if resamp else self.value
-            for wl, resamp in zip(wavelengths, doResample)
-        ]
-        masks = [
-            interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask
-            for wl, resamp in zip(wavelengths, doResample)
-        ]
-        variances = [
-            interpolateVariance(self.wavelength, self.variance, wl) if resamp else self.variance
-            for wl, resamp in zip(wavelengths, doResample)
-        ]
         return Struct(values=np.array(values), masks=np.array(masks), variances=np.array(variances))
 
 

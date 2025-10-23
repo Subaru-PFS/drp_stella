@@ -101,7 +101,10 @@ def applyFiberNorms(
 
 
 def fluxCalibrate(
-    spectra: PfsFiberArray | PfsFiberArraySet, pfsConfig: PfsConfig, fluxCal: FocalPlaneFunction
+    spectra: PfsFiberArray | PfsFiberArraySet,
+    pfsConfig: PfsConfig,
+    fluxCal: FocalPlaneFunction,
+    useFluxCalVariance: bool = False,
 ) -> None:
     """Apply flux calibration to spectra
 
@@ -113,12 +116,17 @@ def fluxCalibrate(
         Top-end configuration.
     fluxCal : subclass of `FocalPlaneFunction`
         Flux calibration model.
+    useFluxCalVariance : `bool`, optional
+        Include the variance in the fluxCal when computing the output variance?
+        This term can dwarf the other variance contributions, leading to
+        erroneous conclusions about the noise in the calibrated spectra.
     """
     cal = fluxCal(spectra.wavelength, pfsConfig.select(fiberId=spectra.fiberId))
     with np.errstate(divide="ignore", invalid="ignore"):
         spectra /= spectra.norm
         spectra /= cal.values  # includes spectrum.variance /= cal.values**2
-        spectra.variance[:] += cal.variances * spectra.flux**2 / cal.values**2
+        if useFluxCalVariance:
+            spectra.variance[:] += cal.variances * spectra.flux**2 / cal.values**2
     spectra.norm[:] = 1.0  # We've deliberately changed the normalisation
     bad = np.array(cal.masks) | (np.array(cal.values) == 0.0)
     bad |= ~np.isfinite(cal.values) | ~np.isfinite(cal.variances)

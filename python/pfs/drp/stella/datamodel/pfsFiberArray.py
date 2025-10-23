@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import pfs.datamodel
 
-from ..interpolate import interpolateFlux, interpolateVariance, interpolateMask
+from ..interpolate import interpolate, interpolateFlux, interpolateMask
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -83,20 +83,24 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, ax
 
-    def resample(self, wavelength: np.ndarray) -> "PfsSimpleSpectrum":
+    def resample(self, wavelength: np.ndarray, order: int = 3) -> "PfsSimpleSpectrum":
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
+        order : `int`, optional
+            Interpolation order to use. Less than or equal to 1 means linear
+            interpolation; higher orders use Lanczos interpolation of the given
+            order.
 
         Returns
         -------
         resampled : `PfsSimpleSpectrum`
             Resampled spectrum.
         """
-        flux = interpolateFlux(self.wavelength, self.flux, wavelength)
+        flux = interpolateFlux(self.wavelength, self.flux, wavelength, order=order, fill=0.0)
         mask = interpolateMask(self.wavelength, self.mask, wavelength)
         return type(self)(self.target, wavelength, flux, mask, self.flags)
 
@@ -171,13 +175,27 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength: np.ndarray) -> "PfsFiberArray":
+    def resample(
+        self,
+        wavelength: np.ndarray,
+        order: int = 3,
+        bad: list[str] | None = None,
+        minWeight: float = 0.1,
+    ) -> "PfsFiberArray":
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
+        order : `int`, optional
+            Interpolation order to use. Less than or equal to 1 means linear
+            interpolation; higher orders use Lanczos interpolation of the given
+            order.
+        bad : `list` of `str`, optional
+            List of mask names to consider bad.
+        minWeight : `float`, optional
+            Minimum weight for Lanczos interpolation.
 
         Returns
         -------
@@ -188,17 +206,39 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         badFlux = ~np.isfinite(self.flux)
         badVariance = ~np.isfinite(self.variance)
         badSky = ~np.isfinite(self.sky)
-        bad = badFlux | badVariance | badSky
+        isBad = badFlux | badVariance | badSky
         mask = self.mask.copy()
-        mask[bad] |= self.flags.get("NO_DATA")
+        mask[isBad] |= self.flags.get("NO_DATA")
 
-        flux = interpolateFlux(self.wavelength, np.where(badFlux, 0.0, self.flux), wavelength)
-        mask = interpolateMask(self.wavelength, mask, wavelength, fill=self.flags.get("NO_DATA"))
-        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength)
+        badMask = self.flags.get(*bad) if bad else 0
+        kwargs = dict(fill=0.0, order=order)
+
+        result = interpolate(
+            self.wavelength,
+            np.where(badFlux, 0.0, self.flux),
+            mask,
+            np.where(badVariance, 0.0, self.variance),
+            wavelength,
+            minWeight=minWeight,
+            badMask=badMask,
+            fillMask=self.flags.get("NO_DATA"),
+            **kwargs,
+        )
+        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, **kwargs)
         covar = np.array([
-            interpolateVariance(self.wavelength, np.where(badVariance, 0.0, cc), wavelength)
-            for cc in self.covar
+            result.variance, np.zeros_like(result.variance), np.zeros_like(result.variance)
         ])
+
         covar2 = np.array([[0]])  # Not sure what to put here
-        return type(self)(self.target, self.observations, wavelength, flux, mask, sky, covar, covar2,
-                          self.flags, self.fluxTable)
+        return type(self)(
+            self.target,
+            self.observations,
+            wavelength,
+            result.flux,
+            result.mask,
+            sky,
+            covar,
+            covar2,
+            self.flags,
+            self.fluxTable,
+        )
