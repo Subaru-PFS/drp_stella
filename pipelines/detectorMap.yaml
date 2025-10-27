@@ -12,6 +12,8 @@ tasks:
       grouping: separate  # We have lots of different kinds of exposures, with lamps warming up
   measureCentroids:
     class: pfs.drp.stella.pipelines.MeasureCentroidsTask
+    config:
+      readLineList.exclusionRadius: 0.3  # nm
   gatherSlitOffsets:
     class: pfs.drp.stella.pipelines.GatherSlitOffsetsTask
     config:
