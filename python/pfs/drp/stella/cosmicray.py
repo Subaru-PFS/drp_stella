@@ -90,7 +90,11 @@ class CosmicRayConnections(
             visit: butler.get("pfsConfig", instrument=instrument, visit=visit) for visit in visitList
         }
         groupMapping = {
-            visit: (pfsConfig.pfsDesignId, pfsConfig.visit0) for visit, pfsConfig in pfsConfigList.items()
+            visit: (
+                pfsConfig.pfsDesignId,
+                pfsConfig.visit0,
+                butler.query_dimension_records("visit", instrument=instrument, visit=visit)[0].lamps
+            ) for visit, pfsConfig in pfsConfigList.items()
         }
         groups = set(groupMapping.values())
         groupIds = dict(zip(groups, range(len(groups))))
