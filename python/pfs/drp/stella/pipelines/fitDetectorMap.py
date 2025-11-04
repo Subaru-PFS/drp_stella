@@ -149,6 +149,12 @@ class FitDetectorMapConnections(
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
+    lines = OutputConnection(
+        name="detectorMapLines",
+        doc="Line measurements with status updated to reflect detectorMap fit",
+        storageClass="ArcLineSet",
+        dimensions=("instrument", "arm", "spectrograph"),
+    )
 
     def __init__(self, *, config=None):
         super().__init__(config=config)
@@ -288,13 +294,18 @@ class FitDetectorMapTask(PipelineTask):
             chi^2/dof = 1.
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
+        lines : `ArcLineSet`
+            Line measurements with status updated to reflect detectorMap fit.
         """
-        return self.fitDetectorMap.run(
+        lines = sum(arcLines, ArcLineSet.empty())
+        result = self.fitDetectorMap.run(
             dataId,
             bbox,
-            sum(arcLines, ArcLineSet.empty()),
+            lines,
             visitInfo,
             metadata,
             slitOffsets[0] if slitOffsets is not None else None,
             slitOffsets[1] if slitOffsets is not None else None,
         )
+        result.lines = lines
+        return result

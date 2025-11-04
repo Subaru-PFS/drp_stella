@@ -799,7 +799,7 @@ class FitDistortedDetectorMapTask(Task):
 
         if noMeasurements:
             self.log.info("Unable to measure slit offsets for %d fiberIds: %s",
-                          len(noMeasurements), sorted(noMeasurements))
+                          len(noMeasurements), sorted(map(int, noMeasurements)))
             badFibers = np.isin(detectorMap.fiberId, np.array(list(noMeasurements)))
             goodFibers = ~badFibers
             spatial[badFibers] = np.mean(spatial[goodFibers])

@@ -165,7 +165,7 @@ class ScatteredLightModel:
             for i in invalid_indices:
                 start = max(0, i - self.interpWinSize)
                 end = min(i + self.interpWinSize + 1, len(invalid_indices))
-                if end < start:
+                if end <= start:
                     continue
                 flx[i] = np.nanmedian(flx[start:end])
             if np.all(bad):

@@ -219,7 +219,7 @@ class FitContinuumTask(Task):
             Spectrum with array.
         """
         result = Spectrum(len(array), fiberId)
-        result.flux = array
+        result.flux[:] = array
         return result
 
     def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):

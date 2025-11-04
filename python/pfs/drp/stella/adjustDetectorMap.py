@@ -25,7 +25,7 @@ class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
     def setDefaults(self):
         self.exclusionRadius = 4.0
-        self.order = 2
+        self.order = 1
 
 
 class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
