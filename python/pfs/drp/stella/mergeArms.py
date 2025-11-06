@@ -81,7 +81,7 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >1 uses a Lanczos of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
