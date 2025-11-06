@@ -52,7 +52,10 @@ def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> 
     """
     indices = np.arange(fromWavelength.size, dtype=np.float64)
     spline = SplineD(fromWavelength.astype(np.float64), indices)
-    return spline(toWavelength.astype(np.float64))
+    good = (toWavelength >= fromWavelength[0]) & (toWavelength <= fromWavelength[-1])
+    result = np.full_like(toWavelength, np.nan, dtype=np.float64)
+    result[good] = spline(toWavelength[good].astype(np.float64))
+    return result
 
 
 def interpolate(
