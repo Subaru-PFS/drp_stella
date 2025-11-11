@@ -129,7 +129,7 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >=1 uses a Lanczos of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
