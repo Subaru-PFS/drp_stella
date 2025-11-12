@@ -41,13 +41,15 @@ def calculateBarycentricCorrection(
         pfsArm.notes.barycentricCorrection[ii] = corr.to(u.km/u.s).value
 
 
-def applyBarycentricCorrection(pfsArm: PfsArm):
+def applyBarycentricCorrection(pfsArm: PfsArm, *, inverse=False):
     """Apply previously calculated barycentric correction
 
     Parameters
     ----------
     pfsArm : `PfsArm`
         pfsArm to which to apply the barycentric correction.
+    inverse : `bool`, optional
+        If `True`, apply the inverse correction. Default is `False`.
 
     Returns
     -------
@@ -61,5 +63,7 @@ def applyBarycentricCorrection(pfsArm: PfsArm):
         if not np.isfinite(corr):
             noValue.add(pfsArm.fiberId[ii])
             continue
+        if inverse:
+            corr *= -1
         pfsArm.wavelength[ii] *= 1 + (corr/speedOfLight)
     return noValue
