@@ -218,6 +218,8 @@ class CoaddSpectraTask(PipelineTask):
         ):
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
             pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId, objId=objId)
+            if len(pfsArm) == 0:
+                continue
             identity = pfsArm.identity
             data[identity] = Struct(
                 identity=identity,

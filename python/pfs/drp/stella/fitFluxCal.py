@@ -165,7 +165,8 @@ def calibratePfsArm(
         Calibrated PfsArm spectra.
     """
     pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
-    spectra /= calculateDispersion(spectra.wavelength)  # Convert to electrons/nm
+    dispersion = calculateDispersion(spectra.wavelength)
+    spectra /= dispersion  # Convert to electrons/nm
     if fiberNorms is not None:
         applyFiberNorms(spectra, fiberNorms, doCheckFiberNormsHashes)
     subtractSky1d(spectra, pfsConfig, sky1d)
