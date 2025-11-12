@@ -1,0 +1,4 @@
+description: Characterize noise in spectral coadds
+tasks:
+  coaddNoise:
+    class: pfs.drp.stella.coaddNoise.CoaddNoiseTask
