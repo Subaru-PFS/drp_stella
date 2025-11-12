@@ -1,0 +1,6 @@
+description: Calibrate exposure with predefined fluxCal
+imports:
+  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
+tasks:
+  applyFluxCal:
+    class: pfs.drp.stella.applyFluxCal.ApplyPredefinedFluxCalTask

@@ -32,7 +32,15 @@ from .FluxTableTask import FluxTableTask
 
 from collections.abc import Iterable
 
-__all__ = ("applyFiberNorms", "calibratePfsArm", "fluxCalibrate", "ApplyFluxCalConfig", "ApplyFluxCalTask")
+__all__ = (
+    "applyFiberNorms",
+    "calibratePfsArm",
+    "fluxCalibrate",
+    "ApplyFluxCalConfig",
+    "ApplyFluxCalTask",
+    "ApplyPredefinedFluxCalConfig",
+    "ApplyPredefinedFluxCalTask",
+)
 
 
 def applyFiberNorms(
@@ -327,3 +335,33 @@ class ApplyFluxCalTask(PipelineTask):
 
         outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
         butler.put(outputs, outputRefs)
+
+
+class ApplyPredefinedFluxCalConnections(ApplyFluxCalConnections):
+    """Connections for ApplyPredefinedFluxCalTask"""
+
+    fluxCal = PrerequisiteConnection(
+        name="fluxCal_predefined",
+        doc="Flux calibration model",
+        storageClass="FocalPlaneFunction",
+        dimensions=("instrument",),
+    )
+
+
+class ApplyPredefinedFluxCalConfig(ApplyFluxCalConfig, pipelineConnections=ApplyPredefinedFluxCalConnections):
+    """Configuration for ApplyPredefinedFluxCalTask"""
+
+
+class ApplyPredefinedFluxCalTask(ApplyFluxCalTask):
+    """Apply a pre-defined fluxCal
+
+    This task does the same thing as ApplyFluxCalTask,
+    except that this task applies a predefined fluxCal (``fluxCal_predefined``)
+    to every exposure.
+
+    The predefined fluxCal has to be ingested to the repository with
+    ``ingestPredefinedFluxCal.py`` command in advance.
+    """
+
+    ConfigClass = ApplyPredefinedFluxCalConfig
+    _DefaultName = "applyPredefinedFluxCal"
