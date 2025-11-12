@@ -54,7 +54,7 @@ from .fiberProfileSet import FiberProfileSet
 from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
-from .fitFluxCal import applyFiberNorms
+from .applyFluxCal import applyFiberNorms
 from .fitDistortedDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
