@@ -134,6 +134,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    objId = ListField(dtype=int, default=[], doc="Object IDs to process; empty for all")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -163,7 +164,7 @@ class CoaddSpectraTask(PipelineTask):
 
         Returns
         -------
-        pfsCoadd : `dict` mapping `Target` to `PfsObject`
+        pfsCoadd : `PfsCoadd`
             Coadded spectra, indexed by target.
         pfsCoaddLsf : `LsfDict`
             Line-spread functions for coadded spectra, indexed by target.
@@ -181,7 +182,10 @@ class CoaddSpectraTask(PipelineTask):
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
 
-        return Struct(pfsCoadd=pfsCoadd, pfsCoaddLsf=pfsCoaddLsf)
+        return Struct(
+            pfsCoadd=PfsCoadd(pfsCoadd.values(), getPfsVersions()),
+            pfsCoaddLsf=LsfDict(pfsCoaddLsf),
+        )
 
     def runQuantum(
         self,
@@ -207,6 +211,13 @@ class CoaddSpectraTask(PipelineTask):
         catId = butler.quantum.dataId["cat_id"]
         objGroup = butler.quantum.dataId["obj_group"]
         objId = ogm.objId[ogm.objGroup == objGroup]
+        if self.config.objId:
+            objId = np.intersect1d(objId, np.array(self.config.objId, dtype=int))
+
+        if len(objId) == 0:
+            self.log.warn("No objects to process for cat_id=%d, obj_group=%d", catId, objGroup)
+            return
+        self.log.info("Processing %d objects for cat_id=%d, obj_group=%d", len(objId), catId, objGroup)
 
         data: Dict[Identity, Struct] = {}
         for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
@@ -218,6 +229,8 @@ class CoaddSpectraTask(PipelineTask):
         ):
             pfsConfig: PfsConfig = butler.get(pfsConfigRef)
             pfsArm: PfsArm = butler.get(pfsArmRef).select(pfsConfig, catId=catId, objId=objId)
+            if len(pfsArm) == 0:
+                continue
             identity = pfsArm.identity
             data[identity] = Struct(
                 identity=identity,
@@ -229,9 +242,7 @@ class CoaddSpectraTask(PipelineTask):
             )
 
         outputs = self.run(data)
-
-        butler.put(PfsCoadd(outputs.pfsCoadd.values(), getPfsVersions()), outputRefs.pfsCoadd)
-        butler.put(LsfDict(outputs.pfsCoaddLsf), outputRefs.pfsCoaddLsf)
+        butler.put(outputs, outputRefs)
 
     def getTarget(self, target: Target, pfsConfigList: List[PfsConfig]) -> Target:
         """Generate a fully-populated `Target` for this target
@@ -330,6 +341,16 @@ class CoaddSpectraTask(PipelineTask):
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
         spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
+
+        if False:
+            from scipy.signal import medfilt
+            from .utils.math import robustRms
+            spectrum.flux[0] -= medfilt(spectrum.flux[0], kernel_size=51)
+
+            select = (spectrum.wavelength > 400) & (spectrum.wavelength < 550)
+            if np.any(select):
+                print(robustRms((spectrum.flux/np.sqrt(spectrum.variance[0]))[select], True))
+
         return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
@@ -397,13 +418,12 @@ class CoaddSpectraTask(PipelineTask):
         resampledRange = []
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
-            new = spectrum.resample(
+            resampled.append(spectrum.resample(
                 wavelength,
                 order=self.config.resampleOrder,
                 minWeight=self.config.resampleMinWeight,
                 bad=self.config.mask,
-            )
-            resampled.append(new)
+            ))
             resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
@@ -418,25 +438,31 @@ class CoaddSpectraTask(PipelineTask):
         covar = np.zeros((3, length), dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        for ss in resampled:
+        allValues = np.full((len(resampled), length), np.nan)
+
+        for ii, ss in enumerate(resampled):
             weight = np.zeros_like(flux)
             with np.errstate(invalid="ignore", divide="ignore"):
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                weight[good] = 1.0/ss.covar[0][good]
-                flux[good] += ss.flux[good]*weight[good]
-                sky[good] += ss.sky[good]*weight[good]
+                ww = 1.0 / ss.covar[0][good]
+                weight[good] = ww
+                flux[good] += ss.flux[good]*ww
+                sky[good] += ss.sky[good]*ww
                 mask[good] |= ss.mask[good]
+                covar[0][good] += ss.covar[0][good]*ww**2
                 sumWeights += weight
 
+                allValues[ii][good] = ss.flux[good]/np.sqrt(ss.covar[0][good])
+
         good = sumWeights > 0
-        flux[good] /= sumWeights[good]
-        sky[good] /= sumWeights[good]
-        covar[0][good] = 1.0/sumWeights[good]
+        ww = sumWeights[good]
+        flux[good] /= ww
+        sky[good] /= ww
+        covar[0][good] /= ww**2
         covar[0][~good] = np.inf
         covar[1:2] = np.where(good, 0.0, np.inf)
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
-
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2, lsf=lsf)
