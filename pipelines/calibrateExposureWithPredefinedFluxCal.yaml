@@ -1,0 +1,12 @@
+description: >-
+  Calibrate exposure with a single predefined fluxCal
+  applied to every exposure.
+  This pipeline requires a "predefined fluxCal",
+  which is of the same file type as,
+  but is distinguished from, a usual fluxCal.
+  It is a prerequisite ingested with ingestPredefinedFluxCal.py.
+imports:
+  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
+tasks:
+  applyFluxCal:
+    class: pfs.drp.stella.applyFluxCal.ApplyPredefinedFluxCalTask
