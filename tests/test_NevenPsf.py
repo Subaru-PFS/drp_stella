@@ -40,7 +40,7 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(self.psf.oversampleFactor, self.psf.getOversampleFactor())
         self.assertEqual(self.psf.targetSize, self.psf.getTargetSize())
 
-    @methodParameters(wavelength=np.random.RandomState(12345).uniform(700, 900, size=10))
+    @methodParameters(wavelength=np.random.RandomState(12345).uniform(700, 900, size=10).tolist())
     def testPsf(self, wavelength):
         """Test PSF operations"""
         xPosition, yPosition = self.detMap.findPoint(self.fiberId, wavelength)
