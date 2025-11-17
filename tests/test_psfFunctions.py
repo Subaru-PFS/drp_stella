@@ -51,9 +51,9 @@ class PsfFunctionsTestCase(lsst.utils.tests.TestCase):
 
     @methodParametersProduct(
         oversample=(3, 4, 5, 10, 15),
-        point=(Point2D(0, 0),  # A kernel: like for computeKernelImage
-               Point2D(987.654, 321.098)  # An image: like for computeImage
-               )
+        point=((0, 0),  # A kernel: like for computeKernelImage
+               (987.654, 321.098)  # An image: like for computeImage
+               ),
     )
     def testFunctions(self, oversample, point):
         """Test that recenterOversampledKernelImage and resampleKernelImage work
@@ -65,10 +65,11 @@ class PsfFunctionsTestCase(lsst.utils.tests.TestCase):
         ----------
         oversample : `int`
             Binning factor.
-        point : `lsst.geom.Point2D`
+        point : `tuple` of `float`, size 2
             Target point.
         """
         image = self.makeOversampledKernelImage(oversample)
+        point = Point2D(point)
 
         # Recentering
         recentered = recenterOversampledKernelImage(image, oversample, point)

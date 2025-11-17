@@ -55,9 +55,9 @@ class CentroidImageTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lhs.getY(), rhs.getY(), **kwargs)
 
     @methodParameters(
-        xyMin=(Point2I(-24, -25), Point2I(1234, 5678)),
-        dims=(Extent2I(47, 52), Extent2I(25, 47)),
-        center=(Point2D(0, 0), Point2D(1245.67, 5699.01)),
+        xyMin=((-24, -25), (1234, 5678)),
+        dims=((47, 52), (25, 47)),
+        center=((0, 0), (1245.67, 5699.01)),
         sigma=(2.31, 4.321),
     )
     def testCentroiding(self, xyMin, dims, center, sigma):
@@ -67,18 +67,19 @@ class CentroidImageTestCase(lsst.utils.tests.TestCase):
 
         Parameters
         ----------
-        xyMin : `lsst.geom.Point2I`
+        xyMin : `tuple` of `int`, size 2
             Lower left-hand corner of image.
-        dims : `lsst.geom.Extent2I`
+        dims : `tuple` of `int`, size 2
             Dimensions of image.
-        center : `lsst.geom.Point2D`
+        center : `typle` of `float`, size 2
             Center of source.
         sigma : `float`
             Standard deviation of PSF to use in measuring centroid. The centroid
             should be fairly robust against changes to this. This is not the
             actual PSF sigma, just what is assumed in the centroid measurement.
         """
-        box = Box2I(xyMin, dims)
+        box = Box2I(Point2I(xyMin), Extent2I(dims))
+        center = Point2D(center)
         image = self.makeImage(box, center)
         psfSize = int(3*sigma) + 1
         psf = GaussianPsf(psfSize, psfSize, sigma)

@@ -67,6 +67,9 @@ def methodParameters(**settings):
     This decorator iterates over the supplied settings, using
     ``TestCase.subTest`` to communicate the values in the event of a failure.
 
+    Note that as of pytest 9.0, the values in the ``settings`` are expected to
+    be POD types (e.g., no LSST classes or numpy arrays).
+
     Parameters
     ----------
     **settings : `dict` (`str`: iterable)
@@ -107,6 +110,9 @@ def methodParametersProduct(**settings):
     This decorator iterates over the cartesian product of the supplied settings,
     using ``TestCase.subTest`` to communicate the values in the event of a
     failure.
+
+    Note that as of pytest 9.0, the values in the ``settings`` are expected to
+    be POD types (e.g., no LSST classes or numpy arrays).
 
     Parameters
     ----------
