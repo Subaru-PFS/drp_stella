@@ -425,15 +425,16 @@ class ReduceExposureTask(PipelineTask):
         if fiberProfiles is not None:
             pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
 
-        if self.config.doApplyFiberNorms:
-            if fiberNorms is None:
-                raise RuntimeError("fiberNorms required but not provided")
-            missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
-            if missingFiberIds:
-                self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
+        if not self.isIIS(pfsConfig):
+            if self.config.doApplyFiberNorms:
+                if fiberNorms is None:
+                    raise RuntimeError("fiberNorms required but not provided")
+                missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
+                if missingFiberIds:
+                    self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
-        if self.config.doApplyPfiCorrection:
-            self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
+            if self.config.doApplyPfiCorrection:
+                self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
 
         return Struct(
             outputExposure=exposure,
@@ -462,17 +463,18 @@ class ReduceExposureTask(PipelineTask):
         boxcarWidth : `int`
             Width of boxcar extraction; use fiberProfiles if <= 0.
         """
-        kwargs = dict(spectrograph=spectrograph)
+        pfsConfig = pfsConfig.select(spectrograph=spectrograph)
+
+        kwargs = {}
         if self.config.targetType:
             kwargs.update(targetType=TargetType.fromList(self.config.targetType))
 
         # Handle the IIS fibres for the user
         boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
-        if set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus) == set([FiberStatus.GOOD]):
-            if self.config.doDetectIIS:
-                if len(set(kwargs["targetType"]) ^ set(~TargetType.ENGINEERING)) == 0:
-                    kwargs["targetType"] = [TargetType.ENGINEERING]
-                    self.log.info("~TargetType.ENGINEERING requested but IIS is on; assuming ENGINEERING")
+        if self.isIIS(pfsConfig):
+            if len(set(kwargs["targetType"]) ^ set(~TargetType.ENGINEERING)) == 0:
+                kwargs["targetType"] = [TargetType.ENGINEERING]
+                self.log.info("~TargetType.ENGINEERING requested but IIS is on; assuming ENGINEERING")
 
             if self.config.doBoxcarForIIS:
                 boxcarWidth = self.config.boxcarWidth
@@ -488,6 +490,26 @@ class ReduceExposureTask(PipelineTask):
             raise RuntimeError(f"detectorMap does not include fibers: {list(sorted(missingDetMap))}")
 
         return Struct(pfsConfig=pfsConfig, boxcarWidth=boxcarWidth)
+
+    def isIIS(self, pfsConfig: PfsConfig) -> bool:
+        """Determine if the IIS is illuminated
+
+        The IIS is illuminated if the ENGINEERING fibers are all GOOD.
+
+        Parameters
+        ----------
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration.
+
+        Returns
+        -------
+        isIIS : `bool`
+            Is the IIS illuminated?
+        """
+        if not self.config.doDetectIIS:
+            return False
+        fiberStatus = set(pfsConfig.select(targetType=TargetType.ENGINEERING).fiberStatus)
+        return fiberStatus == set([FiberStatus.GOOD])
 
     def measure(
         self,
