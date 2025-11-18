@@ -463,7 +463,9 @@ class ReduceExposureTask(PipelineTask):
         boxcarWidth : `int`
             Width of boxcar extraction; use fiberProfiles if <= 0.
         """
-        kwargs = dict(spectrograph=spectrograph)
+        pfsConfig = pfsConfig.select(spectrograph=spectrograph)
+
+        kwargs = {}
         if self.config.targetType:
             kwargs.update(targetType=TargetType.fromList(self.config.targetType))
 
