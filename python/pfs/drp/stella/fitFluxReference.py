@@ -594,7 +594,10 @@ class FitFluxReferenceTask(PipelineTask):
             isBad = modelSpectrum.flux <= 0
             modelSpectrum.mask[isBad] |= modelSpectrum.flags.add("NO_DATA")
             modelSpectrum = self.computeContinuum(modelSpectrum, mode="model").whiten(modelSpectrum)
-            radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
+            try:
+                radialVelocities[fiberId] = self.estimateRadialVelocity.run(spectrum, modelSpectrum)
+            except Exception as e:
+                self.log.warn("Radial velocity estimation (fiberId=%s) failed: '%s'", fiberId, str(e))
 
         return radialVelocities
 
