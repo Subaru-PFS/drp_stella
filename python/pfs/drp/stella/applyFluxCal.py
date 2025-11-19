@@ -205,7 +205,7 @@ class ApplyFluxCalConnections(PipelineTaskConnections, dimensions=("instrument",
     pfsCalibrated = OutputConnection(
         name="pfsCalibrated",
         doc="Flux-calibrated object spectrum",
-        storageClass="PfsCalibratedSpectra",  # deprecated in favor of PfsCalibrated
+        storageClass="PfsCalibrated",
         dimensions=("instrument", "visit"),
     )
     pfsCalibratedLsf = OutputConnection(
