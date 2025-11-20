@@ -358,7 +358,7 @@ class CosmicRayTask(PipelineTask):
         image : `lsst.afw.image.Image`
             Cleaned image.
         scales : `numpy.ndarray`
-            Scaling factor to multiple the cleaned image by to match the
+            Scaling factor to multiply the cleaned image by to match the
             input image.
         """
         num = len(images)
@@ -367,15 +367,32 @@ class CosmicRayTask(PipelineTask):
             if image.getDimensions() != dims:
                 raise ValueError("Images must have the same dimensions")
 
-        fluxes = np.zeros(num, dtype=float)
         stack = np.empty((num, dims.getY(), dims.getX()), dtype=np.float32)
         for ii, image in enumerate(images):
-            fluxes[ii] = np.nanmedian(image.image.array)
+            stack[ii] = image.image.array
 
-        fluxes /= np.mean(fluxes)
+        # Build a reference image to define the high-flux region
+        refImage = np.nanmin(stack, axis=0)
 
-        for ii, image in enumerate(images):
-            stack[ii] = image.image.array / fluxes[ii]
+        # Mask of pixels that actually carry signal (ignore blank/noise-only area)
+
+        refAbs = np.abs(refImage)
+        minThreshold, maxThreshold = np.nanpercentile(refAbs, [75, 95])
+
+        mask = np.isfinite(refImage) & (refAbs > 0) & (refAbs >= minThreshold) & (refAbs <= maxThreshold)
+
+        if not np.any(mask):
+            raise RuntimeError("No valid high-flux pixels found to compute flux scales")
+
+        fluxes = np.empty(num, dtype=float)
+        for ii in range(num):
+            ratios = stack[ii][mask] / refImage[mask]
+            fluxes[ii] = np.nanmedian(ratios)
+
+        fluxes /= np.nanmean(fluxes)
+
+        # Apply the scales to put all images on a common flux scale
+        stack /= fluxes[:, None, None]
 
         operation = np.nanmin if num < self.config.minVisitsMedian else np.nanmedian
         clean = ImageF(dims)
