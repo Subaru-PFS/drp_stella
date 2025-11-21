@@ -266,7 +266,7 @@ class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnectio
 
     scaleFluxSnrPercentile = Field(dtype=float, default=95.0,
                                    doc="Percentile of the per-pixel S/N distribution "
-                                       "used to define the high-S/N region " )
+                                       "used to define the high-S/N region ")
     scaleFluxMinNPixels = Field(dtype=int, default=100,
                                 doc="Minimum number of pixels passing the S/N cuts")
 
