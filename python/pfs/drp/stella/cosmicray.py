@@ -261,9 +261,14 @@ class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnectio
         ),
     )
     doWriteExposure = Field(dtype=bool, default=False, doc="Write CR-masked exposure?")
-    scaleFluxMinSnr = Field(dtype=int, default=2, doc="Minimum number of visits to use median")
-    scaleFluxSnrPercentile = Field(dtype=int, default=95, doc="Minimum number of visits to use median")
-    scaleFluxMinNPixels = Field(dtype=int, default=100, doc="Minimum number of visits to use median")
+    scaleFluxMinSnr = Field(dtype=float, default=2.0,
+                            doc="Minimum S/N threshold for pixels used to compute per-image flux scales.")
+
+    scaleFluxSnrPercentile = Field(dtype=float, default=95.0,
+                                   doc="Percentile of the per-pixel S/N distribution "
+                                       "used to define the high-S/N region " )
+    scaleFluxMinNPixels = Field(dtype=int, default=100,
+                                doc="Minimum number of pixels passing the S/N cuts")
 
     def setDefaults(self):
         super().setDefaults()
@@ -349,6 +354,45 @@ class CosmicRayTask(PipelineTask):
         return exposure
 
     def computeFluxScale(self, stack, snrStack, minSnr, snrPercentile, minNPixels):
+        """Compute per-image multiplicative flux scales from a stack.
+
+        Pixels used to determine the scaling are selected using a per-pixel
+        S/N map. For each pixel, the minimum S/N across all images is used
+        as a conservative estimate (`refSNR`), so that pixels contaminated
+        in only one image (e.g. cosmic rays) are rejected.
+
+        Parameters
+        ----------
+        stack : `numpy.ndarray`
+            Image cube with shape (nImages, ny, nx) containing the input images.
+        snrStack : `numpy.ndarray`
+            Image cube with shape (nImages, ny, nx) containing the per-image
+            S/N maps (image / sqrt(variance)).
+        minSnr : `float`
+            Minimum S/N threshold to consider for the reference S/N. The
+            effective S/N threshold is the maximum of this value and the
+            percentile-based threshold.
+        snrPercentile : `float`
+            Percentile of the reference S/N distribution (for refSNR > 0)
+            used to define the high-S/N region. Pixels with refSNR above
+            this percentile and above minSnr are used to compute the scales.
+        minNPixels : `int`
+            Minimum number of pixels passing the S/N cuts required to compute
+            the flux scales. If fewer pixels are available, a RuntimeError
+            is raised.
+
+        Returns
+        -------
+        fluxes : `numpy.ndarray`
+            Array of length nImages containing the multiplicative flux
+            scales, normalised so that their mean is 1.
+
+        Raises
+        ------
+        RuntimeError
+            Raised if no pixels, or fewer than `minNPixels` pixels, pass
+            the S/N cuts.
+        """
         num = stack.shape[0]
         # Build a reference image to define the high-flux region
         refImage = np.nanmean(stack, axis=0)
