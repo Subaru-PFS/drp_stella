@@ -261,6 +261,9 @@ class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnectio
         ),
     )
     doWriteExposure = Field(dtype=bool, default=False, doc="Write CR-masked exposure?")
+    scaleFluxMinSnr = Field(dtype=int, default=2, doc="Minimum number of visits to use median")
+    scaleFluxSnrPercentile = Field(dtype=int, default=95, doc="Minimum number of visits to use median")
+    scaleFluxMinNPixels = Field(dtype=int, default=100, doc="Minimum number of visits to use median")
 
     def setDefaults(self):
         super().setDefaults()
@@ -345,6 +348,33 @@ class CosmicRayTask(PipelineTask):
         self.repair.run(exposure)
         return exposure
 
+    def computeFluxScale(self, stack, snrStack, minSnr, snrPercentile, minNPixels):
+        num = stack.shape[0]
+        # Build a reference image to define the high-flux region
+        refImage = np.nanmean(stack, axis=0)
+        refSNR = np.nanmin(snrStack, axis=0)
+
+        maskSNR = np.isfinite(refSNR) & (refSNR > 0)
+
+        if not maskSNR.any():
+            raise RuntimeError("No valid high-flux pixels found to compute flux scales")
+
+        # Mask of pixels that actually carry signal (ignore blank/noise-only area)
+        minThreshold = max(np.nanpercentile(refSNR[maskSNR], snrPercentile), minSnr)
+        mask = np.isfinite(refImage) & (refSNR > minThreshold)
+
+        if len(refSNR[mask]) < minNPixels:
+            raise RuntimeError("No valid high-flux pixels found to compute flux scales")
+
+        fluxes = np.empty(num, dtype=float)
+        for ii in range(num):
+            ratios = stack[ii][mask] / refImage[mask]
+            fluxes[ii] = np.nanmedian(ratios)
+
+        fluxes /= np.nanmean(fluxes)
+
+        return fluxes
+
     def calculateCleanImage(self, images: List["MaskedImage"]) -> ImageF:
         """Calculate a cleaned image from a list of images
 
@@ -368,28 +398,20 @@ class CosmicRayTask(PipelineTask):
                 raise ValueError("Images must have the same dimensions")
 
         stack = np.empty((num, dims.getY(), dims.getX()), dtype=np.float32)
+        snrStack = np.empty((num, dims.getY(), dims.getX()), dtype=np.float32)
+
         for ii, image in enumerate(images):
             stack[ii] = image.image.array
+            snrStack[ii] = image.image.array / np.sqrt(image.variance.array)
 
-        # Build a reference image to define the high-flux region
-        refImage = np.nanmin(stack, axis=0)
-
-        # Mask of pixels that actually carry signal (ignore blank/noise-only area)
-
-        refAbs = np.abs(refImage)
-        minThreshold, maxThreshold = np.nanpercentile(refAbs, [75, 95])
-
-        mask = np.isfinite(refImage) & (refAbs > 0) & (refAbs >= minThreshold) & (refAbs <= maxThreshold)
-
-        if not np.any(mask):
-            raise RuntimeError("No valid high-flux pixels found to compute flux scales")
-
-        fluxes = np.empty(num, dtype=float)
-        for ii in range(num):
-            ratios = stack[ii][mask] / refImage[mask]
-            fluxes[ii] = np.nanmedian(ratios)
-
-        fluxes /= np.nanmean(fluxes)
+        try:
+            fluxes = self.computeFluxScale(stack, snrStack,
+                                           self.config.scaleFluxMinSnr,
+                                           self.config.scaleFluxSnrPercentile,
+                                           self.config.scaleFluxMinNPixels)
+        except RuntimeError:
+            self.log.warn("Could not calculate per-image scaling falling back to unity...")
+            fluxes = np.ones(num)
 
         # Apply the scales to put all images on a common flux scale
         stack /= fluxes[:, None, None]
