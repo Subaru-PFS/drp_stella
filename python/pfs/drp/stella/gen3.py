@@ -1043,6 +1043,9 @@ def cleanRun(
     collections: str,
     datasetTypes: Iterable[str],
     dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+    where: str | None = None,
+    limit: Optional[int] = None,
+    dryRun: bool = False,
 ):
     """Clean a run by deleting all datasets of specified types in a collection
 
@@ -1057,6 +1060,13 @@ def cleanRun(
     dataIds : iterable of `dict` [`str`: `int` or `str`], optional
         Data identifiers to delete. If not provided, all datasets of the
         specified types in the collection will be deleted.
+    where : `str`, optional
+        SQL WHERE clause to use for selecting datasets to delete.
+    limit : `int`, optional
+        Maximum number of datasets to delete per dataset type.
+    dryRun : `bool`, optional
+        If `True`, only log what would be deleted, without actually deleting
+        anything.
     """
     log = getLogger("pfs.cleanRun")
     butler = Butler(repo, writeable=True)
@@ -1070,14 +1080,21 @@ def cleanRun(
                 refs = []
                 for ident in dataIds:
                     coord = getDataCoordinate(ident, butler.dimensions)
-                    refs.extend(butler.registry.queryDatasets(dst, collections=coll, dataId=coord))
+                    refs.extend(
+                        butler.query_datasets(dst, collections=coll, data_id=coord, where=where, limit=limit)
+                    )
             else:
-                refs = list(butler.registry.queryDatasets(dst, collections=coll))
+                refs = list(butler.query_datasets(dst, collections=coll, where=where, limit=limit))
             if not refs:
                 log.debug("No datasets found for %s in %s", dst, coll)
                 continue
             log.info("Cleaning %d %s datasets in %s", len(refs), dst, coll)
-            butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
+            if dryRun:
+                log.info("%s datasets to be deleted (%d):", dst, len(refs))
+                for ref in refs:
+                    log.info("  %s", ref.dataId)
+            else:
+                butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
 
 
 def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
