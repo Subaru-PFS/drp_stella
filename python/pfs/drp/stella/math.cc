@@ -10,7 +10,7 @@
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
-#include "pfs/drp/stella/math/lanczos.h"
+#include "pfs/drp/stella/math/interpolate.h"
 #include "pfs/drp/stella/python/math.h"
 
 namespace py = pybind11;
@@ -278,10 +278,10 @@ void declareSparseSquareMatrix(py::module & mod, char const* name) {
 
 
 template <typename T, typename U, int C1, int C2>
-void declareLanczos(py::module & mod) {
+void declareInterpolate(py::module & mod) {
     mod.def(
-        "lanczosInterpolate",
-        &lanczosInterpolate<T, U, C1, C1, C1, C1, C1, C1, C2>,
+        "interpolate",
+        &interpolate<T, U, C1, C1, C1, C1, C1, C1, C2>,
         "resultValues"_a,
         "resultMask"_a,
         "resultVariance"_a,
@@ -295,8 +295,8 @@ void declareLanczos(py::module & mod) {
     );
 
     mod.def(
-        "lanczosInterpolateFlux",
-        &lanczosInterpolateFlux<T, U, C1, C1, C1, C1, C2>,
+        "interpolateFlux",
+        &interpolateFlux<T, U, C1, C1, C1, C1, C2>,
         "resultValues"_a,
         "resultMask"_a,
         "inputValues"_a,
@@ -307,8 +307,8 @@ void declareLanczos(py::module & mod) {
         "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
     );
     mod.def(
-        "lanczosInterpolateFlux",
-        &lanczosInterpolateFlux<T, U, C1, C1, C1, C2>,
+        "interpolateFlux",
+        &interpolateFlux<T, U, C1, C1, C1, C2>,
         "resultValues"_a,
         "inputValues"_a,
         "inputMask"_a,
@@ -317,8 +317,8 @@ void declareLanczos(py::module & mod) {
         "order"_a=INTERPOLATE_DEFAULT_ORDER
     );
     mod.def(
-        "lanczosInterpolateFlux",
-        &lanczosInterpolateFlux<T, U, C1, C1, C2>,
+        "interpolateFlux",
+        &interpolateFlux<T, U, C1, C1, C2>,
         "inputValues"_a,
         "inputMask"_a,
         "indices"_a,
@@ -326,8 +326,8 @@ void declareLanczos(py::module & mod) {
         "order"_a=INTERPOLATE_DEFAULT_ORDER
     );
     mod.def(
-        "lanczosInterpolateFlux",
-        &lanczosInterpolateFlux<T, U, C1, C2>,
+        "interpolateFlux",
+        &interpolateFlux<T, U, C1, C2>,
         "inputValues"_a,
         "indices"_a,
         "fill"_a=INTERPOLATE_DEFAULT_FILL,
@@ -335,8 +335,8 @@ void declareLanczos(py::module & mod) {
     );
 
     mod.def(
-        "lanczosInterpolateVariance",
-        &lanczosInterpolateVariance<T, U, C1, C1, C1, C1, C2>,
+        "interpolateVariance",
+        &interpolateVariance<T, U, C1, C1, C1, C1, C2>,
         "resultVariance"_a,
         "resultMask"_a,
         "inputVariance"_a,
@@ -347,8 +347,8 @@ void declareLanczos(py::module & mod) {
         "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
     );
     mod.def(
-        "lanczosInterpolateVariance",
-        &lanczosInterpolateVariance<T, U, C1, C1, C1, C2>,
+        "interpolateVariance",
+        &interpolateVariance<T, U, C1, C1, C1, C2>,
         "resultVariance"_a,
         "inputVariance"_a,
         "inputMask"_a,
@@ -357,8 +357,8 @@ void declareLanczos(py::module & mod) {
         "order"_a=INTERPOLATE_DEFAULT_ORDER
     );
     mod.def(
-        "lanczosInterpolateVariance",
-        &lanczosInterpolateVariance<T, U, C1, C1, C2>,
+        "interpolateVariance",
+        &interpolateVariance<T, U, C1, C1, C2>,
         "inputVariance"_a,
         "inputMask"_a,
         "indices"_a,
@@ -366,8 +366,8 @@ void declareLanczos(py::module & mod) {
         "order"_a=INTERPOLATE_DEFAULT_ORDER
     );
     mod.def(
-        "lanczosInterpolateVariance",
-        &lanczosInterpolateVariance<T, U, C1, C2>,
+        "interpolateVariance",
+        &interpolateVariance<T, U, C1, C2>,
         "inputVariance"_a,
         "indices"_a,
         "fill"_a=INTERPOLATE_DEFAULT_FILL,
@@ -401,10 +401,10 @@ PYBIND11_PLUGIN(math) {
     declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
     declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
 
-    declareLanczos<double, double, 1, 1>(mod);
-    declareLanczos<double, double, 0, 1>(mod);
-    declareLanczos<float, double, 1, 1>(mod);
-    declareLanczos<float, double, 0, 1>(mod);
+    declareInterpolate<double, double, 1, 1>(mod);
+    declareInterpolate<double, double, 0, 1>(mod);
+    declareInterpolate<float, double, 1, 1>(mod);
+    declareInterpolate<float, double, 0, 1>(mod);
     return mod.ptr();
 }
 
