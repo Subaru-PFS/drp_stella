@@ -3,7 +3,9 @@ from scipy.interpolate import interp1d
 
 from lsst.pipe.base import Struct
 
-from .math import lanczosInterpolate, lanczosInterpolateFlux, lanczosInterpolateVariance
+from .math import interpolate as interpolateImpl
+from .math import interpolateFlux as interpolateFluxImpl
+from .math import interpolateVariance as interpolateVarianceImpl
 from .spline import SplineD
 
 __all__ = ["calculateDispersion", "interpolate", "interpolateFlux", "interpolateVariance", "interpolateMask"]
@@ -115,30 +117,24 @@ def interpolate(
             Target variance array.
     """
     resultMask = interpolateMask(fromWavelength, fromMask, toWavelength, fillMask)
-    if order == 1:
-        resultFlux = interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=fill, order=order)
-        resultVariance = interpolateVariance(
-            fromWavelength, fromVariance, toWavelength, fill=fill, order=order
-        )
-    else:
-        length = len(toWavelength)
-        indices = interpolateIndices(fromWavelength, toWavelength)
-        resultFlux = np.empty(length, dtype=fromFlux.dtype)
-        interpMask = np.empty(length, dtype=bool)
-        resultVariance = np.empty(length, dtype=fromVariance.dtype)
-        lanczosInterpolate(
-            resultFlux,
-            interpMask,
-            resultVariance,
-            fromFlux,
-            (fromMask & badMask) != 0,
-            fromVariance,
-            indices,
-            fill,
-            order,
-            minWeight,
-        )
-        resultMask[interpMask] |= fillMask
+    length = len(toWavelength)
+    indices = interpolateIndices(fromWavelength, toWavelength)
+    resultFlux = np.empty(length, dtype=fromFlux.dtype)
+    interpMask = np.empty(length, dtype=bool)
+    resultVariance = np.empty(length, dtype=fromVariance.dtype)
+    interpolateImpl(
+        resultFlux,
+        interpMask,
+        resultVariance,
+        fromFlux,
+        (fromMask & badMask) != 0,
+        fromVariance,
+        indices,
+        fill,
+        order,
+        minWeight,
+    )
+    resultMask[interpMask] |= fillMask
     return Struct(wavelength=toWavelength, flux=resultFlux, mask=resultMask, variance=resultVariance)
 
 
@@ -175,14 +171,8 @@ def interpolateFlux(
     toFlux : `numpy.ndarray` of `float`
         Target flux-(like) array.
     """
-    if order > 1:
-        indices = interpolateIndices(fromWavelength, toWavelength)
-        values = lanczosInterpolateFlux(fromFlux, indices, fill, order)
-        return values
-    with np.errstate(invalid="ignore"):
-        toFlux = interp1d(fromWavelength, fromFlux, kind="linear", bounds_error=False,
-                          fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
-    return toFlux
+    indices = interpolateIndices(fromWavelength, toWavelength)
+    return interpolateFluxImpl(fromFlux, indices, fill, order)
 
 
 def interpolateVariance(
@@ -217,26 +207,8 @@ def interpolateVariance(
     toVariance : `numpy.ndarray` of `float`
         Target variance array.
     """
-    if order > 1:
-        indices = interpolateIndices(fromWavelength, toWavelength)
-        return lanczosInterpolateVariance(fromVariance, indices, fill, order)
-
-    length = len(fromWavelength)
-    indices = np.arange(length, dtype=int)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        nextIndex = interp1d(fromWavelength, indices, kind="next", bounds_error=False,
-                             fill_value=(1, length - 1))(toWavelength).astype(int)
-        prevIndex = interp1d(fromWavelength, indices, kind="previous", bounds_error=False,
-                             fill_value=(0, length - 2))(toWavelength).astype(int)
-        minWl = fromWavelength.min()
-        maxWl = fromWavelength.max()
-        extrapolate = (toWavelength < minWl) | (toWavelength > maxWl)
-        delta = fromWavelength[nextIndex] - fromWavelength[prevIndex]
-        nextWeight = np.where(delta == 0, 0.5, (toWavelength - fromWavelength[prevIndex])/delta)
-        prevWeight = 1.0 - nextWeight
-        toVariance = fromVariance[prevIndex]*prevWeight**2 + fromVariance[nextIndex]*nextWeight**2
-        toVariance[extrapolate] = fill
-    return toVariance
+    indices = interpolateIndices(fromWavelength, toWavelength)
+    return interpolateVarianceImpl(fromVariance, indices, fill, order)
 
 
 def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
