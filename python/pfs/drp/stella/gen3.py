@@ -1043,7 +1043,7 @@ def cleanRun(
     collections: str,
     datasetTypes: Iterable[str],
     dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
-    where: str | None = None,
+    where: str = "",
     limit: Optional[int] = None,
     dryRun: bool = False,
 ):

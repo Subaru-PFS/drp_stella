@@ -10,7 +10,7 @@ def main():
     parser.add_argument("collection", help="Glob for collections to clean")
     parser.add_argument("datasetType", nargs="+", help="Dataset types to clean")
     parser.add_argument("--id", nargs="*", action="append", help="KEY=VALUE pairs of dataId")
-    parser.add_argument("--where", help="SQL WHERE clause to select datasets to delete")
+    parser.add_argument("--where", default="", help="SQL WHERE clause to select datasets to delete")
     parser.add_argument("--limit", type=int, help="Limit number of datasets to delete")
     parser.add_argument("-n", "--dry-run", action="store_true", help="Don't actually delete anything?")
 
