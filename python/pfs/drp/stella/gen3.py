@@ -779,6 +779,81 @@ def certifyCalibrations(
     registry.certify(outputCollection, refs, timespan)
 
 
+def ingestPredefinedFluxCal(
+    repo: str,
+    fluxCal: str,
+    collections: CollectionArgType,
+    dataQuery: str,
+    output: str,
+    transfer: Optional[str] = "auto",
+) -> None:
+    """Ingest a predefined ``fluxCal``.
+
+    This function registers a single fluxCal many times
+    with various visit numbers
+    so that the pipeline will use it to calibrate all these visits.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI to the location of the repo or URI to a config file describing the
+        repo and its location.
+    fluxCal : `str`
+        Path to a predefined ``fluxCal`` file.
+    collections : collection expression
+        Data collections to search for ``pfsConfig`` files.
+        This parameter defines the universal set from which to choose visits
+        satisfying ``dataQuery`` (below).
+    dataQuery : `str`
+        Query string to choose visits
+        to which to apply the predefined ``fluxCal``.
+    output : `str`
+        Run collection to which to register the predefined ``fluxCal``.
+    transfer : `str`, optional
+        Transfer mode to use for ingest. If not `None`, must be one of 'auto',
+        'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
+        'symlink'.
+    """
+    if not os.path.isfile(fluxCal):
+        raise RuntimeError(f"'{fluxCal}' is not found or is not a file.")
+
+    butler = Butler.from_config(
+        config=repo,
+        collections=collections,
+        writeable=True,
+    )
+
+    dataIds = set(
+        ref.dataId
+        for ref in butler.query_datasets(
+            "pfsConfig",
+            where=dataQuery,
+            find_first=True,
+            limit=None,
+        )
+    )
+    datasetType = DatasetType(
+        "fluxCal",
+        DimensionGroup(
+            butler.registry.dimensions,
+            ["instrument", "visit"],
+        ),
+        storageClass="FocalPlaneFunction",
+    )
+    path = ResourcePath(fluxCal, root=os.getcwd(), forceDirectory=False)
+    refs = [
+        DatasetRef(
+            datasetType,
+            dataId,
+            run=output,
+        )
+        for dataId in dataIds
+    ]
+
+    butler.registry.registerDatasetType(datasetType)
+    butler.ingest(FileDataset(path, refs), transfer=transfer)
+
+
 def findAssociations(
     repo: str,
     inputCollections: CollectionArgType,
