@@ -1565,8 +1565,7 @@ class FitFluxCalTask(PipelineTask):
         calibrated = []
         fiberToArm = defaultdict(list)
         for ii, (pfsArm, sky1d) in enumerate(zip(pfsArmList, sky1dList)):
-            subtractSky1d(pfsArm, pfsConfig, sky1d)
-            fluxCalibrate(pfsArm, pfsConfig, fluxCal)
+            calibratePfsArm(pfsArm, pfsConfig, sky1d, fluxCal)
             for ff in pfsArm.fiberId:
                 fiberToArm[ff].append(ii)
             calibrated.append(pfsArm)
