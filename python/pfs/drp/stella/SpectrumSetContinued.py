@@ -49,9 +49,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
         wavelength[wavelength == 0] = np.nan
         flags = MaskHelper(**self[0].mask.getMaskPlaneDict())
         numSpectra = len(self)
-        covar = np.zeros((numSpectra, 3, self.getLength()))
-        for ii, ss in enumerate(self):
-            covar[ii, 0] = ss.getVariance()
+        covar = self.getAllVariances().reshape(numSpectra, 1, -1)
         metadata = getPfsVersions()
         notes = PfsArm.NotesClass(**{
             col.name: np.array([self[ii].notes.get(col.name, col.default) for ii in range(numSpectra)])
@@ -87,7 +85,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spectrum.fiberId = pfsArm.fiberId[ii]
             spectrum.flux[:] = pfsArm.flux[ii]
             spectrum.norm[:] = pfsArm.norm[ii]
-            spectrum.variance[:] = pfsArm.covar[ii, 0]
+            spectrum.variance[:] = pfsArm.variance[ii]
             spectrum.wavelength[:] = pfsArm.wavelength[ii]
 
             # We need to take care that the mask planes are copied across, not the values

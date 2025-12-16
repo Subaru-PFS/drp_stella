@@ -1,4 +1,5 @@
 #include "ndarray.h"
+#include "ndarray/eigen.h"
 #include "pfs/drp/stella/math/interpolate.h"
 
 namespace pfs {
@@ -12,7 +13,7 @@ namespace math {
 template void interpolate( \
     ndarray::Array<T, 1, C1> & resultValues, \
     ndarray::Array<bool, 1, C1> & resultMask, \
-    ndarray::Array<T, 1, C1> & resultVariance, \
+    ndarray::Array<T, 2, C1> & resultCovariance, \
     ndarray::Array<T, 1, C1> const& inputValues, \
     ndarray::Array<bool, 1, C1> const& inputMask, \
     ndarray::Array<T, 1, C1> const& inputVariance, \
@@ -52,8 +53,8 @@ template ndarray::Array<T, 1, 1> interpolateFlux( \
     T fill, \
     unsigned int order \
 ); \
-template void interpolateVariance( \
-    ndarray::Array<T, 1, C1> & resultVariance, \
+template void interpolateCovariance( \
+    ndarray::Array<T, 2, C1> & resultCovariance, \
     ndarray::Array<bool, 1, C1> & resultMask, \
     ndarray::Array<T, 1, C1> const& inputVariance, \
     ndarray::Array<bool, 1, C1> const& inputMask, \
@@ -62,26 +63,28 @@ template void interpolateVariance( \
     unsigned int order, \
     double minWeight \
 ); \
-template ndarray::Array<T, 1, C1> & interpolateVariance( \
-    ndarray::Array<T, 1, C1> & resultVariance, \
+template ndarray::Array<T, 2, C1> & interpolateCovariance( \
+    ndarray::Array<T, 2, C1> & resultCovariance, \
     ndarray::Array<T, 1, C1> const& inputVariance, \
     ndarray::Array<bool, 1, C1> const& inputMask, \
     ndarray::Array<U, 1, C2> const& indices, \
     T fill, \
     unsigned int order=3 \
 ); \
-template ndarray::Array<T, 1, 1> interpolateVariance( \
+template ndarray::Array<T, 2, 2> interpolateCovariance( \
     ndarray::Array<T, 1, C1> const& inputVariance, \
     ndarray::Array<bool, 1, C1> const& inputMask, \
     ndarray::Array<U, 1, C2> const& indices, \
     T fill, \
-    unsigned int order \
+    unsigned int order, \
+    unsigned int numCovar \
 ); \
-template ndarray::Array<T, 1, 1> interpolateVariance( \
+template ndarray::Array<T, 2, 2> interpolateCovariance( \
     ndarray::Array<T, 1, C1> const& inputVariance, \
     ndarray::Array<U, 1, C2> const& indices, \
     T fill, \
-    unsigned int order \
+    unsigned int order, \
+    unsigned int numCovar \
 );
 
 

@@ -31,7 +31,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.sky *= rhs
             self.norm *= rhs
             rhsSquared = rhs**2
-            for ii in range(3):
+            for ii in range(self.covar.shape[1]):
                 self.covar[:, ii, :] *= rhsSquared
         return self
 
@@ -45,7 +45,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.sky /= rhs
             self.norm /= rhs
             rhsSquared = rhs**2
-            for ii in range(3):
+            for ii in range(self.covar.shape[1]):
                 self.covar[:, ii, :] /= rhsSquared
         return self
 
@@ -127,6 +127,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         order: int = 3,
         bad: list[str] | None = None,
         minWeight: float = 0.1,
+        numCovar: int = 0,
     ) -> "PfsFiberArraySet":
         """Construct a new PfsFiberArraySet resampled to a common wavelength vector
 
@@ -144,6 +145,10 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             List of mask names to consider bad.
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
+        numCovar : `int`, optional
+            Number of covariance diagonals to interpolate. If 0, use
+            ``order + 1``, which is suitable for interpolation on a similar
+            wavelength grid to the original.
 
         Returns
         -------
@@ -152,6 +157,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         """
         if fiberId is None:
             fiberId = self.fiberId
+        if numCovar == 0:
+            numCovar = order + 1
 
         numSpectra = len(fiberId)
         numSamples = len(wavelength)
@@ -159,7 +166,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         mask = np.empty((numSpectra, numSamples), dtype=self.mask.dtype)
         sky = np.empty((numSpectra, numSamples), dtype=self.sky.dtype)
         norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
-        covar = np.zeros((numSpectra, 3, numSamples), dtype=self.covar.dtype)
+        covar = np.zeros((numSpectra, numCovar, numSamples), dtype=self.covar.dtype)
 
         badMask = self.flags.get(*bad) if bad else 0
         kwargs = dict(fill=0.0, order=order)
@@ -184,12 +191,12 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 minWeight=minWeight,
                 badMask=badMask,
                 fillMask=self.flags.get("NO_DATA"),
+                numCovar=numCovar,
                 **kwargs,
             )
             flux[ii] = result.flux
             mask[ii] = result.mask
-            # XXX dropping covariance on the floor: just doing the variance for now
-            covar[ii][0] = result.variance
+            covar[ii] = result.covariance
 
             sky[ii] = interpolateFlux(
                 self.wavelength[jj], np.where(badSky, 0.0, self.sky[jj]), wavelength, **kwargs

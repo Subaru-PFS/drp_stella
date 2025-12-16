@@ -4,7 +4,6 @@
 #include "ndarray_fwd.h"
 
 #include "lsst/afw/math/FunctionLibrary.h"
-
 #include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs {
@@ -13,9 +12,11 @@ namespace stella {
 namespace math {
 
 
-int const INTERPOLATE_DEFAULT_ORDER = 3;
+// Default parameters for interpolation functions
+unsigned int const INTERPOLATE_DEFAULT_ORDER = 3;
 double const INTERPOLATE_DEFAULT_FILL = 0.0;
 float const INTERPOLATE_DEFAULT_MIN_WEIGHT = 0.3;
+unsigned int const INTERPOLATE_DEFAULT_NUMCOVAR = 1;
 
 
 namespace impl {
@@ -45,6 +46,8 @@ public:
 };
 
 
+//@{
+/// Get half-size of kernel
 template <typename KernelT>
 int getKernelHalfSize(KernelT const& kernel);
 
@@ -57,13 +60,14 @@ template <>
 int getKernelHalfSize(lsst::afw::math::LanczosFunction1<double> const& kernel) {
     return kernel.getOrder();
 }
+//@}
 
 
 //@{
 /// Interpolation of 1D spectrum
 ///
-/// This is a general implementation, handling flux, mask and variance, and used
-/// by interpolateFlux() and interpolateVariance(). Template parameters control
+/// This is a general implementation, handling flux, mask and covariance, and used
+/// by interpolateFlux() and interpolateCovariance(). Template parameters control
 /// which of the input and output arrays are provided and used, allowing the
 /// compiler to optimize away unused branches. If an array is not used according
 /// to the template parameters, any input array will be ignored; using an empty
@@ -71,32 +75,33 @@ int getKernelHalfSize(lsst::afw::math::LanczosFunction1<double> const& kernel) {
 ///
 /// @tparam wantValues  True if we want to compute resultValues.
 /// @tparam wantMask  True if we want to compute resultMask.
-/// @tparam wantVariance  True if we want to compute resultVariance.
+/// @tparam wantCovariance  True if we want to compute resultCovariance.
 /// @tparam haveMask  True if inputMask is provided.
 /// @tparam KernelT  The kernel function type.
 /// @tparam T  The values and variance array element type.
 /// @tparam U  The indices array element type.
 /// @tparam C1  The resultValues array's contiguity.
 /// @tparam C2  The resultMask array's contiguity.
-/// @tparam C3  The resultVariance array's contiguity.
+/// @tparam C3  The resultCovariance array's contiguity.
 /// @tparam C4  The inputValues array's contiguity.
 /// @tparam C5  The inputMask array's contiguity.
 /// @tparam C6  The inputVariance array's contiguity.
 /// @tparam C7  The indices array's contiguity.
+/// @param[in] kernel  The interpolation kernel function.
 /// @param[in,out] resultValues  The output values array. If wantValue is true,
 ///    this must be preallocated to the size of the indices array; otherwise
 ///    this is ignored.
 /// @param[in,out] resultMask  The output mask array. If wantMask is true, this
 ///    must be preallocated to the size of the indices array; otherwise this is
 ///    ignored.
-/// @param[in,out] resultVariance  The output variance array. If wantVariance is
+/// @param[in,out] resultCovariance  The output covariance array. If wantCovariance is
 ///    true, this must be preallocated to the size of the indices array;
 ///    otherwise this is ignored.
 /// @param[in] inputValues  The input values array. If wantValues is true, this
 ///    must be non-empty; otherwise this is ignored.
 /// @param[in] inputMask  The input mask array. If haveMask is true, this must
 ///    be non-empty; otherwise this is ignored.
-/// @param[in] inputVariance  The input variance array. If wantVariance is true,
+/// @param[in] inputVariance  The input variance array. If wantCovariance is true,
 ///    this must be non-empty; otherwise this is ignored.
 /// @param[in] indices  The indices array, with floating-point indices at which
 ///    to interpolate.
@@ -107,7 +112,7 @@ int getKernelHalfSize(lsst::afw::math::LanczosFunction1<double> const& kernel) {
 template <
     bool wantValues,  // true means have resultValues and inputValues
     bool wantMask,  // true means have resultMask
-    bool wantVariance,  // true means have resultVariance and inputVariance
+    bool wantCovariance,  // true means have resultCovariance and inputCovariance
     bool haveMask,  // true means have inputMask
     typename KernelT,
     typename T,
@@ -118,7 +123,7 @@ void interpolate(
     KernelT const& kernel,
     ndarray::Array<T, 1, C1> & resultValues,
     ndarray::Array<bool, 1, C2> & resultMask,
-    ndarray::Array<T, 1, C3> & resultVariance,
+    ndarray::Array<T, 2, C3> & resultCovariance,
     ndarray::Array<T, 1, C4> const& inputValues,
     ndarray::Array<bool, 1, C5> const& inputMask,
     ndarray::Array<T, 1, C6> const& inputVariance,
@@ -127,8 +132,8 @@ void interpolate(
     double minWeight=INTERPOLATE_DEFAULT_MIN_WEIGHT
 ) {
     static_assert(
-        wantValues || wantMask || wantVariance,
-        "At least one of wantValue, wantMask, or wantVariance must be provided"
+        wantValues || wantMask || wantCovariance,
+        "At least one of wantValue, wantMask, or wantCovariance must be provided"
     );
 
     std::size_t const numOut = indices.size();
@@ -150,13 +155,15 @@ void interpolate(
     if (wantMask) {
         utils::checkSize(resultMask.size(), numOut, "resultMask");
     }
-    if (wantVariance) {
+    int numCovarOffsets = 0;
+    if (wantCovariance) {
         if (numIn == 0) {
             numIn = inputVariance.size();
         } else {
             utils::checkSize(inputVariance.size(), numIn, "inputVariance");
         }
-        utils::checkSize(resultVariance.size(), numOut, "resultVariance");
+        numCovarOffsets = resultCovariance.getShape()[0];
+        utils::checkSize(resultCovariance.getShape()[1], numOut, "resultCovariance");
     }
     if (numIn == 0) {
         throw LSST_EXCEPT(
@@ -165,6 +172,21 @@ void interpolate(
     }
 
     int const halfSize = getKernelHalfSize(kernel);
+
+    // Calculating covariance with non-zero offsets requires caching kernel values
+    bool const wantCovarianceExtra = wantCovariance && (numCovarOffsets > 1);
+    ndarray::Array<double, 2, 2> kernelCache;
+    ndarray::Array<std::ptrdiff_t, 1, 1> startCache;
+    ndarray::Array<std::ptrdiff_t, 1, 1> endCache;
+    if (wantCovarianceExtra) {
+        kernelCache = ndarray::allocate(numOut, 2*halfSize);
+        kernelCache.deep() = 0.0;
+        startCache = ndarray::allocate(numOut);
+        startCache.deep() = -1;
+        endCache = ndarray::allocate(numOut);
+        endCache.deep() = -1;
+    }
+
     for (std::size_t ii = 0; ii != numOut; ++ii) {
         T const target = indices[ii];
         if (target < 0 || target > numIn - 1) {
@@ -175,8 +197,8 @@ void interpolate(
             if (wantMask) {
                 resultMask[ii] = true;
             }
-            if (wantVariance) {
-                resultVariance[ii] = fill;
+            if (wantCovariance) {
+                resultCovariance[ndarray::view()(ii)] = fill;
             }
             continue;
         }
@@ -193,23 +215,37 @@ void interpolate(
         // dx = -2.75, -1.75, -0.75, 0.25, 1.25, 2.25
 
         // Interpolate using a window of size 2*halfSize centered on target
-        double value = 0.0;
-        double variance = 0.0;
-        double sumWeights = 0.0;
         std::ptrdiff_t const start = std::max(std::ptrdiff_t(0), index - halfSize);  // inclusive
         std::ptrdiff_t const end = std::min(std::ptrdiff_t(numIn), index + halfSize);  // exclusive
         double frac = double(start) - target;
+        double sumWeights = 0.0;
+        double sumValues = 0.0;
+        double sumVariances = 0.0;
         for (std::ptrdiff_t jj = start; jj < end; ++jj, frac += 1.0) {
             if (haveMask && inputMask[jj]) {
                 continue;
             }
-            double const weight = kernel(frac);
-            sumWeights += weight;
+            double const kernelValue = kernel(frac);
+            sumWeights += kernelValue;
+
             if (wantValues) {
-                value += weight * inputValues[jj];
+                sumValues += kernelValue * inputValues[jj];
             }
-            if (wantVariance) {
-                variance += weight * weight * inputVariance[jj];
+            if (wantCovariance) {
+                // We compute the variance here because that doesn't require
+                // knowing the kernel at other positions.
+                sumVariances += kernelValue * kernelValue * inputVariance[jj];
+                // For higher-order covariance, we'll cache the kernel to calculate later.
+                // We don't want to calculate it on the fly because (1) we're going to calculate
+                // it in a different context and don't want to duplicate the work, and (2) it's
+                // not easy to ensure that it's normalized correctly (e.g., due to masked pixels).
+                // Therefore, we cache the kernel values, normalize later, and then use the
+                // normalized cached values to compute the higher-order covariance at the end.
+                if (wantCovarianceExtra) {
+                    kernelCache[ii][jj - index + halfSize] = kernelValue;
+                    startCache[ii] = start;
+                    endCache[ii] = end;
+                }
             }
         }
         if (wantMask) {
@@ -219,23 +255,66 @@ void interpolate(
             if (wantValues) {
                 resultValues[ii] = fill;
             }
-            if (wantVariance) {
-                resultVariance[ii] = fill;
+            if (wantCovariance) {
+                resultCovariance[ndarray::view()(ii)] = fill;
+            }
+            if (wantMask) {
+                resultMask[ii] = true;
             }
             continue;
         }
+
         if (wantValues) {
-            resultValues[ii] = value / sumWeights;
+            resultValues[ii] = sumValues/sumWeights;
         }
-        if (wantVariance) {
-            resultVariance[ii] = variance / (sumWeights*sumWeights);
+        if (wantCovariance) {
+            resultCovariance[0][ii] = sumVariances/(sumWeights*sumWeights);
+            if (wantCovarianceExtra) {
+                kernelCache[ii] /= sumWeights;
+            }
+        }
+    }
+
+    if (wantCovarianceExtra) {
+        // Now compute the higher-order covariance values using the cached kernel values
+        resultCovariance[ndarray::view(1, numCovarOffsets)()] = 0.0;
+        for (std::size_t ii = 0; ii != numOut; ++ii) {  // ii is position on the output array
+            std::ptrdiff_t const index = std::ceil(indices[ii]);
+            std::ptrdiff_t const start = startCache[ii];  // inclusive
+            std::ptrdiff_t const end = endCache[ii];  // exclusive
+            std::ptrdiff_t const kernelStart = start - index + halfSize;
+            double const sum = ndarray::asEigenArray(kernelCache[ii]).sum();
+            if (start < 0) {  // No valid kernel values
+                resultCovariance[ndarray::view()(ii)] = fill;
+                continue;
+            }
+            for (std::size_t offset = 1, ii2 = ii + 1; offset < numCovarOffsets; ++offset, ++ii2) {
+                if (ii2 >= numOut) {
+                    resultCovariance[offset][ii] = fill;
+                    continue;
+                }
+                std::ptrdiff_t const index2 = std::ceil(indices[ii2]);
+                std::ptrdiff_t const kernelStart2 = start - index2 + halfSize;
+                for (
+                    std::ptrdiff_t jj = start, kk = kernelStart, kk2 = kernelStart2;
+                    jj < end;
+                    ++jj, ++kk, ++kk2
+                ) {
+                    double const kernelValue1 = kernelCache[ii][kk];  // kernel between jj and ii
+                    if (kk2 < 0 || kk2 >= 2*halfSize) {
+                        continue;
+                    }
+                    double const kernelValue2 = kernelCache[ii2][kk2];
+                    resultCovariance[offset][ii] += kernelValue1 * kernelValue2 * inputVariance[jj];
+                }
+            }
         }
     }
 }
 template <
     bool wantValues,  // true means have resultValues and inputValues
     bool wantMask,  // true means have resultMask
-    bool wantVariance,  // true means have resultVariance and inputVariance
+    bool wantCovariance,  // true means have resultCovariance and inputVariance
     bool haveMask,  // true means have inputMask
     typename T,
     typename U,
@@ -244,7 +323,7 @@ template <
 void interpolate(
     ndarray::Array<T, 1, C1> & resultValues,
     ndarray::Array<bool, 1, C2> & resultMask,
-    ndarray::Array<T, 1, C3> & resultVariance,
+    ndarray::Array<T, 2, C3> & resultCovariance,
     ndarray::Array<T, 1, C4> const& inputValues,
     ndarray::Array<bool, 1, C5> const& inputMask,
     ndarray::Array<T, 1, C6> const& inputVariance,
@@ -257,16 +336,16 @@ void interpolate(
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Order must be positive");
     }
     if (order == 1) {
-        interpolate<wantValues, wantMask, wantVariance, haveMask>(
+        interpolate<wantValues, wantMask, wantCovariance, haveMask>(
             impl::TriangleFunction1(),
-            resultValues, resultMask, resultVariance,
+            resultValues, resultMask, resultCovariance,
             inputValues, inputMask, inputVariance,
             indices, fill, minWeight
         );
     } else {
-        interpolate<wantValues, wantMask, wantVariance, haveMask>(
+        interpolate<wantValues, wantMask, wantCovariance, haveMask>(
             lsst::afw::math::LanczosFunction1<double>(order),
-            resultValues, resultMask, resultVariance,
+            resultValues, resultMask, resultCovariance,
             inputValues, inputMask, inputVariance,
             indices, fill, minWeight
         );
@@ -287,7 +366,7 @@ void interpolate(
 /// @tparam U  The indices array element type.
 /// @tparam C1  The resultValues array's contiguity.
 /// @tparam C2  The resultMask array's contiguity.
-/// @tparam C3  The resultVariance array's contiguity.
+/// @tparam C3  The resultCovariance array's contiguity.
 /// @tparam C4  The inputValues array's contiguity.
 /// @tparam C5  The inputMask array's contiguity.
 /// @tparam C6  The inputVariance array's contiguity.
@@ -296,7 +375,7 @@ void interpolate(
 ///    preallocated to the size of the indices array.
 /// @param[in,out] resultMask  The output mask array. This must be preallocated
 ///    to the size of the indices array.
-/// @param[in,out] resultVariance  The output variance array. This must be
+/// @param[in,out] resultCovariance  The output covariance array. This must be
 ///    preallocated to the size of the indices array.
 /// @param[in] inputValues  The input values array.
 /// @param[in] inputMask  The input mask array.
@@ -311,7 +390,7 @@ template <typename T, typename U, int C1, int C2, int C3, int C4, int C5, int C6
 void interpolate(
     ndarray::Array<T, 1, C1> & resultValues,
     ndarray::Array<bool, 1, C2> & resultMask,
-    ndarray::Array<T, 1, C3> & resultVariance,
+    ndarray::Array<T, 2, C3> & resultCovariance,
     ndarray::Array<T, 1, C4> const& inputValues,
     ndarray::Array<bool, 1, C5> const& inputMask,
     ndarray::Array<T, 1, C6> const& inputVariance,
@@ -321,7 +400,7 @@ void interpolate(
     double minWeight=INTERPOLATE_DEFAULT_MIN_WEIGHT
 ) {
     return impl::interpolate<true, true, true, true>(
-        resultValues, resultMask, resultVariance,
+        resultValues, resultMask, resultCovariance,
         inputValues, inputMask, inputVariance,
         indices, fill, order, minWeight
     );
@@ -350,6 +429,7 @@ void interpolate(
 ///    to interpolate.
 /// @param[in] fill  The value to use when interpolation is not possible.
 /// @param[in] order  Interpolation order (1 = Triangle, >1 = Lanczos of given order).
+/// @param[in] numCovar  The number of covariance offsets to compute.
 /// @param[in] minWeight  The minimum sum of weights to accept; if the sum of
 ///    weights is less than this value, the output will be masked.
 template <typename T, typename U, int C1, int C2, int C3, int C4, int C5>
@@ -363,9 +443,10 @@ void interpolateFlux(
     unsigned int order=INTERPOLATE_DEFAULT_ORDER,
     double minWeight=INTERPOLATE_DEFAULT_MIN_WEIGHT
 ) {
-    ndarray::Array<T, 1, 1> emptyVar;  // Empty array for variance
+    ndarray::Array<T, 2, 1> resultVar;  // Empty array for variance result
+    ndarray::Array<T, 1, 1> inputVar;  // Empty array for variance input
     impl::interpolate<true, true, false, true>(
-        resultValues, resultMask, emptyVar, inputValues, inputMask, emptyVar, indices, fill, order, minWeight
+        resultValues, resultMask, resultVar, inputValues, inputMask, inputVar, indices, fill, order, minWeight
     );
 }
 template <typename T, typename U, int C1, int C3, int C4, int C5>
@@ -378,9 +459,10 @@ ndarray::Array<T, 1, C1> & interpolateFlux(
     unsigned int order=INTERPOLATE_DEFAULT_ORDER
 ) {
     ndarray::Array<bool, 1, 1> emptyMask;  // Empty array for mask
-    ndarray::Array<T, 1, 1> emptyVar;  // Empty array for variance
+    ndarray::Array<T, 2, 1> resultVar;  // Empty array for variance result
+    ndarray::Array<T, 1, 1> inputVar;  // Empty array for variance input
     impl::interpolate<true, false, false, true>(
-        resultValues, emptyMask, emptyVar, inputValues, inputMask, emptyVar, indices, fill, order
+        resultValues, emptyMask, resultVar, inputValues, inputMask, inputVar, indices, fill, order
     );
     return resultValues;
 }
@@ -404,9 +486,10 @@ ndarray::Array<T, 1, 1> interpolateFlux(
 ) {
     ndarray::Array<T, 1, 1> result = ndarray::allocate(indices.size());
     ndarray::Array<bool, 1, 1> emptyMask;  // Empty array for mask
-    ndarray::Array<T, 1, 1> emptyVar;  // Empty array for variance
+    ndarray::Array<T, 2, 1> resultVar;  // Empty array for variance result
+    ndarray::Array<T, 1, 1> inputVar;  // Empty array for variance input
     impl::interpolate<true, false, false, false>(
-        result, emptyMask, emptyVar, inputValues, emptyMask, emptyVar, indices, fill, order
+        result, emptyMask, resultVar, inputValues, emptyMask, inputVar, indices, fill, order
     );
     return result;
 }
@@ -414,18 +497,18 @@ ndarray::Array<T, 1, 1> interpolateFlux(
 
 
 //@{
-/// Interpolation of 1D variance spectrum
+/// Interpolation of 1D covariance spectrum
 ///
 /// For use when flux is not needed.
 ///
-/// @tparam T  The variance array element type.
+/// @tparam T  The covariance array element type.
 /// @tparam U  The indices array element type.
-/// @tparam C1  The resultVariance array's contiguity.
+/// @tparam C1  The resultCovariance array's contiguity.
 /// @tparam C2  The resultMask array's contiguity.
 /// @tparam C3  The inputVariance array's contiguity.
 /// @tparam C4  The inputMask array's contiguity.
 /// @tparam C5  The indices array's contiguity.
-/// @param[in,out] resultVariance  The output variance array. This must be
+/// @param[in,out] resultCovariance  The output covariance array. This must be
 ///    preallocated to the size of the indices array.
 /// @param[in,out] resultMask  The output mask array. If wantMask is true, this
 ///    must be preallocated to the size of the indices array; otherwise this is
@@ -439,8 +522,8 @@ ndarray::Array<T, 1, 1> interpolateFlux(
 /// @param[in] minWeight  The minimum sum of weights to accept; if the sum of
 ///    weights is less than this value, the output will be masked.
 template <typename T, typename U, int C1, int C2, int C3, int C4, int C5>
-void interpolateVariance(
-    ndarray::Array<T, 1, C1> & resultVariance,
+void interpolateCovariance(
+    ndarray::Array<T, 2, C1> & resultCovariance,
     ndarray::Array<bool, 1, C2> & resultMask,
     ndarray::Array<T, 1, C3> const& inputVariance,
     ndarray::Array<bool, 1, C4> const& inputMask,
@@ -451,44 +534,58 @@ void interpolateVariance(
 ) {
     ndarray::Array<T, 1, 1> empty;  // Empty array for values
     impl::interpolate<false, true, true, true>(
-        empty, resultMask, resultVariance, empty, inputMask, inputVariance, indices, fill, order, minWeight
+        empty, resultMask, resultCovariance, empty, inputMask, inputVariance, indices, fill, order, minWeight
     );
 }
 template <typename T, typename U, int C1, int C3, int C4, int C5>
-ndarray::Array<T, 1, C1> & interpolateVariance(
-    ndarray::Array<T, 1, C1> & resultVariance,
+ndarray::Array<T, 2, C1> & interpolateCovariance(
+    ndarray::Array<T, 2, C1> & resultCovariance,
     ndarray::Array<T, 1, C3> const& inputVariance,
     ndarray::Array<bool, 1, C4> const& inputMask,
     ndarray::Array<U, 1, C5> const& indices,
     T fill=INTERPOLATE_DEFAULT_FILL,
     unsigned int order=INTERPOLATE_DEFAULT_ORDER
 ) {
-    ndarray::Array<T, 1, 1> emptyVal;  // Empty array for variance
+    ndarray::Array<T, 1, 1> emptyVal;  // Empty array for values
     ndarray::Array<bool, 1, 1> emptyMask;  // Empty array for mask
     impl::interpolate<false, false, true, true>(
-        emptyVal, emptyMask, resultVariance, emptyVal, inputMask, inputVariance, indices, fill, order
+        emptyVal, emptyMask, resultCovariance, emptyVal, inputMask, inputVariance, indices, fill, order
     );
-    return resultVariance;
+    return resultCovariance;
 }
 template <typename T, typename U, int C3, int C4, int C5>
-ndarray::Array<T, 1, 1> interpolateVariance(
+ndarray::Array<T, 2, 2> interpolateCovariance(
     ndarray::Array<T, 1, C3> const& inputVariance,
     ndarray::Array<bool, 1, C4> const& inputMask,
     ndarray::Array<U, 1, C5> const& indices,
     T fill=INTERPOLATE_DEFAULT_FILL,
-    unsigned int order=INTERPOLATE_DEFAULT_ORDER
+    unsigned int order=INTERPOLATE_DEFAULT_ORDER,
+    unsigned int numCovar=INTERPOLATE_DEFAULT_NUMCOVAR
 ) {
-    ndarray::Array<T, 1, 1> result = ndarray::allocate(indices.size());
-    return interpolateVariance(result, inputVariance, inputMask, indices, fill, order);
+    if (numCovar <= 0) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "numCovar must be positive"
+        );
+    }
+    ndarray::Array<T, 2, 2> result = ndarray::allocate(numCovar, indices.size());
+    return interpolateCovariance(result, inputVariance, inputMask, indices, fill, order);
 }
 template <typename T, typename U, int C3, int C5>
-ndarray::Array<T, 1, 1> interpolateVariance(
+ndarray::Array<T, 2, 2> interpolateCovariance(
     ndarray::Array<T, 1, C3> const& inputVariance,
     ndarray::Array<U, 1, C5> const& indices,
     T fill=INTERPOLATE_DEFAULT_FILL,
-    unsigned int order=INTERPOLATE_DEFAULT_ORDER
+    unsigned int order=INTERPOLATE_DEFAULT_ORDER,
+    unsigned int numCovar=INTERPOLATE_DEFAULT_NUMCOVAR
 ) {
-    ndarray::Array<T, 1, 1> result = ndarray::allocate(indices.size());
+    if (numCovar <= 0) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "numCovar must be positive"
+        );
+    }
+    ndarray::Array<T, 2, 2> result = ndarray::allocate(numCovar, indices.size());
     ndarray::Array<bool, 1, 1> emptyMask;  // Empty array for mask
     ndarray::Array<T, 1, 1> emptyVal;  // Empty array for variance
     impl::interpolate<false, false, true, false>(
