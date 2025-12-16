@@ -18,3 +18,4 @@ subsets:
   fluxCal:
     - determineFluxReference
     - fitFluxCal
+    - applyFluxCal
