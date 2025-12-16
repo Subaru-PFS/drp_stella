@@ -335,8 +335,8 @@ void declareInterpolate(py::module & mod) {
     );
 
     mod.def(
-        "interpolateVariance",
-        &interpolateVariance<T, U, C1, C1, C1, C1, C2>,
+        "interpolateCovariance",
+        &interpolateCovariance<T, U, C1, C1, C1, C1, C2>,
         "resultVariance"_a,
         "resultMask"_a,
         "inputVariance"_a,
@@ -347,8 +347,8 @@ void declareInterpolate(py::module & mod) {
         "minWeight"_a=INTERPOLATE_DEFAULT_MIN_WEIGHT
     );
     mod.def(
-        "interpolateVariance",
-        &interpolateVariance<T, U, C1, C1, C1, C2>,
+        "interpolateCovariance",
+        &interpolateCovariance<T, U, C1, C1, C1, C2>,
         "resultVariance"_a,
         "inputVariance"_a,
         "inputMask"_a,
@@ -357,21 +357,23 @@ void declareInterpolate(py::module & mod) {
         "order"_a=INTERPOLATE_DEFAULT_ORDER
     );
     mod.def(
-        "interpolateVariance",
-        &interpolateVariance<T, U, C1, C1, C2>,
+        "interpolateCovariance",
+        &interpolateCovariance<T, U, C1, C1, C2>,
         "inputVariance"_a,
         "inputMask"_a,
         "indices"_a,
         "fill"_a=INTERPOLATE_DEFAULT_FILL,
-        "order"_a=INTERPOLATE_DEFAULT_ORDER
+        "order"_a=INTERPOLATE_DEFAULT_ORDER,
+        "numCovar"_a=INTERPOLATE_DEFAULT_NUMCOVAR
     );
     mod.def(
-        "interpolateVariance",
-        &interpolateVariance<T, U, C1, C2>,
+        "interpolateCovariance",
+        &interpolateCovariance<T, U, C1, C2>,
         "inputVariance"_a,
         "indices"_a,
         "fill"_a=INTERPOLATE_DEFAULT_FILL,
-        "order"_a=INTERPOLATE_DEFAULT_ORDER
+        "order"_a=INTERPOLATE_DEFAULT_ORDER,
+        "numCovar"_a=INTERPOLATE_DEFAULT_NUMCOVAR
     );
 }
 

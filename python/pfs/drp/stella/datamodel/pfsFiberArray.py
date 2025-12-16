@@ -181,6 +181,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         order: int = 3,
         bad: list[str] | None = None,
         minWeight: float = 0.1,
+        numCovar: int = 0,
     ) -> "PfsFiberArray":
         """Resampled the spectrum in wavelength
 
@@ -196,12 +197,19 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             List of mask names to consider bad.
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
+        numCovar : `int`, optional
+            Number of covariance diagonals to interpolate. If 0, use
+            ``order + 1``, which is suitable for interpolation on a similar
+            wavelength grid to the original.
 
         Returns
         -------
         resampled : `PfsFiberArray`
             Resampled spectrum.
         """
+        if numCovar == 0:
+            numCovar = order + 1
+
         # Remove NANs: they get everywhere
         badFlux = ~np.isfinite(self.flux)
         badVariance = ~np.isfinite(self.variance)
@@ -222,12 +230,10 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             minWeight=minWeight,
             badMask=badMask,
             fillMask=self.flags.get("NO_DATA"),
+            numCovar=numCovar,
             **kwargs,
         )
         sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, **kwargs)
-        covar = np.array([
-            result.variance, np.zeros_like(result.variance), np.zeros_like(result.variance)
-        ])
 
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(
@@ -237,7 +243,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             result.flux,
             result.mask,
             sky,
-            covar,
+            result.covariance,
             covar2,
             self.flags,
             self.fluxTable,
