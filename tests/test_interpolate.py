@@ -5,7 +5,13 @@ from lsst.pipe.base import Struct
 from lsst.afw.math import offsetImage
 from lsst.afw.image import ImageD
 
-from pfs.drp.stella.interpolate import calculateDispersion, interpolateFlux, interpolateVariance, interpolate
+from pfs.drp.stella.interpolate import (
+    calculateDispersion,
+    interpolateFlux,
+    interpolateVariance,
+    interpolate,
+    interpolateCovariance,
+)
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
 
 display = None
@@ -200,6 +206,47 @@ class InterpolateTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(result, expected, atol=1.0e-2)
         self.assertFloatsAlmostEqual(moment1, shift, atol=atol1)
         self.assertFloatsAlmostEqual(moment2, sigma, atol=atol2)
+
+    @methodParameters(
+        inDispersion=(3.0, 5.0, 10.0),
+        outDispersion=(1.23, 4.321, 7.654)
+    )
+    def testCovariance(self, inDispersion: float, outDispersion: float):
+        """Test interpolateCovariance function"""
+        fluxValue = 100.0
+        varianceValue = 1.0
+        numSamples = 10000
+        numCovar = self.order + 2  # +1 to test one beyond order, +1 for zeroth order
+
+        inSpectrum = self.makeSpectrum(inDispersion, fluxValue)
+        variance = np.full_like(inSpectrum.flux, varianceValue)
+        outSpectrum = self.makeSpectrum(outDispersion, fluxValue)
+
+        covar = interpolateCovariance(
+            inSpectrum.wavelength, variance, outSpectrum.wavelength, order=self.order, numCovar=numCovar
+        )
+        self.assertEqual(covar.shape, (numCovar, outSpectrum.wavelength.size))
+
+        rng = np.random.RandomState(12345)
+        samples = np.zeros((numSamples, outSpectrum.wavelength.size), dtype=float)
+        for ii in range(numSamples):
+            flux = rng.normal(fluxValue, np.sqrt(varianceValue), size=inSpectrum.wavelength.size)
+            samples[ii] = interpolateFlux(
+                inSpectrum.wavelength, flux, outSpectrum.wavelength, order=self.order
+            )
+        residuals = samples - fluxValue
+
+        outVar = interpolateVariance(
+            inSpectrum.wavelength, variance, outSpectrum.wavelength, order=self.order
+        )
+        measVar = np.nanvar(residuals, axis=0)
+        self.assertFloatsAlmostEqual(covar[0], outVar, atol=1.0e-6)
+        self.assertFloatsAlmostEqual(measVar, outVar, atol=4.0e-2)
+
+        for offset in range(numCovar):
+            calculated = covar[offset]
+            measured = np.mean(residuals[:, :-offset or None]*residuals[:, offset or None:], axis=0)
+            self.assertFloatsAlmostEqual(measured, calculated[:-offset or None], rtol=0.1, atol=0.05)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
