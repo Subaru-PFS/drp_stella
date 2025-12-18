@@ -395,6 +395,7 @@ class CoaddSpectraTask(PipelineTask):
         resampled = []
         resampledLsf = []
         resampledRange = []
+        numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
             new = spectrum.resample(
@@ -408,6 +409,7 @@ class CoaddSpectraTask(PipelineTask):
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
             resampledRange.append((minIndex, maxIndex))
+        assert all(rr.covar.shape[0] == numCovar for rr in resampled)
 
         # Now do a weighted coaddition
         archetype = resampled[0]
@@ -415,7 +417,7 @@ class CoaddSpectraTask(PipelineTask):
         mask = np.zeros(length, dtype=archetype.mask.dtype)
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
-        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        covar = np.zeros((numCovar, length), dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
         for ss in resampled:
@@ -426,14 +428,15 @@ class CoaddSpectraTask(PipelineTask):
                 flux[good] += ss.flux[good]*weight[good]
                 sky[good] += ss.sky[good]*weight[good]
                 mask[good] |= ss.mask[good]
+                covar[:, good] += ss.covar[:, good]*ww**2
                 sumWeights += weight
 
         good = sumWeights > 0
-        flux[good] /= sumWeights[good]
-        sky[good] /= sumWeights[good]
-        covar[0][good] = 1.0/sumWeights[good]
-        covar[0][~good] = np.inf
-        covar[1:2] = np.where(good, 0.0, np.inf)
+        ww = sumWeights[good]
+        flux[good] /= ww
+        sky[good] /= ww
+        covar[:, good] /= ww**2
+        covar[:, ~good] = np.inf
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
