@@ -416,6 +416,7 @@ class CoaddSpectraTask(PipelineTask):
         resampled = []
         resampledLsf = []
         resampledRange = []
+        numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
         for spectrum, lsf in zip(spectraList, lsfList):
             fiberId = spectrum.observations.fiberId[0]
             resampled.append(spectrum.resample(
@@ -428,6 +429,7 @@ class CoaddSpectraTask(PipelineTask):
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
             resampledRange.append((minIndex, maxIndex))
+        assert all(rr.covar.shape[0] == numCovar for rr in resampled)
 
         # Now do a weighted coaddition
         archetype = resampled[0]
@@ -435,12 +437,10 @@ class CoaddSpectraTask(PipelineTask):
         mask = np.zeros(length, dtype=archetype.mask.dtype)
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
-        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        covar = np.zeros((numCovar, length), dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        allValues = np.full((len(resampled), length), np.nan)
-
-        for ii, ss in enumerate(resampled):
+        for ss in resampled:
             weight = np.zeros_like(flux)
             with np.errstate(invalid="ignore", divide="ignore"):
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
@@ -449,18 +449,15 @@ class CoaddSpectraTask(PipelineTask):
                 flux[good] += ss.flux[good]*ww
                 sky[good] += ss.sky[good]*ww
                 mask[good] |= ss.mask[good]
-                covar[0][good] += ss.covar[0][good]*ww**2
+                covar[:, good] += ss.covar[:, good]*ww**2
                 sumWeights += weight
-
-                allValues[ii][good] = ss.flux[good]/np.sqrt(ss.covar[0][good])
 
         good = sumWeights > 0
         ww = sumWeights[good]
         flux[good] /= ww
         sky[good] /= ww
-        covar[0][good] /= ww**2
-        covar[0][~good] = np.inf
-        covar[1:2] = np.where(good, 0.0, np.inf)
+        covar[:, good] /= ww**2
+        covar[:, ~good] = np.inf
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
