@@ -1268,15 +1268,6 @@ class FitFluxCalConnections(PipelineTaskConnections, dimensions=("instrument", "
 class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnections):
     """Configuration for FitFluxCalTask"""
 
-    sysErr = Field(
-        dtype=float,
-        default=1.0e-4,
-        doc=(
-            "Fraction of value to add to variance before fitting. This attempts to offset the "
-            "loss of variance as covariance when we resample, the result of which is "
-            "underestimated errors and excess rejection."
-        ),
-    )
     fitFocalPlane = ConfigurableField(
         target=FitFluxCalibFocalPlaneFunctionTask, doc="Fit flux calibration model"
     )
@@ -1340,6 +1331,9 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         default=1e-3,
         doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
     )
+
+    def setDefaults(self):
+        self.fitFocalPlane.sysErr = 0.0
 
 
 class FitFluxCalTask(PipelineTask):
@@ -1444,7 +1438,6 @@ class FitFluxCalTask(PipelineTask):
 
             ref[i, :] = refSpec.flux
 
-        calibVectors.covar[:, 0] += self.config.sysErr * calibVectors.flux  # add systematic error
         calibVectors /= calibVectors.norm
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
