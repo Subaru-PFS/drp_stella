@@ -1341,6 +1341,9 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         doc="Minimizer stops when `stddev(f) < minimizationTolerance * f`",
     )
 
+    def setDefaults(self):
+        self.fitFocalPlane.sysErr = 0.0
+
 
 class FitFluxCalTask(PipelineTask):
     """Measure the flux calibration"""
