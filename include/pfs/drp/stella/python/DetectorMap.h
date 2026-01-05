@@ -22,7 +22,7 @@ namespace python {
 template <typename Class>
 auto wrapDetectorMap(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
-    py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
+    py::classh<Class, DetectorMap> cls(mod, name);
     cls.def("clone", py::overload_cast<>(&Class::clone, py::const_));
     return cls;
 }

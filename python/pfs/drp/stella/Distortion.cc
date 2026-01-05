@@ -16,7 +16,7 @@ namespace {
 
 auto declareDistortion(py::module & mod) {
     using Class = Distortion;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "Distortion");
+    py::classh<Class> cls(mod, "Distortion");
     cls.def("clone", &Class::clone);
     cls.def("__call__", py::overload_cast<lsst::geom::Point2D const&>(&Class::operator(), py::const_),
             "xy"_a);
@@ -43,10 +43,8 @@ auto declareDistortion(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(Distortion) {
-    py::module mod("Distortion");
+PYBIND11_MODULE(Distortion, mod) {
     declareDistortion(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

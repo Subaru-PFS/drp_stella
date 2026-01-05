@@ -15,9 +15,7 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-PYBIND11_PLUGIN(fitLine) {
-    py::module mod("fitLine");
-
+PYBIND11_MODULE(fitLine, mod) {
     py::class_<FitLineResult> cls(mod, "FitLineResult");
     cls.def_readonly("rms", &FitLineResult::rms);
     cls.def_readonly("isValid", &FitLineResult::isValid);
@@ -48,8 +46,6 @@ PYBIND11_PLUGIN(fitLine) {
                           lsst::afw::image::MaskPixel badBitMask, std::size_t fittingHalfSize) {
                               return fitLine(spectrum, peakPosition, rmsSize, badBitMask, fittingHalfSize); },
             "spectrum"_a, "peakPosition"_a, "rmsSize"_a, "badBitMask"_a, "fittingHalfSize"_a=0);
-
-    return mod.ptr();
 }
 
 } // anonymous namespace

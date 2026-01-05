@@ -15,7 +15,7 @@ namespace {
 
 void declareSpectrumSet(py::module &mod) {
     using Class = SpectrumSet;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "SpectrumSet");
+    py::classh<Class> cls(mod, "SpectrumSet");
 
     cls.def(py::init<std::size_t>(), "length"_a);
     cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a, "length"_a);
@@ -50,10 +50,8 @@ void declareSpectrumSet(py::module &mod) {
 }
 
 
-PYBIND11_PLUGIN(SpectrumSet) {
-    py::module mod("SpectrumSet");
+PYBIND11_MODULE(SpectrumSet, mod) {
     declareSpectrumSet(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

@@ -14,7 +14,7 @@ namespace {
 
 void declareDetectorMap(py::module & mod) {
     using Class = DetectorMap;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "DetectorMap");
+    py::classh<Class> cls(mod, "DetectorMap");
     // getXCenter(int), getWavelength(int), findFiberId, findPoint, and findWavelength are pure virtual.
     // Sub-classes should call pfs::drp::stella::python::wrapDetectorMap to get these methods.
     cls.def("getBBox", &Class::getBBox);
@@ -170,10 +170,8 @@ void declareDetectorMap(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(DetectorMap) {
-    py::module mod("DetectorMap");
+PYBIND11_MODULE(DetectorMap, mod) {
     declareDetectorMap(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

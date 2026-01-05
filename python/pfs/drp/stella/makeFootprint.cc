@@ -14,10 +14,8 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-PYBIND11_PLUGIN(makeFootprint) {
-    py::module mod("makeFootprint");
+PYBIND11_MODULE(makeFootprint, mod) {
     mod.def("makeFootprint", &makeFootprint, "image"_a, "peak"_a, "height"_a, "width"_a);
-    return mod.ptr();
 }
 
 } // anonymous namespace

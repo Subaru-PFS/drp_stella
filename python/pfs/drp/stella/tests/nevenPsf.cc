@@ -34,12 +34,10 @@ class NevenPsf : public pfs::drp::stella::NevenPsf {
 
 namespace {
 
-PYBIND11_PLUGIN(nevenPsf) {
-    py::module mod("nevenPsf");
+PYBIND11_MODULE(nevenPsf, mod) {
     pybind11::module::import("pfs.drp.stella.NevenPsf");
 
-    py::class_<NevenPsf, std::shared_ptr<NevenPsf>,
-               pfs::drp::stella::NevenPsf, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
+    py::classh<NevenPsf, pfs::drp::stella::NevenPsf, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
     cls.def(py::init<pfs::drp::stella::NevenPsf const&>());
 
     cls.def("computeOversampledKernelImage",
@@ -47,8 +45,6 @@ PYBIND11_PLUGIN(nevenPsf) {
     cls.def("computeOversampledKernelImage",
             py::overload_cast<lsst::geom::Point2D const&>(
                 &NevenPsf::computeOversampledKernelImage, py::const_));
-
-    return mod.ptr();
 }
 
 } // anonymous namespace

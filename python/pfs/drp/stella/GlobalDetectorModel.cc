@@ -15,7 +15,7 @@ namespace {
 
 void declareGlobalDetectorModelScaling(py::module & mod) {
     using Class = GlobalDetectorModelScaling;
-    py::class_<Class> cls(mod, "GlobalDetectorModelScaling");
+    py::classh<Class> cls(mod, "GlobalDetectorModelScaling");
     cls.def(py::init<double, double, double, int, int, std::size_t, float>(),
             "fiberPitch"_a, "dispersion"_a, "wavelengthCenter"_a, "minFiberId"_a, "maxFiberId"_a,
             "height"_a, "buffer"_a=0.05);
@@ -40,7 +40,7 @@ void declareGlobalDetectorModelScaling(py::module & mod) {
 
 void declareGlobalDetectorModel(py::module & mod) {
     using Class = GlobalDetectorModel;
-    py::class_<Class> cls(mod, "GlobalDetectorModel");
+    py::classh<Class> cls(mod, "GlobalDetectorModel");
     cls.def(py::init<int, GlobalDetectorModelScaling const&, float,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&>(),
@@ -103,11 +103,9 @@ void declareGlobalDetectorModel(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(GlobalDetectorModel) {
-    py::module mod("GlobalDetectorModel");
+PYBIND11_MODULE(GlobalDetectorModel, mod) {
     declareGlobalDetectorModelScaling(mod);
     declareGlobalDetectorModel(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

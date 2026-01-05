@@ -17,7 +17,7 @@ namespace {
 constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
 
 void declareTracePeak(py::module &mod) {
-    py::class_<TracePeak, std::shared_ptr<TracePeak>> cls(mod, "TracePeak");
+    py::classh<TracePeak> cls(mod, "TracePeak");
     cls.def(py::init<int, int, double, int, double, float, float>(),
             "row"_a, "low"_a, "peak"_a, "high"_a, "peakErr"_a=NaN, "flux"_a=NaN, "fluxErr"_a=NaN);
     cls.def_readonly("span", &TracePeak::span);
@@ -33,8 +33,7 @@ void declareTracePeak(py::module &mod) {
 }
 
 
-PYBIND11_PLUGIN(traces) {
-    py::module mod("traces");
+PYBIND11_MODULE(traces, mod) {
     declareTracePeak(mod);
     mod.def("findTracePeaks",
             py::overload_cast<lsst::afw::image::MaskedImage<float> const&, float,
@@ -49,7 +48,6 @@ PYBIND11_PLUGIN(traces) {
     mod.def("centroidPeak", &centroidPeak, "peak"_a, "image"_a, "psfSigma"_a,
             "badBitMask"_a=0, "extent"_a=3.0, "ampAst4"_a=1.33);
     mod.def("medianFilterColumns", medianFilterColumns<float>, "image"_a, "mask"_a, "halfHeight"_a=35);
-    return mod.ptr();
 }
 
 } // anonymous namespace

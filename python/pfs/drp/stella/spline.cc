@@ -17,7 +17,7 @@ namespace {
 template <typename T>
 void declareSpline(py::module &mod, std::string const& suffix) {
     using Class = Spline<T>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("Spline" + suffix).c_str());
+    py::classh<Class> cls(mod, ("Spline" + suffix).c_str());
 
     py::enum_<typename Class::InterpolationTypes> interpolation(cls, "InterpolationTypes");
     interpolation.value("NOTAKNOT", Class::InterpolationTypes::CUBIC_NOTAKNOT);
@@ -45,12 +45,8 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     cls.def_property_readonly("extrapolationType", &Class::getExtrapolationType);
 }
 
-PYBIND11_PLUGIN(spline) {
-    py::module mod("spline");
-
+PYBIND11_MODULE(spline, mod) {
     declareSpline<double>(mod, "D");
-
-    return mod.ptr();
 }
 
 } // anonymous namespace

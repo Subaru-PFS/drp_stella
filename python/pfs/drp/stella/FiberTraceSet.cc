@@ -19,7 +19,7 @@ template <typename ImageT,
 void declareFiberTraceSet(py::module &mod)
 {
     using Class = FiberTraceSet<ImageT, MaskT, VarianceT>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "FiberTraceSet");
+    py::classh<Class> cls(mod, "FiberTraceSet");
 
     cls.def(py::init<std::size_t, std::shared_ptr<lsst::daf::base::PropertySet>>(),
             "reservation"_a, "metadata"_a=nullptr);
@@ -55,10 +55,8 @@ void declareFiberTraceSet(py::module &mod)
 }
 
 
-PYBIND11_PLUGIN(FiberTraceSet) {
-    py::module mod("FiberTraceSet");
+PYBIND11_MODULE(FiberTraceSet, mod) {
     declareFiberTraceSet<float>(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

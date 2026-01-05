@@ -15,7 +15,7 @@ namespace {
 
 void declareSpectralPsf(py::module & mod) {
     using Class = SpectralPsf;
-    py::class_<Class, std::shared_ptr<Class>, lsst::afw::detection::Psf> cls(mod, "SpectralPsf");
+    py::classh<Class, lsst::afw::detection::Psf> cls(mod, "SpectralPsf");
     cls.def("getDetectorMap", &Class::getDetectorMap);
     cls.def_property_readonly("detectorMap", &Class::getDetectorMap);
     cls.def("computeImage", py::overload_cast<int, double>(&Class::computeImage, py::const_),
@@ -56,7 +56,7 @@ void declareSpectralPsf(py::module & mod) {
 
 void declareOversampledPsf(py::module & mod) {
     using Class = OversampledPsf;
-    py::class_<Class, std::shared_ptr<Class>, lsst::afw::detection::Psf> cls(mod, "OversampledPsf");
+    py::classh<Class, lsst::afw::detection::Psf> cls(mod, "OversampledPsf");
     cls.def("getOversampleFactor", &Class::getOversampleFactor);
     cls.def_property_readonly("oversampleFactor", &Class::getOversampleFactor);
     cls.def("getTargetSize", &Class::getTargetSize);
@@ -66,7 +66,7 @@ void declareOversampledPsf(py::module & mod) {
 
 void declareImagingSpectralPsf(py::module & mod) {
     using Class = ImagingSpectralPsf;
-    py::class_<Class, std::shared_ptr<Class>, SpectralPsf> cls(mod, "ImagingSpectralPsf");
+    py::classh<Class, SpectralPsf> cls(mod, "ImagingSpectralPsf");
     cls.def(py::init<std::shared_ptr<lsst::afw::detection::Psf> const, std::shared_ptr<DetectorMap>>(),
             "psf"_a, "detectorMap"_a);
     cls.def("getBase", &Class::getBase);
@@ -74,8 +74,7 @@ void declareImagingSpectralPsf(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(SpectralPsf) {
-    py::module mod("SpectralPsf");
+PYBIND11_MODULE(SpectralPsf, mod) {
     pybind11::module::import("lsst.afw.detection");
     pybind11::module::import("pfs.drp.stella");
     declareSpectralPsf(mod);
@@ -87,7 +86,6 @@ PYBIND11_PLUGIN(SpectralPsf) {
             "image"_a, "binning"_a, "bbox"_a, "center"_a=lsst::geom::Point2D(0, 0));
     mod.def("recenterOversampledKernelImage", &recenterOversampledKernelImage<PixelT>,
             "image"_a, "binning"_a, "center"_a=lsst::geom::Point2D(0, 0));
-    return mod.ptr();
 }
 
 } // anonymous namespace
