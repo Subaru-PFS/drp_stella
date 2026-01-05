@@ -11,8 +11,7 @@ using namespace pybind11::literals;
 
 namespace pfs { namespace drp { namespace stella {
 
-PYBIND11_PLUGIN(LayeredDetectorMap) {
-    py::module mod("LayeredDetectorMap");
+PYBIND11_MODULE(LayeredDetectorMap, mod) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     auto cls = python::wrapDetectorMap<LayeredDetectorMap>(
         mod, "LayeredDetectorMap"
@@ -103,8 +102,6 @@ PYBIND11_PLUGIN(LayeredDetectorMap) {
             );
         }
     ));
-
-    return mod.ptr();
 }
 
 }}} // pfs::drp::stella

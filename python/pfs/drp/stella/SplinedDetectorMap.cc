@@ -75,10 +75,8 @@ void declareSplinedDetectorMap(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(SplinedDetectorMap) {
-    py::module mod("SplinedDetectorMap");
+PYBIND11_MODULE(SplinedDetectorMap, mod) {
     declareSplinedDetectorMap(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

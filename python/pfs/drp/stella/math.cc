@@ -24,8 +24,8 @@ namespace {
 template <typename T>
 void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
     using Class = NormalizedPolynomial1<T>;
-    py::class_<Class, std::shared_ptr<Class>, lsst::afw::math::PolynomialFunction1<T>>
-            cls(mod, ("NormalizedPolynomial1" + suffix).c_str());
+    py::classh<Class, lsst::afw::math::PolynomialFunction1<T>>
+        cls(mod, ("NormalizedPolynomial1" + suffix).c_str());
 
     cls.def(py::init<ndarray::Array<double, 1, 1> const &, double, double>(),
             "params"_a, "min"_a=-1.0, "max"_a=1.0);
@@ -49,7 +49,7 @@ void declareNormalizedPolynomial1(py::module & mod, std::string const& suffix) {
 template <typename T>
 void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
     using Class = NormalizedPolynomial2<T>;
-    py::class_<Class, std::shared_ptr<Class>, lsst::afw::math::BasePolynomialFunction2<T>>
+    py::classh<Class, lsst::afw::math::BasePolynomialFunction2<T>>
             cls(mod, ("NormalizedPolynomial2" + suffix).c_str());
 
     cls.def(py::init<unsigned int, lsst::geom::Box2D const&>(),
@@ -80,7 +80,7 @@ void declareNormalizedPolynomial2(py::module & mod, std::string const& suffix) {
 template <typename T>
 void declarePolynomialN(py::module & mod, std::string const& suffix) {
     using Class = PolynomialFunctionN<T>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("PolynomialFunctionN" + suffix).c_str());
+    py::classh<Class> cls(mod, ("PolynomialFunctionN" + suffix).c_str());
 
     cls.def(py::init<unsigned int, unsigned int>(), "dims"_a, "order"_a);
     cls.def(py::init<unsigned int, ndarray::Array<double, 1, 1> const&>(), "dims"_a, "params"_a);
@@ -132,7 +132,7 @@ void declarePolynomialN(py::module & mod, std::string const& suffix) {
 template <typename T>
 void declareNormalizedPolynomialN(py::module & mod, std::string const& suffix) {
     using Class = NormalizedPolynomialN<T>;
-    py::class_<Class, std::shared_ptr<Class>, PolynomialFunctionN<T>> cls(
+    py::classh<Class, PolynomialFunctionN<T>> cls(
         mod, ("NormalizedPolynomialN" + suffix).c_str()
     );
 
@@ -228,7 +228,7 @@ void declareMatrixTriplets(py::module & mod) {
     using ElemT = double;
     using IndexT = std::ptrdiff_t;
     using Class = MatrixTriplets<ElemT, IndexT>;
-    py::class_<Class> cls(mod, "MatrixTriplets");
+    py::classh<Class> cls(mod, "MatrixTriplets");
     cls.def(py::init<IndexT, IndexT, float>(), "numRows"_a, "numCols"_a, "nonZeroPerRow"_a=2.0);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
@@ -252,7 +252,7 @@ void declareMatrixTriplets(py::module & mod) {
 template <bool symmetric>
 void declareSparseSquareMatrix(py::module & mod, char const* name) {
     using Class = SparseSquareMatrix<symmetric>;
-    py::class_<Class> cls(mod, name);
+    py::classh<Class> cls(mod, name);
     cls.def(py::init<std::size_t, float>(), "size"_a, "nonZeroPerRow"_a=2.0);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
@@ -376,8 +376,7 @@ void declareLanczos(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(math) {
-    py::module mod("math");
+PYBIND11_MODULE(math, mod) {
     py::module::import("lsst.afw.math");
     declareNormalizedPolynomial1<double>(mod, "D");
     declareNormalizedPolynomial2<double>(mod, "D");
@@ -405,7 +404,6 @@ PYBIND11_PLUGIN(math) {
     declareLanczos<double, double, 0, 1>(mod);
     declareLanczos<float, double, 1, 1>(mod);
     declareLanczos<float, double, 0, 1>(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

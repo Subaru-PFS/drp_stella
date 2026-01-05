@@ -12,11 +12,10 @@ namespace pfs { namespace drp { namespace stella {
 namespace {
 
 
-PYBIND11_PLUGIN(NevenPsf) {
-    py::module mod("NevenPsf");
+PYBIND11_MODULE(NevenPsf, mod) {
     pybind11::module::import("pfs.drp.stella.SpectralPsf");
 
-    py::class_<NevenPsf, std::shared_ptr<NevenPsf>, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
+    py::classh<NevenPsf, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
     cls.def(py::init<std::shared_ptr<DetectorMap>,
                      ndarray::Array<int, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&,
@@ -30,8 +29,6 @@ PYBIND11_PLUGIN(NevenPsf) {
     cls.def("getFiberId", &NevenPsf::getFiberId);
     cls.def("getWavelength", &NevenPsf::getWavelength);
     cls.def("getImages", &NevenPsf::getImages);
-
-    return mod.ptr();
 }
 
 } // anonymous namespace

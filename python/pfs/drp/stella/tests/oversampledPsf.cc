@@ -145,16 +145,13 @@ GaussianOversampledPsf::Factory registration("GaussianOversampledPsf");
 
 namespace {
 
-PYBIND11_PLUGIN(oversampledPsf) {
-    py::module mod("oversampledPsf");
+PYBIND11_MODULE(oversampledPsf, mod) {
     pybind11::module::import("pfs.drp.stella.SpectralPsf");
 
-    py::class_<GaussianOversampledPsf, std::shared_ptr<GaussianOversampledPsf>,
-               OversampledPsf, lsst::afw::detection::Psf> cls(mod, "GaussianOversampledPsf");
+    py::classh<GaussianOversampledPsf, OversampledPsf, lsst::afw::detection::Psf>
+        cls(mod, "GaussianOversampledPsf");
     cls.def(py::init<float, int, lsst::geom::Extent2I>(), "sigma"_a, "oversampleFactor"_a, "targetSize"_a);
     cls.def("getSigma", &GaussianOversampledPsf::getSigma);
-
-    return mod.ptr();
 }
 
 

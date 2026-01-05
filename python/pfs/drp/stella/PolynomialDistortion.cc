@@ -33,10 +33,8 @@ void declarePolynomialDistortion(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(PolynomialDistortion) {
-    py::module mod("PolynomialDistortion");
+PYBIND11_MODULE(PolynomialDistortion, mod) {
     declarePolynomialDistortion(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

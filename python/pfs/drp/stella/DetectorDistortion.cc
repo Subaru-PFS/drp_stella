@@ -39,10 +39,8 @@ void declareDetectorDistortion(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(DetectorDistortion) {
-    py::module mod("DetectorDistortion");
+PYBIND11_MODULE(DetectorDistortion, mod) {
     declareDetectorDistortion(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

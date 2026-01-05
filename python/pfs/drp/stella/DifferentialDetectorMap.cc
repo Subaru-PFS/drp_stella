@@ -43,11 +43,9 @@ void declareDifferentialDetectorMap(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(DifferentialDetectorMap) {
-    py::module mod("DifferentialDetectorMap");
+PYBIND11_MODULE(DifferentialDetectorMap, mod) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     declareDifferentialDetectorMap(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

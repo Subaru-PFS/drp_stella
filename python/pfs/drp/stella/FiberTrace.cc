@@ -19,7 +19,7 @@ template <typename ImageT,
 void declareFiberTrace(py::module &mod)
 {
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "FiberTrace");
+    py::classh<Class> cls(mod, "FiberTrace");
 
     cls.def(py::init<typename Class::MaskedImageT const&, std::size_t>(),
             "maskedImage"_a, "fiberTraceId"_a=0);
@@ -71,11 +71,9 @@ void declareFiberTrace(py::module &mod)
 }
 
 
-PYBIND11_PLUGIN(FiberTrace) {
-    py::module mod("FiberTrace");
+PYBIND11_MODULE(FiberTrace, mod) {
     declareFiberTrace<float>(mod);
     mod.attr("fiberMaskPlane") = fiberMaskPlane;
-    return mod.ptr();
 }
 
 } // anonymous namespace

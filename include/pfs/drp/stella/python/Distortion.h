@@ -24,7 +24,7 @@ namespace python {
 template <typename Class>
 auto wrapDistortion(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.Distortion");
-    py::class_<Class, std::shared_ptr<Class>, Distortion> cls(mod, name);
+    py::classh<Class, Distortion> cls(mod, name);
     cls.def("clone", &Class::clone);
     cls.def("getNumParameters", &Class::getNumParameters);
     cls.def("evaluate", py::overload_cast<lsst::geom::Point2D const&>(&Class::evaluate, py::const_),
