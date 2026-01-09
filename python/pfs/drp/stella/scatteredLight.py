@@ -162,12 +162,13 @@ class ScatteredLightModel:
             bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
             flx[bad] = np.nan
             invalid_indices = np.where(bad)[0]
+            length = len(flx)
             for i in invalid_indices:
                 start = max(0, i - self.interpWinSize)
-                end = min(i + self.interpWinSize + 1, len(invalid_indices))
+                end = min(i + self.interpWinSize + 1, length)
                 if end <= start:
                     continue
-                flx[i] = np.nanmedian(flx[start:end])
+                flx[i] = np.nanmedian(flx[start:end]) if not np.all(bad[start:end]) else 0.0
             if np.all(bad):
                 flx[:] = 0.0
             else:
