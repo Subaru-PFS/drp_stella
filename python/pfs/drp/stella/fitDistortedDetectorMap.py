@@ -22,6 +22,7 @@ from .LayeredDetectorMapContinued import LayeredDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
+from .lineConsistency import checkLineConsistency, checkTraceConsistency
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
 from .table import Table
@@ -337,6 +338,7 @@ class FitDistortedDetectorMapConfig(Config):
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
+    consistencyThreshold = Field(dtype=float, default=3.0, doc="Threshold for consistency checks (stdev)")
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -413,6 +415,11 @@ class FitDistortedDetectorMapTask(Task):
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         DistortionClass = self.getDistortionClass(dataId["arm"])
+
+        accept = self.checkConsistency(lines)
+        self.log.info("%d/%d lines accepted after consistency checks", accept.sum(), len(accept))
+        lines = lines[accept]
+
         if self.config.doSlitOffsets:
             residuals = self.calculateBaseResiduals(base, lines)
             self.initializeSlitOffsets(base, residuals, dispersion)
@@ -514,6 +521,46 @@ class FitDistortedDetectorMapTask(Task):
             Class to use for the distortion.
         """
         return PolynomialDistortion if arm == "n" else MosaicPolynomialDistortion
+
+    def checkConsistency(self, lines: ArcLineSet) -> np.ndarray:
+        """Check consistency of line measurements
+
+        We potentially have visits from multiple exposures. Here, we check that
+        the measurements of each line for each fiber are consistent with each
+        other. This avoids catastrophic outliers that may torque the solution.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Line measurements.
+
+        Returns
+        -------
+        accept : `numpy.ndarray` of `bool`
+            Boolean array indicating which lines are acceptable.
+        """
+        isLine = lines.description != "Trace"
+        isTrace = ~isLine
+        accept = np.zeros(len(lines), dtype=bool)
+        if isLine.any():
+            accept[isLine] = checkLineConsistency(
+                lines.fiberId[isLine].astype(np.int32),
+                lines.wavelength[isLine].astype(np.float64),
+                lines.x[isLine].astype(np.float32),
+                lines.y[isLine].astype(np.float32),
+                lines.xErr[isLine].astype(np.float32),
+                lines.yErr[isLine].astype(np.float32),
+                self.config.consistencyThreshold,
+            )
+        if isTrace.any():
+            accept[isTrace] = checkTraceConsistency(
+                lines.fiberId[isTrace].astype(np.int32),
+                lines.x[isTrace].astype(np.float32),
+                lines.y[isTrace].astype(np.float32),
+                lines.xErr[isTrace].astype(np.float32),
+                self.config.consistencyThreshold,
+            )
+        return accept
 
     def makeDetectorMap(
         self,

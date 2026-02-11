@@ -35,6 +35,7 @@ scripts.BasicSConscript.pybind11(
      'MosaicPolynomialDistortion',
      'maskNearby',
      'LayeredDetectorMap',
+     'lineConsistency',
      ],
     addUnderscore=False
 )
