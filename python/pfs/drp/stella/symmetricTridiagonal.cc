@@ -16,7 +16,7 @@ namespace {
 
 template <typename T>
 void declareSymmetricTridiagonal(py::module &mod, std::string const& suffix) {
-    py::class_<SymmetricTridiagonalWorkspace<T>> cls(
+    py::classh<SymmetricTridiagonalWorkspace<T>> cls(
         mod, ("SymmetricTridiagonalWorkspace" + suffix).c_str());
     cls.def(py::init<>());
     cls.def("reset", &SymmetricTridiagonalWorkspace<T>::reset, "num"_a);
@@ -30,11 +30,8 @@ void declareSymmetricTridiagonal(py::module &mod, std::string const& suffix) {
              "diagonal"_a, "offDiag"_a, "workspace"_a=SymmetricTridiagonalWorkspace<T>());
 }
 
-PYBIND11_PLUGIN(symmetricTridiagonal) {
-    py::module mod("symmetricTridiagonal");
+PYBIND11_MODULE(symmetricTridiagonal, mod) {
     declareSymmetricTridiagonal<double>(mod, "");
-
-    return mod.ptr();
 }
 
 } // anonymous namespace

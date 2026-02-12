@@ -11,11 +11,9 @@ using namespace pybind11::literals;
 
 namespace pfs { namespace drp { namespace stella {
 
-PYBIND11_PLUGIN(DistortedDetectorMap) {
-    py::module mod("DistortedDetectorMap");
+PYBIND11_MODULE(DistortedDetectorMap, mod) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     python::wrapDistortionBasedDetectorMap<DistortedDetectorMap>(mod, "DistortedDetectorMap");
-    return mod.ptr();
 }
 
 }}} // pfs::drp::stella

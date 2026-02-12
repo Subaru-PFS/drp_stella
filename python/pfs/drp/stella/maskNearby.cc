@@ -15,10 +15,8 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-PYBIND11_PLUGIN(maskNearby) {
-    py::module mod("maskNearby");
+PYBIND11_MODULE(maskNearby, mod) {
     mod.def("maskNearby", &maskNearby, "values"_a, "distance"_a);
-    return mod.ptr();
 }
 
 } // anonymous namespace

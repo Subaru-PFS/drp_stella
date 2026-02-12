@@ -29,14 +29,12 @@ void defineCentroidImage(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(centroidImage) {
-    py::module mod("centroidImage");
+PYBIND11_MODULE(centroidImage, mod) {
     mod.def("centroidExposure",
             py::overload_cast<lsst::afw::image::Exposure<float> const&,
                               lsst::geom::Point2D const&>(&centroidExposure),
             "exposure"_a, "point"_a);
     defineCentroidImage<double>(mod);
-    return mod.ptr();
 }
 
 

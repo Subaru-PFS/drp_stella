@@ -14,10 +14,8 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-PYBIND11_PLUGIN(maskLines) {
-    py::module mod("maskLines");
+PYBIND11_MODULE(maskLines, mod) {
     mod.def("maskLines", &maskLines, "wavelength"_a, "lines"_a, "maskRadius"_a, "sortedLines"_a=false);
-    return mod.ptr();
 }
 
 } // anonymous namespace

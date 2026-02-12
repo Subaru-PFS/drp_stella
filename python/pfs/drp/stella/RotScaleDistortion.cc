@@ -30,11 +30,9 @@ auto declareRotScaleDistortion(py::module & mod, char const* name) {
 }
 
 
-PYBIND11_PLUGIN(RotScaleDistortion) {
-    py::module mod("RotScaleDistortion");
+PYBIND11_MODULE(RotScaleDistortion, mod) {
     declareRotScaleDistortion<RotScaleDistortion>(mod, "RotScaleDistortion");
     declareRotScaleDistortion<DoubleRotScaleDistortion>(mod, "DoubleRotScaleDistortion");  // same API
-    return mod.ptr();
 }
 
 } // anonymous namespace
