@@ -36,6 +36,7 @@ scripts.BasicSConscript.pybind11(
      'maskNearby',
      'LayeredDetectorMap',
      'lineConsistency',
+     'fitDetectorMap',
      ],
     addUnderscore=False
 )
