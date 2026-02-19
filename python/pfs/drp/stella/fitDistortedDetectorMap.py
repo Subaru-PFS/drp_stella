@@ -416,9 +416,9 @@ class FitDistortedDetectorMapTask(Task):
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         DistortionClass = self.getDistortionClass(dataId["arm"])
 
-        accept = self.checkConsistency(lines)
-        self.log.info("%d/%d lines accepted after consistency checks", accept.sum(), len(accept))
-        lines = lines[accept]
+        oldNum = len(lines)
+        lines = self.checkConsistency(lines)
+        self.log.info("%d/%d lines accepted after consistency checks", len(lines), oldNum)
 
         if self.config.doSlitOffsets:
             residuals = self.calculateBaseResiduals(base, lines)
@@ -522,7 +522,7 @@ class FitDistortedDetectorMapTask(Task):
         """
         return PolynomialDistortion if arm == "n" else MosaicPolynomialDistortion
 
-    def checkConsistency(self, lines: ArcLineSet) -> np.ndarray:
+    def checkConsistency(self, lines: ArcLineSet) -> ArcLineSet:
         """Check consistency of line measurements
 
         We potentially have visits from multiple exposures. Here, we check that
@@ -539,28 +539,97 @@ class FitDistortedDetectorMapTask(Task):
         accept : `numpy.ndarray` of `bool`
             Boolean array indicating which lines are acceptable.
         """
-        isLine = lines.description != "Trace"
-        isTrace = ~isLine
-        accept = np.zeros(len(lines), dtype=bool)
+        return lines
+        isGood = ((lines.status & ReferenceLineStatus.BAD) == 0) & (~lines.flag)
+        isLine = (lines.description != "Trace") & isGood
+        isTrace = (lines.description == "Trace") & isGood
+
+        newLines = []
         if isLine.any():
-            accept[isLine] = checkLineConsistency(
+            result = checkLineConsistency(
                 lines.fiberId[isLine].astype(np.int32),
                 lines.wavelength[isLine].astype(np.float64),
                 lines.x[isLine].astype(np.float32),
                 lines.y[isLine].astype(np.float32),
                 lines.xErr[isLine].astype(np.float32),
                 lines.yErr[isLine].astype(np.float32),
-                self.config.consistencyThreshold,
+                (lines.flux[isLine]/lines.fluxNorm[isLine]).astype(np.float32),
+                (lines.fluxErr[isLine]/lines.fluxNorm[isLine]).astype(np.float32),
             )
+            lookup = {
+                (ff, ww): (dd, tt, ss) for ff, ww, dd, tt, ss in zip(
+                    lines.fiberId[isLine],
+                    lines.wavelength[isLine],
+                    lines.description[isLine],
+                    lines.transition[isLine],
+                    lines.source[isLine],
+                )
+            }
+            description = np.array(
+                [lookup[(ff, ww)][0] for ff, ww in zip(lines.fiberId[isLine], lines.wavelength[isLine])]
+            )
+            transition = np.array(
+                [lookup[(ff, ww)][1] for ff, ww in zip(lines.fiberId[isLine], lines.wavelength[isLine])]
+            )
+            source = np.array(
+                [lookup[(ff, ww)][2] for ff, ww in zip(lines.fiberId[isLine], lines.wavelength[isLine])]
+            )
+
+            newLines.append(ArcLineSet.fromColumns(
+                fiberId=result.fiberId,
+                wavelength=result.wavelength,
+                x=result.x,
+                y=result.y,
+                xErr=result.xErr,
+                yErr=result.yErr,
+                flux=result.flux,
+                fluxErr=result.fluxErr,
+                fluxNorm=np.ones_like(result.flux),
+                xx=np.full_like(result.wavelength, np.nan, dtype=float),
+                xy=np.full_like(result.wavelength, np.nan, dtype=float),
+                yy=np.full_like(result.wavelength, np.nan, dtype=float),
+                flag=np.zeros_like(result.fiberId, dtype=bool),
+                status=np.zeros_like(result.fiberId, dtype=int),
+                description=description,
+                transition=transition,
+                source=source,
+            ))
+
         if isTrace.any():
-            accept[isTrace] = checkTraceConsistency(
+            result = checkTraceConsistency(
                 lines.fiberId[isTrace].astype(np.int32),
+                lines.wavelength[isTrace].astype(np.float64),
                 lines.x[isTrace].astype(np.float32),
                 lines.y[isTrace].astype(np.float32),
                 lines.xErr[isTrace].astype(np.float32),
-                self.config.consistencyThreshold,
+                (lines.flux[isTrace]/lines.fluxNorm[isTrace]).astype(np.float32),
+                (lines.fluxErr[isTrace]/lines.fluxNorm[isTrace]).astype(np.float32),
             )
-        return accept
+
+            newLines.append(ArcLineSet.fromColumns(
+                fiberId=result.fiberId,
+                wavelength=result.wavelength,
+                x=result.x,
+                y=result.y,
+                xErr=result.xErr,
+                yErr=np.full_like(result.xErr, np.nan),
+                flux=result.flux,
+                fluxErr=result.fluxErr,
+                fluxNorm=np.ones_like(result.flux),
+                xx=np.full_like(result.wavelength, np.nan, dtype=float),
+                xy=np.full_like(result.wavelength, np.nan, dtype=float),
+                yy=np.full_like(result.wavelength, np.nan, dtype=float),
+                flag=np.zeros_like(result.fiberId, dtype=bool),
+                status=np.zeros_like(result.fiberId, dtype=int),
+                description=["Trace"]*len(result.fiberId),
+                transition=np.full_like(result.fiberId, "", dtype=object),
+                source=np.zeros_like(result.fiberId, dtype=int),
+            ))
+        if len(newLines) == 0:
+            raise FittingError("No good lines after consistency checks")
+        if len(newLines) == 1:
+            return newLines[0]
+        return ArcLineSet.fromMultiple(*newLines)
 
     def makeDetectorMap(
         self,
