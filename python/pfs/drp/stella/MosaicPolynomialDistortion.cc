@@ -20,11 +20,14 @@ void declareMosaicPolynomialDistortion(py::module & mod) {
     auto cls = python::wrapAnalyticDistortion<Class>(mod, "MosaicPolynomialDistortion");
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
             "order"_a, "range"_a, "coeff"_a);
-    cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
+    cls.def(py::init<int, int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
+            "xOrder"_a, "yOrder"_a, "range"_a, "coeff"_a);
+    cls.def(py::init<int, int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&>(),
-            "order"_a, "range"_a, "affineCoeff"_a, "xCoeff"_a, "yCoeff"_a);
+            "xOrder"_a, "yOrder"_a, "range"_a, "affineCoeff"_a, "xCoeff"_a, "yCoeff"_a);
     cls.def_static("getNumDistortionForOrder", &Class::getNumDistortionForOrder, "order"_a);
-    cls.def("getNumDistortion", &Class::getNumDistortion);
+    cls.def("getXNumDistortion", &Class::getXNumDistortion);
+    cls.def("getYNumDistortion", &Class::getYNumDistortion);
     cls.def("getAffineCoefficients", &Class::getAffineCoefficients);
     cls.def("getXCoefficients", &Class::getXCoefficients);
     cls.def("getYCoefficients", &Class::getYCoefficients);

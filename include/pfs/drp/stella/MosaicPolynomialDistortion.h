@@ -33,24 +33,39 @@ class MosaicPolynomialDistortion :
 
     /// Ctor
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param distortionOrder : polynomial order for distortion in x and y
     /// @param range : range of input values in x and y
     /// @param coeff : distortion coefficients
     MosaicPolynomialDistortion(
         int distortionOrder,
         lsst::geom::Box2D const& range,
         Array1D const& coeff
+    ) : MosaicPolynomialDistortion(distortionOrder, distortionOrder, range, coeff) {}
+
+    /// Ctor
+    ///
+    /// @param xOrder : polynomial order for distortion in x
+    /// @param yOrder : polynomial order for distortion in y
+    /// @param range : range of input values in x and y
+    /// @param coeff : distortion coefficients
+    MosaicPolynomialDistortion(
+        int xOrder,
+        int yOrder,
+        lsst::geom::Box2D const& range,
+        Array1D const& coeff
     );
 
     /// Ctor
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param xOrder : polynomial order for distortion in x
+    /// @param yOrder : polynomial order for distortion in y
     /// @param range : range of input values in x and y
     /// @param affineCoeff : affine transformation coefficients
     /// @param xCoeff : distortion field parameters for x
     /// @param yCoeff : distortion field parameters for y
     MosaicPolynomialDistortion(
-        int distortionOrder,
+        int xOrder,
+        int yOrder,
         lsst::geom::Box2D const& range,
         Array1D const& affineCoeff,
         Array1D const& xCoeff,
@@ -99,8 +114,11 @@ class MosaicPolynomialDistortion :
     static std::size_t getNumDistortionForOrder(int distortionOrder) {
         return Polynomial::nParametersFromOrder(distortionOrder);
     }
-    std::size_t getNumDistortion() const {
-        return getNumDistortionForOrder(getOrder());
+    std::size_t getXNumDistortion() const {
+        return getNumDistortionForOrder(getXOrder());
+    }
+    std::size_t getYNumDistortion() const {
+        return getNumDistortionForOrder(getYOrder());
     }
     //@}
 
@@ -117,20 +135,25 @@ class MosaicPolynomialDistortion :
 
     /// Split single coefficients array into affineCoeff, xCoeff, yCoeff arrays
     ///
-    /// @param order : Distortion order
+    /// @param xOrder : Distortion order in x
+    /// @param yOrder : Distortion order in y
     /// @param coeff : Coefficients array
     /// @return affineCoeff, xCoeff, yCoeff as columns
-    static std::tuple<Array1D, Array2D> splitCoefficients(int order, Array1D const& coeff);
+    static std::tuple<Array1D, Array1D, Array1D> splitCoefficients(
+        int xOrder, int yOrder, Array1D const& coeff
+    );
 
     /// Join separate (x/y)(Left/Right) coefficient arrays into a single array
     ///
-    /// @param order : Distortion order
+    /// @param xOrder : Distortion order in x
+    /// @param yOrder : Distortion order in y
     /// @param affineCoeff : affine transformation coefficients
     /// @param xCoeff : distortion coefficients in x
     /// @param yCoeff : distortion coefficients in y
     /// @return single coefficients array
     static Array1D joinCoefficients(
-        int order,
+        int xOrder,
+        int yOrder,
         Array1D const& affineCoeff,
         Array1D const& xCoeff,
         Array1D const& yCoeff
@@ -141,18 +164,22 @@ class MosaicPolynomialDistortion :
     /// Construct from the 2D array representation of the coefficients (output
     /// of splitCoefficients).
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param xOrder : polynomial order for distortion in x
+    /// @param yOrder : polynomial order for distortion in y
     /// @param range : range of input values in x and y
-    /// @param coeff : 2D coefficients array (output of splitCoefficients)
+    /// @param coeff : coefficient arrays (output of splitCoefficients)
     MosaicPolynomialDistortion(
-        int order,
+        int xOrder,
+        int yOrder,
         lsst::geom::Box2D const& range,
-        std::tuple<Array1D, Array2D> const& coeff
+        std::tuple<Array1D, Array1D, Array1D> const& coeff
     ) : MosaicPolynomialDistortion(
-        order,
+        xOrder,
+        yOrder,
         range,
         std::get<0>(coeff),
-        std::get<1>(coeff)
+        std::get<1>(coeff),
+        std::get<2>(coeff)
      ) {}
 
     /// Ctor
@@ -160,17 +187,19 @@ class MosaicPolynomialDistortion :
     /// Construct from the 2D array representation of the coefficients (output
     /// of splitCoefficients).
     ///
-    /// @param distortionOrder : polynomial order for distortion
+    /// @param xOrder : polynomial order for distortion in x
+    /// @param yOrder : polynomial order for distortion in y
     /// @param range : range of input values in x and y
     /// @param affineCoeff : coefficients for affine transformation
     /// @param polyCoeff : 2D coefficients array
     MosaicPolynomialDistortion(
-        int order,
+        int xOrder,
+        int yOrder,
         lsst::geom::Box2D const& range,
         Array1D const& affineCoeff,
         Array2D const& polyCoeff
     ) : MosaicPolynomialDistortion(
-        order, range, affineCoeff, polyCoeff[ndarray::view(0)], polyCoeff[ndarray::view(1)]
+        xOrder, yOrder, range, affineCoeff, polyCoeff[ndarray::view(0)], polyCoeff[ndarray::view(1)]
     ) {}
 
     lsst::geom::Point2D _evaluate(lsst::geom::Point2D const& xy, bool onRightCcd) const;
