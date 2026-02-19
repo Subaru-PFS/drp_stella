@@ -50,11 +50,40 @@ template <typename Class>
 auto wrapAnalyticDistortion(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.Distortion");
     auto cls = wrapDistortion<Class>(mod, name);
-    cls.def_static("fit", &Class::fit, "order"_a, "range"_a, "x"_a, "y"_a, "xMeas"_a, "yMeas"_a,
-                   "xErr"_a, "yErr"_a, "isLine"_a, "slope"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr,
-                   "params"_a=nullptr);
+    cls.def_static(
+        "fit",
+        py::overload_cast<
+            int, int, lsst::geom::Box2D const&,
+            ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&,  ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<bool, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            double,
+            ndarray::Array<bool, 1, 1> const&, ndarray::Array<double, 1, 1> const&
+        >(&Class::fit),
+        "xOrder"_a, "yOrder"_a, "range"_a, "x"_a, "y"_a, "xMeas"_a, "yMeas"_a,
+        "xErr"_a, "yErr"_a, "isLine"_a, "slope"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr,
+        "params"_a=nullptr
+    );
+    cls.def_static(
+        "fit",
+        py::overload_cast<
+            int, lsst::geom::Box2D const&,
+            ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&,  ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            ndarray::Array<bool, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+            double,
+            ndarray::Array<bool, 1, 1> const&, ndarray::Array<double, 1, 1> const&
+        >(&Class::fit),
+        "order"_a, "range"_a, "x"_a, "y"_a, "xMeas"_a, "yMeas"_a,
+        "xErr"_a, "yErr"_a, "isLine"_a, "slope"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr,
+        "params"_a=nullptr
+    );
     cls.def_static("getNumParametersForOrder", &Class::getNumParametersForOrder, "order"_a);
     cls.def("getOrder", &Class::getOrder);
+    cls.def("getXOrder", &Class::getXOrder);
+    cls.def("getYOrder", &Class::getYOrder);
     cls.def("getRange", &Class::getRange);
     cls.def("getCoefficients", &Class::getCoefficients);
     return cls;
