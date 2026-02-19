@@ -150,7 +150,8 @@ std::ostream& operator<<(std::ostream& os, DetectorDistortion const& model) {
 
 template<>
 DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
-    int distortionOrder,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
@@ -164,6 +165,13 @@ DetectorDistortion AnalyticDistortion<DetectorDistortion>::fit(
     ndarray::Array<bool, 1, 1> const& forced,  // unused: new feature in deprecated class
     ndarray::Array<double, 1, 1> const& params  // unused: new feature in deprecated class
 ) {
+    if (xOrder != yOrder) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
+                          (boost::format("xOrder (%d) and yOrder (%d) must be the same") %
+                           xOrder % yOrder).str());
+    }
+    int distortionOrder = xOrder;
+
     std::size_t const length = xx.size();
     utils::checkSize(yy.size(), length, "y");
     utils::checkSize(xMeas.size(), length, "xMeas");

@@ -25,7 +25,8 @@ class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
     def setDefaults(self):
         self.exclusionRadius = 4.0
-        self.order = 1
+        self.xOrder = 1
+        self.yOrder = 1
 
 
 class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
@@ -107,7 +108,10 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
         DistortionClass = self.getDistortionClass(arm)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
-        needNumLines = PolynomialDistortion.getNumDistortionForOrder(self.config.order)
+        needNumLines = max(
+            PolynomialDistortion.getNumDistortionForOrder(self.config.xOrder),
+            PolynomialDistortion.getNumDistortionForOrder(self.config.yOrder),
+        )
         good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
         numGoodLines = good.sum()
 
@@ -272,7 +276,8 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         forced = self.config.forced or None
         parameters = self.config.parameters or None
         return DistortionClass.fit(
-            self.config.order,
+            self.config.xOrder,
+            self.config.yOrder,
             bbox,
             xBase,
             yBase,

@@ -296,7 +296,8 @@ class FitDistortedDetectorMapConfig(Config):
     traceIterations = Field(dtype=int, default=2, doc="Number of iterations for updating trace wavleengths")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
-    order = Field(dtype=int, default=7, doc="Distortion order")
+    xOrder = Field(dtype=int, default=7, doc="Distortion order in x")
+    yOrder = Field(dtype=int, default=4, doc="Distortion order in y")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
     lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
@@ -339,6 +340,19 @@ class FitDistortedDetectorMapConfig(Config):
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
     consistencyThreshold = Field(dtype=float, default=3.0, doc="Threshold for consistency checks (stdev)")
+
+    @property
+    def order(self):
+        """Get common distortion order, for backward compatibility"""
+        if self.xOrder != self.yOrder:
+            raise RuntimeError("Order is not the same")
+        return self.xOrder
+
+    @order.setter
+    def order(self, value):
+        """Set common distortion order, for backward compatibility"""
+        self.xOrder = value
+        self.yOrder = value
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -662,7 +676,8 @@ class FitDistortedDetectorMapTask(Task):
             dividedDetector = True
             rightCcd = distortion.getAffine()
             distortion = PolynomialDistortion(
-                distortion.getOrder(),
+                distortion.getXOrder(),
+                distortion.getYOrder(),
                 distortion.getRange(),
                 distortion.getXCoefficients(),
                 distortion.getYCoefficients(),
@@ -1416,7 +1431,8 @@ class FitDistortedDetectorMapTask(Task):
             Distortion model that was fit to the data.
         """
         return DistortionClass.fit(
-            self.config.order,
+            self.config.xOrder,
+            self.config.yOrder,
             bbox,
             xBase,
             yBase,

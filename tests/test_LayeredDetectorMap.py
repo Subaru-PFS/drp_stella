@@ -292,7 +292,8 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
                              ReferenceLineStatus.GOOD, "Fake", None, ReferenceLineSource.NONE))
         lines = ArcLineSet.fromRows(lines)
         config = FitDistortedDetectorMapTask.ConfigClass()
-        config.order = 1
+        config.xOrder = 1
+        config.yOrder = 1
         config.doSlitOffsets = True
         config.exclusionRadius = 1.0  # We've got a lot of close lines, but no real fear of confusion
         task = FitDistortedDetectorMapTask(name="fitDistortedDetectorMap", config=config)

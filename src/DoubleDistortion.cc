@@ -57,11 +57,12 @@ DoubleDistortion::DoubleDistortion(
     DoubleDistortion::Array1D const& yRight
 ) : AnalyticDistortion<DoubleDistortion>(
         order,
+        order,
         range,
         joinCoefficients(order, xLeft, yLeft, xRight, yRight)
     ),
-    _left(order, leftRange(range), xLeft, yLeft),
-    _right(order, rightRange(range), xRight, yRight)
+    _left(order, order, leftRange(range), xLeft, yLeft),
+    _right(order, order, rightRange(range), xRight, yRight)
 {}
 
 
@@ -156,7 +157,8 @@ std::ostream& operator<<(std::ostream& os, DoubleDistortion const& model) {
 
 template<>
 DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
-    int distortionOrder,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
@@ -170,6 +172,13 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
     ndarray::Array<bool, 1, 1> const& forced,
     ndarray::Array<double, 1, 1> const& params
 ) {
+    if (xOrder != yOrder) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
+                          (boost::format("xOrder (%d) and yOrder (%d) must be the same") %
+                           xOrder % yOrder).str());
+    }
+    int const distortionOrder = xOrder;
+
     using Array1D = DoubleDistortion::Array1D;
     using Array2D = DoubleDistortion::Array2D;
     std::size_t const length = xx.size();
@@ -190,6 +199,7 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
 
     auto const left = PolynomialDistortion::fit(
         distortionOrder,
+        distortionOrder,
         leftRange(range),
         utils::arraySelect(xx, onLeftCcd),
         utils::arraySelect(yy, onLeftCcd),
@@ -204,6 +214,7 @@ DoubleDistortion AnalyticDistortion<DoubleDistortion>::fit(
         params.isEmpty() ? params : params[ndarray::view(0, 2*numDistortion)]
     );
     auto const right = PolynomialDistortion::fit(
+        distortionOrder,
         distortionOrder,
         rightRange(range),
         utils::arraySelect(xx, onRightCcd),

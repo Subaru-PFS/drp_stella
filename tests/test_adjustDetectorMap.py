@@ -196,7 +196,8 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         logger.addHandler(handler)
 
         config = AdjustDetectorMapTask.ConfigClass()
-        config.order = 1
+        config.xOrder = 1
+        config.yOrder = 1
         task = AdjustDetectorMapTask(log=logger, config=config)
 
         if display is not None:
@@ -345,7 +346,8 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         logger.addHandler(handler)
 
         config = AdjustDetectorMapTask.ConfigClass()
-        config.order = 1
+        config.xOrder = 1
+        config.yOrder = 1
         task = AdjustDetectorMapTask(log=logger, config=config)
 
         if display is not None:
