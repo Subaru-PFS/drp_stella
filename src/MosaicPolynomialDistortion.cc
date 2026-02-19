@@ -32,64 +32,73 @@ std::size_t const NUM_AFFINE = math::NUM_AFFINE_PARAMS;
 
 
 MosaicPolynomialDistortion::MosaicPolynomialDistortion(
-    int order,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     MosaicPolynomialDistortion::Array1D const& coeff
-) : MosaicPolynomialDistortion(order, range, splitCoefficients(order, coeff))
+) : MosaicPolynomialDistortion(xOrder, yOrder, range, splitCoefficients(xOrder, yOrder, coeff))
 {}
 
 
 MosaicPolynomialDistortion::MosaicPolynomialDistortion(
-    int order,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     MosaicPolynomialDistortion::Array1D const& affineCoeff,
     MosaicPolynomialDistortion::Array1D const& xCoeff,
     MosaicPolynomialDistortion::Array1D const& yCoeff
 ) : AnalyticDistortion<MosaicPolynomialDistortion>(
-        order, range, joinCoefficients(order, affineCoeff, xCoeff, yCoeff)
+        xOrder, yOrder, range, joinCoefficients(xOrder, yOrder, affineCoeff, xCoeff, yCoeff)
     ),
     _affine(std::move(math::makeAffineTransform(affineCoeff))),
-    _poly(order, range, xCoeff, yCoeff)
+    _poly(xOrder, yOrder, range, xCoeff, yCoeff)
 {}
 
 
 template<> std::size_t AnalyticDistortion<MosaicPolynomialDistortion>::getNumParametersForOrder(int order) {
-    return 6 + 2*MosaicPolynomialDistortion::getNumDistortionForOrder(order);
+    return NUM_AFFINE + 2*MosaicPolynomialDistortion::getNumDistortionForOrder(order);
 }
 
 
-std::tuple<MosaicPolynomialDistortion::Array1D, MosaicPolynomialDistortion::Array2D>
-MosaicPolynomialDistortion::splitCoefficients(
-    int order,
+std::tuple<
+    MosaicPolynomialDistortion::Array1D,
+    MosaicPolynomialDistortion::Array1D,
+    MosaicPolynomialDistortion::Array1D
+> MosaicPolynomialDistortion::splitCoefficients(
+    int xOrder,
+    int yOrder,
     ndarray::Array<double, 1, 1> const& coeff
 ) {
-    utils::checkSize(coeff.size(), MosaicPolynomialDistortion::getNumParametersForOrder(order), "coeff");
-    std::size_t const numDistortion = MosaicPolynomialDistortion::getNumDistortionForOrder(order);
+    std::size_t const xNumDistortion = MosaicPolynomialDistortion::getNumDistortionForOrder(xOrder);
+    std::size_t const yNumDistortion = MosaicPolynomialDistortion::getNumDistortionForOrder(yOrder);
+    utils::checkSize(coeff.size(), xNumDistortion + yNumDistortion + NUM_AFFINE, "coeff");
+    std::size_t const xStart = NUM_AFFINE;
+    std::size_t const yStart = NUM_AFFINE + xNumDistortion;
     Array1D affineCoeff = coeff[ndarray::view(0, NUM_AFFINE)];
-    Array2D polyCoeff = ndarray::allocate(2, numDistortion);
-    for (std::size_t ii = 0; ii < 2; ++ii) {
-        std::size_t const start = NUM_AFFINE + ii*numDistortion;
-        std::size_t const stop = NUM_AFFINE + (ii + 1)*numDistortion;
-        polyCoeff[ndarray::view(ii)] = coeff[ndarray::view(start, stop)];
-    }
-    return std::make_tuple(affineCoeff, polyCoeff);
+    Array1D xPolyCoeff = coeff[ndarray::view(xStart, xStart + xNumDistortion)];
+    Array1D yPolyCoeff = coeff[ndarray::view(yStart, yStart + yNumDistortion)];
+    return std::make_tuple(affineCoeff, xPolyCoeff, yPolyCoeff);
 }
 
 
 MosaicPolynomialDistortion::Array1D MosaicPolynomialDistortion::joinCoefficients(
-    int order,
+    int xOrder,
+    int yOrder,
     MosaicPolynomialDistortion::Array1D const& affineCoeff,
     MosaicPolynomialDistortion::Array1D const& xCoeff,
     MosaicPolynomialDistortion::Array1D const& yCoeff
 ) {
     utils::checkSize(affineCoeff.size(), NUM_AFFINE, "affineCoeff");
-    std::size_t const numDistortion = getNumDistortionForOrder(order);
-    utils::checkSize(xCoeff.size(), numDistortion, "xCoeff");
-    utils::checkSize(yCoeff.size(), numDistortion, "yCoeff");
-    Array1D coeff = ndarray::allocate(NUM_AFFINE + 2*numDistortion);
+    std::size_t const xNumDistortion = getNumDistortionForOrder(xOrder);
+    std::size_t const yNumDistortion = getNumDistortionForOrder(yOrder);
+    utils::checkSize(xCoeff.size(), xNumDistortion, "xCoeff");
+    utils::checkSize(yCoeff.size(), yNumDistortion, "yCoeff");
+    std::size_t const xStart = NUM_AFFINE;
+    std::size_t const yStart = NUM_AFFINE + xNumDistortion;
+    Array1D coeff = ndarray::allocate(NUM_AFFINE + xNumDistortion + yNumDistortion);
     coeff[ndarray::view(0, NUM_AFFINE)] = affineCoeff;
-    coeff[ndarray::view(NUM_AFFINE, NUM_AFFINE + numDistortion)] = xCoeff;
-    coeff[ndarray::view(NUM_AFFINE + numDistortion, NUM_AFFINE + 2*numDistortion)] = yCoeff;
+    coeff[ndarray::view(xStart, xStart + xNumDistortion)] = xCoeff;
+    coeff[ndarray::view(yStart, yStart + yNumDistortion)] = yCoeff;
     return coeff;
 }
 
@@ -136,7 +145,8 @@ MosaicPolynomialDistortion::Array1D MosaicPolynomialDistortion::getYCoefficients
 
 std::ostream& operator<<(std::ostream& os, MosaicPolynomialDistortion const& model) {
     os << "MosaicPolynomialDistortion(";
-    os << "order=" << model.getOrder() << ", ";
+    os << "xOrder=" << model.getXOrder() << ", ";
+    os << "yOrder=" << model.getYOrder() << ", ";
     os << "range=" << model.getRange() << ", ";
     os << "affineCoeff=" << model.getAffineCoefficients() << ", ";
     os << "xCoeff=" << model.getXCoefficients() << ", ";
@@ -166,17 +176,22 @@ struct FitData {
     // Ctor
     //
     // @param range : Box enclosing all x,y coordinates.
-    // @param order : Polynomial order.
+    // @param xOrder : Polynomial order for x.
+    // @param yOrder : Polynomial order for y.
     // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t numLines_, std::size_t numTraces_) :
+    FitData(lsst::geom::Box2D const& range, int xOrder, int yOrder, std::size_t numLines_, std::size_t numTraces_) :
         xMiddle(range.getCenterX()),
-        poly(order, range),
+        xPoly(xOrder, range),
+        yPoly(yOrder, range),
+        affineStart(0),
+        xStart(NUM_AFFINE),
+        yStart(NUM_AFFINE + xPoly.getNParameters()),
         numLines(numLines_),
         numTraces(numTraces_),
         length(2*numLines + numTraces),
         measurements(ndarray::allocate(length)),
         errors(ndarray::allocate(length)),
-        design(ndarray::allocate(length, 2*poly.getNParameters() + NUM_AFFINE)),
+        design(ndarray::allocate(length, xPoly.getNParameters() + yPoly.getNParameters() + NUM_AFFINE)),
         index(0) {
         design.deep() = 0.0;
     }
@@ -198,32 +213,41 @@ struct FitData {
         std::size_t const ii = index++;
         assert(ii < length);
 
-        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
-        std::size_t const numPoly = poly.getNParameters();
-        assert (terms.size() == numPoly);
+        std::size_t const xNumPoly = xPoly.getNParameters();
+        std::size_t const yNumPoly = yPoly.getNParameters();
 
-        // x part of the design matrix
-        std::copy(terms.begin(), terms.end(), design[ii].begin());
-        measurements[ii] = meas.getX();
-        errors[ii] = err.getX();
+        std::vector<double> const xTerms = xPoly.getDFuncDParameters(xy.getX(), xy.getY());
+        assert (xTerms.size() == xNumPoly);
+        std::vector<double> yTerms;
+        if (xPoly.getOrder() == yPoly.getOrder()) {
+            // If the orders are the same, we can reuse the terms.
+            yTerms = xTerms;
+        } else {
+            yTerms = yPoly.getDFuncDParameters(xy.getX(), xy.getY());
+            assert (yTerms.size() == yNumPoly);
+        }
 
-        lsst::geom::Point2D const xyNorm = poly.normalize(xy);
+        lsst::geom::Point2D const xyNorm = xPoly.normalize(xy);  // Normalization should be same for x and y
 
         // Affine part of the design matrix
         bool const onRightCcd = xy.getX() > xMiddle;
-        std::size_t const affineStart = 2*numPoly;
         if (onRightCcd) {
             design[ii][affineStart] = 1.0;
             design[ii][affineStart + 1] = xyNorm.getX();
             design[ii][affineStart + 2] = xyNorm.getY();
         }
 
+        // x part of the design matrix
+        std::copy(xTerms.begin(), xTerms.end(), design[ii].begin() + xStart);
+        measurements[ii] = meas.getX();
+        errors[ii] = err.getX();
+
         // y part of the design matrix
         if (isLine) {
             // For a line, the y part is independent of the x part.
             std::size_t const jj = index++;
             assert(jj < length);
-            std::copy(terms.begin(), terms.end(), design[jj].begin() + numPoly);
+            std::copy(yTerms.begin(), yTerms.end(), design[jj].begin() + yStart);
             measurements[jj] = meas.getY();
             errors[jj] = err.getY();
 
@@ -235,8 +259,8 @@ struct FitData {
             }
         } else {
             // For a trace, the y part is linked to the x part by the slope.
-            auto lhs = design[ii][ndarray::view(numPoly, 2*numPoly)];
-            ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(utils::vectorToArray(terms));
+            auto lhs = design[ii][ndarray::view(yStart, yStart + yNumPoly)];
+            ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(utils::vectorToArray(yTerms));
 
             // Affine part of the design matrix
             if (onRightCcd) {
@@ -260,8 +284,6 @@ struct FitData {
             design, measurements, errors, threshold, forced, params
         );
 
-        std::size_t const nPolyParams = poly.getNParameters();
-        std::size_t const affineStart = 2*nPolyParams;
         ndarray::Array<double, 1, 1> affine = ndarray::allocate(NUM_AFFINE);
         affine[lsst::geom::AffineTransform::Parameters::X] = solution[affineStart];
         affine[lsst::geom::AffineTransform::Parameters::XX] = solution[affineStart + 1];
@@ -272,13 +294,14 @@ struct FitData {
 
         return std::make_tuple(
             affine,
-            solution[ndarray::view(0, nPolyParams)],
-            solution[ndarray::view(nPolyParams, affineStart)]
+            solution[ndarray::view(xStart, xStart + xPoly.getNParameters())],
+            solution[ndarray::view(yStart, yStart + yPoly.getNParameters())]
         );
     }
 
     float xMiddle;  // Middle x value: boundary between CCDs
-    MosaicPolynomialDistortion::Polynomial poly;  // Polynomial used for calculating design
+    MosaicPolynomialDistortion::Polynomial xPoly, yPoly;  // Polynomials used for calculating design
+    std::size_t affineStart, xStart, yStart;  // Starting indices for affine, x, y in the design matrix
     std::size_t numLines;  // Number of lines
     std::size_t numTraces;  // Number of traces
     std::size_t length;  // Number of measurements
@@ -295,7 +318,8 @@ struct FitData {
 
 template<>
 MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
-    int distortionOrder,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
@@ -321,7 +345,7 @@ MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
     std::size_t const numLines = std::count(isLine.begin(), isLine.end(), true);
     std::size_t const numTraces = length - numLines;
 
-    FitData fit(range, distortionOrder, numLines, numTraces);
+    FitData fit(range, xOrder, yOrder, numLines, numTraces);
     for (std::size_t ii = 0; ii < length; ++ii) {
         fit.add(
             lsst::geom::Point2D(xx[ii], yy[ii]),
@@ -334,7 +358,7 @@ MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
 
     auto const solution = fit.getSolution(threshold, forced, params);
     return MosaicPolynomialDistortion(
-        distortionOrder, range, std::get<0>(solution), std::get<1>(solution), std::get<2>(solution)
+        xOrder, yOrder, range, std::get<0>(solution), std::get<1>(solution), std::get<2>(solution)
     );
 }
 
@@ -347,7 +371,8 @@ class MosaicPolynomialDistortionSchema {
     using DoubleArray = lsst::afw::table::Array<double>;
   public:
     lsst::afw::table::Schema schema;
-    lsst::afw::table::Key<int> distortionOrder;
+    lsst::afw::table::Key<int> xOrder;
+    lsst::afw::table::Key<int> yOrder;
     lsst::afw::table::Box2DKey range;
     lsst::afw::table::Key<DoubleArray> coefficients;
     lsst::afw::table::Key<int> visitInfo;
@@ -360,7 +385,8 @@ class MosaicPolynomialDistortionSchema {
   private:
     MosaicPolynomialDistortionSchema()
       : schema(),
-        distortionOrder(schema.addField<int>("distortionOrder", "polynomial order for distortion", "")),
+        xOrder(schema.addField<int>("xOrder", "polynomial order for x distortion", "")),
+        yOrder(schema.addField<int>("yOrder", "polynomial order for y distortion", "")),
         range(lsst::afw::table::Box2DKey::addFields(schema, "range", "range of input values", "pixel")),
         coefficients(schema.addField<DoubleArray>("coefficients", "distortion coefficients", "", 0))
         {}
@@ -373,7 +399,8 @@ void MosaicPolynomialDistortion::write(lsst::afw::table::io::OutputArchiveHandle
     MosaicPolynomialDistortionSchema const &schema = MosaicPolynomialDistortionSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
-    record->set(schema.distortionOrder, getOrder());
+    record->set(schema.xOrder, getXOrder());
+    record->set(schema.yOrder, getYOrder());
     record->set(schema.range, getRange());
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getCoefficients());
     record->set(schema.coefficients, xCoeff);
@@ -392,11 +419,12 @@ class MosaicPolynomialDistortion::Factory : public lsst::afw::table::io::Persist
         lsst::afw::table::BaseRecord const& record = catalogs.front().front();
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
 
-        int const distortionOrder = record.get(schema.distortionOrder);
+        int const xOrder = record.get(schema.xOrder);
+        int const yOrder = record.get(schema.yOrder);
         lsst::geom::Box2D const range = record.get(schema.range);
         ndarray::Array<double, 1, 1> coeff = ndarray::copy(record.get(schema.coefficients));
 
-        return std::make_shared<MosaicPolynomialDistortion>(distortionOrder, range, coeff);
+        return std::make_shared<MosaicPolynomialDistortion>(xOrder, yOrder, range, coeff);
     }
 
     Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
