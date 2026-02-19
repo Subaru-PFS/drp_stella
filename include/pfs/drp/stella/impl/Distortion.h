@@ -12,10 +12,12 @@ namespace stella {
 
 template <typename Derived>
 AnalyticDistortion<Derived>::AnalyticDistortion(
-    int order,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& coeff
-) : _order(order),
+) : _xOrder(xOrder),
+    _yOrder(yOrder),
     _range(range),
     _coeff(ndarray::copy(coeff))
 {}
