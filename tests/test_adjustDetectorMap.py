@@ -18,7 +18,7 @@ from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat, makeSpectrumImage, addNoiseToImage
 from pfs.drp.stella.centroidLines import CentroidLinesTask
-from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
+from pfs.drp.stella.centroidTraces import CentroidTracesTask
 from pfs.drp.stella import PolynomialDistortion, LayeredDetectorMap, SplinedDetectorMap
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
@@ -184,10 +184,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         else:
             lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
-        for ff in traces:
-            rows = np.array([pp.row for pp in traces[ff]], dtype=float)
-            centers = np.array([pp.peak for pp in traces[ff]])
-            expected = self.base.getXCenter(ff, rows)
+        for ff in np.unique(traces.fiberId):
+            select = traces.fiberId == ff
+            rows = traces.y[select]
+            centers = traces.x[select]
+            expected = self.base.getXCenter(ff, rows.astype(float))
             self.assertLess(robustRms(centers - expected), traceTol)
 
         logger = logging.getLogger()
@@ -210,7 +211,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                     for tt in traces[ff]:
                         disp.dot("+", tt.peak, tt.row, ctype="blue")
 
-        lines += tracesToLines(self.distorted, traces, 10.0)
+        lines.extend(traces)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
             adjusted = task.run(
@@ -337,7 +338,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         centroidTraces.config.searchRadius = 13  # We've made a fairly large distortion
         lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, self.pfsConfig)
-        self.assertEqual(len(traces), self.synthConfig.numFibers)
+        self.assertEqual(np.unique(traces.fiberId).size, self.synthConfig.numFibers)
 
         logger = logging.getLogger()
         logger.getChild("adjustDetectorMap").setLevel(logging.DEBUG)
@@ -359,7 +360,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
                         for tt in traces[ff]:
                             disp.dot("+", tt.peak, tt.row, ctype="orange")
 
-        lines += tracesToLines(self.distorted, traces, 10.0)
+        lines.extend(traces)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
             adjusted = task.run(self.distorted, lines, "n", self.distorted.visitInfo)
