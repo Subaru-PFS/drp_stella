@@ -45,7 +45,7 @@ from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .photometerLines import PhotometerLinesTask
-from .centroidTraces import CentroidTracesTask, tracesToLines
+from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
 from .blackSpotCorrection import BlackSpotCorrectionTask
 from .arcLine import ArcLineSet
@@ -178,8 +178,6 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
                                      doc="Require detectorMap adjustment to succeed?")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
-    traceSpectralError = Field(dtype=float, default=5.0,
-                               doc="Error in the spectral dimension to give trace centroids (pixels)")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     doPhotometerLines = Field(dtype=bool, default=True, doc="Measure photometry for lines?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
@@ -531,7 +529,7 @@ class ReduceExposureTask(PipelineTask):
             )
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+            lines.extend(traces)
 
         windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
 
