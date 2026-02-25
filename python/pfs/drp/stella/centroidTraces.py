@@ -1,4 +1,4 @@
-from typing import Dict, Iterable
+from typing import Dict, List
 
 import numpy as np
 
@@ -27,6 +27,9 @@ class CentroidTracesConfig(Config):
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
     threshold = Field(dtype=float, default=10.0, doc="Signal-to-noise threshold for trace")
     searchRadius = Field(dtype=float, default=1, doc="Radius about the expected peak to search")
+    traceSpectralError = Field(
+        dtype=float, default=5.0, doc="Error in the spectral dimension to give trace centroids (pixels)"
+    )
 
 
 class CentroidTracesTask(Task):
@@ -52,8 +55,8 @@ class CentroidTracesTask(Task):
 
         Returns
         -------
-        tracePeaks : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
-            Peaks for each trace, indexed by fiberId.
+        lines : `ArcLinesSet`
+            Measurements of the traces, formatted as a list of lines.
         """
         convolved = self.convolveImage(exposure)
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -62,7 +65,11 @@ class CentroidTracesTask(Task):
         self.centroidTraces(exposure.maskedImage, traces)
         self.log.info("Measured %d centroids for %d traces",
                       sum((len(tt)) for tt in traces.values()), len(traces))
-        return traces
+
+        lines = tracesToLines(detectorMap, traces, self.config.traceSpectralError)
+        self.flagBadTraces(lines, detectorMap)
+
+        return lines
 
     def convolveImage(self, exposure):
         """Convolve image by Gaussian kernel
@@ -140,8 +147,28 @@ class CentroidTracesTask(Task):
                 plt.plot([pp.peak for pp in tracePeaks[ff]], [pp.row for pp in tracePeaks[ff]], 'k.')
             plt.show()
 
+    def flagBadTraces(self, lines: ArcLineSet, detectorMap: DetectorMap) -> None:
+        """Flag bad traces
 
-def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, Iterable[TracePeak]],
+        A trace is bad if it is further from the expected position than the
+        search radius.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Line measurements, treating every trace row with a centroid as a
+            line.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        """
+        expect = detectorMap.getXCenter(lines.fiberId.astype(np.int32), lines.y.astype(float))
+        isBad = np.abs(lines.x - expect) > self.config.searchRadius
+        if np.any(isBad):
+            lines.flag[isBad] = True
+            self.log.warn("%d/%d trace centroids are outside the search radius", np.sum(isBad), len(lines))
+
+
+def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, List[TracePeak]],
                   spectralError: float) -> ArcLineSet:
     """Convert traces to lines
 
