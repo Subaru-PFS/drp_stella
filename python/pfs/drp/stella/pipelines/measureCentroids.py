@@ -11,7 +11,7 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 
 from ..adjustDetectorMap import AdjustDetectorMapTask
 from ..centroidLines import CentroidLinesTask
-from ..centroidTraces import CentroidTracesTask, tracesToLines
+from ..centroidTraces import CentroidTracesTask
 from ..datamodel import PfsConfig
 from ..DetectorMapContinued import DetectorMap
 from ..fitDistortedDetectorMap import FittingError
@@ -78,9 +78,6 @@ class MeasureCentroidsConfig(PipelineTaskConfig, pipelineConnections=MeasureCent
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
-    traceSpectralError = Field(
-        dtype=float, default=1.0, doc="Error in the spectral dimension to give trace centroids (pixels)"
-    )
 
 
 class MeasureCentroidsTask(PipelineTask):
@@ -144,7 +141,7 @@ class MeasureCentroidsTask(PipelineTask):
         lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id)
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-            lines.extend(tracesToLines(detectorMap, traces, self.config.traceSpectralError))
+            lines.extend(traces)
         return Struct(exposure=exposure, refLines=refLines, centroids=lines)
 
 

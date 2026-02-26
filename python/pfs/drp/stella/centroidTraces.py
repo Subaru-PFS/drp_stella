@@ -165,7 +165,7 @@ class CentroidTracesTask(Task):
         isBad = np.abs(lines.x - expect) > self.config.searchRadius
         if np.any(isBad):
             lines.flag[isBad] = True
-            self.log.warn("%d/%d trace centroids are outside the search radius", np.sum(isBad), len(lines))
+            self.log.info("%d/%d trace centroids are outside the search radius", np.sum(isBad), len(lines))
 
 
 def tracesToLines(detectorMap: DetectorMap, traces: Dict[int, List[TracePeak]],
