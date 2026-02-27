@@ -98,7 +98,7 @@ def calculateMedian(values: np.ndarray) -> float: ...
 def calculateQuartiles(values: np.ndarray, mask: np.ndarray) -> Tuple[float, float, float]: ...
 @overload
 def calculateQuartiles(values: np.ndarray) -> Tuple[float, float, float]: ...
-def lanczosInterpolate(
+def interpolate(
     resultValues: np.ndarray,
     resultMask: np.ndarray,
     resultVariance: np.ndarray,
@@ -111,7 +111,7 @@ def lanczosInterpolate(
     minWeight: float = 0.1,
 ) -> None: ...
 @overload
-def lanczosInterpolateFlux(
+def interpolateFlux(
     resultValues: np.ndarray,
     resultMask: np.ndarray,
     inputValues: np.ndarray,
@@ -121,7 +121,7 @@ def lanczosInterpolateFlux(
     order: int = 3,
 ) -> None: ...
 @overload
-def lanczosInterpolateFlux(
+def interpolateFlux(
     resultValues: np.ndarray,
     inputValues: np.ndarray,
     inputMask: np.ndarray,
@@ -130,7 +130,7 @@ def lanczosInterpolateFlux(
     order: int = 3,
 ) -> np.ndarray: ...
 @overload
-def lanczosInterpolateFlux(
+def interpolateFlux(
     inputValues: np.ndarray,
     inputMask: np.ndarray,
     indices: np.ndarray,
@@ -138,14 +138,14 @@ def lanczosInterpolateFlux(
     order: int = 3,
 ) -> np.ndarray: ...
 @overload
-def lanczosInterpolateFlux(
+def interpolateFlux(
     inputValues: np.ndarray,
     indices: np.ndarray,
     fill: float = 0.0,
     order: int = 3,
 ) -> np.ndarray: ...
 @overload
-def lanczosInterpolateVariance(
+def interpolateVariance(
     resultVariance: np.ndarray,
     resultMask: np.ndarray,
     inputVariance: np.ndarray,
@@ -155,7 +155,7 @@ def lanczosInterpolateVariance(
     order: int = 3,
 ) -> None: ...
 @overload
-def lanczosInterpolateVariance(
+def interpolateVariance(
     resultVariance: np.ndarray,
     inputVariance: np.ndarray,
     inputMask: np.ndarray,
@@ -164,7 +164,7 @@ def lanczosInterpolateVariance(
     order: int = 3,
 ) -> np.ndarray: ...
 @overload
-def lanczosInterpolateVariance(
+def interpolateVariance(
     inputVariance: np.ndarray,
     inputMask: np.ndarray,
     indices: np.ndarray,
@@ -172,7 +172,7 @@ def lanczosInterpolateVariance(
     order: int = 3,
 ) -> np.ndarray: ...
 @overload
-def lanczosInterpolateVariance(
+def interpolateVariance(
     inputVariance: np.ndarray,
     indices: np.ndarray,
     fill: float = 0.0,
