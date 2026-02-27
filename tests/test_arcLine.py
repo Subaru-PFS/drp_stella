@@ -35,7 +35,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.flag = np.random.choice((True, False), size=self.fiberId.shape)
         self.status = np.full_like(self.fiberId, int(ReferenceLineStatus.GOOD), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
-        self.transition = np.full_like(self.fiberId, "", dtype=str)
+        self.transition = np.array([str(ii) for ii in range(len(self.fiberId))])
         self.source = np.full_like(self.fiberId, int(ReferenceLineSource.NONE), dtype=int)
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
@@ -71,6 +71,8 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.all(lines.flag == self.flag))
         self.assertFloatsEqual(lines.status, self.status)
         self.assertListEqual(lines.description.tolist(), self.description.tolist())
+        self.assertListEqual(lines.transition.tolist(), self.transition.tolist())
+        self.assertFloatsEqual(lines.source, self.source)
 
     def testBasic(self):
         """Test basic functionality"""
@@ -107,6 +109,8 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(ll.flag, self.flag[ii])
             self.assertEqual(ll.status, self.status[ii])
             self.assertEqual(ll.description, self.description[ii])
+            self.assertEqual(ll.transition, self.transition[ii])
+            self.assertEqual(ll.source, self.source[ii])
 
     def testPersistence(self):
         """Test persistence"""
