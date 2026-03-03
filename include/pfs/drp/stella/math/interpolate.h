@@ -283,12 +283,13 @@ void interpolate(
             std::ptrdiff_t const start = startCache[ii];  // inclusive
             std::ptrdiff_t const end = endCache[ii];  // exclusive
             std::ptrdiff_t const kernelStart = start - index + halfSize;
-            double const sum = ndarray::asEigenArray(kernelCache[ii]).sum();
             if (start < 0) {  // No valid kernel values
                 resultCovariance[ndarray::view()(ii)] = fill;
                 continue;
             }
-            for (std::size_t offset = 1, ii2 = ii + 1; offset < numCovarOffsets; ++offset, ++ii2) {
+            int offset;
+            std::size_t ii2;
+            for (offset = 1, ii2 = ii + 1; offset < numCovarOffsets; ++offset, ++ii2) {
                 if (ii2 >= numOut) {
                     resultCovariance[offset][ii] = fill;
                     continue;
