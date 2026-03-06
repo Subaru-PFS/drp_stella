@@ -36,6 +36,8 @@ scripts.BasicSConscript.pybind11(
      'maskNearby',
      'LayeredDetectorMap',
      'GridTransform',
+     'OpticalModel',
+     'OpticalModelDetectorMap',
      ],
     addUnderscore=False
 )

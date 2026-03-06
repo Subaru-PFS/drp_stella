@@ -68,13 +68,15 @@ SlitModel::SlitModel(
 
 
 SlitModel::SlitModel(
-    SplinedDetectorMap const& source
+    SplinedDetectorMap const& source,
+    DistortionList const& distortions
 ) : SlitModel(
         source.getFiberId(),
         calculateFiberPitch(source),
         calculateWavelengthDispersion(source),
         source.getSpatialOffsets(),
-        source.getSpectralOffsets()
+        source.getSpectralOffsets(),
+        distortions
     )
 {}
 
@@ -102,7 +104,7 @@ lsst::geom::Point2D SlitModel::spectrographToSlit(int fiberId, double wavelength
     double const spectral = wavelength + getSpectralOffset(fiberId)*_wavelengthDispersion;
     lsst::geom::Point2D slit{spatial, spectral};
     for (auto const& dd : _distortions) {
-         slit = (*dd)(slit);
+         slit += lsst::geom::Extent2D((*dd)(slit));
     }
     return slit;
 }
@@ -173,12 +175,16 @@ std::tuple<
     std::size_t numXCenter = xCenterSplines[0].getX().size();
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         if (wavelengthSplines[ii].getX().size() != numWavelength) {
+            std::cerr << "Fiber " << fiberId[ii] << " has " << wavelengthSplines[ii].getX().size()
+                      << " wavelength spline knots, but expected " << numWavelength << std::endl;
             throw LSST_EXCEPT(
                 lsst::pex::exceptions::LengthError,
                 "All fibers must have the same number of wavelength spline knots"
             );
         }
         if (xCenterSplines[ii].getX().size() != numXCenter) {
+            std::cerr << "Fiber " << fiberId[ii] << " has " << xCenterSplines[ii].getX().size()
+                      << " xCenter spline knots, but expected " << numXCenter << std::endl;
             throw LSST_EXCEPT(
                 lsst::pex::exceptions::LengthError,
                 "All fibers must have the same number of xCenter spline knots"
@@ -235,7 +241,14 @@ std::tuple<
         spectral[ndarray::view(ii)()] = wavelengthSplines[ii].getY();
         xx[ndarray::view(ii)()] = xCenterSplines[ii].getY();
 
-        if (!ndarray::all(xCenterSplines[ii].getX() == wavelengthSplines[ii].getX())) {
+        double maxDiff = 0.0;
+        for (std::size_t jj = 0; jj < numWavelength; ++jj) {
+            double const diff = std::abs(xCenterSplines[ii].getX()[jj] - wavelengthSplines[ii].getX()[jj]);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+            }
+        }
+        if (maxDiff > 1e-5) {
             throw LSST_EXCEPT(
                 lsst::pex::exceptions::LengthError,
                 "xCenter and wavelength spline knots must match for each fiber"
@@ -251,8 +264,8 @@ std::tuple<
 }  // anonymous namespace
 
 
-OpticalModel::OpticalModel(SplinedDetectorMap const& source)
-    : OpticalModel(extractGrid(source)) {}
+OpticalModel::OpticalModel(SplinedDetectorMap const& source, DistortionList const& distortions)
+    : OpticalModel(extractGrid(source), distortions) {}
 
 
 OpticalModel::OpticalModel(
@@ -281,7 +294,14 @@ DetectorModel::DetectorModel(
     _xScale(2.0/(getBBox().getMaxX() - getBBox().getMinX())),
     _yOffset(0.5*(getBBox().getMinY() + getBBox().getMaxY())),
     _yScale(2.0/(getBBox().getMaxY() - getBBox().getMinY()))
-{}
+{
+    if (!_distortions.empty()) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::LogicError,
+            "Distortions are not supported"
+        );
+    }
+}
 
 
 lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& detector) const {
@@ -364,6 +384,77 @@ DetectorModel::Array2D DetectorModel::pixelsToDetector(Array1D const& p, Array1D
         result[ii][1] = detector.getY();
     }
     return result;
+}
+
+
+std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColumns(
+    lsst::geom::Point2D const& detector,
+    int halfWidth
+) const {
+    lsst::geom::Point2D const pixel = detectorToPixels(detector);
+    double const center = pixel.getX();
+    double const row = pixel.getY();
+
+    int pStart;  // Left pixel of the fiber on the detector; inclusive
+    int pStop; // Right pixel of the fiber on the detector; inclusive
+
+    // Case 0: the center is on the detector --> need to find the left and right sides of the fiber
+    if (std::isfinite(center)) {
+        int const centerInt = std::floor(center);
+        pStart = centerInt - halfWidth;
+        pStop = centerInt + halfWidth + 1;
+    } else {
+        // The center is off the detector to the left or right, or in the chip gap
+        // Check both extents to see if those are on the detector
+        lsst::geom::Point2D const left = detectorToPixels(detector - lsst::geom::Extent2D(halfWidth, 0));
+        lsst::geom::Point2D const right = detectorToPixels(detector + lsst::geom::Extent2D(halfWidth, 0));
+
+
+        // If the left side is on the detector, we're either off the detector to the right,
+        // or in the chip gap.
+        // If the halfWidth is a reasonable size, we can tell the difference between these cases
+        // by the position of the left side: is it on the left chip or the right chip?
+        // Similarly for the right side.
+
+        if (std::isfinite(left.getX())) {
+            pStart = left.getX();
+            if (std::isfinite(right.getX())) {
+                pStop = right.getX() + 0.5;
+            } else {
+                pStop = _isDivided && (left.getX() <= _xCenter) ? _xCenter : getBBox().getMaxX();
+            }
+        } else if (std::isfinite(right.getX())) {
+            pStart = _isDivided && (right.getX() > _xCenter) ? getBBox().getMinX() : _xCenter + 1;
+            pStop = right.getX() + 0.5;
+        } else {
+            // If neither side is on the detector, we're so far off to the side, or the halfWidth is so small
+            // that it fits in the chip gap (or so large that it spans the entire detector).
+            // In any case there's nothing to do.
+            return std::make_pair(0, ndarray::allocate(0));
+        }
+    }
+
+    pStart = std::max(pStart, getBBox().getMinX());
+    pStop = std::min(pStop, getBBox().getMaxX());
+    if (pStart > pStop) {
+        return std::make_pair(0, ndarray::allocate(0));
+    }
+
+    std::vector<double> pRel;  // p positions relative to the fiber center
+    pRel.reserve(pStop - pStart + 1);
+    int pMin = -1;
+    for (int pp = pStart; pp <= pStop; ++pp) {
+        lsst::geom::Point2D const point = detectorToPixels(lsst::geom::Point2D(pp, row));
+        double const dp = point.getX() - center;
+        if (std::isfinite(point.getX()) && std::abs(dp) <= halfWidth) {
+            if (pMin == -1) {
+                pMin = pp;
+            }
+            pRel.push_back(dp);
+        }
+    }
+
+    return std::make_pair(pMin, ndarray::copy(utils::vectorToArray(pRel)));
 }
 
 

@@ -9,6 +9,7 @@
 #include "lsst/afw/table/io/Persistable.cc"
 
 #include "pfs/drp/stella/utils/checkSize.h"
+#include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/GridTransform.h"
 
 namespace pfs {
@@ -325,24 +326,26 @@ std::pair<lsst::geom::Point2I, double> GridTree::Node::find(
     }
 
     // Branching node: check children
-    assert(left != nullptr && right != nullptr);
     double const value = dividesX ? x : y;
     lsst::geom::Point2I best;
-    if (value < divideValue + distance) {
+    double bestDistance = std::numeric_limits<double>::infinity();
+    if (left && value < divideValue + distance) {
         auto const leftResult = left->find(xArray, yArray, x, y, distance);
         if (leftResult.second < distance) {
             best = leftResult.first;
             distance = leftResult.second;
+            bestDistance = distance;
         }
     }
-    if (value > divideValue - distance) {
+    if (right && value > divideValue - distance) {
         auto const rightResult = right->find(xArray, yArray, x, y, distance);
         if (rightResult.second < distance) {
             best = rightResult.first;
             distance = rightResult.second;
+            bestDistance = distance;
         }
     }
-    return std::make_pair(best, distance);
+    return std::make_pair(best, bestDistance);
 }
 
 
@@ -356,16 +359,43 @@ GridTransform::GridTransform(
     Array2D const& v,
     Array2D const& x,
     Array2D const& y
-) : _u(u), _v(v), _x(x), _y(y), _tree(u.deep(), v.deep()) {
-    utils::checkSize(v.getShape(), u.getShape(), "v");
-    utils::checkSize(x.getShape(), u.getShape(), "x");
-    utils::checkSize(y.getShape(), u.getShape(), "y");
+) : _u(ndarray::copy(u)),
+    _v(ndarray::copy(v)),
+    _x(ndarray::copy(x)),
+    _y(ndarray::copy(y)),
+    _tree(_u.deep(), _v.deep()) {
+    utils::checkSize(_v.getShape(), _u.getShape(), "v");
+    utils::checkSize(_x.getShape(), _u.getShape(), "x");
+    utils::checkSize(_y.getShape(), _u.getShape(), "y");
 }
 
 
 namespace {
 
 
+/// Apply a single distortion to the x and y arrays in place.
+void applyDistortion(
+    GridTransform::Array2D & x,
+    GridTransform::Array2D & y,
+    std::shared_ptr<Distortion> const& distortion
+) {
+    if (!distortion) {
+        return;
+    }
+    utils::checkSize(x.getShape(), y.getShape(), "x vs y");
+    auto const shape = x.getShape();
+
+    for (std::size_t ii = 0; ii < shape[0]; ++ii) {
+        for (std::size_t jj = 0; jj < shape[1]; ++jj) {
+            auto const dist = (*distortion)(x[ii][jj], y[ii][jj]);
+            x[ii][jj] += dist.getX();
+            y[ii][jj] += dist.getY();
+        }
+    }
+}
+
+
+/// Apply a single distortion to the x and y arrays, returning the distorted arrays.
 std::pair<GridTransform::Array2D, GridTransform::Array2D> applyDistortion(
     GridTransform::Array2D const& x,
     GridTransform::Array2D const& y,
@@ -375,33 +405,29 @@ std::pair<GridTransform::Array2D, GridTransform::Array2D> applyDistortion(
         return std::make_pair(x, y);
     }
     utils::checkSize(x.getShape(), y.getShape(), "x vs y");
-    auto const shape = x.getShape();
-
-    GridTransform::Array2D xDist = ndarray::allocate(shape);
-    GridTransform::Array2D yDist = ndarray::allocate(shape);
-    for (std::size_t ii = 0; ii < shape[0]; ++ii) {
-        for (std::size_t jj = 0; jj < shape[1]; ++jj) {
-            auto const dist = (*distortion)(x[ii][jj], y[ii][jj]);
-            xDist[ii][jj] = dist.getX();
-            yDist[ii][jj] = dist.getY();
-        }
-    }
+    GridTransform::Array2D xDist = ndarray::copy(x);
+    GridTransform::Array2D yDist = ndarray::copy(y);
+    applyDistortion(xDist, yDist, distortion);
     return std::make_pair(xDist, yDist);
 }
 
 
+/// Apply a list of distortions to the x and y arrays, returning the distorted arrays.
 std::pair<GridTransform::Array2D, GridTransform::Array2D> applyDistortion(
     GridTransform::Array2D const& x,
     GridTransform::Array2D const& y,
     GridTransform::DistortionList const& distortions
 ) {
-    GridTransform::Array2D xDist = x;
-    GridTransform::Array2D yDist = y;
+    if (distortions.size() == 0) {
+        return std::make_pair(x, y);
+    }
+
+    utils::checkSize(x.getShape(), y.getShape(), "x vs y");
+    GridTransform::Array2D xDist = ndarray::copy(x);
+    GridTransform::Array2D yDist = ndarray::copy(y);
 
     for (auto const& dd : distortions) {
-        auto const dist = applyDistortion(xDist, yDist, dd);
-        xDist = dist.first;
-        yDist = dist.second;
+        applyDistortion(xDist, yDist, dd);
     }
     return std::make_pair(xDist, yDist);
 }
@@ -562,32 +588,6 @@ class GridDistortionSchema {
 };
 
 
-template <typename T, int C>
-ndarray::Array<T, 1, 1> flattenArray(ndarray::Array<T, 2, C> const& array) {
-    auto const shape = array.getShape();
-    ndarray::Array<T, 1, 1> result = ndarray::allocate(shape[0]*shape[1]);
-    for (std::size_t ii = 0, start = 0, end = shape[1]; ii < shape[0]; start += shape[0], end += shape[0]) {
-        result[ndarray::view(start, end)] = array[ii];
-    }
-    return result;
-}
-
-
-template <typename T, int C>
-ndarray::Array<std::remove_const_t<T>, 2, 1> unflattenArray(
-    ndarray::Array<T, 1, C> const& array,
-    std::size_t numCols,
-    std::size_t numRows
-) {
-    utils::checkSize(array.size(), numCols*numRows, "array size vs numCols*numRows");
-    ndarray::Array<std::remove_const_t<T>, 2, 1> result = ndarray::allocate(numCols, numRows);
-    for (std::size_t ii = 0, start = 0, end = numRows; ii < numCols; start += numRows, end += numRows) {
-        result[ii] = array[ndarray::view(start, end)];
-    }
-    return result;
-}
-
-
 }  // anonymous namespace
 
 
@@ -597,10 +597,10 @@ void GridDistortion::write(lsst::afw::table::io::OutputArchiveHandle & handle) c
     std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
     record->set(schema.numCols, _transform.getU().getShape()[0]);
     record->set(schema.numRows, _transform.getU().getShape()[1]);
-    record->set(schema.u, flattenArray(_transform.getU()));
-    record->set(schema.v, flattenArray(_transform.getV()));
-    record->set(schema.x, flattenArray(_transform.getX()));
-    record->set(schema.y, flattenArray(_transform.getY()));
+    record->set(schema.u, utils::flattenArray(_transform.getU()));
+    record->set(schema.v, utils::flattenArray(_transform.getV()));
+    record->set(schema.x, utils::flattenArray(_transform.getX()));
+    record->set(schema.y, utils::flattenArray(_transform.getY()));
     handle.saveCatalog(cat);
 }
 
@@ -618,10 +618,10 @@ class GridDistortion::Factory : public lsst::afw::table::io::PersistableFactory 
 
         int const numCols = record.get(schema.numCols);
         int const numRows = record.get(schema.numRows);
-        ndarray::Array<double, 2, 1> u = unflattenArray(record.get(schema.u), numCols, numRows);
-        ndarray::Array<double, 2, 1> v = unflattenArray(record.get(schema.v), numCols, numRows);
-        ndarray::Array<double, 2, 1> x = unflattenArray(record.get(schema.x), numCols, numRows);
-        ndarray::Array<double, 2, 1> y = unflattenArray(record.get(schema.y), numCols, numRows);
+        ndarray::Array<double, 2, 1> u = utils::unflattenArray(record.get(schema.u), numCols, numRows);
+        ndarray::Array<double, 2, 1> v = utils::unflattenArray(record.get(schema.v), numCols, numRows);
+        ndarray::Array<double, 2, 1> x = utils::unflattenArray(record.get(schema.x), numCols, numRows);
+        ndarray::Array<double, 2, 1> y = utils::unflattenArray(record.get(schema.y), numCols, numRows);
 
         return std::make_shared<GridDistortion>(u, v, x, y);
     }

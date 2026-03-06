@@ -36,17 +36,17 @@
 /// Mapping between these layers is handled by three classes:
 ///
 /// 1. SlitModel: spectrograph coordinates --> slit coordinates. This is a
-/// relatively minor perturbation of the spectrograph coordinates, which
-/// includes per-fiber offsets and a (low-order) distortion (e.g., due to
-/// movement of the slit head).
+///    relatively minor perturbation of the spectrograph coordinates, which
+///    includes per-fiber offsets and a (low-order) distortion (e.g., due to
+///    movement of the slit head).
 /// 2. OpticalModel: slit coordinates --> detector coordinates. This is provided
-/// by JEG's optical model (a grid of fiberId,wavelength vs x,y on the detector)
-/// with additional distortion applied.
+///    by JEG's optical model (a grid of fiberId,wavelength vs x,y on the
+///    detector) with additional distortion applied.
 /// 3. DetectorModel: detector coordinates --> pixel coordinates. For the NIR
-/// detectors, this is a no-op. For the optical detectors, this accounts for the
-/// chip gap and slight rotation differences between the chips, and includes
-/// any distortion within the detector (e.g., epoxy blobs and other detector
-/// geography).
+///    detectors, this is a no-op. For the optical detectors, this accounts for
+///    the chip gap and slight rotation differences between the chips, and
+///    includes any distortion within the detector (e.g., epoxy blobs and other
+///    detector geography).
 
 namespace pfs {
 namespace drp {
@@ -100,11 +100,11 @@ class SlitModel {
     );
 
     /// Construct from a SplinedDetectorMap
-    SlitModel(SplinedDetectorMap const& source);
+    SlitModel(SplinedDetectorMap const& source, DistortionList const& distortions=DistortionList());
 
-    SlitModel(SlitModel const&) = delete;
+    SlitModel(SlitModel const&) = default;
     SlitModel(SlitModel &&) = default;
-    SlitModel & operator=(SlitModel const&) = delete;
+    SlitModel & operator=(SlitModel const&) = default;
     SlitModel & operator=(SlitModel &&) = default;
     ~SlitModel() = default;
 
@@ -200,8 +200,8 @@ class OpticalModel {
     ///
     /// The SplinedDetectorMap includes the JEG optical model. We extract the
     /// grid points from the splines, and use those to construct the
-    /// OpticalModel. The distortions are left empty.
-    OpticalModel(SplinedDetectorMap const& source);
+    /// OpticalModel. The distortions are applied on top.
+    OpticalModel(SplinedDetectorMap const& source, DistortionList const& distortions=DistortionList());
 
     OpticalModel(OpticalModel const&) = default;
     OpticalModel(OpticalModel &&) = default;
@@ -211,6 +211,10 @@ class OpticalModel {
 
     //@{
     /// Accessors
+    ///
+    /// Note that getX() and getY() return the original grid points, without the
+    /// distortions applied. The distorted x,y grid points can be obtained by
+    // getSlitToDetector().getX() and getSlitToDetector().getY().
     Array2D const& getSpatial() const { return _slitToDetector.getU(); }
     Array2D const& getSpectral() const { return _slitToDetector.getV(); }
     Array2D const& getX() const { return _xOrig; }
@@ -326,6 +330,18 @@ class DetectorModel {
     lsst::geom::Point2D pixelsToDetector(lsst::geom::Point2D const& pixels) const;
     Array2D pixelsToDetector(Array1D const& p, Array1D const& q) const;
     //@}
+
+    /// Return neighboring columns
+    ///
+    /// This is used for determining which pixels to extract (see
+    /// DetectorMap::getTracePosition). Given a center position in the detector
+    /// frame and the half-width of the region of interest, we return the
+    /// minimum p value for columns in the region of interest, and the position
+    /// of each column relative to the center position in the pixels frame.
+    std::pair<int, ndarray::Array<double, 1, 1>> detectorToPixelsColumns(
+        lsst::geom::Point2D const& detector,
+        int halfWidth
+    ) const;
 
   private:
     lsst::geom::Box2I _bbox;  ///< detector size

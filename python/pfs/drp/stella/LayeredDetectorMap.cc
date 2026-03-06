@@ -74,6 +74,10 @@ PYBIND11_MODULE(LayeredDetectorMap, mod) {
     cls.def_property_readonly("dividedDetector", &LayeredDetectorMap::getDividedDetector);
     cls.def_property_readonly("rightCcd", &LayeredDetectorMap::getRightCcd);
 
+
+    cls.def("getXCenterSpline", &LayeredDetectorMap::_getXCenterSpline);
+
+
     cls.def(py::pickle(
         [](LayeredDetectorMap const& self) {
             return py::make_tuple(

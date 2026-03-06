@@ -113,7 +113,9 @@ class ModelBasedDetectorMap : public DetectorMap {
     /// Retrieve xCenter spline for a fiber from the cache
     ///
     /// Generates splines for this fiber if they are not already in the cache.
+  public:
     Spline const& _getXCenterSpline(int fiberId) const { return std::get<1>(_getSplines(fiberId)); }
+  private:
 
     /// Retrieve row spline for a fiber from the cache
     ///
