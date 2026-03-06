@@ -2,6 +2,12 @@
 
 #include "ndarray.h"
 
+#include "lsst/afw/table.h"
+#include "lsst/afw/table/io/OutputArchive.h"
+#include "lsst/afw/table/io/InputArchive.h"
+#include "lsst/afw/table/io/CatalogVector.h"
+#include "lsst/afw/table/io/Persistable.cc"
+
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/GridTransform.h"
 
@@ -516,6 +522,119 @@ GridTransform::InterpolationInputs GridTransform::getInterpolation(double u, dou
     inputs.emplace_back(p3, barycentric.getZ());
     return inputs;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// GridDistortion
+////////////////////////////////////////////////////////////////////////////////
+
+
+namespace {
+
+
+// Singleton class that manages the persistence catalog's schema and keys
+class GridDistortionSchema {
+    using DoubleArray = lsst::afw::table::Array<double>;
+  public:
+    lsst::afw::table::Schema schema;
+    lsst::afw::table::Key<int> numCols;
+    lsst::afw::table::Key<int> numRows;
+    lsst::afw::table::Key<DoubleArray> u;
+    lsst::afw::table::Key<DoubleArray> v;
+    lsst::afw::table::Key<DoubleArray> x;
+    lsst::afw::table::Key<DoubleArray> y;
+
+    static GridDistortionSchema const &get() {
+        static GridDistortionSchema const instance;
+        return instance;
+    }
+
+  private:
+    GridDistortionSchema()
+      : schema(),
+        numCols(schema.addField<int>("numCols", "number of columns in grid", "")),
+        numRows(schema.addField<int>("numRows", "number of rows in grid", "")),
+        u(schema.addField<DoubleArray>("u", "u values", "")),
+        v(schema.addField<DoubleArray>("v", "v values", "")),
+        x(schema.addField<DoubleArray>("x", "x values", "")),
+        y(schema.addField<DoubleArray>("y", "y values", ""))
+        {}
+};
+
+
+template <typename T, int C>
+ndarray::Array<T, 1, 1> flattenArray(ndarray::Array<T, 2, C> const& array) {
+    auto const shape = array.getShape();
+    ndarray::Array<T, 1, 1> result = ndarray::allocate(shape[0]*shape[1]);
+    for (std::size_t ii = 0, start = 0, end = shape[1]; ii < shape[0]; start += shape[0], end += shape[0]) {
+        result[ndarray::view(start, end)] = array[ii];
+    }
+    return result;
+}
+
+
+template <typename T, int C>
+ndarray::Array<std::remove_const_t<T>, 2, 1> unflattenArray(
+    ndarray::Array<T, 1, C> const& array,
+    std::size_t numCols,
+    std::size_t numRows
+) {
+    utils::checkSize(array.size(), numCols*numRows, "array size vs numCols*numRows");
+    ndarray::Array<std::remove_const_t<T>, 2, 1> result = ndarray::allocate(numCols, numRows);
+    for (std::size_t ii = 0, start = 0, end = numRows; ii < numCols; start += numRows, end += numRows) {
+        result[ii] = array[ndarray::view(start, end)];
+    }
+    return result;
+}
+
+
+}  // anonymous namespace
+
+
+void GridDistortion::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
+    GridDistortionSchema const &schema = GridDistortionSchema::get();
+    lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
+    record->set(schema.numCols, _transform.getU().getShape()[0]);
+    record->set(schema.numRows, _transform.getU().getShape()[1]);
+    record->set(schema.u, flattenArray(_transform.getU()));
+    record->set(schema.v, flattenArray(_transform.getV()));
+    record->set(schema.x, flattenArray(_transform.getX()));
+    record->set(schema.y, flattenArray(_transform.getY()));
+    handle.saveCatalog(cat);
+}
+
+
+class GridDistortion::Factory : public lsst::afw::table::io::PersistableFactory {
+  public:
+    std::shared_ptr<lsst::afw::table::io::Persistable> read(
+        lsst::afw::table::io::InputArchive const& archive,
+        lsst::afw::table::io::CatalogVector const& catalogs
+    ) const override {
+        static auto const& schema = GridDistortionSchema::get();
+        LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
+        lsst::afw::table::BaseRecord const& record = catalogs.front().front();
+        LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
+
+        int const numCols = record.get(schema.numCols);
+        int const numRows = record.get(schema.numRows);
+        ndarray::Array<double, 2, 1> u = unflattenArray(record.get(schema.u), numCols, numRows);
+        ndarray::Array<double, 2, 1> v = unflattenArray(record.get(schema.v), numCols, numRows);
+        ndarray::Array<double, 2, 1> x = unflattenArray(record.get(schema.x), numCols, numRows);
+        ndarray::Array<double, 2, 1> y = unflattenArray(record.get(schema.y), numCols, numRows);
+
+        return std::make_shared<GridDistortion>(u, v, x, y);
+    }
+
+    Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
+};
+
+
+namespace {
+
+GridDistortion::Factory registration("GridDistortion");
+
+}  // anonymous namespace
 
 
 }}}  // namespace pfs::drp::stella

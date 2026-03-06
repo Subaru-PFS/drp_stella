@@ -357,6 +357,55 @@ class GridTransform {
 };
 
 
+/// Distortion interface implemented by a GridTransform
+class GridDistortion : public Distortion {
+  public:
+    using Array2D = ndarray::Array<double, 2, 1>;
+
+    //@{
+    /// Ctor
+    GridDistortion(GridTransform const& transform) : _transform(transform) {}
+    GridDistortion(
+        Array2D const& u,
+        Array2D const& v,
+        Array2D const& x,
+        Array2D const& y
+    ) : _transform(u, v, x, y) {}
+    //@}
+
+    GridDistortion(GridDistortion const&) = default;
+    GridDistortion(GridDistortion &&) = default;
+    GridDistortion & operator=(GridDistortion const&) = default;
+    GridDistortion & operator=(GridDistortion &&) = default;
+    virtual ~GridDistortion() = default;
+
+    virtual std::shared_ptr<Distortion> clone() const override {
+        return std::make_shared<GridDistortion>(
+            ndarray::copy(_transform.getU()), ndarray::copy(_transform.getV()),
+            ndarray::copy(_transform.getX()), ndarray::copy(_transform.getY())
+        );
+    }
+
+    virtual std::size_t getNumParameters() const override { return 4 * _transform.getU().getNumElements(); }
+
+    virtual lsst::geom::Point2D evaluate(lsst::geom::Point2D const& xy) const override {
+        return _transform.calculateXY(xy);
+    }
+
+    bool isPersistable() const noexcept { return true; }
+
+    class Factory;
+
+  protected:
+    std::string getPersistenceName() const { return "GridDistortion"; }
+    std::string getPythonModule() const { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+
+  private:
+    GridTransform _transform;
+};
+
+
 }}}  // namespace pfs::drp::stella
 
 #endif  // include guard

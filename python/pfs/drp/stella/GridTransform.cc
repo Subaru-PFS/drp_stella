@@ -5,6 +5,8 @@
 
 #include "lsst/base.h"
 #include "lsst/cpputils/python.h"
+
+#include "pfs/drp/stella/python/Distortion.h"
 #include "pfs/drp/stella/GridTransform.h"
 
 namespace py = pybind11;
@@ -263,10 +265,24 @@ void declareGridTransform(py::module_ & mod) {
 }
 
 
+void declareGridDistortion(py::module_ & mod) {
+    auto cls = python::wrapDistortion<GridDistortion>(mod, "GridDistortion");
+    cls.def(
+        py::init<
+            GridTransform::Array2D const&, GridTransform::Array2D const&,
+            GridTransform::Array2D const&, GridTransform::Array2D const&
+        >(),
+        "u"_a, "v"_a, "x"_a, "y"_a
+    );
+
+}
+
+
 PYBIND11_MODULE(GridTransform, mod) {
     declareTriangle(mod);
     declareGridTree(mod);
     declareGridTransform(mod);
+    declareGridDistortion(mod);
 }
 
 
