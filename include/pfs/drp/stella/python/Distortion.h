@@ -29,6 +29,14 @@ auto wrapDistortion(py::module & mod, char const* name) {
     cls.def("getNumParameters", &Class::getNumParameters);
     cls.def("evaluate", py::overload_cast<lsst::geom::Point2D const&>(&Class::evaluate, py::const_),
             "xy"_a);
+    cls.def("__call__", py::overload_cast<lsst::geom::Point2D const&>(&Class::operator(), py::const_),
+            "xy"_a);
+    cls.def("__call__", py::overload_cast<double, double>(&Class::operator(), py::const_),
+            "x"_a, "y"_a);
+    cls.def("__call__", py::overload_cast<Distortion::Array1D const&, Distortion::Array1D const&>(
+            &Class::operator(), py::const_), "x"_a, "y"_a);
+    cls.def("__call__", py::overload_cast<Distortion::Array2D const&>(&Class::operator(), py::const_),
+            "xy"_a);
     return cls;
 }
 
