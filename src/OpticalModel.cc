@@ -146,11 +146,11 @@ SlitModel::Array2D SlitModel::spectrographToSlit(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// OpticalModel
+// OpticsModel
 ////////////////////////////////////////////////////////////////////////////////
 
 
-OpticalModel::OpticalModel(
+OpticsModel::OpticsModel(
     Array2D const& spatial,
     Array2D const& spectral,
     Array2D const& x,
@@ -168,7 +168,7 @@ namespace {
 
 
 std::tuple<
-    OpticalModel::Array2D, OpticalModel::Array2D, OpticalModel::Array2D, OpticalModel::Array2D
+    OpticsModel::Array2D, OpticsModel::Array2D, OpticsModel::Array2D, OpticsModel::Array2D
 > extractGrid(SplinedDetectorMap const& source) {
     auto const& fiberId = source.getFiberId();
     std::size_t const numFibers = fiberId.size();
@@ -252,10 +252,10 @@ std::tuple<
         );
     }
 
-    OpticalModel::Array2D spatial = ndarray::allocate(numFibers, numWavelength);
-    OpticalModel::Array2D spectral = ndarray::allocate(numFibers, numWavelength);
-    OpticalModel::Array2D xx = ndarray::allocate(numFibers, numWavelength);
-    OpticalModel::Array2D yy = ndarray::allocate(numFibers, numWavelength);
+    OpticsModel::Array2D spatial = ndarray::allocate(numFibers, numWavelength);
+    OpticsModel::Array2D spectral = ndarray::allocate(numFibers, numWavelength);
+    OpticsModel::Array2D xx = ndarray::allocate(numFibers, numWavelength);
+    OpticsModel::Array2D yy = ndarray::allocate(numFibers, numWavelength);
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         spatial[ndarray::view(ii)()] = fiberId[ii];
         spectral[ndarray::view(ii)()] = wavelengthSplines[ii].getY();
@@ -284,24 +284,24 @@ std::tuple<
 }  // anonymous namespace
 
 
-OpticalModel::OpticalModel(SplinedDetectorMap const& source, DistortionList const& distortions)
-    : OpticalModel(extractGrid(source), distortions) {}
+OpticsModel::OpticsModel(SplinedDetectorMap const& source, DistortionList const& distortions)
+    : OpticsModel(extractGrid(source), distortions) {}
 
 
-OpticalModel::OpticalModel(
+OpticsModel::OpticsModel(
     std::tuple<Array2D, Array2D, Array2D, Array2D> const& grid,
     DistortionList const& distortions
-) : OpticalModel(std::get<0>(grid), std::get<1>(grid), std::get<2>(grid), std::get<3>(grid), distortions)
+) : OpticsModel(std::get<0>(grid), std::get<1>(grid), std::get<2>(grid), std::get<3>(grid), distortions)
 {}
 
 
-OpticalModel OpticalModel::copy() const {
+OpticsModel OpticsModel::copy() const {
     DistortionList distortions;
     distortions.reserve(_distortions.size());
     for (auto const& dd : _distortions) {
         distortions.emplace_back(dd->clone());
     }
-    return OpticalModel(
+    return OpticsModel(
         ndarray::copy(getSpatial()),
         ndarray::copy(getSpectral()),
         ndarray::copy(getX()),
@@ -311,7 +311,7 @@ OpticalModel OpticalModel::copy() const {
 }
 
 
-lsst::geom::Point2D OpticalModel::slitToDetector(double spatial, double spectral) const {
+lsst::geom::Point2D OpticsModel::slitToDetector(double spatial, double spectral) const {
     if (!std::isfinite(spatial) || !std::isfinite(spectral)) {
         return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     }
@@ -323,7 +323,7 @@ lsst::geom::Point2D OpticalModel::slitToDetector(double spatial, double spectral
 }
 
 
-OpticalModel::Array2D OpticalModel::slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
+OpticsModel::Array2D OpticsModel::slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
     utils::checkSize(spatial.size(), spectral.size(), "spatial vs spectral");
     Array2D result = ndarray::allocate(spatial.size(), 2);
     for (std::size_t ii = 0; ii < spatial.size(); ++ii) {
@@ -335,7 +335,7 @@ OpticalModel::Array2D OpticalModel::slitToDetector(Array1D const& spatial, Array
 }
 
 
-lsst::geom::Point2D OpticalModel::detectorToSlit(double x, double y) const {
+lsst::geom::Point2D OpticsModel::detectorToSlit(double x, double y) const {
     if (!std::isfinite(x) || !std::isfinite(y)) {
         return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     }
@@ -347,7 +347,7 @@ lsst::geom::Point2D OpticalModel::detectorToSlit(double x, double y) const {
 }
 
 
-OpticalModel::Array2D OpticalModel::detectorToSlit(Array1D const& x, Array1D const& y) const {
+OpticsModel::Array2D OpticsModel::detectorToSlit(Array1D const& x, Array1D const& y) const {
     utils::checkSize(x.size(), y.size(), "x vs y");
     ndarray::Array<double, 2, 1> result = ndarray::allocate(x.size(), 2);
     for (std::size_t ii = 0; ii < x.size(); ++ii) {

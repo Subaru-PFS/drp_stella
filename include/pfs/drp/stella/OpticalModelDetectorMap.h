@@ -25,7 +25,7 @@ namespace stella {
 ///    relatively minor perturbation of the spectrograph coordinates, which
 ///    includes per-fiber offsets and a (low-order) distortion (e.g., due to
 ///    movement of the slit head).
-/// 2. OpticalModel: slit coordinates --> detector coordinates. This is provided
+/// 2. OpticsModel: slit coordinates --> detector coordinates. This is provided
 ///    by JEG's optical model (a grid of fiberId,wavelength vs x,y on the
 ///    detector) with additional distortion applied.
 /// 3. DetectorModel: detector coordinates --> pixel coordinates. For the NIR
@@ -42,7 +42,7 @@ class OpticalModelDetectorMap : public DetectorMap {
     OpticalModelDetectorMap(
         lsst::geom::Box2I const& bbox,
         SlitModel const& slitModel,
-        OpticalModel const& opticalModel,
+        OpticsModel const& opticsModel,
         DetectorModel const& detectorModel,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
@@ -57,7 +57,7 @@ class OpticalModelDetectorMap : public DetectorMap {
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
     SlitModel const& getSlitModel() const { return _slitModel; }
-    OpticalModel const& getOpticalModel() const { return _opticalModel; }
+    OpticsModel const& getOpticsModel() const { return _opticsModel; }
     DetectorModel const& getDetectorModel() const { return _detectorModel; }
 
     // row -> wavelength
@@ -116,7 +116,7 @@ class OpticalModelDetectorMap : public DetectorMap {
 
   private:
     SlitModel _slitModel;
-    OpticalModel _opticalModel;
+    OpticsModel _opticsModel;
     DetectorModel _detectorModel;
     std::pair<double, double> _wavelengthRange;  ///< (min, max) wavelength
     std::size_t _numKnots;  ///< number of knots to use for the per-fiber splines

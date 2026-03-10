@@ -39,7 +39,7 @@
 ///    relatively minor perturbation of the spectrograph coordinates, which
 ///    includes per-fiber offsets and a (low-order) distortion (e.g., due to
 ///    movement of the slit head).
-/// 2. OpticalModel: slit coordinates --> detector coordinates. This is provided
+/// 2. OpticsModel: slit coordinates --> detector coordinates. This is provided
 ///    by JEG's optical model (a grid of fiberId,wavelength vs x,y on the
 ///    detector) with additional distortion applied.
 /// 3. DetectorModel: detector coordinates --> pixel coordinates. For the NIR
@@ -159,12 +159,12 @@ class SlitModel {
 };
 
 
-/// Optical model of the spectrograph camera
+/// Optics model of the spectrograph camera
 ///
 /// This provides a mapping from the slit coordinate system (spatial, spectral)
 /// to the detector coordinate system (x, y).
 ///
-/// The OpticalModel is built from the JEG optical model, which provides a
+/// The OpticsModel is built from the JEG optical model, which provides a
 /// mapping between fiberId,wavelength and x,y on the detector. Additionally,
 /// distortions can be applied after the JEG optical model. For efficiency,
 /// we apply the distortions to the grid points of the JEG optical model in the
@@ -176,7 +176,7 @@ class SlitModel {
 /// slit model. The "spatial" coordinate is in units of fibers, and the
 /// "spectral" coordinate is in wavelength units of nm, so it's almost
 /// equivalent, except that here we allow for interpolation between fibers.
-class OpticalModel {
+class OpticsModel {
   public:
     using Array1I = ndarray::Array<int, 1, 1>;
     using Array2D = ndarray::Array<double, 2, 1>;
@@ -190,7 +190,7 @@ class OpticalModel {
     /// @param x : x coordinates of grid points on the detector (in pixels)
     /// @param y : y coordinates of grid points on the detector (in pixels)
     /// @param distortions : distortions to apply after the JEG optical model
-    OpticalModel(
+    OpticsModel(
         Array2D const& spatial,
         Array2D const& spectral,
         Array2D const& x,
@@ -202,16 +202,16 @@ class OpticalModel {
     ///
     /// The SplinedDetectorMap includes the JEG optical model. We extract the
     /// grid points from the splines, and use those to construct the
-    /// OpticalModel. The distortions are applied on top.
-    OpticalModel(SplinedDetectorMap const& source, DistortionList const& distortions=DistortionList());
+    /// OpticsModel. The distortions are applied on top.
+    OpticsModel(SplinedDetectorMap const& source, DistortionList const& distortions=DistortionList());
 
-    OpticalModel(OpticalModel const&) = default;
-    OpticalModel(OpticalModel &&) = default;
-    OpticalModel & operator=(OpticalModel const&) = default;
-    OpticalModel & operator=(OpticalModel &&) = default;
-    ~OpticalModel() = default;
+    OpticsModel(OpticsModel const&) = default;
+    OpticsModel(OpticsModel &&) = default;
+    OpticsModel & operator=(OpticsModel const&) = default;
+    OpticsModel & operator=(OpticsModel &&) = default;
+    ~OpticsModel() = default;
 
-    OpticalModel copy() const;
+    OpticsModel copy() const;
 
     //@{
     /// Accessors
@@ -249,7 +249,7 @@ class OpticalModel {
   private:
 
     /// Convenience constructor for constructing from a SplinedDetectorMap
-    OpticalModel(
+    OpticsModel(
         std::tuple<Array2D, Array2D, Array2D, Array2D> const& grid,
          DistortionList const& distortions=DistortionList()
     );

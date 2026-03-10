@@ -40,7 +40,7 @@ std::pair<double, double> getWavelengthRange(GridTransform::Array2D const& wavel
 OpticalModelDetectorMap::OpticalModelDetectorMap(
     lsst::geom::Box2I const& bbox,
     SlitModel const& slitModel,
-    OpticalModel const& opticalModel,
+    OpticsModel const& opticsModel,
     DetectorModel const& detectorModel,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
@@ -53,9 +53,9 @@ OpticalModelDetectorMap::OpticalModelDetectorMap(
         metadata
     ),
     _slitModel(slitModel),
-    _opticalModel(opticalModel),
+    _opticsModel(opticsModel),
     _detectorModel(detectorModel),
-    _wavelengthRange(getWavelengthRange(opticalModel.getSpectral())),
+    _wavelengthRange(getWavelengthRange(opticsModel.getSpectral())),
     _numKnots(75)
 {}
 
@@ -63,28 +63,10 @@ OpticalModelDetectorMap::OpticalModelDetectorMap(
 std::shared_ptr<DetectorMap> OpticalModelDetectorMap::clone() const {
     using DistortionList = std::vector<std::shared_ptr<Distortion>>;
 
-    DistortionList slitDistortions;
-    slitDistortions.reserve(_slitModel.getDistortions().size());
-    for (auto const& dd : _slitModel.getDistortions()) {
-        slitDistortions.emplace_back(dd->clone());
-    }
-
-    DistortionList opticsDistortions;
-    opticsDistortions.reserve(_opticalModel.getDistortions().size());
-    for (auto const& dd : _opticalModel.getDistortions()) {
-        opticsDistortions.emplace_back(dd->clone());
-    }
-
-    DistortionList detectorDistortions;
-    detectorDistortions.reserve(_detectorModel.getDistortions().size());
-    for (auto const& dd : _detectorModel.getDistortions()) {
-        detectorDistortions.emplace_back(dd->clone());
-    }
-
     return std::make_shared<OpticalModelDetectorMap>(
         getBBox(),
         _slitModel.copy(),
-        _opticalModel.copy(),
+        _opticsModel.copy(),
         _detectorModel.copy(),
         lsst::afw::image::VisitInfo(getVisitInfo()),  // copy
         getMetadata()->deepCopy()
@@ -94,7 +76,7 @@ std::shared_ptr<DetectorMap> OpticalModelDetectorMap::clone() const {
 
 lsst::geom::Point2D OpticalModelDetectorMap::findPointFull(int fiberId, double wavelength) const {
     lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength);
-    lsst::geom::Point2D const detector = _opticalModel.slitToDetector(slit);
+    lsst::geom::Point2D const detector = _opticsModel.slitToDetector(slit);
     lsst::geom::Point2D const pixels = _detectorModel.detectorToPixels(detector);
     if (!lsst::geom::Box2D(getBBox()).contains(pixels)) {
         return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
@@ -152,7 +134,7 @@ std::pair<int, ndarray::Array<double, 1, 1>> OpticalModelDetectorMap::getTracePo
 ) const {
     double const wavelength = getWavelengthSpline(fiberId)(row);
     lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength);
-    lsst::geom::Point2D const model = _opticalModel.slitToDetector(slit);
+    lsst::geom::Point2D const model = _opticsModel.slitToDetector(slit);
     return _detectorModel.detectorToPixelsColumns(model, halfWidth);
 }
 
@@ -177,7 +159,7 @@ OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fi
     ndarray::Array<double, 1, 1> row = ndarray::allocate(numKnots);
     for (std::size_t ii = 0; ii < numKnots; ++ii) {
         lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength[ii]);
-        lsst::geom::Point2D const detector = _opticalModel.slitToDetector(slit);
+        lsst::geom::Point2D const detector = _opticsModel.slitToDetector(slit);
         lsst::geom::Point2D const pixels = _detectorModel.detectorToPixels(detector);
         xDetector[ii] = detector.getX();
         yDetector[ii] = detector.getY();
@@ -293,15 +275,15 @@ void OpticalModelDetectorMap::write(
     }
 
     // Optics model
-    auto const shape = _opticalModel.getSpatial().getShape();
+    auto const shape = _opticsModel.getSpatial().getShape();
     schema.opticsSize.set(*record, lsst::geom::Point2I(shape[0], shape[1]));
-    record->set(schema.opticsSpatial, utils::flattenArray(_opticalModel.getSpatial()));
-    record->set(schema.opticsSpectral, utils::flattenArray(_opticalModel.getSpectral()));
-    record->set(schema.opticsX, utils::flattenArray(_opticalModel.getX()));
-    record->set(schema.opticsY, utils::flattenArray(_opticalModel.getY()));
-    ndarray::Array<int, 1, 1> opticsDistortions = ndarray::allocate(_opticalModel.getDistortions().size());
-    for (std::size_t ii = 0; ii < _opticalModel.getDistortions().size(); ++ii) {
-        opticsDistortions[ii] = handle.put(*_opticalModel.getDistortions()[ii]);
+    record->set(schema.opticsSpatial, utils::flattenArray(_opticsModel.getSpatial()));
+    record->set(schema.opticsSpectral, utils::flattenArray(_opticsModel.getSpectral()));
+    record->set(schema.opticsX, utils::flattenArray(_opticsModel.getX()));
+    record->set(schema.opticsY, utils::flattenArray(_opticsModel.getY()));
+    ndarray::Array<int, 1, 1> opticsDistortions = ndarray::allocate(_opticsModel.getDistortions().size());
+    for (std::size_t ii = 0; ii < _opticsModel.getDistortions().size(); ++ii) {
+        opticsDistortions[ii] = handle.put(*_opticsModel.getDistortions()[ii]);
     }
 
     // Detector model
@@ -356,12 +338,12 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
         ndarray::Array<double, 1, 1> opticsY = ndarray::copy(record.get(schema.opticsY));
         ndarray::Array<int const, 1, 1> opticsDistortionPtrs = record.get(schema.opticsDistortions);
         std::size_t const numOpticsDistortions = opticsDistortionPtrs.size();
-        OpticalModel::DistortionList opticsDistortions;
+        OpticsModel::DistortionList opticsDistortions;
         opticsDistortions.reserve(numOpticsDistortions);
         for (std::size_t ii = 0; ii < numOpticsDistortions; ++ii) {
             opticsDistortions.emplace_back(archive.get<Distortion>(opticsDistortionPtrs[ii]));
         }
-        OpticalModel opticalModel(
+        OpticsModel opticsModel(
             utils::unflattenArray(opticsSpatial, opticsSize.getX(), opticsSize.getY()),
             utils::unflattenArray(opticsSpectral, opticsSize.getX(), opticsSize.getY()),
             utils::unflattenArray(opticsX, opticsSize.getX(), opticsSize.getY()),
@@ -386,7 +368,7 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
         // dropping metadata on the floor, since we can't write a header
         return std::make_shared<OpticalModelDetectorMap>(
-            bbox, slitModel, opticalModel, detectorModel, *visitInfo, nullptr
+            bbox, slitModel, opticsModel, detectorModel, *visitInfo, nullptr
         );
     }
 

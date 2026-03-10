@@ -16,19 +16,19 @@ void declareSlitModel(py::module_ & mod) {
     py::class_<SlitModel> cls(mod, "SlitModel");
     cls.def(
         py::init<
-            OpticalModel::Array1I const&,
+            OpticsModel::Array1I const&,
             double, double,
-            OpticalModel::Array1D const&, OpticalModel::Array1D const&,
-            OpticalModel::DistortionList const&
+            OpticsModel::Array1D const&, OpticsModel::Array1D const&,
+            OpticsModel::DistortionList const&
         >(),
         "fiberId"_a,
         "fiberPitch"_a, "wavelengthDispersion"_a,
         "spatialOffsets"_a, "spectralOffsets"_a,
-        "distortions"_a=OpticalModel::DistortionList()
+        "distortions"_a=OpticsModel::DistortionList()
     );
     cls.def(
-        py::init<SplinedDetectorMap const&, OpticalModel::DistortionList const&>(),
-        "source"_a, "distortions"_a=OpticalModel::DistortionList()
+        py::init<SplinedDetectorMap const&, OpticsModel::DistortionList const&>(),
+        "source"_a, "distortions"_a=OpticsModel::DistortionList()
     );
     cls.def("copy", &SlitModel::copy);
 
@@ -49,71 +49,72 @@ void declareSlitModel(py::module_ & mod) {
     );
     cls.def(
         "spectrographToSlit",
-        py::overload_cast<OpticalModel::Array1I const&, OpticalModel::Array1D const&>(&SlitModel::spectrographToSlit, py::const_),
+        py::overload_cast<OpticsModel::Array1I const&, OpticsModel::Array1D const&>(&SlitModel::spectrographToSlit, py::const_),
         "fiberId"_a, "wavelength"_a
     );
 }
 
 
-void declareOpticalModel(py::module_ & mod) {
-    py::class_<OpticalModel> cls(mod, "OpticalModel");
+void declareOpticsModel(py::module_ & mod) {
+    py::module::import("pfs.drp.stella.GridTransform");  // for slitToDetector, detectorToSlit
+    py::class_<OpticsModel> cls(mod, "OpticsModel");
     cls.def(
         py::init<
-            OpticalModel::Array2D const&,
-            OpticalModel::Array2D const&,
-            OpticalModel::Array2D const&,
-            OpticalModel::Array2D const&,
-            OpticalModel::DistortionList const&
+            OpticsModel::Array2D const&,
+            OpticsModel::Array2D const&,
+            OpticsModel::Array2D const&,
+            OpticsModel::Array2D const&,
+            OpticsModel::DistortionList const&
         >(),
         "spatial"_a, "spectral"_a, "x"_a, "wavelength"_a, "distortions"_a
     );
     cls.def(
-        py::init<SplinedDetectorMap const&, OpticalModel::DistortionList const&>(),
-        "source"_a, "distortions"_a=OpticalModel::DistortionList()
+        py::init<SplinedDetectorMap const&, OpticsModel::DistortionList const&>(),
+        "source"_a, "distortions"_a=OpticsModel::DistortionList()
     );
-    cls.def("copy", &OpticalModel::copy);
+    cls.def("copy", &OpticsModel::copy);
 
-    cls.def("getSpatial", &OpticalModel::getSpatial);
-    cls.def("getSpectral", &OpticalModel::getSpectral);
-    cls.def("getX", &OpticalModel::getX);
-    cls.def("getY", &OpticalModel::getY);
-    cls.def("getSlitToDetector", &OpticalModel::getSlitToDetector);
-    cls.def("getDetectorToSlit", &OpticalModel::getDetectorToSlit);
-    cls.def("getDistortions", &OpticalModel::getDistortions);
+    cls.def("getSpatial", &OpticsModel::getSpatial);
+    cls.def("getSpectral", &OpticsModel::getSpectral);
+    cls.def("getX", &OpticsModel::getX);
+    cls.def("getY", &OpticsModel::getY);
+    cls.def("getSlitToDetector", &OpticsModel::getSlitToDetector);
+    cls.def("getDetectorToSlit", &OpticsModel::getDetectorToSlit);
+    cls.def("getDistortions", &OpticsModel::getDistortions);
 
     cls.def(
         "slitToDetector",
-        py::overload_cast<double, double>(&OpticalModel::slitToDetector, py::const_),
+        py::overload_cast<double, double>(&OpticsModel::slitToDetector, py::const_),
         "spatial"_a, "spectral"_a
     );
     cls.def(
         "slitToDetector",
         py::overload_cast<
-            OpticalModel::Array1D const&, OpticalModel::Array1D const&
-        >(&OpticalModel::slitToDetector, py::const_),
+            OpticsModel::Array1D const&, OpticsModel::Array1D const&
+        >(&OpticsModel::slitToDetector, py::const_),
         "spatial"_a, "spectral"_a
     );
     cls.def(
         "slitToDetector",
-        py::overload_cast<lsst::geom::Point2D const&>(&OpticalModel::slitToDetector, py::const_),
+        py::overload_cast<lsst::geom::Point2D const&>(&OpticsModel::slitToDetector, py::const_),
         "xy"_a
     );
 
     cls.def(
         "detectorToSlit",
-        py::overload_cast<double, double>(&OpticalModel::detectorToSlit, py::const_),
+        py::overload_cast<double, double>(&OpticsModel::detectorToSlit, py::const_),
         "x"_a, "y"_a
     );
     cls.def(
         "detectorToSlit",
         py::overload_cast<
-            OpticalModel::Array1D const&, OpticalModel::Array1D const&
-        >(&OpticalModel::detectorToSlit, py::const_),
+            OpticsModel::Array1D const&, OpticsModel::Array1D const&
+        >(&OpticsModel::detectorToSlit, py::const_),
         "x"_a, "y"_a
     );
     cls.def(
         "detectorToSlit",
-        py::overload_cast<lsst::geom::Point2D const&>(&OpticalModel::detectorToSlit, py::const_),
+        py::overload_cast<lsst::geom::Point2D const&>(&OpticsModel::detectorToSlit, py::const_),
         "xy"_a
     );
 }
@@ -121,23 +122,26 @@ void declareOpticalModel(py::module_ & mod) {
 
 void declareDetectorModel(py::module_ & mod) {
     py::class_<DetectorModel> cls(mod, "DetectorModel");
-    cls.def(
-        py::init<
-            lsst::geom::Box2I const&,
-            OpticalModel::DistortionList const&
-        >(),
-        "bbox"_a,
-        "distortions"_a=OpticalModel::DistortionList()
-    );
+
+    // DetectorModel(Box2I, AffineTransform, DistortionList) needs to be defined first, otherwise:
+    // "TypeError: object of type 'lsst.geom._geom.AffineTransform' has no len()"
     cls.def(
         py::init<
             lsst::geom::Box2I const&,
             lsst::geom::AffineTransform const&,
-            OpticalModel::DistortionList const&
+            OpticsModel::DistortionList const&
         >(),
         "bbox"_a,
-        "rightCcd"_a=lsst::geom::AffineTransform(),
-        "distortions"_a=OpticalModel::DistortionList()
+        "rightCcd"_a,
+        "distortions"_a=OpticsModel::DistortionList()
+    );
+    cls.def(
+        py::init<
+            lsst::geom::Box2I const&,
+            OpticsModel::DistortionList const&
+        >(),
+        "bbox"_a,
+        "distortions"_a=OpticsModel::DistortionList()
     );
     cls.def("copy", &DetectorModel::copy);
 
@@ -154,7 +158,7 @@ void declareDetectorModel(py::module_ & mod) {
     cls.def(
         "detectorToPixels",
         py::overload_cast<
-            OpticalModel::Array1D const&, OpticalModel::Array1D const&
+            OpticsModel::Array1D const&, OpticsModel::Array1D const&
         >(&DetectorModel::detectorToPixels, py::const_),
         "x"_a, "y"_a
     );
@@ -172,7 +176,7 @@ void declareDetectorModel(py::module_ & mod) {
     cls.def(
         "pixelsToDetector",
         py::overload_cast<
-            OpticalModel::Array1D const&, OpticalModel::Array1D const&
+            OpticsModel::Array1D const&, OpticsModel::Array1D const&
         >(&DetectorModel::pixelsToDetector, py::const_),
         "p"_a, "q"_a
     );
@@ -185,9 +189,8 @@ void declareDetectorModel(py::module_ & mod) {
 
 
 PYBIND11_MODULE(OpticalModel, mod) {
-    py::module::import("pfs.drp.stella.GridTransform");  // for OpticalModel::slitToDetector etc.
     declareSlitModel(mod);
-    declareOpticalModel(mod);
+    declareOpticsModel(mod);
     declareDetectorModel(mod);
 }
 
