@@ -108,6 +108,8 @@ class SlitModel {
     SlitModel & operator=(SlitModel &&) = default;
     ~SlitModel() = default;
 
+    SlitModel copy() const;
+
     //@{
     /// Accessors
     Array1I const& getFiberId() const { return _fiberId; }
@@ -209,6 +211,8 @@ class OpticalModel {
     OpticalModel & operator=(OpticalModel &&) = default;
     ~OpticalModel() = default;
 
+    OpticalModel copy() const;
+
     //@{
     /// Accessors
     ///
@@ -226,27 +230,19 @@ class OpticalModel {
 
     //@{
     /// Convert from slit coordinates (spatial, spectral) to detector coordinates (x, y)
-    lsst::geom::Point2D slitToDetector(double spatial, double spectral) const {
-        return _slitToDetector(spatial, spectral);
-    }
-    Array2D slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
-        return _slitToDetector(spatial, spectral);
-    }
+    lsst::geom::Point2D slitToDetector(double spatial, double spectral) const;
+    Array2D slitToDetector(Array1D const& spatial, Array1D const& spectral) const;
     lsst::geom::Point2D slitToDetector(lsst::geom::Point2D const& spatialSpectral) const {
-        return _slitToDetector(spatialSpectral);
+        return slitToDetector(spatialSpectral.getX(), spatialSpectral.getY());
     }
     //@}
 
     //@{
     /// Convert from detector coordinates (x, y) to slit coordinates (spatial, spectral)
-    lsst::geom::Point2D detectorToSlit(double x, double y) const {
-        return _detectorToSlit(x, y);
-    }
-    Array2D detectorToSlit(Array1D const& x, Array1D const& y) const {
-        return _detectorToSlit(x, y);
-    }
+    lsst::geom::Point2D detectorToSlit(double x, double y) const;
+    Array2D detectorToSlit(Array1D const& x, Array1D const& y) const;
     lsst::geom::Point2D detectorToSlit(lsst::geom::Point2D const& xy) const {
-        return _detectorToSlit(xy);
+        return detectorToSlit(xy.getX(), xy.getY());
     }
     //@}
 
@@ -286,6 +282,7 @@ class DetectorModel {
     using Array2D = ndarray::Array<double, 2, 1>;
     using DistortionList = std::vector<std::shared_ptr<Distortion>>;
 
+    //@{
     /// Ctor
     ///
     /// @param bbox : bounding box of the detector in pixels
@@ -294,16 +291,22 @@ class DetectorModel {
     /// @param distortions : distortions to apply within the detector
     DetectorModel(
         lsst::geom::Box2I const& bbox,
-        bool isDivided,
-        lsst::geom::AffineTransform const& rightCcd=lsst::geom::AffineTransform(),
+        lsst::geom::AffineTransform const& rightCcd,
         DistortionList const& distortions=DistortionList()
     );
+    DetectorModel(
+        lsst::geom::Box2I const& bbox,
+        DistortionList const& distortions=DistortionList()
+    );
+    //@}
 
     DetectorModel(DetectorModel const&) = default;
     DetectorModel(DetectorModel &&) = default;
     DetectorModel & operator=(DetectorModel const&) = default;
     DetectorModel & operator=(DetectorModel &&) = default;
     ~DetectorModel() = default;
+
+    DetectorModel copy() const;
 
     //@{
     /// Accessors
@@ -344,6 +347,15 @@ class DetectorModel {
     ) const;
 
   private:
+
+    /// Base constructor for the two public ctors
+    DetectorModel(
+        lsst::geom::Box2I const& bbox,
+        bool isDivided,
+        lsst::geom::AffineTransform const& rightCcd,
+        DistortionList const& distortions
+    );
+
     lsst::geom::Box2I _bbox;  ///< detector size
     bool _isDivided;  ///< is the detector divided into two halves?
     lsst::geom::AffineTransform _rightCcd;  ///< transformation for the right CCD

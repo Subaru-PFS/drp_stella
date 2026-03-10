@@ -36,7 +36,8 @@ namespace stella {
 class OpticalModelDetectorMap : public DetectorMap {
   public:
     using Spline = math::Spline<double>;
-    using SplineTuple = std::tuple<std::shared_ptr<Spline>, std::shared_ptr<Spline>, std::shared_ptr<Spline>>;
+    using SplinePtr = std::shared_ptr<Spline>;
+    using SplineTuple = std::tuple<SplinePtr, SplinePtr, SplinePtr, SplinePtr>;
 
     OpticalModelDetectorMap(
         lsst::geom::Box2I const& bbox,
@@ -59,15 +60,21 @@ class OpticalModelDetectorMap : public DetectorMap {
     OpticalModel const& getOpticalModel() const { return _opticalModel; }
     DetectorModel const& getDetectorModel() const { return _detectorModel; }
 
+    // row -> wavelength
     Spline const& getWavelengthSpline(int fiberId) const {
         return *std::get<0>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
-    Spline const& getXDetectorSpline(int fiberId) const {
+    Spline const& getRowSpline(int fiberId) const {
         return *std::get<1>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
-    Spline const& getYDetectorSpline(int fiberId) const {
+    Spline const& getXDetectorSpline(int fiberId) const {
         return *std::get<2>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
+    Spline const& getYDetectorSpline(int fiberId) const {
+        return *std::get<3>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
+    }
+
+    lsst::geom::Point2D findPointFull(int fiberId, double wavelength) const;
 
     bool isPersistable() const noexcept override { return true; }
     class Factory;
@@ -115,7 +122,11 @@ class OpticalModelDetectorMap : public DetectorMap {
     std::size_t _numKnots;  ///< number of knots to use for the per-fiber splines
 
     /// Per-fiber splines, behind a cache to avoid constructing them until needed.
-    /// First is the x center spline, second is the wavelength spline.
+    ///
+    /// 0: row -> wavelength
+    /// 1: wavelength -> row
+    /// 2: row -> x on detector
+    /// 3: row -> y on detector
     mutable lsst::cpputils::Cache<int, SplineTuple> _splines;
 };
 

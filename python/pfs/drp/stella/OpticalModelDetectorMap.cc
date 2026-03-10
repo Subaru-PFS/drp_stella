@@ -41,6 +41,8 @@ PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
     cls.def("getXDetectorSpline", &OpticalModelDetectorMap::getXDetectorSpline, "fiberId"_a);
     cls.def("getYDetectorSpline", &OpticalModelDetectorMap::getYDetectorSpline, "fiberId"_a);
     cls.def("getWavelengthSpline", &OpticalModelDetectorMap::getWavelengthSpline, "fiberId"_a);
+    cls.def("getRowSpline", &OpticalModelDetectorMap::getRowSpline, "fiberId"_a);
+    cls.def("findPointFull", &OpticalModelDetectorMap::findPointFull, "fiberId"_a, "wavelength"_a);
 
     cls.def(py::pickle(
         [](OpticalModelDetectorMap const& self) {

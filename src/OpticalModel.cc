@@ -9,6 +9,9 @@ namespace drp {
 namespace stella {
 
 
+double constexpr NOT_A_NUMBER = std::numeric_limits<double>::quiet_NaN();
+
+
 FiberMap makeFiberMap(ndarray::Array<int, 1, 1> const& fiberId) {
     FiberMap result;
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
@@ -79,6 +82,23 @@ SlitModel::SlitModel(
         distortions
     )
 {}
+
+
+SlitModel SlitModel::copy() const {
+    DistortionList distortions;
+    distortions.reserve(_distortions.size());
+    for (auto const& dd : _distortions) {
+        distortions.emplace_back(dd->clone());
+    }
+    return SlitModel(
+        ndarray::copy(getFiberId()),
+        getFiberPitch(),
+        getWavelengthDispersion(),
+        ndarray::copy(getSpatialOffsets()),
+        ndarray::copy(getSpectralOffsets()),
+        distortions
+    );
+}
 
 
 double SlitModel::getSpatialOffset(int fiberId) const {
@@ -192,10 +212,10 @@ std::tuple<
         }
     }
 
-    // The current detectorMaps out of the simulator have numWavelength=69 and numXCenter=73.
+    // The current detectorMaps out of the simulator have numXCenter = numWavelength + 4.
     // This is because four points have been trimmed out of the wavelength splines to avoid
     // edge effects in the spline interpolation. We'll trim the xCenter splines also.
-    if (numWavelength == 69 && numXCenter == 73) {
+    if ((numXCenter > numWavelength) && (numXCenter - numWavelength == 4)) {
         std::vector<Spline> newXCenterSplines;
         newXCenterSplines.reserve(numFibers);
         for (std::size_t ii = 0; ii < numFibers; ++ii) {
@@ -275,9 +295,86 @@ OpticalModel::OpticalModel(
 {}
 
 
+OpticalModel OpticalModel::copy() const {
+    DistortionList distortions;
+    distortions.reserve(_distortions.size());
+    for (auto const& dd : _distortions) {
+        distortions.emplace_back(dd->clone());
+    }
+    return OpticalModel(
+        ndarray::copy(getSpatial()),
+        ndarray::copy(getSpectral()),
+        ndarray::copy(getX()),
+        ndarray::copy(getY()),
+        distortions
+    );
+}
+
+
+lsst::geom::Point2D OpticalModel::slitToDetector(double spatial, double spectral) const {
+    if (!std::isfinite(spatial) || !std::isfinite(spectral)) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+    try {
+        return _slitToDetector(spatial, spectral);
+    } catch (...) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+}
+
+
+OpticalModel::Array2D OpticalModel::slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
+    utils::checkSize(spatial.size(), spectral.size(), "spatial vs spectral");
+    Array2D result = ndarray::allocate(spatial.size(), 2);
+    for (std::size_t ii = 0; ii < spatial.size(); ++ii) {
+        lsst::geom::Point2D const detector = slitToDetector(spatial[ii], spectral[ii]);
+        result[ii][0] = detector.getX();
+        result[ii][1] = detector.getY();
+    }
+    return result;
+}
+
+
+lsst::geom::Point2D OpticalModel::detectorToSlit(double x, double y) const {
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+    try {
+        return _detectorToSlit(x, y);
+    } catch (...) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+}
+
+
+OpticalModel::Array2D OpticalModel::detectorToSlit(Array1D const& x, Array1D const& y) const {
+    utils::checkSize(x.size(), y.size(), "x vs y");
+    ndarray::Array<double, 2, 1> result = ndarray::allocate(x.size(), 2);
+    for (std::size_t ii = 0; ii < x.size(); ++ii) {
+        lsst::geom::Point2D const slit = detectorToSlit(x[ii], y[ii]);
+        result[ii][0] = slit.getX();
+        result[ii][1] = slit.getY();
+    }
+    return result;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // DetectorModel
 ////////////////////////////////////////////////////////////////////////////////
+
+
+DetectorModel::DetectorModel(
+    lsst::geom::Box2I const& bbox,
+    lsst::geom::AffineTransform const& rightCcd,
+    DistortionList const& distortions
+) : DetectorModel(bbox, true, rightCcd, distortions) {}
+
+
+DetectorModel::DetectorModel(
+    lsst::geom::Box2I const& bbox,
+    DistortionList const& distortions
+) : DetectorModel(bbox, false, lsst::geom::AffineTransform(), distortions) {}
 
 
 DetectorModel::DetectorModel(
@@ -304,6 +401,25 @@ DetectorModel::DetectorModel(
 }
 
 
+DetectorModel DetectorModel::copy() const {
+    DistortionList distortions;
+    distortions.reserve(_distortions.size());
+    for (auto const& dd : _distortions) {
+        distortions.emplace_back(dd->clone());
+    }
+
+    lsst::geom::AffineTransform rightCcd;
+    rightCcd.setParameterVector(_rightCcd.getParameterVector());
+
+    return DetectorModel(
+        lsst::geom::Box2I(getBBox()),
+        getIsDivided(),
+        rightCcd,
+        distortions
+    );
+}
+
+
 lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& detector) const {
     if (!_isDivided || detector.getX() < _xCenter) {
         return detector;
@@ -319,7 +435,7 @@ lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& d
     lsst::geom::Point2D result = detector + lsst::geom::Extent2D(_rightCcd(normalized));
     if (result.getX() < _xCenter) {
         // Off the right detector in the chip gap
-        result.setX(std::numeric_limits<double>::quiet_NaN());
+        result.setX(NOT_A_NUMBER);
     }
 
     return result;
@@ -342,9 +458,7 @@ lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& p
     if (!_isDivided) {
         return pixels;
     }
-    lsst::geom::Point2D const nanPoint = lsst::geom::Point2D(
-        std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()
-    );
+    lsst::geom::Point2D const nanPoint = lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     if (!std::isfinite(pixels.getX()) || !std::isfinite(pixels.getY())) {
         // No idea where we are
         return nanPoint;

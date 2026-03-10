@@ -30,6 +30,7 @@ void declareSlitModel(py::module_ & mod) {
         py::init<SplinedDetectorMap const&, OpticalModel::DistortionList const&>(),
         "source"_a, "distortions"_a=OpticalModel::DistortionList()
     );
+    cls.def("copy", &SlitModel::copy);
 
     cls.def("getFiberId", &SlitModel::getFiberId);
     cls.def("getFiberPitch", &SlitModel::getFiberPitch);
@@ -70,6 +71,7 @@ void declareOpticalModel(py::module_ & mod) {
         py::init<SplinedDetectorMap const&, OpticalModel::DistortionList const&>(),
         "source"_a, "distortions"_a=OpticalModel::DistortionList()
     );
+    cls.def("copy", &OpticalModel::copy);
 
     cls.def("getSpatial", &OpticalModel::getSpatial);
     cls.def("getSpectral", &OpticalModel::getSpectral);
@@ -122,15 +124,22 @@ void declareDetectorModel(py::module_ & mod) {
     cls.def(
         py::init<
             lsst::geom::Box2I const&,
-            bool,
+            OpticalModel::DistortionList const&
+        >(),
+        "bbox"_a,
+        "distortions"_a=OpticalModel::DistortionList()
+    );
+    cls.def(
+        py::init<
+            lsst::geom::Box2I const&,
             lsst::geom::AffineTransform const&,
             OpticalModel::DistortionList const&
         >(),
         "bbox"_a,
-        "isDivided"_a,
         "rightCcd"_a=lsst::geom::AffineTransform(),
         "distortions"_a=OpticalModel::DistortionList()
     );
+    cls.def("copy", &DetectorModel::copy);
 
     cls.def("getBBox", &DetectorModel::getBBox);
     cls.def("getIsDivided", &DetectorModel::getIsDivided);

@@ -139,12 +139,27 @@ GridTree::GridTree(
 }
 
 
+lsst::geom::Point2I GridTree::find(double x, double y, double distance) const {
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError, "Cannot find point for non-finite point or distance"
+        );
+    }
+    return getRoot().find(_x, _y, x, y, distance).first;
+}
+
+
 std::pair<
     std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>,
     Triangle
 > GridTree::findTriangle(
     double x, double y
 ) const {
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError, "Cannot find triangle for non-finite point"
+        );
+    }
     lsst::geom::Point2I const result = find(x, y);
     if (result.getX() < 0 || result.getY() < 0) {
         // No point found
@@ -212,6 +227,8 @@ std::pair<
         }
     }
     if (!std::isfinite(distance) && triangle == nullptr) {
+        std::cerr << "No triangle found in grid for point (" << x << ", " << y << ")" << std::endl;
+        std::cerr << "Closest point is (" << start.getX() << ", " << start.getY() << ")" << std::endl;
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "No triangle found in grid");
     }
     return std::make_pair(std::make_tuple(result, vertices.first, vertices.second), *triangle);

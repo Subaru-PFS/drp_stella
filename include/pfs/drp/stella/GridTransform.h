@@ -128,13 +128,11 @@ class GridTree {
     /// a certain distance of the given coordinates.
     lsst::geom::Point2I find(
         double x, double y,
-        double const& distance=std::numeric_limits<double>::infinity()
-    ) const {
-        return getRoot().find(_x, _y, x, y, distance).first;
-    }
+        double distance=std::numeric_limits<double>::infinity()
+    ) const;
     lsst::geom::Point2I find(
         lsst::geom::Point2D const& point,
-        double const& distance=std::numeric_limits<double>::infinity()
+        double distance=std::numeric_limits<double>::infinity()
     ) const {
         return find(point.getX(), point.getY(), distance);
     }

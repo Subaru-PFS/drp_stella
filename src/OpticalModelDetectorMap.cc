@@ -16,6 +16,9 @@ namespace stella {
 namespace {
 
 
+double constexpr NOT_A_NUMBER = std::numeric_limits<double>::quiet_NaN();
+
+
 /// Get minimum and maximum values from the 2D wavelength array
 std::pair<double, double> getWavelengthRange(GridTransform::Array2D const& wavelengths) {
     double min = std::numeric_limits<double>::infinity();
@@ -80,43 +83,38 @@ std::shared_ptr<DetectorMap> OpticalModelDetectorMap::clone() const {
 
     return std::make_shared<OpticalModelDetectorMap>(
         getBBox(),
-        SlitModel(
-            ndarray::copy(getFiberId()),
-            _slitModel.getFiberPitch(),
-            _slitModel.getWavelengthDispersion(),
-            ndarray::copy(getSpatialOffsets()),
-            ndarray::copy(getSpectralOffsets()),
-            slitDistortions
-        ),
-        OpticalModel(
-            ndarray::copy(getOpticalModel().getSpatial()),
-            ndarray::copy(getOpticalModel().getSpectral()),
-            ndarray::copy(getOpticalModel().getX()),
-            ndarray::copy(getOpticalModel().getY()),
-            opticsDistortions
-        ),
-        DetectorModel(
-            getBBox(),
-            getDetectorModel().getIsDivided(),
-            math::makeAffineTransform(math::getAffineParameters(getDetectorModel().getRightCcd())),
-            detectorDistortions
-        ),
+        _slitModel.copy(),
+        _opticalModel.copy(),
+        _detectorModel.copy(),
         lsst::afw::image::VisitInfo(getVisitInfo()),  // copy
         getMetadata()->deepCopy()
     );
 }
 
 
-lsst::geom::PointD OpticalModelDetectorMap::findPointImpl(int fiberId, double wavelength) const {
+lsst::geom::Point2D OpticalModelDetectorMap::findPointFull(int fiberId, double wavelength) const {
     lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength);
     lsst::geom::Point2D const detector = _opticalModel.slitToDetector(slit);
     lsst::geom::Point2D const pixels = _detectorModel.detectorToPixels(detector);
     if (!lsst::geom::Box2D(getBBox()).contains(pixels)) {
-        return lsst::geom::Point2D(
-            std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()
-        );
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     }
     return pixels;
+}
+
+
+lsst::geom::PointD OpticalModelDetectorMap::findPointImpl(int fiberId, double wavelength) const {
+    double y;
+    try {
+        y = getRowSpline(fiberId)(wavelength);
+    } catch (...) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+    if (!std::isfinite(y)) {
+        return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
+    }
+    double const x = getXCenterImpl(fiberId, y);
+    return lsst::geom::Point2D(x, y);
 }
 
 
@@ -124,7 +122,7 @@ double OpticalModelDetectorMap::findWavelengthImpl(int fiberId, double row) cons
     try {
         return getWavelengthSpline(fiberId)(row);
     } catch (...) {
-        return std::numeric_limits<double>::quiet_NaN();
+        return NOT_A_NUMBER;
     }
 }
 
@@ -134,14 +132,14 @@ double OpticalModelDetectorMap::getXCenterImpl(int fiberId, double row) const {
     try {
         detector = lsst::geom::Point2D(getXDetectorSpline(fiberId)(row), getYDetectorSpline(fiberId)(row));
     } catch (...) {
-        return std::numeric_limits<double>::quiet_NaN();
+        return NOT_A_NUMBER;
     }
     lsst::geom::Point2D const pixels = _detectorModel.detectorToPixels(detector);
     if (!std::isfinite(pixels.getX()) || !std::isfinite(pixels.getY())) {
-        return std::numeric_limits<double>::quiet_NaN();
+        return NOT_A_NUMBER;
     }
     if (!lsst::geom::Box2D(getBBox()).contains(pixels)) {
-        return std::numeric_limits<double>::quiet_NaN();
+        return NOT_A_NUMBER;
     }
     return pixels.getX();
 }
@@ -187,6 +185,7 @@ OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fi
     }
     return {
         std::make_shared<Spline>(row, wavelength),
+        std::make_shared<Spline>(wavelength, row),
         std::make_shared<Spline>(row, xDetector),
         std::make_shared<Spline>(row, yDetector)
     };
@@ -380,7 +379,9 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
         for (std::size_t ii = 0; ii < numDetectorDistortions; ++ii) {
             detectorDistortions.emplace_back(archive.get<Distortion>(detectorDistortionPtrs[ii]));
         }
-        DetectorModel detectorModel(bbox, dividedDetector, rightCcd, detectorDistortions);
+        DetectorModel detectorModel = dividedDetector
+            ? DetectorModel(bbox, rightCcd, detectorDistortions)
+            : DetectorModel(bbox, detectorDistortions);
 
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
         // dropping metadata on the floor, since we can't write a header
