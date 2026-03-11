@@ -160,18 +160,17 @@ std::pair<
             lsst::pex::exceptions::InvalidParameterError, "Cannot find triangle for non-finite point"
         );
     }
-    lsst::geom::Point2I const result = find(x, y);
-    if (result.getX() < 0 || result.getY() < 0) {
+    lsst::geom::Point2I const closest = find(x, y);
+    if (closest.getX() < 0 || closest.getY() < 0) {
         // No point found
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "No point found in grid");
     }
-    lsst::geom::Point2D const start = getValue(result);
 
     // The grid could be oriented in any direction, so we need to check the neighbours to find
     // the correct triangle. We'll save the options, in case we discover that the point is outside
     // the grid, and we need to find the closest triangle instead.
-    int const ii = result.getX();
-    int const jj = result.getY();
+    int const ii = closest.getX();
+    int const jj = closest.getY();
 
     std::vector<std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, Triangle>> candidates;
     candidates.reserve(4);
@@ -179,17 +178,17 @@ std::pair<
         lsst::geom::Point2I right{ii + 1, jj};
         if (jj + 1 < _numRows) {
             lsst::geom::Point2I up{ii, jj + 1};
-            Triangle cand{start, getValue(right), getValue(up)};
+            Triangle const& cand = getTriangle(closest, right, up);
             if (cand.contains(lsst::geom::Point2D(x, y))) {
-                return std::make_pair(std::make_tuple(result, right, up), cand);
+                return std::make_pair(std::make_tuple(closest, right, up), cand);
             }
             candidates.emplace_back(right, up, cand);
         }
         if (jj - 1 >= 0) {
             lsst::geom::Point2I down{ii, jj - 1};
-            Triangle cand{start, getValue(right), getValue(down)};
+            Triangle const& cand = getTriangle(closest, right, down);
             if (cand.contains(lsst::geom::Point2D(x, y))) {
-                return std::make_pair(std::make_tuple(result, right, down), cand);
+                return std::make_pair(std::make_tuple(closest, right, down), cand);
             }
             candidates.emplace_back(right, down, cand);
         }
@@ -198,17 +197,17 @@ std::pair<
         lsst::geom::Point2I left{ii - 1, jj};
         if (jj + 1 < _numRows) {
             lsst::geom::Point2I up{ii, jj + 1};
-            Triangle cand{start, getValue(left), getValue(up)};
+            Triangle const& cand = getTriangle(closest, left, up);
             if (cand.contains(lsst::geom::Point2D(x, y))) {
-                return std::make_pair(std::make_tuple(result, left, up), cand);
+                return std::make_pair(std::make_tuple(closest, left, up), cand);
             }
             candidates.emplace_back(left, up, cand);
         }
         if (jj - 1 >= 0) {
             lsst::geom::Point2I down{ii, jj - 1};
-            Triangle cand{start, getValue(left), getValue(down)};
+            Triangle const& cand = getTriangle(closest, left, down);
             if (cand.contains(lsst::geom::Point2D(x, y))) {
-                return std::make_pair(std::make_tuple(result, left, down), cand);
+                return std::make_pair(std::make_tuple(closest, left, down), cand);
             }
             candidates.emplace_back(left, down, cand);
         }
@@ -227,16 +226,23 @@ std::pair<
         }
     }
     if (!std::isfinite(distance) && triangle == nullptr) {
-        std::cerr << "No triangle found in grid for point (" << x << ", " << y << ")" << std::endl;
-        std::cerr << "Closest point is (" << start.getX() << ", " << start.getY() << ")" << std::endl;
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "No triangle found in grid");
     }
-    return std::make_pair(std::make_tuple(result, vertices.first, vertices.second), *triangle);
+    return std::make_pair(std::make_tuple(closest, vertices.first, vertices.second), *triangle);
 }
 
 
 lsst::geom::Point2D GridTree::getValue(lsst::geom::Point2I const& point) const {
     return lsst::geom::Point2D(arrayLookup(_x, point), arrayLookup(_y, point));
+}
+
+
+Triangle const& GridTree::getTriangle(TriangleKey const& key) const {
+    return *_triangles(key, [this](TriangleKey const& key ) {
+        return std::make_shared<Triangle>(
+            getValue(std::get<0>(key)), getValue(std::get<1>(key)), getValue(std::get<2>(key))
+        );
+    });
 }
 
 

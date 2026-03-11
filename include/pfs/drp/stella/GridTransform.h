@@ -8,6 +8,8 @@
 
 #include "lsst/geom/Point.h"
 #include "lsst/geom/AffineTransform.h"
+#include "lsst/cpputils/Cache.h"
+#include "lsst/cpputils/hashCombine.h"
 
 #include "pfs/drp/stella/Distortion.h"
 
@@ -242,6 +244,29 @@ class GridTree {
     int _numCols, _numRows;
     unsigned int _maxPointsPerLeaf;
     std::vector<std::shared_ptr<Node>> _tree;
+
+    using TrianglePtr = std::shared_ptr<Triangle>;
+    using TriangleKey = std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>;
+    struct TriangleHash {
+        std::size_t operator()(TriangleKey const& key) const {
+            std::size_t seed = 0;
+            return lsst::cpputils::hashCombine(
+                seed,
+                std::get<0>(key).getX(), std::get<0>(key).getY(),
+                std::get<1>(key).getX(), std::get<1>(key).getY(),
+                std::get<2>(key).getX(), std::get<2>(key).getY()
+            );
+        }
+    };
+
+    Triangle const& getTriangle(TriangleKey const& key) const;
+    Triangle const& getTriangle(
+        lsst::geom::Point2I const& p1, lsst::geom::Point2I const& p2, lsst::geom::Point2I const& p3
+    ) const {
+        return getTriangle(std::make_tuple(p1, p2, p3));
+    }
+
+    mutable lsst::cpputils::Cache<TriangleKey, TrianglePtr, TriangleHash> _triangles;
 };
 
 
