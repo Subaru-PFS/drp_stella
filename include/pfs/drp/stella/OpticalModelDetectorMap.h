@@ -17,6 +17,51 @@ namespace drp {
 namespace stella {
 
 
+/// Data from the optical model, for a single fiber
+///
+/// Each wavelength is associated with a position in slit coordinates
+/// (spatial, spectral), detector coordinates (x, y), and pixel coordinates
+/// (p, q).
+struct OpticalModelData {
+    using Array2D = ndarray::Array<double, 2, 1>;
+    using Array1D = ndarray::Array<double, 1, 1>;
+    using Spline = math::Spline<double>;
+    using SplinePtr = std::shared_ptr<Spline>;
+
+    enum Coordinate {
+        WAVELENGTH = 1,
+        SLIT_SPATIAL = 2,
+        SLIT_SPECTRAL = 3,
+        DETECTOR_X = 4,
+        DETECTOR_Y = 5,
+        PIXELS_P = 6,
+        PIXELS_Q = 7,
+        ROW = 7,  // Alias for PIXELS_Q
+        COL = 6  // Alias for PIXELS_P
+    };
+
+    Array1D wavelength;  ///< wavelengths for each point along the fiber trace
+    Array2D slit;  ///< slit coordinates (spatial, spectral) for each point along the fiber trace
+    Array2D detector;  ///< detector coordinates (x, y) for each point along the fiber trace
+    Array2D pixels;  ///< pixel coordinates (p, q) for each point along the fiber trace
+
+    OpticalModelData(
+        Array1D const& wavelength, Array2D const& slit, Array2D const& detector, Array2D const& pixels
+    ) : wavelength(wavelength), slit(slit), detector(detector), pixels(pixels) {}
+
+    /// Return the array for the given coordinate
+    Array1D getArray(Coordinate coord) const;
+
+    /// Generate a spline between the given x and y coordinates
+    ///
+    /// The user is responsible for ensuring that the x coordinates are strictly
+    /// increasing; no checks are performed.
+    SplinePtr getSpline(Coordinate x, Coordinate y) const {
+        return std::make_shared<Spline>(getArray(x), getArray(y));
+    }
+};
+
+
 /// DetectorMap implemented as a series of layers, following the optical path
 /// from the slit to the detector.
 ///
@@ -60,20 +105,35 @@ class OpticalModelDetectorMap : public DetectorMap {
     OpticsModel const& getOpticsModel() const { return _opticsModel; }
     DetectorModel const& getDetectorModel() const { return _detectorModel; }
 
-    // row -> wavelength
+    /// Return the data for a particular fiber
+    OpticalModelData getData(int fiberId) const {
+        return _data(fiberId, [this](int fiberId) { return makeOpticalModelData(fiberId); });
+    }
+
+    /// row -> wavelength
     Spline const& getWavelengthSpline(int fiberId) const {
         return *std::get<0>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
+
+    /// wavelength -> row
     Spline const& getRowSpline(int fiberId) const {
         return *std::get<1>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
+
+    /// row -> x on detector
     Spline const& getXDetectorSpline(int fiberId) const {
         return *std::get<2>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
+
+    /// row -> y on detector
     Spline const& getYDetectorSpline(int fiberId) const {
         return *std::get<3>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
     }
 
+    /// Full-fidelity findPoint
+    ///
+    /// Rather than using the splines, trace the point through each layer of the
+    /// optical model.
     lsst::geom::Point2D findPointFull(int fiberId, double wavelength) const;
 
     bool isPersistable() const noexcept override { return true; }
@@ -105,6 +165,10 @@ class OpticalModelDetectorMap : public DetectorMap {
         int halfWidth
     ) const override;
 
+    /// Construct the OpticalModelData for a particular fiber
+    OpticalModelData makeOpticalModelData(int fiberId) const;
+
+    /// Construct splines for a particular fiber
     SplineTuple makeSplines(int fiberId) const;
 
     /// Reset cached elements after setting slit offsets
@@ -121,12 +185,18 @@ class OpticalModelDetectorMap : public DetectorMap {
     std::pair<double, double> _wavelengthRange;  ///< (min, max) wavelength
     std::size_t _numKnots;  ///< number of knots to use for the per-fiber splines
 
+    /// Per-fiber data from the optical model, behind a cache to avoid constructing it until needed.
+    mutable lsst::cpputils::Cache<int, OpticalModelData> _data;
+
     /// Per-fiber splines, behind a cache to avoid constructing them until needed.
     ///
     /// 0: row -> wavelength
     /// 1: wavelength -> row
     /// 2: row -> x on detector
     /// 3: row -> y on detector
+    ///
+    /// Additional splines can be created from the OpticalModelData, but these
+    /// are the ones we need for the official detectorMap interface.
     mutable lsst::cpputils::Cache<int, SplineTuple> _splines;
 };
 

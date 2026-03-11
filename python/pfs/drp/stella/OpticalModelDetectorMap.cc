@@ -11,8 +11,42 @@ using namespace pybind11::literals;
 
 namespace pfs { namespace drp { namespace stella {
 
-PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
-    pybind11::module::import("pfs.drp.stella.DetectorMap");
+
+void declareOpticalModelData(py::module_ & mod) {
+    py::class_<OpticalModelData> cls(mod, "OpticalModelData");
+    cls.def(
+        py::init<
+            OpticalModelData::Array1D const&,
+            OpticalModelData::Array2D const&,
+            OpticalModelData::Array2D const&,
+            OpticalModelData::Array2D const&
+        >(),
+        "wavelength"_a, "slit"_a, "detector"_a, "pixels"_a
+    );
+
+    cls.def_readonly("wavelength", &OpticalModelData::wavelength);
+    cls.def_readonly("slit", &OpticalModelData::slit);
+    cls.def_readonly("detector", &OpticalModelData::detector);
+    cls.def_readonly("pixels", &OpticalModelData::pixels);
+
+    cls.def("getArray", &OpticalModelData::getArray, "system"_a);
+    cls.def("getSpline", &OpticalModelData::getSpline, "x"_a, "y"_a);
+
+    py::enum_<OpticalModelData::Coordinate> coord(cls, "Coordinate");
+    coord.value("WAVELENGTH", OpticalModelData::Coordinate::WAVELENGTH);
+    coord.value("SLIT_SPATIAL", OpticalModelData::Coordinate::SLIT_SPATIAL);
+    coord.value("SLIT_SPECTRAL", OpticalModelData::Coordinate::SLIT_SPECTRAL);
+    coord.value("DETECTOR_X", OpticalModelData::Coordinate::DETECTOR_X);
+    coord.value("DETECTOR_Y", OpticalModelData::Coordinate::DETECTOR_Y);
+    coord.value("PIXELS_P", OpticalModelData::Coordinate::PIXELS_P);
+    coord.value("PIXELS_Q", OpticalModelData::Coordinate::PIXELS_Q);
+    coord.value("ROW", OpticalModelData::Coordinate::ROW);
+    coord.value("COL", OpticalModelData::Coordinate::COL);
+}
+
+
+void declareOpticalModelDetectorMap(py::module_ & mod) {
+    py::module::import("pfs.drp.stella.DetectorMap");
     auto cls = python::wrapDetectorMap<OpticalModelDetectorMap>(
         mod, "OpticalModelDetectorMap"
     );
@@ -38,6 +72,7 @@ PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
     cls.def_property_readonly("slitModel", &OpticalModelDetectorMap::getSlitModel);
     cls.def_property_readonly("opticsModel", &OpticalModelDetectorMap::getOpticsModel);
     cls.def_property_readonly("detectorModel", &OpticalModelDetectorMap::getDetectorModel);
+    cls.def("getData", &OpticalModelDetectorMap::getData, "fiberId"_a);
     cls.def("getXDetectorSpline", &OpticalModelDetectorMap::getXDetectorSpline, "fiberId"_a);
     cls.def("getYDetectorSpline", &OpticalModelDetectorMap::getYDetectorSpline, "fiberId"_a);
     cls.def("getWavelengthSpline", &OpticalModelDetectorMap::getWavelengthSpline, "fiberId"_a);
@@ -67,5 +102,12 @@ PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
         }
     ));
 }
+
+
+PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
+    declareOpticalModelData(mod);
+    declareOpticalModelDetectorMap(mod);
+}
+
 
 }}} // pfs::drp::stella

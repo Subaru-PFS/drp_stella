@@ -13,6 +13,38 @@ namespace drp {
 namespace stella {
 
 
+////////////////////////////////////////////////////////////////////////////////
+// OpticalModelData
+////////////////////////////////////////////////////////////////////////////////
+
+
+OpticalModelData::Array1D OpticalModelData::getArray(Coordinate coord) const {
+    switch (coord) {
+        case WAVELENGTH:
+            return wavelength;
+        case SLIT_SPATIAL:
+            return slit[ndarray::view(0)];
+        case SLIT_SPECTRAL:
+            return slit[ndarray::view(1)];
+        case DETECTOR_X:
+            return detector[ndarray::view(0)];
+        case DETECTOR_Y:
+            return detector[ndarray::view(1)];
+        case PIXELS_P:
+            return pixels[ndarray::view(0)];
+        case PIXELS_Q:
+            return pixels[ndarray::view(1)];
+        default:
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Invalid system");
+    }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// OpticalModelDetectorMap
+////////////////////////////////////////////////////////////////////////////////
+
+
 namespace {
 
 
@@ -139,7 +171,7 @@ std::pair<int, ndarray::Array<double, 1, 1>> OpticalModelDetectorMap::getTracePo
 }
 
 
-OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fiberId) const {
+OpticalModelData OpticalModelDetectorMap::makeOpticalModelData(int fiberId) const {
     // we drop the 2nd, 3rd, 3rd-last and 2nd-last points to avoid edge effects
     std::size_t const numKnots = _numKnots - 4;
     ndarray::Array<double, 1, 1> wavelength = ndarray::allocate(numKnots);
@@ -153,28 +185,39 @@ OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fi
         wavelength[ii] = minWavelength + jj*step;
     }
 
-    lsst::geom::Box2D bbox{getBBox()};
+    ndarray::Array<double, 2, 1> slit = ndarray::allocate(numKnots, 2);
+    ndarray::Array<double, 2, 1> detector = ndarray::allocate(numKnots, 2);
+    ndarray::Array<double, 2, 1> pixels = ndarray::allocate(numKnots, 2);
+
+
     ndarray::Array<double, 1, 1> xDetector = ndarray::allocate(numKnots);
     ndarray::Array<double, 1, 1> yDetector = ndarray::allocate(numKnots);
     ndarray::Array<double, 1, 1> row = ndarray::allocate(numKnots);
     for (std::size_t ii = 0; ii < numKnots; ++ii) {
-        lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength[ii]);
-        lsst::geom::Point2D const detector = _opticsModel.slitToDetector(slit);
-        lsst::geom::Point2D const pixels = _detectorModel.detectorToPixels(detector);
-        xDetector[ii] = detector.getX();
-        yDetector[ii] = detector.getY();
-        row[ii] = pixels.getY();
+        lsst::geom::Point2D const slitCoord = _slitModel.spectrographToSlit(fiberId, wavelength[ii]);
+        lsst::geom::Point2D const detectorCoord = _opticsModel.slitToDetector(slitCoord);
+        lsst::geom::Point2D const pixelsCoord = _detectorModel.detectorToPixels(detectorCoord);
+        ndarray::asEigenArray(slit[ii]) = slitCoord.asEigen();
+        ndarray::asEigenArray(detector[ii]) = detectorCoord.asEigen();
+        ndarray::asEigenArray(pixels[ii]) = pixelsCoord.asEigen();
     }
+    return OpticalModelData(wavelength, slit, detector, pixels);
+}
+
+
+OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fiberId) const {
+    OpticalModelData const data = getData(fiberId);
     return {
-        std::make_shared<Spline>(row, wavelength),
-        std::make_shared<Spline>(wavelength, row),
-        std::make_shared<Spline>(row, xDetector),
-        std::make_shared<Spline>(row, yDetector)
+        data.getSpline(OpticalModelData::ROW, OpticalModelData::WAVELENGTH),
+        data.getSpline(OpticalModelData::WAVELENGTH, OpticalModelData::ROW),
+        data.getSpline(OpticalModelData::ROW, OpticalModelData::DETECTOR_X),
+        data.getSpline(OpticalModelData::ROW, OpticalModelData::DETECTOR_Y)
     };
 }
 
 
 void OpticalModelDetectorMap::_resetSlitOffsets() {
+    _data.flush();
     _splines.flush();
     DetectorMap::_resetSlitOffsets();
     _slitModel = std::move(SlitModel(
