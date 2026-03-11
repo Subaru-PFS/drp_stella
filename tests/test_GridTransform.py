@@ -106,11 +106,24 @@ class GridTreeTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(tree.getValue(Point2I(5, 5)), Point2D(50, 15))
         self.assertEqual(tree.getValue(Point2I(7, 3)), Point2D(70, 9))
 
-        for _ in range(23):
+        for _ in range(123):
             # Find the closest point to a random point inside the grid
             point = Point2D(self.rng.uniform(0, xMax), self.rng.uniform(0, yMax))
             index = tree.find(point)
             expect = np.argmin(np.hypot(xx - point.getX(), yy - point.getY()))
+            if False:
+                expectIndex = Point2I(self.i.flat[expect], self.j.flat[expect])
+                print(
+                    point,
+                    tree.getValue(index),
+                    tree.getValue(expectIndex),
+                    np.hypot(
+                        tree.getValue(index).getX() - point.getX(), tree.getValue(index).getY() - point.getY()
+                    ),
+                    np.hypot(
+                        tree.getValue(expectIndex).getX() - point.getX(), tree.getValue(expectIndex).getY() - point.getY()
+                    ),
+                )
             self.assertEqual(index, Point2I(self.i.flat[expect], self.j.flat[expect]))
             self.assertEqual(
                 tree.getValue(index),

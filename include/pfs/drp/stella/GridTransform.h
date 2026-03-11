@@ -94,6 +94,11 @@ class Triangle {
 };
 
 
+/// Default number of points in a leaf node of the tree; can be overridden by the caller
+/// This has been tuned to give good performance for the optical models we use for PFS.
+const int GRID_TREE_MAX_POINTS_PER_LEAF = 80;
+
+
 /// A spatial index for a grid of points
 ///
 /// This is used to find the closest point to a given coordinate, for use in
@@ -114,7 +119,7 @@ class GridTree {
     GridTree(
         ArrayRef2D const& x,
         ArrayRef2D const& y,
-        int maxPointsPerLeaf = 4
+        int maxPointsPerLeaf = GRID_TREE_MAX_POINTS_PER_LEAF
     );
 
     GridTree(GridTree const&) = default;
@@ -136,7 +141,7 @@ class GridTree {
         lsst::geom::Point2D const& point,
         double distance=std::numeric_limits<double>::infinity()
     ) const {
-        return find(point.getX(), point.getY(), distance);
+        return find(point.getX(), point.getY(), distance*distance);
     }
     //@}
 
@@ -192,6 +197,7 @@ class GridTree {
         std::shared_ptr<Node> left;  ///< left child node (for values less than divideValue)
         std::shared_ptr<Node> right;  ///< right child node (for values greater than divideValue)
         std::vector<lsst::geom::Point2I> leaves;  ///< points in this node, if it's a leaf node
+        std::vector<lsst::geom::Point2D> values;  ///< values of the points in this node, if it's a leaf node
         int level;  ///< level of the node in the tree, for debugging purposes
 
         /// Ctor
@@ -224,16 +230,13 @@ class GridTree {
 
         /// Find the closest point to the given coordinates in this node and its children
         ///
-        /// @param xArray 2D array of x coordinates of the grid points
-        /// @param yArray 2D array of y coordinates of the grid points
         /// @param x x coordinate of the point to find
         /// @param y y coordinate of the point to find
-        /// @param distance Maximum distance to search for points
+        /// @param distance2 Maximum distance-squared to search for points
         /// @return The closest point and its distance from the given coordinates
         std::pair<lsst::geom::Point2I, double> find(
-            Array2D const& xArray, Array2D const& yArray,
             double x, double y,
-            double distance=std::numeric_limits<double>::infinity()
+            double distance2=std::numeric_limits<double>::infinity()
         ) const;
     };
 

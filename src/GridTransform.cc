@@ -21,8 +21,6 @@ namespace {
 
 
 double arrayLookup(ndarray::Array<double, 2, 1> const& array, lsst::geom::Point2I const& point) {
-    assert(point.getX() >= 0 && point.getX() < int(array.getShape()[0]));
-    assert(point.getY() >= 0 && point.getY() < int(array.getShape()[1]));
     return array[point.getX()][point.getY()];
 }
 
@@ -145,7 +143,7 @@ lsst::geom::Point2I GridTree::find(double x, double y, double distance) const {
             lsst::pex::exceptions::InvalidParameterError, "Cannot find point for non-finite point or distance"
         );
     }
-    return getRoot().find(_x, _y, x, y, distance).first;
+    return getRoot().find(x, y, distance).first;
 }
 
 
@@ -263,6 +261,7 @@ GridTree::Node::Node(
     left(),
     right(),
     leaves(),
+    values(),
     level(level)
 {}
 
@@ -289,7 +288,11 @@ std::shared_ptr<GridTree::Node> GridTree::Node::build(
     if (points.size() <= maxPointsPerLeaf) {
         // Leaf node
         node->leaves.reserve(points.size());
+        node->values.reserve(points.size());
         node->leaves.assign(points.begin(), points.end());
+        for (auto const& point : points) {
+            node->values.emplace_back(arrayLookup(xArray, point), arrayLookup(yArray, point));
+        }
         return node;
     }
 
@@ -327,48 +330,62 @@ std::shared_ptr<GridTree::Node> GridTree::Node::build(
 }
 
 
+// XXX This implementation uses recursion, which is simpler to write and understand.
+// However, switching to an iterative implementation might be more efficient.
 std::pair<lsst::geom::Point2I, double> GridTree::Node::find(
-    Array2D const& xArray, Array2D const& yArray,
     double x, double y,
-    double distance
+    double distance2
 ) const {
     if (leaves.size() > 0) {
         // Leaf node: find the closest point
         lsst::geom::Point2I best;
-        double bestDistance2 = std::pow(distance, 2);
-        for (auto const& point : leaves) {
-            double const dx = arrayLookup(xArray, point) - x;
-            double const dy = arrayLookup(yArray, point) - y;
-            double const distance2 = dx*dx + dy*dy;
-            if (distance2 < bestDistance2) {
-                best = point;
-                bestDistance2 = distance2;
+        double bestDistance2 = distance2;
+        for (std::size_t ii = 0; ii < leaves.size(); ++ii) {
+            double const dx = values[ii].getX() - x;
+            double const dx2 = dx*dx;
+            if (dx2 > bestDistance2) {
+                continue;
             }
+            double const dy = values[ii].getY() - y;
+            double const dy2 = dy*dy;
+            double const checkDistance2 = dx2 + dy2;
+            if (checkDistance2 > bestDistance2) {
+                continue;
+            }
+            best = leaves[ii];
+            bestDistance2 = checkDistance2;
         }
-        return std::make_pair(best, std::sqrt(bestDistance2));
+        return {best, bestDistance2};
     }
 
     // Branching node: check children
+
+    //  |-----------------------|------------------------|
+    //  minValue            divideValue                maxValue
+    //
+    //          |--------|--------|
+    //        value-d  value    value+d
+
     double const value = dividesX ? x : y;
+    double const diff = value - divideValue;
+    double const diff2 = diff*diff;
     lsst::geom::Point2I best;
-    double bestDistance = std::numeric_limits<double>::infinity();
-    if (left && value < divideValue + distance) {
-        auto const leftResult = left->find(xArray, yArray, x, y, distance);
-        if (leftResult.second < distance) {
+    double bestDistance2 = distance2;
+    if (left && (value < divideValue || diff2 <= bestDistance2)) {
+        auto const leftResult = left->find(x, y, bestDistance2);
+        if (leftResult.second < bestDistance2) {
             best = leftResult.first;
-            distance = leftResult.second;
-            bestDistance = distance;
+            bestDistance2 = leftResult.second;
         }
     }
-    if (right && value > divideValue - distance) {
-        auto const rightResult = right->find(xArray, yArray, x, y, distance);
-        if (rightResult.second < distance) {
+    if (right && (value >= divideValue || diff2 <= bestDistance2)) {
+        auto const rightResult = right->find(x, y, bestDistance2);
+        if (rightResult.second < bestDistance2) {
             best = rightResult.first;
-            distance = rightResult.second;
-            bestDistance = distance;
+            bestDistance2 = rightResult.second;
         }
     }
-    return std::make_pair(best, bestDistance);
+    return {best, bestDistance2};
 }
 
 

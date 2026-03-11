@@ -67,7 +67,7 @@ class GridTreeWrapper {
     using Array2D = ndarray::Array<double, 2, 1>;
 
     GridTreeWrapper(
-        Array2D const& x, Array2D const& y, int maxPointsPerLeaf=4
+        Array2D const& x, Array2D const& y, int maxPointsPerLeaf=GRID_TREE_MAX_POINTS_PER_LEAF
     ) : _xCopy(ndarray::copy(x)),
         _yCopy(ndarray::copy(y)),
         _tree(_xCopy.deep(), _yCopy.deep(), maxPointsPerLeaf) {}
