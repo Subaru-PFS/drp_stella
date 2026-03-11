@@ -6,6 +6,7 @@
 #include "lsst/geom/AffineTransform.h"
 #include "lsst/afw/table/io/Persistable.h"
 #include "lsst/cpputils/Cache.h"
+#include "lsst/cpputils/hashCombine.h"
 
 #include "pfs/drp/stella/SplinedDetectorMap.h"
 #include "pfs/drp/stella/Distortion.h"
@@ -15,51 +16,6 @@
 namespace pfs {
 namespace drp {
 namespace stella {
-
-
-/// Data from the optical model, for a single fiber
-///
-/// Each wavelength is associated with a position in slit coordinates
-/// (spatial, spectral), detector coordinates (x, y), and pixel coordinates
-/// (p, q).
-struct OpticalModelData {
-    using Array2D = ndarray::Array<double, 2, 1>;
-    using Array1D = ndarray::Array<double, 1, 1>;
-    using Spline = math::Spline<double>;
-    using SplinePtr = std::shared_ptr<Spline>;
-
-    enum Coordinate {
-        WAVELENGTH = 1,
-        SLIT_SPATIAL = 2,
-        SLIT_SPECTRAL = 3,
-        DETECTOR_X = 4,
-        DETECTOR_Y = 5,
-        PIXELS_P = 6,
-        PIXELS_Q = 7,
-        ROW = 7,  // Alias for PIXELS_Q
-        COL = 6  // Alias for PIXELS_P
-    };
-
-    Array1D wavelength;  ///< wavelengths for each point along the fiber trace
-    Array2D slit;  ///< slit coordinates (spatial, spectral) for each point along the fiber trace
-    Array2D detector;  ///< detector coordinates (x, y) for each point along the fiber trace
-    Array2D pixels;  ///< pixel coordinates (p, q) for each point along the fiber trace
-
-    OpticalModelData(
-        Array1D const& wavelength, Array2D const& slit, Array2D const& detector, Array2D const& pixels
-    ) : wavelength(wavelength), slit(slit), detector(detector), pixels(pixels) {}
-
-    /// Return the array for the given coordinate
-    Array1D getArray(Coordinate coord) const;
-
-    /// Generate a spline between the given x and y coordinates
-    ///
-    /// The user is responsible for ensuring that the x coordinates are strictly
-    /// increasing; no checks are performed.
-    SplinePtr getSpline(Coordinate x, Coordinate y) const {
-        return std::make_shared<Spline>(getArray(x), getArray(y));
-    }
-};
 
 
 /// DetectorMap implemented as a series of layers, following the optical path
@@ -80,10 +36,51 @@ struct OpticalModelData {
 ///    detector geography).
 class OpticalModelDetectorMap : public DetectorMap {
   public:
+
+    enum Coordinate {
+        WAVELENGTH = 1,
+        SLIT_SPATIAL = 2,
+        SLIT_SPECTRAL = 3,
+        DETECTOR_X = 4,
+        DETECTOR_Y = 5,
+        PIXELS_P = 6,
+        PIXELS_Q = 7,
+        ROW = 7,  // Alias for PIXELS_Q
+        COL = 6  // Alias for PIXELS_P
+    };
+
     using Spline = math::Spline<double>;
     using SplinePtr = std::shared_ptr<Spline>;
-    using SplineTuple = std::tuple<SplinePtr, SplinePtr, SplinePtr, SplinePtr>;
+    using SplineKey = std::tuple<int, Coordinate, Coordinate>;
 
+    /// Data from the optical model, for a single fiber
+    ///
+    /// Each wavelength is associated with a position in slit coordinates
+    /// (spatial, spectral), detector coordinates (x, y), and pixel coordinates
+    /// (p, q).
+    struct Data {
+        Array1D wavelength;  ///< wavelengths for each point along the fiber trace
+        Array2D slit;  ///< slit coordinates (spatial, spectral) for each point along the fiber trace
+        Array2D detector;  ///< detector coordinates (x, y) for each point along the fiber trace
+        Array2D pixels;  ///< pixel coordinates (p, q) for each point along the fiber trace
+
+        Data(
+            Array1D const& wavelength, Array2D const& slit, Array2D const& detector, Array2D const& pixels
+        ) : wavelength(wavelength), slit(slit), detector(detector), pixels(pixels) {}
+
+        /// Return the array for the given coordinate
+        Array1D getArray(Coordinate coord) const;
+
+        /// Generate a spline between the given x and y coordinates
+        ///
+        /// The user is responsible for ensuring that the x coordinates are strictly
+        /// increasing; no checks are performed.
+        SplinePtr getSpline(Coordinate x, Coordinate y) const {
+            return std::make_shared<Spline>(getArray(x), getArray(y));
+        }
+    };
+
+    /// Ctor
     OpticalModelDetectorMap(
         lsst::geom::Box2I const& bbox,
         SlitModel const& slitModel,
@@ -93,7 +90,7 @@ class OpticalModelDetectorMap : public DetectorMap {
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
     );
 
-    virtual ~OpticalModelDetectorMap() {}
+    virtual ~OpticalModelDetectorMap() noexcept override {}
     OpticalModelDetectorMap(OpticalModelDetectorMap const&) = default;
     OpticalModelDetectorMap(OpticalModelDetectorMap &&) = default;
     OpticalModelDetectorMap & operator=(OpticalModelDetectorMap const&) = default;
@@ -106,28 +103,51 @@ class OpticalModelDetectorMap : public DetectorMap {
     DetectorModel const& getDetectorModel() const { return _detectorModel; }
 
     /// Return the data for a particular fiber
-    OpticalModelData getData(int fiberId) const {
-        return _data(fiberId, [this](int fiberId) { return makeOpticalModelData(fiberId); });
+    Data getData(int fiberId) const {
+        return _data(fiberId, [this](int fiberId) { return makeData(fiberId); });
     }
+
+    //@{
+    /// Return a spline for a particular fiber and coordinate pair
+    Spline const& getSpline(int fiberId, Coordinate coordFrom, Coordinate coordTo) const {
+        return getSpline(std::make_tuple(fiberId, coordFrom, coordTo));
+    }
+    Spline const& getSpline(SplineKey const& key) const {
+        return *_splines(key, [this](SplineKey const& key) { return makeSpline(key); });
+    }
+    //@}
+
+    //@{
+    /// Calculate any coordinate given any other coordinate, using the splines
+    ///
+    /// @param fiberId : fiber identifier
+    /// @param coordFrom : coordinate to convert from
+    /// @param coordTo : coordinate to convert to
+    /// @param value : value of the coordFrom coordinate to convert
+    double calculate(int fiberId, Coordinate coordFrom, Coordinate coordTo, double value) const;
+    Array1D calculate(
+        FiberIds const& fiberId, Coordinate coordFrom, Coordinate coordTo, Array1D const& value
+    ) const;
+    //@}
 
     /// row -> wavelength
     Spline const& getWavelengthSpline(int fiberId) const {
-        return *std::get<0>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
+        return getSpline(fiberId, ROW, WAVELENGTH);
     }
 
     /// wavelength -> row
     Spline const& getRowSpline(int fiberId) const {
-        return *std::get<1>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
+        return getSpline(fiberId, WAVELENGTH, ROW);
     }
 
     /// row -> x on detector
     Spline const& getXDetectorSpline(int fiberId) const {
-        return *std::get<2>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
+        return getSpline(fiberId, ROW, DETECTOR_X);
     }
 
     /// row -> y on detector
     Spline const& getYDetectorSpline(int fiberId) const {
-        return *std::get<3>(_splines(fiberId, [this](int fiberId) { return makeSplines(fiberId); }));
+        return getSpline(fiberId, ROW, DETECTOR_Y);
     }
 
     /// Full-fidelity findPoint
@@ -165,11 +185,18 @@ class OpticalModelDetectorMap : public DetectorMap {
         int halfWidth
     ) const override;
 
-    /// Construct the OpticalModelData for a particular fiber
-    OpticalModelData makeOpticalModelData(int fiberId) const;
+    /// Construct the data for a particular fiber
+    Data makeData(int fiberId) const;
 
-    /// Construct splines for a particular fiber
-    SplineTuple makeSplines(int fiberId) const;
+    //@{
+    /// Construct spline
+    SplinePtr makeSpline(int fiberId, Coordinate coordFrom, Coordinate coordTo) const {
+        return getData(fiberId).getSpline(coordFrom, coordTo);
+    }
+    SplinePtr makeSpline(SplineKey const& key) const {
+        return makeSpline(std::get<0>(key), std::get<1>(key), std::get<2>(key));
+    }
+    //@}
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;
@@ -186,18 +213,21 @@ class OpticalModelDetectorMap : public DetectorMap {
     std::size_t _numKnots;  ///< number of knots to use for the per-fiber splines
 
     /// Per-fiber data from the optical model, behind a cache to avoid constructing it until needed.
-    mutable lsst::cpputils::Cache<int, OpticalModelData> _data;
+    ///
+    /// Use getData to get the data (and make it if it's not already cached).
+    mutable lsst::cpputils::Cache<int, Data> _data;
+
+    struct SplineKeyHash {
+        std::size_t operator()(SplineKey const& key) const {
+            std::size_t seed = 0;
+            return lsst::cpputils::hashCombine(seed, std::get<0>(key), std::get<1>(key), std::get<2>(key));
+        }
+    };
 
     /// Per-fiber splines, behind a cache to avoid constructing them until needed.
-    ///
-    /// 0: row -> wavelength
-    /// 1: wavelength -> row
-    /// 2: row -> x on detector
-    /// 3: row -> y on detector
-    ///
-    /// Additional splines can be created from the OpticalModelData, but these
-    /// are the ones we need for the official detectorMap interface.
-    mutable lsst::cpputils::Cache<int, SplineTuple> _splines;
+    /// The key is (fiberId, coordFrom, coordTo).
+    /// Use getSpline to get a spline (and make it if it's not already cached).
+    mutable lsst::cpputils::Cache<SplineKey, SplinePtr, SplineKeyHash> _splines;
 };
 
 

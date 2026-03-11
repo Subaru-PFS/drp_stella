@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, overload
 
 import numpy as np
 
@@ -10,7 +10,7 @@ from .DetectorMap import DetectorMap
 from .OpticalModel import SlitModel, OpticsModel, DetectorModel
 from .math import SplineD
 
-class _OpticalModelDataCoordinate:
+class _OpticalModelDetectorMapCoordinate:
     WAVELENGTH = 1
     SLIT_SPATIAL = 2
     SLIT_SPECTRAL = 3
@@ -21,7 +21,7 @@ class _OpticalModelDataCoordinate:
     ROW = 7
     COL = 6
 
-class OpticalModelData:
+class OpticalModelDetectorMapData:
     def __init__(
         self,
         wavelength: np.ndarray,
@@ -33,11 +33,13 @@ class OpticalModelData:
     slit: np.ndarray
     detector: np.ndarray
     pixels: np.ndarray
-    Coordinate = _OpticalModelDataCoordinate
-    def getArray(self, coord: Coordinate) -> np.ndarray: ...
-    def getSpline(self, x: Coordinate, y: Coordinate) -> SplineD: ...
+    def getArray(self, coord: OpticalModelDetectorMap.Coordinate) -> np.ndarray: ...
+    def getSpline(
+        self, x: OpticalModelDetectorMap.Coordinate, y: OpticalModelDetectorMap.Coordinate
+    ) -> SplineD: ...
 
 class OpticalModelDetectorMap(DetectorMap):
+    Coordinate = _OpticalModelDetectorMapCoordinate
     def __init__(
         self,
         bbox: Box2I,
@@ -59,3 +61,27 @@ class OpticalModelDetectorMap(DetectorMap):
     def getXDetectorSpline(self, fiberId: int) -> SplineD: ...
     def getYDetectorSpline(self, fiberId: int) -> SplineD: ...
     def getWavelengthSpline(self, fiberId: int) -> SplineD: ...
+    def getData(self, fiberId: int) -> OpticalModelDetectorMapData: ...
+    def getSpline(
+        self,
+        fiberId: int,
+        coordFrom: Coordinate,
+        coordTo: Coordinate,
+        value: float,
+    ) -> SplineD: ...
+    @overload
+    def calculate(
+        self,
+        fiberId: int,
+        coordFrom: Coordinate,
+        coordTo: Coordinate,
+        value: float,
+    ) -> float: ...
+    @overload
+    def calculate(
+        self,
+        fiberId: np.ndarray,
+        coordFrom: Coordinate,
+        coordTo: Coordinate,
+        value: np.ndarray,
+    ) -> np.ndarray: ...

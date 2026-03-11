@@ -14,11 +14,11 @@ namespace stella {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// OpticalModelData
+// OpticalDetectorMap::Data
 ////////////////////////////////////////////////////////////////////////////////
 
 
-OpticalModelData::Array1D OpticalModelData::getArray(Coordinate coord) const {
+OpticalModelDetectorMap::Array1D OpticalModelDetectorMap::Data::getArray(Coordinate coord) const {
     switch (coord) {
         case WAVELENGTH:
             return wavelength;
@@ -171,7 +171,29 @@ std::pair<int, ndarray::Array<double, 1, 1>> OpticalModelDetectorMap::getTracePo
 }
 
 
-OpticalModelData OpticalModelDetectorMap::makeOpticalModelData(int fiberId) const {
+double OpticalModelDetectorMap::calculate(
+    int fiberId, Coordinate coordFrom, Coordinate coordTo, double value
+) const {
+    try {
+        return getSpline(fiberId, coordFrom, coordTo)(value);
+    } catch (...) {
+        return NOT_A_NUMBER;
+    }
+}
+
+
+OpticalModelDetectorMap::Array1D OpticalModelDetectorMap::calculate(
+    FiberIds const& fiberId, Coordinate coordFrom, Coordinate coordTo, Array1D const& value
+) const {
+    Array1D result = ndarray::allocate(value.size());
+    for (std::size_t ii = 0; ii < value.size(); ++ii) {
+        result[ii] = calculate(fiberId[ii], coordFrom, coordTo, value[ii]);
+    }
+    return result;
+}
+
+
+OpticalModelDetectorMap::Data OpticalModelDetectorMap::makeData(int fiberId) const {
     // we drop the 2nd, 3rd, 3rd-last and 2nd-last points to avoid edge effects
     std::size_t const numKnots = _numKnots - 4;
     ndarray::Array<double, 1, 1> wavelength = ndarray::allocate(numKnots);
@@ -201,18 +223,7 @@ OpticalModelData OpticalModelDetectorMap::makeOpticalModelData(int fiberId) cons
         ndarray::asEigenArray(detector[ii]) = detectorCoord.asEigen();
         ndarray::asEigenArray(pixels[ii]) = pixelsCoord.asEigen();
     }
-    return OpticalModelData(wavelength, slit, detector, pixels);
-}
-
-
-OpticalModelDetectorMap::SplineTuple OpticalModelDetectorMap::makeSplines(int fiberId) const {
-    OpticalModelData const data = getData(fiberId);
-    return {
-        data.getSpline(OpticalModelData::ROW, OpticalModelData::WAVELENGTH),
-        data.getSpline(OpticalModelData::WAVELENGTH, OpticalModelData::ROW),
-        data.getSpline(OpticalModelData::ROW, OpticalModelData::DETECTOR_X),
-        data.getSpline(OpticalModelData::ROW, OpticalModelData::DETECTOR_Y)
-    };
+    return Data(wavelength, slit, detector, pixels);
 }
 
 

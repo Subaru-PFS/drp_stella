@@ -12,36 +12,25 @@ using namespace pybind11::literals;
 namespace pfs { namespace drp { namespace stella {
 
 
-void declareOpticalModelData(py::module_ & mod) {
-    py::class_<OpticalModelData> cls(mod, "OpticalModelData");
+void declareOpticalModelDetectorMapData(py::module_ & mod) {
+    py::class_<OpticalModelDetectorMap::Data> cls(mod, "OpticalModelDetectorMap::Data");
     cls.def(
         py::init<
-            OpticalModelData::Array1D const&,
-            OpticalModelData::Array2D const&,
-            OpticalModelData::Array2D const&,
-            OpticalModelData::Array2D const&
+            OpticalModelDetectorMap::Array1D const&,
+            OpticalModelDetectorMap::Array2D const&,
+            OpticalModelDetectorMap::Array2D const&,
+            OpticalModelDetectorMap::Array2D const&
         >(),
         "wavelength"_a, "slit"_a, "detector"_a, "pixels"_a
     );
 
-    cls.def_readonly("wavelength", &OpticalModelData::wavelength);
-    cls.def_readonly("slit", &OpticalModelData::slit);
-    cls.def_readonly("detector", &OpticalModelData::detector);
-    cls.def_readonly("pixels", &OpticalModelData::pixels);
+    cls.def_readonly("wavelength", &OpticalModelDetectorMap::Data::wavelength);
+    cls.def_readonly("slit", &OpticalModelDetectorMap::Data::slit);
+    cls.def_readonly("detector", &OpticalModelDetectorMap::Data::detector);
+    cls.def_readonly("pixels", &OpticalModelDetectorMap::Data::pixels);
 
-    cls.def("getArray", &OpticalModelData::getArray, "system"_a);
-    cls.def("getSpline", &OpticalModelData::getSpline, "x"_a, "y"_a);
-
-    py::enum_<OpticalModelData::Coordinate> coord(cls, "Coordinate");
-    coord.value("WAVELENGTH", OpticalModelData::Coordinate::WAVELENGTH);
-    coord.value("SLIT_SPATIAL", OpticalModelData::Coordinate::SLIT_SPATIAL);
-    coord.value("SLIT_SPECTRAL", OpticalModelData::Coordinate::SLIT_SPECTRAL);
-    coord.value("DETECTOR_X", OpticalModelData::Coordinate::DETECTOR_X);
-    coord.value("DETECTOR_Y", OpticalModelData::Coordinate::DETECTOR_Y);
-    coord.value("PIXELS_P", OpticalModelData::Coordinate::PIXELS_P);
-    coord.value("PIXELS_Q", OpticalModelData::Coordinate::PIXELS_Q);
-    coord.value("ROW", OpticalModelData::Coordinate::ROW);
-    coord.value("COL", OpticalModelData::Coordinate::COL);
+    cls.def("getArray", &OpticalModelDetectorMap::Data::getArray, "system"_a);
+    cls.def("getSpline", &OpticalModelDetectorMap::Data::getSpline, "x"_a, "y"_a);
 }
 
 
@@ -50,6 +39,17 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
     auto cls = python::wrapDetectorMap<OpticalModelDetectorMap>(
         mod, "OpticalModelDetectorMap"
     );
+
+    py::enum_<OpticalModelDetectorMap::Coordinate> coord(cls, "Coordinate");
+    coord.value("WAVELENGTH", OpticalModelDetectorMap::Coordinate::WAVELENGTH);
+    coord.value("SLIT_SPATIAL", OpticalModelDetectorMap::Coordinate::SLIT_SPATIAL);
+    coord.value("SLIT_SPECTRAL", OpticalModelDetectorMap::Coordinate::SLIT_SPECTRAL);
+    coord.value("DETECTOR_X", OpticalModelDetectorMap::Coordinate::DETECTOR_X);
+    coord.value("DETECTOR_Y", OpticalModelDetectorMap::Coordinate::DETECTOR_Y);
+    coord.value("PIXELS_P", OpticalModelDetectorMap::Coordinate::PIXELS_P);
+    coord.value("PIXELS_Q", OpticalModelDetectorMap::Coordinate::PIXELS_Q);
+    coord.value("ROW", OpticalModelDetectorMap::Coordinate::ROW);
+    coord.value("COL", OpticalModelDetectorMap::Coordinate::COL);
 
     cls.def(
         py::init<
@@ -73,6 +73,32 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
     cls.def_property_readonly("opticsModel", &OpticalModelDetectorMap::getOpticsModel);
     cls.def_property_readonly("detectorModel", &OpticalModelDetectorMap::getDetectorModel);
     cls.def("getData", &OpticalModelDetectorMap::getData, "fiberId"_a);
+    cls.def(
+        "getSpline",
+        py::overload_cast<
+            int, OpticalModelDetectorMap::Coordinate, OpticalModelDetectorMap::Coordinate
+        >(&OpticalModelDetectorMap::getSpline, py::const_),
+        "fiberId"_a, "coordFrom"_a, "coordTo"_a
+    );
+    cls.def(
+        "calculate",
+        py::overload_cast<
+            int, OpticalModelDetectorMap::Coordinate, OpticalModelDetectorMap::Coordinate, double
+        >(&OpticalModelDetectorMap::calculate, py::const_),
+        "fiberId"_a, "coordFrom"_a, "coordTo"_a, "value"_a
+    );
+    cls.def(
+        "calculate",
+        py::overload_cast<
+            OpticalModelDetectorMap::FiberIds const&,
+            OpticalModelDetectorMap::Coordinate,
+            OpticalModelDetectorMap::Coordinate,
+            OpticalModelDetectorMap::Array1D const&
+        >(
+            &OpticalModelDetectorMap::calculate, py::const_
+        ),
+        "fiberId"_a, "coordFrom"_a, "coordTo"_a, "value"_a
+    );
     cls.def("getXDetectorSpline", &OpticalModelDetectorMap::getXDetectorSpline, "fiberId"_a);
     cls.def("getYDetectorSpline", &OpticalModelDetectorMap::getYDetectorSpline, "fiberId"_a);
     cls.def("getWavelengthSpline", &OpticalModelDetectorMap::getWavelengthSpline, "fiberId"_a);
@@ -105,7 +131,7 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
 
 
 PYBIND11_MODULE(OpticalModelDetectorMap, mod) {
-    declareOpticalModelData(mod);
+    declareOpticalModelDetectorMapData(mod);
     declareOpticalModelDetectorMap(mod);
 }
 
