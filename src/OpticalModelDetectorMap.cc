@@ -207,10 +207,9 @@ OpticalModelDetectorMap::Data OpticalModelDetectorMap::makeData(int fiberId) con
         wavelength[ii] = minWavelength + jj*step;
     }
 
-    ndarray::Array<double, 2, 1> slit = ndarray::allocate(numKnots, 2);
-    ndarray::Array<double, 2, 1> detector = ndarray::allocate(numKnots, 2);
-    ndarray::Array<double, 2, 1> pixels = ndarray::allocate(numKnots, 2);
-
+    ndarray::Array<double, 2, 2> slit = ndarray::allocate(2, numKnots);
+    ndarray::Array<double, 2, 2> detector = ndarray::allocate(2, numKnots);
+    ndarray::Array<double, 2, 2> pixels = ndarray::allocate(2, numKnots);
 
     ndarray::Array<double, 1, 1> xDetector = ndarray::allocate(numKnots);
     ndarray::Array<double, 1, 1> yDetector = ndarray::allocate(numKnots);
@@ -219,9 +218,12 @@ OpticalModelDetectorMap::Data OpticalModelDetectorMap::makeData(int fiberId) con
         lsst::geom::Point2D const slitCoord = _slitModel.spectrographToSlit(fiberId, wavelength[ii]);
         lsst::geom::Point2D const detectorCoord = _opticsModel.slitToDetector(slitCoord);
         lsst::geom::Point2D const pixelsCoord = _detectorModel.detectorToPixels(detectorCoord);
-        ndarray::asEigenArray(slit[ii]) = slitCoord.asEigen();
-        ndarray::asEigenArray(detector[ii]) = detectorCoord.asEigen();
-        ndarray::asEigenArray(pixels[ii]) = pixelsCoord.asEigen();
+        slit[0][ii] = slitCoord.getX();
+        slit[1][ii] = slitCoord.getY();
+        detector[0][ii] = detectorCoord.getX();
+        detector[1][ii] = detectorCoord.getY();
+        pixels[0][ii] = pixelsCoord.getX();
+        pixels[1][ii] = pixelsCoord.getY();
     }
     return Data(wavelength, slit, detector, pixels);
 }

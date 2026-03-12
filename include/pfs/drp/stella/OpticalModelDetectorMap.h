@@ -60,12 +60,15 @@ class OpticalModelDetectorMap : public DetectorMap {
     /// (p, q).
     struct Data {
         Array1D wavelength;  ///< wavelengths for each point along the fiber trace
-        Array2D slit;  ///< slit coordinates (spatial, spectral) for each point along the fiber trace
-        Array2D detector;  ///< detector coordinates (x, y) for each point along the fiber trace
-        Array2D pixels;  ///< pixel coordinates (p, q) for each point along the fiber trace
+        ndarray::Array<double, 2, 2> slit;  ///< corresponding slit coordinates (spatial, spectral)
+        ndarray::Array<double, 2, 2> detector;  ///< corresponding detector coordinates (x, y)
+        ndarray::Array<double, 2, 2> pixels;  ///< corresponding pixel coordinates (p, q)
 
         Data(
-            Array1D const& wavelength, Array2D const& slit, Array2D const& detector, Array2D const& pixels
+            Array1D const& wavelength,
+            ndarray::Array<double, 2, 2> const& slit,
+            ndarray::Array<double, 2, 2> const& detector,
+            ndarray::Array<double, 2, 2> const& pixels
         ) : wavelength(wavelength), slit(slit), detector(detector), pixels(pixels) {}
 
         /// Return the array for the given coordinate

@@ -17,9 +17,9 @@ void declareOpticalModelDetectorMapData(py::module_ & mod) {
     cls.def(
         py::init<
             OpticalModelDetectorMap::Array1D const&,
-            OpticalModelDetectorMap::Array2D const&,
-            OpticalModelDetectorMap::Array2D const&,
-            OpticalModelDetectorMap::Array2D const&
+            ndarray::Array<double, 2, 2> const&,
+            ndarray::Array<double, 2, 2> const&,
+            ndarray::Array<double, 2, 2> const&
         >(),
         "wavelength"_a, "slit"_a, "detector"_a, "pixels"_a
     );
