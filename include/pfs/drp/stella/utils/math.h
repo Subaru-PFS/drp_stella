@@ -188,7 +188,11 @@ template <typename T, int C>
 ndarray::Array<std::remove_const_t<T>, 1, 1> flattenArray(ndarray::Array<T, 2, C> const& array) {
     auto const shape = array.getShape();
     ndarray::Array<std::remove_const_t<T>, 1, 1> result = ndarray::allocate(shape[0]*shape[1]);
-    for (std::size_t ii = 0, start = 0, end = shape[1]; ii < shape[0]; start += shape[0], end += shape[0]) {
+    for (
+        std::size_t ii = 0, start = 0, end = shape[1];
+        ii < shape[0];
+        start += shape[0], end += shape[0], ++ii
+    ) {
         result[ndarray::view(start, end)] = array[ii];
     }
     return result;
@@ -204,7 +208,11 @@ ndarray::Array<std::remove_const_t<T>, 2, 1> unflattenArray(
 ) {
     utils::checkSize(array.size(), numCols*numRows, "array size vs numCols*numRows");
     ndarray::Array<std::remove_const_t<T>, 2, 1> result = ndarray::allocate(numCols, numRows);
-    for (std::size_t ii = 0, start = 0, end = numRows; ii < numCols; start += numRows, end += numRows) {
+    for (
+        std::size_t ii = 0, start = 0, end = numRows;
+        ii < numCols;
+        start += numRows, end += numRows, ++ii
+    ) {
         result[ii] = array[ndarray::view(start, end)];
     }
     return result;

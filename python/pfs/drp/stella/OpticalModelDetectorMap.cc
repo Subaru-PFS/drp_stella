@@ -53,14 +53,12 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
 
     cls.def(
         py::init<
-            lsst::geom::Box2I const&,
             SlitModel const&,
             OpticsModel const&,
             DetectorModel const&,
             lsst::afw::image::VisitInfo const&,
             std::shared_ptr<lsst::daf::base::PropertySet>
         >(),
-        "bbox"_a,
         "slitModel"_a,
         "opticsModel"_a,
         "detectorModel"_a,
@@ -108,7 +106,6 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
     cls.def(py::pickle(
         [](OpticalModelDetectorMap const& self) {
             return py::make_tuple(
-                self.getBBox(),
                 self.getSlitModel(),
                 self.getOpticsModel(),
                 self.getDetectorModel(),
@@ -118,12 +115,11 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
         },
         [](py::tuple const& t){
             return OpticalModelDetectorMap(
-                t[0].cast<lsst::geom::Box2I>(),  // bbox
-                t[1].cast<SlitModel>(),  // slitModel
-                t[2].cast<OpticsModel>(),  // opticsModel
-                t[3].cast<DetectorModel>(),  // detectorModel
-                t[4].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
-                t[5].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
+                t[0].cast<SlitModel>(),  // slitModel
+                t[1].cast<OpticsModel>(),  // opticsModel
+                t[2].cast<DetectorModel>(),  // detectorModel
+                t[3].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
+                t[4].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
             );
         }
     ));

@@ -6,6 +6,7 @@
 #include "lsst/afw/math/FunctionLibrary.h"
 
 #include "pfs/drp/stella/utils/checkSize.h"
+#include "pfs/drp/stella/math/AffineTransform.h"
 #include "pfs/drp/stella/math/quartiles.h"
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/math/solveLeastSquares.h"
@@ -379,6 +380,7 @@ void declareInterpolate(py::module & mod) {
 
 
 PYBIND11_MODULE(math, mod) {
+    py::module::import("lsst.geom");
     py::module::import("lsst.afw.math");
     declareNormalizedPolynomial1<double>(mod, "D");
     declareNormalizedPolynomial2<double>(mod, "D");
@@ -395,6 +397,8 @@ PYBIND11_MODULE(math, mod) {
     mod.def("evaluatePolynomial",
             &evaluateFunction2<NormalizedPolynomial2<double>, double, 1, 1>,
             "poly"_a, "x"_a, "y"_a);
+    mod.def("makeAffineTransform", &makeAffineTransform);
+    mod.def("getAffineParameters", &getAffineParameters);
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
     mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
             "err"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr, "params"_a=nullptr);

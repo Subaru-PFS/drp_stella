@@ -118,10 +118,12 @@ class GridTreeTestCase(lsst.utils.tests.TestCase):
                     tree.getValue(index),
                     tree.getValue(expectIndex),
                     np.hypot(
-                        tree.getValue(index).getX() - point.getX(), tree.getValue(index).getY() - point.getY()
+                        tree.getValue(index).getX() - point.getX(),
+                        tree.getValue(index).getY() - point.getY()
                     ),
                     np.hypot(
-                        tree.getValue(expectIndex).getX() - point.getX(), tree.getValue(expectIndex).getY() - point.getY()
+                        tree.getValue(expectIndex).getX() - point.getX(),
+                        tree.getValue(expectIndex).getY() - point.getY()
                     ),
                 )
             self.assertEqual(index, Point2I(self.i.flat[expect], self.j.flat[expect]))

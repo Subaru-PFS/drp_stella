@@ -7,21 +7,27 @@ import lsst.utils.tests
 import lsst.afw.image.testUtils
 from lsst.afw.detection import GaussianPsf
 from lsst.afw.image import ExposureF
-from lsst.geom import Point2D, Box2D
+from lsst.geom import Point2D, Box2D, Extent2D, AffineTransform
 from lsst.pex.exceptions import DomainError
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DetectorMap, PolynomialDistortion
-from pfs.drp.stella import LayeredDetectorMap, ImagingSpectralPsf
+from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
-from pfs.drp.stella.tests.utils import runTests
+from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
+from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
+from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.referenceLine import ReferenceLineSource
+from pfs.drp.stella.OpticalModel import SlitModel, OpticsModel, DetectorModel
+from pfs.drp.stella.OpticalModelDetectorMapContinued import OpticalModelDetectorMap
+from pfs.drp.stella.math import makeAffineTransform
 
 display = None
 
 
-class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
+class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct a ``SplinedDetectorMap`` to play with"""
         self.synthConfig = SyntheticConfig()
@@ -31,8 +37,8 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.metadata = 123456
         self.darkTime = 12345.6
 
-    def makeLayeredDetectorMap(self, likeBase: bool) -> LayeredDetectorMap:
-        """Construct a `LayeredDetectorMap`
+    def makeOpticalModelDetectorMap(self, likeBase: bool) -> OpticalModelDetectorMap:
+        """Construct a `OpticalModelDetectorMap`
 
         Parameters
         ----------
@@ -44,44 +50,55 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         Returns
         -------
-        detMap : `pfs.drp.stella.LayeredDetectorMap`
-            `LayeredDetectorMap` to be used in tests.
+        detMap : `pfs.drp.stella.OpticalModelDetectorMap`
+            `OpticalModelDetectorMap` to be used in tests.
         """
         base = self.base.clone()
 
         if likeBase:
-            distortionOrder = 1
-            numCoeffs = PolynomialDistortion.getNumDistortionForOrder(distortionOrder)
-            xCoeff = np.zeros(numCoeffs, dtype=float)
-            yCoeff = np.zeros(numCoeffs, dtype=float)
-
-            spatial = np.zeros(base.getNumFibers(), dtype=float)
-            spectral = np.zeros(base.getNumFibers(), dtype=float)
-            rightCcd = np.zeros(6, dtype=float)
+            slit = SlitModel(base)
+            optics = OpticsModel(base)
+            detector = DetectorModel(base.bbox)
         else:
+            rng = np.random.RandomState(54321)
             distortionOrder = 3
             numCoeffs = PolynomialDistortion.getNumDistortionForOrder(distortionOrder)
 
-            # Introduce a random distortion field; will likely get weird values, but good for testing I/O
-            rng = np.random.RandomState(12345)
-            xCoeff = rng.uniform(size=numCoeffs)
-            yCoeff = rng.uniform(size=numCoeffs)
+            slitBox = Box2D(
+                Point2D(base.fiberId.min(), base.getWavelength(base.fiberId[len(base)//2]).min()),
+                Point2D(base.fiberId.max(), base.getWavelength(base.fiberId[len(base)//2]).max()),
+            )
+            fiberPitch = 12.345
+            wavelengthDispersion = 0.56789
+            spatialOffsets = rng.uniform(size=base.getNumFibers())
+            spectralOffsets = rng.uniform(size=base.getNumFibers())
+            slitDistortion = PolynomialDistortion(
+                distortionOrder, slitBox, rng.uniform(size=numCoeffs), rng.uniform(size=numCoeffs)
+            )
+            slit = SlitModel(
+                base.fiberId,
+                fiberPitch,
+                wavelengthDispersion,
+                spatialOffsets,
+                spectralOffsets,
+                [slitDistortion],
+            )
 
-            spatial = rng.uniform(size=base.getNumFibers())
-            spectral = rng.uniform(size=base.getNumFibers())
-            rightCcd = rng.uniform(size=6)
+            opticsDistortion = PolynomialDistortion(
+                distortionOrder, slitBox, rng.uniform(size=numCoeffs), rng.uniform(size=numCoeffs)
+            )
+            optics = OpticsModel(base, [opticsDistortion])
 
-        distortion = PolynomialDistortion(distortionOrder, Box2D(base.bbox), xCoeff, yCoeff)
+            rightCcd = makeAffineTransform(rng.uniform(size=6))
+            detector = DetectorModel(base.bbox, rightCcd)  # distortions aren't supported yet
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
 
-        return LayeredDetectorMap(
-            self.base.getBBox(), spatial, spectral, base, [distortion], True, rightCcd, visitInfo, metadata
-        )
+        return OpticalModelDetectorMap(slit, optics, detector, visitInfo, metadata)
 
-    def assertPositions(self, detMap: LayeredDetectorMap):
+    def assertPositions(self, detMap: OpticalModelDetectorMap):
         """Check that the detectorMap reproduces the results of base"""
         for fiberId in self.base.getFiberId():
             self.assertFloatsAlmostEqual(detMap.getXCenter(fiberId), self.base.getXCenter(fiberId),
@@ -100,33 +117,44 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(detMap.getVisitInfo() is not None)
         self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
 
-    def assertLayeredDetectorMapsEqual(self, lhs, rhs):
-        """Assert that the ``LayeredDetectorMap``s are the same"""
-        self.assertFloatsEqual(lhs.fiberId, rhs.fiberId)
-
-        # Base
-        self.assertFloatsEqual(lhs.base.fiberId, rhs.base.fiberId)
-        for ff in lhs.base.fiberId:
-            self.assertFloatsEqual(lhs.base.getXCenterSpline(ff).getX(),
-                                   rhs.base.getXCenterSpline(ff).getX())
-            self.assertFloatsEqual(lhs.base.getXCenterSpline(ff).getY(),
-                                   rhs.base.getXCenterSpline(ff).getY())
-            self.assertFloatsEqual(lhs.base.getWavelengthSpline(ff).getX(),
-                                   rhs.base.getWavelengthSpline(ff).getX())
-            self.assertFloatsEqual(lhs.base.getWavelengthSpline(ff).getY(),
-                                   rhs.base.getWavelengthSpline(ff).getY())
-            self.assertEqual(lhs.base.getSpatialOffset(ff), rhs.base.getSpatialOffset(ff))
-            self.assertEqual(lhs.base.getSpectralOffset(ff), rhs.base.getSpectralOffset(ff))
-
-        # Distortions
-        self.assertEqual(len(lhs.distortions), len(rhs.distortions))
-        for ll, rr in zip(lhs.distortions, rhs.distortions):
+    def assertDistortionsEqual(self, lhs, rhs):
+        """Assert that the distortions are the same"""
+        self.assertEqual(len(lhs), len(rhs))
+        for ll, rr in zip(lhs, rhs):
+            self.assertTrue(isinstance(ll, PolynomialDistortion))
+            self.assertTrue(isinstance(rr, PolynomialDistortion))
             self.assertFloatsEqual(ll.getXCoefficients(), rr.getXCoefficients())
             self.assertFloatsEqual(ll.getYCoefficients(), rr.getYCoefficients())
 
-        # Detector transforms
-        self.assertEqual(lhs.getDividedDetector(), rhs.getDividedDetector())
-        self.assertFloatsEqual(lhs.getRightCcdParameters(), rhs.getRightCcdParameters())
+    def assertOpticalModelDetectorMapsEqual(self, lhs, rhs):
+        """Assert that the ``OpticalModelDetectorMap``s are the same"""
+        self.assertFloatsEqual(lhs.fiberId, rhs.fiberId)
+
+        # Slit model
+        self.assertFloatsEqual(lhs.slitModel.getFiberId(), rhs.slitModel.getFiberId())
+        self.assertFloatsEqual(lhs.slitModel.getFiberPitch(), rhs.slitModel.getFiberPitch())
+        self.assertFloatsEqual(
+            lhs.slitModel.getWavelengthDispersion(), rhs.slitModel.getWavelengthDispersion()
+        )
+        self.assertFloatsEqual(lhs.slitModel.getSpatialOffsets(), rhs.slitModel.getSpatialOffsets())
+        self.assertFloatsEqual(lhs.slitModel.getSpectralOffsets(), rhs.slitModel.getSpectralOffsets())
+        self.assertDistortionsEqual(lhs.slitModel.getDistortions(), rhs.slitModel.getDistortions())
+
+        # Optics model
+        self.assertFloatsEqual(lhs.opticsModel.getSpatial(), rhs.opticsModel.getSpatial())
+        self.assertFloatsEqual(lhs.opticsModel.getSpectral(), rhs.opticsModel.getSpectral())
+        self.assertFloatsEqual(lhs.opticsModel.getX(), rhs.opticsModel.getX())
+        self.assertFloatsEqual(lhs.opticsModel.getY(), rhs.opticsModel.getY())
+        self.assertDistortionsEqual(lhs.opticsModel.getDistortions(), rhs.opticsModel.getDistortions())
+
+        # Detector model
+        self.assertEqual(lhs.detectorModel.getBBox(), rhs.detectorModel.getBBox())
+        self.assertEqual(lhs.detectorModel.getIsDivided(), rhs.detectorModel.getIsDivided())
+        self.assertFloatsEqual(
+            getAffineParameters(lhs.detectorModel.getRightCcdTransform()),
+            getAffineParameters(rhs.detectorModel.getRightCcdTransform()),
+        )
+        self.assertDistortionsEqual(lhs.detectorModel.getDistortions(), rhs.detectorModel.getDistortions())
 
         # Metadata
         for name in lhs.metadata.names():
@@ -137,7 +165,7 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testBasic(self):
         """Test basic functionality"""
-        detMap = self.makeLayeredDetectorMap(True)
+        detMap = self.makeOpticalModelDetectorMap(True)
         self.assertPositions(detMap)
 
         if display is not None:
@@ -150,7 +178,7 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
     def testSlitOffsets(self):
         """Test different value for one of the slit offsets"""
         self.synthConfig.slope = 0.0  # Straighten the traces to avoid coupling x,y offsets
-        detMap = self.makeLayeredDetectorMap(True)
+        detMap = self.makeOpticalModelDetectorMap(True)
 
         value = 0.54321
         spatial = detMap.getSpatialOffsets()
@@ -174,7 +202,7 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         Cloning the detectorMap should clone the slit offsets too; PIPE2D-1394.
         """
         change = 1.2345
-        original = self.makeLayeredDetectorMap(True)
+        original = self.makeOpticalModelDetectorMap(True)
         spatial = original.getSpatialOffsets().copy()
         spectral = original.getSpectralOffsets().copy()
         fiberId = original.fiberId[original.getNumFibers()//2]
@@ -203,7 +231,7 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         ``find*`` methods and check that the answers are consistent.
         """
         num = 1000
-        detMap = self.makeLayeredDetectorMap(True)
+        detMap = self.makeOpticalModelDetectorMap(True)
         indices = np.arange(0, detMap.bbox.getHeight())
         xCenter = np.array([detMap.getXCenter(ff) for ff in detMap.fiberId])
         numFibers = len(detMap)
@@ -233,22 +261,22 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testReadWriteFits(self):
         """Test reading and writing to/from FITS"""
-        detMap = self.makeLayeredDetectorMap(False)
+        detMap = self.makeOpticalModelDetectorMap(False)
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             detMap.writeFits(filename)
-            copy = LayeredDetectorMap.readFits(filename)
-            self.assertLayeredDetectorMapsEqual(detMap, copy)
+            copy = OpticalModelDetectorMap.readFits(filename)
+            self.assertOpticalModelDetectorMapsEqual(detMap, copy)
         # Read with parent class
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             detMap.writeFits(filename)
             copy = DetectorMap.readFits(filename)
-            self.assertLayeredDetectorMapsEqual(detMap, copy)
+            self.assertOpticalModelDetectorMapsEqual(detMap, copy)
 
     def testPickle(self):
         """Test round-trip pickle"""
-        detMap = self.makeLayeredDetectorMap(False)
+        detMap = self.makeOpticalModelDetectorMap(False)
         copy = pickle.loads(pickle.dumps(detMap))
-        self.assertLayeredDetectorMapsEqual(detMap, copy)
+        self.assertOpticalModelDetectorMapsEqual(detMap, copy)
 
     def testPersistable(self):
         """Test behaviour as a Persistable
@@ -257,7 +285,7 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         """
         size = 21
         sigma = 3
-        detMap = self.makeLayeredDetectorMap(False)
+        detMap = self.makeOpticalModelDetectorMap(False)
         imagePsf = GaussianPsf(size, size, sigma)
         psf = ImagingSpectralPsf(imagePsf, detMap)
         exposure = ExposureF(size, size)
@@ -266,11 +294,54 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
             exposure.writeFits(filename)
             copy = ExposureF(filename).getPsf().getDetectorMap()
             copy.metadata.set("METADATA", self.metadata)  # Persistence doesn't preserve the metadata
-            self.assertLayeredDetectorMapsEqual(detMap, copy)
+            self.assertOpticalModelDetectorMapsEqual(detMap, copy)
+
+    @methodParameters(arm=("r", "m"))
+    def testFit(self, arm):
+        """Test FitDistortedDetectorMapTask
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm; affects behaviour of
+            `FitDistortedDetectorMapTask`.
+        """
+        flux = 1000.0
+        fluxErr = 1.0
+        bbox = self.base.bbox
+        lines = []
+        for ff in self.synthConfig.fiberId:
+            for yy in range(bbox.getMinY(), bbox.getMaxY()):
+                lines.append(ArcLine(
+                    ff, self.base.getWavelength(ff, yy),
+                    self.base.getXCenter(ff, yy), float(yy),
+                    0.01, 0.01,
+                    np.nan, np.nan, np.nan,
+                    flux, fluxErr,
+                    np.nan,
+                    False,
+                    ReferenceLineStatus.GOOD,
+                    "Fake",
+                    None,
+                    ReferenceLineSource.NONE,
+                ))
+        lines = ArcLineSet.fromRows(lines)
+        config = FitDistortedDetectorMapTask.ConfigClass()
+        config.order = 1
+        config.doSlitOffsets = True
+        config.exclusionRadius = 1.0  # We've got a lot of close lines, but no real fear of confusion
+        task = FitDistortedDetectorMapTask(name="fitDistortedDetectorMap", config=config)
+        task.log.setLevel(task.log.DEBUG)
+        dataId = dict(visit=12345, arm=arm, spectrograph=1)
+        detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
+        self.assertEqual(len(detMap.opticsModel.distortions), 1)
+        self.assertFloatsAlmostEqual(detMap.opticsModel.distortions[0].getCoefficients(), 0.0, atol=2.0e-7)
+        self.assertFloatsAlmostEqual(detMap.getSpatialOffsets(), 0.0, atol=2.0e-7)
+        self.assertFloatsAlmostEqual(detMap.getSpectralOffsets(), 0.0, atol=2.0e-7)
 
     def testOutOfRange(self):
         """Test that inputs that are out-of-range produce NaNs"""
-        detMap = self.makeLayeredDetectorMap(True)
+        detMap = self.makeOpticalModelDetectorMap(True)
 
         goodFiberId = (self.synthConfig.fiberId[0], self.synthConfig.fiberId[-1])
         goodWavelength = (self.minWl + 0.1, 0.5*(self.minWl + self.maxWl), self.maxWl - 0.1)
@@ -292,23 +363,18 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testFindFiberIdOutOfRange(self):
         """Test that findFiberId works with out-of-range input"""
-        detMap = self.makeLayeredDetectorMap(True)
+        detMap = self.makeOpticalModelDetectorMap(True)
         self.assertRaises(DomainError, detMap.findFiberId, Point2D(6000, -20000))
 
     def testChipGapTraces(self):
         """Test that traces can go through chip gaps"""
-        distortionOrder = 1
-        numCoeffs = PolynomialDistortion.getNumDistortionForOrder(distortionOrder)
-        xCoeff = np.zeros(numCoeffs, dtype=float)
-        yCoeff = np.zeros(numCoeffs, dtype=float)
-        spatial = np.zeros(self.base.getNumFibers(), dtype=float)
-        spectral = np.zeros(self.base.getNumFibers(), dtype=float)
-        rightCcd = np.zeros(6, dtype=float)
-        rightCcd[4] = -12.34
-        distortion = PolynomialDistortion(distortionOrder, Box2D(self.base.bbox), xCoeff, yCoeff)
+        rightCcd = makeAffineTransform(np.array([0, 0, 0, 0, -12.34, 0], dtype=float))
         visitInfo = lsst.afw.image.VisitInfo(darkTime=123.45)
-        detectorMap = LayeredDetectorMap(
-            self.base.getBBox(), spatial, spectral, self.base, [distortion], True, rightCcd, visitInfo
+
+        base = self.makeOpticalModelDetectorMap(True)
+        detector = DetectorModel(base.bbox, rightCcd)
+        detectorMap = OpticalModelDetectorMap(
+            base.slitModel, base.opticsModel, detector, base.visitInfo, base.metadata
         )
 
         width = 3.21
@@ -331,19 +397,21 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
             ss.wavelength[:] = wavelength
 
         traces = profiles.makeFiberTracesFromDetectorMap(detectorMap)
+
+        if False:
+            image = spectra.makeImage(detectorMap.bbox, traces)
+            display = lsst.afw.display.Display(frame=1)
+            display.mtv(image)
+
         flux = [tt.getTrace().image.array.sum() for tt in traces]
         median = np.median(flux)
+
         # fiberId=41 disappears down the chip gap for some rows
         for ii, ff in enumerate(flux):
             if self.synthConfig.fiberId[ii] != 41:
                 self.assertAlmostEqual(ff, median)
             else:
                 self.assertLess(ff, 0.5*median)
-
-        if False:
-            image = spectra.makeImage(detectorMap.bbox, traces)
-            display = lsst.afw.display.Display(frame=1)
-            display.mtv(image)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

@@ -38,9 +38,14 @@ void declareSlitModel(py::module_ & mod) {
     cls.def("getSpatialOffsets", &SlitModel::getSpatialOffsets);
     cls.def("getSpectralOffsets", &SlitModel::getSpectralOffsets);
     cls.def("getDistortions", &SlitModel::getDistortions);
-
     cls.def("getSpatialOffset", &SlitModel::getSpatialOffset, "fiberId"_a);
     cls.def("getSpectralOffset", &SlitModel::getSpectralOffset, "fiberId"_a);
+    cls.def_property_readonly("fiberId", &SlitModel::getFiberId);
+    cls.def_property_readonly("fiberPitch", &SlitModel::getFiberPitch);
+    cls.def_property_readonly("wavelengthDispersion", &SlitModel::getWavelengthDispersion);
+    cls.def_property_readonly("spatialOffsets", &SlitModel::getSpatialOffsets);
+    cls.def_property_readonly("spectralOffsets", &SlitModel::getSpectralOffsets);
+    cls.def_property_readonly("distortions", &SlitModel::getDistortions);
 
     cls.def(
         "spectrographToSlit",
@@ -81,6 +86,11 @@ void declareOpticsModel(py::module_ & mod) {
     cls.def("getSlitToDetector", &OpticsModel::getSlitToDetector);
     cls.def("getDetectorToSlit", &OpticsModel::getDetectorToSlit);
     cls.def("getDistortions", &OpticsModel::getDistortions);
+    cls.def_property_readonly("spatial", &OpticsModel::getSpatial);
+    cls.def_property_readonly("spectral", &OpticsModel::getSpectral);
+    cls.def_property_readonly("x", &OpticsModel::getX);
+    cls.def_property_readonly("y", &OpticsModel::getY);
+    cls.def_property_readonly("distortions", &OpticsModel::getDistortions);
 
     cls.def(
         "slitToDetector",
@@ -149,6 +159,10 @@ void declareDetectorModel(py::module_ & mod) {
     cls.def("getIsDivided", &DetectorModel::getIsDivided);
     cls.def("getRightCcd", &DetectorModel::getRightCcd);
     cls.def("getDistortions", &DetectorModel::getDistortions);
+    cls.def_property_readonly("bbox", &DetectorModel::getBBox);
+    cls.def_property_readonly("isDivided", &DetectorModel::getIsDivided);
+    cls.def_property_readonly("rightCcd", &DetectorModel::getRightCcd);
+    cls.def_property_readonly("distortions", &DetectorModel::getDistortions);
 
     cls.def(
         "detectorToPixels",

@@ -509,8 +509,8 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColu
     double const center = pixel.getX();
     double const row = pixel.getY();
 
-    int pStart;  // Left pixel of the fiber on the detector; inclusive
-    int pStop; // Right pixel of the fiber on the detector; inclusive
+    int pStart;  // Left pixel of the fiber on the pixels; inclusive
+    int pStop; // Right pixel of the fiber on the pixels; inclusive
 
     // Case 0: the center is on the detector --> need to find the left and right sides of the fiber
     if (std::isfinite(center)) {
@@ -558,8 +558,8 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColu
     pRel.reserve(pStop - pStart + 1);
     int pMin = -1;
     for (int pp = pStart; pp <= pStop; ++pp) {
-        lsst::geom::Point2D const point = detectorToPixels(lsst::geom::Point2D(pp, row));
-        double const dp = point.getX() - center;
+        lsst::geom::Point2D const point = pixelsToDetector(lsst::geom::Point2D(pp, row));
+        double const dp = point.getX() - detector.getX();
         if (std::isfinite(point.getX()) && std::abs(dp) <= halfWidth) {
             if (pMin == -1) {
                 pMin = pp;

@@ -70,14 +70,13 @@ std::pair<double, double> getWavelengthRange(GridTransform::Array2D const& wavel
 
 
 OpticalModelDetectorMap::OpticalModelDetectorMap(
-    lsst::geom::Box2I const& bbox,
     SlitModel const& slitModel,
     OpticsModel const& opticsModel,
     DetectorModel const& detectorModel,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : DetectorMap(
-        bbox,
+        detectorModel.getBBox(),
         slitModel.getFiberId(),
         slitModel.getSpatialOffsets(),
         slitModel.getSpectralOffsets(),
@@ -96,7 +95,6 @@ std::shared_ptr<DetectorMap> OpticalModelDetectorMap::clone() const {
     using DistortionList = std::vector<std::shared_ptr<Distortion>>;
 
     return std::make_shared<OpticalModelDetectorMap>(
-        getBBox(),
         _slitModel.copy(),
         _opticsModel.copy(),
         _detectorModel.copy(),
@@ -164,10 +162,8 @@ std::pair<int, ndarray::Array<double, 1, 1>> OpticalModelDetectorMap::getTracePo
     int row,
     int halfWidth
 ) const {
-    double const wavelength = getWavelengthSpline(fiberId)(row);
-    lsst::geom::Point2D const slit = _slitModel.spectrographToSlit(fiberId, wavelength);
-    lsst::geom::Point2D const model = _opticsModel.slitToDetector(slit);
-    return _detectorModel.detectorToPixelsColumns(model, halfWidth);
+    double const xDetector = getXDetectorSpline(fiberId)(row);
+    return _detectorModel.detectorToPixelsColumns(lsst::geom::Point2D(xDetector, row), halfWidth);
 }
 
 
@@ -333,10 +329,10 @@ void OpticalModelDetectorMap::write(
     // Optics model
     auto const shape = _opticsModel.getSpatial().getShape();
     schema.opticsSize.set(*record, lsst::geom::Point2I(shape[0], shape[1]));
-    record->set(schema.opticsSpatial, utils::flattenArray(_opticsModel.getSpatial()));
-    record->set(schema.opticsSpectral, utils::flattenArray(_opticsModel.getSpectral()));
-    record->set(schema.opticsX, utils::flattenArray(_opticsModel.getX()));
-    record->set(schema.opticsY, utils::flattenArray(_opticsModel.getY()));
+    record->set(schema.opticsSpatial, ndarray::copy(utils::flattenArray(_opticsModel.getSpatial())));
+    record->set(schema.opticsSpectral, ndarray::copy(utils::flattenArray(_opticsModel.getSpectral())));
+    record->set(schema.opticsX, ndarray::copy(utils::flattenArray(_opticsModel.getX())));
+    record->set(schema.opticsY, ndarray::copy(utils::flattenArray(_opticsModel.getY())));
     ndarray::Array<int, 1, 1> opticsDistortions = ndarray::allocate(_opticsModel.getDistortions().size());
     for (std::size_t ii = 0; ii < _opticsModel.getDistortions().size(); ++ii) {
         opticsDistortions[ii] = handle.put(*_opticsModel.getDistortions()[ii]);
@@ -424,7 +420,7 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
         // dropping metadata on the floor, since we can't write a header
         return std::make_shared<OpticalModelDetectorMap>(
-            bbox, slitModel, opticsModel, detectorModel, *visitInfo, nullptr
+            slitModel, opticsModel, detectorModel, *visitInfo, nullptr
         );
     }
 

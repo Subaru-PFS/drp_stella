@@ -85,7 +85,6 @@ class OpticalModelDetectorMap : public DetectorMap {
 
     /// Ctor
     OpticalModelDetectorMap(
-        lsst::geom::Box2I const& bbox,
         SlitModel const& slitModel,
         OpticsModel const& opticsModel,
         DetectorModel const& detectorModel,

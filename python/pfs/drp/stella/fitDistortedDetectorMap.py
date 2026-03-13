@@ -14,11 +14,12 @@ from lsst.geom import AffineTransform, Box2D, Box2I, Extent2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 
-from pfs.datamodel.pfsTable import PfsTable, Column
+from pfs.datamodel.pfsTable import PfsTableWithSeparateStrings, Column
 from pfs.drp.stella import DetectorMap
 from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
 from .DistortionContinued import Distortion
-from .LayeredDetectorMapContinued import LayeredDetectorMap
+from .OpticalModel import SlitModel, OpticsModel, DetectorModel
+from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -30,7 +31,7 @@ from .table import Table
 __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
 
 
-class LineResiduals(PfsTable):
+class LineResiduals(PfsTableWithSeparateStrings):
     """Table of residuals of line measurements
 
     Parameters
@@ -467,38 +468,42 @@ class FitDistortedDetectorMapTask(Task):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
             Base detectorMap.
         """
         filename = self.config.base % dataId
-        base = DetectorMap.readFits(filename)
+        jeg = DetectorMap.readFits(filename)  # JEG model
+
+        slit = SlitModel(jeg)
+        detector = DetectorModel(jeg.bbox)  # Without a chip gap
 
         if dataId["arm"] in "brm":
             # Add in the chip gap that was removed by the simulator
             chipGap = self.config.chipGap  # pixels
-            xCenter = base.getXCenter(base.fiberId, np.full(len(base), base.getBBox().getCenterY()))
-            select = xCenter > base.getBBox().getCenterX()
+            xCenter = jeg.getXCenter(jeg.fiberId, np.full(len(jeg), jeg.getBBox().getCenterY()))
+            select = xCenter > jeg.getBBox().getCenterX()
 
             # Grow the bounding box to include the chip gap
-            if not isinstance(base, SplinedDetectorMap):
+            if not isinstance(jeg, SplinedDetectorMap):
                 raise RuntimeError("Base detectorMap must be a SplinedDetectorMap")
-            box = base.getBBox()
+            box = jeg.getBBox()
             newBox = Box2I(box.getMin(), box.getMax() + Extent2I(int(np.ceil(chipGap)), 0))
-            base = SplinedDetectorMap(
+            jeg = SplinedDetectorMap(
                 newBox,
-                base.fiberId,
-                [base.getXCenterSpline(ff).getX() for ff in base.fiberId],
-                [base.getXCenterSpline(ff).getY() + (chipGap if select[ii] else 0.0)
-                 for ii, ff in enumerate(base.fiberId)],
-                [base.getWavelengthSpline(ff).getX() for ff in base.fiberId],
-                [base.getWavelengthSpline(ff).getY() for ff in base.fiberId],
-                base.getSpatialOffsets(),
-                base.getSpectralOffsets(),
-                base.getVisitInfo(),
-                base.getMetadata(),
+                jeg.fiberId,
+                [jeg.getXCenterSpline(ff).getX() for ff in jeg.fiberId],
+                [jeg.getXCenterSpline(ff).getY() + (chipGap if select[ii] else 0.0)
+                 for ii, ff in enumerate(jeg.fiberId)],
+                [jeg.getWavelengthSpline(ff).getX() for ff in jeg.fiberId],
+                [jeg.getWavelengthSpline(ff).getY() for ff in jeg.fiberId],
+                jeg.getSpatialOffsets(),
+                jeg.getSpectralOffsets(),
+                jeg.getVisitInfo(),
+                jeg.getMetadata(),
             )
+        optics = OpticsModel(jeg)
 
-        return base
+        return OpticalModelDetectorMap(slit, optics, detector, jeg.visitInfo, jeg.metadata)
 
     def getDistortionClass(self, arm: str) -> Type:
         """Return the class to use for the distortion
@@ -517,7 +522,7 @@ class FitDistortedDetectorMapTask(Task):
 
     def makeDetectorMap(
         self,
-        base: DetectorMap,
+        base: OpticalModelDetectorMap,
         bbox: Box2I,
         distortion: Distortion,
         visitInfo: VisitInfo,
@@ -538,12 +543,11 @@ class FitDistortedDetectorMapTask(Task):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
             DetectorMap with distortion applied.
         """
-        slitOffsets = np.zeros(len(base), dtype=float)  # These will get set later
+        slit = SlitModel(base)  # No per-fiber slit offsets; these get set later
         if isinstance(distortion, MosaicPolynomialDistortion):
-            dividedDetector = True
             rightCcd = distortion.getAffine()
             distortion = PolynomialDistortion(
                 distortion.getOrder(),
@@ -551,15 +555,15 @@ class FitDistortedDetectorMapTask(Task):
                 distortion.getXCoefficients(),
                 distortion.getYCoefficients(),
             )
+            optics = OpticsModel(base, [distortion])
+            detector = DetectorModel(bbox, rightCcd)
         elif isinstance(distortion, PolynomialDistortion):
-            dividedDetector = False
-            rightCcd = AffineTransform()  # Identity transform
+            optics = OpticsModel(base, [distortion])
+            detector = DetectorModel(bbox)
         else:
             raise RuntimeError(f"Unknown distortion type: {distortion}")
 
-        return LayeredDetectorMap(
-            bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
-        )
+        return OpticalModelDetectorMap(slit, optics, detector, visitInfo, metadata)
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -916,14 +920,9 @@ class FitDistortedDetectorMapTask(Task):
         xx = lines.x
         yy = lines.y
 
-        dx = lines.x - points[:, 0]
-        dy = lines.y - points[:, 1]
-
-        if hasattr(detectorMap, "base"):
-            base = detectorMap.base
-            points[isLine] = base.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
-            points[:, 0][isTrace] = base.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
-            points[:, 1][isTrace] = lines.y[isTrace]
+        # Measurement minus model: our fitted distortions get added to the model
+        dx = xx - points[:, 0]
+        dy = yy - points[:, 1]
 
         slope = detectorMap.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
 
