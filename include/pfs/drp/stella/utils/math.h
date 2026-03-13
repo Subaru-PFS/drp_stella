@@ -13,8 +13,8 @@ namespace utils {
 
 /// Convert an ndarray::Array from one type to another
 template <typename T, typename U, int N, int C>
-ndarray::Array<T, N, C> convertArray(ndarray::Array<U, N, C> const& array) {
-    ndarray::Array<T, N, C> out = ndarray::allocate(array.getShape());
+ndarray::Array<T, N, N> convertArray(ndarray::Array<U, N, C> const& array) {
+    ndarray::Array<T, N, N> out = ndarray::allocate(array.getShape());
     std::copy(array.begin(), array.end(), out.begin());
     return out;
 }

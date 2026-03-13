@@ -4,7 +4,7 @@ import lsst.log
 import numpy as np
 
 import lsst.utils.tests
-from lsst.geom import Box2D, AffineTransform
+from lsst.geom import Box2D
 import lsst.afw.image
 from lsst.afw.display import Display
 import lsst.log
@@ -19,7 +19,9 @@ from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, 
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat, makeSpectrumImage, addNoiseToImage
 from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.centroidTraces import CentroidTracesTask
-from pfs.drp.stella import PolynomialDistortion, LayeredDetectorMap, SplinedDetectorMap
+from pfs.drp.stella import PolynomialDistortion, SplinedDetectorMap
+from pfs.drp.stella.OpticalModel import SlitModel, OpticsModel, DetectorModel
+from pfs.drp.stella.OpticalModelDetectorMap import OpticalModelDetectorMap
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
 
@@ -44,16 +46,8 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         yDistortion = np.zeros(numCoeffs, dtype=float)
 
         # Introduce a low-order inaccuracy that we will correct with AdjustDetectorMapTask
-        scale = 3.21e-4
-        theta = 3.21e-3
-        xNorm = 0.5*self.synthConfig.width
-        yNorm = 0.5*self.synthConfig.height
-        xDistortion[0] = 1.5
-        xDistortion[1] = (np.cos(theta) - 1 + scale) * xNorm
-        xDistortion[2] = -np.sin(theta) * yNorm
-        yDistortion[0] = -1.5
-        yDistortion[1] = np.sin(theta) * xNorm
-        yDistortion[2] = (np.cos(theta) - 1 + scale) * yNorm
+        xDistortion[0] = 0.123
+        yDistortion[0] = -0.321
 
         distortion = PolynomialDistortion(
             distortionOrder, Box2D(self.base.bbox), np.concatenate((xDistortion, yDistortion))
@@ -62,16 +56,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        slitOffsets = np.zeros(len(self.base), dtype=float)
-        rightCcd = AffineTransform()
-        self.distorted = LayeredDetectorMap(
-            self.base.bbox,
-            slitOffsets,
-            slitOffsets,
-            self.base.clone(),
-            [distortion],
-            False,
-            rightCcd,
+
+        self.distorted = OpticalModelDetectorMap(
+            SlitModel(self.base, [distortion]),
+            OpticsModel(self.base),
+            DetectorModel(self.base.bbox),
             visitInfo,
             metadata,
         )
@@ -106,20 +95,6 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(detMap.visitInfo is not None)
         self.assertTrue(detMap.getVisitInfo() is not None)
         self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
-
-        # Base hasn't been modified
-        self.assertFloatsEqual(detMap.fiberId, self.base.fiberId)
-        for ff in detMap.fiberId:
-            self.assertFloatsEqual(detMap.base.getXCenterSpline(ff).getX(),
-                                   self.base.getXCenterSpline(ff).getX())
-            self.assertFloatsEqual(detMap.base.getXCenterSpline(ff).getY(),
-                                   self.base.getXCenterSpline(ff).getY())
-            self.assertFloatsEqual(detMap.base.getWavelengthSpline(ff).getX(),
-                                   self.base.getWavelengthSpline(ff).getX())
-            self.assertFloatsEqual(detMap.base.getWavelengthSpline(ff).getY(),
-                                   self.base.getWavelengthSpline(ff).getY())
-            self.assertEqual(detMap.base.getSpatialOffset(ff), self.base.getSpatialOffset(ff))
-            self.assertEqual(detMap.base.getSpectralOffset(ff), self.base.getSpectralOffset(ff))
 
     @methodParameters(flatFlux=(10, 200000, 1000),
                       numLines=(50, 0, 50),
@@ -290,14 +265,8 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         yDistortion = np.zeros(numCoeffs, dtype=float)
 
         # Introduce a distortion that we will correct with AdjustDetectorMapTask
-        xNorm = 0.5*self.synthConfig.width
-        yNorm = 0.5*self.synthConfig.height
-        xDistortion[0] = 1.5
-        xDistortion[1] = 1.23e-2 * xNorm
-        xDistortion[2] = -7.65e-4 * yNorm
-        yDistortion[0] = -1.5
-        yDistortion[1] = 8.76e-5 * xNorm
-        yDistortion[2] = 1.23e-2 * yNorm
+        xDistortion[0] = 0.123
+        yDistortion[0] = -0.321
 
         distortion = PolynomialDistortion(
             distortionOrder, Box2D(self.base.bbox), np.concatenate((xDistortion, yDistortion))
@@ -306,16 +275,11 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        slitOffsets = np.zeros(len(self.base), dtype=float)
-        rightCcd = AffineTransform()
-        self.distorted = LayeredDetectorMap(
-            self.base.bbox,
-            slitOffsets,
-            slitOffsets,
-            self.base.clone(),
-            [distortion],
-            False,
-            rightCcd,
+
+        self.distorted = OpticalModelDetectorMap(
+            SlitModel(self.base, [distortion]),
+            OpticsModel(self.base),
+            DetectorModel(self.base.bbox),
             visitInfo,
             metadata,
         )

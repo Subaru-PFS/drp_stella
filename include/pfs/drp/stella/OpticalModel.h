@@ -110,6 +110,9 @@ class SlitModel {
 
     SlitModel copy() const;
 
+    /// Return a copy of this SlitModel with an additional distortion applied
+    SlitModel withDistortion(std::shared_ptr<Distortion> distortion) const;
+
     //@{
     /// Accessors
     Array1I const& getFiberId() const { return _fiberId; }
@@ -235,6 +238,9 @@ class OpticsModel {
     lsst::geom::Point2D slitToDetector(lsst::geom::Point2D const& spatialSpectral) const {
         return slitToDetector(spatialSpectral.getX(), spatialSpectral.getY());
     }
+    Array2D slitToDetector(Array2D const& spatialSpectral) const {
+        return slitToDetector(spatialSpectral[ndarray::view(0)], spatialSpectral[ndarray::view(1)]);
+    }
     //@}
 
     //@{
@@ -243,6 +249,9 @@ class OpticsModel {
     Array2D detectorToSlit(Array1D const& x, Array1D const& y) const;
     lsst::geom::Point2D detectorToSlit(lsst::geom::Point2D const& xy) const {
         return detectorToSlit(xy.getX(), xy.getY());
+    }
+    Array2D detectorToSlit(Array2D const& xy) const {
+        return detectorToSlit(xy[ndarray::view(0)], xy[ndarray::view(1)]);
     }
     //@}
 
@@ -323,6 +332,9 @@ class DetectorModel {
     }
     lsst::geom::Point2D detectorToPixels(lsst::geom::Point2D const& detector) const;
     Array2D detectorToPixels(Array1D const& x, Array1D const& y) const;
+    Array2D detectorToPixels(Array2D const& xy) const {
+        return detectorToPixels(xy[ndarray::view(0)], xy[ndarray::view(1)]);
+    }
     //@}
 
     //@{
@@ -332,6 +344,9 @@ class DetectorModel {
     }
     lsst::geom::Point2D pixelsToDetector(lsst::geom::Point2D const& pixels) const;
     Array2D pixelsToDetector(Array1D const& p, Array1D const& q) const;
+    Array2D pixelsToDetector(Array2D const& pq) const {
+        return pixelsToDetector(pq[ndarray::view(0)], pq[ndarray::view(1)]);
+    }
     //@}
 
     /// Return neighboring columns

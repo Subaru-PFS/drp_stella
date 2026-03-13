@@ -7,13 +7,13 @@ import lsst.utils.tests
 import lsst.afw.image.testUtils
 from lsst.afw.detection import GaussianPsf
 from lsst.afw.image import ExposureF
-from lsst.geom import Point2D, Box2D, Extent2D, AffineTransform
+from lsst.geom import Point2D, Box2D
 from lsst.pex.exceptions import DomainError
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DetectorMap, PolynomialDistortion
-from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
+from pfs.drp.stella import ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
@@ -22,7 +22,7 @@ from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.OpticalModel import SlitModel, OpticsModel, DetectorModel
 from pfs.drp.stella.OpticalModelDetectorMapContinued import OpticalModelDetectorMap
-from pfs.drp.stella.math import makeAffineTransform
+from pfs.drp.stella.math import makeAffineTransform, getAffineParameters
 
 display = None
 
@@ -368,10 +368,8 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testChipGapTraces(self):
         """Test that traces can go through chip gaps"""
-        rightCcd = makeAffineTransform(np.array([0, 0, 0, 0, -12.34, 0], dtype=float))
-        visitInfo = lsst.afw.image.VisitInfo(darkTime=123.45)
-
         base = self.makeOpticalModelDetectorMap(True)
+        rightCcd = makeAffineTransform(np.array([0, 0, 0, 0, -12.34, 0], dtype=float))
         detector = DetectorModel(base.bbox, rightCcd)
         detectorMap = OpticalModelDetectorMap(
             base.slitModel, base.opticsModel, detector, base.visitInfo, base.metadata

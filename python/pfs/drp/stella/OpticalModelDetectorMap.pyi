@@ -42,7 +42,6 @@ class OpticalModelDetectorMap(DetectorMap):
     Coordinate = _OpticalModelDetectorMapCoordinate
     def __init__(
         self,
-        bbox: Box2I,
         slitModel: SlitModel,
         opticsModel: OpticsModel,
         detectorModel: DetectorModel,

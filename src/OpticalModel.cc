@@ -101,6 +101,30 @@ SlitModel SlitModel::copy() const {
 }
 
 
+SlitModel SlitModel::withDistortion(std::shared_ptr<Distortion> distortion) const {
+    if (!distortion) {
+        return copy();
+    }
+
+    DistortionList distortions;
+    distortions.reserve(_distortions.size());
+    for (auto const& dd : _distortions) {
+        distortions.emplace_back(dd->clone());
+    }
+    distortions.push_back(distortion);
+
+    return SlitModel(
+        ndarray::copy(getFiberId()),
+        getFiberPitch(),
+        getWavelengthDispersion(),
+        ndarray::copy(getSpatialOffsets()),
+        ndarray::copy(getSpectralOffsets()),
+        distortions
+    );
+}
+
+
+
 double SlitModel::getSpatialOffset(int fiberId) const {
     auto const iter = _fiberMap.find(fiberId);
     if (iter == _fiberMap.end()) {

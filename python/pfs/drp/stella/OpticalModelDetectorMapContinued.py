@@ -1,12 +1,14 @@
 import numpy as np
 from lsst.utils import continueClass
 import lsst.afw.image
-from lsst.geom import AffineTransform
 import pfs.datamodel.pfsDetectorMap
 
 from .DetectorMapContinued import DetectorMap
 from .Distortion import Distortion
+from .LayeredDetectorMapContinued import LayeredDetectorMap
+from .OpticalModel import SlitModel, OpticsModel, DetectorModel
 from .OpticalModelDetectorMap import OpticalModelDetectorMap
+from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
 __all__ = ("OpticalModelDetectorMap",)
@@ -31,56 +33,36 @@ class OpticalModelDetectorMap:  # noqa: F811 (redefinition)
         self : `OpticalModelDetectorMap`
             OpticalModelDetectorMap representation of the input.
         """
-        raise NotImplementedError("This method is not yet implemented")
-
         if isinstance(detectorMap, OpticalModelDetectorMap):
             # Nothing to do
             return detectorMap.clone()
 
         bbox = detectorMap.bbox
-        slitOffsets = np.zeros(len(detectorMap), dtype=float)
-        base = None  # Need to set this
-        distortions = []
-        dividedDetector = False
-        rightCcd = AffineTransform()  # Identity transform
         visitInfo = detectorMap.visitInfo
         metadata = detectorMap.metadata
 
         if isinstance(detectorMap, SplinedDetectorMap):
-            base = detectorMap.clone()
-        elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
-            if len(detectorMap.distortions) > 1:
-                raise RuntimeError(
-                    "Cannot convert a MultipleDistortionsDetectorMap with multiple distortions"
-                )
-            base = detectorMap.base.clone()
-            dist = detectorMap.distortions[0]
-            if isinstance(dist, MosaicPolynomialDistortion):
-                dividedDetector = True
-                rightCcd = dist.getAffine()
-                distortions = [
-                    PolynomialDistortion(
-                        dist.getOrder(), dist.getRange(), dist.getXCoefficients(), dist.getYCoefficients(),
-                    ),
-                ]
-            elif isinstance(dist, PolynomialDistortion):
-                distortions = [dist.clone()]
-            else:
-                raise RuntimeError(f"Unsupported distortion type: {dist}")
-        else:
-            # Long-deprecated classes
-            from .DistortedDetectorMapContinued import DistortedDetectorMap
-            from .DoubleDetectorMapContinued import DoubleDetectorMap
-            from .PolynomialDetectorMapContinued import PolynomialDetectorMap
-            if isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
-                base = detectorMap.base.clone()
-                distortions = [detectorMap.distortion.clone()]
-            else:
-                raise RuntimeError(f"Unsupported detectorMap type: {type(detectorMap)}")
+            spatialOffsets = detectorMap.getSpatialOffsets()
+            spectralOffsets = detectorMap.getSpectralOffsets()
+            if not np.all(spatialOffsets == 0.0) or not np.all(spectralOffsets == 0.0):
+                raise RuntimeError("Cannot convert a SplinedDetectorMap with non-zero slit offsets")
+            slit = SlitModel(detectorMap)
+            optics = OpticsModel(slit)
+            detector = DetectorModel(bbox)
+            return cls(slit, optics, detector, visitInfo, metadata)
 
-        return cls(
-            bbox, slitOffsets, slitOffsets, base, distortions, dividedDetector, rightCcd, visitInfo, metadata
-        )
+        if isinstance(detectorMap, LayeredDetectorMap):
+            slit = SlitModel(detectorMap.base)
+            optics = OpticsModel(detectorMap.base, detectorMap.distortions)
+            if detectorMap.getDividedDetector():
+                detector = DetectorModel(bbox, detectorMap.getRightCcd())
+            else:
+                detector = DetectorModel(bbox)
+            new = cls(slit, optics, detector, visitInfo, metadata)
+            new.setSlitOffsets(detectorMap.getSpatialOffsets(), detectorMap.getSpectralOffsets())
+            return new
+
+        raise RuntimeError(f"Unsupported DetectorMap type: {type(detectorMap)}")
 
     @classmethod
     def fromDatamodel(cls, detMap):

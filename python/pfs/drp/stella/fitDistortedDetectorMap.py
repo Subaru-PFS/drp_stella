@@ -10,7 +10,7 @@ import lsstDebug
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
-from lsst.geom import AffineTransform, Box2D, Box2I, Extent2I
+from lsst.geom import Box2D, Box2I, Extent2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 
