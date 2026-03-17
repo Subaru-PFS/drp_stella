@@ -7,9 +7,6 @@ import pfs.datamodel.pfsDetectorMap
 from .DetectorMapContinued import DetectorMap
 from .Distortion import Distortion
 from .LayeredDetectorMap import LayeredDetectorMap
-from .MosaicPolynomialDistortionContinued import MosaicPolynomialDistortion
-from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
-from .PolynomialDistortionContinued import PolynomialDistortion
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
@@ -50,35 +47,8 @@ class LayeredDetectorMap:  # noqa: F811 (redefinition)
 
         if isinstance(detectorMap, SplinedDetectorMap):
             base = detectorMap.clone()
-        elif isinstance(detectorMap, MultipleDistortionsDetectorMap):
-            if len(detectorMap.distortions) > 1:
-                raise RuntimeError(
-                    "Cannot convert a MultipleDistortionsDetectorMap with multiple distortions"
-                )
-            base = detectorMap.base.clone()
-            dist = detectorMap.distortions[0]
-            if isinstance(dist, MosaicPolynomialDistortion):
-                dividedDetector = True
-                rightCcd = dist.getAffine()
-                distortions = [
-                    PolynomialDistortion(
-                        dist.getOrder(), dist.getRange(), dist.getXCoefficients(), dist.getYCoefficients(),
-                    ),
-                ]
-            elif isinstance(dist, PolynomialDistortion):
-                distortions = [dist.clone()]
-            else:
-                raise RuntimeError(f"Unsupported distortion type: {dist}")
         else:
-            # Long-deprecated classes
-            from .DistortedDetectorMapContinued import DistortedDetectorMap
-            from .DoubleDetectorMapContinued import DoubleDetectorMap
-            from .PolynomialDetectorMapContinued import PolynomialDetectorMap
-            if isinstance(detectorMap, (PolynomialDetectorMap, DoubleDetectorMap, DistortedDetectorMap)):
-                base = detectorMap.base.clone()
-                distortions = [detectorMap.distortion.clone()]
-            else:
-                raise RuntimeError(f"Unsupported detectorMap type: {type(detectorMap)}")
+            raise RuntimeError(f"Unsupported detectorMap type: {type(detectorMap)}")
 
         return cls(
             bbox, slitOffsets, slitOffsets, base, distortions, dividedDetector, rightCcd, visitInfo, metadata
