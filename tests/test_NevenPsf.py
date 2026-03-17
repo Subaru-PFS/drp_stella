@@ -1,5 +1,6 @@
 import os
 import pickle
+import unittest
 
 import numpy as np
 
@@ -19,6 +20,7 @@ display = None
 
 
 class NevenPsfTestCase(lsst.utils.tests.TestCase):
+    @unittest.skip("Requires old detectorMap class that is no longer supported")
     def setUp(self):
         drpPfsData = getPackageDir("drp_pfs_data")
         detMapFilename = os.path.join(drpPfsData, "nevenPsf", "pfsDetectorMap-034444-r1.fits")
