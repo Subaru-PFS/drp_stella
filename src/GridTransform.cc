@@ -174,10 +174,10 @@ lsst::geom::Point2I GridTree::find(double x, double y, double distance) const {
             distance2 = pointDistance.second;
         }
         if (node.left) {
-            queue.emplace(node.left, node.left->distance2(x, y));
+            queue.emplace(node.left, node.left->getDistance2(x, y));
         }
         if (node.right) {
-            queue.emplace(node.right, node.right->distance2(x, y));
+            queue.emplace(node.right, node.right->getDistance2(x, y));
         }
     }
 
@@ -188,10 +188,7 @@ lsst::geom::Point2I GridTree::find(double x, double y, double distance) const {
 }
 
 
-std::pair<
-    std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>,
-    Triangle
-> GridTree::findTriangle(
+GridTree::FindTriangleResult GridTree::findTriangle(
     double x, double y
 ) const {
     if (!std::isfinite(x) || !std::isfinite(y)) {
@@ -305,7 +302,7 @@ GridTree::Node::Node(
 {}
 
 
-double GridTree::Node::distance2(double x, double y) const {
+double GridTree::Node::getDistance2(double x, double y) const {
     double dx = 0.0;
     if (x < xMin) {
         dx = xMin - x;
