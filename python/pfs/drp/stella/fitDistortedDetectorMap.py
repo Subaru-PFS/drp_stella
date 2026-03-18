@@ -10,15 +10,16 @@ import lsstDebug
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
-from lsst.geom import AffineTransform, Box2D, Box2I, Extent2I
+from lsst.geom import Box2D, Box2I, Extent2I
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 
-from pfs.datamodel.pfsTable import PfsTable, Column
+from pfs.datamodel.pfsTable import PfsTableWithSeparateStrings, Column
 from pfs.drp.stella import DetectorMap
 from pfs.drp.stella import PolynomialDistortion, MosaicPolynomialDistortion
 from .DistortionContinued import Distortion
-from .LayeredDetectorMapContinued import LayeredDetectorMap
+from .OpticalModel import SlitModel, OpticsModel, DetectorModel
+from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
@@ -30,7 +31,7 @@ from .table import Table
 __all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
 
 
-class LineResiduals(PfsTable):
+class LineResiduals(PfsTableWithSeparateStrings):
     """Table of residuals of line measurements
 
     Parameters
@@ -292,7 +293,7 @@ class FittingError(RuntimeError):
 class FitDistortedDetectorMapConfig(Config):
     """Configuration for FitDistortedDetectorMapTask"""
     lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
-    traceIterations = Field(dtype=int, default=2, doc="Number of iterations for updating trace wavleengths")
+    traceIterations = Field(dtype=int, default=1, doc="Number of iterations for updating trace wavleengths")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
@@ -300,7 +301,7 @@ class FitDistortedDetectorMapConfig(Config):
     soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
     lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
-    slitOffsetIterations = Field(dtype=int, default=3, doc="Number of iterations for measuring slit offsets")
+    slitOffsetIterations = Field(dtype=int, default=2, doc="Number of iterations for measuring slit offsets")
     base = Field(dtype=str,
                  doc="Template for base detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
@@ -407,6 +408,8 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
+        else:
+            base = OpticalModelDetectorMap.fromDetectorMap(base)
         if self.config.doSlitOffsets:
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
         else:
@@ -414,8 +417,7 @@ class FitDistortedDetectorMapTask(Task):
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         DistortionClass = self.getDistortionClass(dataId["arm"])
         if self.config.doSlitOffsets:
-            residuals = self.calculateBaseResiduals(base, lines)
-            self.initializeSlitOffsets(base, residuals, dispersion)
+            self.initializeSlitOffsets(base, lines, dispersion)
         for ii in range(self.config.traceIterations or 1):
             self.log.debug("Commencing trace iteration %d", ii)
             residuals = self.calculateBaseResiduals(base, lines)
@@ -428,7 +430,6 @@ class FitDistortedDetectorMapTask(Task):
             detectorMap = self.makeDetectorMap(base, bbox, results.distortion, visitInfo, metadata)
             numParameters = results.numParameters
             if self.config.doSlitOffsets:
-                detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
                 for _ in range(self.config.slitOffsetIterations):
                     offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
                 numParameters += offsets.numParameters
@@ -467,38 +468,41 @@ class FitDistortedDetectorMapTask(Task):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
             Base detectorMap.
         """
         filename = self.config.base % dataId
-        base = DetectorMap.readFits(filename)
+        jeg = DetectorMap.readFits(filename)  # JEG model
 
         if dataId["arm"] in "brm":
             # Add in the chip gap that was removed by the simulator
             chipGap = self.config.chipGap  # pixels
-            xCenter = base.getXCenter(base.fiberId, np.full(len(base), base.getBBox().getCenterY()))
-            select = xCenter > base.getBBox().getCenterX()
+            xCenter = jeg.getXCenter(jeg.fiberId, np.full(len(jeg), jeg.getBBox().getCenterY()))
+            select = xCenter > jeg.getBBox().getCenterX()
 
             # Grow the bounding box to include the chip gap
-            if not isinstance(base, SplinedDetectorMap):
+            if not isinstance(jeg, SplinedDetectorMap):
                 raise RuntimeError("Base detectorMap must be a SplinedDetectorMap")
-            box = base.getBBox()
+            box = jeg.getBBox()
             newBox = Box2I(box.getMin(), box.getMax() + Extent2I(int(np.ceil(chipGap)), 0))
-            base = SplinedDetectorMap(
+            jeg = SplinedDetectorMap(
                 newBox,
-                base.fiberId,
-                [base.getXCenterSpline(ff).getX() for ff in base.fiberId],
-                [base.getXCenterSpline(ff).getY() + (chipGap if select[ii] else 0.0)
-                 for ii, ff in enumerate(base.fiberId)],
-                [base.getWavelengthSpline(ff).getX() for ff in base.fiberId],
-                [base.getWavelengthSpline(ff).getY() for ff in base.fiberId],
-                base.getSpatialOffsets(),
-                base.getSpectralOffsets(),
-                base.getVisitInfo(),
-                base.getMetadata(),
+                jeg.fiberId,
+                [jeg.getXCenterSpline(ff).getX() for ff in jeg.fiberId],
+                [jeg.getXCenterSpline(ff).getY() + (chipGap if select[ii] else 0.0)
+                 for ii, ff in enumerate(jeg.fiberId)],
+                [jeg.getWavelengthSpline(ff).getX() for ff in jeg.fiberId],
+                [jeg.getWavelengthSpline(ff).getY() for ff in jeg.fiberId],
+                jeg.getSpatialOffsets(),
+                jeg.getSpectralOffsets(),
+                jeg.getVisitInfo(),
+                jeg.getMetadata(),
             )
 
-        return base
+        slit = SlitModel(jeg)
+        optics = OpticsModel(jeg)
+        detector = DetectorModel(jeg.getBBox())
+        return OpticalModelDetectorMap(slit, optics, detector, jeg.getVisitInfo(), jeg.getMetadata())
 
     def getDistortionClass(self, arm: str) -> Type:
         """Return the class to use for the distortion
@@ -517,7 +521,7 @@ class FitDistortedDetectorMapTask(Task):
 
     def makeDetectorMap(
         self,
-        base: DetectorMap,
+        base: OpticalModelDetectorMap,
         bbox: Box2I,
         distortion: Distortion,
         visitInfo: VisitInfo,
@@ -527,7 +531,7 @@ class FitDistortedDetectorMapTask(Task):
 
         Parameters
         ----------
-        base : `pfs.drp.stella.DetectorMap`
+        base : `pfs.drp.stella.OpticalModelDetectorMap`
             Base detectorMap.
         distortion : `pfs.drp.stella.Distortion`
             Distortion to apply.
@@ -538,12 +542,11 @@ class FitDistortedDetectorMapTask(Task):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
             DetectorMap with distortion applied.
         """
-        slitOffsets = np.zeros(len(base), dtype=float)  # These will get set later
+        slit = base.slitModel.copy()
         if isinstance(distortion, MosaicPolynomialDistortion):
-            dividedDetector = True
             rightCcd = distortion.getAffine()
             distortion = PolynomialDistortion(
                 distortion.getOrder(),
@@ -551,15 +554,18 @@ class FitDistortedDetectorMapTask(Task):
                 distortion.getXCoefficients(),
                 distortion.getYCoefficients(),
             )
+            detector = DetectorModel(bbox, rightCcd)
         elif isinstance(distortion, PolynomialDistortion):
-            dividedDetector = False
-            rightCcd = AffineTransform()  # Identity transform
+            detector = DetectorModel(bbox)
         else:
             raise RuntimeError(f"Unknown distortion type: {distortion}")
-
-        return LayeredDetectorMap(
-            bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
+        optics = OpticsModel(
+            base.opticsModel.getSpatial(), base.opticsModel.getSpectral(),
+            base.opticsModel.getX(), base.opticsModel.getY(),
+            [distortion],
         )
+
+        return OpticalModelDetectorMap(slit, optics, detector, visitInfo, metadata)
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
@@ -617,7 +623,7 @@ class FitDistortedDetectorMapTask(Task):
     def initializeSlitOffsets(
         self,
         detectorMap: DetectorMap,
-        lines: ArcLineResidualsSet,
+        lines: ArcLineSet,
         dispersion: float,
     ) -> None:
         """Initialize slit offsets for base detectorMap
@@ -632,23 +638,27 @@ class FitDistortedDetectorMapTask(Task):
         ----------
         detectorMap : `pfs.drp.stella.DetectorMap`
             Base detectorMap.
-        lines : `ArcLineResidualsSet`
-            Line residuals.
+        lines : `ArcLineSet`
+            Original line measurements (NOT the residuals).
         dispersion : `float`
             Dispersion (nm/pixel) to use for applying exclusion zone.
         """
         numFibers = len(detectorMap)
         good = self.getGoodLines(lines, dispersion)
-        notTrace = lines.description != "Trace"
+        notTrace = lines.description[good] != "Trace"
 
-        dx = 0.0
-        if np.any(notTrace):
-            dy = np.median(lines.y[good & notTrace])
-        else:
-            dy = 0.0
+        modelSlit = detectorMap.slitModel.spectrographToSlit(lines.fiberId[good], lines.wavelength[good])
+        measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x[good], lines.y[good])
+        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector)
 
+        spatialResidual = measSlit[:, 0] - modelSlit[:, 0]
+        spectralResidual = measSlit[:, 1] - modelSlit[:, 1]
+
+        spatial = np.median(spatialResidual)
+        spectral = np.median(spectralResidual[notTrace])
+        self.log.info("Initializing slit offsets to spatial=%.3f, spectral=%.3f", spatial, spectral)
         detectorMap.setSlitOffsets(
-            np.full(numFibers, dx, dtype=float), np.full(numFibers, dy, dtype=float)
+            np.full(numFibers, spatial, dtype=float), np.full(numFibers, spectral, dtype=float)
         )
 
         # Set forced offsets
@@ -694,19 +704,30 @@ class FitDistortedDetectorMapTask(Task):
         sysErr = self.config.soften
         numFibers = len(detectorMap)
         fiberId = lines.fiberId
-        xy = np.full((len(lines), 2), np.nan, dtype=float)
         isTrace = lines.description == "Trace"
         notTrace = ~isTrace
 
-        if np.any(notTrace):
-            xy[notTrace] = detectorMap.findPoint(fiberId[notTrace], lines.wavelength[notTrace])
-        if np.any(isTrace):
-            xy[isTrace, 0] = detectorMap.getXCenter(fiberId[isTrace], lines.y[isTrace])
-            xy[isTrace, 1] = lines.y[isTrace]
-        dx = xy[:, 0] - lines.x
-        dy = xy[:, 1] - lines.y
-        xErr = np.hypot(lines.xErr, sysErr)
-        yErr = np.hypot(lines.yErr, sysErr)
+        # Predicted pixel positions
+        model = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+
+        # Calculate scale of slit offsets in the slit coordinates, for converting measurements to slit offsets
+        offsetDetectorMap = detectorMap.clone()
+        offsetDetectorMap.applySlitOffset(1.0, 0.0)
+        xModelOffset = offsetDetectorMap.findPoint(lines.fiberId, lines.wavelength)
+        offsetDetectorMap = detectorMap.clone()
+        offsetDetectorMap.applySlitOffset(0.0, 1.0)
+        yModelOffset = offsetDetectorMap.findPoint(lines.fiberId, lines.wavelength)
+
+        # spatialScale,spectralScale are in units of pixels per slit offset
+        spatialScale = xModelOffset[:, 0] - model[:, 0]
+        spectralScale = yModelOffset[:, 1] - model[:, 1]
+
+        # Slit offset residuals
+        dx = (lines.x - model[:, 0])/spatialScale
+        dy = (lines.y - model[:, 1])/spectralScale
+        xErr = np.hypot(lines.xErr, sysErr)/spatialScale
+        yErr = np.hypot(lines.yErr, sysErr)/spectralScale
+
         fit = np.full((len(lines), 2), np.nan, dtype=float)
 
         use = select & np.isfinite(dx) & np.isfinite(dy) & np.isfinite(xErr) & np.isfinite(yErr)
@@ -743,13 +764,15 @@ class FitDistortedDetectorMapTask(Task):
             chooseFiber = np.ones(numChoose, dtype=bool)
             notTraceFiber = notTrace[choose]
             linesFiber = lines[choose]
-            xyFiber = xy[choose]
+            modelFiber = model[choose]
             fitFiber = fit[choose]
             dxFiber = dx[choose]
             dyFiber = dy[choose]
             xErrFiber = xErr[choose]
             yErrFiber = yErr[choose]
             weightsFiber = weights[choose]
+            spatialScaleFiber = spatialScale[choose]
+            spectralScaleFiber = spectralScale[choose]
 
             for jj in range(self.config.iterations):
                 if not np.any(chooseFiber):
@@ -758,17 +781,17 @@ class FitDistortedDetectorMapTask(Task):
                 yChoose = chooseFiber & notTraceFiber
 
                 # Robust measurement
-                spatialFiber = -np.median(dxFiber)
+                spatialFiber = np.median(dxFiber)
                 if np.any(yChoose):
-                    spectralFiber = -np.median(dyFiber[yChoose])
+                    spectralFiber = np.median(dyFiber[yChoose])
                 else:
                     spectralFiber = 0.0
 
-                fitFiber[:, 0] = xyFiber[:, 0] + spatialFiber
-                fitFiber[:, 1] = xyFiber[:, 1] + spectralFiber
+                fitFiber[:, 0] = modelFiber[:, 0] + spatialFiber*spatialScaleFiber
+                fitFiber[:, 1] = modelFiber[:, 1] + spectralFiber*spectralScaleFiber
 
-                result = calculateFitStatistics(fitFiber, linesFiber, chooseFiber, 2, (sysErr, sysErr))
-                newChooseFiber = chooseFiber & self.rejectOutliers(result, xErrFiber, yErrFiber)
+                result = calculateFitStatistics(fitFiber, linesFiber, chooseFiber, 2)
+                newChooseFiber = chooseFiber & self.rejectOutliers(result, linesFiber.xErr, linesFiber.yErr)
 
                 if np.all(newChooseFiber == chooseFiber):
                     # Converged
@@ -781,18 +804,19 @@ class FitDistortedDetectorMapTask(Task):
                 continue
             yChoose = chooseFiber & notTraceFiber
             with np.errstate(divide="ignore"):
-                spatialFiber = -np.average(
+                spatialFiber = np.average(
                     dxFiber[chooseFiber], weights=(weightsFiber[chooseFiber]/xErrFiber[chooseFiber])**2
                 )
                 if np.any(yChoose):
-                    spectralFiber = -np.average(
+                    spectralFiber = np.average(
                         dyFiber[yChoose], weights=(weightsFiber[yChoose]/yErrFiber[yChoose])**2
                     )
                 else:
                     spectralFiber = 0.0
 
-            fit[choose, 0] = xy[choose, 0] + spatialFiber
-            fit[choose, 1] = xy[choose, 1] + spectralFiber
+            fit[choose, 0] = model[choose, 0] + spatialFiber*spatialScale[choose]
+            fit[choose, 1] = model[choose, 1] + spectralFiber*spectralScale[choose]
+
             use[choose] = chooseFiber
             spatial[ii] = spatialFiber
             spectral[ii] = spectralFiber
@@ -809,12 +833,10 @@ class FitDistortedDetectorMapTask(Task):
                 detectorMap.fiberId[badFibers], spatial[badFibers], spectral[badFibers]
             ):
                 choose = lines.fiberId == ff
-                fit[choose, 0] = xy[choose, 0] + spatialFiber
-                fit[choose, 1] = xy[choose, 1] + spectralFiber
+                fit[choose, 0] = model[choose, 0] + spatialFiber*spatialScale[choose]
+                fit[choose, 1] = model[choose, 1] + spectralFiber*spectralScale[choose]
 
-        result = calculateFitStatistics(
-            fit, lines, use, 2*(numFibers - len(noMeasurements)), (sysErr, sysErr)
-        )
+        result = calculateFitStatistics(fit, lines, use, 2*(numFibers - len(noMeasurements)))
         self.log.info(
             "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
             "from %d/%d lines (%s)",
@@ -892,12 +914,12 @@ class FitDistortedDetectorMapTask(Task):
             self.log.warn("All provided slit offsets are zero; consider using doSlitOffsets=True")
         detectorMap.setSlitOffsets(spatialOffsets, spectralOffsets)
 
-    def calculateBaseResiduals(self, detectorMap, lines):
+    def calculateBaseResiduals(self, base, lines):
         """Calculate position residuals w.r.t. base detectorMap
 
         Parameters
         ----------
-        detectorMap : `pfs.drp.stella.DetectorMap`
+        base : `pfs.drp.stella.DetectorMap`
             Base detectorMap.
         lines : `ArcLineSet`
             Original line measurements (NOT the residuals).
@@ -910,22 +932,17 @@ class FitDistortedDetectorMapTask(Task):
         isTrace = lines.description == "Trace"
         isLine = ~isTrace
         points = np.full((len(lines), 2), np.nan, dtype=float)
-        points[isLine] = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
-        points[:, 0][isTrace] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+        points[isLine] = base.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
+        points[:, 0][isTrace] = base.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
         points[:, 1][isTrace] = lines.y[isTrace]
         xx = lines.x
         yy = lines.y
 
-        dx = lines.x - points[:, 0]
-        dy = lines.y - points[:, 1]
+        # Measurement minus model: our fitted distortions get added to the model
+        dx = xx - points[:, 0]
+        dy = yy - points[:, 1]
 
-        if hasattr(detectorMap, "base"):
-            base = detectorMap.base
-            points[isLine] = base.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
-            points[:, 0][isTrace] = base.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
-            points[:, 1][isTrace] = lines.y[isTrace]
-
-        slope = detectorMap.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
+        slope = base.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
 
         if self.debugInfo.baseResiduals:
             import matplotlib.pyplot as plt
@@ -934,7 +951,7 @@ class FitDistortedDetectorMapTask(Task):
             cmap = matplotlib.cm.rainbow
             fig, axes = plt.subplots(ncols=3)
 
-            good = self.getGoodLines(lines, detectorMap.getDispersionAtCenter())
+            good = self.getGoodLines(lines, base.getDispersionAtCenter())
             good &= np.all(np.isfinite(points), axis=1)
             magnitude = np.hypot(dx[good], dy[good])
             norm = Normalize()
