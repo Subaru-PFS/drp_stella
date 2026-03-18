@@ -1,7 +1,6 @@
 #ifndef PFS_DRP_STELLA_GRIDTRANSFORM_H
 #define PFS_DRP_STELLA_GRIDTRANSFORM_H
 
-#include <list>
 #include <tuple>
 
 #include "ndarray_fwd.h"
@@ -162,6 +161,11 @@ class GridTree {
     }
     //@}
 
+    using FindTriangleResult = std::pair<
+        std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>,
+        Triangle
+    >;
+
     //@{
     /// Find the triangle that contains the given coordinates
     ///
@@ -170,16 +174,10 @@ class GridTree {
     ///
     /// If the coordinates are outside the grid, then we return the closest
     /// triangle.
-    std::pair<
-        std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>,
-        Triangle
-    > findTriangle(
+    FindTriangleResult findTriangle(
         double x, double y
     ) const;
-    std::pair<
-        std::tuple<lsst::geom::Point2I, lsst::geom::Point2I, lsst::geom::Point2I>,
-        Triangle
-    > findTriangle(
+    FindTriangleResult findTriangle(
         lsst::geom::Point2D const& point
     ) const {
         return findTriangle(point.getX(), point.getY());
@@ -213,11 +211,10 @@ class GridTree {
         );
 
         /// Get the minimum distance-squared from the node to the given coordinates
-        double distance2(double x, double y) const;
+        double getDistance2(double x, double y) const;
 
         /// Build a node in the tree recursively
         ///
-        /// @param tree A list of nodes in the tree; modified to add new nodes
         /// @param box Indices of points in this node
         /// @param xArray 2D array of x coordinates of the grid points
         /// @param yArray 2D array of y coordinates of the grid points
