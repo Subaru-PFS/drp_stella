@@ -17,7 +17,7 @@ from pfs.drp.stella import ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
-from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
+from pfs.drp.stella.fitDetectorMap import FitDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.OpticalModel import SlitModel, OpticsModel, DetectorModel
@@ -298,13 +298,13 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
 
     @methodParameters(arm=("r", "m"))
     def testFit(self, arm):
-        """Test FitDistortedDetectorMapTask
+        """Test FitDetectorMapTask
 
         Parameters
         ----------
         arm : `str`
             Spectrograph arm; affects behaviour of
-            `FitDistortedDetectorMapTask`.
+            `FitDetectorMapTask`.
         """
         flux = 1000.0
         fluxErr = 1.0
@@ -326,11 +326,11 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
                     ReferenceLineSource.NONE,
                 ))
         lines = ArcLineSet.fromRows(lines)
-        config = FitDistortedDetectorMapTask.ConfigClass()
+        config = FitDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True
         config.exclusionRadius = 1.0  # We've got a lot of close lines, but no real fear of confusion
-        task = FitDistortedDetectorMapTask(name="fitDistortedDetectorMap", config=config)
+        task = FitDetectorMapTask(name="fitDetectorMap", config=config)
         task.log.setLevel(task.log.DEBUG)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap

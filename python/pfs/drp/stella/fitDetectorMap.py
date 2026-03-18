@@ -28,7 +28,7 @@ from .utils.math import robustRms
 from .table import Table
 
 
-__all__ = ("FitDistortedDetectorMapConfig", "FitDistortedDetectorMapTask", "FittingError")
+__all__ = ("FitDetectorMapConfig", "FitDetectorMapTask", "FittingError")
 
 
 class LineResiduals(PfsTableWithSeparateStrings):
@@ -255,43 +255,13 @@ def calculateFitStatistics(
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
-def addColorbar(figure, axes, cmap, norm, label=None):
-    """Add colorbar to a plot
-
-    Parameters
-    ----------
-    figure : `matplotlib.pyplot.Figure`
-        Figure containing the axes.
-    axes : `matplotlib.pyplot.Axes`
-        Axes with the plot.
-    cmap : `matplotlib.colors.Colormap`
-        Color map.
-    norm : `matplot.colors.Normalize`
-        Normalization for color map.
-    label : `str`
-        Label to apply to colorbar.
-
-    Returns
-    -------
-    colorbar : `matplotlib.colorbar.Colorbar`
-        The colorbar.
-    """
-    import matplotlib.cm
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axes)
-    cax = divider.append_axes("right", size='5%', pad=0.05)
-    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
-    colors.set_array([])
-    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)
-
-
 class FittingError(RuntimeError):
     """Error in fitting distortion model"""
     pass
 
 
-class FitDistortedDetectorMapConfig(Config):
-    """Configuration for FitDistortedDetectorMapTask"""
+class FitDetectorMapConfig(Config):
+    """Configuration for FitDetectorMapTask"""
     lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
     traceIterations = Field(dtype=int, default=1, doc="Number of iterations for updating trace wavleengths")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
@@ -340,8 +310,8 @@ class FitDistortedDetectorMapConfig(Config):
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
 
-class FitDistortedDetectorMapTask(Task):
-    ConfigClass = FitDistortedDetectorMapConfig
+class FitDetectorMapTask(Task):
+    ConfigClass = FitDetectorMapConfig
     _DefaultName = "fitDetectorMap"
 
     def __init__(self, *args, **kwargs):
@@ -948,6 +918,7 @@ class FitDistortedDetectorMapTask(Task):
             import matplotlib.pyplot as plt
             import matplotlib.cm
             from matplotlib.colors import Normalize
+            from pfs.drp.stella.utils.display import addColorbar
             cmap = matplotlib.cm.rainbow
             fig, axes = plt.subplots(ncols=3)
 
@@ -1694,6 +1665,7 @@ class FitDistortedDetectorMapTask(Task):
         import matplotlib.cm
         from matplotlib.colors import Normalize
         from pfs.drp.stella.math import evaluatePolynomial, evaluateAffineTransform
+        from pfs.drp.stella.utils.display import addColorbar
 
         numSamples = 1000
         cmap = matplotlib.cm.rainbow
@@ -1795,6 +1767,7 @@ class FitDistortedDetectorMapTask(Task):
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
+        from pfs.drp.stella.utils.display import addColorbar
 
         good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
 
