@@ -10,10 +10,11 @@ from . import ReferenceLineStatus
 from .calibs import setCalibHeader
 from .DetectorMapContinued import DetectorMap
 from .DistortionContinued import Distortion
-from .LayeredDetectorMapContinued import LayeredDetectorMap
-from .MultipleDistortionsDetectorMapContinued import MultipleDistortionsDetectorMap
+from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .PolynomialDistortionContinued import PolynomialDistortion
-from .fitDistortedDetectorMap import FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
+from .fitDistortedDetectorMap import (
+    ArcLineResidualsSet, FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
+)
 
 if TYPE_CHECKING:
     from .arcLine import ArcLineSet
@@ -93,10 +94,6 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         for key in detectorMap.metadata.names():
             if key.startswith("CALIB_INPUT_"):
                 detectorMap.metadata.remove(key)
-        if hasattr(detectorMap, "base"):
-            for key in detectorMap.base.metadata.names():
-                if key.startswith("CALIB_INPUT_"):
-                    detectorMap.base.metadata.remove(key)
         setCalibHeader(
             metadata,
             "detectorMap",
@@ -104,7 +101,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
             dict(arm=arm, spectrograph=detectorMap.metadata.get("SPECTROGRAPH", "unknown")),
         )
 
-        base = self.getBaseDetectorMap(detectorMap, arm)  # NB: not SplinedDetectorMap
+        base = self.getBaseDetectorMap(detectorMap, arm)
         DistortionClass = self.getDistortionClass(arm)
         dispersion = base.getDispersionAtCenter(base.fiberId[len(base)//2])
         needNumLines = PolynomialDistortion.getNumDistortionForOrder(self.config.order)
@@ -180,7 +177,83 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         base : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength --> x,y.
         """
-        return LayeredDetectorMap.fromDetectorMap(detectorMap)
+        return OpticalModelDetectorMap.fromDetectorMap(detectorMap)
+
+    def calculateBaseResiduals(self, detectorMap, lines):
+        """Calculate position residuals w.r.t. base detectorMap
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Base detectorMap.
+        lines : `ArcLineSet`
+            Original line measurements (NOT the residuals).
+
+        Returns
+        -------
+        residuals : `ArcLineResidualsSet`
+            Arc line position residuals.
+        """
+        # Exact positions on the slit, used to measure the distortion
+        modelSlit = detectorMap.slitModel.spectrographToSlit(lines.fiberId, lines.wavelength)
+        measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
+        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector[:, 0], measDetector[:, 1])
+
+        # Approximate positions on the slit, used to determine the scale factors for converting errors.
+        # Scale is the change in slit position for a change of "delta" pixels.
+        xScale = np.full(len(lines), np.nan, dtype=float)
+        yScale = np.full(len(lines), np.nan, dtype=float)
+        delta = 1.0
+        for ff in np.unique(lines.fiberId):
+            selectFiber = lines.fiberId == ff
+            # row -> spatial,spectral
+            xSpline = detectorMap.getSlitSpatialSpline(ff)
+            ySpline = detectorMap.getSlitSpectralSpline(ff)
+            yPosition = lines.y[selectFiber].astype(float)
+            xSlit1 = xSpline(yPosition)
+            ySlit1 = ySpline(yPosition)
+            xSlit2 = xSpline(yPosition + delta)
+            ySlit2 = ySpline(yPosition + delta)
+            xScale[selectFiber] = (xSlit2 - xSlit1)/delta
+            yScale[selectFiber] = (ySlit2 - ySlit1)/delta
+
+        slope = np.zeros(len(lines), dtype=float)
+        isTrace = lines.description == "Trace"
+        if np.any(isTrace):
+            slope[isTrace] = xScale[isTrace]
+
+        # Measurement minus model: our fitted distortions get added to the model
+        xx = measSlit[:, 0]
+        yy = measSlit[:, 1]
+        xBase = modelSlit[:, 0]
+        yBase = modelSlit[:, 1]
+        dx = xx - xBase
+        dy = yy - yBase
+
+        return ArcLineResidualsSet.fromColumns(
+            fiberId=lines.fiberId,
+            wavelength=lines.wavelength,
+            x=dx,
+            y=dy,
+            xOrig=xx,
+            yOrig=yy,
+            slope=slope,
+            xBase=xBase,
+            yBase=yBase,
+            xErr=lines.xErr,
+            yErr=lines.yErr,
+            xx=lines.xx,
+            yy=lines.yy,
+            xy=lines.xy,
+            flux=lines.flux,
+            fluxErr=lines.fluxErr,
+            fluxNorm=lines.fluxNorm,
+            flag=lines.flag | np.any(np.isnan(modelSlit), axis=1),
+            status=lines.status,
+            description=lines.description,
+            transition=lines.transition,
+            source=lines.source,
+        )
 
     def makeDetectorMap(
         self,
@@ -207,25 +280,10 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         detectorMap : `pfs.drp.stella.DetectorMap`
             DetectorMap with distortion applied.
         """
-        if isinstance(base, LayeredDetectorMap):
-            return LayeredDetectorMap(
-                base.bbox,
-                base.getSpatialOffsets(),
-                base.getSpectralOffsets(),
-                base.base,
-                base.distortions + [distortion],
-                base.dividedDetector,
-                base.rightCcd,
-                visitInfo,
-                metadata,
-            )
-
-        if isinstance(base, MultipleDistortionsDetectorMap):
-            return MultipleDistortionsDetectorMap(
-                base.base, base.distortions + [distortion], visitInfo, metadata
-            )
-
-        raise RuntimeError(f"Unrecognized base detectorMap type: {type(base)}")
+        if not isinstance(base, OpticalModelDetectorMap):
+            raise RuntimeError(f"Require OpticalModelDetectorMap instead of {type(base)}")
+        slit = base.slitModel.withDistortion(distortion)
+        return OpticalModelDetectorMap(slit, base.opticsModel, base.detectorModel, visitInfo, metadata)
 
     def fitModelImpl(
         self,
