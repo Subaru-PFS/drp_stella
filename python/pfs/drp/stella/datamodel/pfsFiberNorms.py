@@ -77,7 +77,7 @@ class PfsFiberNorms(pfs.datamodel.PfsFiberNorms):
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
-        from ..fitDistortedDetectorMap import addColorbar
+        from ..utils.display import addColorbar
 
         cmap = matplotlib.cm.coolwarm
         if axes is None:

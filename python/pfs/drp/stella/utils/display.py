@@ -14,7 +14,7 @@ import pfs.utils.fiberids as fiberids
 
 
 __all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap", "lineColorDict",
-           "showPixelMask", "showColorbar"]
+           "showPixelMask", "showColorbar", "addColorbar"]
 
 
 lineColorDict = dict(ArI="cyan", CdI="orchid", HgI="blue", HgII="blue", KrI="peachpuff",
@@ -840,3 +840,33 @@ def addFiberCursor(axes, pfsConfig, values=None):
         return string
 
     axes.format_coord = format_coord
+
+
+def addColorbar(figure, axes, cmap, norm, label=None):
+    """Add colorbar to a plot
+
+    Parameters
+    ----------
+    figure : `matplotlib.pyplot.Figure`
+        Figure containing the axes.
+    axes : `matplotlib.pyplot.Axes`
+        Axes with the plot.
+    cmap : `matplotlib.colors.Colormap`
+        Color map.
+    norm : `matplot.colors.Normalize`
+        Normalization for color map.
+    label : `str`
+        Label to apply to colorbar.
+
+    Returns
+    -------
+    colorbar : `matplotlib.colorbar.Colorbar`
+        The colorbar.
+    """
+    import matplotlib.cm
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size='5%', pad=0.05)
+    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
+    colors.set_array([])
+    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)

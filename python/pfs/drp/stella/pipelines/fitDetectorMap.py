@@ -17,7 +17,7 @@ from pfs.drp.stella.gen3 import readDatasetRefs
 
 from ..arcLine import ArcLineSet
 from ..calibs import setCalibHeader
-from ..fitDistortedDetectorMap import FitDistortedDetectorMapTask
+from ..fitDetectorMap import FitDetectorMapTask as FitDistortedDetectorMapTask  # Historical name
 from .lookups import lookupDetectorMap
 
 __all__ = ("GatherSlitOffsetsTask", "FitDetectorMapTask")
