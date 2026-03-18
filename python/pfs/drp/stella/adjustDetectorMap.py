@@ -12,8 +12,8 @@ from .DetectorMapContinued import DetectorMap
 from .DistortionContinued import Distortion
 from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .PolynomialDistortionContinued import PolynomialDistortion
-from .fitDistortedDetectorMap import (
-    ArcLineResidualsSet, FitDistortedDetectorMapTask, FitDistortedDetectorMapConfig
+from .fitDetectorMap import (
+    ArcLineResidualsSet, FitDetectorMapTask, FitDetectorMapConfig
 )
 
 if TYPE_CHECKING:
@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
 
-class AdjustDetectorMapConfig(FitDistortedDetectorMapConfig):
+class AdjustDetectorMapConfig(FitDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
     def setDefaults(self):
         self.exclusionRadius = 4.0
         self.order = 1
 
 
-class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
+class AdjustDetectorMapTask(FitDetectorMapTask):
     ConfigClass = AdjustDetectorMapConfig
     _DefaultName = "adjustDetectorMap"
 
@@ -83,7 +83,7 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
 
         Raises
         ------
-        pfs.drp.stella.fitDistortedDetectorMap.FittingError
+        pfs.drp.stella.fitDetectorMap.FittingError
             If the data is not of sufficient quality to fit.
         """
         if metadata is None:
