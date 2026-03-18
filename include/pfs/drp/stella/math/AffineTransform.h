@@ -21,7 +21,7 @@ constexpr std::size_t NUM_AFFINE_PARAMS { 6 };
 
 /// Construct AffineTransformation from an array of parameters
 inline lsst::geom::AffineTransform makeAffineTransform(
-    ndarray::Array<double, 1, 1> const& parameters
+    ndarray::Array<double const, 1, 1> const& parameters
 ) {
     if (parameters.size() != NUM_AFFINE_PARAMS) {
         throw LSST_EXCEPT(
