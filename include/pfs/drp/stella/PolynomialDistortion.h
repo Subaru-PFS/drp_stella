@@ -36,7 +36,7 @@ class PolynomialDistortion :
         int distortionOrder,
         lsst::geom::Box2D const& range,
         Array1D const& coeff
-    ) : PolynomialDistortion(distortionOrder, distortionOrder, range, coeff) {}
+    );
 
     /// Ctor
     ///
@@ -46,34 +46,6 @@ class PolynomialDistortion :
     /// @param yCoeff : distortion field parameters for y
     PolynomialDistortion(
         int distortionOrder,
-        lsst::geom::Box2D const& range,
-        Array1D const& xCoeff,
-        Array1D const& yCoeff
-    ) : PolynomialDistortion(distortionOrder, distortionOrder, range, xCoeff, yCoeff) {}
-
-    /// Ctor
-    ///
-    /// @param xDistortionOrder : polynomial order for distortion in x
-    /// @param yDistortionOrder : polynomial order for distortion in y
-    /// @param range : range of input values in x and y
-    /// @param coeff : distortion coefficients
-    PolynomialDistortion(
-        int xDistortionOrder,
-        int yDistortionOrder,
-        lsst::geom::Box2D const& range,
-        Array1D const& coeff
-    );
-
-    /// Ctor
-    ///
-    /// @param xDistortionOrder : polynomial order for distortion in x
-    /// @param yDistortionOrder : polynomial order for distortion in y
-    /// @param range : range of input values in x and y
-    /// @param xCoeff : distortion field parameters for x
-    /// @param yCoeff : distortion field parameters for y
-    PolynomialDistortion(
-        int xDistortionOrder,
-        int yDistortionOrder,
         lsst::geom::Box2D const& range,
         Array1D const& xCoeff,
         Array1D const& yCoeff
@@ -114,12 +86,6 @@ class PolynomialDistortion :
     std::size_t getNumDistortion() const {
         return getNumDistortionForOrder(getOrder());
     }
-    std::size_t getXNumDistortion() const {
-        return getNumDistortionForOrder(getXOrder());
-    }
-    std::size_t getYNumDistortion() const {
-        return getNumDistortionForOrder(getYOrder());
-    }
     //@}
 
 
@@ -136,22 +102,19 @@ class PolynomialDistortion :
 
     /// Split single coefficients array into xCoeff, yCoeff arrays
     ///
-    /// @param xOrder : Distortion order in x
-    /// @param yOrder : Distortion order in y
+    /// @param order : Distortion order
     /// @param coeff : Coefficients array
     /// @return xCoeff, yCoeff as columns
-    static std::pair<Array1D, Array1D> splitCoefficients(int xOrder, int yOrder, Array1D const& coeff);
+    static Array2D splitCoefficients(int order, Array1D const& coeff);
 
     /// Join separate (x/y)(Left/Right) coefficient arrays into a single array
     ///
-    /// @param xOrder : Distortion order in x
-    /// @param yOrder : Distortion order in y
+    /// @param order : Distortion order
     /// @param xCoeff : distortion coefficients in x
     /// @param yCoeff : distortion coefficients in y
     /// @return single coefficients array
     static Array1D joinCoefficients(
-        int xOrder,
-        int yOrder,
+        int order,
         Array1D const& xLeft,
         Array1D const& yLeft
     );
@@ -161,16 +124,14 @@ class PolynomialDistortion :
     /// Construct from the 2D array representation of the coefficients (output
     /// of splitCoefficients).
     ///
-    /// @param xOrder : polynomial order for distortion in x
-    /// @param yOrder : polynomial order for distortion in y
+    /// @param distortionOrder : polynomial order for distortion
     /// @param range : range of input values in x and y
     /// @param coeff : 2D coefficients array (output of splitCoefficients)
     PolynomialDistortion(
-        int xOrder,
-        int yOrder,
+        int order,
         lsst::geom::Box2D const& range,
-        std::pair<Array1D, Array1D> const& coeff
-    ) : PolynomialDistortion(xOrder, yOrder, range, coeff.first, coeff.second)
+        Array2D const& coeff
+    ) : PolynomialDistortion(order, range, coeff[ndarray::view(0)], coeff[ndarray::view(1)])
     {}
 
   private:
