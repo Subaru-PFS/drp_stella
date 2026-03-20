@@ -1159,26 +1159,27 @@ class FitDetectorMapTask(Task):
                       getDescriptionCounts(lines.description, reserved))
         self.log.debug("    Final fit model: %s", result.distortion)
 
-        soften = (result.xSoften, result.ySoften)
-        if not np.all(np.isfinite(soften)):
-            self.log.warn("Non-finite softening, probably a bad fit")
-        else:
-            result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
-            self.log.info("Softened fit: "
-                          "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                          result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                          result.xSoften, result.ySoften, used.sum(),
-                          getDescriptionCounts(lines.description, used))
+        if False:
+            soften = (result.xSoften, result.ySoften)
+            if not np.all(np.isfinite(soften)):
+                self.log.warn("Non-finite softening, probably a bad fit")
+            else:
+                result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
+                self.log.info("Softened fit: "
+                            "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
+                            result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
+                            result.xSoften, result.ySoften, used.sum(),
+                            getDescriptionCounts(lines.description, used))
 
-        reservedStats = calculateFitStatistics(
-            fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
-        )
-        self.log.info("Softened fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                      reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
-                      reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum(), getDescriptionCounts(lines.description, reserved))
-        self.log.debug("    Softened fit model: %s", result.distortion)
+            reservedStats = calculateFitStatistics(
+                fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
+            )
+            self.log.info("Softened fit quality from reserved lines: "
+                        "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
+                        reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
+                        reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
+                        reserved.sum(), getDescriptionCounts(lines.description, reserved))
+            self.log.debug("    Softened fit model: %s", result.distortion)
 
         result.reserved = reserved
         if self.debugInfo.plot:
@@ -1420,9 +1421,8 @@ class FitDetectorMapTask(Task):
         if np.any(isTrace):
             fitPosition[isTrace, 0] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
             fitPosition[isTrace, 1] = np.nan
-        soften = (self.config.soften, self.config.soften)
         results = calculateFitStatistics(
-            fitPosition, lines, selection, numParameters, soften, detectorMap=detectorMap
+            fitPosition, lines, selection, numParameters, detectorMap=detectorMap
         )
         self.log.info("Final result: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
                       results.chi2, results.dof, results.xRms, results.yRms,
@@ -1431,7 +1431,7 @@ class FitDetectorMapTask(Task):
 
         for descr in sorted(set(lines.description)):
             choose = selection & (lines.description == descr)
-            stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
+            stats = calculateFitStatistics(fitPosition, lines, choose, 0)
             self.log.info(
                 "Stats for %s: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f from %d lines (%s)",
                 descr, stats.chi2, stats.dof, stats.xRms, stats.yRms,
@@ -1442,7 +1442,7 @@ class FitDetectorMapTask(Task):
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
         for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
             choose = selection & (lines.fiberId == ff)
-            stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
+            stats = calculateFitStatistics(fitPosition, lines, choose, 0)
             self.log.info("Stats for fiberId=%d: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
                           "from %d lines (%s)",
                           ff, stats.chi2, stats.dof, stats.xRms, stats.yRms,
@@ -1454,7 +1454,7 @@ class FitDetectorMapTask(Task):
             for wl in sorted(set(lines.wavelength[good].tolist())):
                 choose = good & (lines.wavelength == wl)
                 description = ", ".join(set(lines.description[choose]))
-                stats = calculateFitStatistics(fitPosition, lines, choose, 0, soften)
+                stats = calculateFitStatistics(fitPosition, lines, choose, 0)
                 self.log.info("Stats for wavelength=%f (%s): chi2=%f dof=%d xRMS=%f yRMS=%f "
                               "xSoften=%f ySoften=%f from %d fibers (%s)",
                               wl, description, stats.chi2, stats.dof, stats.xRms, stats.yRms,
