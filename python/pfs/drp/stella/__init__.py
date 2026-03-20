@@ -33,6 +33,7 @@ from .DistortionContinued import *
 from .PolynomialDistortionContinued import *
 from .MosaicPolynomialDistortionContinued import *
 from .LayeredDetectorMapContinued import *
+from .OpticalModelDetectorMapContinued import *
 
 from lsst.afw.image import Mask
 for plane in (
