@@ -22,14 +22,8 @@ void declarePolynomialDistortion(py::module & mod) {
     cls.def(py::init<int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&>(),
             "distortionOrder"_a, "range"_a, "xCoeff"_a, "yCoeff"_a);
-    cls.def(py::init<int, int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&>(),
-            "xOrder"_a, "yOrder"_a, "range"_a, "coeff"_a);
-    cls.def(py::init<int, int, lsst::geom::Box2D const&, ndarray::Array<double, 1, 1> const&,
-                     ndarray::Array<double, 1, 1> const&>(),
-            "xOrder"_a, "yOrder"_a, "range"_a, "xCoeff"_a, "yCoeff"_a);
     cls.def_static("getNumDistortionForOrder", &Class::getNumDistortionForOrder, "order"_a);
-    cls.def("getXNumDistortion", &Class::getXNumDistortion);
-    cls.def("getYNumDistortion", &Class::getYNumDistortion);
+    cls.def("getNumDistortion", &Class::getNumDistortion);
     cls.def("getXCoefficients", &Class::getXCoefficients);
     cls.def("getYCoefficients", &Class::getYCoefficients);
     cls.def("getXPoly", &Class::getXPoly);

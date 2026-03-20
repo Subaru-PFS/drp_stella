@@ -327,8 +327,7 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
                 ))
         lines = ArcLineSet.fromRows(lines)
         config = FitDetectorMapTask.ConfigClass()
-        config.xOrder = 1
-        config.yOrder = 1
+        config.order = 1
         config.doSlitOffsets = True
         config.exclusionRadius = 1.0  # We've got a lot of close lines, but no real fear of confusion
         task = FitDetectorMapTask(name="fitDetectorMap", config=config)
