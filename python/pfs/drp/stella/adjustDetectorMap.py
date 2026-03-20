@@ -201,30 +201,24 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         # Exact positions on the slit, used to measure the distortion
         modelSlit = detectorMap.slitModel.spectrographToSlit(lines.fiberId, lines.wavelength)
         measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
-        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector[:, 0], measDetector[:, 1])
+        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector)
 
-        # Approximate positions on the slit, used to determine the scale factors for converting errors.
-        # Scale is the change in slit position for a change of "delta" pixels.
-        xScale = np.full(len(lines), np.nan, dtype=float)
-        yScale = np.full(len(lines), np.nan, dtype=float)
+        # Caculate dSpatial/dx and dSpectral/dy so we can convert from pixel errors to slit errors
         delta = 1.0
-        for ff in np.unique(lines.fiberId):
-            selectFiber = lines.fiberId == ff
-            # row -> spatial,spectral
-            xSpline = detectorMap.getSlitSpatialSpline(ff)
-            ySpline = detectorMap.getSlitSpectralSpline(ff)
-            yPosition = lines.y[selectFiber].astype(float)
-            xSlit1 = xSpline(yPosition)
-            ySlit1 = ySpline(yPosition)
-            xSlit2 = xSpline(yPosition + delta)
-            ySlit2 = ySpline(yPosition + delta)
-            xScale[selectFiber] = (xSlit2 - xSlit1)/delta
-            yScale[selectFiber] = (ySlit2 - ySlit1)/delta
+        dxMeasSlit = detectorMap.opticsModel.detectorToSlit(
+            detectorMap.detectorModel.pixelsToDetector(lines.x + delta, lines.y)
+        )
+        dyMeasSlit = detectorMap.opticsModel.detectorToSlit(
+            detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y + delta)
+        )
+        # Scale is the change in slit position for a change of "delta" pixels.
+        xScale = np.abs(dxMeasSlit[:, 0] - measSlit[:, 0])/delta
+        yScale = np.abs(dyMeasSlit[:, 1] - measSlit[:, 1])/delta
 
         slope = np.zeros(len(lines), dtype=float)
         isTrace = lines.description == "Trace"
         if np.any(isTrace):
-            slope[isTrace] = xScale[isTrace]
+            slope[isTrace] = (dyMeasSlit[isTrace, 0] - measSlit[isTrace, 0])  # dx/dy
 
         # Measurement minus model: our fitted distortions get added to the model
         xx = measSlit[:, 0]
@@ -233,6 +227,8 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         yBase = modelSlit[:, 1]
         dx = xx - xBase
         dy = yy - yBase
+        xErr = lines.xErr*xScale
+        yErr = lines.yErr*yScale
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
@@ -244,8 +240,8 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             slope=slope,
             xBase=xBase,
             yBase=yBase,
-            xErr=lines.xErr,
-            yErr=lines.yErr,
+            xErr=xErr,
+            yErr=yErr,
             xx=lines.xx,
             yy=lines.yy,
             xy=lines.xy,

@@ -380,7 +380,7 @@ class ReduceExposureTask(PipelineTask):
             exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
         )
 
-        lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
+        lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
 
         fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
         spectra = self.extractSpectra.run(
