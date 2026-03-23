@@ -53,12 +53,16 @@ double calculateWavelengthDispersion(DetectorMap const& detMap) {
 SlitModel::SlitModel(
     ndarray::Array<int, 1, 1> const& fiberId,
     double fiberPitch,
+    double fiberMin,
     double wavelengthDispersion,
+    double wavelengthMin,
     Array1D const& spatialOffsets,
     Array1D const& spectralOffsets,
     DistortionList const& distortions
 ) : _fiberPitch(fiberPitch),
+    _fiberMin(fiberMin),
     _wavelengthDispersion(wavelengthDispersion),
+    _wavelengthMin(wavelengthMin),
     _fiberId(fiberId),
     _spatialOffsets(spatialOffsets),
     _spectralOffsets(spectralOffsets),
@@ -76,7 +80,9 @@ SlitModel::SlitModel(
 ) : SlitModel(
         source.getFiberId(),
         calculateFiberPitch(source),
+        utils::arrayMin(source.getFiberId()),
         calculateWavelengthDispersion(source),
+        utils::arrayMin(source.getWavelength(source.getFiberId()[source.getFiberId().size()/2])),
         source.getSpatialOffsets(),
         source.getSpectralOffsets(),
         distortions
@@ -93,7 +99,9 @@ SlitModel SlitModel::copy() const {
     return SlitModel(
         ndarray::copy(getFiberId()),
         getFiberPitch(),
+        getFiberMin(),
         getWavelengthDispersion(),
+        getWavelengthMin(),
         ndarray::copy(getSpatialOffsets()),
         ndarray::copy(getSpectralOffsets()),
         distortions
@@ -116,13 +124,28 @@ SlitModel SlitModel::withDistortion(std::shared_ptr<Distortion> distortion) cons
     return SlitModel(
         ndarray::copy(getFiberId()),
         getFiberPitch(),
+        getFiberMin(),
         getWavelengthDispersion(),
+        getWavelengthMin(),
         ndarray::copy(getSpatialOffsets()),
         ndarray::copy(getSpectralOffsets()),
         distortions
     );
 }
 
+
+SlitModel SlitModel::withoutDistortion() const {
+    return SlitModel(
+        ndarray::copy(getFiberId()),
+        getFiberPitch(),
+        getFiberMin(),
+        getWavelengthDispersion(),
+        getWavelengthMin(),
+        ndarray::copy(getSpatialOffsets()),
+        ndarray::copy(getSpectralOffsets()),
+        DistortionList()
+    );
+}
 
 
 double SlitModel::getSpatialOffset(int fiberId) const {
@@ -144,13 +167,19 @@ double SlitModel::getSpectralOffset(int fiberId) const {
 
 
 lsst::geom::Point2D SlitModel::spectrographToSlit(int fiberId, double wavelength) const {
-    double const spatial = fiberId + getSpatialOffset(fiberId)/_fiberPitch;
-    double const spectral = wavelength + getSpectralOffset(fiberId)*_wavelengthDispersion;
+    double const spatialOffset = getSpatialOffset(fiberId);
+    double const spectralOffset = getSpectralOffset(fiberId);
+    double const spatial = (fiberId - _fiberMin)*_fiberPitch + spatialOffset;  // pixels
+    double const spectral = (wavelength - _wavelengthMin)/_wavelengthDispersion + spectralOffset; // pixels
     lsst::geom::Point2D slit{spatial, spectral};
     for (auto const& dd : _distortions) {
          slit += lsst::geom::Extent2D((*dd)(slit));
     }
-    return slit;
+    auto const result = lsst::geom::Point2D(
+        slit.getX()/_fiberPitch + _fiberMin,
+        slit.getY()*_wavelengthDispersion + _wavelengthMin
+    );
+    return result;
 }
 
 

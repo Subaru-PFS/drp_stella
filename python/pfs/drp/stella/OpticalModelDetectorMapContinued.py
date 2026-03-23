@@ -83,7 +83,7 @@ class OpticalModelDetectorMap:  # noqa: F811 (redefinition)
             raise RuntimeError(f"Wrong type: {detMap}")
         slit = SlitModel(
             detMap.fiberId.astype(np.int32),
-            detMap.fiberPitch, detMap.wavelengthDispersion,
+            detMap.fiberPitch, detMap.fiberMin, detMap.wavelengthDispersion, detMap.wavelengthMin,
             detMap.spatialOffsets.astype(np.float64), detMap.spectralOffsets.astype(np.float64),
             [Distortion.fromDatamodel(dd) for dd in detMap.slitDistortions],
         )
@@ -127,7 +127,9 @@ class OpticalModelDetectorMap:  # noqa: F811 (redefinition)
         # Slit
         fiberId = self.getFiberId()
         fiberPitch = self.slitModel.getFiberPitch()
+        fiberMin = self.slitModel.getFiberMin()
         wavelengthDispersion = self.slitModel.getWavelengthDispersion()
+        wavelengthMin = self.slitModel.getWavelengthMin()
         spatialOffsets = self.slitModel.getSpatialOffsets()
         spectralOffsets = self.slitModel.getSpectralOffsets()
         slitDistortions = [dd.toDatamodel() for dd in self.slitModel.getDistortions()]
@@ -151,7 +153,7 @@ class OpticalModelDetectorMap:  # noqa: F811 (redefinition)
 
         return pfs.datamodel.OpticalModelDetectorMap(
             identity,
-            fiberId, fiberPitch, wavelengthDispersion,
+            fiberId, fiberPitch, fiberMin, wavelengthDispersion, wavelengthMin,
             spatialOffsets, spectralOffsets, slitDistortions,
             spatialOptics, spectralOptics, xOptics, yOptics, opticsDistortions,
             box, dividedDetector, rightCcd, detectorDistortions,

@@ -232,7 +232,9 @@ void OpticalModelDetectorMap::_resetSlitOffsets() {
     _slitModel = std::move(SlitModel(
         getFiberId(),
         _slitModel.getFiberPitch(),
+        _slitModel.getFiberMin(),
         _slitModel.getWavelengthDispersion(),
+        _slitModel.getWavelengthMin(),
         getSpatialOffsets(),
         getSpectralOffsets(),
         _slitModel.getDistortions()
@@ -251,7 +253,9 @@ class OpticalModelDetectorMapSchema {
     lsst::afw::table::Schema schema;
     lsst::afw::table::Key<IntArray> fiberId;
     lsst::afw::table::Key<double> fiberPitch;
+    lsst::afw::table::Key<double> fiberMin;
     lsst::afw::table::Key<double> wavelengthDispersion;
+    lsst::afw::table::Key<double> wavelengthMin;
     lsst::afw::table::Key<DoubleArray> spatialOffsets;
     lsst::afw::table::Key<DoubleArray> spectralOffsets;
     lsst::afw::table::Key<IntArray> slitDistortions;
@@ -277,9 +281,11 @@ class OpticalModelDetectorMapSchema {
       : schema(),
         fiberId(schema.addField<IntArray>("fiberId", "fiber identifier", "")),
         fiberPitch(schema.addField<double>("fiberPitch", "fiber pitch", "pixels")),
+        fiberMin(schema.addField<double>("fiberMin", "fiber minimum", "fiberId units")),
         wavelengthDispersion(schema.addField<double>(
             "wavelengthDispersion", "wavelength dispersion", "nm/pixel"
         )),
+        wavelengthMin(schema.addField<double>("wavelengthMin", "wavelength minimum", "nm")),
         spatialOffsets(schema.addField<DoubleArray>("spatialOffsets", "spatial offsets", "pixels")),
         spectralOffsets(schema.addField<DoubleArray>("spectralOffsets", "spectral offsets", "pixels")),
         slitDistortions(schema.addField<IntArray>("slitDistortions", "reference to slit distortions", "")),
@@ -315,7 +321,9 @@ void OpticalModelDetectorMap::write(
     ndarray::Array<int, 1, 1> fiberId = ndarray::copy(getFiberId());
     record->set(schema.fiberId, fiberId);
     record->set(schema.fiberPitch, _slitModel.getFiberPitch());
+    record->set(schema.fiberMin, _slitModel.getFiberMin());
     record->set(schema.wavelengthDispersion, _slitModel.getWavelengthDispersion());
+    record->set(schema.wavelengthMin, _slitModel.getWavelengthMin());
     ndarray::Array<double, 1, 1> spatialOffsets = ndarray::copy(getSpatialOffsets());
     record->set(schema.spatialOffsets, spatialOffsets);
     ndarray::Array<double, 1, 1> spectralOffsets = ndarray::copy(getSpectralOffsets());
@@ -375,8 +383,10 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
 
         // Slit model
         ndarray::Array<int, 1, 1> fiberId = ndarray::copy(record.get(schema.fiberId));
-        double fiberPitch = record.get(schema.fiberPitch);
-        double wavelengthDispersion = record.get(schema.wavelengthDispersion);
+        double const fiberPitch = record.get(schema.fiberPitch);
+        double const fiberMin = record.get(schema.fiberMin);
+        double const wavelengthDispersion = record.get(schema.wavelengthDispersion);
+        double const wavelengthMin = record.get(schema.wavelengthMin);
         ndarray::Array<double, 1, 1> spatialOffsets = ndarray::copy(record.get(schema.spatialOffsets));
         ndarray::Array<double, 1, 1> spectralOffsets = ndarray::copy(record.get(schema.spectralOffsets));
         ndarray::Array<int const, 1, 1> slitDistortionPtrs = record.get(schema.slitDistortions);
@@ -387,7 +397,10 @@ class OpticalModelDetectorMap::Factory : public lsst::afw::table::io::Persistabl
             slitDistortions.emplace_back(archive.get<Distortion>(slitDistortionPtrs[ii]));
         }
         SlitModel slitModel(
-            fiberId, fiberPitch, wavelengthDispersion, spatialOffsets, spectralOffsets, slitDistortions
+            fiberId,
+            fiberPitch, fiberMin, wavelengthDispersion, wavelengthMin,
+            spatialOffsets, spectralOffsets,
+            slitDistortions
         );
 
         // Optics model
