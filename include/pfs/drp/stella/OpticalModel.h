@@ -93,7 +93,9 @@ class SlitModel {
     SlitModel(
         ndarray::Array<int, 1, 1> const& fiberId,
         double fiberPitch,
+        double fiberCenter,
         double wavelengthDispersion,
+        double wavelengthCenter,
         Array1D const& spatialOffsets,
         Array1D const& spectralOffsets,
         DistortionList const& distortions=DistortionList()
@@ -113,11 +115,16 @@ class SlitModel {
     /// Return a copy of this SlitModel with an additional distortion applied
     SlitModel withDistortion(std::shared_ptr<Distortion> distortion) const;
 
+    /// Return a copy of this SlitModel without any distortions applied
+    SlitModel withoutDistortion() const;
+
     //@{
     /// Accessors
     Array1I const& getFiberId() const { return _fiberId; }
     double getFiberPitch() const { return _fiberPitch; }
+    double getFiberMin() const { return _fiberMin; }
     double getWavelengthDispersion() const { return _wavelengthDispersion; }
+    double getWavelengthMin() const { return _wavelengthMin; }
     Array1D const& getSpatialOffsets() const { return _spatialOffsets; }
     Array1D const& getSpectralOffsets() const { return _spectralOffsets; }
     DistortionList const& getDistortions() const { return _distortions; }
@@ -153,7 +160,9 @@ class SlitModel {
 
   private:
     double _fiberPitch;  ///< average pixels per fiber
+    double _fiberMin;  ///< minimum fiberId
     double _wavelengthDispersion;  ///< nm/pixels
+    double _wavelengthMin;  ///< minimum wavelength
     ndarray::Array<int, 1, 1> _fiberId;  ///< fiber identifiers
     Array1D _spatialOffsets;  ///< per-fiber offsets in the spatial dimension (pixels)
     Array1D _spectralOffsets;  ///< per-fiber offsets in the spectral dimension (pixels)
