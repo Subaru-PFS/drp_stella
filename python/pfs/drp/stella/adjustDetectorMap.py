@@ -4,7 +4,7 @@ import numpy as np
 
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
-from lsst.geom import Box2D
+from lsst.geom import Box2D, Extent2D
 
 from . import ReferenceLineStatus
 from .calibs import setCalibHeader
@@ -195,7 +195,9 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             Arc line position residuals.
         """
         # Exact positions on the slit, used to measure the distortion
-        modelSlit = detectorMap.slitModel.spectrographToSlit(lines.fiberId, lines.wavelength)
+        modelSlit = detectorMap.slitModel.withoutDistortion().spectrographToSlit(
+            lines.fiberId, lines.wavelength
+        )
         measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
         measSlit = detectorMap.opticsModel.detectorToSlit(measDetector)
 
@@ -278,7 +280,7 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         """
         if not isinstance(base, OpticalModelDetectorMap):
             raise RuntimeError(f"Require OpticalModelDetectorMap instead of {type(base)}")
-        slit = base.slitModel.withDistortion(distortion)
+        slit = base.slitModel.withoutDistortion().withDistortion(distortion)
         return OpticalModelDetectorMap(slit, base.opticsModel, base.detectorModel, visitInfo, metadata)
 
     def fitModelImpl(

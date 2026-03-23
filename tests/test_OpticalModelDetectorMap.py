@@ -69,7 +69,9 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
                 Point2D(base.fiberId.max(), base.getWavelength(base.fiberId[len(base)//2]).max()),
             )
             fiberPitch = 12.345
+            fiberCenter = np.median(base.fiberId)
             wavelengthDispersion = 0.56789
+            wavelengthCenter = 0.5*(self.minWl + self.maxWl)
             spatialOffsets = rng.uniform(size=base.getNumFibers())
             spectralOffsets = rng.uniform(size=base.getNumFibers())
             slitDistortion = PolynomialDistortion(
@@ -78,7 +80,9 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
             slit = SlitModel(
                 base.fiberId,
                 fiberPitch,
+                fiberCenter,
                 wavelengthDispersion,
+                wavelengthCenter,
                 spatialOffsets,
                 spectralOffsets,
                 [slitDistortion],

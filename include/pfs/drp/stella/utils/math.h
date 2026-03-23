@@ -221,6 +221,20 @@ ndarray::Array<std::remove_const_t<T>, 2, 1> unflattenArray(
 }
 
 
+/// Minimum value in an array
+template <typename T, int N, int C>
+std::remove_const_t<T> arrayMin(ndarray::Array<T, N, C> const& array) {
+    return *std::min_element(array.begin(), array.end());
+}
+
+
+/// Maximum value in an array
+template <typename T, int N, int C>
+std::remove_const_t<T> arrayMax(ndarray::Array<T, N, C> const& array) {
+    return *std::max_element(array.begin(), array.end());
+}
+
+
 }}}}  // namespace pfs::drp::stella::utils
 
 #endif

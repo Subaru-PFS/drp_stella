@@ -55,12 +55,12 @@ void declareSlitModel(py::module_ & mod) {
     cls.def(
         py::init<
             OpticsModel::Array1I const&,
-            double, double,
+            double, double, double, double,
             OpticsModel::Array1D const&, OpticsModel::Array1D const&,
             OpticsModel::DistortionList const&
         >(),
         "fiberId"_a,
-        "fiberPitch"_a, "wavelengthDispersion"_a,
+        "fiberPitch"_a, "fiberCenter"_a, "wavelengthDispersion"_a, "wavelengthCenter"_a,
         "spatialOffsets"_a, "spectralOffsets"_a,
         "distortions"_a=OpticsModel::DistortionList()
     );
@@ -70,10 +70,13 @@ void declareSlitModel(py::module_ & mod) {
     );
     cls.def("copy", &SlitModel::copy);
     cls.def("withDistortion", &SlitModel::withDistortion, "distortion"_a);
+    cls.def("withoutDistortion", &SlitModel::withoutDistortion);
 
     cls.def("getFiberId", &SlitModel::getFiberId);
     cls.def("getFiberPitch", &SlitModel::getFiberPitch);
+    cls.def("getFiberMin", &SlitModel::getFiberMin);
     cls.def("getWavelengthDispersion", &SlitModel::getWavelengthDispersion);
+    cls.def("getWavelengthMin", &SlitModel::getWavelengthMin);
     cls.def("getSpatialOffsets", &SlitModel::getSpatialOffsets);
     cls.def("getSpectralOffsets", &SlitModel::getSpectralOffsets);
     cls.def("getDistortions", &SlitModel::getDistortions);
@@ -81,7 +84,9 @@ void declareSlitModel(py::module_ & mod) {
     cls.def("getSpectralOffset", &SlitModel::getSpectralOffset, "fiberId"_a);
     cls.def_property_readonly("fiberId", &SlitModel::getFiberId);
     cls.def_property_readonly("fiberPitch", &SlitModel::getFiberPitch);
+    cls.def_property_readonly("fiberMin", &SlitModel::getFiberMin);
     cls.def_property_readonly("wavelengthDispersion", &SlitModel::getWavelengthDispersion);
+    cls.def_property_readonly("wavelengthMin", &SlitModel::getWavelengthMin);
     cls.def_property_readonly("spatialOffsets", &SlitModel::getSpatialOffsets);
     cls.def_property_readonly("spectralOffsets", &SlitModel::getSpectralOffsets);
     cls.def_property_readonly("distortions", &SlitModel::getDistortions);
