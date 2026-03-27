@@ -4,7 +4,7 @@ import numpy as np
 
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
-from lsst.geom import Box2D, Extent2D
+from lsst.geom import Box2D
 
 from . import ReferenceLineStatus
 from .calibs import setCalibHeader
@@ -194,29 +194,27 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         residuals : `ArcLineResidualsSet`
             Arc line position residuals.
         """
-        # Exact positions on the slit, used to measure the distortion
-        modelSlit = detectorMap.slitModel.withoutDistortion().spectrographToSlit(
+        # Convert to "pre-slit" coordinates, which are slit coordinates (spatial,spectral) in units of pixels
+        # We don't apply any slit distortions, since we're going to fit those.
+        modelSlit = detectorMap.slitModel.withoutDistortion().spectrographToPreSlit(
             lines.fiberId, lines.wavelength
         )
-        measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
-        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector)
-
-        # Caculate dSpatial/dx and dSpectral/dy so we can convert from pixel errors to slit errors
-        delta = 1.0
-        dxMeasSlit = detectorMap.opticsModel.detectorToSlit(
-            detectorMap.detectorModel.pixelsToDetector(lines.x + delta, lines.y)
+        measSlit = detectorMap.slitModel.slitToPreSlit(
+            detectorMap.opticsModel.detectorToSlit(
+                detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
+            )
         )
-        dyMeasSlit = detectorMap.opticsModel.detectorToSlit(
-            detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y + delta)
-        )
-        # Scale is the change in slit position for a change of "delta" pixels.
-        xScale = np.abs(dxMeasSlit[:, 0] - measSlit[:, 0])/delta
-        yScale = np.abs(dyMeasSlit[:, 1] - measSlit[:, 1])/delta
 
         slope = np.zeros(len(lines), dtype=float)
         isTrace = lines.description == "Trace"
-        if np.any(isTrace):
-            slope[isTrace] = (dyMeasSlit[isTrace, 0] - measSlit[isTrace, 0])  # dx/dy
+        if False and np.any(isTrace):
+            delta = 1.0
+            dySlit = detectorMap.slitModel.slitToPreSlit(
+                detectorMap.opticsModel.detectorToSlit(
+                    detectorMap.detectorModel.pixelsToDetector(lines.x[isTrace], lines.y[isTrace] + delta)
+                )
+            )
+            slope[isTrace] = (dySlit[:, 0] - measSlit[isTrace, 0])  # dx/dy
 
         # Measurement minus model: our fitted distortions get added to the model
         xx = measSlit[:, 0]
@@ -225,8 +223,8 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         yBase = modelSlit[:, 1]
         dx = xx - xBase
         dy = yy - yBase
-        xErr = lines.xErr*xScale
-        yErr = lines.yErr*yScale
+        xErr = lines.xErr
+        yErr = lines.yErr
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
@@ -281,7 +279,9 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         if not isinstance(base, OpticalModelDetectorMap):
             raise RuntimeError(f"Require OpticalModelDetectorMap instead of {type(base)}")
         slit = base.slitModel.withoutDistortion().withDistortion(distortion)
-        return OpticalModelDetectorMap(slit, base.opticsModel, base.detectorModel, visitInfo, metadata)
+        return OpticalModelDetectorMap(
+            slit, base.opticsModel.copy(), base.detectorModel.copy(), visitInfo, metadata
+        )
 
     def fitModelImpl(
         self,

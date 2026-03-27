@@ -59,6 +59,67 @@ using FiberMap = std::unordered_map<int, std::size_t>;
 FiberMap makeFiberMap(ndarray::Array<int, 1, 1> const& fiberId);
 
 
+namespace detail {
+
+
+/// Apply a method to two arrays
+///
+/// This is used to implement the array versions of the methods below.
+///
+/// @tparam Output : output type of the array
+/// @param self : the object to call the method on
+/// @param func : the method to call
+/// @param input1 : the first input array
+/// @param input2 : the second input array
+/// @param name1 : the name of the first input array (for error messages)
+/// @param name2 : the name of the second input array (for error messages)
+/// @return an array of the outputs of the method applied to each pair of inputs
+template <typename Output, typename Cls, typename Input1, int C1, typename Input2, int C2>
+ndarray::Array<Output, 2, 2> applyMethod(
+    Cls const& self,
+    lsst::geom::Point2D (Cls::*func)(Input1, Input2) const,
+    ndarray::Array<Input1, 1, C1> const& input1,
+    ndarray::Array<Input2, 1, C2> const& input2,
+    char const* name1,
+    char const* name2
+) {
+    utils::checkSize(input1.size(), input2.size(), std::string(name1) + " vs " + name2);
+    ndarray::Array<Output, 2, 2> result = ndarray::allocate(input1.size(), 2);
+    for (std::size_t ii = 0; ii < input1.size(); ++ii) {
+        lsst::geom::Point2D const output = (self.*func)(input1[ii], input2[ii]);
+        result[ii][0] = output.getX();
+        result[ii][1] = output.getY();
+    }
+    return result;
+}
+
+
+/// Apply a method to a 2D array
+///
+/// @tparam Output : output type of the array
+/// @param self : the object to call the method on
+/// @param func : the method to call
+/// @param input : the input array, which must have two columns
+template <typename Output, typename Cls, typename Input, int C>
+ndarray::Array<Output, 2, 2> applyMethod(
+    Cls const& self,
+    lsst::geom::Point2D (Cls::*func)(Input, Input) const,
+    ndarray::Array<Input, 2, C> const& input
+) {
+    utils::checkSize(input.getShape()[1], 2UL, "input columns");
+    ndarray::Array<Output, 2, 2> result = ndarray::allocate(input.getShape());
+    for (std::size_t ii = 0; ii < input.size(); ++ii) {
+        lsst::geom::Point2D const output = (self.*func)(input[ii][0], input[ii][1]);
+        result[ii][0] = output.getX();
+        result[ii][1] = output.getY();
+    }
+    return result;
+}
+
+
+}  // namespace detail
+
+
 /// Model of the slit head
 ///
 /// This class provides a mapping from the spectrograph's coordinate system
@@ -144,8 +205,73 @@ class SlitModel {
     ///
     /// There's no spectrographToSlit(Point2D) because the fiberId is an integer
     /// that identifies a specific slit offset.
-    lsst::geom::Point2D spectrographToSlit(int fiberId, double wavelength) const;
-    Array2D spectrographToSlit(Array1I const& fiberId, Array1D const& wavelength) const;
+    lsst::geom::Point2D spectrographToSlit(int fiberId, double wavelength) const {
+        return preSlitToSlit(spectrographToPreSlit(fiberId, wavelength));
+    }
+    Array2D spectrographToSlit(Array1I const& fiberId, Array1D const& wavelength) const {
+        return detail::applyMethod<double>(
+            *this, &SlitModel::_spectrographToSlit, fiberId, wavelength, "fiberId", "wavelength"
+        );
+    }
+    //@}
+
+    //@{
+    /// Convert from spectrograph coordinates (fiberId,wavelength) to pre-slit coordinates
+    ///
+    /// This applies the slit offsets and distortion, but doesn't convert back to fiber-wavelength units.
+    /// This is used for getting coordinates in pixel units, which is needed for measuring and applying
+    /// the distortion.
+    ///
+    /// There's no spectrographToPreSlit(Point2D) because the fiberId is an integer
+    /// that identifies a specific slit offset.
+    lsst::geom::Point2D spectrographToPreSlit(int fiberId, double wavelength) const {
+        return _spectrographToPreSlit(fiberId, wavelength);
+    }
+    Array2D spectrographToPreSlit(Array1I const& fiberId, Array1D const& wavelength) const {
+        return detail::applyMethod<double>(
+            *this, &SlitModel::_spectrographToPreSlit, fiberId, wavelength, "fiberId", "wavelength"
+        );
+    }
+    //@}
+
+    //@{
+    /// Convert from pre-slit coordinates to slit coordinates (spatial, spectral)
+    lsst::geom::Point2D preSlitToSlit(double spatial, double spectral) const {
+        return _preSlitToSlit(spatial, spectral);
+    }
+    Array2D preSlitToSlit(Array1D const& spatial, Array1D const& spectral) const {
+        return detail::applyMethod<double>(
+            *this, &SlitModel::_preSlitToSlit, spatial, spectral, "spatial", "spectral"
+        );
+    }
+    lsst::geom::Point2D preSlitToSlit(lsst::geom::Point2D const& spatialSpectral) const {
+        return preSlitToSlit(spatialSpectral.getX(), spatialSpectral.getY());
+    }
+    Array2D preSlitToSlit(Array2D const& spatialSpectral) const {
+        return detail::applyMethod<double>(*this, &SlitModel::_preSlitToSlit, spatialSpectral);
+    }
+    //@}}
+
+    //@{
+    /// Convert from slit coordinates (spatial, spectral) to pre-slit coordinates
+    ///
+    /// This scales the coordinates to the same units, but doesn't apply the slit offsets or distortion.
+    /// This is used for getting coordinates in pixel units, which is needed for measuring and applying
+    /// the distortion.
+    lsst::geom::Point2D slitToPreSlit(double spatial, double spectral) const {
+        return _slitToPreSlit(spatial, spectral);
+    }
+    Array2D slitToPreSlit(Array1D const& spatial, Array1D const& spectral) const {
+        return detail::applyMethod<double>(
+            *this, &SlitModel::_slitToPreSlit, spatial, spectral, "spatial", "spectral"
+        );
+    }
+    lsst::geom::Point2D slitToPreSlit(lsst::geom::Point2D const& spatialSpectral) const {
+        return slitToPreSlit(spatialSpectral.getX(), spatialSpectral.getY());
+    }
+    Array2D slitToPreSlit(Array2D const& spatialSpectral) const {
+        return detail::applyMethod<double>(*this, &SlitModel::_slitToPreSlit, spatialSpectral);
+    }
     //@}
 
 #if 0 // We need an inverse distortion to be able to convert from slit to spectrograph coordinates
@@ -159,6 +285,38 @@ class SlitModel {
 #endif
 
   private:
+    //@{
+    /// Non-overloaded versions of the methods above, which take scalar inputs and outputs.
+    /// These are used with applyMethod, and save us from repeatedly specifying the overload.
+    lsst::geom::Point2D _spectrographToSlit(int fiberId, double wavelength) const {
+        lsst::geom::Point2D preslit = _spectrographToPreSlit(fiberId, wavelength);
+        return _preSlitToSlit(preslit.getX(), preslit.getY());
+    }
+    lsst::geom::Point2D _spectrographToPreSlit(int fiberId, double wavelength) const;
+    lsst::geom::Point2D _preSlitToSlit(double spatial, double spectral) const {
+        return pixelsToFiberWavelength(lsst::geom::Point2D(spatial, spectral));
+    }
+    lsst::geom::Point2D _slitToPreSlit(double spatial, double spectral) const {
+        return fiberWavelengthToPixels(spatial, spectral);
+    }
+    //@}
+
+    //@{
+    /// Apply scaling to convert between fiber,wavelength units and pixels
+    lsst::geom::Point2D fiberWavelengthToPixels(double fiber, double wavelength) const {
+        return lsst::geom::Point2D(
+            (fiber - _fiberMin)*_fiberPitch,
+            (wavelength - _wavelengthMin)/_wavelengthDispersion
+        );
+    }
+    lsst::geom::Point2D pixelsToFiberWavelength(lsst::geom::Point2D const& pixels) const {
+        return lsst::geom::Point2D(
+            pixels.getX()/_fiberPitch + _fiberMin,
+            pixels.getY()*_wavelengthDispersion + _wavelengthMin
+        );
+    }
+    //@}
+
     double _fiberPitch;  ///< average pixels per fiber
     double _fiberMin;  ///< minimum fiberId
     double _wavelengthDispersion;  ///< nm/pixels
@@ -243,21 +401,31 @@ class OpticsModel {
     //@{
     /// Convert from slit coordinates (spatial, spectral) to detector coordinates (x, y)
     lsst::geom::Point2D slitToDetector(double spatial, double spectral) const;
-    Array2D slitToDetector(Array1D const& spatial, Array1D const& spectral) const;
+    Array2D slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
+        return detail::applyMethod<double>(
+            *this, &OpticsModel::slitToDetector, spatial, spectral, "spatial", "spectral"
+        );
+    }
     lsst::geom::Point2D slitToDetector(lsst::geom::Point2D const& spatialSpectral) const {
         return slitToDetector(spatialSpectral.getX(), spatialSpectral.getY());
     }
-    Array2D slitToDetector(Array2D const& spatialSpectral) const;
+    Array2D slitToDetector(Array2D const& spatialSpectral) const {
+        return detail::applyMethod<double>(*this, &OpticsModel::slitToDetector, spatialSpectral);
+    }
     //@}
 
     //@{
     /// Convert from detector coordinates (x, y) to slit coordinates (spatial, spectral)
     lsst::geom::Point2D detectorToSlit(double x, double y) const;
-    Array2D detectorToSlit(Array1D const& x, Array1D const& y) const;
+    Array2D detectorToSlit(Array1D const& x, Array1D const& y) const {
+        return detail::applyMethod<double>(*this, &OpticsModel::detectorToSlit, x, y, "x", "y");
+    }
     lsst::geom::Point2D detectorToSlit(lsst::geom::Point2D const& xy) const {
         return detectorToSlit(xy.getX(), xy.getY());
     }
-    Array2D detectorToSlit(Array2D const& xy) const;
+    Array2D detectorToSlit(Array2D const& xy) const {
+        return detail::applyMethod<double>(*this, &OpticsModel::detectorToSlit, xy);
+    }
     //@}
 
   private:
@@ -332,22 +500,30 @@ class DetectorModel {
 
     //@{
     /// Convert from detector coordinates (x, y) to pixel coordinates (p, q)
+    lsst::geom::Point2D detectorToPixels(lsst::geom::Point2D const& detector) const;
     lsst::geom::Point2D detectorToPixels(double x, double y) const {
         return detectorToPixels(lsst::geom::Point2D(x, y));
     }
-    lsst::geom::Point2D detectorToPixels(lsst::geom::Point2D const& detector) const;
-    Array2D detectorToPixels(Array1D const& x, Array1D const& y) const;
-    Array2D detectorToPixels(Array2D const& xy) const;
+    Array2D detectorToPixels(Array1D const& x, Array1D const& y) const {
+        return detail::applyMethod<double>(*this, &DetectorModel::detectorToPixels, x, y, "x", "y");
+    }
+    Array2D detectorToPixels(Array2D const& xy) const {
+        return detail::applyMethod<double>(*this, &DetectorModel::detectorToPixels, xy);
+    }
     //@}
 
     //@{
     /// Convert from pixel coordinates (p, q) to detector coordinates (x, y)
+    lsst::geom::Point2D pixelsToDetector(lsst::geom::Point2D const& pixels) const;
     lsst::geom::Point2D pixelsToDetector(double p, double q) const {
         return pixelsToDetector(lsst::geom::Point2D(p, q));
     }
-    lsst::geom::Point2D pixelsToDetector(lsst::geom::Point2D const& pixels) const;
-    Array2D pixelsToDetector(Array1D const& p, Array1D const& q) const;
-    Array2D pixelsToDetector(Array2D const& pq) const;
+    Array2D pixelsToDetector(Array1D const& p, Array1D const& q) const {
+        return detail::applyMethod<double>(*this, &DetectorModel::pixelsToDetector, p, q, "p", "q");
+    }
+    Array2D pixelsToDetector(Array2D const& pq) const {
+        return detail::applyMethod<double>(*this, &DetectorModel::pixelsToDetector, pq);
+    }
     //@}
 
     /// Return neighboring columns
