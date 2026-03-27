@@ -14,6 +14,7 @@ from .FiberTrace import FiberTrace
 from .FiberTraceSet import FiberTraceSet
 from .Spectrum import Spectrum
 from .SpectrumSet import SpectrumSet
+from .extractSpectra import extractSpectra
 
 
 class ExtractSpectraConfig(pexConfig.Config):
@@ -27,6 +28,7 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
+    bgSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks for background estimation")
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -150,9 +152,15 @@ class ExtractSpectraTask(pipeBase.Task):
                 spectrum = ft.extractAperture(maskedImage, badBitMask)
                 spectra.add(spectrum)
         else:
-            spectra = fiberTraceSet.extractSpectra(
-                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+            spectra, background = extractSpectra(
+                maskedImage,
+                fiberTraceSet,
+                badBitMask,
+                self.config.bgSize,
+                self.config.minFracMask,
+                self.config.minFracImage,
             )
+            background.writeFits("background.fits")
 
         if detectorMap is not None:
             for spectrum in spectra:
