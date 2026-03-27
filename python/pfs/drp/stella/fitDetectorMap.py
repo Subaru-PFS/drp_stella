@@ -617,9 +617,12 @@ class FitDetectorMapTask(Task):
         good = self.getGoodLines(lines, dispersion)
         notTrace = lines.description[good] != "Trace"
 
-        modelSlit = detectorMap.slitModel.spectrographToSlit(lines.fiberId[good], lines.wavelength[good])
-        measDetector = detectorMap.detectorModel.pixelsToDetector(lines.x[good], lines.y[good])
-        measSlit = detectorMap.opticsModel.detectorToSlit(measDetector)
+        modelSlit = detectorMap.slitModel.spectrographToPreSlit(lines.fiberId[good], lines.wavelength[good])
+        measSlit = detectorMap.slitModel.slitToPreSlit(
+            detectorMap.opticsModel.detectorToSlit(
+                detectorMap.detectorModel.pixelsToDetector(lines.x[good], lines.y[good])
+            )
+        )
 
         spatialResidual = measSlit[:, 0] - modelSlit[:, 0]
         spectralResidual = measSlit[:, 1] - modelSlit[:, 1]
@@ -1150,20 +1153,25 @@ class FitDetectorMapTask(Task):
                 self.log.warn("Non-finite softening, probably a bad fit")
             else:
                 result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
-                self.log.info("Softened fit: "
-                            "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                            result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                            result.xSoften, result.ySoften, used.sum(),
-                            getDescriptionCounts(lines.description, used))
+                self.log.info(
+                    "Softened fit: "
+                    "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
+                    result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
+                    result.xSoften, result.ySoften, used.sum(),
+                    getDescriptionCounts(lines.description, used),
+                )
 
             reservedStats = calculateFitStatistics(
-                fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
+                fit, lines, reserved, result.distortion.getNumParameters(), soften,
+                distortion=result.distortion
             )
-            self.log.info("Softened fit quality from reserved lines: "
-                        "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                        reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
-                        reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                        reserved.sum(), getDescriptionCounts(lines.description, reserved))
+            self.log.info(
+                "Softened fit quality from reserved lines: "
+                "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
+                reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
+                reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
+                reserved.sum(), getDescriptionCounts(lines.description, reserved),
+            )
             self.log.debug("    Softened fit model: %s", result.distortion)
 
         result.reserved = reserved

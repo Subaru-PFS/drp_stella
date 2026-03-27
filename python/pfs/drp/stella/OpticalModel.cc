@@ -11,43 +11,75 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-//@{
-/// Declare a function that requires a specific array type
-template <typename T, int C, typename Cls>
+
+/// Declare a function that requires specific array types
+///
+/// Converts the input arrays to the required types.
+template <typename Input1, typename Input2, int C, typename Cls, typename T1, typename T2>
 void defineArrayFunction(
     py::class_<Cls> & cls, char const* funcName,
-    typename Cls::Array2D (Cls::*function)(typename Cls::Array1I const&, typename Cls::Array1D const&) const,
+    typename ndarray::Array<double, 2, 1> (Cls::*function)(
+        typename ndarray::Array<T1, 1, 1> const&, typename ndarray::Array<T2, 1, 1> const&
+    ) const,
     char const* name1, char const* name2
 ) {
     cls.def(
         funcName,
         [function](
-            Cls const& self, ndarray::Array<int, 1, C> const& one, ndarray::Array<T, 1, C> const& two
+            Cls const& self, ndarray::Array<Input1, 1, C> const& one, ndarray::Array<Input2, 1, C> const& two
         ) {
-            return (self.*function)(utils::convertArray<int>(one), utils::convertArray<double>(two));
+            return (self.*function)(utils::convertArray<T1>(one), utils::convertArray<T2>(two));
         },
-        (name1 + std::string("_a")).c_str(),
-        (name2 + std::string("_a")).c_str()
+        py::arg(name1),
+        py::arg(name2)
     );
 }
-template <typename T, int C, typename Cls>
-void defineArrayFunction(
-    py::class_<Cls> & cls, char const* funcName,
-    typename Cls::Array2D (Cls::*function)(typename Cls::Array1D const&, typename Cls::Array1D const&) const,
-    char const* name1, char const* name2
+
+
+/// Define overloads for methods that map between coordinate systems
+///
+/// This defines overloads for each of the methods, and adds array conversions.
+template <typename Cls, typename Output, typename Input1, typename Input2>
+void defineOverloads(
+    py::class_<Cls> & cls,
+    char const* funcName,
+    lsst::geom::Point2D (Cls::*scalars)(Input1, Input2) const,
+    lsst::geom::Point2D (Cls::*point)(lsst::geom::Point2D const&) const,
+    ndarray::Array<Output, 2, 1> (Cls::*arrays)(
+        ndarray::Array<Input1, 1, 1> const&, ndarray::Array<Input2, 1, 1> const&
+    ) const,
+    ndarray::Array<Output, 2, 1> (Cls::*array2d)(ndarray::Array<Input1, 2, 1> const&) const,
+     char const* name1, char const* name2, char const* names
 ) {
-    cls.def(
-        funcName,
-        [function](Cls const& self, ndarray::Array<T, 1, C> const& one, ndarray::Array<T, 1, C> const& two) {
-            return (self.*function)(
-                utils::convertArray<double>(one), utils::convertArray<double>(two)
-            );
-        },
-        (name1 + std::string("_a")).c_str(),
-        (name2 + std::string("_a")).c_str()
-    );
+    cls.def(funcName, scalars, py::arg(name1), py::arg(name2));
+    cls.def(funcName, arrays, py::arg(name1), py::arg(name2));
+    defineArrayFunction<float, float, 1>(cls, funcName, arrays, name1, name2);
+    defineArrayFunction<float, float, 0>(cls, funcName, arrays, name1, name2);
+    defineArrayFunction<double, double, 0>(cls, funcName, arrays, name1, name2);
+    cls.def(funcName, point, py::arg(names));
+    cls.def(funcName, array2d, py::arg(names));
 }
-//@}
+
+
+/// Specialization for functions that take int,double instead of double,double
+///
+/// In that case, we don't have the Point2D or Array2D inputs.
+template <typename Cls, typename Output>
+void defineOverloads(
+    py::class_<Cls> & cls,
+    char const* funcName,
+    lsst::geom::Point2D (Cls::*scalars)(int, double) const,
+    ndarray::Array<Output, 2, 1> (Cls::*arrays)(
+        ndarray::Array<int, 1, 1> const&, ndarray::Array<double, 1, 1> const&
+    ) const,
+     char const* name1, char const* name2
+) {
+    cls.def(funcName, scalars, py::arg(name1), py::arg(name2));
+    cls.def(funcName, arrays, py::arg(name1), py::arg(name2));
+    defineArrayFunction<int, float, 1>(cls, funcName, arrays, name1, name2);
+    defineArrayFunction<int, float, 0>(cls, funcName, arrays, name1, name2);
+    defineArrayFunction<int, double, 0>(cls, funcName, arrays, name1, name2);
+}
 
 
 void declareSlitModel(py::module_ & mod) {
@@ -91,36 +123,37 @@ void declareSlitModel(py::module_ & mod) {
     cls.def_property_readonly("spectralOffsets", &SlitModel::getSpectralOffsets);
     cls.def_property_readonly("distortions", &SlitModel::getDistortions);
 
-    cls.def(
+    defineOverloads(
+        cls,
         "spectrographToSlit",
-        py::overload_cast<int, double>(&SlitModel::spectrographToSlit, py::const_),
-        "fiberId"_a, "wavelength"_a
-    );
-    cls.def(
-        "spectrographToSlit",
-        py::overload_cast<OpticsModel::Array1I const&, OpticsModel::Array1D const&>(&SlitModel::spectrographToSlit, py::const_),
-        "fiberId"_a, "wavelength"_a
-    );
-    defineArrayFunction<float, 1>(
-        cls, "spectrographToSlit",
-        py::overload_cast<OpticsModel::Array1I const&, OpticsModel::Array1D const&>(
-            &SlitModel::spectrographToSlit, py::const_
-        ),
+        &SlitModel::spectrographToSlit,
+        &SlitModel::spectrographToSlit,
         "fiberId", "wavelength"
     );
-    defineArrayFunction<float, 0>(
-        cls, "spectrographToSlit",
-        py::overload_cast<OpticsModel::Array1I const&, OpticsModel::Array1D const&>(
-            &SlitModel::spectrographToSlit, py::const_
-        ),
+    defineOverloads(
+        cls,
+        "spectrographToPreSlit",
+        &SlitModel::spectrographToPreSlit,
+        &SlitModel::spectrographToPreSlit,
         "fiberId", "wavelength"
     );
-    defineArrayFunction<double, 0>(
-        cls, "spectrographToSlit",
-        py::overload_cast<OpticsModel::Array1I const&, OpticsModel::Array1D const&>(
-            &SlitModel::spectrographToSlit, py::const_
-        ),
-        "fiberId", "wavelength"
+    defineOverloads(
+        cls,
+        "preSlitToSlit",
+        &SlitModel::preSlitToSlit,
+        &SlitModel::preSlitToSlit,
+        &SlitModel::preSlitToSlit,
+        &SlitModel::preSlitToSlit,
+        "spatial", "spectral", "spatialSpectral"
+    );
+    defineOverloads(
+        cls,
+        "slitToPreSlit",
+        &SlitModel::slitToPreSlit,
+        &SlitModel::slitToPreSlit,
+        &SlitModel::slitToPreSlit,
+        &SlitModel::slitToPreSlit,
+        "spatial", "spectral", "spatialSpectral"
     );
 }
 
@@ -157,92 +190,23 @@ void declareOpticsModel(py::module_ & mod) {
     cls.def_property_readonly("y", &OpticsModel::getY);
     cls.def_property_readonly("distortions", &OpticsModel::getDistortions);
 
-    cls.def(
+    defineOverloads(
+        cls,
         "slitToDetector",
-        py::overload_cast<double, double>(&OpticsModel::slitToDetector, py::const_),
-        "spatial"_a, "spectral"_a
+        &OpticsModel::slitToDetector,
+        &OpticsModel::slitToDetector,
+        &OpticsModel::slitToDetector,
+        &OpticsModel::slitToDetector,
+        "spatial", "spectral", "spatialSpectral"
     );
-    cls.def(
-        "slitToDetector",
-        py::overload_cast<
-            OpticsModel::Array1D const&, OpticsModel::Array1D const&
-        >(&OpticsModel::slitToDetector, py::const_),
-        "spatial"_a, "spectral"_a
-    );
-    cls.def(
-        "slitToDetector",
-        py::overload_cast<lsst::geom::Point2D const&>(&OpticsModel::slitToDetector, py::const_),
-        "xy"_a
-    );
-    cls.def(
-        "slitToDetector",
-        py::overload_cast<OpticsModel::Array2D const&>(&OpticsModel::slitToDetector, py::const_),
-        "spatialSpectral"_a
-    );
-    defineArrayFunction<float, 1>(
-        cls, "slitToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::slitToDetector, py::const_
-        ),
-        "spatial", "spectral"
-    );
-    defineArrayFunction<float, 0>(
-        cls, "slitToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::slitToDetector, py::const_
-        ),
-        "spatial", "spectral"
-    );
-    defineArrayFunction<double, 0>(
-        cls, "slitToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::slitToDetector, py::const_
-        ),
-        "spatial", "spectral"
-    );
-
-    cls.def(
+    defineOverloads(
+        cls,
         "detectorToSlit",
-        py::overload_cast<double, double>(&OpticsModel::detectorToSlit, py::const_),
-        "x"_a, "y"_a
-    );
-    cls.def(
-        "detectorToSlit",
-        py::overload_cast<
-            OpticsModel::Array1D const&, OpticsModel::Array1D const&
-        >(&OpticsModel::detectorToSlit, py::const_),
-        "x"_a, "y"_a
-    );
-    cls.def(
-        "detectorToSlit",
-        py::overload_cast<lsst::geom::Point2D const&>(&OpticsModel::detectorToSlit, py::const_),
-        "xy"_a
-    );
-    cls.def(
-        "detectorToSlit",
-        py::overload_cast<OpticsModel::Array2D const&>(&OpticsModel::detectorToSlit, py::const_),
-        "xy"_a
-    );
-    defineArrayFunction<float, 1>(
-        cls, "detectorToSlit",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::detectorToSlit, py::const_
-        ),
-        "x", "y"
-    );
-    defineArrayFunction<float, 0>(
-        cls, "detectorToSlit",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::detectorToSlit, py::const_
-        ),
-        "x", "y"
-    );
-    defineArrayFunction<double, 0>(
-        cls, "detectorToSlit",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &OpticsModel::detectorToSlit, py::const_
-        ),
-        "x", "y"
+        &OpticsModel::detectorToSlit,
+        &OpticsModel::detectorToSlit,
+        &OpticsModel::detectorToSlit,
+        &OpticsModel::detectorToSlit,
+        "x", "y", "xy"
     );
 }
 
@@ -281,91 +245,23 @@ void declareDetectorModel(py::module_ & mod) {
     cls.def_property_readonly("rightCcd", &DetectorModel::getRightCcd);
     cls.def_property_readonly("distortions", &DetectorModel::getDistortions);
 
-    cls.def(
+    defineOverloads(
+        cls,
         "detectorToPixels",
-        py::overload_cast<double, double>(&DetectorModel::detectorToPixels, py::const_),
-        "x"_a, "y"_a
+        &DetectorModel::detectorToPixels,
+        &DetectorModel::detectorToPixels,
+        &DetectorModel::detectorToPixels,
+        &DetectorModel::detectorToPixels,
+        "x", "y", "xy"
     );
-    cls.def(
-        "detectorToPixels",
-        py::overload_cast<
-            OpticsModel::Array1D const&, OpticsModel::Array1D const&
-        >(&DetectorModel::detectorToPixels, py::const_),
-        "x"_a, "y"_a
-    );
-    cls.def(
-        "detectorToPixels",
-        py::overload_cast<lsst::geom::Point2D const&>(&DetectorModel::detectorToPixels, py::const_),
-        "xy"_a
-    );
-    cls.def(
-        "detectorToPixels",
-        py::overload_cast<OpticsModel::Array2D const&>(&DetectorModel::detectorToPixels, py::const_),
-        "xy"_a
-    );
-    defineArrayFunction<float, 1>(
-        cls, "detectorToPixels",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::detectorToPixels, py::const_
-        ),
-        "x", "y"
-    );
-    defineArrayFunction<float, 0>(
-        cls, "detectorToPixels",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::detectorToPixels, py::const_
-        ),
-        "x", "y"
-    );
-    defineArrayFunction<double, 0>(
-        cls, "detectorToPixels",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::detectorToPixels, py::const_
-        ),
-        "x", "y"
-    );
-    cls.def(
+    defineOverloads(
+        cls,
         "pixelsToDetector",
-        py::overload_cast<double, double>(&DetectorModel::pixelsToDetector, py::const_),
-        "p"_a, "q"_a
-    );
-    cls.def(
-        "pixelsToDetector",
-        py::overload_cast<
-            OpticsModel::Array1D const&, OpticsModel::Array1D const&
-        >(&DetectorModel::pixelsToDetector, py::const_),
-        "p"_a, "q"_a
-    );
-    cls.def(
-        "pixelsToDetector",
-        py::overload_cast<lsst::geom::Point2D const&>(&DetectorModel::pixelsToDetector, py::const_),
-        "pq"_a
-    );
-    cls.def(
-        "pixelsToDetector",
-        py::overload_cast<OpticsModel::Array2D const&>(&DetectorModel::pixelsToDetector, py::const_),
-        "pq"_a
-    );
-    defineArrayFunction<float, 1>(
-        cls, "pixelsToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::pixelsToDetector, py::const_
-        ),
-        "p", "q"
-    );
-    defineArrayFunction<float, 0>(
-        cls, "pixelsToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::pixelsToDetector, py::const_
-        ),
-        "p", "q"
-    );
-    defineArrayFunction<double, 0>(
-        cls, "pixelsToDetector",
-        py::overload_cast<OpticsModel::Array1D const&, OpticsModel::Array1D const&>(
-            &DetectorModel::pixelsToDetector, py::const_
-        ),
-        "p", "q"
+        &DetectorModel::pixelsToDetector,
+        &DetectorModel::pixelsToDetector,
+        &DetectorModel::pixelsToDetector,
+        &DetectorModel::pixelsToDetector,
+        "p", "q", "pq"
     );
 }
 

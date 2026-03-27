@@ -166,35 +166,17 @@ double SlitModel::getSpectralOffset(int fiberId) const {
 }
 
 
-lsst::geom::Point2D SlitModel::spectrographToSlit(int fiberId, double wavelength) const {
-    double const spatialOffset = getSpatialOffset(fiberId);
-    double const spectralOffset = getSpectralOffset(fiberId);
-    double const spatial = (fiberId - _fiberMin)*_fiberPitch + spatialOffset;  // pixels
-    double const spectral = (wavelength - _wavelengthMin)/_wavelengthDispersion + spectralOffset; // pixels
-    lsst::geom::Point2D slit{spatial, spectral};
+lsst::geom::Point2D SlitModel::_spectrographToPreSlit(int fiberId, double wavelength) const {
+//    std::cerr << "fiberId,wavelength: " << fiberId << ", " << wavelength << std::endl;
+    lsst::geom::Point2D preSlit = fiberWavelengthToPixels(fiberId, wavelength);
+//    std::cerr << " --> toPixels: " << preSlit;
+    preSlit += lsst::geom::Extent2D(getSpatialOffset(fiberId), getSpectralOffset(fiberId));
+//    std::cerr << " + slitOffset:  " << preSlit;
     for (auto const& dd : _distortions) {
-         slit += lsst::geom::Extent2D((*dd)(slit));
+        preSlit += lsst::geom::Extent2D((*dd)(preSlit));
     }
-    auto const result = lsst::geom::Point2D(
-        slit.getX()/_fiberPitch + _fiberMin,
-        slit.getY()*_wavelengthDispersion + _wavelengthMin
-    );
-    return result;
-}
-
-
-SlitModel::Array2D SlitModel::spectrographToSlit(
-    Array1I const& fiberId,
-    Array1D const& wavelength
-) const {
-    utils::checkSize(fiberId.size(), wavelength.size(), "fiberId vs wavelength");
-    Array2D result = ndarray::allocate(fiberId.size(), 2);
-    for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
-        lsst::geom::Point2D const slit = spectrographToSlit(fiberId[ii], wavelength[ii]);
-        result[ii][0] = slit.getX();
-        result[ii][1] = slit.getY();
-    }
-    return result;
+//    std::cerr << " + distortions: " << preSlit << std::endl;
+    return preSlit;
 }
 
 
@@ -376,30 +358,6 @@ lsst::geom::Point2D OpticsModel::slitToDetector(double spatial, double spectral)
 }
 
 
-OpticsModel::Array2D OpticsModel::slitToDetector(Array1D const& spatial, Array1D const& spectral) const {
-    utils::checkSize(spatial.size(), spectral.size(), "spatial vs spectral");
-    Array2D result = ndarray::allocate(spatial.size(), 2);
-    for (std::size_t ii = 0; ii < spatial.size(); ++ii) {
-        lsst::geom::Point2D const detector = slitToDetector(spatial[ii], spectral[ii]);
-        result[ii][0] = detector.getX();
-        result[ii][1] = detector.getY();
-    }
-    return result;
-}
-
-
-OpticsModel::Array2D OpticsModel::slitToDetector(Array2D const& spatialSpectral) const {
-    utils::checkSize(spatialSpectral.getShape()[1], 2UL, "spatialSpectral");
-    Array2D result = ndarray::allocate(spatialSpectral.getShape());
-    for (std::size_t ii = 0; ii < spatialSpectral.getShape()[0]; ++ii) {
-        lsst::geom::Point2D const detector = slitToDetector(spatialSpectral[ii][0], spatialSpectral[ii][1]);
-        result[ii][0] = detector.getX();
-        result[ii][1] = detector.getY();
-    }
-    return result;
-}
-
-
 lsst::geom::Point2D OpticsModel::detectorToSlit(double x, double y) const {
     if (!std::isfinite(x) || !std::isfinite(y)) {
         return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
@@ -409,30 +367,6 @@ lsst::geom::Point2D OpticsModel::detectorToSlit(double x, double y) const {
     } catch (...) {
         return lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     }
-}
-
-
-OpticsModel::Array2D OpticsModel::detectorToSlit(Array1D const& x, Array1D const& y) const {
-    utils::checkSize(x.size(), y.size(), "x vs y");
-    ndarray::Array<double, 2, 1> result = ndarray::allocate(x.size(), 2);
-    for (std::size_t ii = 0; ii < x.size(); ++ii) {
-        lsst::geom::Point2D const slit = detectorToSlit(x[ii], y[ii]);
-        result[ii][0] = slit.getX();
-        result[ii][1] = slit.getY();
-    }
-    return result;
-}
-
-
-OpticsModel::Array2D OpticsModel::detectorToSlit(Array2D const& xy) const {
-    utils::checkSize(xy.getShape()[1], 2UL, "xy");
-    Array2D result = ndarray::allocate(xy.getShape());
-    for (std::size_t ii = 0; ii < xy.getShape()[0]; ++ii) {
-        lsst::geom::Point2D const slit = detectorToSlit(xy[ii][0], xy[ii][1]);
-        result[ii][0] = slit.getX();
-        result[ii][1] = slit.getY();
-    }
-    return result;
 }
 
 
@@ -519,30 +453,6 @@ lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& d
 }
 
 
-DetectorModel::Array2D DetectorModel::detectorToPixels(Array1D const& x, Array1D const& y) const {
-    utils::checkSize(x.size(), y.size(), "x vs y");
-    Array2D result = ndarray::allocate(x.size(), 2);
-    for (std::size_t ii = 0; ii < x.size(); ++ii) {
-        lsst::geom::Point2D const pixel = detectorToPixels(lsst::geom::Point2D(x[ii], y[ii]));
-        result[ii][0] = pixel.getX();
-        result[ii][1] = pixel.getY();
-    }
-    return result;
-}
-
-
-DetectorModel::Array2D DetectorModel::detectorToPixels(Array2D const& xy) const {
-    utils::checkSize(xy.getShape()[1], 2UL, "xy");
-    Array2D result = ndarray::allocate(xy.getShape());
-    for (std::size_t ii = 0; ii < xy.getShape()[0]; ++ii) {
-        lsst::geom::Point2D const pixel = detectorToPixels(lsst::geom::Point2D(xy[ii][0], xy[ii][1]));
-        result[ii][0] = pixel.getX();
-        result[ii][1] = pixel.getY();
-    }
-    return result;
-}
-
-
 lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& pixels) const {
     if (!_isDivided) {
         return pixels;
@@ -575,30 +485,6 @@ lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& p
     } while (delta.computeSquaredNorm() > std::pow(PRECISION, 2));
 
     return detector;
-}
-
-
-DetectorModel::Array2D DetectorModel::pixelsToDetector(Array1D const& p, Array1D const& q) const {
-    utils::checkSize(p.size(), q.size(), "p vs q");
-    Array2D result = ndarray::allocate(p.size(), 2);
-    for (std::size_t ii = 0; ii < p.size(); ++ii) {
-        lsst::geom::Point2D const detector = pixelsToDetector(lsst::geom::Point2D(p[ii], q[ii]));
-        result[ii][0] = detector.getX();
-        result[ii][1] = detector.getY();
-    }
-    return result;
-}
-
-
-DetectorModel::Array2D DetectorModel::pixelsToDetector(Array2D const& pq) const {
-    utils::checkSize(pq.getShape()[1], 2UL, "pq");
-    Array2D result = ndarray::allocate(pq.getShape());
-    for (std::size_t ii = 0; ii < pq.getShape()[0]; ++ii) {
-        lsst::geom::Point2D const detector = pixelsToDetector(lsst::geom::Point2D(pq[ii][0], pq[ii][1]));
-        result[ii][0] = detector.getX();
-        result[ii][1] = detector.getY();
-    }
-    return result;
 }
 
 
