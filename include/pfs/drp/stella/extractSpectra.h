@@ -18,7 +18,8 @@ std::pair<SpectrumSet, lsst::afw::image::Image<double>> extractSpectra(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,
-    int bgBlockSize,
+    int xBlockSize,
+    int yBlockSize,
     float minFracMask,
     float minFracImage
 );

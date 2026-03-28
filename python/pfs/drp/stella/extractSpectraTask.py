@@ -28,7 +28,8 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
-    bgSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks for background estimation")
+    xBlockSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks in x for background estimation")
+    yBlockSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks in y for background estimation")
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -156,7 +157,8 @@ class ExtractSpectraTask(pipeBase.Task):
                 maskedImage,
                 fiberTraceSet,
                 badBitMask,
-                self.config.bgSize,
+                self.config.xBlockSize,
+                self.config.yBlockSize,
                 self.config.minFracMask,
                 self.config.minFracImage,
             )

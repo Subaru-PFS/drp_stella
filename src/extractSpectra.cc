@@ -14,19 +14,22 @@ namespace {
 
 
 struct BackgroundHelper {
-    BackgroundHelper(lsst::geom::Extent2I const& dims, int blockSize)
-        : xNumBlocks((dims.getX() + blockSize - 1) / blockSize),
-          yNumBlocks((dims.getY() + blockSize - 1) / blockSize),
+    BackgroundHelper(lsst::geom::Extent2I const& dims, int xBlockSize, int yBlockSize)
+        : xNumBlocks((dims.getX() + xBlockSize - 1) / xBlockSize),
+          yNumBlocks((dims.getY() + yBlockSize - 1) / yBlockSize),
           xBlocks(ndarray::allocate(dims.getX())),
           yMin(ndarray::allocate(yNumBlocks)),
           yMax(ndarray::allocate(yNumBlocks)) {
+        if (xBlockSize <= 0 || yBlockSize <= 0) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Block sizes must be positive");
+        }
         for (int ii = 0; ii < dims.getX(); ++ii) {
-            xBlocks[ii] = ii / blockSize;
+            xBlocks[ii] = ii / xBlockSize;
         }
 
         for (int ii = 0; ii < int(yNumBlocks); ++ii) {
-            yMin[ii] = ii * blockSize;
-            yMax[ii] = std::min((ii + 1) * blockSize, dims.getY());
+            yMin[ii] = ii * yBlockSize;
+            yMax[ii] = std::min((ii + 1) * yBlockSize, dims.getY());
         }
     }
 
@@ -47,18 +50,20 @@ struct SpectrumExtractor {
         lsst::afw::image::MaskedImage<ImageT> const& image,
         FiberTraceSet<ImageT> const& fiberTraces,
         lsst::afw::image::MaskPixel badBitMask,
-        int bgBlockSize,
+        int xBlockSize,
+        int yBlockSize,
         float minFracMask,
         float minFracImage
     ) : _numFibers(fiberTraces.size()),
         _image(image),
         _fiberTraces(fiberTraces),
         _badBitMask(badBitMask),
-        _bgBlockSize(bgBlockSize),
+        _xBlockSize(xBlockSize),
+        _yBlockSize(yBlockSize),
         _minFracMask(minFracMask),
         _minFracImage(minFracImage),
-        _bg(image.getDimensions(), bgBlockSize),
-        _bgStart(_numFibers * bgBlockSize),
+        _bg(image.getDimensions(), xBlockSize, yBlockSize),
+        _bgStart(_numFibers * yBlockSize),
         _requireMask(image.getMask()->getPlaneBitMask(fiberMaskPlane)),
         _noData(1 << image.getMask()->addMaskPlane("NO_DATA")),
         _badFiberTrace(1 << image.getMask()->addMaskPlane("BAD_FIBERTRACE")),
@@ -66,8 +71,8 @@ struct SpectrumExtractor {
         _useTrace(ndarray::allocate(_numFibers)),
         _traceMin(ndarray::allocate(_numFibers)),
         _traceMax(ndarray::allocate(_numFibers)),
-        _maskResult(ndarray::allocate(_numFibers, bgBlockSize)),
-        _maskBadResult(ndarray::allocate(_numFibers, bgBlockSize)),
+        _maskResult(ndarray::allocate(_numFibers, yBlockSize)),
+        _maskBadResult(ndarray::allocate(_numFibers, yBlockSize)),
         _numParams(_bgStart + _bg.xNumBlocks),
         _matrix(_numParams),
         _haveMatrixEntry(ndarray::allocate(_numParams)),
@@ -277,6 +282,14 @@ struct SpectrumExtractor {
             std::size_t numTracePixels = 0;
             std::size_t const xStart = std::max(std::ptrdiff_t(ixMin), 0L);
             MaskT maskCore = 0;
+
+            // Background cross-terms
+            std::size_t const minBlock = _bg.xBlocks[xStart];
+            std::size_t const maxBlock = _bg.xBlocks[xStart + iTrace.getBBox().getWidth() - 1];
+            std::size_t const numBlocks = maxBlock - minBlock + 1;
+            ndarray::Array<double, 1, 1> bgTerms = ndarray::allocate(numBlocks);
+            bgTerms.deep() = 0.0;
+
             for (int xModel = xStart - ixMin, xData = xStart;
                  xModel < iTrace.getWidth() && xData < _image.getWidth();
                  ++xModel, ++xData) {
@@ -302,6 +315,9 @@ struct SpectrumExtractor {
                 model2Weighted += m2/varianceValue;
                 modelData += modelValue*imageValue;
                 sumModel += modelValue;
+
+                std::size_t const block = _bg.xBlocks[xData];
+                bgTerms[block - minBlock] += modelValue;
             }
             _maskBadResult[ii][blockRow] |= maskCore;
 
@@ -322,6 +338,11 @@ struct SpectrumExtractor {
             _haveMatrixEntry[iIndex] |= (model2 != 0.0);
             _diagonalWeighted[iIndex] = model2Weighted;
             _vector[iIndex] = modelData;
+
+            for (std::size_t ii = 0, bgIndex = _bgStart + minBlock; ii < numBlocks; ++ii, ++bgIndex) {
+                _matrix.add(iIndex, bgIndex, bgTerms[ii]);
+                _haveMatrixEntry[bgIndex] |= (bgTerms[ii] != 0.0);
+            }
 
             if (ii >= _numFibers - 1) {
                 continue;
@@ -378,7 +399,6 @@ struct SpectrumExtractor {
                 }
                 std::size_t const jIndex = getSpectrumIndex(jj, blockRow);
                 _matrix.add(iIndex, jIndex, modelModel);
-//                _matrix.add(jIndex, iIndex, modelModel);
                 _haveMatrixEntry[jIndex] |= (modelModel != 0.0);
             }
         }
@@ -402,37 +422,6 @@ struct SpectrumExtractor {
         for (std::size_t ii = 0, bgIndex = _bgStart; ii < _bg.xNumBlocks; ++ii, ++bgIndex) {
             _matrix.add(bgIndex, bgIndex, terms[ii]);
             _haveMatrixEntry[bgIndex] |= (terms[ii] != 0.0);
-        }
-
-        // Accumulate the fiber-background cross terms
-        for (std::size_t ii = 0; ii < _numFibers; ++ii) {
-            std::size_t const iIndex = getSpectrumIndex(ii, blockRow);
-            auto const& trace = _fiberTraces[ii]->getTrace();
-            int const xMin = trace.getBBox().getMinX();
-            int const xMax = trace.getBBox().getMaxX();
-            auto traceIter = trace.row_begin(y - trace.getBBox().getMinY());
-            auto imageIter = _image.row_begin(y) + xMin;
-            std::size_t const minBlock = _bg.xBlocks[xMin];
-            std::size_t const maxBlock = _bg.xBlocks[xMax];
-            std::size_t const numBlocks = maxBlock - minBlock + 1;
-            ndarray::Array<double, 1, 1> terms = ndarray::allocate(numBlocks);
-            terms.deep() = 0.0;
-            for (int xx = xMin; xx <= xMax; ++xx, ++traceIter, ++imageIter) {
-                if (!(traceIter.mask() & _requireMask)) {
-                    continue;
-                }
-                if (!isGoodImage(imageIter)) {
-                    continue;
-                }
-                double const modelValue = traceIter.image()/_spectra[ii]->getNorm()[y];
-                std::size_t const block = _bg.xBlocks[xx] - minBlock;
-                terms[block] += modelValue;
-            }
-            for (std::size_t ii = 0, bgIndex = _bgStart + minBlock; ii < numBlocks; ++ii, ++bgIndex) {
-                _matrix.add(iIndex, bgIndex, terms[ii]);
-//                _matrix.add(bgIndex, iIndex, terms[ii]);
-                _haveMatrixEntry[bgIndex] |= (terms[ii] != 0.0);
-            }
         }
     }
 
@@ -516,7 +505,8 @@ struct SpectrumExtractor {
     lsst::afw::image::MaskedImage<ImageT> const& _image;
     FiberTraceSet<ImageT> const& _fiberTraces;
     lsst::afw::image::MaskPixel _badBitMask;
-    int _bgBlockSize;
+    int _xBlockSize;
+    int _yBlockSize;
     float _minFracMask;
     float _minFracImage;
 
@@ -554,11 +544,14 @@ std::pair<SpectrumSet, lsst::afw::image::Image<double>> extractSpectra(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,
-    int bgBlockSize,
+    int xBlockSize,
+    int yBlockSize,
     float minFracMask,
     float minFracImage
 ) {
-    SpectrumExtractor extractor(image, fiberTraces, badBitMask, bgBlockSize, minFracMask, minFracImage);
+    SpectrumExtractor extractor(
+        image, fiberTraces, badBitMask, xBlockSize, yBlockSize, minFracMask, minFracImage
+    );
     extractor.run();
     return {std::move(extractor._spectra), std::move(extractor._background)};
 }
