@@ -374,6 +374,17 @@ class GridTransform {
     /// @return the indices of the grid points to use for interpolation, and their corresponding weights
     InterpolationInputs getInterpolation(double u, double v) const;
 
+    //@{
+    /// Calculate the relative areas of the triangles used for interpolation
+    ///
+    /// The relative area is the area of x,y triangle divided by the area of the
+    /// corresponding u,v triangle.
+    double calculateRelativeArea(double u, double v) const;
+    double calculateRelativeArea(lsst::geom::Point2D const& uv) const {
+        return calculateRelativeArea(uv.getX(), uv.getY());
+    }
+    //@}
+
   private:
 
     /// Convenience constructor for distorted grids

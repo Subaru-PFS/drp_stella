@@ -612,6 +612,20 @@ GridTransform::InterpolationInputs GridTransform::getInterpolation(double u, dou
 }
 
 
+double GridTransform::calculateRelativeArea(double u, double v) const {
+    auto const result = _tree.findTriangle(u, v);
+    Triangle const& uvTriangle = result.second;
+
+    auto const vertices = result.first;
+    Triangle xyTriangle{
+        lsst::geom::Point2D(arrayLookup(_x, std::get<0>(vertices)), arrayLookup(_y, std::get<0>(vertices))),
+        lsst::geom::Point2D(arrayLookup(_x, std::get<1>(vertices)), arrayLookup(_y, std::get<1>(vertices))),
+        lsst::geom::Point2D(arrayLookup(_x, std::get<2>(vertices)), arrayLookup(_y, std::get<2>(vertices)))
+    };
+    return xyTriangle.getArea() / uvTriangle.getArea();
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // GridDistortion
 ////////////////////////////////////////////////////////////////////////////////
