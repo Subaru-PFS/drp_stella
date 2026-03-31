@@ -555,8 +555,8 @@ class DetectorModel {
 
     double _xCenter;  ///< location of the division
     double _xOffset, _xScale, _yOffset, _yScale;  ///< Normalization for right CCD transformation
-    std::size_t const MAX_ITER = 100;  ///< maximum number of iterations for inverse transformations
-    std::size_t const PRECISION = 3.0e-4;  ///< precision for inverse transformations
+    std::size_t const INVERSE_MAX_ITER = 1000;  ///< maximum number of iterations for inverse transformations
+    double const INVERSE_PRECISION = 1.0e-3;  ///< precision for inverse transformations
 };
 
 

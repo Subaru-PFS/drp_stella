@@ -479,10 +479,10 @@ lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& p
         }
         delta = newPixels - pixels;
         detector -= delta;
-        if (++iter > MAX_ITER) {
+        if (++iter > INVERSE_MAX_ITER) {
             return nanPoint;
         }
-    } while (delta.computeSquaredNorm() > std::pow(PRECISION, 2));
+    } while (delta.computeSquaredNorm() > std::pow(INVERSE_PRECISION, 2));
 
     return detector;
 }
@@ -509,7 +509,6 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColu
         // Check both extents to see if those are on the detector
         lsst::geom::Point2D const left = detectorToPixels(detector - lsst::geom::Extent2D(halfWidth, 0));
         lsst::geom::Point2D const right = detectorToPixels(detector + lsst::geom::Extent2D(halfWidth, 0));
-
 
         // If the left side is on the detector, we're either off the detector to the right,
         // or in the chip gap.
@@ -547,7 +546,7 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColu
     for (int pp = pStart; pp <= pStop; ++pp) {
         lsst::geom::Point2D const point = pixelsToDetector(lsst::geom::Point2D(pp, row));
         double const dp = point.getX() - detector.getX();
-        if (std::isfinite(point.getX()) && std::abs(dp) <= halfWidth) {
+        if (std::isfinite(point.getX()) && std::abs(dp) <= halfWidth + 0.5) {
             if (pMin == -1) {
                 pMin = pp;
             }
