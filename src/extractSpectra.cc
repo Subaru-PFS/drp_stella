@@ -454,6 +454,12 @@ struct SpectrumExtractor {
         Solver solver;
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(_numParams);
         _matrix.solve(solution, _vector, solver);
+
+        // Require non-negative backgrounds
+        ndarray::Array<bool, 1, 1> requireNonnegative = ndarray::allocate(_numParams);
+        requireNonnegative[ndarray::view(_bgStart, _bgStart + _bg.xNumBlocks)] = true;
+        _matrix.solveNonnegative(solution, _vector, requireNonnegative);
+        std::cerr << solution[ndarray::view(_bgStart, _bgStart + _bg.xNumBlocks)] << std::endl;
 #endif
         std::cerr << "Done." << std::endl;
 
