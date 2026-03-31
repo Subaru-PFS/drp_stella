@@ -30,6 +30,7 @@ scripts.BasicSConscript.pybind11(
      'OpticalModel',
      'OpticalModelDetectorMap',
      'extractSpectra',
+     'warp',
      ],
     addUnderscore=False
 )

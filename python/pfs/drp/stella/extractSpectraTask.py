@@ -28,8 +28,10 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
-    xBlockSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks in x for background estimation")
-    yBlockSize = pexConfig.Field(dtype=int, default=100, doc="Size of blocks in y for background estimation")
+    kernelHalfWidth = pexConfig.Field(dtype=int, default=2, doc="Half-width of convolution kernel")
+    kernelOrder = pexConfig.Field(dtype=int, default=3, doc="Order of convolution kernel variation")
+    xBackgroundSize = pexConfig.Field(dtype=int, default=100, doc="Size of background in x")
+    yBackgroundSize = pexConfig.Field(dtype=int, default=100, doc="Size of background in y")
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -152,17 +154,23 @@ class ExtractSpectraTask(pipeBase.Task):
             for ft in fiberTraceSet:
                 spectrum = ft.extractAperture(maskedImage, badBitMask)
                 spectra.add(spectrum)
-        else:
+        elif True:
             spectra, background = extractSpectra(
                 maskedImage,
                 fiberTraceSet,
                 badBitMask,
-                self.config.xBlockSize,
-                self.config.yBlockSize,
+                self.config.kernelHalfWidth,
+                self.config.kernelOrder,
+                self.config.xBackgroundSize,
+                self.config.yBackgroundSize,
                 self.config.minFracMask,
                 self.config.minFracImage,
             )
             background.writeFits("background.fits")
+        else:
+            spectra = fiberTraceSet.extractSpectra(
+                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+            )
 
         if detectorMap is not None:
             for spectrum in spectra:
