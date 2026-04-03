@@ -31,7 +31,7 @@ class ExtractSpectraConfig(pexConfig.Config):
     kernelHalfWidth = pexConfig.Field(dtype=int, default=2, doc="Half-width of convolution kernel")
     kernelOrder = pexConfig.Field(dtype=int, default=3, doc="Order of convolution kernel variation")
     xBackgroundSize = pexConfig.Field(dtype=int, default=100, doc="Size of background in x")
-    yBackgroundSize = pexConfig.Field(dtype=int, default=100, doc="Size of background in y")
+    yBackgroundSize = pexConfig.Field(dtype=int, default=300, doc="Size of background in y")
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,

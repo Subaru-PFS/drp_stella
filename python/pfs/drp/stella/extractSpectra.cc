@@ -21,8 +21,10 @@ PYBIND11_MODULE(extractSpectra, mod) {
         "image"_a,
         "fiberTraces"_a,
         "badBitMask"_a=0,
-        "xBlockSize"_a=100,
-        "yBlockSize"_a=100,
+        "kernelHalfWidth"_a=2,
+        "kernelOrder"_a=3,
+        "xBackgroundSize"_a=100,
+        "yBackgroundSize"_a=100,
         "minFracMask"_a=0.3,
         "minFracImage"_a=0.4
     );

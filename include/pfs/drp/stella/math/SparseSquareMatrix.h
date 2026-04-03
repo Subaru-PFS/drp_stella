@@ -76,6 +76,17 @@ class MatrixTriplets {
     }
     //@}
 
+    /// Get a matrix element
+    ElemT get(IndexT row, IndexT col) const {
+        _checkIndex(row, col);
+        auto const& map = _triplets[row];
+        auto iter = map.find(col);
+        if (iter == map.end()) {
+            return 0.0;
+        }
+        return iter->second;
+    }
+
     /// Clear the list of triplets
     void clear() {
         _triplets.clear();
@@ -255,6 +266,10 @@ class SparseSquareMatrix {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
         _triplets.add(ii, jj, value);
+    }
+
+    ElemT get(IndexT ii, IndexT jj) {
+        return _triplets.get(ii, jj);
     }
 
     //@{
