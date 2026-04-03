@@ -14,12 +14,17 @@ namespace drp {
 namespace stella {
 
 
-std::pair<SpectrumSet, lsst::afw::image::Image<double>> extractSpectra(
+//struct FiberKernel;
+
+
+std::tuple<SpectrumSet, lsst::afw::image::Image<double>> extractSpectra(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,
-    int xBlockSize,
-    int yBlockSize,
+    int kernelHalfWidth,
+    int kernelOrder,
+    int xBackgroundSize,
+    int yBackgroundSize,
     float minFracMask,
     float minFracImage
 );
