@@ -15,8 +15,8 @@ namespace {
 
 
 struct FiberModel {
-    ndarray::ArrayRef<float const, 1, 1> values;
-    ndarray::ArrayRef<lsst::afw::image::MaskPixel const, 1, 1> mask;
+    ndarray::Array<float const, 1, 1> values;
+    ndarray::Array<bool const, 1, 1> use;
     double norm;
     int xMin;  // relative to the image, inclusive
     int xMax;  // relative to the image, exclusive
@@ -25,70 +25,78 @@ struct FiberModel {
 
     static FiberModel fromFiberTrace(
         FiberTrace<float> const& fiberTrace,
-        double fiberNorm,
         int y,
         int xStart,  // relative to trace bbox
         int xStop,  // relative to trace bbox, inclusive
-        int offset=0
+        lsst::afw::image::MaskPixel requireMask
     ) {
         auto const& trace = fiberTrace.getTrace();
+        ndarray::Array<bool, 1, 1> use = ndarray::allocate(xStop - xStart + 1);
+        ndarray::asEigenArray(use) = ndarray::asEigenArray(
+            trace.getMask()->getArray()[y][ndarray::view(xStart, xStop + 1)]
+        ).unaryExpr(
+            [requireMask](lsst::afw::image::MaskPixel mm) { return (mm & requireMask) != 0; }
+        );
         return FiberModel{
             trace.getImage()->getArray()[y][ndarray::view(xStart, xStop + 1)],
-            trace.getMask()->getArray()[y][ndarray::view(xStart, xStop + 1)],
-            1.0/fiberNorm,
-            trace.getBBox().getMinX() + xStart,
-            trace.getBBox().getMinX() + xStop + 1,
-            xStop - xStart + 1,
-            offset
-        };
-    }
-    static FiberModel fromFiberTrace(
-        FiberTrace<float> const& fiberTrace,
-        int y,
-        int xStart,  // relative to trace bbox
-        int xStop,  // relative to trace bbox, inclusive
-        int offset=0
-    ) {
-        auto const& trace = fiberTrace.getTrace();
-        return FiberModel{
-            trace.getImage()->getArray()[y][ndarray::view(xStart, xStop + 1)],
-            trace.getMask()->getArray()[y][ndarray::view(xStart, xStop + 1)],
+            std::move(use),
             1.0,
             trace.getBBox().getMinX() + xStart,
             trace.getBBox().getMinX() + xStop + 1,
             xStop - xStart + 1,
-            offset
+            0
         };
     }
 
-    static auto requireBitMask(
-        ndarray::ArrayRef<lsst::afw::image::MaskPixel const, 1, 1> const& mask,
-        lsst::afw::image::MaskPixel bitMask
-    ) {
-        return ndarray::asEigenArray(mask).unaryExpr(
-            [bitMask](lsst::afw::image::MaskPixel mm) { return (mm & bitMask) != 0; }
-        ).template cast<bool>();
+    static FiberModel dummy() {
+        return FiberModel{
+            ndarray::Array<float const, 1, 1>(), ndarray::Array<bool const, 1, 1>(), 0.0, 0, 0, 0, 0
+        };
     }
 
-    static auto refuseBitMask(
-        ndarray::ArrayRef<lsst::afw::image::MaskPixel const, 1, 1> const& mask,
-        lsst::afw::image::MaskPixel bitMask
-    ) {
-        return ndarray::asEigenArray(mask).unaryExpr(
-            [bitMask](lsst::afw::image::MaskPixel mm) { return (mm & bitMask) == 0; }
-        ).template cast<bool>();
-    }
+    FiberModel applyOffset(int offset) {
+        assert(offset != 0);
+        int const size = width + std::abs(offset);
+        ndarray::Array<float, 1, 1> newValues = ndarray::allocate(size);
+        ndarray::Array<bool, 1, 1> newUse = ndarray::allocate(size);
+        newValues.deep() = 0.0;
+        newUse.deep() = false;
 
-    // The value of the model is:
-    // values[i]/norm if offset=0
-    // (values[i - offset] - values[i])/norm if offset != 0
+        // Original model: 0.1, 0.8, 0.1
+        // offset = -2 --> 0.1, 0.8, 0.0, -0.8, -0.1
+        // offset = -1 --> 0.1, 0.7, -0.7, -0.1
+        // offset = +1 --> -0.1, -0.7, 0.7, 0.1
+        // offset = +2 --> -0.1, -0.8, 0.0, 0.8, 0.1
+
+        int const newMin = xMin + std::min(0, offset);
+        int const newMax = xMax + std::max(0, offset);
+
+        // Insert the offset values
+        {
+            int const start = newMin - xMin - offset;
+            assert(start >= 0);
+            int const stop = start + width;  // exclusive
+            assert(stop < size);
+            newValues[ndarray::view(start, stop)] = values;
+            newUse[ndarray::view(start, stop)] = use;
+        }
+
+        // Subtract the non-offset values
+        {
+            int const start = newMin - xMin;
+            int const stop = start + width;
+            newValues[ndarray::view(start, stop)] -= values;
+            newUse[ndarray::view(start, stop)] |= use;
+        }
+
+        return FiberModel{newValues, newUse, norm, newMin, newMax, size, offset};
+    }
 
     lsst::afw::image::MaskPixel accumulateMask(
         ndarray::Array<lsst::afw::image::MaskPixel const, 1, 1> const& dataMask,
-        lsst::afw::image::MaskPixel require,
         float threshold
     ) const {
-        auto const modelGood = requireBitMask(mask, require);
+        auto const modelGood = ndarray::asEigenArray(use);
         auto const modelAboveThreshold = ndarray::asEigenArray(values) > threshold;
         return (modelGood && modelAboveThreshold).select(
             ndarray::asEigenArray(dataMask[ndarray::view(xMin, xMax)]), 0
@@ -96,33 +104,32 @@ struct FiberModel {
     }
 
     std::size_t count(
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        lsst::afw::image::MaskPixel require
+        ndarray::Array<bool const, 1, 1> const& usePixels
     ) const {
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
-        auto const modelGood = requireBitMask(mask, require);
+        auto const modelGood = ndarray::asEigenArray(use);
         return (dataGood && modelGood).cast<std::size_t>().sum();
     }
 
-    double sum(lsst::afw::image::MaskPixel require) const {
-        return requireBitMask(mask, require).select(
+    double sum() const {
+        return ndarray::asEigenArray(use).select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
         ).sum()*norm;
     }
 
-    double sum(ndarray::Array<bool const, 1, 1> const& usePixels, lsst::afw::image::MaskPixel require) const {
+    double sum(ndarray::Array<bool const, 1, 1> const& usePixels) const {
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
-        auto const modelGood = requireBitMask(mask, require);
+        auto const modelGood = ndarray::asEigenArray(use);
         return (dataGood && modelGood).select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
         ).sum()*norm;
     }
 
-    double centroid(lsst::afw::image::MaskPixel require) const {
+    double centroid() const {
         double centroid = 0.0;
         double sum = 0.0;
         for (std::size_t ii = 0, xx = xMin; ii < values.size(); ++ii, ++xx) {
-            if (requireBitMask(mask[ii], require)) {
+            if (use[ii]) {
                 centroid += xx*values[ii];
                 sum += values[ii];
             }
@@ -130,17 +137,14 @@ struct FiberModel {
         return centroid/sum;
     }
 
-    double dotSelf(lsst::afw::image::MaskPixel require) const {
-        return requireBitMask(mask, require).select(
+    double dotSelf() const {
+        return ndarray::asEigenArray(use).select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
         ).square().sum()*std::pow(norm, 2);
     }
 
-    double dotSelf(
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        lsst::afw::image::MaskPixel require
-    ) const {
-        auto const modelGood = requireBitMask(mask, require);
+    double dotSelf(ndarray::Array<bool const, 1, 1> const& usePixels) const {
+        auto const modelGood = ndarray::asEigenArray(use);
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
         return (modelGood && dataGood).select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
@@ -149,10 +153,9 @@ struct FiberModel {
 
     double dotSelfWeighted(
         ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance,
-        lsst::afw::image::MaskPixel require
+        ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
-        auto const modelGood = requireBitMask(mask, require);
+        auto const modelGood = ndarray::asEigenArray(use);
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
         auto const weights = (modelGood && dataGood).select(
             1.0/ndarray::asEigenArray(dataVariance[ndarray::view(xMin, xMax)]), 0.0
@@ -163,10 +166,9 @@ struct FiberModel {
 
     double dotData(
         ndarray::Array<float const, 1, 1> const& dataValues,
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        lsst::afw::image::MaskPixel require
+        ndarray::Array<bool const, 1, 1> const& usePixels
     ) const {
-        auto const left = requireBitMask(mask, require).select(
+        auto const left = ndarray::asEigenArray(use).select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
         );
         auto const right = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]).select(
@@ -175,10 +177,9 @@ struct FiberModel {
         return (left*right).sum()*norm;
     }
 
-    double dotWithoutOffset(
+    double dotOther(
         FiberModel const& other,
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        lsst::afw::image::MaskPixel require
+        ndarray::Array<bool const, 1, 1> const& usePixels
     ) const {
         int const start = std::max(this->xMin, other.xMin);
         int const stop = std::min(this->xMax, other.xMax);  // exclusive
@@ -191,8 +192,8 @@ struct FiberModel {
         int const otherStop = stop - other.xMin;  // exclusive
 
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(start, stop)]);
-        auto const useLeft = requireBitMask(this->mask[ndarray::view(thisStart, thisStop)], require);
-        auto const useRight = requireBitMask(other.mask[ndarray::view(otherStart, otherStop)], require);
+        auto const useLeft = ndarray::asEigenArray(this->use[ndarray::view(thisStart, thisStop)]);
+        auto const useRight = ndarray::asEigenArray(other.use[ndarray::view(otherStart, otherStop)]);
 
         auto const left = (useLeft && dataGood).select(
             ndarray::asEigenArray(
@@ -205,37 +206,6 @@ struct FiberModel {
             ).template cast<double>(), 0.0
         );
         return (left*right).sum()*this->norm*other.norm;
-    }
-
-    // If the models are arrays of values: p and q
-    // With non-zero offset for p (but no offset for q): p' = p[i - offset] - p[i]
-    // Then the dot product is:
-    //    sum_i p'[i]*q[i] = sum_i (p[i - offset] - p[i])*q[i] = sum_i p[i - offset]*q[i] - sum_i p[i]*q[i]
-    //        = dotWithOffset - dotWithoutOffset
-
-    double dotWithOffset(FiberModel const& other, lsst::afw::image::MaskPixel require) const {
-        assert(this->offset != 0);  // This method only supports offsets, in the interest of speed
-        assert(other.offset == 0);  // We shouldn't be comparing two models with offsets
-        int const thisMin = this->xMin - this->offset;
-        int const thisMax = this->xMax - this->offset;
-        int const start = std::max(thisMin, other.xMin);
-        int const stop = std::min(thisMax, other.xMax);  // exclusive
-        if (stop < start) {
-            return 0.0;
-        }
-
-        int const thisStart = start - thisMin;
-        int const otherStart = start - other.xMin;
-        int const thisStop = stop - thisMin;  // exclusive
-        int const otherStop = stop - other.xMin;  // exclusive
-
-        auto const thisValues = ndarray::asEigenArray(this->values[ndarray::view(thisStart, thisStop)]);
-        auto const otherValues = ndarray::asEigenArray(other.values[ndarray::view(otherStart, otherStop)]);
-        return (requireBitMask(this->mask[ndarray::view(thisStart, thisStop)], require).select(
-            thisValues.template cast<double>(), 0.0
-        ) * requireBitMask(other.mask[ndarray::view(otherStart, otherStop)], require).select(
-            otherValues.template cast<double>(), 0.0
-        )).sum()*this->norm*other.norm;
     }
 };
 
@@ -322,6 +292,7 @@ struct SpectrumExtractor {
         _diagonalWeighted(_numParams)
     {
         _fiberNorm.deep() = 0.0;
+        _models.reserve(_numFibers);
 
         _haveMatrixEntry.deep() = false;
         _vector.deep() = 0.0;
@@ -334,6 +305,7 @@ struct SpectrumExtractor {
     // Calculate the normalization for each trace
     // Set the mask values for success and failure cases
     void checkRow(int y) {
+        _models.clear();
         for (std::size_t ii = 0; ii < _numFibers; ++ii) {
             auto const& box = _fiberTraces[ii]->getTrace().getBBox();
             _useTrace[ii] = (y >= box.getMinY() && y <= box.getMaxY());
@@ -344,6 +316,7 @@ struct SpectrumExtractor {
             _xMin[ii] = 0;
             _xMax[ii] = -1;
             _fiberNorm[ii][y] = 0.0;
+            _models.emplace_back(FiberModel::dummy());
 
             if (!_useTrace[ii]) {
                 _maskBadResult[ii][y] |= _badFiberTrace;
@@ -369,14 +342,19 @@ struct SpectrumExtractor {
                 continue;
             }
 
-            auto const model = FiberModel::fromFiberTrace(*_fiberTraces[ii], y, _xMin[ii], _xMax[ii]);
-            _fiberNorm[ii][y] = model.sum(_requireMask);
+            _models.back() = std::move(
+                 FiberModel::fromFiberTrace(*_fiberTraces[ii], y, _xMin[ii], _xMax[ii], _requireMask)
+            );
+
+            FiberModel & model = _models.back();
+            _fiberNorm[ii][y] = model.sum();
+            model.norm = 1.0/_fiberNorm[ii][y];
             if (_fiberNorm[ii][y] == 0 || !std::isfinite(_fiberNorm[ii][y])) {
                 _useTrace[ii] = false;
                 _maskBadResult[ii][y] |= _badFiberTrace;
                 continue;
             }
-            _xCenter[ii] = model.centroid(_requireMask);
+            _xCenter[ii] = model.centroid();
         }
 
         auto iter = _image.row_begin(y);
@@ -412,19 +390,6 @@ struct SpectrumExtractor {
         return isGoodImage(iter.image(), iter.mask(), iter.variance());
     }
 
-    FiberModel getFiberModel(std::size_t fiberIndex, int y, int offset=0) const {
-        assert(_useTrace[fiberIndex]);
-        assert(std::isfinite(_fiberNorm[fiberIndex][y]) && _fiberNorm[fiberIndex][y] != 0.0);
-        return FiberModel::fromFiberTrace(
-            *_fiberTraces[fiberIndex],
-            _fiberNorm[fiberIndex][y],
-            y,
-            _xMin[fiberIndex],
-            _xMax[fiberIndex],
-            offset
-        );
-    }
-
     // For this fiber, we calculate:
     // * the diagonal value of the matrix for this fiber (i.e. model^2)
     // * the vector value for this fiber (i.e., model dot data)
@@ -453,15 +418,13 @@ struct SpectrumExtractor {
         // weight by the variance when doing PSF photometry) and the inverse
         // of the weighted matrix diagonal to get an estimate of the
         // variance.
-        auto const iModel = getFiberModel(fiberIndex, y);
-        double const model2 = iModel.dotSelf(_usePixel, _requireMask);
-        double const model2Weighted = iModel.dotSelfWeighted(
-            _usePixel, dataVariance, _requireMask
-        );
-        double const modelData = iModel.dotData(dataImage, _usePixel, _requireMask);
-        double const sumModel = iModel.sum(_usePixel, _requireMask);
-        std::size_t const numTracePixels = iModel.count(_usePixel, _requireMask);
-        MaskT maskCore = iModel.accumulateMask(dataMask, _requireMask, _minFracMask);
+        auto const& iModel = _models[fiberIndex];
+        double const model2 = iModel.dotSelf(_usePixel);
+        double const model2Weighted = iModel.dotSelfWeighted(_usePixel, dataVariance);
+        double const modelData = iModel.dotData(dataImage, _usePixel);
+        double const sumModel = iModel.sum(_usePixel);
+        std::size_t const numTracePixels = iModel.count(_usePixel);
+        MaskT maskCore = iModel.accumulateMask(dataMask, _minFracMask);
 
         if (sumModel == 0.0 || numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
             _useTrace[fiberIndex] = false;
@@ -490,8 +453,8 @@ struct SpectrumExtractor {
                 continue;
             }
 
-            auto const jModel = getFiberModel(jj, y);
-            double const modelModel = iModel.dotWithoutOffset(jModel, _usePixel, _requireMask);
+            auto const& jModel = _models[jj];
+            double const modelModel = iModel.dotOther(jModel, _usePixel);
             _matrix.add(iIndex, getSpectrumIndex(jj, y), modelModel);
             assert(std::isfinite(modelModel));
             _haveMatrixEntry[getSpectrumIndex(jj, y)] |= (modelModel != 0.0);
@@ -510,7 +473,7 @@ struct SpectrumExtractor {
             xModel < iModel.width && xData < _image.getWidth();
             ++xModel, ++xData
         ) {
-            if (!(iModel.mask[xModel] & _requireMask)) continue;
+            if (!iModel.use[xModel]) continue;
             if (!_usePixel[xData]) continue;
             std::size_t const block = _bg.xBlocks[xData];
             bgTerms[block - minBlock] += iModel.values[xModel]*iModel.norm;
@@ -522,8 +485,11 @@ struct SpectrumExtractor {
             _haveMatrixEntry[bgIndex] |= (bgTerms[ii] != 0.0);
         }
 
-#if 1
+#if 0
         // Kernel diagonal terms, kernel-kernel cross-terms and spectrum-kernel cross-terms
+        // We need the following FiberModel functions:
+        // dotSelf for the kernel diagonal terms
+        // dotOther for the spectrum-kernel cross-terms and kernel-kernel cross-terms
         auto polyValues = _kernelPolynomial.getDFuncDParameters(_xCenter[fiberIndex], y);
         std::size_t kernelIndex = 0;
         ndarray::Array<double, 1, 1> kernelDot = ndarray::allocate(_numKernels);
@@ -532,7 +498,7 @@ struct SpectrumExtractor {
                 --kernelIndex;
                 continue;
             }
-            auto const kernelModel = getFiberModel(fiberIndex, y, offset);
+            auto const kernelModel = _models[fiberIndex] with offset;
             kernelDot[kernelIndex] = kernelModel.dotWithOffset(iModel, _requireMask);
         }
         std::size_t iKernelIndex = 0;
@@ -728,6 +694,7 @@ struct SpectrumExtractor {
     ndarray::Array<bool, 1, 1> _usePixel;  // pixel in row should be used?
     ndarray::Array<int, 1, 1> _xMin, _xMax;  // first/last good pixel in trace
     ndarray::Array<double, 1, 1> _xCenter;  // center of trace in x direction, used for kernel polynomial
+    std::vector<FiberModel> _models;  // cache of fiber models for current row
     ndarray::Array<MaskT, 2, 2> _maskResult;  // mask value for each trace
     ndarray::Array<MaskT, 2, 2> _maskBadResult;  // mask value if trace is bad
 
