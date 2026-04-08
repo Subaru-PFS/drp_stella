@@ -21,8 +21,8 @@ void declareFiberTrace(py::module &mod)
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
     py::classh<Class> cls(mod, "FiberTrace");
 
-    cls.def(py::init<typename Class::MaskedImageT const&, std::size_t>(),
-            "maskedImage"_a, "fiberTraceId"_a=0);
+    cls.def(py::init<typename Class::MaskedImageT const&, int>(),
+            "maskedImage"_a, "fiberId"_a=0);
     cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
     cls.def("getTrace", [](Class const& self) { return self.getTrace(); });
