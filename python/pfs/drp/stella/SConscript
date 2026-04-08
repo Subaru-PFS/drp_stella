@@ -29,7 +29,7 @@ scripts.BasicSConscript.pybind11(
      'GridTransform',
      'OpticalModel',
      'OpticalModelDetectorMap',
-     'extractSpectra',
+     'FiberKernel',
      'warp',
      ],
     addUnderscore=False
