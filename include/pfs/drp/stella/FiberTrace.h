@@ -29,10 +29,10 @@ class FiberTrace {
      *
      * @param maskedImage : maskedImage to set _trace to
      * @param xCenters : position of center for each row
-     * @param fiberTraceId : FiberTrace ID
+     * @param fiberId : fiber identifier
      * */
     explicit FiberTrace(MaskedImageT const& trace,
-                        std::size_t fiberTraceId=0);
+                        int fiberTraceId=0);
 
     /**
      * @brief Copy constructor (deep if required)
