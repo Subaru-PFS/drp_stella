@@ -110,7 +110,10 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
-        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
+        if isBoxcar:
+            spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
+        else:
+            spectra = self.extractWithConvolution(maskedImage, fiberTraceSet, detectorMap)
 
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
@@ -154,23 +157,87 @@ class ExtractSpectraTask(pipeBase.Task):
             for ft in fiberTraceSet:
                 spectrum = ft.extractAperture(maskedImage, badBitMask)
                 spectra.add(spectrum)
-        elif True:
-            spectra, background = extractSpectra(
+        else:
+            spectra = fiberTraceSet.extractSpectra(
+                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+            )
+
+        if detectorMap is not None:
+            for spectrum in spectra:
+                spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
+
+        return spectra
+
+    def extractWithConvolution(
+        self,
+        maskedImage: MaskedImage,
+        fiberTraceSet: FiberTraceSet,
+        detectorMap: Optional[DetectorMap] = None,
+    ) -> SpectrumSet:
+        """Extract spectra using convolution
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
+
+        Returns
+        -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        """
+        maxIter = 100
+        tolerance = 1.0e-4
+
+        from pfs.drp.stella.FiberKernel import fitFiberKernel
+
+        badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+
+        spectra = fiberTraceSet.extractSpectra(
+            maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+        )
+
+        originalTraces = fiberTraceSet
+
+        for ii in range(maxIter):
+            kernel, background = fitFiberKernel(
                 maskedImage,
-                fiberTraceSet,
+                originalTraces,
+                spectra,
                 badBitMask,
                 self.config.kernelHalfWidth,
                 self.config.kernelOrder,
                 self.config.xBackgroundSize,
                 self.config.yBackgroundSize,
-                self.config.minFracMask,
-                self.config.minFracImage,
             )
             background.writeFits("background.fits")
-        else:
-            spectra = fiberTraceSet.extractSpectra(
+
+            fiberTraceSet = kernel(originalTraces)
+
+
+            if False:
+                model = spectra.makeImage(fiberTraceSet)
+                residual = maskedImage.clone()
+                residual -= model
+                rms = np.sqrt(np.mean(residual.getImage().array**2))
+
+            newSpectra = fiberTraceSet.extractSpectra(
                 maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
             )
+
+            diff = newSpectra.getAllFluxes() - spectra.getAllFluxes()
+            rms = np.sqrt(np.mean(diff**2))
+            self.log.info(f"Iteration {ii}: RMS change in flux = {rms}")
+            if rms < tolerance:
+                self.log.info(f"Convergence achieved after {ii} iterations")
+                break
+            spectra = newSpectra
 
         if detectorMap is not None:
             for spectrum in spectra:

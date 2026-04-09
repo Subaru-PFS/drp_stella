@@ -276,7 +276,7 @@ FiberKernel::FiberKernel(
     std::size_t offsetIndex = 0;
     std::size_t start = 0;
     std::size_t stop = _numPoly;
-    for (int offset = -halfWidth; offset < halfWidth; ++offset, ++offsetIndex) {
+    for (int offset = -halfWidth; offset <= halfWidth; ++offset, ++offsetIndex) {
         if (offset == 0) {
             --offsetIndex;
             continue;
@@ -313,7 +313,11 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(FiberTrace<float> con
         model.addToImage(convImage);
 
         std::size_t offsetIndex = 0;
-        for (int offset = -_halfWidth; offset < _halfWidth; ++offset, ++offsetIndex) {
+        for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++offsetIndex) {
+            if (offset == 0) {
+                --offsetIndex;
+                continue;
+            }
             auto kernelModel = model.applyOffset(offset);
             kernelModel.flux = _polynomials[offsetIndex](xCenter, yy);
             kernelModel.addToImage(convImage);
@@ -372,6 +376,23 @@ struct BackgroundHelper {
 };
 
 
+struct RowData {
+    ndarray::Array<bool, 1, 1> useTrace;  // trace overlaps this row?
+    ndarray::Array<bool, 1, 1> usePixel;  // pixel in row should be used?
+    ndarray::Array<double, 1, 1> xCenter; // center of trace in x, for kernel polynomial
+    std::vector<std::vector<FiberModel>> kernelModels;  // kernel-offset models [fiber][offset]
+
+    RowData(std::size_t numFibers, int imageWidth, std::size_t numKernels)
+      : useTrace(ndarray::allocate(numFibers)),
+        usePixel(ndarray::allocate(imageWidth)),
+        xCenter(ndarray::allocate(numFibers)),
+        kernelModels(numFibers, std::vector<FiberModel>(numKernels, FiberModel::dummy()))
+    {
+        useTrace.deep() = false;
+    }
+};
+
+
 struct KernelFitter {
     using ImageT = float;
     using MaskT = lsst::afw::image::MaskPixel;
@@ -397,42 +418,21 @@ struct KernelFitter {
         _kernelPolynomial(kernelOrder, lsst::geom::Box2D(image.getBBox())),
         _numKernels(2*_kernelHalfWidth),
         _numKernelSpatial(_kernelPolynomial.getNParameters()),
-        _kernelTerms(ndarray::allocate(_numKernels*_numKernelSpatial, _numKernels*_numKernelSpatial)),
         _bg(image.getDimensions(), xBackgroundSize, yBackgroundSize),
         _bgStart(_numKernels*_numKernelSpatial),
         _requireMask(image.getMask()->getPlaneBitMask(fiberMaskPlane)),
         _noData(1 << image.getMask()->addMaskPlane("NO_DATA")),
         _badFiberTrace(1 << image.getMask()->addMaskPlane("BAD_FIBERTRACE")),
         _suspect(1 << image.getMask()->addMaskPlane("SUSPECT")),
-        _useTrace(ndarray::allocate(_numFibers)),
-        _usePixel(ndarray::allocate(image.getWidth())),
-        _xMin(ndarray::allocate(_numFibers)),
-        _xMax(ndarray::allocate(_numFibers)),
-        _xCenter(ndarray::allocate(_numFibers)),
-        _numParams(_bgStart + _bg.xNumBlocks*_bg.yNumBlocks),
-        _matrix(ndarray::allocate(_numParams, _numParams)),
-        _vector(ndarray::allocate(_numParams))
+        _numParams(_bgStart + _bg.xNumBlocks*_bg.yNumBlocks)
     {
-        _models.reserve(_numFibers);
-
-        _kernelModels.reserve(_numFibers);
-        for (std::size_t ii = 0; ii < _numFibers; ++ii) {
-            _kernelModels.emplace_back();
-            auto & kk = _kernelModels.back();
-            for (std::size_t jj = 0; jj < _numKernels; ++jj) {
-                kk.emplace_back(FiberModel::dummy());
-            }
-        }
-
-        _matrix.deep() = 0.0;
-        _vector.deep() = 0.0;
-
-        _kernelTerms.deep() = 0.0;
     }
 
     // Determine which traces are relevant for this row
-    void checkRow(int y, SpectrumSet const& spectra) {
-        _models.clear();
+    RowData checkRow(int y, SpectrumSet const& spectra) {
+        RowData data(_numFibers, _image.getWidth(), _numKernels);
+
+        std::vector<FiberModel> models(_numFibers, FiberModel::dummy());
         for (std::size_t ii = 0; ii < _numFibers; ++ii) {
             auto const& box = _fiberTraces[ii]->getTrace().getBBox();
             auto const& spectrum = *spectra[ii];
@@ -440,37 +440,32 @@ struct KernelFitter {
 
             float const flux = spectrum.getFlux()[y];
             if ((spectrum.getMask()(y, 0) & (_badFiberTrace | _noData)) || !std::isfinite(flux)) {
-                _useTrace[ii] = false;
                 continue;
             }
 
-            _xMin[ii] = 0;
-            _xMax[ii] = -1;
-            _models.emplace_back(FiberModel::dummy());
+            int xMin = 0;
+            int xMax = -1;
             auto const traceMask = _fiberTraces[ii]->getTrace().getMask()->getArray()[y];
             for (int xx = 0; xx < box.getWidth(); ++xx) {
                 if (traceMask[xx] & _requireMask) {
-                    _xMin[ii] = xx;
+                    xMin = xx;
                     break;
                 }
             }
             for (int xx = box.getWidth() - 1; xx >= 0; --xx) {
                 if (traceMask[xx] & _requireMask) {
-                    _xMax[ii] = xx;
+                    xMax = xx;
                     break;
                 }
             }
-            if (_xMax[ii] < _xMin[ii]) {
-                _useTrace[ii] = false;
+            if (xMax < xMin) {
                 continue;
             }
 
-            _models.back() = std::move(
-                 FiberModel::fromFiberTrace(*_fiberTraces[ii], flux, y, _xMin[ii], _xMax[ii], _requireMask)
-            );
-
-            FiberModel & model = _models.back();
-            _xCenter[ii] = model.centroid();
+            models[ii] = FiberModel::fromFiberTrace(*_fiberTraces[ii], flux, y, xMin, xMax, _requireMask);
+            FiberModel & model = models[ii];
+            data.xCenter[ii] = model.centroid();
+            data.useTrace[ii] = true;
 
             std::size_t kernelIndex = 0;
             for (int offset = -_kernelHalfWidth; offset <= _kernelHalfWidth; ++offset, ++kernelIndex) {
@@ -478,19 +473,21 @@ struct KernelFitter {
                     --kernelIndex;
                     continue;
                 }
-                _kernelModels[ii][kernelIndex] = std::move(model.applyOffset(offset));
+                data.kernelModels[ii][kernelIndex] = model.applyOffset(offset);
             }
         }
 
         auto iter = _image.row_begin(y);
         for (int xx = 0; xx < _image.getWidth(); ++xx, ++iter) {
-            _usePixel[xx] = isGoodImage(iter);
+            data.usePixel[xx] = isGoodImage(iter);
         }
+
+        return data;
     }
 
     // Layout of parameters:
     // Kernel parameters: offset (...,-2,-1,1,2,... NOTE: no zero!) runs slow, spatial polynomial term
-    //     (0.._numKernelSpatial-1) runs fast; starts at _kernelStart
+    //     (0.._numKernelSpatial-1) runs fast; starts at index 0
     // Background parameters: x block (0.._bg.xNumBlocks-1) runs fast, y block (0.._bg.yNumBlocks-1) runs
     //     slow; starts at _bgStart
 
@@ -512,9 +509,12 @@ struct KernelFitter {
 
     void accumulateFiber(
         int y,
-        std::size_t fiberIndex
+        std::size_t fiberIndex,
+        RowData const& data,
+        ndarray::Array<double, 2, 2>& matrix,
+        ndarray::Array<double, 1, 1>& vector
     ) {
-        if (!_useTrace[fiberIndex]) {
+        if (!data.useTrace[fiberIndex]) {
             return;
         }
 
@@ -522,7 +522,7 @@ struct KernelFitter {
         auto const& dataMask = _image.getMask()->getArray()[y];
         // Deliberately ignoring the variance out of concern for flux biases.
 
-        auto polyValues = _kernelPolynomial.getDFuncDParameters(_xCenter[fiberIndex], y);
+        auto polyValues = _kernelPolynomial.getDFuncDParameters(data.xCenter[fiberIndex], y);
         std::size_t iOffsetIndex = 0;
         for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iOffsetIndex) {
             if (iOffset == 0) {
@@ -530,25 +530,25 @@ struct KernelFitter {
                 continue;
             }
 
-            FiberModel const& iKernelModel = _kernelModels[fiberIndex][iOffsetIndex];
-            double const kernelDotSelf = iKernelModel.dotSelf(_usePixel);  // diagonal term
-            double const kernelDotData = iKernelModel.dotData(dataImage, _usePixel);  // vector term
+            FiberModel const& iKernelModel = data.kernelModels[fiberIndex][iOffsetIndex];
+            double const kernelDotSelf = iKernelModel.dotSelf(data.usePixel);  // diagonal term
+            double const kernelDotData = iKernelModel.dotData(dataImage, data.usePixel);  // vector term
 
-            auto const bgResult = iKernelModel.dotBackground(_bg.xBlocks, _usePixel);
+            auto const bgResult = iKernelModel.dotBackground(_bg.xBlocks, data.usePixel);
             auto const& bgTerms = bgResult.second;
 
             for (std::size_t iSpatial = 0; iSpatial < _numKernelSpatial; ++iSpatial) {
                 std::size_t const iKernelIndex = getKernelIndex(iOffset, iSpatial);
                 double const iPoly = polyValues[iSpatial];
                 // Kernel diagonal term
-                _matrix[iKernelIndex][iKernelIndex] += std::pow(iPoly, 2)*kernelDotSelf;
-                _vector[iKernelIndex] += iPoly*kernelDotData;
+                matrix[iKernelIndex][iKernelIndex] += std::pow(iPoly, 2)*kernelDotSelf;
+                vector[iKernelIndex] += iPoly*kernelDotData;
 
                 // Kernel-spatial cross terms
                 for (std::size_t jSpatial = iSpatial + 1; jSpatial < _numKernelSpatial; ++jSpatial) {
                     std::size_t const jKernelIndex = getKernelIndex(iOffset, jSpatial);
                     double const jPoly = polyValues[jSpatial];
-                    _matrix[iKernelIndex][jKernelIndex] += iPoly*jPoly*kernelDotSelf;
+                    matrix[iKernelIndex][jKernelIndex] += iPoly*jPoly*kernelDotSelf;
                 }
 
                 // Kernel-kernel cross terms
@@ -558,31 +558,36 @@ struct KernelFitter {
                         --jOffsetIndex;
                         continue;
                     }
-                    FiberModel const& jKernelModel = _kernelModels[fiberIndex][jOffsetIndex];
-                    double const kernelDotKernel = iKernelModel.dotOther(jKernelModel, _usePixel);
+                    FiberModel const& jKernelModel = data.kernelModels[fiberIndex][jOffsetIndex];
+                    double const kernelDotKernel = iKernelModel.dotOther(jKernelModel, data.usePixel);
                     for (std::size_t jSpatial = iSpatial + 1; jSpatial < _numKernelSpatial; ++jSpatial) {
-                        std::size_t const jKernelIndex = getKernelIndex(iOffset, jSpatial) - _kernelStart;
+                        std::size_t const jKernelIndex = getKernelIndex(jOffset, jSpatial);
                         double const jPoly = polyValues[jSpatial];
-                        _matrix[iKernelIndex][jKernelIndex] += iPoly*jPoly*kernelDotKernel;
+                        matrix[iKernelIndex][jKernelIndex] += iPoly*jPoly*kernelDotKernel;
                     }
                 }
 
                 // Kernel-background cross-terms
                 std::size_t bgIndex = getBackgroundIndex(0, y) + bgResult.first;
                 for (std::size_t ii = 0; ii < bgTerms.size(); ++ii, ++bgIndex) {
-                    _matrix[iKernelIndex][bgIndex] += iPoly*bgTerms[ii];
+                    matrix[iKernelIndex][bgIndex] += iPoly*bgTerms[ii];
                 }
             }
         }
     }
 
     // Accumulate the background diagonal terms
-    void accumulateBackground(int y) {
+    void accumulateBackground(
+        int y,
+        RowData const& data,
+        ndarray::Array<double, 2, 2>& matrix,
+        ndarray::Array<double, 1, 1>& vector
+    ) {
         auto iter = _image.row_begin(y);
         ndarray::Array<double, 1, 1> terms = ndarray::allocate(_bg.xNumBlocks);
         terms.deep() = 0.0;
         for (int xx = 0; xx < _image.getWidth(); ++xx, ++iter) {
-            if (!_usePixel[xx]) {
+            if (!data.usePixel[xx]) {
                 continue;
             }
 
@@ -590,25 +595,28 @@ struct KernelFitter {
             terms[block] += 1.0;
 
             std::size_t const bgIndex = getBackgroundIndex(xx, y);
-            _vector[bgIndex] += iter.image();
+            vector[bgIndex] += iter.image();
         }
         for (std::size_t ii = 0, bgIndex = getBackgroundIndex(0, y); ii < _bg.xNumBlocks; ++ii, ++bgIndex) {
-            _matrix[bgIndex][bgIndex] += terms[ii];
+            matrix[bgIndex][bgIndex] += terms[ii];
             assert(std::isfinite(terms[ii]));
         }
     }
 
-    ndarray::Array<double const, 1, 1> solve() {
+    ndarray::Array<double const, 1, 1> solve(
+        ndarray::Array<double, 2, 2>& matrix,
+        ndarray::Array<double, 1, 1>& vector
+    ) const {
         // Ensure we have entries for all parameters, to avoid singular matrix
         for (std::size_t ii = 0; ii < _numParams; ++ii) {
-            if (_matrix[ii][ii] == 0.0) {
-                assert(_vector[ii] == 0.0);
-                 _matrix[ii][ii] = 1.0;
+            if (matrix[ii][ii] == 0.0) {
+                assert(vector[ii] == 0.0);
+                 matrix[ii][ii] = 1.0;
             }
         }
 
         // Solve the system of equations
-        auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(_matrix, _vector);
+        auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
         /// XXX set threshold, etc.
         return lsq.getSolution();
     }
@@ -637,17 +645,22 @@ struct KernelFitter {
     }
 
     std::tuple<FiberKernel, lsst::afw::image::Image<double>> run(SpectrumSet const& spectra) {
+        ndarray::Array<double, 2, 2> matrix = ndarray::allocate(_numParams, _numParams);
+        ndarray::Array<double, 1, 1> vector = ndarray::allocate(_numParams);
+        matrix.deep() = 0.0;
+        vector.deep() = 0.0;
+
         for (int yy = 0; yy < _numRows; ++yy) {
             if (yy % 100 == 0) {
                 std::cerr << "Processing row " << yy << "/" << _numRows << std::endl;
             }
-            checkRow(yy, spectra);
+            auto const data = checkRow(yy, spectra);
             for (std::size_t ii = 0; ii < _numFibers; ++ii) {
-                accumulateFiber(yy, ii);
+                accumulateFiber(yy, ii, data, matrix, vector);
             }
-            accumulateBackground(yy);
+            accumulateBackground(yy, data, matrix, vector);
         }
-        auto const solution = solve();
+        auto const solution = solve(matrix, vector);
         return extract(solution);
     }
 
@@ -664,27 +677,15 @@ struct KernelFitter {
 
     // Helpers
     math::NormalizedPolynomial2<double> _kernelPolynomial;
-    std::size_t _kernelStart;
     std::size_t _numKernels;
     std::size_t _numKernelSpatial;
-    ndarray::Array<double, 2, 2> _kernelTerms;
     BackgroundHelper _bg;
     std::size_t _bgStart;  // starting index of background parameters for current block
     lsst::afw::image::MaskPixel _requireMask;
     MaskT _noData;
     MaskT _badFiberTrace;
     MaskT _suspect;
-    ndarray::Array<bool, 1, 1> _useTrace;  // trace overlaps this row?
-    ndarray::Array<bool, 1, 1> _usePixel;  // pixel in row should be used?
-    ndarray::Array<int, 1, 1> _xMin, _xMax;  // first/last good pixel in trace
-    ndarray::Array<double, 1, 1> _xCenter;  // center of trace in x direction, used for kernel polynomial
-    std::vector<FiberModel> _models;  // cache of fiber models for current row
-    std::vector<std::vector<FiberModel>> _kernelModels;  // cache of kernel-convolved fiber models for current row, indexed by [fiber][kernel offset]
-
-    // Least-squares equation
     std::size_t _numParams;
-    ndarray::Array<double, 2, 2> _matrix;
-    ndarray::Array<double, 1, 1> _vector;
 };
 
 
@@ -699,9 +700,7 @@ std::tuple<FiberKernel, lsst::afw::image::Image<double>> fitFiberKernel(
     int kernelHalfWidth,
     int kernelOrder,
     int xBackgroundSize,
-    int yBackgroundSize,
-    float minFracMask,
-    float minFracImage
+    int yBackgroundSize
 ) {
     return KernelFitter(
         image, fiberTraces,badBitMask,
