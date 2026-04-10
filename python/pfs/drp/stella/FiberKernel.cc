@@ -28,6 +28,19 @@ void declareFiberKernel(py::module & mod) {
         "order"_a,
         "coefficients"_a
     );
+    cls.def_property_readonly("halfWidth", &FiberKernel::getHalfWidth);
+    cls.def_property_readonly("order", &FiberKernel::getOrder);
+    cls.def_property_readonly("numPoly", &FiberKernel::getNumPoly);
+    cls.def_property_readonly("numParams", &FiberKernel::getNumParams);
+    cls.def_property_readonly("coefficients", &FiberKernel::getCoefficients);
+    cls.def_property_readonly("polynomials", &FiberKernel::getPolynomials);
+    cls.def("getHalfWidth", &FiberKernel::getHalfWidth);
+    cls.def("getOrder", &FiberKernel::getOrder);
+    cls.def("getNumPoly", &FiberKernel::getNumPoly);
+    cls.def("getNumParams", &FiberKernel::getNumParams);
+    cls.def("getCoefficients", &FiberKernel::getCoefficients);
+    cls.def("getPolynomials", &FiberKernel::getPolynomials);
+
     cls.def(
         "__call__",
         py::overload_cast<FiberTrace<float> const&>(&FiberKernel::operator(), py::const_),
@@ -37,6 +50,12 @@ void declareFiberKernel(py::module & mod) {
         "__call__",
         py::overload_cast<FiberTraceSet<float> const&>(&FiberKernel::operator(), py::const_),
         "fiberTraceSet"_a
+    );
+    cls.def("evaluate", py::overload_cast<double, double>(&FiberKernel::evaluate, py::const_), "x"_a, "y"_a);
+    cls.def(
+        "evaluate",
+        py::overload_cast<lsst::geom::Point2D const&>(&FiberKernel::evaluate, py::const_),
+        "xy"_a
     );
 }
 

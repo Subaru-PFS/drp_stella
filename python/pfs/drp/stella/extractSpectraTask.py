@@ -14,7 +14,7 @@ from .FiberTrace import FiberTrace
 from .FiberTraceSet import FiberTraceSet
 from .Spectrum import Spectrum
 from .SpectrumSet import SpectrumSet
-from .extractSpectra import extractSpectra
+from .FiberKernel import fitFiberKernel
 
 
 class ExtractSpectraConfig(pexConfig.Config):
@@ -28,9 +28,9 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
-    kernelHalfWidth = pexConfig.Field(dtype=int, default=2, doc="Half-width of convolution kernel")
+    kernelHalfWidth = pexConfig.Field(dtype=int, default=3, doc="Half-width of convolution kernel")
     kernelOrder = pexConfig.Field(dtype=int, default=3, doc="Order of convolution kernel variation")
-    xBackgroundSize = pexConfig.Field(dtype=int, default=100, doc="Size of background in x")
+    xBackgroundSize = pexConfig.Field(dtype=int, default=300, doc="Size of background in x")
     yBackgroundSize = pexConfig.Field(dtype=int, default=300, doc="Size of background in y")
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
@@ -176,6 +176,11 @@ class ExtractSpectraTask(pipeBase.Task):
     ) -> SpectrumSet:
         """Extract spectra using convolution
 
+        Since the fiber profiles may have changed slightly from when they were
+        measured, we fit for the convolution kernel that minimizes the residuals
+        and then re-extract the spectra using the convolved fiber profiles. We
+        also have the opportunity to fit for the background.
+
         Parameters
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
@@ -192,52 +197,48 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-        maxIter = 100
-        tolerance = 1.0e-4
-
-        from pfs.drp.stella.FiberKernel import fitFiberKernel
-
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-
         spectra = fiberTraceSet.extractSpectra(
             maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
         )
 
         originalTraces = fiberTraceSet
+        residual = maskedImage.clone()
 
-        for ii in range(maxIter):
-            kernel, background = fitFiberKernel(
-                maskedImage,
-                originalTraces,
-                spectra,
-                badBitMask,
-                self.config.kernelHalfWidth,
-                self.config.kernelOrder,
-                self.config.xBackgroundSize,
-                self.config.yBackgroundSize,
-            )
-            background.writeFits("background.fits")
+        model = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
+        residual.image.array[:] = maskedImage.image.array - model.array
+        kernel, background = fitFiberKernel(
+            residual,
+            originalTraces,
+            spectra,
+            badBitMask,
+            self.config.kernelHalfWidth,
+            self.config.kernelOrder,
+            self.config.xBackgroundSize,
+            self.config.yBackgroundSize,
+        )
 
-            fiberTraceSet = kernel(originalTraces)
+        background.writeFits("background.fits")
 
+        from lsst.afw.math import BackgroundMI
+        from lsst.afw.image import makeMaskedImage
+        bgStats = makeMaskedImage(background)
+        bgStats.mask.array[:] = np.where(np.isfinite(background.array), 0, 0xFFFF)
 
-            if False:
-                model = spectra.makeImage(fiberTraceSet)
-                residual = maskedImage.clone()
-                residual -= model
-                rms = np.sqrt(np.mean(residual.getImage().array**2))
+        maskedImage -= BackgroundMI(maskedImage.getBBox(), bgStats).getImageF(
+            "AKIMA_SPLINE", "REDUCE_INTERP_ORDER"
+        )
 
-            newSpectra = fiberTraceSet.extractSpectra(
-                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
-            )
+        fiberTraceSet = kernel(originalTraces)
+        spectra = fiberTraceSet.extractSpectra(
+            maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+        )
 
-            diff = newSpectra.getAllFluxes() - spectra.getAllFluxes()
-            rms = np.sqrt(np.mean(diff**2))
-            self.log.info(f"Iteration {ii}: RMS change in flux = {rms}")
-            if rms < tolerance:
-                self.log.info(f"Convergence achieved after {ii} iterations")
-                break
-            spectra = newSpectra
+        if True:
+            newModel = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
+            newResidual = maskedImage.clone()
+            newResidual -= newModel
+            newResidual.writeFits("residual.fits")
 
         if detectorMap is not None:
             for spectrum in spectra:
