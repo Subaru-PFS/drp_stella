@@ -26,8 +26,20 @@ class FiberKernel {
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
 
+    int getHalfWidth() const { return _halfWidth; }
+    int getOrder() const { return _order; }
+    std::size_t getNumPoly() const { return _numPoly; }
+    std::size_t getNumParams() const { return _numParams; }
+    ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
+    std::vector<Polynomial> const& getPolynomials() const { return _polynomials; }
+
     std::shared_ptr<FiberTrace<float>> operator()(FiberTrace<float> const& trace) const;
     FiberTraceSet<float> operator()(FiberTraceSet<float> const& trace) const;
+
+    ndarray::Array<double, 1, 1> evaluate(double x, double y) const;
+    ndarray::Array<double, 1, 1> evaluate(lsst::geom::Point2D const& xy) const {
+        return evaluate(xy.getX(), xy.getY());
+    }
 
   private:
     int _halfWidth;
@@ -39,7 +51,7 @@ class FiberKernel {
 };
 
 
-std::tuple<FiberKernel, lsst::afw::image::Image<double>> fitFiberKernel(
+std::tuple<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     SpectrumSet const& spectra,
