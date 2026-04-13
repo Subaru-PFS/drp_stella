@@ -72,7 +72,8 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "kernelHalfWidth"_a=2,
         "kernelOrder"_a=3,
         "xBackgroundSize"_a=500,
-        "yBackgroundSize"_a=500
+        "yBackgroundSize"_a=500,
+        "rows"_a=ndarray::Array<int, 1, 1>()
     );
 }
 
