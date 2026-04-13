@@ -15,6 +15,9 @@ namespace drp {
 namespace stella {
 
 
+struct KernelFittingWorkspace;
+
+
 class FiberKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
@@ -59,7 +62,8 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     int kernelHalfWidth,
     int kernelOrder,
     int xBackgroundSize,
-    int yBackgroundSize
+    int yBackgroundSize,
+    ndarray::Array<int, 1, 1> const& rows
 );
 
 
