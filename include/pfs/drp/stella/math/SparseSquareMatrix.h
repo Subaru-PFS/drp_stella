@@ -226,6 +226,10 @@ class SparseSquareMatrix {
         typename SparseSquareMatrix<symmetric>::Matrix,
         Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>
     >;
+    using SimplicialLDLTSolver = Eigen::SimplicialLDLT<typename SparseSquareMatrix<symmetric>::Matrix>;
+    using SimplicialLDLTSolverUpper = Eigen::SimplicialLDLT<
+        typename SparseSquareMatrix<symmetric>::Matrix, Eigen::Upper
+    >;
 
     /// Ctor
     ///
