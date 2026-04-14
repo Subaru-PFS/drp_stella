@@ -67,13 +67,12 @@ PYBIND11_MODULE(FiberKernel, mod) {
         &fitFiberKernel,
         "image"_a,
         "fiberTraces"_a,
-        "spectra"_a,
         "badBitMask"_a=0,
         "kernelHalfWidth"_a=2,
         "kernelOrder"_a=3,
         "xBackgroundSize"_a=500,
         "yBackgroundSize"_a=500,
-        "rows"_a=ndarray::Array<int, 1, 1>()
+        "rows"_a=nullptr
     );
 }
 

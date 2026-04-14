@@ -38,10 +38,10 @@ class FiberKernel:
 def fitFiberKernel(
     image: MaskedImage,
     fiberTraces: FiberTraceSet,
-    spectra: SpectrumSet,
     badBitMask: int = 0,
     kernelHalfWidth: int = 2,
     kernelOrder: int = 3,
     xBackgroundSize: int = 500,
     yBackgroundSize: int = 500,
-) -> tuple[FiberKernel, Image]: ...
+    rows: np.ndarray | None = None
+) -> tuple[FiberKernel, Image, np.ndarray]: ...
