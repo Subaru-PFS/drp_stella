@@ -54,10 +54,9 @@ class FiberKernel {
 };
 
 
-std::tuple<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
+std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2, 2>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
-    SpectrumSet const& spectra,
     lsst::afw::image::MaskPixel badBitMask,
     int kernelHalfWidth,
     int kernelOrder,
