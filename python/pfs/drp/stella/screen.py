@@ -41,10 +41,11 @@ def bilinearInterpolation(xgrid, ygrid, fields, xy, nearestFallback=True):
     ny = ygrid.size
 
     arr = np.asarray(fields)
+    singleField = arr.ndim == 1 or (arr.ndim == 2 and arr.shape == (ny, nx))
+
     if arr.ndim == 1:
         arr = arr.reshape(1, ny, nx)
     elif arr.ndim == 2:
-        print(arr.shape)
         if arr.shape[1] == ny * nx:
             arr = arr.reshape(arr.shape[0], ny, nx)
         elif arr.shape == (ny, nx):
@@ -63,7 +64,7 @@ def bilinearInterpolation(xgrid, ygrid, fields, xy, nearestFallback=True):
     out = [map_coordinates(f, coords, order=1, mode=mode, cval=np.nan, prefilter=False) for f in arr]
     out = np.asarray(out)
 
-    return out[0] if fields.ndim in (1, 2) and fields.shape == (ny, nx) else out
+    return out[0] if singleField else out
 
 
 def delaunayInterpolation(XY, fields, xy, nearestFallback=True):
@@ -127,13 +128,11 @@ class ScreenResponseTask(Task):
         pfsConfig : `PfsConfig`
             Fiber configuration.
         """
-        if not self.isQuartz(metadata):
-            self.log.debug("Not applying screen response correction since not a quartz lamp exposure")
+        if np.sum(pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) == 0:
+            self.log.debug("Not applying screen response correction since not they are no valid targets")
             return
-        insrot = metadata["INSROT"]
-        if np.sum(pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)) > 0:
-            self.log.info("Applying new screen response correction to quartz lamp spectra, INSROT=%f", insrot)
-            self.apply(spectra, pfsConfig, insrot)
+
+        self.apply(spectra, pfsConfig, metadata)
 
     def isQuartz(self, metadata: PropertyList) -> bool:
         """Return whether the exposure is a quartz lamp exposure
@@ -151,31 +150,27 @@ class ScreenResponseTask(Task):
         lamps = getLamps(metadata)
         return bool(lamps & set(("Quartz", "Quartz_eng")))
 
-    def apply(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, insrot: float):
+    def isSky(self, metadata: PropertyList) -> bool:
+        """Return whether the exposure is a quartz lamp exposure
+
+        Parameters
+        ----------
+        metadata : `PropertyList`
+            Metadata for the exposure.
+
+        Returns
+        -------
+        isSky : `bool`
+            Whether the exposure is a quartz lamp exposure.
+        """
+        return metadata.get("DATA-TYP", "").lower().strip() == "object"
+
+    def apply(self, spectra: PfsFiberArraySet, pfsConfig: PfsConfig, metadata: PropertyList):
         """Correct spectra.norm for the *screen response* (store the pattern in norm).
 
-        Conventions (read this first!)
-        -------------------------------
-        - Response R(x, λ): multiplicative pattern from the screen (quartz flat), defined so that
-            quartz_flux / R  ≈  1
-          i.e. R is what imprints non-uniformity on quartz exposures.
-
-        - Correction C(x, λ): the inverse of the response:
-            C = 1 / R
-          C is what you would *multiply* a quartz frame by to flatten it.
-
-        Why `norm /= correction` ?
-        --------------------------
-        We want `norm` to *carry* the screen pattern used by downstream ratios. If we set
-            norm_applied = norm_base / C = norm_base * R
-        then for a quartz exposure Q:
-            Q / norm_applied = (Q / (norm_base * R))  ≈  R    (since Q / norm_base ≈ 1 initially)
-        which is exactly what we want: quartz divided by the applied norm reveals the response.
-        For a uniform twilight T:
-            T / norm_applied  ≈  1
-        if `norm_base` already encapsulates throughput and we only inject/remove the screen via R or C.
-
-        TL;DR: We *divide by C* (i.e. multiply by R) because `norm` is the container for the response pattern.
+        The screen response R(x, λ) is the multiplicative pattern imprinted by the screen on quartz
+        exposures. We multiply `norm` by R so that downstream ratios (e.g. quartz / norm) reveal
+        the response, while a uniform source divided by norm stays flat.
 
         Parameters
         ----------
@@ -183,8 +178,8 @@ class ScreenResponseTask(Task):
             Spectra whose .norm will be updated in place to include the screen response R.
         pfsConfig : PfsConfig
             Fiber configuration (used for fiber selection and PFI coordinates).
-        insrot : float
-            Instrument rotator angle [deg] for the exposure; used to rotate PFI coordinates.
+        metadata : `PropertyList`
+            Metadata for the exposure.
 
         Raises
         ------
@@ -195,11 +190,10 @@ class ScreenResponseTask(Task):
         pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
         if not np.array_equal(pfsConfig.fiberId, spectra.fiberId):
             raise RuntimeError("FiberId mismatch")
-        if not np.isfinite(insrot):
-            raise RuntimeError("Rotator angle is not finite")
 
         # Load the screen model (produces R when evaluated); keep as-is for your local test
         screen = ScreenModel.loadModel('/home/alefur/screenModel')
+        twilight = TwilightModel.loadModel('/home/alefur/twilightModel')
 
         # Select only “real” science fibers with known positions
         noPosition = np.isnan(pfsConfig.pfiCenter).all(axis=1)
@@ -207,24 +201,31 @@ class ScreenResponseTask(Task):
         if not np.any(select):
             return
 
-        # Rotate PFI (x, y) by insrot so the screen model is queried in the proper orientation
-        xyRot = rotateCoordinatesAroundCenter(
-            pfsConfig.pfiCenter[select].T, x0=0, y0=0, theta=np.deg2rad(insrot)
-        )
+        if self.isQuartz(metadata):
+            insrot = metadata["INSROT"]
 
-        # Evaluate RESPONSE R(λ, x, y); shapes: (nSel, nλ)
-        response = screen.evaluate(spectra.wavelength[select], xy=xyRot.T)
+            if not np.isfinite(insrot):
+                raise RuntimeError("Rotator angle is not finite")
 
-        # Compute CORRECTION C = 1 / R; we *divide norm by C* to *insert R* into norm (see doc above)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            correction = 1 / response
-            bad = ~np.isfinite(correction) | (correction == 0)
-            if np.any(bad):
-                # If the screen model is undefined somewhere, fall back to neutral correction = 1
-                correction[bad] = 1.0
+            self.log.info("Applying new screen response correction to quartz lamp spectra, INSROT=%f", insrot)
+            # Rotate PFI (x, y) by insrot so the screen model is queried in the proper orientation
+            xyRot = rotateCoordinatesAroundCenter(pfsConfig.pfiCenter[select].T, x0=0, y0=0,
+                                                  theta=np.deg2rad(insrot))
+            response = screen.evaluate(spectra.wavelength[select], xy=xyRot.T)
 
-            # The key step: norm_applied = norm_base / C = norm_base * R
-            spectra.norm[select] /= correction
+        elif self.isSky(metadata):
+            self.log.info("Applying screen to sky correction to quartz correction")
+            xy = pfsConfig.pfiCenter[select]
+            response = twilight.evaluate(spectra.wavelength[select], xy=xy)
+
+        else:
+            return
+
+        # Multiply norm by R; fall back to 1 where the model is undefined
+        bad = ~np.isfinite(response) | (response == 0)
+        if np.any(bad):
+            response[bad] = 1.0
+        spectra.norm[select] *= response
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
@@ -271,6 +272,8 @@ def rotateCoordinatesAroundCenter(x: np.ndarray, x0: float, y0: float, theta: fl
 
 
 class ScreenModel:
+    defaultMode = 'bilinear'
+
     def __init__(self, wavelengths, meanResponse, components, scores, x, y, nComponents=None):
         """
         Initialize the PCAReconstructor.
@@ -350,10 +353,11 @@ class ScreenModel:
         else:
             return np.stack(interpolated_scores, axis=-1)
 
-    def interpolateComponents(self, extendedComponent, xy, mode='bilinear', nearestFallback=True):
+    def interpolateComponents(self, extendedComponent, xy, mode=None, nearestFallback=True):
         """
         Interpolate components (last row = mean) at xy using either bilinear or Delaunay.
         """
+        mode = self.defaultMode if not mode else mode
         xy = np.asarray(xy)
 
         if mode == 'bilinear':
@@ -408,3 +412,7 @@ class ScreenModel:
 
         print(f"Please help me, Loaded PCA model from {loadDir}")
         return cls(wavelengths, meanResponse, components, scores, x, y)
+
+
+class TwilightModel(ScreenModel):
+    defaultMode = 'tri'
