@@ -88,7 +88,7 @@ struct FiberModel {
         };
     }
 
-    FiberModel applyOffset(int offset) const {
+    FiberModel applyOffset(int offset, int width) const {
         if (offset == 0) {
             return *this;
         }
@@ -104,17 +104,18 @@ struct FiberModel {
         // offset = +1 --> -0.1, -0.7, 0.7, 0.1
         // offset = +2 --> -0.1, -0.8, 0.0, 0.8, 0.1
 
-        int const newMin = xMin + std::min(0, offset);
-        int const newMax = xMax + std::max(0, offset);
+        int const newMin = std::max(0, xMin + std::min(0, offset));
+        int const newMax = std::min(width, xMax + std::max(0, offset));
 
         // Insert the offset values
         {
-            int const start = offset < 0 ? 0 : offset;
-            int const stop = std::min(start + width, size);  // exclusive
-            assert(start >= 0);
-            assert(stop <= size);
-            newValues[ndarray::view(start, stop)] = values;
-            newUse[ndarray::view(start, stop)] = use;
+            // Position on the 'values' array to start/stop
+            int const start = 
+            int const stop =
+            int const newStart = 
+            int const newStop = 
+            newValues[ndarray::view(newStart, newStop)] = values[ndarray::view(start, stop)];
+            newUse[ndarray::view(newStart, newStop)] = use[ndarray::view(start, stop)];
         }
 
         // Subtract the non-offset values
@@ -355,7 +356,7 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(FiberTrace<float> con
                 --offsetIndex;
                 continue;
             }
-            auto kernelModel = model.applyOffset(offset);
+            auto kernelModel = model.applyOffset(offset, bbox.getMaxX() + 1);
             kernelModel.addToImage(convImage, _polynomials[offsetIndex](xCenter, yy));
         }
     }
@@ -394,6 +395,39 @@ ndarray::Array<double, 1, 1> FiberKernel::evaluate(double x, double y) const {
     }
     return result;
 }
+
+
+std::vector<lsst::afw::image::Image<double>> FiberKernel::makeOffsetImages(
+    lsst::geom::Extent2I const& dims
+) const {
+    std::vector<lsst::afw::image::Image<double>> result;
+    result.reserve(2*_halfWidth);
+
+    std::size_t offsetIndex = 0;
+    for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++offsetIndex) {
+        if (offset == 0) {
+            --offsetIndex;
+            continue;
+        }
+
+        lsst::geom::Box2D const& range = _polynomials[offsetIndex].getXYRange();
+        double const dx = range.getWidth()/(dims.getX() - 1);
+        double const dy = range.getHeight()/(dims.getY() - 1);
+
+        lsst::afw::image::Image<double> image{dims};
+        double ySample = range.getMinY();
+        for (int yy = 0; yy < dims.getY(); ++yy, ySample += dy) {
+            auto iter = image.row_begin(yy);
+            double xSample = range.getMinX();
+            for (int xx = 0; xx < dims.getX(); ++xx, ++iter, xSample += dx) {
+                *iter = _polynomials[offsetIndex](xSample, ySample);
+            }
+        }
+        result.push_back(std::move(image));
+    }
+    return result;
+}
+
 
 namespace {
 
@@ -538,7 +572,7 @@ struct KernelFitter {
 
             std::size_t kernelIndex = 0;
             for (int offset = -_kernelHalfWidth; offset <= _kernelHalfWidth; ++offset, ++kernelIndex) {
-                data.kernelModels[ii][kernelIndex] = model.applyOffset(offset);
+                data.kernelModels[ii][kernelIndex] = model.applyOffset(offset, _image.getWidth());
             }
         }
 
