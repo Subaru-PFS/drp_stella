@@ -198,26 +198,33 @@ struct FiberModel {
         auto const weights = (modelGood && dataGood).select(
             1.0/ndarray::asEigenArray(dataVariance[ndarray::view(xMin, xMax)]), 0.0
         ).template cast<double>();
-        auto const weightedValues = weights*ndarray::asEigenArray(values).template cast<double>();
-        return weightedValues.square().sum();
+        auto const modelValues = ndarray::asEigenArray(values).template cast<double>();
+        return (weights*modelValues.square()).sum();
     }
 
     double dotData(
         ndarray::Array<float const, 1, 1> const& dataValues,
-        ndarray::Array<bool const, 1, 1> const& usePixels
+        ndarray::Array<bool const, 1, 1> const& usePixels,
+        ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
-        auto const left = ndarray::asEigenArray(use).select(
+        auto const modelGood = ndarray::asEigenArray(use);
+        auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
+        auto const weights = (modelGood && dataGood).select(
+            1.0/ndarray::asEigenArray(dataVariance[ndarray::view(xMin, xMax)]), 0.0
+        ).template cast<double>();
+        auto const left = modelGood.select(
             ndarray::asEigenArray(values).template cast<double>(), 0.0
         );
-        auto const right = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]).select(
+        auto const right = dataGood.select(
             ndarray::asEigenArray(dataValues[ndarray::view(xMin, xMax)]).template cast<double>(), 0.0
         );
-        return (left*right).sum();
+        return (weights*left*right).sum();
     }
 
     double dotOther(
         FiberModel const& other,
-        ndarray::Array<bool const, 1, 1> const& usePixels
+        ndarray::Array<bool const, 1, 1> const& usePixels,
+        ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
         int const start = std::max(this->xMin, other.xMin);
         int const stop = std::min(this->xMax, other.xMax);  // exclusive
@@ -232,6 +239,9 @@ struct FiberModel {
         auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(start, stop)]);
         auto const useLeft = ndarray::asEigenArray(this->use[ndarray::view(thisStart, thisStop)]);
         auto const useRight = ndarray::asEigenArray(other.use[ndarray::view(otherStart, otherStop)]);
+        auto const weights = (useLeft && useRight && dataGood).select(
+            1.0/ndarray::asEigenArray(dataVariance[ndarray::view(start, stop)]), 0.0
+        ).template cast<double>();
 
         auto const left = (useLeft && dataGood).select(
             ndarray::asEigenArray(
@@ -243,12 +253,13 @@ struct FiberModel {
                 other.values[ndarray::view(otherStart, otherStop)]
             ).template cast<double>(), 0.0
         );
-        return (left*right).sum();
+        return (weights*left*right).sum();
     }
 
     std::pair<int, ndarray::Array<double, 1, 1>> dotBackground(
         ndarray::Array<int const, 1, 1> const& blocks,
-        ndarray::Array<bool const, 1, 1> const& usePixels
+        ndarray::Array<bool const, 1, 1> const& usePixels,
+        ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
         int const imageWidth = usePixels.size();
         int const xStart = std::max(xMin, 0);
@@ -266,7 +277,7 @@ struct FiberModel {
             if (!use[xModel]) continue;
             if (!usePixels[xData]) continue;
             std::size_t const blockIndex = blocks[xData];
-            bgTerms[blockIndex - minBlock] += values[xModel];
+            bgTerms[blockIndex - minBlock] += values[xModel]/dataVariance[xData];
         }
         return {minBlock, bgTerms};
     }
@@ -626,8 +637,7 @@ struct KernelFitter {
         }
 
         auto const& dataImage = _image.getImage()->getArray()[y];
-        auto const& dataMask = _image.getMask()->getArray()[y];
-        // Deliberately ignoring the variance out of concern for flux biases.
+        auto const& dataVariance = _image.getVariance()->getArray()[y];
 
         data.polyValues[fiberIndex].deep() = utils::vectorToArray(_kernelPolynomial.getDFuncDParameters(
             data.xCenter[fiberIndex], y
@@ -636,8 +646,10 @@ struct KernelFitter {
         std::size_t iIndex = 0;
         for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iIndex) {
             FiberModel const& iModel = data.kernelModels[fiberIndex][iIndex];
-            data.dotData[fiberIndex][iIndex] = iModel.dotData(dataImage, data.usePixel);
-            data.dotBackground[fiberIndex].emplace_back(iModel.dotBackground(_bg.xBlocks, data.usePixel));
+            data.dotData[fiberIndex][iIndex] = iModel.dotData(dataImage, data.usePixel, dataVariance);
+            data.dotBackground[fiberIndex].emplace_back(
+                iModel.dotBackground(_bg.xBlocks, data.usePixel, dataVariance)
+            );
         }
 
         std::vector<ndarray::Array<double, 2, 2>> dotModel;
@@ -656,7 +668,7 @@ struct KernelFitter {
                 std::size_t jIndex = 0;
                 for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jIndex) {
                     FiberModel const& jModel = data.kernelModels[jFiberIndex][jIndex];
-                    dotModelFiber[iIndex][jIndex] = iModel.dotOther(jModel, data.usePixel);
+                    dotModelFiber[iIndex][jIndex] = iModel.dotOther(jModel, data.usePixel, dataVariance);
                 }
             }
             bool const isZero = (ndarray::asEigenArray(dotModelFiber) == 0.0).all();
@@ -820,10 +832,11 @@ struct KernelFitter {
             }
 
             std::size_t const block = _bg.xBlocks[xx];
-            terms[block] += 1.0;
+            double const weight = 1.0/iter.variance();
+            terms[block] += weight;
 
             std::size_t const bgIndex = getBackgroundIndex(xx, y);
-            vector[bgIndex] += iter.image();
+            vector[bgIndex] += iter.image()*weight;
         }
         for (std::size_t ii = 0, bgIndex = getBackgroundIndex(0, y); ii < _bg.xNumBlocks; ++ii, ++bgIndex) {
             matrix[bgIndex][bgIndex] += terms[ii];
