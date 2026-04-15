@@ -57,6 +57,17 @@ void declareFiberKernel(py::module & mod) {
         py::overload_cast<lsst::geom::Point2D const&>(&FiberKernel::evaluate, py::const_),
         "xy"_a
     );
+    cls.def(
+        "makeOffsetImages",
+        py::overload_cast<lsst::geom::Extent2I const&>(&FiberKernel::makeOffsetImages, py::const_),
+        "dims"_a
+    );
+    cls.def(
+        "makeOffsetImages",
+        py::overload_cast<int, int>(&FiberKernel::makeOffsetImages, py::const_),
+        "width"_a,
+        "height"_a
+    );
 }
 
 
@@ -76,7 +87,7 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "maxIter"_a=20,
         "andersonDepth"_a=5,
         "fluxTol"_a=1.0e-3,
-                "lsqThreshold"_a=1.0e-16
+        "lsqThreshold"_a=1.0e-16
     );
 }
 

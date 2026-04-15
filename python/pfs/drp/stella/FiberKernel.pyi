@@ -1,6 +1,6 @@
 from typing import overload
 import numpy as np
-from lsst.geom import Point2D
+from lsst.geom import Point2D, Extent2I
 from lsst.afw.image import Image, MaskedImage
 from pfs.drp.stella import FiberTrace, FiberTraceSet, SpectrumSet
 from pfs.drp.stella.math import NormalizedPolynomial2D
@@ -33,6 +33,10 @@ class FiberKernel:
     def evaluate(self, x: float, y: float) -> np.ndarray: ...
     @overload
     def evaluate(self, xy: Point2D) -> np.ndarray: ...
+    @overload
+    def makeOffsetImages(self, dims: Extent2I) -> list[Image]: ...
+    @overload
+    def makeOffsetImages(self, width: int, height: int) -> list[Image]: ...
 
 
 def fitFiberKernel(
