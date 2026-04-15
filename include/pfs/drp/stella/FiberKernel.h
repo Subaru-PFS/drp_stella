@@ -62,7 +62,11 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
     int kernelOrder,
     int xBackgroundSize,
     int yBackgroundSize,
-    ndarray::Array<int, 1, 1> const& rows
+    ndarray::Array<int, 1, 1> const& rows,
+    int maxIter=20,
+    int andersonDepth=5,
+    double fluxTol=1.0e-3,
+    double lsqThreshold=1.0e-16
 );
 
 

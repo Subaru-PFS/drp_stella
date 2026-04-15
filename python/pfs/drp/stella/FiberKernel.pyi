@@ -43,5 +43,9 @@ def fitFiberKernel(
     kernelOrder: int = 3,
     xBackgroundSize: int = 500,
     yBackgroundSize: int = 500,
-    rows: np.ndarray | None = None
+    rows: np.ndarray | None = None,
+    maxIter: int = 20,
+    andersonDepth: int = 5,
+    fluxTol: float = 1.0e-3,
+    lsqThreshold: float = 1.0e-16
 ) -> tuple[FiberKernel, Image, np.ndarray]: ...
