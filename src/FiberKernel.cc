@@ -534,6 +534,29 @@ struct KernelFitter {
         return isGoodImage(iter.image(), iter.mask(), iter.variance());
     }
 
+    double getDotModel(
+        RowData const& data,
+        std::size_t leftFiber,
+        std::size_t rightFiber,
+        std::size_t leftOffsetIndex,
+        std::size_t rightOffsetIndex
+    ) const {
+        if (leftFiber <= rightFiber) {
+            std::size_t const delta = rightFiber - leftFiber;
+            if (delta >= data.dotModel[leftFiber].size()) {
+                return 0.0;
+            }
+            return data.dotModel[leftFiber][delta][leftOffsetIndex][rightOffsetIndex];
+        }
+
+        std::size_t const delta = leftFiber - rightFiber;
+        if (delta >= data.dotModel[rightFiber].size()) {
+            return 0.0;
+        }
+        // dot(A, B) == dot(B, A): swap fiber/offset order when reading reversed storage.
+        return data.dotModel[rightFiber][delta][rightOffsetIndex][leftOffsetIndex];
+    }
+
     void calculateFiber(
         int y,
         std::size_t fiberIndex,
@@ -642,58 +665,59 @@ struct KernelFitter {
                 continue;
             }
 
-            double const dotSelf = data.dotModel[fiberIndex][0][iOffsetIndex][iOffsetIndex]*iFlux2;
             double const dotData = data.dotData[fiberIndex][iOffsetIndex]*iFlux;
 
             for (std::size_t iSpatial = 0; iSpatial < _numKernelSpatial; ++iSpatial) {
                 std::size_t const iKernelIndex = getKernelIndex(iOffset, iSpatial);
                 double const iPoly = polyValues[iSpatial];
-                // Kernel diagonal term
-                // F_i(y)^2.[K_j(x,y) dot K_j(x,y)]
-                matrix[iKernelIndex][iKernelIndex] += std::pow(iPoly, 2)*dotSelf;
                 // Vector term from the image
                 // F_i(y).p_i(x,y) dot K_j(x,y)
                 vector[iKernelIndex] += iPoly*dotData;
 
                 // Subtracting sum_k F_k(y).p_k(x,y) dot F_i(y).K_j(x,y) from the vector
-                std::size_t jFiberIndex = fiberIndex;
-                for (std::size_t jj = 0; jj < data.dotModel[fiberIndex].size(); ++jj, ++jFiberIndex) {
+                {
+                    for (std::size_t jFiberIndex = 0; jFiberIndex < _numFibers; ++jFiberIndex) {
+                        if (!data.useTrace[jFiberIndex]) {
+                            continue;
+                        }
+                        double const jFlux = flux[jFiberIndex];
+                        double const dotModel = getDotModel(
+                            data, fiberIndex, jFiberIndex, iOffsetIndex, _kernelHalfWidth
+                        );
+                        vector[iKernelIndex] -= iPoly*dotModel*iFlux*jFlux;
+                    }
+                }
+
+                // Kernel-kernel terms for all fibers.
+                // We accumulate only the upper triangle (jKernelIndex >= iKernelIndex),
+                // but include all ordered fiber pairs for the full normal equations.
+                for (std::size_t jFiberIndex = 0; jFiberIndex < _numFibers; ++jFiberIndex) {
                     if (!data.useTrace[jFiberIndex]) {
                         continue;
                     }
+
                     double const jFlux = flux[jFiberIndex];
-                    auto const& dotModel = data.dotModel[fiberIndex][jj];
-                    vector[iKernelIndex] -= iPoly*dotModel[iOffsetIndex][_kernelHalfWidth]*iFlux*jFlux;
-                }
+                    std::size_t jOffsetIndex = 0;
+                    for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jOffsetIndex) {
+                        if (jOffset == 0) {
+                            continue;
+                        }
 
-                // Kernel-spatial cross terms:
-                // F_i(y).F_m(y).[K_j(x,y) dot K_n(x,y)]
-                // where K_j and K_n have the same offset but different spatial polynomial
-                for (std::size_t jSpatial = iSpatial + 1; jSpatial < _numKernelSpatial; ++jSpatial) {
-                    std::size_t const jKernelIndex = getKernelIndex(iOffset, jSpatial);
-                    double const jPoly = polyValues[jSpatial];
-                    double const term = iPoly*jPoly*dotSelf;
-                    matrix[iKernelIndex][jKernelIndex] += term;
-                }
+                        double const dotKernel = getDotModel(
+                            data, fiberIndex, jFiberIndex, iOffsetIndex, jOffsetIndex
+                        )*iFlux*jFlux;
+                        if (dotKernel == 0.0) {
+                            continue;
+                        }
 
-                // Kernel-kernel cross terms
-                // F_i(y).F_m(y).[K_j(x,y) dot K_n(x,y)]
-                // where K_j and K_n have different offsets
-                std::size_t jOffsetIndex = iOffsetIndex + 1;
-                for (
-                    int jOffset = iOffset + 1;
-                    jOffset <= _kernelHalfWidth;
-                    ++jOffset, ++jOffsetIndex
-                ) {
-                    if (jOffset == 0) {
-                        continue;
-                    }
-                    double const dotKernel = data.dotModel[fiberIndex][0][iOffsetIndex][jOffsetIndex]*iFlux2;
-                    for (std::size_t jSpatial = 0; jSpatial < _numKernelSpatial; ++jSpatial) {
-                        std::size_t const jKernelIndex = getKernelIndex(jOffset, jSpatial);
-                        double const jPoly = polyValues[jSpatial];
-                        double const term = iPoly*jPoly*dotKernel;
-                        matrix[iKernelIndex][jKernelIndex] += term;
+                        for (std::size_t jSpatial = 0; jSpatial < _numKernelSpatial; ++jSpatial) {
+                            std::size_t const jKernelIndex = getKernelIndex(jOffset, jSpatial);
+                            if (jKernelIndex < iKernelIndex) {
+                                continue;
+                            }
+                            double const jPoly = data.polyValues[jFiberIndex][jSpatial];
+                            matrix[iKernelIndex][jKernelIndex] += iPoly*jPoly*dotKernel;
+                        }
                     }
                 }
 
@@ -764,9 +788,13 @@ struct KernelFitter {
                  matrix[ii][ii] = 1.0;
             }
             for (std::size_t jj = ii + 1; jj < _numParams; ++jj) {
+                assert(matrix[jj][ii] == 0.0);
                 matrix[jj][ii] = matrix[ii][jj];
             }
         }
+
+        lsst::afw::image::Image<double>(matrix).writeFits("matrix.fits");
+        std::cerr << "Vector: " << vector << std::endl;
 
         // Solve the system of equations
         auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
@@ -969,11 +997,15 @@ struct KernelFitter {
     std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2, 2>> run() {
         std::vector<RowData> data = calculate(_rows);
 
-        int const maxIter = 10;
+        int const maxIter = 50;
 
         ndarray::Array<double, 1, 1> kernel = utils::arrayFilled<double, 1, 1>(_numParams, 0.0);
         ndarray::Array<double, 2, 2> flux = fitFlux(data, kernel);
         std::cerr << "Initial flux: " << flux[0] << std::endl;
+#if 0
+        std::cerr << "HACKING INITIAL FLUX" << std::endl;
+        flux.deep() = 1e4;
+#endif
         for (int ii = 0; ii < maxIter; ++ii) {
             kernel = fitKernel(data, flux);
             std::cerr << "Kernel solution: " << kernel << std::endl;
