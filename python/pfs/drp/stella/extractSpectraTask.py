@@ -30,8 +30,17 @@ class ExtractSpectraConfig(pexConfig.Config):
     )
     kernelHalfWidth = pexConfig.Field(dtype=int, default=3, doc="Half-width of convolution kernel")
     kernelOrder = pexConfig.Field(dtype=int, default=3, doc="Order of convolution kernel variation")
-    xBackgroundSize = pexConfig.Field(dtype=int, default=300, doc="Size of background in x")
-    yBackgroundSize = pexConfig.Field(dtype=int, default=300, doc="Size of background in y")
+    xBackgroundSize = pexConfig.Field(dtype=int, default=500, doc="Size of background in x")
+    yBackgroundSize = pexConfig.Field(dtype=int, default=500, doc="Size of background in y")
+    numRows = pexConfig.Field(dtype=int, default=100, doc="Number of rows to use in kernel fitting")
+    maxIter = pexConfig.Field(dtype=int, default=20, doc="Maximum number of iterations in kernel fitting")
+    andersonDepth = pexConfig.Field(dtype=int, default=5, doc="Anderson acceleration depth in kernel fitting")
+    fluxTol = pexConfig.Field(
+        dtype=float, default=1.0e-1, doc="Tolerance for flux convergence in kernel fitting"
+    )
+    lsqThreshold = pexConfig.Field(
+        dtype=float, default=1.0e-16, doc="Threshold for least-squares convergence in kernel fitting"
+    )
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -198,27 +207,33 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-        spectra = fiberTraceSet.extractSpectra(
-            maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
-        )
-
-        originalTraces = fiberTraceSet
-        residual = maskedImage.clone()
-
-        model = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
-        residual.image.array[:] = maskedImage.image.array - model.array
-        kernel, background = fitFiberKernel(
-            residual,
-            originalTraces,
-            spectra,
+        rows = np.linspace(0, maskedImage.getHeight() - 1, self.config.numRows, dtype=np.int32)
+        kernel, background, fluxes = fitFiberKernel(
+            maskedImage,
+            fiberTraceSet,
             badBitMask,
             self.config.kernelHalfWidth,
             self.config.kernelOrder,
             self.config.xBackgroundSize,
             self.config.yBackgroundSize,
+            rows=rows,
+            maxIter=self.config.maxIter,
+            andersonDepth=self.config.andersonDepth,
+            fluxTol=self.config.fluxTol,
+            lsqThreshold=self.config.lsqThreshold,
         )
 
+        maskedImage.writeFits("image.fits")
         background.writeFits("background.fits")
+
+        if True:
+            spectra = fiberTraceSet.extractSpectra(
+                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+            )
+            model = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
+            residual = maskedImage.clone()
+            residual -= model
+            residual.writeFits("origResidual.fits")
 
         from lsst.afw.math import BackgroundMI
         from lsst.afw.image import makeMaskedImage
@@ -229,16 +244,16 @@ class ExtractSpectraTask(pipeBase.Task):
             "AKIMA_SPLINE", "REDUCE_INTERP_ORDER"
         )
 
-        fiberTraceSet = kernel(originalTraces)
-        spectra = fiberTraceSet.extractSpectra(
+        convolvedTraces = kernel(fiberTraceSet)
+        spectra = convolvedTraces.extractSpectra(
             maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
         )
 
         if True:
-            newModel = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
-            newResidual = maskedImage.clone()
-            newResidual -= newModel
-            newResidual.writeFits("residual.fits")
+            model = spectra.makeImage(maskedImage.getBBox(), convolvedTraces)
+            residual = maskedImage.clone()
+            residual -= model
+            residual.writeFits("newResidual.fits")
 
         if detectorMap is not None:
             for spectrum in spectra:

@@ -15,9 +15,6 @@ namespace drp {
 namespace stella {
 
 
-struct KernelFittingWorkspace;
-
-
 class FiberKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
