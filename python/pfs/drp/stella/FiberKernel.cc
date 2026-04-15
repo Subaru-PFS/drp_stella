@@ -72,7 +72,11 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "kernelOrder"_a=3,
         "xBackgroundSize"_a=500,
         "yBackgroundSize"_a=500,
-        "rows"_a=nullptr
+        "rows"_a=nullptr,
+        "maxIter"_a=20,
+        "andersonDepth"_a=5,
+        "fluxTol"_a=1.0e-3,
+                "lsqThreshold"_a=1.0e-16
     );
 }
 

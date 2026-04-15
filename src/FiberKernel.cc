@@ -648,7 +648,6 @@ struct KernelFitter {
 
         int const yy = data.y;
         double const iFlux = flux[fiberIndex];
-        double const iFlux2 = iFlux*iFlux;
         ndarray::ArrayRef<double const, 1, 1> const polyValues = data.polyValues[fiberIndex];
 
         std::size_t iOffsetIndex = 0;
@@ -698,7 +697,11 @@ struct KernelFitter {
 
                     double const jFlux = flux[jFiberIndex];
                     std::size_t jOffsetIndex = 0;
-                    for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jOffsetIndex) {
+                    for (
+                        int jOffset = -_kernelHalfWidth;
+                        jOffset <= _kernelHalfWidth;
+                        ++jOffset, ++jOffsetIndex
+                    ) {
                         if (jOffset == 0) {
                             continue;
                         }
@@ -778,7 +781,8 @@ struct KernelFitter {
 
     ndarray::Array<double, 1, 1> solve(
         ndarray::Array<double, 2, 2> const& matrix,
-        ndarray::Array<double, 1, 1> const& vector
+        ndarray::Array<double, 1, 1> const& vector,
+        double lsqThreshold
     ) const {
         // Ensure we have entries for all parameters, to avoid singular matrix
         // Fill in the lower triangle of the matrix
@@ -793,12 +797,9 @@ struct KernelFitter {
             }
         }
 
-        lsst::afw::image::Image<double>(matrix).writeFits("matrix.fits");
-        std::cerr << "Vector: " << vector << std::endl;
-
         // Solve the system of equations
         auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
-        /// XXX set threshold, etc.
+        lsq.setThreshold(lsqThreshold);
         ndarray::Array<double const, 1, 1> solution = lsq.getSolution();
 
         return ndarray::copy(solution);
@@ -836,16 +837,16 @@ struct KernelFitter {
             }
             result.push_back(std::move(data));
         }
-        std::cerr << "Calculated " << result.size() << " rows" << std::endl;
         return result;
     }
 
     ndarray::Array<double, 1, 1> fitKernel(
         std::vector<RowData> const& data,
-        ndarray::Array<double, 2, 2> const& flux
+        ndarray::Array<double, 2, 2> const& flux,
+        double lsqThreshold
     ) {
         auto const equation = accumulate(data, flux);
-        return solve(equation.first, equation.second);
+        return solve(equation.first, equation.second, lsqThreshold);
     }
 
     ndarray::Array<double, 2, 2> calculatePolynomials(
@@ -943,7 +944,11 @@ struct KernelFitter {
                 }
 
                 std::size_t jOffsetIndex = 0;
-                for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jOffsetIndex) {
+                for (
+                    int jOffset = -_kernelHalfWidth;
+                    jOffset <= _kernelHalfWidth;
+                    ++jOffset, ++jOffsetIndex
+                ) {
                     if (jOffset == 0) {
                         continue;
                     }
@@ -994,29 +999,94 @@ struct KernelFitter {
         return flux;
     }
 
-    std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2, 2>> run() {
+    std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2, 2>> run(
+        int maxIter,
+        int andersonDepth,
+        double fluxTol,
+        double lsqThreshold
+    ) {
         std::vector<RowData> data = calculate(_rows);
 
-        int const maxIter = 50;
+        std::size_t const numFluxParams = _numRows*_numFibers;
 
         ndarray::Array<double, 1, 1> kernel = utils::arrayFilled<double, 1, 1>(_numParams, 0.0);
         ndarray::Array<double, 2, 2> flux = fitFlux(data, kernel);
         std::cerr << "Initial flux: " << flux[0] << std::endl;
-#if 0
-        std::cerr << "HACKING INITIAL FLUX" << std::endl;
-        flux.deep() = 1e4;
-#endif
-        for (int ii = 0; ii < maxIter; ++ii) {
-            kernel = fitKernel(data, flux);
-            std::cerr << "Kernel solution: " << kernel << std::endl;
-            ndarray::Array<double, 2, 2> newFlux = fitFlux(data, kernel);
-            std::cerr << "New flux: " << newFlux[0] << std::endl;
 
-            auto const diff = ndarray::asEigenArray(newFlux) - ndarray::asEigenArray(flux);
-            double const rms = std::sqrt((diff*diff).mean());
+        std::vector<ndarray::Array<double, 1, 1>> kernelHistory;
+        std::vector<ndarray::Array<double, 1, 1>> fluxHistory;
+        kernelHistory.reserve(andersonDepth + 2);
+        fluxHistory.reserve(andersonDepth + 2);
+
+        bool converged = false;
+        for (int ii = 0; ii < maxIter; ++ii) {
+            ndarray::Array<double, 1, 1> const fluxVector = utils::flattenArray(flux);
+            kernel = fitKernel(data, flux, lsqThreshold);
+            std::cerr << "New kernel: " << kernel << std::endl;
+
+            ndarray::Array<double, 2, 2> newFlux = fitFlux(data, kernel);
+            ndarray::Array<double, 1, 1> const newFluxVector = utils::flattenArray(newFlux);
+            ndarray::Array<double, 1, 1> fluxResidual = ndarray::allocate(numFluxParams);
+            ndarray::asEigenArray(fluxResidual) =
+                ndarray::asEigenArray(newFluxVector) - ndarray::asEigenArray(fluxVector);
+            double const rms = std::sqrt(
+                ndarray::asEigenArray(fluxResidual).square().sum()/fluxResidual.size()
+            );
             std::cerr << "Iteration " << ii << ": flux RMS change = " << rms << std::endl;
-            flux = std::move(newFlux);
+            if (rms < fluxTol) {
+                flux = std::move(newFlux);
+                converged = true;
+                break;
+            }
+
+            kernelHistory.push_back(fluxVector);
+            fluxHistory.push_back(fluxResidual);
+            if (kernelHistory.size() > std::size_t(andersonDepth + 1)) {
+                kernelHistory.erase(kernelHistory.begin());
+                fluxHistory.erase(fluxHistory.begin());
+            }
+
+            ndarray::Array<double, 1, 1> nextFluxVector = ndarray::copy(newFluxVector);
+            std::size_t const numSteps = kernelHistory.size() - 1;
+            if (numSteps > 0) {
+                std::size_t const mk = std::min<std::size_t>(andersonDepth, numSteps);
+                ndarray::Array<double, 2, 2> dFlux = ndarray::allocate(numFluxParams, mk);
+                ndarray::Array<double, 2, 2> dKernel = ndarray::allocate(numFluxParams, mk);
+                std::size_t const start = kernelHistory.size() - mk - 1;
+                for (std::size_t jj = 0; jj < mk; ++jj) {
+                    for (std::size_t kk = 0; kk < numFluxParams; ++kk) {
+                        dFlux[kk][jj] = fluxHistory[start + jj + 1][kk] - fluxHistory[start + jj][kk];
+                        dKernel[kk][jj] = kernelHistory[start + jj + 1][kk] - kernelHistory[start + jj][kk];
+                    }
+                }
+
+                Eigen::VectorXd const gamma = ndarray::asEigenMatrix(dFlux).colPivHouseholderQr().solve(
+                    ndarray::asEigenMatrix(fluxResidual)
+                );
+                Eigen::VectorXd const correction = (
+                    ndarray::asEigenMatrix(dKernel) + ndarray::asEigenMatrix(dFlux)
+                )*gamma;
+                Eigen::VectorXd const andersonFluxVector = ndarray::asEigenMatrix(newFluxVector) - correction;
+                if (andersonFluxVector.array().isFinite().all()) {
+                    ndarray::asEigenArray(nextFluxVector) = andersonFluxVector.array();
+                }
+            }
+
+            ndarray::Array<double, 2, 1> reshapedFlux = utils::unflattenArray(
+                nextFluxVector, _numRows, _numFibers
+            );
+            ndarray::asEigenArray(flux) = ndarray::asEigenArray(reshapedFlux);
+            std::cerr << "New flux: " << flux[0] << std::endl;
         }
+        if (!converged) {
+            throw LSST_EXCEPT(
+                lsst::pex::exceptions::RuntimeError,
+                "Kernel fitting failed to converge before reaching maximum number of iterations"
+            );
+        }
+
+        // Ensure the final kernel corresponds to the final flux iterate.
+        kernel = fitKernel(data, flux, lsqThreshold);
         auto const extraction = extract(kernel);
         return {std::move(extraction.first), std::move(extraction.second), std::move(flux)};
     }
@@ -1058,7 +1128,11 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
     int kernelOrder,
     int xBackgroundSize,
     int yBackgroundSize,
-    ndarray::Array<int, 1, 1> const& rows
+    ndarray::Array<int, 1, 1> const& rows,
+    int maxIter,
+    int andersonDepth,
+    double fluxTol,
+    double lsqThreshold
 ) {
     if (kernelHalfWidth <= 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Kernel half-width must be positive");
@@ -1071,16 +1145,29 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
             lsst::pex::exceptions::InvalidParameterError, "Background block sizes must be positive"
         );
     }
-    std::cerr << "Fitting " << fiberTraces.size() << " fibers with kernel half-width " << kernelHalfWidth
-              << ", kernel order " << kernelOrder
-              << ", background block size (" << xBackgroundSize << "," << yBackgroundSize << ")"
-              << " and " << rows.size() << " rows" << std::endl;
+    if (maxIter <= 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "maxIter must be positive");
+    }
+    if (andersonDepth < 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "andersonDepth must be non-negative");
+    }
+    if (!(std::isfinite(fluxTol) && fluxTol > 0.0)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError, "fluxTol must be finite and positive"
+        );
+    }
+    if (!(std::isfinite(lsqThreshold) && lsqThreshold > 0.0)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "lsqThreshold must be finite and positive"
+        );
+    }
     return KernelFitter(
         image, fiberTraces,badBitMask,
         kernelHalfWidth, kernelOrder,
         xBackgroundSize, yBackgroundSize,
         rows.isEmpty() ? utils::arange<int>(0, image.getHeight()) : rows
-    ).run();
+    ).run(maxIter, andersonDepth, fluxTol, lsqThreshold);
 }
 
 
