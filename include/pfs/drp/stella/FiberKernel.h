@@ -41,6 +41,12 @@ class FiberKernel {
         return evaluate(xy.getX(), xy.getY());
     }
 
+    std::vector<lsst::afw::image::Image<double>> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
+    std::vector<lsst::afw::image::Image<double>> makeOffsetImages(int width, int height) const {
+        return makeOffsetImages(lsst::geom::Extent2I(width, height));
+    }
+
+
   private:
     int _halfWidth;
     int _order;
