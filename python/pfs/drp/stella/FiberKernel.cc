@@ -43,13 +43,17 @@ void declareFiberKernel(py::module & mod) {
 
     cls.def(
         "__call__",
-        py::overload_cast<FiberTrace<float> const&>(&FiberKernel::operator(), py::const_),
-        "fiberTrace"_a
+        py::overload_cast<FiberTrace<float> const&, lsst::geom::Box2I const&>(
+            &FiberKernel::operator(), py::const_
+        ),
+        "fiberTrace"_a, "bbox"_a
     );
     cls.def(
         "__call__",
-        py::overload_cast<FiberTraceSet<float> const&>(&FiberKernel::operator(), py::const_),
-        "fiberTraceSet"_a
+        py::overload_cast<FiberTraceSet<float> const&, lsst::geom::Box2I const&>(
+            &FiberKernel::operator(), py::const_
+        ),
+        "fiberTraceSet"_a, "bbox"_a
     );
     cls.def("evaluate", py::overload_cast<double, double>(&FiberKernel::evaluate, py::const_), "x"_a, "y"_a);
     cls.def(

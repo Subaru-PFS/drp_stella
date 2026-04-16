@@ -92,9 +92,12 @@ struct FiberModel {
         if (offset == 0) {
             return *this;
         }
-        int const size = width + std::abs(offset);
-        ndarray::Array<float, 1, 1> newValues = ndarray::allocate(size);
-        ndarray::Array<bool, 1, 1> newUse = ndarray::allocate(size);
+        int const newMin = std::max(0, xMin + std::min(0, offset));
+        int const newMax = std::min(width, xMax + std::max(0, offset));  // exclusive
+        int const newWidth = newMax - newMin;
+
+        ndarray::Array<float, 1, 1> newValues = ndarray::allocate(newWidth);
+        ndarray::Array<bool, 1, 1> newUse = ndarray::allocate(newWidth);
         newValues.deep() = 0.0;
         newUse.deep() = false;
 
@@ -104,31 +107,34 @@ struct FiberModel {
         // offset = +1 --> -0.1, -0.7, 0.7, 0.1
         // offset = +2 --> -0.1, -0.8, 0.0, 0.8, 0.1
 
-        int const newMin = std::max(0, xMin + std::min(0, offset));
-        int const newMax = std::min(width, xMax + std::max(0, offset));
-
         // Insert the offset values
         {
-            // Position on the 'values' array to start/stop
-            int const start = 
-            int const stop =
-            int const newStart = 
-            int const newStop = 
+            // Overlap of shifted model with image in image coordinates.
+            int const shiftedMin = std::max(0, xMin + offset);
+            int const shiftedMax = std::min(width, xMax + offset);  // exclusive
+            // Source array indices
+            int const start = shiftedMin - offset - xMin;
+            int const stop = shiftedMax - offset - xMin;  // exclusive
+            // Target array indices
+            int const newStart = shiftedMin - newMin;
+            int const newStop = shiftedMax - newMin;  // exclusive
+            assert(newStart >= 0 && newStop <= newWidth);
+            assert(start >= 0 && stop <= this->width);
             newValues[ndarray::view(newStart, newStop)] = values[ndarray::view(start, stop)];
             newUse[ndarray::view(newStart, newStop)] = use[ndarray::view(start, stop)];
         }
 
         // Subtract the non-offset values
         {
-            int const start = offset > 0 ? 0 : -offset;
-            int const stop = std::min(start + width, size);
-            assert(start >= 0);
-            assert(stop <= size);
-            newValues[ndarray::view(start, stop)] -= values;
-            newUse[ndarray::view(start, stop)] |= use;
+            // Relative positon on the target array for zero offset
+            int const newStart = xMin - newMin;
+            int const newStop = xMax - newMin;
+            assert(newStart >= 0 && newStop <= newWidth);
+            newValues[ndarray::view(newStart, newStop)] -= values;
+            newUse[ndarray::view(newStart, newStop)] |= use;
         }
 
-        return FiberModel{std::move(newValues), std::move(newUse), y, newMin, newMax, size, offset};
+        return FiberModel{std::move(newValues), std::move(newUse), y, newMin, newMax, newWidth, offset};
     }
 
     lsst::afw::image::MaskPixel accumulateMask(
@@ -333,11 +339,15 @@ FiberKernel::FiberKernel(
 }
 
 
-std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(FiberTrace<float> const& trace) const {
+std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(
+    FiberTrace<float> const& trace,
+    lsst::geom::Box2I const& bbox
+) const {
     auto const require = trace.getTrace().getMask()->getPlaneBitMask(fiberMaskPlane);
-    lsst::geom::Box2I bbox = trace.getTrace().getBBox().dilatedBy(lsst::geom::Extent2I(_halfWidth, 0));
+    lsst::geom::Box2I newBox = trace.getTrace().getBBox().dilatedBy(lsst::geom::Extent2I(_halfWidth, 0));
+    newBox.clip(bbox);
 
-    lsst::afw::image::MaskedImage<float> convolved{bbox};
+    lsst::afw::image::MaskedImage<float> convolved{newBox};
     lsst::afw::image::Image<float> convImage = *convolved.getImage();
     lsst::afw::image::Mask<lsst::afw::image::MaskPixel> convMask = *convolved.getMask();
 
@@ -356,7 +366,7 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(FiberTrace<float> con
                 --offsetIndex;
                 continue;
             }
-            auto kernelModel = model.applyOffset(offset, bbox.getMaxX() + 1);
+            auto kernelModel = model.applyOffset(offset, newBox.getMaxX() + 1);
             kernelModel.addToImage(convImage, _polynomials[offsetIndex](xCenter, yy));
         }
     }
@@ -371,10 +381,13 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(FiberTrace<float> con
 }
 
 
-FiberTraceSet<float> FiberKernel::operator()(FiberTraceSet<float> const& trace) const {
+FiberTraceSet<float> FiberKernel::operator()(
+    FiberTraceSet<float> const& trace,
+    lsst::geom::Box2I const& bbox
+) const {
     FiberTraceSet<float> result(trace.size());
     for (std::size_t ii = 0; ii < trace.size(); ++ii) {
-        result.add(operator()(*trace[ii]));
+        result.add(operator()(*trace[ii], bbox));
     }
     return result;
 }
@@ -401,12 +414,16 @@ std::vector<lsst::afw::image::Image<double>> FiberKernel::makeOffsetImages(
     lsst::geom::Extent2I const& dims
 ) const {
     std::vector<lsst::afw::image::Image<double>> result;
-    result.reserve(2*_halfWidth);
+    result.reserve(2*_halfWidth + 1);
+
+    lsst::afw::image::Image<double> center{dims};
+    center = 1.0;
 
     std::size_t offsetIndex = 0;
     for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++offsetIndex) {
         if (offset == 0) {
             --offsetIndex;
+            result.emplace_back(1, 1);  // placeholder; will be replaced with center after the loop
             continue;
         }
 
@@ -423,8 +440,10 @@ std::vector<lsst::afw::image::Image<double>> FiberKernel::makeOffsetImages(
                 *iter = _polynomials[offsetIndex](xSample, ySample);
             }
         }
+        center -= image;
         result.push_back(std::move(image));
     }
+    result[_halfWidth] = std::move(center);
     return result;
 }
 
@@ -1147,6 +1166,7 @@ struct KernelFitter {
 
         bool converged = false;
         for (int ii = 0; ii < maxIter; ++ii) {
+            auto _t = timer("iteration");
             ndarray::Array<double, 1, 1> const fluxVector = utils::flattenArray(flux);
             kernel = fitKernel(data, flux, lsqThreshold);
             std::cerr << "New kernel: " << kernel << std::endl;
@@ -1217,7 +1237,6 @@ struct KernelFitter {
             std::cerr << "  " << name << ": " << elapsed << "\n";
         }
 
-        // Ensure the final kernel corresponds to the final flux iterate.
         kernel = fitKernel(data, flux, lsqThreshold);
         auto const extraction = extract(kernel);
         return {std::move(extraction.first), std::move(extraction.second), std::move(flux)};
