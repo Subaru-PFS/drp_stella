@@ -33,8 +33,14 @@ class FiberKernel {
     ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
     std::vector<Polynomial> const& getPolynomials() const { return _polynomials; }
 
-    std::shared_ptr<FiberTrace<float>> operator()(FiberTrace<float> const& trace) const;
-    FiberTraceSet<float> operator()(FiberTraceSet<float> const& trace) const;
+    std::shared_ptr<FiberTrace<float>> operator()(
+        FiberTrace<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const;
+    FiberTraceSet<float> operator()(
+        FiberTraceSet<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const;
 
     ndarray::Array<double, 1, 1> evaluate(double x, double y) const;
     ndarray::Array<double, 1, 1> evaluate(lsst::geom::Point2D const& xy) const {
@@ -45,7 +51,6 @@ class FiberKernel {
     std::vector<lsst::afw::image::Image<double>> makeOffsetImages(int width, int height) const {
         return makeOffsetImages(lsst::geom::Extent2I(width, height));
     }
-
 
   private:
     int _halfWidth;
@@ -71,6 +76,10 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
     double fluxTol=1.0e-3,
     double lsqThreshold=1.0e-16
 );
+
+
+//std::pair<
+
 
 
 }}}  // namespace pfs::drp::stella
