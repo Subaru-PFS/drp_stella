@@ -121,6 +121,7 @@ def plotImageQuality(
     minFluxPercentile=10,
     vmin=2.5,
     vmax=3.5,
+    maxFwhm=8,
     logScale=True,
     gridsize=100,
     stride=1,
@@ -150,6 +151,8 @@ def plotImageQuality(
         Minimum flux percentile for line selection in spatial plots.
     vmin, vmax : `float`
         FWHM color-scale range (pixels).
+    maxFwhm : `float`
+        Upper FWHM cutoff for line selection and histogram binning (pixels).
     logScale : `bool`
         Log y-axis for histograms.
     gridsize : `int`
@@ -170,11 +173,9 @@ def plotImageQuality(
     Raises
     ------
     RuntimeError
-        If all provided fluxes are NaN (spatial plots only), or no plot
+        If all provided fluxes are NaN (spatial/flux plots only), or no plot
         mode is enabled.
     """
-    plt.sca(ax)
-
     fwhm = data["fwhm"]
     theta = data["theta"]
     C = None
@@ -190,9 +191,13 @@ def plotImageQuality(
         q10 = q10_arr[0]
 
         ll = np.isfinite(data["fwhm"])
-        ll &= data["flag"] == False     # noqa: E712
-        ll &= fwhm < 8
+        ll &= ~data["flag"]
+        ll &= fwhm < maxFwhm
         ll &= data["flux"] > q10
+        if not useSN:
+            ll &= data["flux"] > 0      # guard against log10(<=0)
+        else:
+            ll &= data["fluxErr"] > 0   # guard against division by zero
         if stride > 1:
             ll &= (data["fiberId"] % stride) == 0
 
@@ -204,44 +209,53 @@ def plotImageQuality(
             arrowSize = 4
             cmap = plt.colormaps["viridis"]
             C = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-            Q = plt.quiver(
+            Q = ax.quiver(
                 data["x"][ll], data["y"][ll],
                 (fwhm * np.cos(theta))[ll], (fwhm * np.sin(theta))[ll],
                 fwhm[ll], cmap=cmap, norm=norm,
                 headwidth=0, pivot="middle",
                 angles="xy", scale_units="xy", scale=arrowSize * 30 / imageSize,
             )
-            plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
+            ax.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
         elif showFWHM:
             if gridsize <= 0:
-                C = plt.scatter(data["x"][ll], data["y"][ll], c=fwhm[ll], s=5, norm=norm)
+                C = ax.scatter(data["x"][ll], data["y"][ll], c=fwhm[ll], s=5, norm=norm)
             else:
-                C = plt.hexbin(data["x"][ll], data["y"][ll], fwhm[ll], norm=norm, gridsize=gridsize)
+                C = ax.hexbin(data["x"][ll], data["y"][ll], fwhm[ll], norm=norm, gridsize=gridsize)
         elif showFWHMAgainstLambda:
             xarr = data["flux"] / data["fluxErr"] if useSN else np.log10(data["flux"])
-            C = plt.scatter(xarr[ll], fwhm[ll], c=data["lam"][ll], marker=".", alpha=0.75)
+            C = ax.scatter(xarr[ll], fwhm[ll], c=data["lam"][ll], marker=".", alpha=0.75)
             colorbarLabel = "Wavelength (nm)"
-            plt.xlabel("Signal/Noise" if useSN else "lg(flux)")
-            plt.ylabel("FWHM (pixels)")
+            ax.set_xlabel("Signal/Noise" if useSN else "lg(flux)")
+            ax.set_ylabel("FWHM (pixels)")
 
         if not showFWHMAgainstLambda:
-            plt.xlim(plt.ylim(-1, 4096))
-            plt.xlabel("x (pixels)")
-            plt.ylabel("y (pixels)")
+            ax.set_ylim(-1, 4096)
+            ax.set_xlim(-1, 4096)
+            ax.set_xlabel("x (pixels)")
+            ax.set_ylabel("y (pixels)")
             ax.set_aspect(1)
     else:
+        ll_hist = np.isfinite(fwhm) & ~data["flag"]
+
         if showFWHMHistogram:
-            plt.hist(fwhm, bins=np.linspace(0, 10, 100))
-            plt.xlabel(r"FWHM (pix)")
+            ax.hist(fwhm[ll_hist], bins=np.linspace(0, maxFwhm, 100))
+            ax.set_xlabel("FWHM (pix)")
         elif showFluxHistogram:
-            q99 = np.nanpercentile(data["flux"], [99])[0]
-            plt.hist(data["flux"], bins=np.linspace(0, q99, 100))
-            plt.xlabel("flux")
+            finite_flux = data["flux"][ll_hist]
+            if np.sum(np.isfinite(finite_flux)) == 0:
+                raise RuntimeError("All the provided fluxes are NaN")
+            q99 = np.nanpercentile(finite_flux, [99])[0]
+            ax.hist(finite_flux, bins=np.linspace(0, q99, 100))
+            ax.set_xlabel("flux")
         else:
-            raise RuntimeError("No plot mode enabled")
+            raise RuntimeError(
+                "No plot mode enabled; set one of showWhisker, showFWHM, "
+                "showFWHMAgainstLambda, showFWHMHistogram, or showFluxHistogram"
+            )
 
         if logScale:
-            plt.yscale("log")
+            ax.set_yscale("log")
 
     return C, colorbarLabel
 
@@ -292,7 +306,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                      useSN=False,
                      assembleSpectrograph=True,
                      minFluxPercentile=10,
-                     vmin=2.5, vmax=3.5,
+                     vmin=2.5, vmax=3.5, maxFwhm=8,
                      logScale=True, gridsize=100, stride=1,
                      butler=None, alsCache=None, title="", figure=None):
     """
@@ -306,6 +320,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     showFluxHistogram:    Show a histogram of line fluxes
     assembleSpectrograph: If true, merge visits and arrange plots as b[r,m]n columns
     vmin, vmax:   Range for norm of FWHM plots (default: 2.0, 3.5)
+    maxFwhm:     Upper FWHM cutoff for line selection and histogram binning (default: 8)
     minFluxPercentile: Minimum percentile of flux to include lines (per detector; default 10)
     logScale:    Show log histograme [default]
     gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
@@ -443,6 +458,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                 minFluxPercentile=minFluxPercentile,
                 vmin=vmin,
                 vmax=vmax,
+                maxFwhm=maxFwhm,
                 logScale=logScale,
                 gridsize=gridsize,
                 stride=stride,
