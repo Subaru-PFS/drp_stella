@@ -7,7 +7,8 @@ from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
-__all__ = ["momentsToABT", "getFWHM", "computeImageQuality", "plotImageQuality", "showImageQuality",
+__all__ = ["momentsToABT", "getFWHM", "computeImageQuality", "plotImageQuality",
+           "loadImageQualityData", "showImageQuality",
            "showCobraConvergence", "opaqueColorbar"]
 
 
@@ -245,6 +246,47 @@ def plotImageQuality(
     return C, colorbarLabel
 
 
+def loadImageQualityData(dataIds, butler, alsCache=None):
+    """Load arc line measurements into a cache dict using a butler.
+
+    Fetches ``lines`` and ``detectorMap`` datasets for any ``dataId`` not
+    already present in *alsCache*, enriches the arc lines with wavelength
+    and trace-position information via `addTraceLambdaToArclines`, and
+    stores the result in the cache.
+
+    Parameters
+    ----------
+    dataIds : iterable of `dict`
+        Each dict must contain ``visit``, ``arm``, and ``spectrograph`` keys.
+    butler : `lsst.daf.butler.Butler`
+        Butler used to read ``lines`` and ``detectorMap`` datasets.
+    alsCache : `dict`, optional
+        Existing cache to update; entries already present are not re-fetched.
+        If ``None``, a new empty cache is created.
+
+    Returns
+    -------
+    alsCache : `dict`
+        Mapping from ``"%(visit)d %(arm)s%(spectrograph)d"`` strings to
+        enriched `ArcLineSet` objects (or ``None`` for datasets not found).
+    """
+    if alsCache is None:
+        alsCache = {}
+
+    for dataId in dataIds:
+        if dataId is None:
+            continue
+        dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
+        if dataIdStr not in alsCache or alsCache[dataIdStr] is None:
+            detMap = butler.get("detectorMap", dataId)
+            try:
+                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
+            except DatasetNotFoundError:
+                alsCache[dataIdStr] = None
+
+    return alsCache
+
+
 def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainstLambda=False,
                      showFWHMHistogram=False, showFluxHistogram=False,
                      useSN=False,
@@ -270,8 +312,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                  If <= 0, use plt.scatter() instead
     stride:      Stride when traversing fiberId (default: 1)
     useSN:       Use signal/noise rather than lg(flux) in showFWHMAgainstLambda plots
-    butler:      A butler to read data that isn't in the alsCache
-    alsCache:    A dict to cache line shape data; returned by this function
+    butler:      A butler to read data not already in alsCache.  Either butler
+                 or alsCache must be provided.
+    alsCache:    A pre-populated cache of arc line data (from a previous call or
+                 from `loadImageQualityData`).  Either butler or alsCache must be
+                 provided.  Returned by this function so it can be reused.
     figure:      The figure to use; or None
 
     Typical usage would be something like:
@@ -294,6 +339,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     Return:
       alsCache
     """
+    if butler is not None:
+        alsCache = loadImageQualityData(dataIds, butler, alsCache)
+    elif alsCache is None:
+        raise RuntimeError("Please provide either a butler or a pre-populated alsCache")
+
     if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram or showFWHMAgainstLambda):
         showWhisker = True
 
@@ -341,24 +391,6 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
 
     fig, axs = plt.subplots(ny, nx, num=figure, sharex=True, sharey=True, squeeze=False, layout="constrained")
     axs = axs.flatten()
-
-    if alsCache is None:
-        alsCache = {}
-
-    for dataId in dataIds:
-        if dataId is None:
-            continue
-        dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
-        if dataIdStr not in alsCache or alsCache[dataIdStr] is None:
-            if butler is None:
-                raise RuntimeError(f"I'm unable to read data for {dataIdStr} without a butler")
-
-            detMap = butler.get("detectorMap", dataId)
-
-            try:
-                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
-            except DatasetNotFoundError:
-                alsCache[dataIdStr] = None
 
     # We need to fake SMs if we've been given a list of dataIds, but don't want to assemble
     # them into a set of spectrographs
