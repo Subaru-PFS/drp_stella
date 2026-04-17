@@ -7,7 +7,8 @@ from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
-__all__ = ["momentsToABT", "getFWHM", "showImageQuality", "showCobraConvergence", "opaqueColorbar"]
+__all__ = ["momentsToABT", "getFWHM", "computeImageQuality", "showImageQuality",
+           "showCobraConvergence", "opaqueColorbar"]
 
 
 from contextlib import contextmanager
@@ -58,8 +59,57 @@ def getFWHM(als):
     return 2*np.sqrt(2*np.log(2))*r, theta
 
 
+def computeImageQuality(als):
+    """Compute image quality metrics from arc line measurements.
+
+    Parameters
+    ----------
+    als : `ArcLineSet` or `pandas.DataFrame`
+        Arc line measurements, enriched with ``lam``, ``lamErr``, and
+        ``tracePos`` columns by `addTraceLambdaToArclines`.
+
+    Returns
+    -------
+    data : `pandas.DataFrame`
+        Arc line data with additional columns:
+
+        ``fwhm``
+            Gaussian-equivalent FWHM in pixels.  When full second moments are
+            not available, populated from the trace width (``xx``).
+        ``theta``
+            Position angle of the PSF major axis in radians.  ``NaN`` when
+            only trace widths are available.
+        ``traceOnly``
+            ``True`` when only trace widths (``xx``) were available, not the
+            full second-moment tensor (``xx``, ``xy``, ``yy``).
+
+    Raises
+    ------
+    RuntimeError
+        If no finite shape measurements are found.
+    """
+    data = als.data.copy() if hasattr(als, 'data') else als.copy()
+
+    ll_full = np.isfinite(data.xx + data.xy + data.yy)
+    if ll_full.sum() > 0:
+        traceOnly = False
+        fwhm, theta = getFWHM(data)
+    elif np.isfinite(data.xx).sum() > 0:
+        traceOnly = True
+        fwhm = data["xx"].copy()
+        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
+    else:
+        raise RuntimeError("No finite shape measurements (xx, xy, yy) found in arc lines")
+
+    data["fwhm"] = fwhm
+    data["theta"] = theta
+    data["traceOnly"] = traceOnly
+
+    return data
+
+
 def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainstLambda=False,
-                     showFWHMHistogram=False, showFluxHistogram=False, fromTrace=False,
+                     showFWHMHistogram=False, showFluxHistogram=False,
                      useSN=False,
                      assembleSpectrograph=True,
                      minFluxPercentile=10,
@@ -119,7 +169,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     arms = []
     for a in "brmn":    # show the arms in this order
         if a in _arms:
-            arms[0:0] = a
+            arms[0:0] = [a]
 
     if assembleSpectrograph:
         ny = len(arms)
@@ -221,7 +271,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
             continue
 
         if traceOnly:
-            a, theta = als.xx, np.nan
+            fwhm, theta = als.xx, np.nan
         else:
             fwhm, theta = getFWHM(als)
 
