@@ -15,11 +15,11 @@ namespace drp {
 namespace stella {
 
 
-class FiberKernel {
+class PolynomialKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
-    FiberKernel(
+    PolynomialKernel(
         lsst::geom::Box2D const& range,
         int halfWidth,
         int order,
@@ -32,6 +32,39 @@ class FiberKernel {
     std::size_t getNumParams() const { return _numParams; }
     ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
     std::vector<Polynomial> const& getPolynomials() const { return _polynomials; }
+
+    ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
+    ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
+        return makeOffsetImages(lsst::geom::Extent2I(width, height));
+    }
+
+  protected:
+    PolynomialKernel(
+        lsst::geom::Box2D const& range,
+        int halfWidth,
+        int order,
+        std::size_t numPoly,
+        ndarray::ArrayRef<double const, 1, 1> const& coefficients
+    );
+    int _halfWidth;
+    int _order;
+    std::size_t _numCoeffs;  ///< number of coefficients in each polynomial
+    std::size_t _numPoly;  ///< number of polynomials
+    std::size_t _numParams;  ///< number of parameters in the kernel (should be numPoly * numOffsets)
+    ndarray::Array<double, 1, 1> _coefficients;
+    std::vector<Polynomial> _polynomials;
+};
+
+
+class FiberKernel : public PolynomialKernel {
+  public:
+
+    FiberKernel(
+        lsst::geom::Box2D const& range,
+        int halfWidth,
+        int order,
+        ndarray::ArrayRef<double const, 1, 1> const& coefficients
+    );
 
     std::shared_ptr<FiberTrace<float>> operator()(
         FiberTrace<float> const& trace,
@@ -47,18 +80,32 @@ class FiberKernel {
         return evaluate(xy.getX(), xy.getY());
     }
 
-    std::vector<lsst::afw::image::Image<double>> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
-    std::vector<lsst::afw::image::Image<double>> makeOffsetImages(int width, int height) const {
+    ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
+    ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
         return makeOffsetImages(lsst::geom::Extent2I(width, height));
     }
+};
 
-  private:
-    int _halfWidth;
-    int _order;
-    std::size_t _numPoly;
-    std::size_t _numParams;
-    ndarray::Array<double, 1, 1> _coefficients;
-    std::vector<Polynomial> _polynomials;
+
+class ImageKernel : public PolynomialKernel {
+  public:
+    ImageKernel(
+        lsst::geom::Box2D const& range,
+        int halfWidth,
+        int order,
+        ndarray::ArrayRef<double const, 1, 1> const& coefficients
+    );
+
+    std::shared_ptr<lsst::afw::image::Image<float>> operator()(
+        lsst::afw::image::Image<float> const& image
+    ) const;
+
+    ndarray::Array<double, 3, 3> makeOffsetImages(
+        lsst::geom::Extent2I const& dims
+    ) const;
+    ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
+        return makeOffsetImages(lsst::geom::Extent2I(width, height));
+    }
 };
 
 
@@ -70,7 +117,7 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
     int kernelOrder,
     int xBackgroundSize,
     int yBackgroundSize,
-    ndarray::Array<int, 1, 1> const& rows,
+    ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
     int maxIter=20,
     int andersonDepth=5,
     double fluxTol=1.0e-3,
@@ -78,8 +125,17 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
 );
 
 
-//std::pair<
-
+std::pair<ImageKernel, lsst::afw::image::Image<float>> fitImageKernel(
+    lsst::afw::image::MaskedImage<float> const& source,
+    lsst::afw::image::MaskedImage<float> const& target,
+    lsst::afw::image::MaskPixel badBitMask,
+    int kernelHalfWidth,
+    int kernelOrder,
+    int xBackgroundSize,
+    int yBackgroundSize,
+    ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
+    double lsqThreshold=1.0e-16
+);
 
 
 }}}  // namespace pfs::drp::stella
