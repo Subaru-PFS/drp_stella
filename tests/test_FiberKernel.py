@@ -8,7 +8,7 @@ from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.FiberTraceSetContinued import FiberTraceSet
-from pfs.drp.stella.FiberKernel import fitFiberKernel, FiberKernel
+from pfs.drp.stella.FiberKernel import fitFiberKernel, FiberKernel, fitImageKernel, ImageKernel
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticFlat
 from pfs.drp.stella.tests import runTests
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -83,8 +83,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         kernelImages = kernel.makeOffsetImages(10, 10)
         for offset, img in enumerate(kernelImages, -kernelHalfWidth):
             expect = 1.0 if offset == xOffset else 0.0
-            self.assertFloatsAlmostEqual(img.array, expect, atol=1.0e-3)
-
+            self.assertFloatsAlmostEqual(img, expect, atol=1.0e-3)
 
     def testOffset(self):
         """We apply a subpixel offset"""
@@ -105,7 +104,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
         # Check that the kernel gives the expected offset
         kernelImages = kernel.makeOffsetImages(1, 1)
-        kernelValues = np.array([kk.array[0, 0] for kk in kernelImages])
+        kernelValues = np.array([kk[0, 0] for kk in kernelImages])
         offsetValues = np.arange(-kernelHalfWidth, kernelHalfWidth + 1)
         self.assertFloatsAlmostEqual(np.sum(kernelValues), 1.0, atol=1.0e-9)
         centroid = np.sum(kernelValues*offsetValues)
@@ -125,6 +124,99 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(background.array, self.background, atol=1.0)
         self.assertFloatsAlmostEqual(flux, self.flux, rtol=2.0e-3)
         self.assertResidual(image, kernel, background, fiberTraces)
+
+
+class ImageKernelTestCase(lsst.utils.tests.TestCase):
+    def setUp(self):
+        self.config = SyntheticConfig()
+        self.config.height = 100
+        self.config.width = 4000
+        self.config.fwhm = 3.21
+        self.config.separation = 6.543
+
+        self.flux = 1.0e4
+        self.background = 123.45
+
+        self.detMap = makeSyntheticDetectorMap(self.config)
+
+    def makeImage(self, xOffset: float = 0.0, background: float = 0.0) -> MaskedImage:
+        image = makeSyntheticFlat(self.config, xOffset=xOffset, flux=self.flux, addNoise=False)
+        maskedImage = makeMaskedImage(image)
+        maskedImage.image.array[:] += background
+        maskedImage.mask.array[:] = 0
+        maskedImage.variance.array[:] = self.config.readnoise**2
+        return maskedImage
+
+    def assertResidual(
+        self,
+        source: MaskedImage,
+        target: MaskedImage,
+        kernel: ImageKernel,
+        background: Image,
+    ) -> None:
+        """Check that the residual image is zero"""
+        resid = target.clone()
+        resid -= np.mean(background.array[0, 0])
+        resid -= kernel(source.image)
+
+        self.assertFloatsAlmostEqual(np.std(resid.image.array), 0.0, atol=2.0)
+
+    def testIntegerOffset(self):
+        kernelHalfWidth = 2
+        kernelOrder = 0
+        bgWidth = self.config.width
+        bgHeight = self.config.height
+        xOffset = 1.0
+        source = self.makeImage()
+        target = self.makeImage(xOffset=xOffset, background=self.background)
+
+        kernel, background = fitImageKernel(
+            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+        )
+
+        self.assertResidual(source, target, kernel, background)
+
+        kernelImages = kernel.makeOffsetImages(1, 1)
+        for offset, img in enumerate(kernelImages, -kernelHalfWidth):
+            expect = 1.0 if offset == xOffset else 0.0
+            self.assertFloatsAlmostEqual(img, expect, atol=1.0e-2)
+
+    def testOffset(self):
+        """We apply a subpixel offset"""
+        kernelHalfWidth = 3
+        kernelOrder = 0
+        bgWidth = self.config.width
+        bgHeight = self.config.height
+        xOffset = -0.5
+        source = self.makeImage()
+        target = self.makeImage(xOffset=xOffset, background=self.background)
+
+        kernel, background = fitImageKernel(
+            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+        )
+        self.assertResidual(source, target, kernel, background)
+
+        # Check that the kernel gives the expected offset
+        kernelImages = kernel.makeOffsetImages(1, 1)
+        kernelValues = np.array([kk[0, 0] for kk in kernelImages])
+        offsetValues = np.arange(-kernelHalfWidth, kernelHalfWidth + 1)
+        self.assertFloatsAlmostEqual(np.sum(kernelValues), 1.0, atol=1.0e-3)
+        centroid = np.sum(kernelValues*offsetValues)
+        self.assertFloatsAlmostEqual(centroid, xOffset, atol=1.0e-2)
+
+    def testWidth(self):
+        kernelHalfWidth = 3
+        kernelOrder = 0
+        bgWidth = self.config.width
+        bgHeight = self.config.height
+        source = self.makeImage()
+        self.config.fwhm = 3.33
+        target = self.makeImage(background=self.background)
+
+        kernel, background = fitImageKernel(
+            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+        )
+        self.assertResidual(source, target, kernel, background)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
