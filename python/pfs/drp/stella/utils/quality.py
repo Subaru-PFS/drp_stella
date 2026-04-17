@@ -257,23 +257,15 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                 if alsCache[dataIdStr] is not None:
                     als = pd.concat([als, alsCache[dataIdStr].data])
 
-        ll = np.isfinite(als.xx + als.xy + als.yy)
-        if sum(ll) > 0:
-            traceOnly = False
-        else:
-            _ll = np.isfinite(als.xx)
-            if sum(_ll) > 0:            # we can use the trace widths
-                ll = _ll
-            traceOnly = True
-
-        if sum(ll) == 0:
+        try:
+            als = computeImageQuality(als)
+        except RuntimeError:
             ax.set_axis_off()
             continue
 
-        if traceOnly:
-            fwhm, theta = als.xx, np.nan
-        else:
-            fwhm, theta = getFWHM(als)
+        traceOnly = bool(als["traceOnly"].iloc[0])
+        fwhm = als["fwhm"]
+        theta = als["theta"]
 
         if np.sum(np.isfinite(als.flux)) == 0:
             raise RuntimeError("All the provided fluxes are NaN")
@@ -284,7 +276,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                 q10 = [np.nan]
             q10 = q10[0]
 
-            ll = np.isfinite(als.xx if traceOnly else als.xx + als.xy + als.yy)
+            ll = np.isfinite(als["fwhm"])
             ll &= als.flag == False     # noqa: E712
             ll &= fwhm < 8
             ll &= als.flux > q10
