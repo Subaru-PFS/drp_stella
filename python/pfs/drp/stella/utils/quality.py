@@ -76,18 +76,15 @@ def computeImageQuality(als):
 
         ``fwhm``
             Gaussian-equivalent FWHM in pixels.  When full second moments are
-            not available, populated from the trace width (``xx``).
+            not available, populated from the trace width (``xx``).  All
+            ``NaN`` when no finite shape measurements are available.
         ``theta``
             Position angle of the PSF major axis in radians.  ``NaN`` when
-            only trace widths are available.
+            only trace widths are available, or when no finite measurements
+            exist.
         ``traceOnly``
             ``True`` when only trace widths (``xx``) were available, not the
             full second-moment tensor (``xx``, ``xy``, ``yy``).
-
-    Raises
-    ------
-    RuntimeError
-        If no finite shape measurements are found.
     """
     data = als.data.copy() if hasattr(als, 'data') else als.copy()
 
@@ -100,7 +97,9 @@ def computeImageQuality(als):
         fwhm = data["xx"].copy()
         theta = pd.Series(np.full(len(data), np.nan), index=data.index)
     else:
-        raise RuntimeError("No finite shape measurements (xx, xy, yy) found in arc lines")
+        traceOnly = False
+        fwhm = pd.Series(np.full(len(data), np.nan), index=data.index)
+        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
 
     data["fwhm"] = fwhm
     data["theta"] = theta
@@ -455,6 +454,9 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         try:
             als = computeImageQuality(als)
         except RuntimeError:
+            ax.set_axis_off()
+            continue
+        if not np.isfinite(als["fwhm"]).any():
             ax.set_axis_off()
             continue
 
