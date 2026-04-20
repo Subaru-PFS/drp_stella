@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -97,6 +99,9 @@ def computeImageQuality(als):
         fwhm = data["xx"].copy()
         theta = pd.Series(np.full(len(data), np.nan), index=data.index)
     else:
+        warnings.warn("No finite shape measurements (xx, xy, yy) found in arc lines; "
+                      "fwhm and theta will be all NaN. "
+                      "Is this a non-arc (e.g. quartz) visit?")
         traceOnly = False
         fwhm = pd.Series(np.full(len(data), np.nan), index=data.index)
         theta = pd.Series(np.full(len(data), np.nan), index=data.index)
@@ -165,15 +170,14 @@ def plotImageQuality(
     -------
     C : `matplotlib.cm.ScalarMappable` or ``None``
         Colorable artist suitable for passing to ``fig.colorbar()``,
-        or ``None`` when no colorbar is applicable.
+        or ``None`` when no colorbar is applicable or no data is available.
     colorbarLabel : `str` or ``None``
         Colorbar label string, or ``None``.
 
     Raises
     ------
     RuntimeError
-        If all provided fluxes are NaN (spatial/flux plots only), or no plot
-        mode is enabled.
+        If no plot mode is enabled.
     """
     fwhm = data["fwhm"]
     theta = data["theta"]
@@ -182,7 +186,7 @@ def plotImageQuality(
 
     if showWhisker or showFWHM or showFWHMAgainstLambda:
         if np.sum(np.isfinite(data["flux"])) == 0:
-            raise RuntimeError("All the provided fluxes are NaN")
+            return None, None
 
         q10_arr = np.nanpercentile(data["flux"], [minFluxPercentile])
         if np.isnan(q10_arr).any():
@@ -243,7 +247,7 @@ def plotImageQuality(
         elif showFluxHistogram:
             finite_flux = data["flux"][ll_hist]
             if np.sum(np.isfinite(finite_flux)) == 0:
-                raise RuntimeError("All the provided fluxes are NaN")
+                return None, None
             q99 = np.nanpercentile(finite_flux, [99])[0]
             ax.hist(finite_flux, bins=np.linspace(0, q99, 100))
             ax.set_xlabel("flux")
