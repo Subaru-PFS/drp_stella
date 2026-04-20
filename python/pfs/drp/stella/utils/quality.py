@@ -257,6 +257,17 @@ def plotImageQuality(
         if logScale:
             ax.set_yscale("log")
 
+    if showWhisker:
+        ax.set_title("FWHM Whisker")
+    elif showFWHM:
+        ax.set_title("FWHM Map")
+    elif showFWHMAgainstLambda:
+        ax.set_title("FWHM vs S/N" if useSN else "FWHM vs lg(flux)")
+    elif showFWHMHistogram:
+        ax.set_title("FWHM Histogram")
+    elif showFluxHistogram:
+        ax.set_title("Flux Histogram")
+
     return C, colorbarLabel
 
 
