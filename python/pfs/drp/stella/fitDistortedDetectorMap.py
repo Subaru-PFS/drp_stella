@@ -841,7 +841,7 @@ class FitDistortedDetectorMapTask(Task):
             axes[1].set_xlabel("fiberId")
             axes[1].set_ylabel("Spectral offset (pixels)")
             axes[1].set_title("Spectral offsets")
-            plt.show()
+            self._showOrSavePlot("slitOffsets")
 
         return result
 
@@ -979,7 +979,7 @@ class FitDistortedDetectorMapTask(Task):
             axes[2].set_title("Spectral offset")
             addColorbar(fig, axes[2], cmap, norm, "Spectral offset (pixels)")
             fig.subplots_adjust(wspace=0.75)
-            plt.show()
+            self._showOrSavePlot("baseResiduals")
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
@@ -1525,6 +1525,33 @@ class FitDistortedDetectorMapTask(Task):
 
         return np.isin(lines.wavelength, badLines, invert=True)
 
+    def _showOrSavePlot(self, name):
+        """Show or save all currently open matplotlib figures.
+
+        If ``self.debugInfo.plotDir`` is set to a directory path the figures
+        are saved as ``<plotDir>/<name>[_N].png`` and then closed.  Otherwise
+        ``plt.show()`` is called for interactive display.
+
+        Parameters
+        ----------
+        name : `str`
+            Base name for the saved files (no extension).
+        """
+        import matplotlib.pyplot as plt
+        plotDir = self.debugInfo.plotDir
+        if plotDir:
+            os.makedirs(plotDir, exist_ok=True)
+            fignums = plt.get_fignums()
+            for ii, num in enumerate(fignums):
+                fig = plt.figure(num)
+                suffix = f"_{ii}" if len(fignums) > 1 else ""
+                path = os.path.join(plotDir, f"{name}{suffix}.png")
+                fig.savefig(path, bbox_inches="tight", dpi=150)
+                self.log.info("Saved plot to %s", path)
+            plt.close("all")
+        else:
+            plt.show()
+
     def lineQa(self, lines, detectorMap):
         """Check the quality of the model fit by looking at the lines
 
@@ -1560,7 +1587,7 @@ class FitDistortedDetectorMapTask(Task):
         plt.plot(error, stdev, 'ko')
         plt.xlabel("Median centroid error")
         plt.ylabel("Fit RMS")
-        plt.show()
+        self._showOrSavePlot("lineQa")
 
     def plotModel(self, lines, good, result):
         """Plot the model fit result
@@ -1657,7 +1684,7 @@ class FitDistortedDetectorMapTask(Task):
         ax.set_ylabel("Spectral")
 
         fig.tight_layout()
-        plt.show()
+        self._showOrSavePlot("model")
 
     def plotDistortion(self, distortion, lines, select):
         """Plot distortion field
@@ -1755,7 +1782,7 @@ class FitDistortedDetectorMapTask(Task):
 
         fig.tight_layout()
         fig.suptitle("Distortion field")
-        plt.show()
+        self._showOrSavePlot("distortion")
 
     def plotResiduals(self, lines, dx, dy, used, reserved, dispersion):
         """Plot fit residuals
@@ -1907,7 +1934,7 @@ class FitDistortedDetectorMapTask(Task):
             fig.tight_layout()
             fig.suptitle("Trace residuals")
 
-        plt.show()
+        self._showOrSavePlot("residuals")
 
     def plotWavelengthResiduals(self, detectorMap, lines, used, reserved):
         """Plot wavelength residuals
@@ -1974,4 +2001,4 @@ class FitDistortedDetectorMapTask(Task):
             ax.set_ylabel("Residual (nm)")
 
         fig.suptitle("Wavelength residuals")
-        plt.show()
+        self._showOrSavePlot("wlResiduals")
