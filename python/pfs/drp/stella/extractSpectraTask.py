@@ -244,7 +244,7 @@ class ExtractSpectraTask(pipeBase.Task):
             "AKIMA_SPLINE", "REDUCE_INTERP_ORDER"
         )
 
-        convolvedTraces = kernel(fiberTraceSet, maskedImage.getBBox())
+        convolvedTraces = kernel.convolve(fiberTraceSet, maskedImage.getBBox())
         spectra = convolvedTraces.extractSpectra(
             maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
         )
