@@ -19,13 +19,6 @@ class PolynomialKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
-    PolynomialKernel(
-        lsst::geom::Box2D const& range,
-        int halfWidth,
-        int order,
-        ndarray::ArrayRef<double const, 1, 1> const& coefficients
-    );
-
     int getHalfWidth() const { return _halfWidth; }
     int getOrder() const { return _order; }
     std::size_t getNumPoly() const { return _numPoly; }
@@ -33,7 +26,23 @@ class PolynomialKernel {
     ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
     std::vector<Polynomial> const& getPolynomials() const { return _polynomials; }
 
-    ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
+    std::shared_ptr<FiberTrace<float>> convolve(
+        FiberTrace<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const {
+        return convolveImpl(trace, bbox);
+    }
+    FiberTraceSet<float> convolve(
+        FiberTraceSet<float> const& traces,
+        lsst::geom::Box2I const& bbox
+    ) const;
+    lsst::afw::image::Image<float> convolve(lsst::afw::image::Image<float> const& image) const {
+        return convolveImpl(image);
+    }
+
+    ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const {
+        return makeOffsetImagesImpl(dims);
+    }
     ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
         return makeOffsetImages(lsst::geom::Extent2I(width, height));
     }
@@ -46,6 +55,7 @@ class PolynomialKernel {
         std::size_t numPoly,
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
+
     int _halfWidth;
     int _order;
     std::size_t _numCoeffs;  ///< number of coefficients in each polynomial
@@ -53,6 +63,16 @@ class PolynomialKernel {
     std::size_t _numParams;  ///< number of parameters in the kernel (should be numPoly * numOffsets)
     ndarray::Array<double, 1, 1> _coefficients;
     std::vector<Polynomial> _polynomials;
+
+  private:
+    virtual std::shared_ptr<FiberTrace<float>> convolveImpl(
+        FiberTrace<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const = 0;
+    virtual lsst::afw::image::Image<float> convolveImpl(
+        lsst::afw::image::Image<float> const& image
+    ) const = 0;
+    virtual ndarray::Array<double, 3, 3> makeOffsetImagesImpl(lsst::geom::Extent2I const& dims) const = 0;
 };
 
 
@@ -66,24 +86,22 @@ class FiberKernel : public PolynomialKernel {
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
 
-    std::shared_ptr<FiberTrace<float>> operator()(
-        FiberTrace<float> const& trace,
-        lsst::geom::Box2I const& bbox
-    ) const;
-    FiberTraceSet<float> operator()(
-        FiberTraceSet<float> const& trace,
-        lsst::geom::Box2I const& bbox
-    ) const;
-
     ndarray::Array<double, 1, 1> evaluate(double x, double y) const;
     ndarray::Array<double, 1, 1> evaluate(lsst::geom::Point2D const& xy) const {
         return evaluate(xy.getX(), xy.getY());
     }
 
-    ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const;
-    ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
-        return makeOffsetImages(lsst::geom::Extent2I(width, height));
-    }
+  private:
+    std::shared_ptr<FiberTrace<float>> convolveImpl(
+        FiberTrace<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const override;
+    lsst::afw::image::Image<float> convolveImpl(
+        lsst::afw::image::Image<float> const& image
+    ) const override;
+    ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
+        lsst::geom::Extent2I const& dims
+    ) const override;
 };
 
 
@@ -96,16 +114,17 @@ class ImageKernel : public PolynomialKernel {
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
 
-    std::shared_ptr<lsst::afw::image::Image<float>> operator()(
+  private:
+    std::shared_ptr<FiberTrace<float>> convolveImpl(
+        FiberTrace<float> const& trace,
+        lsst::geom::Box2I const& bbox
+    ) const override;
+    lsst::afw::image::Image<float> convolveImpl(
         lsst::afw::image::Image<float> const& image
-    ) const;
-
-    ndarray::Array<double, 3, 3> makeOffsetImages(
+    ) const override;
+    ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
         lsst::geom::Extent2I const& dims
-    ) const;
-    ndarray::Array<double, 3, 3> makeOffsetImages(int width, int height) const {
-        return makeOffsetImages(lsst::geom::Extent2I(width, height));
-    }
+    ) const override;
 };
 
 

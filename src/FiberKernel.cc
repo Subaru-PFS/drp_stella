@@ -379,6 +379,18 @@ PolynomialKernel::PolynomialKernel(
 }
 
 
+FiberTraceSet<float> PolynomialKernel::convolve(
+    FiberTraceSet<float> const& traces,
+    lsst::geom::Box2I const& bbox
+) const {
+    FiberTraceSet<float> result(traces.size());
+    for (std::size_t ii = 0; ii < traces.size(); ++ii) {
+        result.add(convolve(*traces[ii], bbox));
+    }
+    return result;
+}
+
+
 FiberKernel::FiberKernel(
     lsst::geom::Box2D const& range,
     int halfWidth,
@@ -393,7 +405,7 @@ FiberKernel::FiberKernel(
     ) {}
 
 
-std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(
+std::shared_ptr<FiberTrace<float>> FiberKernel::convolveImpl(
     FiberTrace<float> const& trace,
     lsst::geom::Box2I const& bbox
 ) const {
@@ -406,6 +418,7 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(
     lsst::afw::image::Mask<lsst::afw::image::MaskPixel> convMask = *convolved.getMask();
 
     convImage = 0.0;
+    *convolved.getMask() = 0;
     *convolved.getVariance() = 0.0;
 
     int const xMax = trace.getTrace().getWidth() - 1;  // inclusive
@@ -435,13 +448,36 @@ std::shared_ptr<FiberTrace<float>> FiberKernel::operator()(
 }
 
 
-FiberTraceSet<float> FiberKernel::operator()(
-    FiberTraceSet<float> const& trace,
-    lsst::geom::Box2I const& bbox
+lsst::afw::image::Image<float> FiberKernel::convolveImpl(
+    lsst::afw::image::Image<float> const& image
 ) const {
-    FiberTraceSet<float> result(trace.size());
-    for (std::size_t ii = 0; ii < trace.size(); ++ii) {
-        result.add(operator()(*trace[ii], bbox));
+    std::size_t height = image.getHeight();
+    lsst::afw::image::Image<float> result{image.getBBox()};
+    result = 0.0;
+
+    for (std::size_t yy = 0; yy < height; ++yy) {
+        auto const model = FiberModel::fromImage(image, yy);
+
+        std::size_t offsetIndex = 0;
+        for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++offsetIndex) {
+            if (offset == 0) {
+                auto inIter = model.values.begin();
+                auto outIter = result.row_begin(yy) + model.xMin;
+                for (int xx = model.xMin; xx < model.xMax; ++xx, ++inIter, ++outIter) {
+                    *outIter += *inIter;
+                }
+                --offsetIndex;
+                continue;
+            }
+            FiberModel model = model.applyOffset(offset, image.getWidth());
+            auto const& poly = _polynomials[offsetIndex];
+
+            auto inIter = model.values.begin();
+            auto outIter = result.row_begin(yy) + model.xMin;
+            for (int xx = model.xMin; xx < model.xMax; ++xx, ++inIter, ++outIter) {
+                *outIter += (*inIter)*poly(xx, yy);
+            }
+        }
     }
     return result;
 }
@@ -464,7 +500,7 @@ ndarray::Array<double, 1, 1> FiberKernel::evaluate(double x, double y) const {
 }
 
 
-ndarray::Array<double, 3, 3> FiberKernel::makeOffsetImages(
+ndarray::Array<double, 3, 3> FiberKernel::makeOffsetImagesImpl(
     lsst::geom::Extent2I const& dims
 ) const {
     ndarray::Array<double, 3, 3> result = ndarray::allocate(2*_halfWidth + 1, dims.getY(), dims.getX());
@@ -513,12 +549,49 @@ ImageKernel::ImageKernel(
     ) {}
 
 
-std::shared_ptr<lsst::afw::image::Image<float>> ImageKernel::operator()(
+std::shared_ptr<FiberTrace<float>> ImageKernel::convolveImpl(
+    FiberTrace<float> const& trace,
+    lsst::geom::Box2I const& bbox
+) const {
+    auto const require = trace.getTrace().getMask()->getPlaneBitMask(fiberMaskPlane);
+    lsst::geom::Box2I newBox = trace.getTrace().getBBox().dilatedBy(lsst::geom::Extent2I(_halfWidth, 0));
+    newBox.clip(bbox);
+
+    lsst::afw::image::MaskedImage<float> convolved{newBox};
+    lsst::afw::image::Image<float> convImage = *convolved.getImage();
+    lsst::afw::image::Mask<lsst::afw::image::MaskPixel> convMask = *convolved.getMask();
+
+    convImage = 0.0;
+    *convolved.getMask() = 0;
+    *convolved.getVariance() = 0.0;
+
+    int const xMax = trace.getTrace().getWidth() - 1;  // inclusive
+    for (int yy = 0; yy < trace.getTrace().getHeight(); ++yy) {
+        auto const& model = FiberModel::fromFiberTrace(trace, yy, 0, xMax, require);
+        float const xCenter = model.centroid();
+
+        std::size_t offsetIndex = 0;
+        for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++offsetIndex) {
+            auto kernelModel = offset == 0 ? model : model.applyOffset(offset, newBox.getMaxX() + 1);
+            kernelModel.addToImage(convImage, _polynomials[offsetIndex](xCenter, yy));
+        }
+    }
+
+    for (auto iter = convolved.begin(); iter != convolved.end(); ++iter) {
+        if (iter.image() != 0.0) {
+            iter.mask() |= require;
+        }
+    }
+
+    return std::make_shared<FiberTrace<float>>(std::move(convolved), trace.getFiberId());
+}
+
+
+lsst::afw::image::Image<float> ImageKernel::convolveImpl(
     lsst::afw::image::Image<float> const& image
 ) const {
     std::size_t height = image.getHeight();
-    auto resultPtr = std::make_shared<lsst::afw::image::Image<float>>(image.getBBox());
-    lsst::afw::image::Image<float> & result = *resultPtr;
+    lsst::afw::image::Image<float> result{image.getBBox()};
     result = 0.0;
 
     for (std::size_t yy = 0; yy < height; ++yy) {
@@ -536,11 +609,11 @@ std::shared_ptr<lsst::afw::image::Image<float>> ImageKernel::operator()(
             }
         }
     }
-    return resultPtr;
+    return result;
 }
 
 
-ndarray::Array<double, 3, 3> ImageKernel::makeOffsetImages(
+ndarray::Array<double, 3, 3> ImageKernel::makeOffsetImagesImpl(
     lsst::geom::Extent2I const& dims
 ) const {
     ndarray::Array<double, 3, 3> result = ndarray::allocate(2*_halfWidth + 1, dims.getY(), dims.getX());
