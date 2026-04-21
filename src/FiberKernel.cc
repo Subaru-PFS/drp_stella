@@ -948,11 +948,30 @@ struct FiberKernelFitter {
                 {
                     auto _t = timer("matrix_kernel_kernel");
                     for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
-
                         double const jFlux = flux[jFiberIndex];
-                        std::size_t jOffsetIndex = 0;
+
+                        double dotKernel = getDotModel(
+                            data, fiberIndex, jFiberIndex, iOffsetIndex, iOffsetIndex
+                        );
+                        if (dotKernel == 0.0) {
+                            continue;
+                        }
+                        dotKernel *= iFlux*jFlux*iPoly;
+                        std::size_t jKernelIndex = iKernelIndex;
+                        auto polyIter = data.polyValues[jFiberIndex].begin() + iSpatial;
+                        auto matrixIter = matrix[iKernelIndex].begin() + jKernelIndex;
                         for (
-                            int jOffset = -_kernelHalfWidth;
+                            std::size_t jSpatial = iSpatial;
+                            jSpatial < _numKernelSpatial;
+                            ++jSpatial, ++jKernelIndex, ++polyIter, ++matrixIter
+                        ) {
+                            double const jPoly = *polyIter;
+                            *matrixIter += jPoly*dotKernel;
+                        }
+
+                        std::size_t jOffsetIndex = iOffsetIndex + 1;
+                        for (
+                            int jOffset = iOffset + 1;
                             jOffset <= _kernelHalfWidth;
                             ++jOffset, ++jOffsetIndex
                         ) {
@@ -969,16 +988,15 @@ struct FiberKernelFitter {
                             dotKernel *= iFlux*jFlux*iPoly;
 
                             std::size_t jKernelIndex = getKernelIndex(jOffset, 0);
+                            auto polyIter = data.polyValues[jFiberIndex].begin();
+                            auto matrixIter = matrix[iKernelIndex].begin() + jKernelIndex;
                             for (
                                 std::size_t jSpatial = 0;
                                 jSpatial < _numKernelSpatial;
-                                ++jSpatial, ++jKernelIndex
+                                ++jSpatial, ++jKernelIndex, ++polyIter, ++matrixIter
                             ) {
-                                if (jKernelIndex < iKernelIndex) {
-                                    continue;
-                                }
-                                double const jPoly = data.polyValues[jFiberIndex][jSpatial];
-                                matrix[iKernelIndex][jKernelIndex] += jPoly*dotKernel;
+                                double const jPoly = *polyIter;
+                                *matrixIter += jPoly*dotKernel;
                             }
                         }
                     }
