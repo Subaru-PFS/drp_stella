@@ -57,7 +57,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         """Check that the residual image is zero"""
         resid = image.clone()
         resid -= np.mean(background.array)
-        convolvedTraces = kernel(fiberTraces, image.getBBox())
+        convolvedTraces = kernel.convolve(fiberTraces, image.getBBox())
         spectra = convolvedTraces.extractSpectra(resid)
         model = spectra.makeImage(image.getBBox(), convolvedTraces)
         resid -= model
@@ -157,7 +157,7 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         """Check that the residual image is zero"""
         resid = target.clone()
         resid -= np.mean(background.array[0, 0])
-        resid -= kernel(source.image)
+        resid -= kernel.convolve(source.image)
 
         self.assertFloatsAlmostEqual(np.std(resid.image.array), 0.0, atol=2.0)
 

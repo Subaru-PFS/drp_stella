@@ -14,8 +14,56 @@ namespace pfs { namespace drp { namespace stella {
 namespace {
 
 
+void declarePolynomialKernel(py::module & mod) {
+    py::class_<PolynomialKernel> cls(mod, "PolynomialKernel");
+    cls.def_property_readonly("halfWidth", &PolynomialKernel::getHalfWidth);
+    cls.def_property_readonly("order", &PolynomialKernel::getOrder);
+    cls.def_property_readonly("numPoly", &PolynomialKernel::getNumPoly);
+    cls.def_property_readonly("numParams", &PolynomialKernel::getNumParams);
+    cls.def_property_readonly("coefficients", &PolynomialKernel::getCoefficients);
+    cls.def_property_readonly("polynomials", &PolynomialKernel::getPolynomials);
+    cls.def("getHalfWidth", &PolynomialKernel::getHalfWidth);
+    cls.def("getOrder", &PolynomialKernel::getOrder);
+    cls.def("getNumPoly", &PolynomialKernel::getNumPoly);
+    cls.def("getNumParams", &PolynomialKernel::getNumParams);
+    cls.def("getCoefficients", &PolynomialKernel::getCoefficients);
+    cls.def("getPolynomials", &PolynomialKernel::getPolynomials);
+
+    cls.def(
+        "convolve",
+        py::overload_cast<FiberTrace<float> const&, lsst::geom::Box2I const&>(
+            &PolynomialKernel::convolve, py::const_
+        ),
+        "fiberTrace"_a, "bbox"_a
+    );
+    cls.def(
+        "convolve",
+        py::overload_cast<FiberTraceSet<float> const&, lsst::geom::Box2I const&>(
+            &PolynomialKernel::convolve, py::const_
+        ),
+        "fiberTraceSet"_a, "bbox"_a
+    );
+    cls.def(
+        "convolve",
+        py::overload_cast<lsst::afw::image::Image<float> const&>(&PolynomialKernel::convolve, py::const_),
+        "image"_a
+    );
+    cls.def(
+        "makeOffsetImages",
+        py::overload_cast<lsst::geom::Extent2I const&>(&PolynomialKernel::makeOffsetImages, py::const_),
+        "dims"_a
+    );
+    cls.def(
+        "makeOffsetImages",
+        py::overload_cast<int, int>(&PolynomialKernel::makeOffsetImages, py::const_),
+        "width"_a,
+        "height"_a
+    );
+}
+
+
 void declareFiberKernel(py::module & mod) {
-    py::class_<FiberKernel> cls(mod, "FiberKernel");
+    py::class_<FiberKernel, PolynomialKernel> cls(mod, "FiberKernel");
     cls.def(
         py::init<
             lsst::geom::Box2D const&,
@@ -27,33 +75,6 @@ void declareFiberKernel(py::module & mod) {
         "halfWidth"_a,
         "order"_a,
         "coefficients"_a
-    );
-    cls.def_property_readonly("halfWidth", &FiberKernel::getHalfWidth);
-    cls.def_property_readonly("order", &FiberKernel::getOrder);
-    cls.def_property_readonly("numPoly", &FiberKernel::getNumPoly);
-    cls.def_property_readonly("numParams", &FiberKernel::getNumParams);
-    cls.def_property_readonly("coefficients", &FiberKernel::getCoefficients);
-    cls.def_property_readonly("polynomials", &FiberKernel::getPolynomials);
-    cls.def("getHalfWidth", &FiberKernel::getHalfWidth);
-    cls.def("getOrder", &FiberKernel::getOrder);
-    cls.def("getNumPoly", &FiberKernel::getNumPoly);
-    cls.def("getNumParams", &FiberKernel::getNumParams);
-    cls.def("getCoefficients", &FiberKernel::getCoefficients);
-    cls.def("getPolynomials", &FiberKernel::getPolynomials);
-
-    cls.def(
-        "__call__",
-        py::overload_cast<FiberTrace<float> const&, lsst::geom::Box2I const&>(
-            &FiberKernel::operator(), py::const_
-        ),
-        "fiberTrace"_a, "bbox"_a
-    );
-    cls.def(
-        "__call__",
-        py::overload_cast<FiberTraceSet<float> const&, lsst::geom::Box2I const&>(
-            &FiberKernel::operator(), py::const_
-        ),
-        "fiberTraceSet"_a, "bbox"_a
     );
     cls.def("evaluate", py::overload_cast<double, double>(&FiberKernel::evaluate, py::const_), "x"_a, "y"_a);
     cls.def(
@@ -61,22 +82,11 @@ void declareFiberKernel(py::module & mod) {
         py::overload_cast<lsst::geom::Point2D const&>(&FiberKernel::evaluate, py::const_),
         "xy"_a
     );
-    cls.def(
-        "makeOffsetImages",
-        py::overload_cast<lsst::geom::Extent2I const&>(&FiberKernel::makeOffsetImages, py::const_),
-        "dims"_a
-    );
-    cls.def(
-        "makeOffsetImages",
-        py::overload_cast<int, int>(&FiberKernel::makeOffsetImages, py::const_),
-        "width"_a,
-        "height"_a
-    );
 }
 
 
 void declareImageKernel(py::module & mod) {
-    py::class_<ImageKernel> cls(mod, "ImageKernel");
+    py::class_<ImageKernel, PolynomialKernel> cls(mod, "ImageKernel");
     cls.def(
         py::init<
             lsst::geom::Box2D const&,
@@ -89,35 +99,11 @@ void declareImageKernel(py::module & mod) {
         "order"_a,
         "coefficients"_a
     );
-    cls.def_property_readonly("halfWidth", &ImageKernel::getHalfWidth);
-    cls.def_property_readonly("order", &ImageKernel::getOrder);
-    cls.def_property_readonly("numPoly", &ImageKernel::getNumPoly);
-    cls.def_property_readonly("numParams", &ImageKernel::getNumParams);
-    cls.def_property_readonly("coefficients", &ImageKernel::getCoefficients);
-    cls.def_property_readonly("polynomials", &ImageKernel::getPolynomials);
-    cls.def("getHalfWidth", &ImageKernel::getHalfWidth);
-    cls.def("getOrder", &ImageKernel::getOrder);
-    cls.def("getNumPoly", &ImageKernel::getNumPoly);
-    cls.def("getNumParams", &ImageKernel::getNumParams);
-    cls.def("getCoefficients", &ImageKernel::getCoefficients);
-    cls.def("getPolynomials", &ImageKernel::getPolynomials);
-
-    cls.def("__call__", &ImageKernel::operator(), "image"_a);
-    cls.def(
-        "makeOffsetImages",
-        py::overload_cast<lsst::geom::Extent2I const&>(&ImageKernel::makeOffsetImages, py::const_),
-        "dims"_a
-    );
-    cls.def(
-        "makeOffsetImages",
-        py::overload_cast<int, int>(&ImageKernel::makeOffsetImages, py::const_),
-        "width"_a,
-        "height"_a
-    );
 }
 
 
 PYBIND11_MODULE(FiberKernel, mod) {
+    declarePolynomialKernel(mod);
     declareFiberKernel(mod);
     declareImageKernel(mod);
     mod.def(
