@@ -29,7 +29,7 @@ class ExtractSpectraConfig(pexConfig.Config):
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
     kernelHalfWidth = pexConfig.Field(dtype=int, default=3, doc="Half-width of convolution kernel")
-    kernelOrder = pexConfig.Field(dtype=int, default=3, doc="Order of convolution kernel variation")
+    kernelOrder = pexConfig.Field(dtype=int, default=5, doc="Order of convolution kernel variation")
     xBackgroundSize = pexConfig.Field(dtype=int, default=500, doc="Size of background in x")
     yBackgroundSize = pexConfig.Field(dtype=int, default=500, doc="Size of background in y")
     numRows = pexConfig.Field(dtype=int, default=100, doc="Number of rows to use in kernel fitting")
@@ -244,7 +244,7 @@ class ExtractSpectraTask(pipeBase.Task):
             "AKIMA_SPLINE", "REDUCE_INTERP_ORDER"
         )
 
-        convolvedTraces = kernel(fiberTraceSet)
+        convolvedTraces = kernel(fiberTraceSet, maskedImage.getBBox())
         spectra = convolvedTraces.extractSpectra(
             maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
         )
