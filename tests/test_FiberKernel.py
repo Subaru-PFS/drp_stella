@@ -8,7 +8,7 @@ from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.FiberTraceSetContinued import FiberTraceSet
-from pfs.drp.stella.FiberKernel import fitFiberKernel, FiberKernel, fitImageKernel, ImageKernel
+from pfs.drp.stella.FiberKernel import fitFiberKernel, FiberKernel
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticFlat
 from pfs.drp.stella.tests import runTests
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -139,6 +139,18 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
 
         self.detMap = makeSyntheticDetectorMap(self.config)
 
+    def makeFiberTraces(self, fwhm: float | None = None) -> FiberTraceSet:
+        identity = CalibIdentity("2020-01-01", 5, "x", 12345)
+        if fwhm is None:
+            fwhm = self.config.fwhm
+        sigma = fwhmToSigma(fwhm)
+        radius = int(np.ceil(4*sigma))
+        oversample = 10
+        profiles = FiberProfileSet.makeEmpty(identity)
+        for fiberId in self.config.fiberId:
+            profiles[fiberId] = FiberProfile.makeGaussian(sigma, self.config.height, radius, oversample)
+        return profiles.makeFiberTracesFromDetectorMap(self.detMap)
+
     def makeImage(self, xOffset: float = 0.0, background: float = 0.0) -> MaskedImage:
         image = makeSyntheticFlat(self.config, xOffset=xOffset, flux=self.flux, addNoise=False)
         maskedImage = makeMaskedImage(image)
@@ -151,15 +163,31 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         self,
         source: MaskedImage,
         target: MaskedImage,
-        kernel: ImageKernel,
+        kernel: FiberKernel,
         background: Image,
     ) -> None:
         """Check that the residual image is zero"""
         resid = target.clone()
         resid -= np.mean(background.array[0, 0])
         resid -= kernel.convolve(source.image)
-
+        resid.writeFits("resid.fits")
         self.assertFloatsAlmostEqual(np.std(resid.image.array), 0.0, atol=2.0)
+
+    def assertSpectra(
+        self,
+        source: MaskedImage,
+        target: MaskedImage,
+        kernel: FiberKernel,
+        background: Image,
+        fiberTraces: FiberTraceSet,
+    ) -> None:
+        target = target.clone()
+        target -= np.mean(background.array)
+        sourceSpectra = fiberTraces.extractSpectra(source)
+        targetSpectra = kernel.convolve(fiberTraces, target.getBBox()).extractSpectra(target)
+        sourceFlux = sourceSpectra.getAllFluxes()
+        targetFlux = targetSpectra.getAllFluxes()
+        self.assertFloatsAlmostEqual(sourceFlux, targetFlux, rtol=2e-3)
 
     def testIntegerOffset(self):
         kernelHalfWidth = 2
@@ -170,11 +198,11 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         source = self.makeImage()
         target = self.makeImage(xOffset=xOffset, background=self.background)
 
-        kernel, background = fitImageKernel(
+        kernel, background = fitFiberKernel(
             source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
         )
-
         self.assertResidual(source, target, kernel, background)
+        self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
 
         kernelImages = kernel.makeOffsetImages(1, 1)
         for offset, img in enumerate(kernelImages, -kernelHalfWidth):
@@ -191,10 +219,11 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         source = self.makeImage()
         target = self.makeImage(xOffset=xOffset, background=self.background)
 
-        kernel, background = fitImageKernel(
+        kernel, background = fitFiberKernel(
             source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
         )
         self.assertResidual(source, target, kernel, background)
+        self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
 
         # Check that the kernel gives the expected offset
         kernelImages = kernel.makeOffsetImages(1, 1)
@@ -213,10 +242,11 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         self.config.fwhm = 3.33
         target = self.makeImage(background=self.background)
 
-        kernel, background = fitImageKernel(
+        kernel, background = fitFiberKernel(
             source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
         )
         self.assertResidual(source, target, kernel, background)
+        self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

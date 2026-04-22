@@ -85,8 +85,8 @@ void declareFiberKernel(py::module & mod) {
 }
 
 
-void declareImageKernel(py::module & mod) {
-    py::class_<ImageKernel, PolynomialKernel> cls(mod, "ImageKernel");
+void declareFluxVariableFiberKernel(py::module & mod) {
+    py::class_<FluxVariableFiberKernel, PolynomialKernel> cls(mod, "FluxVariableFiberKernel");
     cls.def(
         py::init<
             lsst::geom::Box2D const&,
@@ -105,10 +105,23 @@ void declareImageKernel(py::module & mod) {
 PYBIND11_MODULE(FiberKernel, mod) {
     declarePolynomialKernel(mod);
     declareFiberKernel(mod);
-    declareImageKernel(mod);
+    declareFluxVariableFiberKernel(mod);
     mod.def(
         "fitFiberKernel",
-        &fitFiberKernel,
+        py::overload_cast<
+            lsst::afw::image::MaskedImage<float> const&,
+            FiberTraceSet<float> const&,
+            lsst::afw::image::MaskPixel,
+            int,
+            int,
+            int,
+            int,
+            ndarray::Array<int, 1, 1> const&,
+            int,
+            int,
+            double,
+            double
+        >(&fitFiberKernel),
         "image"_a,
         "fiberTraces"_a,
         "badBitMask"_a=0,
@@ -123,8 +136,18 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "lsqThreshold"_a=1.0e-16
     );
     mod.def(
-        "fitImageKernel",
-        &fitImageKernel,
+        "fitFiberKernel",
+        py::overload_cast<
+            lsst::afw::image::MaskedImage<float> const&,
+            lsst::afw::image::MaskedImage<float> const&,
+            lsst::afw::image::MaskPixel,
+            int,
+            int,
+            int,
+            int,
+            ndarray::Array<int, 1, 1> const&,
+            double
+        >(&fitFiberKernel),
         "source"_a,
         "target"_a,
         "badBitMask"_a=0,
