@@ -417,6 +417,7 @@ class FitDistortedDetectorMapTask(Task):
             base = self.getBaseDetectorMap(dataId)
         self._plotSubdir = f"{dataId['arm']}{dataId['spectrograph']}-v{visitInfo.id}"
         self._plotCallCounts = {}
+        self._warnSaturatedLines(lines)
         if self.config.doSlitOffsets:
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
         else:
@@ -573,6 +574,39 @@ class FitDistortedDetectorMapTask(Task):
             bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
         )
 
+
+    def _warnSaturatedLines(self, lines: ArcLineSet) -> None:
+        """Warn about reference lines that are likely saturated.
+
+        Checks for non-trace reference lines where ``yErr`` is ``NaN`` for all
+        fibers but ``y`` (the centroid position) is finite on at least one
+        fiber.  This pattern is the signature of ISR saturation masking: the
+        SAT mask prevents the Gaussian sigma estimate from converging, but the
+        peak position itself may still be recovered from the wing pixels.
+        Such lines are automatically excluded from the fit by
+        ``getGoodLines``, so no user action is required beyond awareness.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Arc line measurements (the original centroids, NOT residuals).
+        """
+        isLine = lines.description != "Trace"
+        for wl in np.unique(lines.wavelength[isLine]):
+            mask = (lines.wavelength == wl) & isLine
+            if np.any(np.isfinite(lines.yErr[mask])):
+                continue  # at least one good error estimate -- not saturated
+            n_total = int(mask.sum())
+            n_finite_y = int(np.sum(np.isfinite(lines.y[mask])))
+            if n_finite_y == 0:
+                continue  # line not detected at all -- not a saturation signature
+            desc = str(lines.description[mask][0])
+            self.log.warn(
+                "Line %.4f nm (%s): centroid found on %d/%d fibers but yErr=NaN for all"
+                " -- likely saturated; line will be excluded from fit.",
+                wl, desc, n_finite_y, n_total,
+            )
+
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
 
@@ -606,20 +640,6 @@ class FitDistortedDetectorMapTask(Task):
             good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
 
-        # Warn about reference lines where the centroid is found on all fibers but yErr is NaN
-        # for all of them — the signature of a saturated line (ISR masks the core, Gaussian fit
-        # fails to estimate sigma, but the peak position is still approximately recoverable).
-        finiteY = np.isfinite(lines.y) & ~isTrace
-        for wl in np.unique(lines.wavelength[finiteY]):
-            wlMask = (lines.wavelength == wl) & finiteY
-            if not np.any(np.isfinite(lines.yErr[wlMask])):
-                n = int(wlMask.sum())
-                desc = lines.description[wlMask][0]
-                self.log.warning(
-                    "Line %.4f nm (%s): centroid found in %d fibers but yErr=NaN for all "
-                    "— possible saturation; line excluded from fit.",
-                    wl, desc, n,
-                )
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
