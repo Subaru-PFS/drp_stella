@@ -170,8 +170,8 @@ def calculateFitStatistics(
     xResid = (lines.x - xModel)
     yResid = (lines.y - yModel)
 
-    xSelection = selection & np.isfinite(xResid)
-    ySelection = xSelection & np.isfinite(yResid) & isLine
+    xSelection = selection & np.isfinite(xResid) & np.isfinite(lines.xErr)
+    ySelection = xSelection & np.isfinite(yResid) & isLine & np.isfinite(lines.yErr)
     del selection
     xNum = xSelection.sum()
     yNum = ySelection.sum()
@@ -234,7 +234,8 @@ def calculateFitStatistics(
             with np.errstate(invalid="ignore", divide="ignore"):
                 return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
-        if softenChi2(0.0) < 0:
+        val0 = softenChi2(0.0)
+        if not np.isfinite(val0) or val0 < 0:
             return 0.0
         if softenChi2(maxSoften) > 0:
             return np.nan
@@ -338,7 +339,6 @@ class FitDistortedDetectorMapConfig(Config):
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
-
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
@@ -346,6 +346,8 @@ class FitDistortedDetectorMapTask(Task):
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
+        self._plotSubdir = ""
+        self._plotCallCounts: dict = {}
 
     def run(self, dataId, bbox, lines, visitInfo, metadata=None,
             spatialOffsets=None, spectralOffsets=None, base=None):
@@ -407,6 +409,12 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
+        self._arm = dataId["arm"]
+        self._spectrograph = dataId["spectrograph"]
+        self._visit = visitInfo.id
+        self._plotSubdir = f"{self._arm}{self._spectrograph}-v{self._visit}"
+        self._plotCallCounts = {}
+        self._warnSaturatedLines(lines)
         if self.config.doSlitOffsets:
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
         else:
@@ -438,6 +446,8 @@ class FitDistortedDetectorMapTask(Task):
         results = self.measureQuality(lines, detectorMap, results.selection, numParameters)
         results.detectorMap = detectorMap
         results.reserved = reserved
+
+        self._logQaStats(lines, results.xResid, results.yResid, results.selection, reserved)
 
         lines.status[results.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
@@ -561,6 +571,37 @@ class FitDistortedDetectorMapTask(Task):
             bbox, slitOffsets, slitOffsets, base, [distortion], dividedDetector, rightCcd, visitInfo, metadata
         )
 
+
+    def _warnSaturatedLines(self, lines: ArcLineSet) -> None:
+        """Warn about reference lines that are completely excluded from the fit.
+
+        Checks for non-trace reference lines where ``flag`` is ``True`` for
+        all fibers.  This is the condition that causes ``getGoodLines`` to
+        drop the line entirely.  Common causes are saturation (ISR SAT mask
+        prevents reliable centroiding) and non-detection (line is too faint
+        or falls outside the detector's sensitive wavelength range).
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Arc line measurements (the original centroids, NOT residuals).
+        """
+        isLine = lines.description != "Trace"
+        for wl in np.unique(lines.wavelength[isLine]):
+            mask = (lines.wavelength == wl) & isLine
+            n_total = int(mask.sum())
+            if n_total < 10:
+                continue  # too few fibers to be meaningful
+            n_flagged = int(np.sum(lines.flag[mask]))
+            if n_flagged < n_total:
+                continue  # at least one good fiber -- line is partially usable
+            desc = str(lines.description[mask][0])
+            self.log.warn(
+                "Line %.4f nm (%s): all %d fibers have flag=True; line fully excluded from fit"
+                " (possible saturation for bright lines, or non-detection for faint/edge lines).",
+                wl, desc, n_total,
+            )
+
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
         """Return a boolean array indicating which lines are good.
 
@@ -593,6 +634,7 @@ class FitDistortedDetectorMapTask(Task):
         if hasattr(lines, "slope"):
             good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
+
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
@@ -841,7 +883,7 @@ class FitDistortedDetectorMapTask(Task):
             axes[1].set_xlabel("fiberId")
             axes[1].set_ylabel("Spectral offset (pixels)")
             axes[1].set_title("Spectral offsets")
-            plt.show()
+            self._showOrSavePlot("slitOffsets")
 
         return result
 
@@ -979,7 +1021,7 @@ class FitDistortedDetectorMapTask(Task):
             axes[2].set_title("Spectral offset")
             addColorbar(fig, axes[2], cmap, norm, "Spectral offset (pixels)")
             fig.subplots_adjust(wspace=0.75)
-            plt.show()
+            self._showOrSavePlot("baseResiduals")
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
@@ -1525,6 +1567,88 @@ class FitDistortedDetectorMapTask(Task):
 
         return np.isin(lines.wavelength, badLines, invert=True)
 
+    def _logQaStats(self, lines, xResid, yResid, selection, reserved):
+        """Log per-wavelength QA statistics at INFO level.
+
+        Each arc-line wavelength is emitted as a single ``QA_WL`` line.  The
+        companion script ``parse_detectormap_log.py`` assembles these into an
+        aggregated CSV after any ``pipetask`` run, without requiring
+        ``DETECTORMAP_PLOT_DIR`` to be set.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Line measurements.
+        xResid, yResid : `numpy.ndarray` of `float`
+            Residuals (measured − model) for x and y (pixels).
+        selection : `numpy.ndarray` of `bool`
+            Lines used in the final fit.
+        reserved : `numpy.ndarray` of `bool`
+            Lines reserved from the fit.
+        """
+        def _fmt(v):
+            return "nan" if not np.isfinite(v) else f"{v:.5f}"
+
+        isNotTrace = lines.description != "Trace"
+        goodMask = self.getGoodLines(lines) & isNotTrace
+
+        for wl in sorted(set(lines.wavelength[goodMask].tolist())):
+            isWl = lines.wavelength == wl
+            chooseGood = goodMask & isWl
+            chooseUsed = selection & isWl & isNotTrace
+            chooseReserved = reserved & isWl & isNotTrace
+            descr = next(iter(set(lines.description[chooseGood])), "")
+            xr = xResid[chooseUsed]
+            yr = yResid[chooseUsed]
+            xFinite = xr[np.isfinite(xr)]
+            yFinite = yr[np.isfinite(yr)]
+            x_mean = float(np.mean(xFinite)) if len(xFinite) else float("nan")
+            x_rms = float(robustRms(xFinite)) if len(xFinite) else float("nan")
+            y_mean = float(np.mean(yFinite)) if len(yFinite) else float("nan")
+            y_rms = float(robustRms(yFinite)) if len(yFinite) else float("nan")
+            self.log.info(
+                "QA_WL wl=%.4f desc=%s n_good=%d n_used=%d n_reserved=%d "
+                "x_mean=%s x_rms=%s y_mean=%s y_rms=%s",
+                wl, descr, int(chooseGood.sum()), int(chooseUsed.sum()), int(chooseReserved.sum()),
+                _fmt(x_mean), _fmt(x_rms), _fmt(y_mean), _fmt(y_rms),
+            )
+
+    def _showOrSavePlot(self, name):
+        """Show or save all currently open matplotlib figures.
+
+        If ``self.debugInfo.plotDir`` is set, figures are saved under::
+
+            <plotDir>/<arm><spec>-v<visit>/<name>_N[_M].png
+
+        where ``<arm><spec>-v<visit>`` identifies the data being processed,
+        ``N`` is a per-name call counter (reset each ``run()``), and ``M`` is
+        a per-call figure index when multiple figures are open simultaneously.
+        Figures are closed after saving.  Otherwise ``plt.show()`` is called
+        for interactive display.
+
+        Parameters
+        ----------
+        name : `str`
+            Base name for the saved files (no extension).
+        """
+        import matplotlib.pyplot as plt
+        plotDir = self.debugInfo.plotDir
+        count = self._plotCallCounts.get(name, 0)
+        self._plotCallCounts[name] = count + 1
+        if plotDir:
+            subdir = os.path.join(plotDir, self._plotSubdir)
+            os.makedirs(subdir, exist_ok=True)
+            fignums = plt.get_fignums()
+            for ii, num in enumerate(fignums):
+                fig = plt.figure(num)
+                figSuffix = f"_{ii}" if len(fignums) > 1 else ""
+                path = os.path.join(subdir, f"{name}_{count}{figSuffix}.png")
+                fig.savefig(path, bbox_inches="tight", dpi=150)
+                self.log.info("Saved plot to %s", path)
+            plt.close("all")
+        else:
+            plt.show()
+
     def lineQa(self, lines, detectorMap):
         """Check the quality of the model fit by looking at the lines
 
@@ -1542,7 +1666,7 @@ class FitDistortedDetectorMapTask(Task):
         num = len(lines.fiberId)
         for ii in range(num):
             matches[lines.wavelength[ii]].append(ii)
-        model = detectorMap.model
+        dispersion = detectorMap.getDispersionAtCenter()
         stdev = []
         error = []
         for wl in sorted(matches.keys()):
@@ -1550,7 +1674,7 @@ class FitDistortedDetectorMapTask(Task):
                 continue
             indices = np.array(matches[wl])
             fit = np.array([detectorMap.findWavelength(lines.fiberId[ii], lines.y[ii]) for ii in indices])
-            resid = (fit - wl)/model.getScaling().dispersion
+            resid = (fit - wl)/dispersion
             self.log.info("Line %f: rms residual=%f, mean error=%f num=%d",
                           wl, robustRms(resid), np.median(lines.yErr[indices]), len(indices))
             stdev.append(robustRms(resid))
@@ -1560,7 +1684,7 @@ class FitDistortedDetectorMapTask(Task):
         plt.plot(error, stdev, 'ko')
         plt.xlabel("Median centroid error")
         plt.ylabel("Fit RMS")
-        plt.show()
+        self._showOrSavePlot("lineQa")
 
     def plotModel(self, lines, good, result):
         """Plot the model fit result
@@ -1581,9 +1705,11 @@ class FitDistortedDetectorMapTask(Task):
 
         xErr = lines.xErr
         yErr = lines.yErr
-        if result.soften > 0:
-            xErr = np.hypot(result.soften, xErr)
-            yErr = np.hypot(result.soften, yErr)
+        xSoften, ySoften = result.soften
+        if xSoften > 0:
+            xErr = np.hypot(xSoften, xErr)
+        if ySoften > 0:
+            yErr = np.hypot(ySoften, yErr)
 
         xResid = result.xResid/xErr
         yResid = result.yResid/yErr
@@ -1601,24 +1727,22 @@ class FitDistortedDetectorMapTask(Task):
         axes[1, 0].set_ylabel(r"\Delta Spectral (\sigma)")
         axes[1, 0].set_title("Spectral residuals")
 
-        numFibers = result.distortion.getNumFibers()
-        numLines = min(10, numFibers)
-        fiberId = result.distortion.getFiberId()[np.linspace(0, numFibers, numLines, False, dtype=int)]
-        wavelength = np.linspace(lines.wavelength.min(), lines.wavelength.max(), numLines)
-        ff, wl = np.meshgrid(fiberId, wavelength)
-        ff = ff.flatten()
-        wl = wl.flatten()
-        xy = result.distortion(ff, wl)
-        xx = xy[:, 0]
-        yy = xy[:, 1]
+        xyRange = result.distortion.getRange()
+        numGridLines = 10
+        numSamples = 100
+        xSamples = np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples)
+        ySamples = np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples)
+        xGrid = np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numGridLines)
+        yGrid = np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numGridLines)
 
-        for ii in range(numLines):
-            select = ff == fiberId[ii]
-            axes[0, 1].plot(xx[select], yy[select], 'k-')
-            axes[1, 1].plot(xx[select], yy[select], 'k-')
-            select = wl == wavelength[ii]
-            axes[0, 1].plot(xx[select], yy[select], 'k-')
-            axes[1, 1].plot(xx[select], yy[select], 'k-')
+        for ax in (axes[0, 1], axes[1, 1]):
+            for xVal in xGrid:
+                xy = result.distortion(np.full(numSamples, xVal), ySamples)
+                ax.plot(xy[:, 0], xy[:, 1], 'k-', lw=0.5)
+            for yVal in yGrid:
+                xy = result.distortion(xSamples, np.full(numSamples, yVal))
+                ax.plot(xy[:, 0], xy[:, 1], 'k-', lw=0.5)
+
         axes[0, 1].scatter(lines.x[good], lines.y[good], marker=".", color="b")
         axes[0, 1].set_title("Good")
         axes[0, 1].set_xlabel("Spatial")
@@ -1657,12 +1781,13 @@ class FitDistortedDetectorMapTask(Task):
         ax.set_ylabel("Spectral")
 
         fig.tight_layout()
-        plt.show()
+        self._showOrSavePlot("model")
 
     def plotDistortion(self, distortion, lines, select):
         """Plot distortion field
 
-        We plot the x and y distortions as a function of xi,eta.
+        We plot the x and y distortions as a function of position on the
+        detector.
 
         Parameters
         ----------
@@ -1676,77 +1801,48 @@ class FitDistortedDetectorMapTask(Task):
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
-        from pfs.drp.stella.math import evaluatePolynomial, evaluateAffineTransform
 
-        numSamples = 1000
+        numSamples = 100
         cmap = matplotlib.cm.rainbow
 
         xyRange = distortion.getRange()
-        xyModel = np.meshgrid(np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples),
-                              np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples),
-                              sparse=False)
-        xModel = xyModel[0].flatten()
-        yModel = xyModel[1].flatten()
+        xGrid, yGrid = np.meshgrid(
+            np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples),
+            np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples),
+            sparse=False,
+        )
+        xFlat = xGrid.flatten()
+        yFlat = yGrid.flatten()
+        modelFlat = distortion(xFlat, yFlat)
+        dxModel = (modelFlat[:, 0] - xFlat).reshape(numSamples, numSamples)
+        dyModel = (modelFlat[:, 1] - yFlat).reshape(numSamples, numSamples)
+
+        # Observed displacement at arc line positions
+        modelObs = distortion(lines.xBase[select].astype(float), lines.yBase[select].astype(float))
+        dxObs = lines.x[select] - modelObs[:, 0]
+        dyObs = lines.y[select] - modelObs[:, 1]
 
         def calculateNorm(xx, yy):
-            # Coordinates for plotting
-            xNorm = (xx - xyRange.getMinX())/(xyRange.getMaxX() - xyRange.getMinX())
-            yNorm = (yy - xyRange.getMinY())/(xyRange.getMaxY() - xyRange.getMinY())
+            xNorm = (xx - xyRange.getMinX()) / (xyRange.getMaxX() - xyRange.getMinX())
+            yNorm = (yy - xyRange.getMinY()) / (xyRange.getMaxY() - xyRange.getMinY())
             return xNorm, yNorm
 
-        def getDistortion(poly):
-            """Evaluate the polynomial without the linear terms
-
-            Parameters
-            ----------
-            poly : `lsst.afw.math.Chebyshev1Function2D`
-                Polynomial with distortion.
-
-            Returns
-            -------
-            distortion : `numpy.ndarray` of `float`, shape ``(numSamples,numSamples)``
-                Image of the distortion.
-            """
-            params = np.array(poly.getParameters())
-            params[:3] = 0.0
-            distortion = type(poly)(params, poly.getXYRange())
-            return evaluatePolynomial(distortion, xModel, yModel).reshape(numSamples, numSamples)
-
-        xDistortion = getDistortion(distortion.getXDistortion())
-        yDistortion = getDistortion(distortion.getYDistortion())
-
-        xObs, yObs = lines.xBase[select], lines.yBase[select]
-        xObsNorm, yObsNorm = calculateNorm(xObs, yObs)
-
-        def removeLinear(values, poly):
-            params = np.array(poly.getParameters())
-            params[3:] = 0.0
-            linear = type(poly)(params, poly.getXYRange())
-            return values - evaluatePolynomial(linear, xObs, yObs)
-
-        # For the observed positions, we need to remove the linear part of the distortion and the
-        # affine transformation for the right CCD.
-        xObs = removeLinear(lines.x[select], distortion.getXDistortion())
-        yObs = removeLinear(lines.y[select], distortion.getYDistortion())
-
-        onRightCcd = distortion.getOnRightCcd(lines.xBase[select])
-        rightCcd = evaluateAffineTransform(distortion.getRightCcd(), xObs[onRightCcd], yObs[onRightCcd])
-        xObs[onRightCcd] -= rightCcd[0]
-        yObs[onRightCcd] -= rightCcd[1]
+        xObsNorm, yObsNorm = calculateNorm(lines.xBase[select], lines.yBase[select])
+        extent = (0, 1, 0, 1)
 
         fig, axes = plt.subplots(ncols=2, nrows=2, sharex=True, sharey=True)
-        for ax, image, values, dim in zip(axes, (xDistortion, yDistortion), (xObs, yObs), ("x", "y")):
+        for ax, image, values, dim in zip(axes, (dxModel, dyModel), (dxObs, dyObs), ("x", "y")):
             norm = Normalize()
             norm.autoscale(image)
-            ax[0].imshow(image, cmap=cmap, norm=norm, origin="lower", extent=(0, 1, 0, 1))
+            ax[0].imshow(image, cmap=cmap, norm=norm, origin="lower", extent=extent)
             ax[0].set_xticks((0, 1))
             ax[0].set_yticks((0, 1))
-            ax[0].set_title(f"Model {dim}")
+            ax[0].set_title(f"Model d{dim}")
             ax[1].scatter(xObsNorm, yObsNorm, marker=".", alpha=0.2, color=cmap(norm(values)))
-            ax[1].set_title(f"Observed {dim}")
+            ax[1].set_title(f"Residual d{dim}")
             ax[1].set_aspect("equal")
-            addColorbar(fig, ax[0], cmap, norm, f"{dim} distortion (pixels)")
-            addColorbar(fig, ax[1], cmap, norm, f"{dim} distortion (pixels)")
+            addColorbar(fig, ax[0], cmap, norm, f"d{dim} (pixels)")
+            addColorbar(fig, ax[1], cmap, norm, f"d{dim} (pixels)")
 
         axes[0][0].set_ylabel("Normalized y (wavelength)")
         axes[1][0].set_ylabel("Normalized y (wavelength)")
@@ -1755,7 +1851,7 @@ class FitDistortedDetectorMapTask(Task):
 
         fig.tight_layout()
         fig.suptitle("Distortion field")
-        plt.show()
+        self._showOrSavePlot("distortion")
 
     def plotResiduals(self, lines, dx, dy, used, reserved, dispersion):
         """Plot fit residuals
@@ -1907,7 +2003,7 @@ class FitDistortedDetectorMapTask(Task):
             fig.tight_layout()
             fig.suptitle("Trace residuals")
 
-        plt.show()
+        self._showOrSavePlot("residuals")
 
     def plotWavelengthResiduals(self, detectorMap, lines, used, reserved):
         """Plot wavelength residuals
@@ -1966,7 +2062,7 @@ class FitDistortedDetectorMapTask(Task):
         font.set_size('xx-small')
 
         legend = axes.flatten()[0].legend(prop=font)
-        for lh in legend.legendHandles:
+        for lh in legend.legend_handles:
             lh.set_alpha(1)
         for ax in axes.flatten():
             ax.set_xlabel("Row (pixels)")
@@ -1974,4 +2070,4 @@ class FitDistortedDetectorMapTask(Task):
             ax.set_ylabel("Residual (nm)")
 
         fig.suptitle("Wavelength residuals")
-        plt.show()
+        self._showOrSavePlot("wlResiduals")
