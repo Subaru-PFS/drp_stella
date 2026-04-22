@@ -1976,7 +1976,7 @@ class FitDistortedDetectorMapTask(Task):
         font.set_size('xx-small')
 
         legend = axes.flatten()[0].legend(prop=font)
-        for lh in legend.legendHandles:
+        for lh in legend.legend_handles:
             lh.set_alpha(1)
         for ax in axes.flatten():
             ax.set_xlabel("Row (pixels)")
