@@ -1633,24 +1633,22 @@ class FitDistortedDetectorMapTask(Task):
         axes[1, 0].set_ylabel(r"\Delta Spectral (\sigma)")
         axes[1, 0].set_title("Spectral residuals")
 
-        allFibers = np.array(sorted(set(lines.fiberId)))
-        numLines = min(10, len(allFibers))
-        fiberId = allFibers[np.linspace(0, len(allFibers), numLines, False, dtype=int)]
-        wavelength = np.linspace(lines.wavelength.min(), lines.wavelength.max(), numLines)
-        ff, wl = np.meshgrid(fiberId, wavelength)
-        ff = ff.flatten()
-        wl = wl.flatten()
-        xy = result.distortion(ff, wl)
-        xx = xy[:, 0]
-        yy = xy[:, 1]
+        xyRange = result.distortion.getRange()
+        numGridLines = 10
+        numSamples = 100
+        xSamples = np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples)
+        ySamples = np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples)
+        xGrid = np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numGridLines)
+        yGrid = np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numGridLines)
 
-        for ii in range(numLines):
-            select = ff == fiberId[ii]
-            axes[0, 1].plot(xx[select], yy[select], 'k-')
-            axes[1, 1].plot(xx[select], yy[select], 'k-')
-            select = wl == wavelength[ii]
-            axes[0, 1].plot(xx[select], yy[select], 'k-')
-            axes[1, 1].plot(xx[select], yy[select], 'k-')
+        for ax in (axes[0, 1], axes[1, 1]):
+            for xVal in xGrid:
+                xy = result.distortion(np.full(numSamples, xVal), ySamples)
+                ax.plot(xy[:, 0], xy[:, 1], 'k-', lw=0.5)
+            for yVal in yGrid:
+                xy = result.distortion(xSamples, np.full(numSamples, yVal))
+                ax.plot(xy[:, 0], xy[:, 1], 'k-', lw=0.5)
+
         axes[0, 1].scatter(lines.x[good], lines.y[good], marker=".", color="b")
         axes[0, 1].set_title("Good")
         axes[0, 1].set_xlabel("Spatial")
