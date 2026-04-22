@@ -1,4 +1,3 @@
-import datetime
 import os
 from collections import defaultdict, Counter
 from typing import Optional, Tuple, Type
@@ -340,12 +339,6 @@ class FitDistortedDetectorMapConfig(Config):
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
-
-# Timestamp captured at module import time; shared by all Task instances in the same process.
-# Used to group all plots from a single pipetask invocation into one directory.
-_PLOT_SESSION = datetime.datetime.now().strftime("%Y%m%dT%H%M")
-
-
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
@@ -416,7 +409,10 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
-        self._plotSubdir = f"{dataId['arm']}{dataId['spectrograph']}-v{visitInfo.id}"
+        self._arm = dataId["arm"]
+        self._spectrograph = dataId["spectrograph"]
+        self._visit = visitInfo.id
+        self._plotSubdir = f"{self._arm}{self._spectrograph}-v{self._visit}"
         self._plotCallCounts = {}
         self._warnSaturatedLines(lines)
         if self.config.doSlitOffsets:
@@ -451,7 +447,7 @@ class FitDistortedDetectorMapTask(Task):
         results.detectorMap = detectorMap
         results.reserved = reserved
 
-        self._saveQaStats(lines, results.xResid, results.yResid, results.selection, reserved)
+        self._logQaStats(lines, results.xResid, results.yResid, results.selection, reserved)
 
         lines.status[results.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
@@ -1571,18 +1567,13 @@ class FitDistortedDetectorMapTask(Task):
 
         return np.isin(lines.wavelength, badLines, invert=True)
 
-    def _saveQaStats(self, lines, xResid, yResid, selection, reserved):
-        """Write per-wavelength and per-fiber QA statistics to CSV files.
+    def _logQaStats(self, lines, xResid, yResid, selection, reserved):
+        """Log per-wavelength QA statistics at INFO level.
 
-        Files are written to the plot directory (if set) under the same
-        ``<plotDir>/<session>/<subdir>/`` path used by ``_showOrSavePlot``.
-
-        Two CSV files are produced:
-
-        - ``wavelengthStats_N.csv`` — one row per arc line wavelength with
-          counts and residual statistics.  Useful for checking whether blue
-          wavelengths show systematic spatial offsets.
-        - ``fiberStats_N.csv`` — one row per fiber with residual statistics.
+        Each arc-line wavelength is emitted as a single ``QA_WL`` line.  The
+        companion script ``parse_detectormap_log.py`` assembles these into an
+        aggregated CSV after any ``pipetask`` run, without requiring
+        ``DETECTORMAP_PLOT_DIR`` to be set.
 
         Parameters
         ----------
@@ -1595,88 +1586,45 @@ class FitDistortedDetectorMapTask(Task):
         reserved : `numpy.ndarray` of `bool`
             Lines reserved from the fit.
         """
-        if not self.debugInfo.plotDir:
-            return
-        import csv
-
-        subdir = os.path.join(self.debugInfo.plotDir, _PLOT_SESSION, self._plotSubdir)
-        os.makedirs(subdir, exist_ok=True)
-        count = self._plotCallCounts.get("qaStats", 0)
-        self._plotCallCounts["qaStats"] = count + 1
+        def _fmt(v):
+            return "nan" if not np.isfinite(v) else f"{v:.5f}"
 
         isNotTrace = lines.description != "Trace"
-
-        # --- per-wavelength CSV ---
         goodMask = self.getGoodLines(lines) & isNotTrace
-        wlPath = os.path.join(subdir, f"wavelengthStats_{count}.csv")
-        with open(wlPath, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "wavelength", "description",
-                "n_good", "n_used", "n_reserved",
-                "x_mean", "x_rms", "y_mean", "y_rms",
-            ])
-            for wl in sorted(set(lines.wavelength[goodMask].tolist())):
-                isWl = lines.wavelength == wl
-                chooseGood = goodMask & isWl
-                chooseUsed = selection & isWl & isNotTrace
-                chooseReserved = reserved & isWl & isNotTrace
-                descr = next(iter(set(lines.description[chooseGood])), "")
-                xr = xResid[chooseUsed]
-                yr = yResid[chooseUsed]
-                xFinite = xr[np.isfinite(xr)]
-                yFinite = yr[np.isfinite(yr)]
-                writer.writerow([
-                    wl, descr,
-                    int(chooseGood.sum()), int(chooseUsed.sum()), int(chooseReserved.sum()),
-                    float(np.mean(xFinite)) if len(xFinite) else float("nan"),
-                    float(robustRms(xFinite)) if len(xFinite) else float("nan"),
-                    float(np.mean(yFinite)) if len(yFinite) else float("nan"),
-                    float(robustRms(yFinite)) if len(yFinite) else float("nan"),
-                ])
-        self.log.info("Saved QA wavelength stats to %s", wlPath)
 
-        # --- per-fiber CSV ---
-        fiberPath = os.path.join(subdir, f"fiberStats_{count}.csv")
-        fiberIds = np.array(sorted(set(lines.fiberId[selection])))
-        with open(fiberPath, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "fiberId",
-                "n_used", "n_reserved",
-                "x_mean", "x_rms", "y_mean", "y_rms",
-            ])
-            for ff in fiberIds:
-                isFiber = lines.fiberId == ff
-                chooseUsed = selection & isFiber
-                chooseReserved = reserved & isFiber
-                xr = xResid[chooseUsed]
-                yr = yResid[chooseUsed & isNotTrace]
-                xFinite = xr[np.isfinite(xr)]
-                yFinite = yr[np.isfinite(yr)]
-                writer.writerow([
-                    int(ff), int(chooseUsed.sum()), int(chooseReserved.sum()),
-                    float(np.mean(xFinite)) if len(xFinite) else float("nan"),
-                    float(robustRms(xFinite)) if len(xFinite) else float("nan"),
-                    float(np.mean(yFinite)) if len(yFinite) else float("nan"),
-                    float(robustRms(yFinite)) if len(yFinite) else float("nan"),
-                ])
-        self.log.info("Saved QA fiber stats to %s", fiberPath)
+        for wl in sorted(set(lines.wavelength[goodMask].tolist())):
+            isWl = lines.wavelength == wl
+            chooseGood = goodMask & isWl
+            chooseUsed = selection & isWl & isNotTrace
+            chooseReserved = reserved & isWl & isNotTrace
+            descr = next(iter(set(lines.description[chooseGood])), "")
+            xr = xResid[chooseUsed]
+            yr = yResid[chooseUsed]
+            xFinite = xr[np.isfinite(xr)]
+            yFinite = yr[np.isfinite(yr)]
+            x_mean = float(np.mean(xFinite)) if len(xFinite) else float("nan")
+            x_rms = float(robustRms(xFinite)) if len(xFinite) else float("nan")
+            y_mean = float(np.mean(yFinite)) if len(yFinite) else float("nan")
+            y_rms = float(robustRms(yFinite)) if len(yFinite) else float("nan")
+            self.log.info(
+                "QA_WL wl=%.4f desc=%s n_good=%d n_used=%d n_reserved=%d "
+                "x_mean=%s x_rms=%s y_mean=%s y_rms=%s",
+                wl, descr, int(chooseGood.sum()), int(chooseUsed.sum()), int(chooseReserved.sum()),
+                _fmt(x_mean), _fmt(x_rms), _fmt(y_mean), _fmt(y_rms),
+            )
 
     def _showOrSavePlot(self, name):
         """Show or save all currently open matplotlib figures.
 
         If ``self.debugInfo.plotDir`` is set, figures are saved under::
 
-            <plotDir>/<session>/<arm><spec>-v<visit>/<name>_N[_M].png
+            <plotDir>/<arm><spec>-v<visit>/<name>_N[_M].png
 
-        where ``<session>`` is a minute-precision timestamp captured at module
-        import time (shared by all quanta in the same pipetask run), the
-        ``<arm><spec>-v<visit>`` subdirectory is specific to the data being
-        processed, ``N`` is a per-name call counter (reset each ``run()``), and
-        ``M`` is a per-call figure index when multiple figures are open
-        simultaneously.  Figures are closed after saving.  Otherwise
-        ``plt.show()`` is called for interactive display.
+        where ``<arm><spec>-v<visit>`` identifies the data being processed,
+        ``N`` is a per-name call counter (reset each ``run()``), and ``M`` is
+        a per-call figure index when multiple figures are open simultaneously.
+        Figures are closed after saving.  Otherwise ``plt.show()`` is called
+        for interactive display.
 
         Parameters
         ----------
@@ -1688,7 +1636,7 @@ class FitDistortedDetectorMapTask(Task):
         count = self._plotCallCounts.get(name, 0)
         self._plotCallCounts[name] = count + 1
         if plotDir:
-            subdir = os.path.join(plotDir, _PLOT_SESSION, self._plotSubdir)
+            subdir = os.path.join(plotDir, self._plotSubdir)
             os.makedirs(subdir, exist_ok=True)
             fignums = plt.get_fignums()
             for ii, num in enumerate(fignums):

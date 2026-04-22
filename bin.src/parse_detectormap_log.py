@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Parse fitDetectorMap pipeline log output into structured tables and plots.
 
-The script extracts statistics that are already logged at INFO level by
+The script extracts statistics logged at INFO level by
 ``FitDistortedDetectorMapTask`` and organises them into readable tables and
-optional CSV files / figures.
+an aggregated CSV file.
 
-Structured per-wavelength CSV files (``wavelengthStats_N.csv``) can also be
-read by this script if ``--qa-dir`` is supplied; these are written by the task
-when ``DETECTORMAP_PLOT_DIR`` is set and contain mean/RMS residuals per
-reference-line wavelength that are **not** available from the log alone.
+Per-wavelength QA statistics are emitted as ``QA_WL`` lines at INFO level on
+every run (no special environment variables required).  Use ``--output-dir``
+to write a single ``wavelength_qa.csv`` that aggregates all detectors and
+visits from any number of log files.
 
 Usage examples
 --------------
@@ -16,13 +16,13 @@ Parse a single log file and print tables::
 
     parse_detectormap_log.py task.log
 
-Parse multiple log files, write CSVs to a directory, and produce plots::
+Parse multiple log files and write CSVs to a directory::
 
-    parse_detectormap_log.py run1.log run2.log --output-dir ./qa --plot
+    parse_detectormap_log.py b1.log b2.log b3.log b4.log --output-dir ./qa
 
-Read per-wavelength CSVs from the plot directory and plot the blue-bias::
+Parse and plot the blue-bias (x_mean vs wavelength)::
 
-    parse_detectormap_log.py task.log --qa-dir $DETECTORMAP_PLOT_DIR --plot
+    parse_detectormap_log.py *.log --output-dir ./qa --plot
 
 Pipe log output in directly::
 
@@ -31,7 +31,6 @@ Pipe log output in directly::
 
 import argparse
 import csv
-import glob
 import os
 import re
 import sys
@@ -52,13 +51,14 @@ _LOG_PREFIX = re.compile(
     r"(?P<message>.+)$"
 )
 
-# dataId extracted from context like "fitDetectorMap:{instrument: 'PFS', arm: 'b', spectrograph: 1}"
+# dataId extracted from context like "{instrument: 'PFS', arm: 'b', spectrograph: 1, visit: 121319}"
 _DATAID_RE = re.compile(
     r"arm:\s*'?(?P<arm>[a-z])'?.*?spectrograph:\s*(?P<spectrograph>\d+)"
+    r"(?:.*?visit:\s*(?P<visit>\d+))?"
 )
 
-# Key=value pairs: chi2=X dof=X xRMS=X yRMS=X xSoften=X ySoften=X
-_KV_RE = re.compile(r"(?P<key>\w+)=(?P<value>-?[\d.]+(?:e[+-]?\d+)?)")
+# Key=value pairs: chi2=X dof=X xRMS=X yRMS=X — also matches nan/inf
+_KV_RE = re.compile(r"(?P<key>\w+)=(?P<value>-?(?:[\d.]+(?:e[+-]?\d+)?|nan|inf))")
 
 # "from N lines ..." or "from N/M lines ..."
 _FROM_RE = re.compile(r"from\s+(?P<n>\d+)(?:/(?P<denom>\d+))?\s+lines?")
@@ -66,8 +66,18 @@ _FROM_RE = re.compile(r"from\s+(?P<n>\d+)(?:/(?P<denom>\d+))?\s+lines?")
 # "from N fibers ..."
 _FROM_FIBERS_RE = re.compile(r"from\s+(?P<n>\d+)\s+fibers?")
 
-# Species counts like "(CdI: 2113, HgI: 4300, Trace: 52018)"
+# "Species counts like "(CdI: 2113, HgI: 4300, Trace: 52018)"
 _COUNTS_RE = re.compile(r"\((?P<counts>[^)]+)\)")
+
+# Structured per-wavelength QA line emitted by _logQaStats
+_QA_WL_RE = re.compile(
+    r"^QA_WL\s+wl=(?P<wl>[\d.]+)\s+desc=(?P<desc>\S+)\s+"
+    r"n_good=(?P<n_good>\d+)\s+n_used=(?P<n_used>\d+)\s+n_reserved=(?P<n_reserved>\d+)\s+"
+    r"x_mean=(?P<x_mean>-?(?:[\d.]+(?:e[+-]?\d+)?|nan))\s+"
+    r"x_rms=(?P<x_rms>(?:[\d.]+(?:e[+-]?\d+)?|nan))\s+"
+    r"y_mean=(?P<y_mean>-?(?:[\d.]+(?:e[+-]?\d+)?|nan))\s+"
+    r"y_rms=(?P<y_rms>(?:[\d.]+(?:e[+-]?\d+)?|nan))"
+)
 
 # ---------------------------------------------------------------------------
 # Parsing helpers
@@ -75,7 +85,7 @@ _COUNTS_RE = re.compile(r"\((?P<counts>[^)]+)\)")
 
 
 def _parse_kv(text: str) -> dict:
-    """Extract all key=float_value pairs from *text*."""
+    """Extract all key=float_value pairs from *text* (handles nan/inf)."""
     return {m.group("key"): float(m.group("value")) for m in _KV_RE.finditer(text)}
 
 
@@ -97,11 +107,26 @@ def _parse_counts(text: str) -> dict:
 
 
 def _extract_dataid(context: str) -> dict:
-    """Return dict with arm and spectrograph from the log context field."""
+    """Return dict with arm, spectrograph, and visit from the log context field."""
     m = _DATAID_RE.search(context)
     if m:
-        return {"arm": m.group("arm"), "spectrograph": int(m.group("spectrograph"))}
+        result = {"arm": m.group("arm"), "spectrograph": int(m.group("spectrograph"))}
+        if m.group("visit") is not None:
+            result["visit"] = int(m.group("visit"))
+        return result
     return {}
+
+
+def _try_numeric(val: str):
+    """Convert string to int or float if possible."""
+    try:
+        return int(val)
+    except ValueError:
+        pass
+    try:
+        return float(val)
+    except ValueError:
+        return val
 
 
 # ---------------------------------------------------------------------------
@@ -112,22 +137,17 @@ def _extract_dataid(context: str) -> dict:
 class RunStats:
     """Collected statistics for one fitDetectorMap run (one dataId)."""
 
-    def __init__(self, arm: str, spectrograph: int):
+    def __init__(self, arm: str, spectrograph: int, visit: int = 0):
         self.arm = arm
         self.spectrograph = spectrograph
-        self.label = f"{arm}{spectrograph}"
+        self.visit = visit
+        self.label = f"{arm}{spectrograph}-v{visit}" if visit else f"{arm}{spectrograph}"
 
-        # fit summary rows — list of dicts with keys: stage, chi2, xRMS, etc.
         self.fit_summary: List[dict] = []
-
-        # per-species stats: list of dicts with keys: description + stats
         self.species_stats: List[dict] = []
-
-        # per-fiber stats: list of dicts
         self.fiber_stats: List[dict] = []
-
-        # per-wavelength stats (from log DEBUG lines, if present)
-        self.wl_stats: List[dict] = []
+        self.wl_stats: List[dict] = []  # from legacy DEBUG log lines
+        self.wl_qa: List[dict] = []     # from QA_WL INFO lines
 
     def add_fit_summary(self, stage: str, kv: dict, n: int, denom: Optional[int] = None):
         row = {"stage": stage, "n": n}
@@ -151,6 +171,23 @@ class RunStats:
         row.update({k: v for k, v in kv.items() if k not in ("wavelength", "n")})
         self.wl_stats.append(row)
 
+    def add_wl_qa(self, wl: float, desc: str, n_good: int, n_used: int, n_reserved: int,
+                  x_mean: float, x_rms: float, y_mean: float, y_rms: float):
+        self.wl_qa.append({
+            "arm": self.arm,
+            "spectrograph": self.spectrograph,
+            "visit": self.visit,
+            "wavelength": wl,
+            "description": desc,
+            "n_good": n_good,
+            "n_used": n_used,
+            "n_reserved": n_reserved,
+            "x_mean": x_mean,
+            "x_rms": x_rms,
+            "y_mean": y_mean,
+            "y_rms": y_rms,
+        })
+
 
 # ---------------------------------------------------------------------------
 # Log file parser
@@ -158,7 +195,7 @@ class RunStats:
 
 
 def parse_log(lines: List[str]) -> Dict[str, RunStats]:
-    """Parse log lines and return a dict keyed by arm+spectrograph label."""
+    """Parse log lines and return a dict keyed by arm+spec+visit label."""
     runs: Dict[str, RunStats] = {}
     current: Optional[RunStats] = None
 
@@ -173,15 +210,29 @@ def parse_log(lines: List[str]) -> Dict[str, RunStats]:
 
         dataid = _extract_dataid(context)
         if dataid:
-            label = f"{dataid['arm']}{dataid['spectrograph']}"
+            arm = dataid["arm"]
+            spec = dataid["spectrograph"]
+            visit = dataid.get("visit", 0)
+            label = f"{arm}{spec}-v{visit}" if visit else f"{arm}{spec}"
             if label not in runs:
-                runs[label] = RunStats(dataid["arm"], dataid["spectrograph"])
+                runs[label] = RunStats(arm, spec, visit)
             current = runs[label]
 
         if current is None:
             continue
 
         kv = _parse_kv(msg)
+
+        # ----- QA_WL structured line -----
+        mqa = _QA_WL_RE.match(msg)
+        if mqa:
+            current.add_wl_qa(
+                float(mqa.group("wl")), mqa.group("desc"),
+                int(mqa.group("n_good")), int(mqa.group("n_used")), int(mqa.group("n_reserved")),
+                float(mqa.group("x_mean")), float(mqa.group("x_rms")),
+                float(mqa.group("y_mean")), float(mqa.group("y_rms")),
+            )
+            continue
 
         # ----- overall fit summary lines ----- (longer strings checked first)
         for stage in ("Softened fit quality from reserved lines", "Fit quality from reserved lines",
@@ -199,7 +250,6 @@ def parse_log(lines: List[str]) -> Dict[str, RunStats]:
             current.add_fit_summary("Final result (measureQuality)", kv, n)
 
         # ----- per-species stats -----
-        # "Stats for CdI: chi2=..." — description has no '=' or digit at start
         m2 = re.match(r"^Stats for ([A-Za-z][^:=\d][^:]*):", msg)
         if m2 and "fiberId" not in msg and "wavelength" not in msg:
             description = m2.group(1).strip()
@@ -214,7 +264,7 @@ def parse_log(lines: List[str]) -> Dict[str, RunStats]:
             n = int(fm.group("n")) if fm else 0
             current.add_fiber(int(mf.group(1)), kv, n)
 
-        # ----- per-wavelength stats (DEBUG) -----
+        # ----- per-wavelength stats (legacy DEBUG) -----
         mw = re.match(r"^Stats for wavelength=([\d.]+)\s+\(([^)]+)\):", msg)
         if mw:
             fm = _FROM_FIBERS_RE.search(msg)
@@ -222,43 +272,6 @@ def parse_log(lines: List[str]) -> Dict[str, RunStats]:
             current.add_wavelength(float(mw.group(1)), mw.group(2).strip(), kv, n)
 
     return runs
-
-
-# ---------------------------------------------------------------------------
-# QA CSV reader (from _saveQaStats)
-# ---------------------------------------------------------------------------
-
-
-def read_qa_csv_dir(qa_dir: str) -> Dict[str, List[dict]]:
-    """Read all wavelengthStats_N.csv files from a qa directory tree.
-
-    Returns a dict keyed by subdirectory name (arm+spec-visit label).
-    """
-    result: Dict[str, List[dict]] = {}
-    for path in sorted(glob.glob(os.path.join(qa_dir, "**", "wavelengthStats_*.csv"), recursive=True)):
-        subdir = os.path.basename(os.path.dirname(path))
-        rows: List[dict] = []
-        with open(path, newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                typed = {k: _try_numeric(v) for k, v in row.items()}
-                rows.append(typed)
-        if rows:
-            key = subdir
-            result.setdefault(key, []).extend(rows)
-    return result
-
-
-def _try_numeric(val: str):
-    """Convert string to int or float if possible."""
-    try:
-        return int(val)
-    except ValueError:
-        pass
-    try:
-        return float(val)
-    except ValueError:
-        return val
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +289,6 @@ def print_fit_summary(run: RunStats):
     if not run.fit_summary:
         return
     print(f"\n=== {run.label}: Fit summary ===")
-    cols = ["stage", "n", "chi2", "xRMS", "yRMS", "xSoften", "ySoften"]
     header = f"{'Stage':<45} {'N':>8} {'chi2':>12} {'xRMS':>8} {'yRMS':>8} {'xSoft':>8} {'ySoft':>8}"
     print(header)
     print("-" * len(header))
@@ -327,18 +339,22 @@ def print_fiber_stats(run: RunStats):
               f"{row.get('ySoften', float('nan')):>8.4f}")
 
 
-def print_wavelength_stats(run: RunStats):
-    if not run.wl_stats:
+def print_wavelength_qa(run: RunStats):
+    rows = run.wl_qa or run.wl_stats
+    if not rows:
         return
-    print(f"\n=== {run.label}: Per-wavelength statistics (DEBUG log) ===")
-    header = f"{'Wavelength':>12} {'Desc':<8} {'N':>6} {'xRMS':>8} {'yRMS':>8} {'xSoft':>8}"
+    print(f"\n=== {run.label}: Per-wavelength QA ===")
+    header = f"{'Wavelength':>12} {'Desc':<8} {'N_good':>7} {'N_used':>7} {'x_mean':>8} {'x_rms':>8} {'y_mean':>8} {'y_rms':>8}"
     print(header)
     print("-" * len(header))
-    for row in sorted(run.wl_stats, key=lambda r: r["wavelength"]):
-        print(f"{row['wavelength']:>12.4f} {row['description']:<8} {row['n']:>6} "
-              f"{row.get('xRMS', float('nan')):>8.4f} "
-              f"{row.get('yRMS', float('nan')):>8.4f} "
-              f"{row.get('xSoften', float('nan')):>8.4f}")
+    for row in sorted(rows, key=lambda r: r.get("wavelength", 0)):
+        ng = row.get("n_good", row.get("n", ""))
+        nu = row.get("n_used", "")
+        print(f"{row.get('wavelength', 0):>12.4f} {row.get('description', ''):8} {ng!s:>7} {nu!s:>7} "
+              f"{row.get('x_mean', float('nan')):>8.4f} "
+              f"{row.get('x_rms', float('nan')):>8.4f} "
+              f"{row.get('y_mean', float('nan')):>8.4f} "
+              f"{row.get('y_rms', float('nan')):>8.4f}")
 
 
 # ---------------------------------------------------------------------------
@@ -358,12 +374,20 @@ def write_csv(rows: List[dict], path: str):
     print(f"Wrote {path}")
 
 
+def write_aggregated_wl_csv(runs: Dict[str, "RunStats"], path: str):
+    """Write a single wavelength_qa.csv aggregating all runs."""
+    all_rows = []
+    for run in runs.values():
+        all_rows.extend(run.wl_qa)
+    write_csv(all_rows, path)
+
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
 
 
-def plot_runs(runs: Dict[str, RunStats], qa_data: Dict[str, List[dict]], output_dir: Optional[str]):
+def plot_runs(runs: Dict[str, "RunStats"], output_dir: Optional[str]):
     try:
         import matplotlib
         matplotlib.use("Agg" if output_dir else "TkAgg")
@@ -374,10 +398,15 @@ def plot_runs(runs: Dict[str, RunStats], qa_data: Dict[str, List[dict]], output_
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-    # --- x_mean vs wavelength from per-wavelength CSV data ---
-    if qa_data:
+    # --- x_mean and y_mean vs wavelength from QA_WL log lines ---
+    wl_data = {lbl: run.wl_qa for lbl, run in runs.items() if run.wl_qa}
+    if not wl_data:
+        # Fall back to legacy DEBUG stats if available
+        wl_data = {lbl: run.wl_stats for lbl, run in runs.items() if run.wl_stats}
+
+    if wl_data:
         fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
-        for idx, (label, rows) in enumerate(qa_data.items()):
+        for idx, (label, rows) in enumerate(wl_data.items()):
             rows_sorted = sorted(rows, key=lambda r: r.get("wavelength", 0))
             wl = [r["wavelength"] for r in rows_sorted]
             x_mean = [r.get("x_mean", float("nan")) for r in rows_sorted]
@@ -429,30 +458,6 @@ def plot_runs(runs: Dict[str, RunStats], qa_data: Dict[str, List[dict]], output_
             plt.show()
         plt.close(fig)
 
-    # --- xRMS vs wavelength from DEBUG log data ---
-    wl_data = {lbl: run.wl_stats for lbl, run in runs.items() if run.wl_stats}
-    if wl_data:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for idx, (label, rows) in enumerate(wl_data.items()):
-            rows_sorted = sorted(rows, key=lambda r: r["wavelength"])
-            wl = [r["wavelength"] for r in rows_sorted]
-            xrms = [r.get("xRMS", float("nan")) for r in rows_sorted]
-            col = colors[idx % len(colors)]
-            ax.plot(wl, xrms, "o-", color=col, label=label, markersize=5)
-        ax.set_xlabel("Wavelength (nm)")
-        ax.set_ylabel("x RMS (pix)")
-        ax.set_title("x RMS vs wavelength (from DEBUG log)")
-        ax.legend(fontsize=8)
-        ax.grid(True, alpha=0.3)
-        plt.tight_layout()
-        if output_dir:
-            path = os.path.join(output_dir, "xRMS_vs_wavelength.png")
-            fig.savefig(path, dpi=150, bbox_inches="tight")
-            print(f"Wrote {path}")
-        else:
-            plt.show()
-        plt.close(fig)
-
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -476,12 +481,6 @@ def main():
         help="Directory to write CSV files and plots.",
     )
     parser.add_argument(
-        "--qa-dir",
-        metavar="DIR",
-        help="Root directory containing wavelengthStats_N.csv files written by the task "
-             "(i.e. the value of DETECTORMAP_PLOT_DIR). Used for the blue-bias plot.",
-    )
-    parser.add_argument(
         "--plot", "-p",
         action="store_true",
         help="Produce diagnostic plots.",
@@ -493,7 +492,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # Read log lines from files or stdin
     all_lines: List[str] = []
     for path in args.logfiles:
         if path == "-":
@@ -507,36 +505,28 @@ def main():
         print("No fitDetectorMap log entries found.", file=sys.stderr)
         sys.exit(1)
 
-    # Print tables
     if not args.no_tables:
         for run in runs.values():
             print_fit_summary(run)
             print_species_stats(run)
             print_fiber_stats(run)
-            print_wavelength_stats(run)
+            print_wavelength_qa(run)
 
-    # Write CSVs
     if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+        # Aggregated wavelength QA CSV (all detectors/visits in one file)
+        wl_rows = [row for run in runs.values() for row in run.wl_qa]
+        if wl_rows:
+            write_csv(wl_rows, os.path.join(args.output_dir, "wavelength_qa.csv"))
+        # Per-label fit summary and species CSVs
         for label, run in runs.items():
             if run.fit_summary:
                 write_csv(run.fit_summary, os.path.join(args.output_dir, f"{label}_fit_summary.csv"))
             if run.species_stats:
                 write_csv(run.species_stats, os.path.join(args.output_dir, f"{label}_species_stats.csv"))
-            if run.fiber_stats:
-                write_csv(run.fiber_stats, os.path.join(args.output_dir, f"{label}_fiber_stats.csv"))
-            if run.wl_stats:
-                write_csv(run.wl_stats, os.path.join(args.output_dir, f"{label}_wavelength_stats.csv"))
 
-    # Read QA CSVs from plot directory
-    qa_data: Dict[str, List[dict]] = {}
-    if args.qa_dir:
-        qa_data = read_qa_csv_dir(args.qa_dir)
-        if not qa_data:
-            print(f"No wavelengthStats_*.csv files found under {args.qa_dir}", file=sys.stderr)
-
-    # Plots
     if args.plot:
-        plot_runs(runs, qa_data, args.output_dir)
+        plot_runs(runs, args.output_dir)
 
 
 if __name__ == "__main__":
