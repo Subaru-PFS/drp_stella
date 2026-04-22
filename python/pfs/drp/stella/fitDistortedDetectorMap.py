@@ -1,3 +1,4 @@
+import datetime
 import os
 from collections import defaultdict, Counter
 from typing import Optional, Tuple, Type
@@ -339,6 +340,11 @@ class FitDistortedDetectorMapConfig(Config):
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
 
 
+# Timestamp captured at module import time; shared by all Task instances in the same process.
+# Used to group all plots from a single pipetask invocation into one directory.
+_PLOT_SESSION = datetime.datetime.now().strftime("%Y%m%dT%H%M")
+
+
 class FitDistortedDetectorMapTask(Task):
     ConfigClass = FitDistortedDetectorMapConfig
     _DefaultName = "fitDetectorMap"
@@ -346,7 +352,7 @@ class FitDistortedDetectorMapTask(Task):
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
-        self._plotSuffix = ""
+        self._plotSubdir = ""
         self._plotCallCounts: dict = {}
 
     def run(self, dataId, bbox, lines, visitInfo, metadata=None,
@@ -409,7 +415,7 @@ class FitDistortedDetectorMapTask(Task):
         """
         if base is None:
             base = self.getBaseDetectorMap(dataId)
-        self._plotSuffix = f"-v{visitInfo.id}_{dataId['arm']}{dataId['spectrograph']}"
+        self._plotSubdir = f"{dataId['arm']}{dataId['spectrograph']}-v{visitInfo.id}"
         self._plotCallCounts = {}
         if self.config.doSlitOffsets:
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
@@ -1532,14 +1538,17 @@ class FitDistortedDetectorMapTask(Task):
     def _showOrSavePlot(self, name):
         """Show or save all currently open matplotlib figures.
 
-        If ``self.debugInfo.plotDir`` is set to a directory path the figures
-        are saved as ``<plotDir>/<name>-v<visit>_<arm><spectrograph>_N[_M].png``
-        where ``N`` is a per-name call counter (incremented each time this
-        method is called with the same ``name`` within a single ``run()``
-        invocation) and ``M`` is a per-call figure index when multiple figures
-        are open simultaneously.  The counter is reset at the start of
-        ``run()``.  The files are then closed.  Otherwise ``plt.show()`` is
-        called for interactive display.
+        If ``self.debugInfo.plotDir`` is set, figures are saved under::
+
+            <plotDir>/<session>/<arm><spec>-v<visit>/<name>_N[_M].png
+
+        where ``<session>`` is a minute-precision timestamp captured at module
+        import time (shared by all quanta in the same pipetask run), the
+        ``<arm><spec>-v<visit>`` subdirectory is specific to the data being
+        processed, ``N`` is a per-name call counter (reset each ``run()``), and
+        ``M`` is a per-call figure index when multiple figures are open
+        simultaneously.  Figures are closed after saving.  Otherwise
+        ``plt.show()`` is called for interactive display.
 
         Parameters
         ----------
@@ -1551,12 +1560,13 @@ class FitDistortedDetectorMapTask(Task):
         count = self._plotCallCounts.get(name, 0)
         self._plotCallCounts[name] = count + 1
         if plotDir:
-            os.makedirs(plotDir, exist_ok=True)
+            subdir = os.path.join(plotDir, _PLOT_SESSION, self._plotSubdir)
+            os.makedirs(subdir, exist_ok=True)
             fignums = plt.get_fignums()
             for ii, num in enumerate(fignums):
                 fig = plt.figure(num)
                 figSuffix = f"_{ii}" if len(fignums) > 1 else ""
-                path = os.path.join(plotDir, f"{name}{self._plotSuffix}_{count}{figSuffix}.png")
+                path = os.path.join(subdir, f"{name}_{count}{figSuffix}.png")
                 fig.savefig(path, bbox_inches="tight", dpi=150)
                 self.log.info("Saved plot to %s", path)
             plt.close("all")

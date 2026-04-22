@@ -21,14 +21,14 @@ Save plots to files (no display needed, safe for batch/SSH)::
     DETECTORMAP_PLOT_DIR=/my/output/plots \
     pipetask run --debug ...
 
-    # Plots land in /my/output/plots/ as:
-    #   baseResiduals.png   -- quiver + fiberId/wavelength heatmap before fit
-    #   slitOffsets.png     -- per-fiber spatial and spectral slit offsets
-    #   lineQa.png          -- centroid error vs fit RMS scatter
-    #   model.png           -- 2x3 panel: residuals, positions, offset heatmaps
-    #   distortion.png      -- x/y distortion field (model vs observed)
-    #   residuals[_0-2].png -- summary + heatmap (+ trace) residual figures
-    #   wlResiduals.png     -- wavelength residuals vs row for sampled fibers
+    # Plots land in /my/output/plots/<YYYYmmddTHHMM>/<arm><spec>-v<visit>/ as:
+    #   baseResiduals_0.png   -- quiver + fiberId/wavelength heatmap before fit
+    #   slitOffsets_0-N.png   -- per-fiber spatial/spectral offsets (one per iteration)
+    #   lineQa_0.png          -- centroid error vs fit RMS scatter
+    #   model_0-N.png         -- 2x3 panel: residuals, positions, offset heatmaps
+    #   distortion_0.png      -- x/y distortion field (model vs observed)
+    #   residuals_0-2.png     -- summary + heatmap (+ trace) residual figures
+    #   wlResiduals_0.png     -- wavelength residuals vs row for sampled fibers
 
 Environment variables
 ---------------------
