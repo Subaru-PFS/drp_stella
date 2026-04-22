@@ -605,6 +605,21 @@ class FitDistortedDetectorMapTask(Task):
         if hasattr(lines, "slope"):
             good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
+
+        # Warn about reference lines where the centroid is found on all fibers but yErr is NaN
+        # for all of them — the signature of a saturated line (ISR masks the core, Gaussian fit
+        # fails to estimate sigma, but the peak position is still approximately recoverable).
+        finiteY = np.isfinite(lines.y) & ~isTrace
+        for wl in np.unique(lines.wavelength[finiteY]):
+            wlMask = (lines.wavelength == wl) & finiteY
+            if not np.any(np.isfinite(lines.yErr[wlMask])):
+                n = int(wlMask.sum())
+                desc = lines.description[wlMask][0]
+                self.log.warning(
+                    "Line %.4f nm (%s): centroid found in %d fibers but yErr=NaN for all "
+                    "— possible saturation; line excluded from fit.",
+                    wl, desc, n,
+                )
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
