@@ -449,6 +449,8 @@ class FitDistortedDetectorMapTask(Task):
         results.detectorMap = detectorMap
         results.reserved = reserved
 
+        self._saveQaStats(lines, results.xResid, results.yResid, results.selection, reserved)
+
         lines.status[results.selection] |= ReferenceLineStatus.DETECTORMAP_USED
         lines.status[results.reserved] |= ReferenceLineStatus.DETECTORMAP_RESERVED
 
@@ -1534,6 +1536,98 @@ class FitDistortedDetectorMapTask(Task):
         self.log.debug("Rejecting lines at wavelengths: %s", badLines)
 
         return np.isin(lines.wavelength, badLines, invert=True)
+
+    def _saveQaStats(self, lines, xResid, yResid, selection, reserved):
+        """Write per-wavelength and per-fiber QA statistics to CSV files.
+
+        Files are written to the plot directory (if set) under the same
+        ``<plotDir>/<session>/<subdir>/`` path used by ``_showOrSavePlot``.
+
+        Two CSV files are produced:
+
+        - ``wavelengthStats_N.csv`` — one row per arc line wavelength with
+          counts and residual statistics.  Useful for checking whether blue
+          wavelengths show systematic spatial offsets.
+        - ``fiberStats_N.csv`` — one row per fiber with residual statistics.
+
+        Parameters
+        ----------
+        lines : `ArcLineSet`
+            Line measurements.
+        xResid, yResid : `numpy.ndarray` of `float`
+            Residuals (measured − model) for x and y (pixels).
+        selection : `numpy.ndarray` of `bool`
+            Lines used in the final fit.
+        reserved : `numpy.ndarray` of `bool`
+            Lines reserved from the fit.
+        """
+        if not self.debugInfo.plotDir:
+            return
+        import csv
+
+        subdir = os.path.join(self.debugInfo.plotDir, _PLOT_SESSION, self._plotSubdir)
+        os.makedirs(subdir, exist_ok=True)
+        count = self._plotCallCounts.get("qaStats", 0)
+        self._plotCallCounts["qaStats"] = count + 1
+
+        isNotTrace = lines.description != "Trace"
+
+        # --- per-wavelength CSV ---
+        goodMask = self.getGoodLines(lines) & isNotTrace
+        wlPath = os.path.join(subdir, f"wavelengthStats_{count}.csv")
+        with open(wlPath, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "wavelength", "description",
+                "n_good", "n_used", "n_reserved",
+                "x_mean", "x_rms", "y_mean", "y_rms",
+            ])
+            for wl in sorted(set(lines.wavelength[goodMask].tolist())):
+                isWl = lines.wavelength == wl
+                chooseGood = goodMask & isWl
+                chooseUsed = selection & isWl & isNotTrace
+                chooseReserved = reserved & isWl & isNotTrace
+                descr = next(iter(set(lines.description[chooseGood])), "")
+                xr = xResid[chooseUsed]
+                yr = yResid[chooseUsed]
+                xFinite = xr[np.isfinite(xr)]
+                yFinite = yr[np.isfinite(yr)]
+                writer.writerow([
+                    wl, descr,
+                    int(chooseGood.sum()), int(chooseUsed.sum()), int(chooseReserved.sum()),
+                    float(np.mean(xFinite)) if len(xFinite) else float("nan"),
+                    float(robustRms(xFinite)) if len(xFinite) else float("nan"),
+                    float(np.mean(yFinite)) if len(yFinite) else float("nan"),
+                    float(robustRms(yFinite)) if len(yFinite) else float("nan"),
+                ])
+        self.log.info("Saved QA wavelength stats to %s", wlPath)
+
+        # --- per-fiber CSV ---
+        fiberPath = os.path.join(subdir, f"fiberStats_{count}.csv")
+        fiberIds = np.array(sorted(set(lines.fiberId[selection])))
+        with open(fiberPath, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "fiberId",
+                "n_used", "n_reserved",
+                "x_mean", "x_rms", "y_mean", "y_rms",
+            ])
+            for ff in fiberIds:
+                isFiber = lines.fiberId == ff
+                chooseUsed = selection & isFiber
+                chooseReserved = reserved & isFiber
+                xr = xResid[chooseUsed]
+                yr = yResid[chooseUsed & isNotTrace]
+                xFinite = xr[np.isfinite(xr)]
+                yFinite = yr[np.isfinite(yr)]
+                writer.writerow([
+                    int(ff), int(chooseUsed.sum()), int(chooseReserved.sum()),
+                    float(np.mean(xFinite)) if len(xFinite) else float("nan"),
+                    float(robustRms(xFinite)) if len(xFinite) else float("nan"),
+                    float(np.mean(yFinite)) if len(yFinite) else float("nan"),
+                    float(robustRms(yFinite)) if len(yFinite) else float("nan"),
+                ])
+        self.log.info("Saved QA fiber stats to %s", fiberPath)
 
     def _showOrSavePlot(self, name):
         """Show or save all currently open matplotlib figures.
