@@ -1,17 +1,25 @@
 """lsstDebug override for DetectorMap fitting diagnostics.
 
-This file is the implementation loaded by ``run_fitDetectorMap_debug.sh``.
-Do not invoke it directly with ``pipetask``; use the wrapper script instead::
+Setup
+-----
+``pipetask run --debug`` looks for a file named ``debug.py`` on
+``PYTHONPATH``.  Copy or symlink this file to a directory on your path::
 
-    $DRP_STELLA_DIR/bin.src/run_fitDetectorMap_debug.sh \
-        -p pipelines/detectorMap.yaml \
+    # one-time setup — pick any directory already on PYTHONPATH, or add one
+    ln -s $DRP_STELLA_DIR/docs/debug_detectormap.py ~/debug.py
+    export PYTHONPATH="$HOME:$PYTHONPATH"   # add to your shell profile
+
+Then run with ``--debug``:
+
+    pipetask run --debug \
+        -p "$DRP_STELLA_DIR/pipelines/detectorMap.yaml" \
         -b /path/to/repo -i input/collection -o output/collection \
         ...
 
 Save plots to files (no display needed, safe for batch/SSH)::
 
     DETECTORMAP_PLOT_DIR=/my/output/plots \
-    $DRP_STELLA_DIR/bin.src/run_fitDetectorMap_debug.sh ...
+    pipetask run --debug ...
 
     # Plots land in /my/output/plots/ as:
     #   baseResiduals.png   -- quiver + fiberId/wavelength heatmap before fit
