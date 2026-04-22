@@ -576,15 +576,13 @@ class FitDistortedDetectorMapTask(Task):
 
 
     def _warnSaturatedLines(self, lines: ArcLineSet) -> None:
-        """Warn about reference lines that are likely saturated.
+        """Warn about reference lines that are completely excluded from the fit.
 
-        Checks for non-trace reference lines where ``yErr`` is ``NaN`` for all
-        fibers but ``y`` (the centroid position) is finite on at least one
-        fiber.  This pattern is the signature of ISR saturation masking: the
-        SAT mask prevents the Gaussian sigma estimate from converging, but the
-        peak position itself may still be recovered from the wing pixels.
-        Such lines are automatically excluded from the fit by
-        ``getGoodLines``, so no user action is required beyond awareness.
+        Checks for non-trace reference lines where ``flag`` is ``True`` for
+        all fibers.  This is the condition that causes ``getGoodLines`` to
+        drop the line entirely.  Common causes are saturation (ISR SAT mask
+        prevents reliable centroiding) and non-detection (line is too faint
+        or falls outside the detector's sensitive wavelength range).
 
         Parameters
         ----------
@@ -594,17 +592,17 @@ class FitDistortedDetectorMapTask(Task):
         isLine = lines.description != "Trace"
         for wl in np.unique(lines.wavelength[isLine]):
             mask = (lines.wavelength == wl) & isLine
-            if np.any(np.isfinite(lines.yErr[mask])):
-                continue  # at least one good error estimate -- not saturated
             n_total = int(mask.sum())
-            n_finite_y = int(np.sum(np.isfinite(lines.y[mask])))
-            if n_finite_y == 0:
-                continue  # line not detected at all -- not a saturation signature
+            if n_total < 10:
+                continue  # too few fibers to be meaningful
+            n_flagged = int(np.sum(lines.flag[mask]))
+            if n_flagged < n_total:
+                continue  # at least one good fiber -- line is partially usable
             desc = str(lines.description[mask][0])
             self.log.warn(
-                "Line %.4f nm (%s): centroid found on %d/%d fibers but yErr=NaN for all"
-                " -- likely saturated; line will be excluded from fit.",
-                wl, desc, n_finite_y, n_total,
+                "Line %.4f nm (%s): all %d fibers have flag=True; line fully excluded from fit"
+                " (possible saturation for bright lines, or non-detection for faint/edge lines).",
+                wl, desc, n_total,
             )
 
     def getGoodLines(self, lines: ArcLineSet, dispersion: Optional[float] = None) -> np.ndarray:
