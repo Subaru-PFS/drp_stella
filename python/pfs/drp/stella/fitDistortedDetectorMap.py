@@ -347,6 +347,7 @@ class FitDistortedDetectorMapTask(Task):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
         self._plotSuffix = ""
+        self._plotCallCounts: dict = {}
 
     def run(self, dataId, bbox, lines, visitInfo, metadata=None,
             spatialOffsets=None, spectralOffsets=None, base=None):
@@ -409,6 +410,7 @@ class FitDistortedDetectorMapTask(Task):
         if base is None:
             base = self.getBaseDetectorMap(dataId)
         self._plotSuffix = f"-v{visitInfo.id}_{dataId['arm']}{dataId['spectrograph']}"
+        self._plotCallCounts = {}
         if self.config.doSlitOffsets:
             base.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
         else:
@@ -1531,9 +1533,13 @@ class FitDistortedDetectorMapTask(Task):
         """Show or save all currently open matplotlib figures.
 
         If ``self.debugInfo.plotDir`` is set to a directory path the figures
-        are saved as ``<plotDir>/<name>-v<visit>_<arm><spectrograph>[_N].png``
-        and then closed.  Otherwise ``plt.show()`` is called for interactive
-        display.
+        are saved as ``<plotDir>/<name>-v<visit>_<arm><spectrograph>_N[_M].png``
+        where ``N`` is a per-name call counter (incremented each time this
+        method is called with the same ``name`` within a single ``run()``
+        invocation) and ``M`` is a per-call figure index when multiple figures
+        are open simultaneously.  The counter is reset at the start of
+        ``run()``.  The files are then closed.  Otherwise ``plt.show()`` is
+        called for interactive display.
 
         Parameters
         ----------
@@ -1542,13 +1548,15 @@ class FitDistortedDetectorMapTask(Task):
         """
         import matplotlib.pyplot as plt
         plotDir = self.debugInfo.plotDir
+        count = self._plotCallCounts.get(name, 0)
+        self._plotCallCounts[name] = count + 1
         if plotDir:
             os.makedirs(plotDir, exist_ok=True)
             fignums = plt.get_fignums()
             for ii, num in enumerate(fignums):
                 fig = plt.figure(num)
                 figSuffix = f"_{ii}" if len(fignums) > 1 else ""
-                path = os.path.join(plotDir, f"{name}{self._plotSuffix}{figSuffix}.png")
+                path = os.path.join(plotDir, f"{name}{self._plotSuffix}_{count}{figSuffix}.png")
                 fig.savefig(path, bbox_inches="tight", dpi=150)
                 self.log.info("Saved plot to %s", path)
             plt.close("all")
