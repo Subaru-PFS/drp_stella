@@ -1,24 +1,17 @@
 """lsstDebug override for DetectorMap fitting diagnostics.
 
-Pass this file to ``pipetask`` with ``--debug-info`` to enable diagnostic
-plots from ``FitDistortedDetectorMapTask``.
+This file is the implementation loaded by ``run_fitDetectorMap_debug.sh``.
+Do not invoke it directly with ``pipetask``; use the wrapper script instead::
 
-Usage
------
-Interactive (plots shown on screen, requires a display)::
-
-    pipetask run -p pipelines/detectorMap.yaml \
+    $DRP_STELLA_DIR/bin.src/run_fitDetectorMap_debug.sh \
+        -p pipelines/detectorMap.yaml \
         -b /path/to/repo -i input/collection -o output/collection \
-        --debug-info $DRP_STELLA_DIR/bin.src/debug_detectormap.py \
         ...
 
 Save plots to files (no display needed, safe for batch/SSH)::
 
     DETECTORMAP_PLOT_DIR=/my/output/plots \
-    pipetask run -p pipelines/detectorMap.yaml \
-        -b /path/to/repo -i input/collection -o output/collection \
-        --debug-info $DRP_STELLA_DIR/bin.src/debug_detectormap.py \
-        ...
+    $DRP_STELLA_DIR/bin.src/run_fitDetectorMap_debug.sh ...
 
     # Plots land in /my/output/plots/ as:
     #   baseResiduals.png   -- quiver + fiberId/wavelength heatmap before fit
@@ -38,14 +31,6 @@ DETECTORMAP_PLOT_DIR : str, optional
 DETECTORMAP_DEBUG_FLAGS : str, optional
     Comma-separated list of flags to enable.  Defaults to all flags:
     ``baseResiduals,slitOffsets,lineQa,plot,distortion,finalResiduals,wlResid``
-
-Notes
------
-``lsstDebug.Info(name)`` reads attributes directly from the named module's
-``__dict__``, so overrides must be installed *before* the task runs.  The
-standard mechanism is to replace ``lsstDebug.Info`` with a custom callable
-that calls ``lsstDebug.getInfo(name)`` to get a mutable proxy and then sets
-the desired attributes on it.
 """
 
 import os
