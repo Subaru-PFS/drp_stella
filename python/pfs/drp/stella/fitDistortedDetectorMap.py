@@ -171,8 +171,8 @@ def calculateFitStatistics(
     xResid = (lines.x - xModel)
     yResid = (lines.y - yModel)
 
-    xSelection = selection & np.isfinite(xResid)
-    ySelection = xSelection & np.isfinite(yResid) & isLine
+    xSelection = selection & np.isfinite(xResid) & np.isfinite(lines.xErr)
+    ySelection = xSelection & np.isfinite(yResid) & isLine & np.isfinite(lines.yErr)
     del selection
     xNum = xSelection.sum()
     yNum = ySelection.sum()
@@ -235,7 +235,8 @@ def calculateFitStatistics(
             with np.errstate(invalid="ignore", divide="ignore"):
                 return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
-        if softenChi2(0.0) < 0:
+        val0 = softenChi2(0.0)
+        if not np.isfinite(val0) or val0 < 0:
             return 0.0
         if softenChi2(maxSoften) > 0:
             return np.nan
