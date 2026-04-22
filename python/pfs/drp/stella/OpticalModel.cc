@@ -92,7 +92,7 @@ void declareSlitModel(py::module_ & mod) {
             OpticsModel::DistortionList const&
         >(),
         "fiberId"_a,
-        "fiberPitch"_a, "fiberCenter"_a, "wavelengthDispersion"_a, "wavelengthCenter"_a,
+        "fiberPitch"_a, "fiberMin"_a, "wavelengthDispersion"_a, "wavelengthMin"_a,
         "spatialOffsets"_a, "spectralOffsets"_a,
         "distortions"_a=OpticsModel::DistortionList()
     );

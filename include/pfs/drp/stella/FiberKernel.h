@@ -105,9 +105,10 @@ class FiberKernel : public PolynomialKernel {
 };
 
 
-class ImageKernel : public PolynomialKernel {
+/// A FiberKernel where the normalization is allowed to vary
+class FluxVariableFiberKernel : public PolynomialKernel {
   public:
-    ImageKernel(
+    FluxVariableFiberKernel(
         lsst::geom::Box2D const& range,
         int halfWidth,
         int order,
@@ -144,7 +145,7 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
 );
 
 
-std::pair<ImageKernel, lsst::afw::image::Image<float>> fitImageKernel(
+std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& source,
     lsst::afw::image::MaskedImage<float> const& target,
     lsst::afw::image::MaskPixel badBitMask,

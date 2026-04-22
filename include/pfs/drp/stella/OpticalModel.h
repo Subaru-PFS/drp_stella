@@ -147,16 +147,18 @@ class SlitModel {
     ///
     /// @param fiberId : fiber identifiers
     /// @param fiberPitch : average number of pixels per fiber
+    /// @param fiberMin : minimum fiber (fiber units)
     /// @param wavelengthDispersion : dispersion (nm/pixel)
+    /// @param wavelengthMin : minimum wavelength (nm)
     /// @param spatialOffsets : per-fiber offsets in the spatial dimension (pixels)
     /// @param spectralOffsets : per-fiber offsets in the spectral dimension (pixels)
     /// @param distortion : distortion for spectrograph -> slit
     SlitModel(
         ndarray::Array<int, 1, 1> const& fiberId,
         double fiberPitch,
-        double fiberCenter,
+        double fiberMin,
         double wavelengthDispersion,
-        double wavelengthCenter,
+        double wavelengthMin,
         Array1D const& spatialOffsets,
         Array1D const& spectralOffsets,
         DistortionList const& distortions=DistortionList()
