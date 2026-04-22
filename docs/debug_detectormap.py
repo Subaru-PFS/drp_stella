@@ -3,11 +3,11 @@
 Setup
 -----
 ``pipetask run --debug`` looks for a file named ``debug.py`` on
-``PYTHONPATH``.  Copy or symlink this file to a directory on your path::
+``PYTHONPATH``.  The ``python/`` subdirectory of this package is already
+on ``PYTHONPATH``, so the simplest setup is a one-time symlink there
+(``python/debug.py`` is listed in ``.gitignore`` so it won't be committed)::
 
-    # one-time setup — pick any directory already on PYTHONPATH, or add one
-    ln -s $DRP_STELLA_DIR/docs/debug_detectormap.py ~/debug.py
-    export PYTHONPATH="$HOME:$PYTHONPATH"   # add to your shell profile
+    ln -s $DRP_STELLA_DIR/docs/debug_detectormap.py $DRP_STELLA_DIR/python/debug.py
 
 Then run with ``--debug``:
 
