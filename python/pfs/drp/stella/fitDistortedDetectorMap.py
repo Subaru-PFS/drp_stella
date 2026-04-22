@@ -1633,9 +1633,9 @@ class FitDistortedDetectorMapTask(Task):
         axes[1, 0].set_ylabel(r"\Delta Spectral (\sigma)")
         axes[1, 0].set_title("Spectral residuals")
 
-        numFibers = result.distortion.getNumFibers()
-        numLines = min(10, numFibers)
-        fiberId = result.distortion.getFiberId()[np.linspace(0, numFibers, numLines, False, dtype=int)]
+        allFibers = np.array(sorted(set(lines.fiberId)))
+        numLines = min(10, len(allFibers))
+        fiberId = allFibers[np.linspace(0, len(allFibers), numLines, False, dtype=int)]
         wavelength = np.linspace(lines.wavelength.min(), lines.wavelength.max(), numLines)
         ff, wl = np.meshgrid(fiberId, wavelength)
         ff = ff.flatten()
