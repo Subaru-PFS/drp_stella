@@ -1692,7 +1692,8 @@ class FitDistortedDetectorMapTask(Task):
     def plotDistortion(self, distortion, lines, select):
         """Plot distortion field
 
-        We plot the x and y distortions as a function of xi,eta.
+        We plot the x and y distortions as a function of position on the
+        detector.
 
         Parameters
         ----------
@@ -1706,77 +1707,48 @@ class FitDistortedDetectorMapTask(Task):
         import matplotlib.pyplot as plt
         import matplotlib.cm
         from matplotlib.colors import Normalize
-        from pfs.drp.stella.math import evaluatePolynomial, evaluateAffineTransform
 
-        numSamples = 1000
+        numSamples = 100
         cmap = matplotlib.cm.rainbow
 
         xyRange = distortion.getRange()
-        xyModel = np.meshgrid(np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples),
-                              np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples),
-                              sparse=False)
-        xModel = xyModel[0].flatten()
-        yModel = xyModel[1].flatten()
+        xGrid, yGrid = np.meshgrid(
+            np.linspace(xyRange.getMinX(), xyRange.getMaxX(), numSamples),
+            np.linspace(xyRange.getMinY(), xyRange.getMaxY(), numSamples),
+            sparse=False,
+        )
+        xFlat = xGrid.flatten()
+        yFlat = yGrid.flatten()
+        modelFlat = distortion(xFlat, yFlat)
+        dxModel = (modelFlat[:, 0] - xFlat).reshape(numSamples, numSamples)
+        dyModel = (modelFlat[:, 1] - yFlat).reshape(numSamples, numSamples)
+
+        # Observed displacement at arc line positions
+        modelObs = distortion(lines.xBase[select].astype(float), lines.yBase[select].astype(float))
+        dxObs = lines.x[select] - modelObs[:, 0]
+        dyObs = lines.y[select] - modelObs[:, 1]
 
         def calculateNorm(xx, yy):
-            # Coordinates for plotting
-            xNorm = (xx - xyRange.getMinX())/(xyRange.getMaxX() - xyRange.getMinX())
-            yNorm = (yy - xyRange.getMinY())/(xyRange.getMaxY() - xyRange.getMinY())
+            xNorm = (xx - xyRange.getMinX()) / (xyRange.getMaxX() - xyRange.getMinX())
+            yNorm = (yy - xyRange.getMinY()) / (xyRange.getMaxY() - xyRange.getMinY())
             return xNorm, yNorm
 
-        def getDistortion(poly):
-            """Evaluate the polynomial without the linear terms
-
-            Parameters
-            ----------
-            poly : `lsst.afw.math.Chebyshev1Function2D`
-                Polynomial with distortion.
-
-            Returns
-            -------
-            distortion : `numpy.ndarray` of `float`, shape ``(numSamples,numSamples)``
-                Image of the distortion.
-            """
-            params = np.array(poly.getParameters())
-            params[:3] = 0.0
-            distortion = type(poly)(params, poly.getXYRange())
-            return evaluatePolynomial(distortion, xModel, yModel).reshape(numSamples, numSamples)
-
-        xDistortion = getDistortion(distortion.getXDistortion())
-        yDistortion = getDistortion(distortion.getYDistortion())
-
-        xObs, yObs = lines.xBase[select], lines.yBase[select]
-        xObsNorm, yObsNorm = calculateNorm(xObs, yObs)
-
-        def removeLinear(values, poly):
-            params = np.array(poly.getParameters())
-            params[3:] = 0.0
-            linear = type(poly)(params, poly.getXYRange())
-            return values - evaluatePolynomial(linear, xObs, yObs)
-
-        # For the observed positions, we need to remove the linear part of the distortion and the
-        # affine transformation for the right CCD.
-        xObs = removeLinear(lines.x[select], distortion.getXDistortion())
-        yObs = removeLinear(lines.y[select], distortion.getYDistortion())
-
-        onRightCcd = distortion.getOnRightCcd(lines.xBase[select])
-        rightCcd = evaluateAffineTransform(distortion.getRightCcd(), xObs[onRightCcd], yObs[onRightCcd])
-        xObs[onRightCcd] -= rightCcd[0]
-        yObs[onRightCcd] -= rightCcd[1]
+        xObsNorm, yObsNorm = calculateNorm(lines.xBase[select], lines.yBase[select])
+        extent = (0, 1, 0, 1)
 
         fig, axes = plt.subplots(ncols=2, nrows=2, sharex=True, sharey=True)
-        for ax, image, values, dim in zip(axes, (xDistortion, yDistortion), (xObs, yObs), ("x", "y")):
+        for ax, image, values, dim in zip(axes, (dxModel, dyModel), (dxObs, dyObs), ("x", "y")):
             norm = Normalize()
             norm.autoscale(image)
-            ax[0].imshow(image, cmap=cmap, norm=norm, origin="lower", extent=(0, 1, 0, 1))
+            ax[0].imshow(image, cmap=cmap, norm=norm, origin="lower", extent=extent)
             ax[0].set_xticks((0, 1))
             ax[0].set_yticks((0, 1))
-            ax[0].set_title(f"Model {dim}")
+            ax[0].set_title(f"Model d{dim}")
             ax[1].scatter(xObsNorm, yObsNorm, marker=".", alpha=0.2, color=cmap(norm(values)))
-            ax[1].set_title(f"Observed {dim}")
+            ax[1].set_title(f"Residual d{dim}")
             ax[1].set_aspect("equal")
-            addColorbar(fig, ax[0], cmap, norm, f"{dim} distortion (pixels)")
-            addColorbar(fig, ax[1], cmap, norm, f"{dim} distortion (pixels)")
+            addColorbar(fig, ax[0], cmap, norm, f"d{dim} (pixels)")
+            addColorbar(fig, ax[1], cmap, norm, f"d{dim} (pixels)")
 
         axes[0][0].set_ylabel("Normalized y (wavelength)")
         axes[1][0].set_ylabel("Normalized y (wavelength)")
