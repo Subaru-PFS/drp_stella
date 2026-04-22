@@ -1608,9 +1608,11 @@ class FitDistortedDetectorMapTask(Task):
 
         xErr = lines.xErr
         yErr = lines.yErr
-        if result.soften > 0:
-            xErr = np.hypot(result.soften, xErr)
-            yErr = np.hypot(result.soften, yErr)
+        xSoften, ySoften = result.soften
+        if xSoften > 0:
+            xErr = np.hypot(xSoften, xErr)
+        if ySoften > 0:
+            yErr = np.hypot(ySoften, yErr)
 
         xResid = result.xResid/xErr
         yResid = result.yResid/yErr
