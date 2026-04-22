@@ -1580,7 +1580,7 @@ class FitDistortedDetectorMapTask(Task):
         num = len(lines.fiberId)
         for ii in range(num):
             matches[lines.wavelength[ii]].append(ii)
-        model = detectorMap.model
+        dispersion = detectorMap.getDispersionAtCenter()
         stdev = []
         error = []
         for wl in sorted(matches.keys()):
@@ -1588,7 +1588,7 @@ class FitDistortedDetectorMapTask(Task):
                 continue
             indices = np.array(matches[wl])
             fit = np.array([detectorMap.findWavelength(lines.fiberId[ii], lines.y[ii]) for ii in indices])
-            resid = (fit - wl)/model.getScaling().dispersion
+            resid = (fit - wl)/dispersion
             self.log.info("Line %f: rms residual=%f, mean error=%f num=%d",
                           wl, robustRms(resid), np.median(lines.yErr[indices]), len(indices))
             stdev.append(robustRms(resid))
