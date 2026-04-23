@@ -43,6 +43,7 @@ __all__ = (
     "TuneScatteredLightConnections",
     "TuneScatteredLightConfig",
     "TuneScatteredLightTask",
+    "tuneCamerasInParallel",
 )
 
 
@@ -250,6 +251,105 @@ class TuneScatteredLightTask(PipelineTask):
         payload["camera"] = camera
 
         return Struct(tuneResult=payload)
+
+
+def _tuneOneCameraWorker(args):
+    """Worker for parallel per-camera tuning (importable at module level so
+    it survives both ``fork`` and ``spawn``).
+
+    Each worker builds its own butler and loads data itself — nothing large
+    is pickled across the pool queue, avoiding ``VisitInfo`` pickling issues.
+    """
+    from lsst.daf.butler import Butler
+
+    (
+        camera, useVisits, calibVisit, repo, collections, configKwargs,
+    ) = args
+
+    butler = Butler(repo, collections=collections)
+    dataId = dict(arm=camera[0], spectrograph=int(camera[1:]))
+
+    detMap = butler.get("detectorMap_calib", dataId, visit=calibVisit)
+    profiles = butler.get("fiberProfiles", dataId, visit=calibVisit)
+
+    postISRs = []
+    for v in useVisits:
+        did = dict(dataId); did["visit"] = int(v)
+        postISR = butler.get("postISRCCD", did)
+        calexp = butler.get("calexp", did)
+        postISR.mask.array[:] = calexp.mask.array[:]
+        postISRs.append(postISR)
+
+    config = TuneScatteredLightConfig()
+    for key, val in (configKwargs or {}).items():
+        setattr(config, key, val)
+    task = TuneScatteredLightTask(config=config)
+    struct = task.run(postISRs, detMap, profiles, camera=camera, visits=list(useVisits))
+    return camera, struct.tuneResult
+
+
+def tuneCamerasInParallel(
+    repo: str,
+    collections,
+    cameras,
+    useVisits,
+    calibVisit: int,
+    maxWorkers: int = 8,
+    configKwargs: dict | None = None,
+    context: str = "spawn",
+) -> dict:
+    """Run ``TuneScatteredLightTask`` over multiple cameras in parallel processes.
+
+    Each worker creates its own butler from ``(repo, collections)``, so no
+    Exposure / DetectorMap objects cross the pool queue (avoids LSST C++
+    pickling pitfalls, e.g. ``VisitInfo``).
+
+    Parameters
+    ----------
+    repo : `str`
+        Gen3 butler repo path (or URI).
+    collections : sequence of `str`
+        Input collections to search for postISRCCD + calibrations.
+    cameras : sequence of `str`
+        e.g. ``['b1','r1','b2','r2','b3','r3','b4','r4']``.
+    useVisits : sequence of `int`
+        Visits whose postISRCCD frames drive the tuning. Same set is used
+        for every camera.
+    calibVisit : `int`
+        Visit used to resolve the detectorMap and fiberProfiles calibrations.
+    maxWorkers : `int`
+        Process pool size.
+    configKwargs : dict[str, ...], optional
+        Overrides applied to ``TuneScatteredLightConfig`` inside each worker
+        (e.g., ``{"frac1Grid": [...], "brightPercentile": 70}``).
+    context : `str`
+        ``"spawn"`` (default, safest) or ``"fork"``. ``spawn`` works because
+        the worker function is defined at module level.
+
+    Returns
+    -------
+    results : dict[str, dict]
+        Maps camera name to the ``tuneResult`` dict returned by the task.
+        Cameras that raised are mapped to ``{"error": ...}``.
+    """
+    import multiprocessing as mp
+
+    jobs = [
+        (c, list(useVisits), int(calibVisit), repo, list(collections), configKwargs)
+        for c in cameras
+    ]
+    results: dict = {}
+    with mp.get_context(context).Pool(maxWorkers) as pool:
+        for camera, payload in pool.imap_unordered(_tuneOneCameraWorker, jobs):
+            results[camera] = payload
+            best = payload.get("best", {})
+            print(
+                f"[{camera}] frac1={best.get('frac1', float('nan')):.4f} "
+                f"frac2={best.get('frac2', float('nan')):.4f}  "
+                f"RMS={payload.get('best_rms', float('nan')):.5f}"
+            )
+    # preserve input camera order
+    return {c: results.get(c) for c in cameras}
 
 
 def _toJsonSafe(obj):
