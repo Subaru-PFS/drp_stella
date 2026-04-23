@@ -165,24 +165,34 @@ def plotPFISkyBlocking(pfsConfig, nBlocks, ax=None, seed=42):
 SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 
 
-def plotScatterModel(dfs2, mergedSpec, wvs, ylim=(0.93, 1.22)):
+def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
     """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
 
     Parameters
     ----------
-    dfs2      : DataFrame output of ``fitModels``
+    dfs2      : DataFrame output of ``fitModels``. Should carry ``visit`` and
+                ``quartzVisit`` columns (populated by ``evaluate``) so the
+                suptitle can reference them.
     mergedSpec: merged spectra object with .spectrograph attribute
-    wvs       : sorted array of wavelength bin centres
+    waveBins  : sequence of (wmin, wmax) tuples. Bin centres are derived as
+                ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
+                column produced by ``evaluate``.
     ylim      : y-axis limits
 
     Returns
     -------
     fig : Figure
     """
-    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(22, 20), sharey=True)
-    fig.suptitle("Scatter model: twilight/quartz vs fiberId", fontsize=14)
+    visit, quartzVisit = _extractVisitIds(dfs2)
 
-    for ax, wv in zip(axs.flat, wvs):
+    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(22, 20), sharey=True)
+    title = "Scatter model: twilight/quartz vs fiberId"
+    if visit is not None or quartzVisit is not None:
+        title += f"  (twilight={visit}, quartz={quartzVisit})"
+    fig.suptitle(title, fontsize=18)
+
+    for ax, (wmin, wmax) in zip(axs.flat, waveBins):
+        wv = int(round((wmin + wmax) / 2))
         dfi = dfs2[dfs2.wavelength == wv]
 
         for spectrograph in [1, 2, 3, 4]:
@@ -196,54 +206,84 @@ def plotScatterModel(dfs2, mergedSpec, wvs, ylim=(0.93, 1.22)):
                     lw=1.5, label=f"sp{spectrograph}")
 
         ax.axhline(1.0, color="k", lw=0.7, ls="--", alpha=0.5)
-        ax.set_title(f"{wv} nm", fontsize=14)
+        ax.set_title(f"{wv} nm  [{wmin:g}–{wmax:g}]", fontsize=14)
         ax.set_ylim(*ylim)
+        ax.tick_params(labelsize=11)
         ax.grid(alpha=0.3)
 
     for ax in axs[-1]:
-        ax.set_xlabel("fiberId",  fontsize=14)
+        ax.set_xlabel("fiberId", fontsize=13)
     for ax in axs[:, 0]:
-        ax.set_ylabel("twilight / quartz (norm.)",  fontsize=14)
+        ax.set_ylabel("twilight / quartz (norm.)", fontsize=13)
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
     fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
-               fontsize=10, frameon=False)
+               fontsize=12, frameon=False)
     fig.tight_layout(rect=[0, 0.03, 1, 0.97])
     return fig
 
 
-def plotIllumModel(dfs2, x, y, wvs, vmin=-5, vmax=5):
+def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
     """Residual 2D illumination on the PFI focal plane, one panel per wavelength bin.
 
     Parameters
     ----------
-    dfs2      : DataFrame output of ``fitModels``
+    dfs2      : DataFrame output of ``fitModels``. Should carry ``visit`` and
+                ``quartzVisit`` columns (populated by ``evaluate``) for title
+                annotation.
     x, y      : PFI coordinates (mm), same ordering as dfs2 fibers per wavelength
-    wvs       : sorted array of wavelength bin centres
+    waveBins  : sequence of (wmin, wmax) tuples. Bin centres are derived as
+                ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
+                column produced by ``evaluate``.
     vmin, vmax: colour scale limits in percent
 
     Returns
     -------
     fig : Figure
     """
-    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(24, 22))
-    fig.suptitle("Residual illumination after scatter correction [% from unity]", fontsize=14)
+    visit, quartzVisit = _extractVisitIds(dfs2)
 
-    for ax, wv in zip(axs.flat, wvs):
+    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(24, 22))
+    title = "Residual illumination after scatter correction [% from unity]"
+    if visit is not None or quartzVisit is not None:
+        title += f"  (twilight={visit}, quartz={quartzVisit})"
+    fig.suptitle(title, fontsize=18)
+
+    for ax, (wmin, wmax) in zip(axs.flat, waveBins):
+        wv = int(round((wmin + wmax) / 2))
         dfi        = dfs2[dfs2.wavelength == wv]
         normalized = 100 * (dfi.scatCorr.to_numpy() - 1)
 
         sc = ax.scatter(x, y, c=normalized, cmap="bwr", vmin=vmin, vmax=vmax,
                         s=6, rasterized=True)
-        fig.colorbar(sc, ax=ax, label="%", shrink=0.8)
-        ax.set_title(f"{wv} nm", fontsize=9)
+        cb = fig.colorbar(sc, ax=ax, label="%", shrink=0.8)
+        cb.ax.tick_params(labelsize=12)
+        cb.set_label("%", fontsize=13)
+        ax.set_title(f"{wv} nm  [{wmin:g}–{wmax:g}]", fontsize=14)
+        ax.tick_params(labelsize=11)
         ax.set_aspect("equal")
         ax.grid(alpha=0.3)
 
     for ax in axs[-1]:
-        ax.set_xlabel("PFI x [mm]")
+        ax.set_xlabel("PFI x [mm]", fontsize=13)
     for ax in axs[:, 0]:
-        ax.set_ylabel("PFI y [mm]")
+        ax.set_ylabel("PFI y [mm]", fontsize=13)
 
     fig.tight_layout(rect=[0, 0, 1, 0.97])
     return fig
+
+
+def _extractVisitIds(dfs2):
+    """Return (visit, quartzVisit) from a dfs2 DataFrame, or (None, None)."""
+    def _unique(col):
+        if col not in dfs2.columns:
+            return None
+        vals = dfs2[col].dropna().unique()
+        if len(vals) != 1:
+            return None
+        try:
+            v = int(vals[0])
+        except (TypeError, ValueError):
+            return None
+        return v if v >= 0 else None
+    return _unique("visit"), _unique("quartzVisit")
