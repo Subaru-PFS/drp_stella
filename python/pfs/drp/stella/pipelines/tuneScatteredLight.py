@@ -295,7 +295,8 @@ def _tuneOneCameraWorker(args):
 
     postISRs = []
     for v in useVisits:
-        did = dict(dataId); did["visit"] = int(v)
+        did = dict(dataId)
+        did["visit"] = int(v)
         postISR = butler.get("postISRCCD", did)
         calexp = butler.get("calexp", did)
         postISR.mask.array[:] = calexp.mask.array[:]
@@ -466,8 +467,8 @@ def tuneScatteredLight(
         "Best: %s  RMS=%.5f  bins=%s",
         {n: f"{best[n]:.4f}" for n in names},
         float(rms_grid[imin]),
-        ", ".join(f"{l}={v:+.4f}"
-                  for l, v in zip(prep["binLabels"], bin_grid[imin])),
+        ", ".join(f"{lbl}={v:+.4f}"
+                  for lbl, v in zip(prep["binLabels"], bin_grid[imin])),
     )
 
     return dict(
@@ -550,9 +551,9 @@ def diagnoseScatteredLight(
     K1_prop, K2_prop = k_hats(proposed)
 
     configs = [
-        ("raw",       0.0, 0.0, None, None, "k"),
-        ("current",   current["frac1"], current["frac2"], K1_cur, K2_cur, "#d62728"),
-        ("proposed",  proposed["frac1"], proposed["frac2"], K1_prop, K2_prop, "#2ca02c"),
+        ("raw", 0.0, 0.0, None, None, "k"),
+        ("current", current["frac1"], current["frac2"], K1_cur, K2_cur, "#d62728"),
+        ("proposed", proposed["frac1"], proposed["frac2"], K1_prop, K2_prop, "#2ca02c"),
     ]
 
     per_visit = {name: [] for name, *_ in configs}
@@ -571,8 +572,8 @@ def diagnoseScatteredLight(
     for name, *_ in configs:
         _log.info(
             "  %-8s RMS=%.5f  bins=%s", name, rms[name],
-            ", ".join(f"{l}={v:+.4f}"
-                      for l, v in zip(prep["binLabels"], mean_bins[name])),
+            ", ".join(f"{lbl}={v:+.4f}"
+                      for lbl, v in zip(prep["binLabels"], mean_bins[name])),
         )
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 9))
@@ -583,7 +584,8 @@ def diagnoseScatteredLight(
         ax.plot(bin_centers, mean_bins[name], "-o", color=color, lw=1.3,
                 label=f"{name} ({f1:.3f},{f2:.3f}) RMS={rms[name]:.4f}")
     ax.axhline(0, color="k", lw=0.5, ls=":")
-    ax.set_xscale("log"); ax.set_xlabel("distance from fiber (px)")
+    ax.set_xscale("log")
+    ax.set_xlabel("distance from fiber (px)")
     ax.set_ylabel("scatter / illum")
     ax.set_title("Per-bin residual (mean over frames)")
     ax.legend(fontsize=8)
@@ -598,9 +600,11 @@ def diagnoseScatteredLight(
     ax.axhline(0, color="k", lw=0.5)
     ax.set_xticks(x)
     ax.set_xticklabels(prep["binLabels"], fontsize=8)
-    ax.set_xlabel("distance bin"); ax.set_ylabel("scatter / illum")
+    ax.set_xlabel("distance bin")
+    ax.set_ylabel("scatter / illum")
     ax.set_title("Per-bin residual (bar view)")
-    ax.legend(fontsize=8); ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(fontsize=8)
+    ax.grid(True, axis="y", alpha=0.3)
 
     ax = axes[1, 0]
     H = prep["H"]
@@ -608,7 +612,8 @@ def diagnoseScatteredLight(
         stacked = np.nanmean(per_row[name], axis=0)
         ax.plot(np.arange(H), stacked, color=color, lw=0.5, alpha=0.8, label=name)
     ax.axhline(0, color="gray", lw=0.5, ls=":")
-    ax.set_xlabel("row"); ax.set_ylabel("scatter / illum (mean over frames)")
+    ax.set_xlabel("row")
+    ax.set_ylabel("scatter / illum (mean over frames)")
     ax.set_title("Per-row residual (mean over frames)")
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
@@ -626,9 +631,11 @@ def diagnoseScatteredLight(
                color=color, alpha=0.9, label=name)
     ax.set_xticks(xs)
     ax.set_xticklabels([f"#{i}" for i in range(nv)], fontsize=8)
-    ax.set_xlabel("frame index"); ax.set_ylabel("per-frame RMS")
+    ax.set_xlabel("frame index")
+    ax.set_ylabel("per-frame RMS")
     ax.set_title("RMS per frame")
-    ax.legend(fontsize=8); ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(fontsize=8)
+    ax.grid(True, axis="y", alpha=0.3)
 
     title = f"Scattered-light diagnostic ({camera or 'unknown camera'}, N={nv})"
     fig.suptitle(title, fontsize=12)

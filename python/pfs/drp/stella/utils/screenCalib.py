@@ -29,7 +29,6 @@ from astropy.stats import sigma_clip
 from joblib import Parallel, delayed
 
 from pfs.datamodel import Identity, PfsArm
-from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 
 __all__ = [
     "buildRatioImage",
@@ -95,9 +94,9 @@ def buildRatioImage(butler, dataId, quartzVisit):
     ratio : MaskedImage
     """
     postISR1 = butler.get("postISRCCD", dataId)
-    calexp1  = butler.get("calexp",     dataId)
+    calexp1 = butler.get("calexp", dataId)
     postISR2 = butler.get("postISRCCD", dataId, visit=quartzVisit)
-    calexp2  = butler.get("calexp",     dataId, visit=quartzVisit)
+    calexp2 = butler.get("calexp", dataId, visit=quartzVisit)
     return _buildRatioFromImages(postISR1, calexp1, postISR2, calexp2)
 
 
@@ -171,18 +170,18 @@ def evaluate(wavegrid, array, fiberId, waveBins, sigma=3,
     """
     dfs = []
     for wmin, wmax in waveBins:
-        sel     = (wavegrid >= wmin) & (wavegrid <= wmax)
+        sel = (wavegrid >= wmin) & (wavegrid <= wmax)
         clipped = sigma_clip(array[:, sel], axis=1, sigma=sigma)
         df = pd.DataFrame({
-            "meanVals":   np.ma.filled(clipped.mean(axis=1),                np.nan),
-            "stdVals":    np.ma.filled(clipped.std(axis=1),                 np.nan),
+            "meanVals": np.ma.filled(clipped.mean(axis=1), np.nan),
+            "stdVals": np.ma.filled(clipped.std(axis=1), np.nan),
             "medianVals": np.ma.filled(np.ma.median(array[:, sel], axis=1), np.nan),
-            "fiberId":    fiberId,
+            "fiberId": fiberId,
         })
-        df["wavelength"]   = int(round((wmin + wmax) / 2))
+        df["wavelength"] = int(round((wmin + wmax) / 2))
         df["wavelength_m"] = wavegrid[sel].mean()
-        df["visit"]        = -1 if visit is None else int(visit)
-        df["quartzVisit"]  = -1 if quartzVisit is None else int(quartzVisit)
+        df["visit"] = -1 if visit is None else int(visit)
+        df["quartzVisit"] = -1 if quartzVisit is None else int(quartzVisit)
         dfs.append(df)
     return pd.concat(dfs).reset_index(drop=True)
 
@@ -198,7 +197,7 @@ def _fitScatterModel(illumCorr, fiberId, specMask, mask2d, degree, sigma):
     from alefur.math import recursivePolyFit
 
     fids = fiberId[specMask]
-    use  = ~mask2d[specMask]
+    use = ~mask2d[specMask]
     if use.sum() < degree + 1:
         return np.ones(specMask.sum())
     coeffs, _ = recursivePolyFit(fids[use], illumCorr[specMask][use], degree, sigma=sigma)
@@ -210,23 +209,23 @@ def _fitOneWavelength(wv, dfs_wv, x, y, fiberId, spectrograph_arr,
     """Fit scatter + illumination models for one wavelength bin (joblib target)."""
     from alefur.math import recursivePolyFit2d, evalPoly2d
 
-    dfi        = dfs_wv.copy()
+    dfi = dfs_wv.copy()
     illumModel = np.ones(len(x))
-    mask2d     = np.zeros(len(x), dtype=bool)
+    mask2d = np.zeros(len(x), dtype=bool)
 
     for _ in range(nIter):
         illumCorr = dfi.meanVals.to_numpy() / illumModel
 
         for spectrograph in [1, 2, 3, 4]:
             specMask = spectrograph_arr == spectrograph
-            scat     = _fitScatterModel(illumCorr, fiberId, specMask,
-                                        mask2d, scatModel_degree, sigma)
+            scat = _fitScatterModel(illumCorr, fiberId, specMask,
+                                    mask2d, scatModel_degree, sigma)
             dfi.loc[dfi.index[specMask], "scatModel"] = scat
 
-        scatCorr         = dfi.meanVals.to_numpy() / dfi["scatModel"].to_numpy()
+        scatCorr = dfi.meanVals.to_numpy() / dfi["scatModel"].to_numpy()
         coeffs2d, mask2d = recursivePolyFit2d(x, y, scatCorr, illumModel_degree, sigma=sigma)
-        mask2d           = ~mask2d   # recursivePolyFit2d returns good-pixel mask
-        illumModel       = evalPoly2d(coeffs2d, x, y, illumModel_degree)
+        mask2d = ~mask2d   # recursivePolyFit2d returns good-pixel mask
+        illumModel = evalPoly2d(coeffs2d, x, y, illumModel_degree)
 
     illumCorr = dfi.meanVals.to_numpy() / illumModel
     return wv, dfi, illumModel, scatCorr, illumCorr
@@ -250,9 +249,9 @@ def fitModels(dfs, mergedSpec,
     -------
     dfs2 : DataFrame with added columns scatModel, illumModel, scatCorr, illumCorr
     """
-    x                = mergedSpec.x
-    y                = mergedSpec.y
-    fiberId          = mergedSpec.fiberId
+    x = mergedSpec.x
+    y = mergedSpec.y
+    fiberId = mergedSpec.fiberId
     spectrograph_arr = mergedSpec.spectrograph
 
     dfs2 = dfs.copy()
@@ -271,10 +270,10 @@ def fitModels(dfs, mergedSpec,
     )
 
     for wv, dfi, illumModel, scatCorr, illumCorr in results:
-        dfs2.loc[dfi.index, "scatModel"]  = dfi["scatModel"].to_numpy()
+        dfs2.loc[dfi.index, "scatModel"] = dfi["scatModel"].to_numpy()
         dfs2.loc[dfi.index, "illumModel"] = illumModel
-        dfs2.loc[dfi.index, "scatCorr"]   = scatCorr
-        dfs2.loc[dfi.index, "illumCorr"]  = illumCorr
+        dfs2.loc[dfi.index, "scatCorr"] = scatCorr
+        dfs2.loc[dfi.index, "illumCorr"] = illumCorr
 
     return dfs2
 
@@ -282,8 +281,8 @@ def fitModels(dfs, mergedSpec,
 # ── parallel camera extraction (dotRoach pattern) ────────────────────────────
 
 def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
-                          postISR_q, calexp_q, fiberTrace, detectorMap,
-                          selVisit, tmpDir):
+                         postISR_q, calexp_q, fiberTrace, detectorMap,
+                         selVisit, tmpDir):
     """Extract twilight and quartz separately then ratio the spectra, write pfsArm to disk.
 
     Extracting separately and dividing cancels the fiberProfile normalisation,
@@ -297,7 +296,7 @@ def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
     dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
 
     postISR_tw.mask.array[:] = calexp_tw.mask.array[:]
-    postISR_q.mask.array[:]  = calexp_q.mask.array[:]
+    postISR_q.mask.array[:] = calexp_q.mask.array[:]
 
     pfsArm_tw = extractSpectra.run(
         postISR_tw.maskedImage, fiberTrace, detectorMap
@@ -345,15 +344,15 @@ def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces, detectorM
         dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
         rawImages[camKey] = (
             butler.get("postISRCCD", dataId),
-            butler.get("calexp",     dataId),
+            butler.get("calexp", dataId),
             butler.get("postISRCCD", dataId, visit=quartzVisit),
-            butler.get("calexp",     dataId, visit=quartzVisit),
+            butler.get("calexp", dataId, visit=quartzVisit),
         )
 
     with tempfile.TemporaryDirectory() as tmpDir:
         jobs = []
         for spectrograph, arm in cameras:
-            camKey                          = f"{arm}{spectrograph}"
+            camKey = f"{arm}{spectrograph}"
             postISR_tw, calexp_tw, postISR_q, calexp_q = rawImages[camKey]
             p = multiprocessing.Process(
                 target=_extractCameraWorker,
