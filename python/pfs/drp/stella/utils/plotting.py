@@ -196,14 +196,14 @@ def plotScatterModel(dfs2, mergedSpec, wvs, ylim=(0.93, 1.22)):
                     lw=1.5, label=f"sp{spectrograph}")
 
         ax.axhline(1.0, color="k", lw=0.7, ls="--", alpha=0.5)
-        ax.set_title(f"{wv} nm", fontsize=9)
+        ax.set_title(f"{wv} nm", fontsize=14)
         ax.set_ylim(*ylim)
         ax.grid(alpha=0.3)
 
     for ax in axs[-1]:
-        ax.set_xlabel("fiberId")
+        ax.set_xlabel("fiberId",  fontsize=14)
     for ax in axs[:, 0]:
-        ax.set_ylabel("twilight / quartz (norm.)")
+        ax.set_ylabel("twilight / quartz (norm.)",  fontsize=14)
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
     fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
