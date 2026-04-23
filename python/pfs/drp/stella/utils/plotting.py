@@ -197,8 +197,8 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
 
         for spectrograph in [1, 2, 3, 4]:
             specMask = mergedSpec.spectrograph == spectrograph
-            perSpec  = dfi[specMask]
-            color    = SP_COLORS[spectrograph]
+            perSpec = dfi[specMask]
+            color = SP_COLORS[spectrograph]
 
             ax.plot(perSpec.fiberId, perSpec.illumCorr, ".", color=color,
                     alpha=0.3, ms=2)
@@ -251,7 +251,7 @@ def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
         wv = int(round((wmin + wmax) / 2))
-        dfi        = dfs2[dfs2.wavelength == wv]
+        dfi = dfs2[dfs2.wavelength == wv]
         normalized = 100 * (dfi.scatCorr.to_numpy() - 1)
 
         sc = ax.scatter(x, y, c=normalized, cmap="bwr", vmin=vmin, vmax=vmax,
