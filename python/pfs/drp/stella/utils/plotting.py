@@ -184,11 +184,15 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
     fig : Figure
     """
     visit, quartzVisit = _extractVisitIds(dfs2)
+    wmin0 = min(w0 for w0, _ in waveBins)
+    wmax0 = max(w1 for _, w1 in waveBins)
+    bin_w = (waveBins[0][1] - waveBins[0][0])
 
     fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(22, 20), sharey=True)
     title = "Scatter model: twilight/quartz vs fiberId"
     if visit is not None or quartzVisit is not None:
         title += f"  (twilight={visit}, quartz={quartzVisit})"
+    title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
@@ -214,7 +218,7 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
     for ax in axs[-1]:
         ax.set_xlabel("fiberId", fontsize=13)
     for ax in axs[:, 0]:
-        ax.set_ylabel("twilight / quartz (norm.)", fontsize=13)
+        ax.set_ylabel("twilight / quartz", fontsize=13)
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
     fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
@@ -242,11 +246,15 @@ def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
     fig : Figure
     """
     visit, quartzVisit = _extractVisitIds(dfs2)
+    wmin0 = min(w0 for w0, _ in waveBins)
+    wmax0 = max(w1 for _, w1 in waveBins)
+    bin_w = (waveBins[0][1] - waveBins[0][0])
 
     fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(24, 22))
     title = "Residual illumination after scatter correction [% from unity]"
     if visit is not None or quartzVisit is not None:
         title += f"  (twilight={visit}, quartz={quartzVisit})"
+    title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
