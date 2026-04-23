@@ -128,7 +128,8 @@ def resampleFibers(fl, w, m, wgrid):
 
 # ── wavelength-bin statistics ─────────────────────────────────────────────────
 
-def evaluate(wavegrid, array, fiberId, waveBins, sigma=3):
+def evaluate(wavegrid, array, fiberId, waveBins, sigma=3,
+             visit=None, quartzVisit=None):
     """Sigma-clipped per-fiber statistics in each wavelength bin.
 
     Parameters
@@ -138,11 +139,15 @@ def evaluate(wavegrid, array, fiberId, waveBins, sigma=3):
     fiberId  : ndarray (nFibers,)
     waveBins : list of (wmin, wmax) tuples
     sigma    : float  clipping threshold
+    visit    : int, optional
+        Twilight visit used for this analysis; stored on every row.
+    quartzVisit : int, optional
+        Quartz visit used as the normalisation; stored on every row.
 
     Returns
     -------
     pandas.DataFrame  columns: meanVals, stdVals, medianVals, fiberId,
-                               wavelength, wavelength_m
+                               wavelength, wavelength_m, visit, quartzVisit
     """
     dfs = []
     for wmin, wmax in waveBins:
@@ -156,6 +161,8 @@ def evaluate(wavegrid, array, fiberId, waveBins, sigma=3):
         })
         df["wavelength"]   = int(round((wmin + wmax) / 2))
         df["wavelength_m"] = wavegrid[sel].mean()
+        df["visit"]        = -1 if visit is None else int(visit)
+        df["quartzVisit"]  = -1 if quartzVisit is None else int(quartzVisit)
         dfs.append(df)
     return pd.concat(dfs).reset_index(drop=True)
 
