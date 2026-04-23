@@ -128,6 +128,26 @@ def resampleFibers(fl, w, m, wgrid):
 
 # ── wavelength-bin statistics ─────────────────────────────────────────────────
 
+def rebuildWaveBins(waveBins, span):
+    """Build new (wmin, wmax) bins keeping the centres of ``waveBins`` but
+    applying a common ``span`` (full width, nm).
+
+    Parameters
+    ----------
+    waveBins : list of (wmin, wmax) tuples
+        Original bins; their centres are preserved.
+    span : float
+        New full width (nm) for every bin.
+
+    Returns
+    -------
+    list of (wmin, wmax) tuples, same length as ``waveBins``.
+    """
+    half = span / 2.0
+    return [((wmin + wmax) / 2.0 - half, (wmin + wmax) / 2.0 + half)
+            for wmin, wmax in waveBins]
+
+
 def evaluate(wavegrid, array, fiberId, waveBins, sigma=3,
              visit=None, quartzVisit=None):
     """Sigma-clipped per-fiber statistics in each wavelength bin.
