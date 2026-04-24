@@ -282,27 +282,34 @@ def fitModels(dfs, mergedSpec,
 
 def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
                          postISR_q, calexp_q, fiberTrace, detectorMap,
-                         selVisit, tmpDir):
+                         selVisit, tmpDir, useCalexp=False):
     """Extract twilight and quartz separately then ratio the spectra, write pfsArm to disk.
 
     Extracting separately and dividing cancels the fiberProfile normalisation,
     unlike extracting from a pre-divided ratio image.
     Runs in a forked subprocess — receives LSST objects via fork memory copy,
     writes result as FITS to avoid pickling.
+
+    If ``useCalexp`` is True, extracts from ``calexp`` (post scatter-correction);
+    otherwise from ``postISRCCD`` (pre scatter-correction). ``calexp.mask`` is
+    copied onto whichever source is used so the mask planes are consistent.
     """
     from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 
     extractSpectra = ExtractSpectraTask(config=ExtractSpectraTask.ConfigClass())
     dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
 
-    postISR_tw.mask.array[:] = calexp_tw.mask.array[:]
-    postISR_q.mask.array[:] = calexp_q.mask.array[:]
+    src_tw = calexp_tw if useCalexp else postISR_tw
+    src_q = calexp_q if useCalexp else postISR_q
+
+    src_tw.mask.array[:] = calexp_tw.mask.array[:]
+    src_q.mask.array[:] = calexp_q.mask.array[:]
 
     pfsArm_tw = extractSpectra.run(
-        postISR_tw.maskedImage, fiberTrace, detectorMap
+        src_tw.maskedImage, fiberTrace, detectorMap
     ).spectra.toPfsArm(Identity(**dataId))
     pfsArm_q = extractSpectra.run(
-        postISR_q.maskedImage, fiberTrace, detectorMap
+        src_q.maskedImage, fiberTrace, detectorMap
     ).spectra.toPfsArm(Identity(**dataId))
 
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -317,7 +324,8 @@ def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
     pfsArm_tw.writeFits(os.path.join(tmpDir, f"pfsArm_{camKey}.fits"))
 
 
-def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces, detectorMaps):
+def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces,
+                           detectorMaps, useCalexp=False):
     """Extract twilight/quartz ratio spectra for all cameras in parallel.
 
     Butler reads are performed sequentially in the main process; per-camera
@@ -330,6 +338,11 @@ def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces, detectorM
     quartzVisit   : int  quartz visit
     fiberTraces   : dict  camKey -> FiberTraceSet
     detectorMaps  : dict  camKey -> DetectorMap
+    useCalexp     : bool
+        If True, extract from ``calexp`` (scatter correction applied).
+        If False (default), extract from ``postISRCCD`` (no scatter correction).
+        The ``calexp`` mask is always copied onto the source image, so mask
+        planes are identical in both cases.
 
     Returns
     -------
@@ -359,7 +372,7 @@ def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces, detectorM
                 args=(camKey, spectrograph, arm,
                       postISR_tw, calexp_tw, postISR_q, calexp_q,
                       fiberTraces[camKey], detectorMaps[camKey],
-                      selVisit, tmpDir),
+                      selVisit, tmpDir, useCalexp),
             )
             jobs.append(p)
             p.start()
