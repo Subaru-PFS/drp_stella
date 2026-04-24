@@ -166,24 +166,27 @@ SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 
 
 def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
-                     normalize=False):
+                     normalize=False, collection=None):
     """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
 
     Parameters
     ----------
-    dfs2      : DataFrame output of ``fitModels``. Should carry ``visit`` and
-                ``quartzVisit`` columns (populated by ``evaluate``) so the
-                suptitle can reference them.
-    mergedSpec: merged spectra object with .spectrograph attribute
-    waveBins  : sequence of (wmin, wmax) tuples. Bin centres are derived as
-                ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
-                column produced by ``evaluate``.
-    ylim      : y-axis limits
-    normalize : bool
+    dfs2       : DataFrame output of ``fitModels``. Should carry ``visit`` and
+                 ``quartzVisit`` columns (populated by ``evaluate``) so the
+                 suptitle can reference them.
+    mergedSpec : merged spectra object with .spectrograph attribute
+    waveBins   : sequence of (wmin, wmax) tuples. Bin centres are derived as
+                 ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
+                 column produced by ``evaluate``.
+    ylim       : y-axis limits
+    normalize  : bool
         Display-only rescaling: divide ``illumCorr`` (dots) and ``scatModel``
         (line) by the per-bin median of ``scatModel`` so each panel is
         centred on 1.0. The underlying fit is unchanged; this only re-gauges
         the scat/illum multiplicative degeneracy for visualisation.
+    collection : str, optional
+        Name of the butler collection / reduction used, added to the suptitle
+        for provenance.
 
     Returns
     -------
@@ -201,6 +204,8 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
     if normalize:
         title += "  [model re-centred on 1]"
+    if collection:
+        title += f"\n{collection}"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
@@ -241,24 +246,28 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     return fig
 
 
-def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5, normalize=False):
+def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5, normalize=False,
+                   collection=None):
     """Residual 2D illumination on the PFI focal plane, one panel per wavelength bin.
 
     Parameters
     ----------
-    dfs2      : DataFrame output of ``fitModels``. Should carry ``visit`` and
-                ``quartzVisit`` columns (populated by ``evaluate``) for title
-                annotation.
-    x, y      : PFI coordinates (mm), same ordering as dfs2 fibers per wavelength
-    waveBins  : sequence of (wmin, wmax) tuples. Bin centres are derived as
-                ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
-                column produced by ``evaluate``.
-    vmin, vmax: colour scale limits in percent
-    normalize : bool
+    dfs2       : DataFrame output of ``fitModels``. Should carry ``visit`` and
+                 ``quartzVisit`` columns (populated by ``evaluate``) for title
+                 annotation.
+    x, y       : PFI coordinates (mm), same ordering as dfs2 fibers per wavelength
+    waveBins   : sequence of (wmin, wmax) tuples. Bin centres are derived as
+                 ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
+                 column produced by ``evaluate``.
+    vmin, vmax : colour scale limits in percent
+    normalize  : bool
         Display-only rescaling: divide ``scatCorr`` by its per-bin median so
         each panel is centred on 0% deviation. The underlying fit is
         unchanged; this only re-gauges the scat/illum multiplicative
         degeneracy for visualisation.
+    collection : str, optional
+        Name of the butler collection / reduction used, added to the suptitle
+        for provenance.
 
     Returns
     -------
@@ -276,6 +285,8 @@ def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5, normalize=False):
     title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
     if normalize:
         title += "  [model re-centred on 1]"
+    if collection:
+        title += f"\n{collection}"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
