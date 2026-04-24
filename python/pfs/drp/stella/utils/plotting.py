@@ -165,7 +165,8 @@ def plotPFISkyBlocking(pfsConfig, nBlocks, ax=None, seed=42):
 SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 
 
-def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
+def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
+                     normalize=False):
     """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
 
     Parameters
@@ -178,6 +179,11 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
                 ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
                 column produced by ``evaluate``.
     ylim      : y-axis limits
+    normalize : bool
+        Display-only rescaling: divide ``illumCorr`` (dots) and ``scatModel``
+        (line) by the per-bin median of ``scatModel`` so each panel is
+        centred on 1.0. The underlying fit is unchanged; this only re-gauges
+        the scat/illum multiplicative degeneracy for visualisation.
 
     Returns
     -------
@@ -193,20 +199,28 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
     if visit is not None or quartzVisit is not None:
         title += f"  (twilight={visit}, quartz={quartzVisit})"
     title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
+    if normalize:
+        title += "  [model re-centred on 1]"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
         wv = int(round((wmin + wmax) / 2))
         dfi = dfs2[dfs2.wavelength == wv]
 
+        gauge = 1.0
+        if normalize:
+            med = np.nanmedian(dfi["scatModel"].to_numpy())
+            if np.isfinite(med) and med > 0:
+                gauge = med
+
         for spectrograph in [1, 2, 3, 4]:
             specMask = mergedSpec.spectrograph == spectrograph
             perSpec = dfi[specMask]
             color = SP_COLORS[spectrograph]
 
-            ax.plot(perSpec.fiberId, perSpec.illumCorr, ".", color=color,
+            ax.plot(perSpec.fiberId, perSpec.illumCorr / gauge, ".", color=color,
                     alpha=0.3, ms=2)
-            ax.plot(perSpec.fiberId, perSpec.scatModel, "-", color=color,
+            ax.plot(perSpec.fiberId, perSpec.scatModel / gauge, "-", color=color,
                     lw=1.5, label=f"sp{spectrograph}")
 
         ax.axhline(1.0, color="k", lw=0.7, ls="--", alpha=0.5)
@@ -227,7 +241,7 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22)):
     return fig
 
 
-def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
+def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5, normalize=False):
     """Residual 2D illumination on the PFI focal plane, one panel per wavelength bin.
 
     Parameters
@@ -240,6 +254,11 @@ def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
                 ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
                 column produced by ``evaluate``.
     vmin, vmax: colour scale limits in percent
+    normalize : bool
+        Display-only rescaling: divide ``scatCorr`` by its per-bin median so
+        each panel is centred on 0% deviation. The underlying fit is
+        unchanged; this only re-gauges the scat/illum multiplicative
+        degeneracy for visualisation.
 
     Returns
     -------
@@ -255,12 +274,19 @@ def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5):
     if visit is not None or quartzVisit is not None:
         title += f"  (twilight={visit}, quartz={quartzVisit})"
     title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
+    if normalize:
+        title += "  [model re-centred on 1]"
     fig.suptitle(title, fontsize=18)
 
     for ax, (wmin, wmax) in zip(axs.flat, waveBins):
         wv = int(round((wmin + wmax) / 2))
         dfi = dfs2[dfs2.wavelength == wv]
-        normalized = 100 * (dfi.scatCorr.to_numpy() - 1)
+        scatCorr = dfi.scatCorr.to_numpy()
+        if normalize:
+            med = np.nanmedian(scatCorr)
+            if np.isfinite(med) and med > 0:
+                scatCorr = scatCorr / med
+        normalized = 100 * (scatCorr - 1)
 
         sc = ax.scatter(x, y, c=normalized, cmap="bwr", vmin=vmin, vmax=vmax,
                         s=6, rasterized=True)
