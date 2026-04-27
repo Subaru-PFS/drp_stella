@@ -235,8 +235,8 @@ class ScatteredLightConfig(Config):
         itemtype=float,
         default=dict(
             default=0.048,
-            b1=0.020, b2=0.018, b3=0.020, b4=0.045,
-            r1=0.015, r2=0.020, r3=0.020, r4=0.025,
+            b1=0.015, b2=0.005, b3=0.011, b4=0.045,
+            r1=0.019, r2=0.031, r3=0.039, r4=0.043,
             n1=0.065, n2=0.055, n3=0.050, n4=0.060,
             m1=0.040, m2=0.040, m3=0.055, m4=0.062,
         ),
@@ -245,7 +245,7 @@ class ScatteredLightConfig(Config):
     powerLaw1 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=1.5),
+        default=dict(default=2.1),
         doc="Power-law index (2-D) of the first component, indexed by camera name or 'default'",
     )
     soften1 = DictField(
@@ -259,8 +259,8 @@ class ScatteredLightConfig(Config):
         itemtype=float,
         default=dict(
             default=0.01,
-            b1=0.045, b2=0.110, b3=0.070, b4=0.085,
-            r1=0.045, r2=0.040, r3=0.040, r4=0.055,
+            b1=0.044, b2=0.077, b3=0.059, b4=0.077,
+            r1=0.032, r2=0.026, r3=0.020, r4=0.032,
             n1=0.010, n2=0.010, n3=0.010, n4=0.017,
             m1=0.025, m2=0.020, m3=0.014, m4=0.021,
         ),
@@ -269,7 +269,7 @@ class ScatteredLightConfig(Config):
     powerLaw2 = DictField(
         keytype=str,
         itemtype=float,
-        default=dict(default=3.0),
+        default=dict(default=2.4),
         doc="Power-law index (2-D) of the second component, indexed by camera name or 'default'",
     )
     soften2 = DictField(
