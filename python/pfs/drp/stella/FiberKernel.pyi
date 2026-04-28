@@ -5,26 +5,16 @@ from lsst.afw.image import Image, MaskedImage
 from pfs.drp.stella import FiberTrace, FiberTraceSet, SpectrumSet
 from pfs.drp.stella.math import NormalizedPolynomial2D
 
-
-class PolynomialKernel:
+class BaseKernel:
     @property
     def halfWidth(self) -> int: ...
-    @property
-    def order(self) -> int: ...
-    @property
-    def numPoly(self) -> int: ...
     @property
     def numParams(self) -> int: ...
     @property
     def coefficients(self) -> list[float]: ...
-    @property
-    def polynomials(self) -> list[NormalizedPolynomial2D]: ...
     def getHalfWidth(self) -> int: ...
-    def getOrder(self) -> int: ...
-    def getNumPoly(self) -> int: ...
     def getNumParams(self) -> int: ...
     def getCoefficients(self) -> list[float]: ...
-    def getPolynomials(self) -> list[NormalizedPolynomial2D]: ...
     @overload
     def __call__(self, fiberTrace: FiberTrace, bbox: Box2I) -> FiberTrace: ...
     @overload
@@ -34,43 +24,46 @@ class PolynomialKernel:
     @overload
     def makeOffsetImages(self, width: int, height: int) -> np.ndarray: ...
 
-class FiberKernel(PolynomialKernel):
+class FiberKernel(BaseKernel):
     def __init__(
-        self, kernelHalfWidth: int, kernelOrder: int, xBackgroundSize: int, yBackgroundSize: int
+        self,
+        dims: Extent2I,
+        kernelHalfWidth: int,
+        xKernelNum: int,
+        yKernelNum: int,
+        coefficients: np.ndarray,
     ) -> None: ...
     @overload
     def evaluate(self, x: float, y: float) -> np.ndarray: ...
     @overload
     def evaluate(self, xy: Point2D) -> np.ndarray: ...
 
-class ImageKernel(PolynomialKernel):
-    def __init__(
-        self, kernelHalfWidth: int, kernelOrder: int, xBackgroundSize: int, yBackgroundSize: int
-    ) -> None: ...
-
+@overload
 def fitFiberKernel(
     image: MaskedImage,
     fiberTraces: FiberTraceSet,
     badBitMask: int = 0,
     kernelHalfWidth: int = 2,
-    kernelOrder: int = 3,
-    xBackgroundSize: int = 500,
-    yBackgroundSize: int = 500,
+    xKernelNum: int = 7,
+    yKernelNum: int = 7,
+    xBackgroundNum: int = 9,
+    yBackgroundNum: int = 9,
     rows: np.ndarray | None = None,
     maxIter: int = 20,
     andersonDepth: int = 5,
     fluxTol: float = 1.0e-3,
     lsqThreshold: float = 1.0e-16,
 ) -> tuple[FiberKernel, Image, np.ndarray]: ...
-
+@overload
 def fitImageKernel(
     source: MaskedImage,
     target: MaskedImage,
     badBitMask: int = 0,
     kernelHalfWidth: int = 2,
-    kernelOrder: int = 3,
-    xBackgroundSize: int = 500,
-    yBackgroundSize: int = 500,
+    xKernelNum: int = 7,
+    yKernelNum: int = 7,
+    xBackgroundNum: int = 9,
+    yBackgroundNum: int = 9,
     rows: np.ndarray | None = None,
     lsqThreshold: float = 1.0e-16,
-) -> tuple[ImageKernel, Image]: ...
+) -> tuple[FiberKernel, Image]: ...
