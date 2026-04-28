@@ -299,8 +299,8 @@ def _extractOnePfsArm(extractSpectra, image, calexp, fiberTrace, detectorMap,
 
 
 def _extractCameraSimpleWorker(camKey, spectrograph, arm, postISR, calexp,
-                               fiberTrace, detectorMap, selVisit, tmpDir,
-                               useCalexp):
+                               fiberTrace, detectorMap, selVisit, useCalexp,
+                               tmpDir):
     """Extract spectra from one visit, write PfsArm to disk.
 
     Forked subprocess — LSST objects come in via memory copy, result goes
@@ -318,8 +318,8 @@ def _extractCameraSimpleWorker(camKey, spectrograph, arm, postISR, calexp,
 
 def _extractCameraNormWorker(camKey, spectrograph, arm,
                              postISR_tw, calexp_tw, postISR_q, calexp_q,
-                             fiberTrace, detectorMap, selVisit, tmpDir,
-                             useCalexp):
+                             fiberTrace, detectorMap, selVisit, useCalexp,
+                             tmpDir):
     """Extract twilight and quartz separately, divide spectra, write PfsArm.
 
     Extracting separately and dividing cancels the fiberProfile normalisation,
