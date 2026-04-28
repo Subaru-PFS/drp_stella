@@ -36,6 +36,7 @@ __all__ = [
     "evaluate",
     "fitModels",
     "extractPfsArmsParallel",
+    "extractPfsArmsNormParallel",
 ]
 
 nRows, nCols = 4176, 4096
@@ -280,37 +281,59 @@ def fitModels(dfs, mergedSpec,
 
 # ── parallel camera extraction (dotRoach pattern) ────────────────────────────
 
-def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
-                         postISR_q, calexp_q, fiberTrace, detectorMap,
-                         selVisit, tmpDir, useCalexp=False):
-    """Extract twilight and quartz separately then ratio the spectra, write pfsArm to disk.
+_CAMERAS = [(sp, arm) for sp in [1, 2, 3, 4] for arm in "br"]
 
-    Extracting separately and dividing cancels the fiberProfile normalisation,
-    unlike extracting from a pre-divided ratio image.
-    Runs in a forked subprocess — receives LSST objects via fork memory copy,
-    writes result as FITS to avoid pickling.
 
-    If ``useCalexp`` is True, extracts from ``calexp`` (post scatter-correction);
-    otherwise from ``postISRCCD`` (pre scatter-correction). ``calexp.mask`` is
-    copied onto whichever source is used so the mask planes are consistent.
+def _extractOnePfsArm(extractSpectra, image, calexp, fiberTrace, detectorMap,
+                      dataId, useCalexp):
+    """Extract one PfsArm from a postISR (or calexp) image.
+
+    The ``calexp`` mask is copied onto the source image so the mask planes
+    are consistent regardless of which dataset we extract from.
+    """
+    src = calexp if useCalexp else image
+    src.mask.array[:] = calexp.mask.array[:]
+    return extractSpectra.run(
+        src.maskedImage, fiberTrace, detectorMap
+    ).spectra.toPfsArm(Identity(**dataId))
+
+
+def _extractCameraSimpleWorker(camKey, spectrograph, arm, postISR, calexp,
+                               fiberTrace, detectorMap, selVisit, tmpDir,
+                               useCalexp):
+    """Extract spectra from one visit, write PfsArm to disk.
+
+    Forked subprocess — LSST objects come in via memory copy, result goes
+    out via FITS to avoid pickling.
     """
     from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 
     extractSpectra = ExtractSpectraTask(config=ExtractSpectraTask.ConfigClass())
     dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
 
-    src_tw = calexp_tw if useCalexp else postISR_tw
-    src_q = calexp_q if useCalexp else postISR_q
+    pfsArm = _extractOnePfsArm(extractSpectra, postISR, calexp,
+                               fiberTrace, detectorMap, dataId, useCalexp)
+    pfsArm.writeFits(os.path.join(tmpDir, f"pfsArm_{camKey}.fits"))
 
-    src_tw.mask.array[:] = calexp_tw.mask.array[:]
-    src_q.mask.array[:] = calexp_q.mask.array[:]
 
-    pfsArm_tw = extractSpectra.run(
-        src_tw.maskedImage, fiberTrace, detectorMap
-    ).spectra.toPfsArm(Identity(**dataId))
-    pfsArm_q = extractSpectra.run(
-        src_q.maskedImage, fiberTrace, detectorMap
-    ).spectra.toPfsArm(Identity(**dataId))
+def _extractCameraNormWorker(camKey, spectrograph, arm,
+                             postISR_tw, calexp_tw, postISR_q, calexp_q,
+                             fiberTrace, detectorMap, selVisit, tmpDir,
+                             useCalexp):
+    """Extract twilight and quartz separately, divide spectra, write PfsArm.
+
+    Extracting separately and dividing cancels the fiberProfile normalisation,
+    unlike extracting from a pre-divided ratio image.
+    """
+    from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
+
+    extractSpectra = ExtractSpectraTask(config=ExtractSpectraTask.ConfigClass())
+    dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
+
+    pfsArm_tw = _extractOnePfsArm(extractSpectra, postISR_tw, calexp_tw,
+                                  fiberTrace, detectorMap, dataId, useCalexp)
+    pfsArm_q = _extractOnePfsArm(extractSpectra, postISR_q, calexp_q,
+                                 fiberTrace, detectorMap, dataId, useCalexp)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio_flux = pfsArm_tw.flux / pfsArm_q.flux
@@ -324,65 +347,96 @@ def _extractCameraWorker(camKey, spectrograph, arm, postISR_tw, calexp_tw,
     pfsArm_tw.writeFits(os.path.join(tmpDir, f"pfsArm_{camKey}.fits"))
 
 
-def extractPfsArmsParallel(butler, selVisit, quartzVisit, fiberTraces,
-                           detectorMaps, useCalexp=False):
-    """Extract twilight/quartz ratio spectra for all cameras in parallel.
-
-    Butler reads are performed sequentially in the main process; per-camera
-    computation is forked (LSST objects passed by memory, results via FITS).
+def _runCamerasParallel(target, perCameraArgs):
+    """Fork one worker per camera, collect resulting PfsArm files.
 
     Parameters
     ----------
-    butler        : Butler
-    selVisit      : int  twilight visit
-    quartzVisit   : int  quartz visit
-    fiberTraces   : dict  camKey -> FiberTraceSet
-    detectorMaps  : dict  camKey -> DetectorMap
-    useCalexp     : bool
-        If True, extract from ``calexp`` (scatter correction applied).
-        If False (default), extract from ``postISRCCD`` (no scatter correction).
-        The ``calexp`` mask is always copied onto the source image, so mask
-        planes are identical in both cases.
+    target : callable  worker entry point (must accept ``tmpDir`` last)
+    perCameraArgs : dict  camKey -> tuple of args (without ``tmpDir``)
 
     Returns
     -------
     pfsArms : dict  camKey -> PfsArm
     """
-    cameras = [(sp, arm) for sp in [1, 2, 3, 4] for arm in "br"]
+    with tempfile.TemporaryDirectory() as tmpDir:
+        jobs = []
+        for camKey, args in perCameraArgs.items():
+            p = multiprocessing.Process(target=target, args=(*args, tmpDir))
+            jobs.append(p)
+            p.start()
+        for p in jobs:
+            p.join()
+        return {
+            camKey: PfsArm.readFits(os.path.join(tmpDir, f"pfsArm_{camKey}.fits"))
+            for camKey in perCameraArgs
+        }
 
-    # Load all images in main process before forking
-    rawImages = {}
-    for spectrograph, arm in cameras:
+
+def extractPfsArmsParallel(butler, selVisit, fiberTraces, detectorMaps,
+                           useCalexp=False):
+    """Extract per-camera PfsArm spectra for one visit, in parallel.
+
+    Butler reads are performed sequentially in the main process; per-camera
+    extraction is forked (LSST objects passed by memory, results via FITS).
+
+    Parameters
+    ----------
+    butler        : Butler
+    selVisit      : int
+    fiberTraces   : dict  camKey -> FiberTraceSet
+    detectorMaps  : dict  camKey -> DetectorMap
+    useCalexp     : bool
+        If True, extract from ``calexp`` (scatter correction applied).
+        If False (default), extract from ``postISRCCD`` (no scatter correction).
+
+    Returns
+    -------
+    pfsArms : dict  camKey -> PfsArm
+    """
+    perCameraArgs = {}
+    for spectrograph, arm in _CAMERAS:
         camKey = f"{arm}{spectrograph}"
         dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
-        rawImages[camKey] = (
+        postISR = butler.get("postISRCCD", dataId)
+        calexp = butler.get("calexp", dataId)
+        perCameraArgs[camKey] = (
+            camKey, spectrograph, arm, postISR, calexp,
+            fiberTraces[camKey], detectorMaps[camKey], selVisit, useCalexp,
+        )
+    return _runCamerasParallel(_extractCameraSimpleWorker, perCameraArgs)
+
+
+def extractPfsArmsNormParallel(butler, selVisit, quartzVisit, fiberTraces,
+                               detectorMaps, useCalexp=False):
+    """Extract twilight/quartz ratio spectra for all cameras in parallel.
+
+    Same parallel pattern as ``extractPfsArmsParallel`` but extracts ``selVisit``
+    and ``quartzVisit`` separately per camera and divides the spectra.
+
+    Parameters
+    ----------
+    butler        : Butler
+    selVisit      : int  twilight visit
+    quartzVisit   : int  quartz visit (denominator)
+    fiberTraces   : dict  camKey -> FiberTraceSet
+    detectorMaps  : dict  camKey -> DetectorMap
+    useCalexp     : bool  see ``extractPfsArmsParallel``
+
+    Returns
+    -------
+    pfsArms : dict  camKey -> PfsArm  (flux = twilight / quartz)
+    """
+    perCameraArgs = {}
+    for spectrograph, arm in _CAMERAS:
+        camKey = f"{arm}{spectrograph}"
+        dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
+        perCameraArgs[camKey] = (
+            camKey, spectrograph, arm,
             butler.get("postISRCCD", dataId),
             butler.get("calexp", dataId),
             butler.get("postISRCCD", dataId, visit=quartzVisit),
             butler.get("calexp", dataId, visit=quartzVisit),
+            fiberTraces[camKey], detectorMaps[camKey], selVisit, useCalexp,
         )
-
-    with tempfile.TemporaryDirectory() as tmpDir:
-        jobs = []
-        for spectrograph, arm in cameras:
-            camKey = f"{arm}{spectrograph}"
-            postISR_tw, calexp_tw, postISR_q, calexp_q = rawImages[camKey]
-            p = multiprocessing.Process(
-                target=_extractCameraWorker,
-                args=(camKey, spectrograph, arm,
-                      postISR_tw, calexp_tw, postISR_q, calexp_q,
-                      fiberTraces[camKey], detectorMaps[camKey],
-                      selVisit, tmpDir, useCalexp),
-            )
-            jobs.append(p)
-            p.start()
-
-        for p in jobs:
-            p.join()
-
-        pfsArms = {
-            f"{arm}{sp}": PfsArm.readFits(os.path.join(tmpDir, f"pfsArm_{arm}{sp}.fits"))
-            for sp, arm in cameras
-        }
-
-    return pfsArms
+    return _runCamerasParallel(_extractCameraNormWorker, perCameraArgs)
