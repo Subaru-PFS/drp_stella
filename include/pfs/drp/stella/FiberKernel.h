@@ -14,17 +14,53 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
+namespace detail {
 
-class PolynomialKernel {
+
+class PiecewiseConstantInterpolator {
+  public:
+    PiecewiseConstantInterpolator(
+        lsst::geom::Extent2I const& dims,
+        int xNumBlocks,
+        int yNumBlocks,
+        std::size_t step=1
+    );
+
+    std::size_t getIndex(int x, int y) const {
+        return _yBlocks[y] + _xBlocks[x];
+    }
+    std::size_t getIndex(double x, int y) const {
+        return getIndex(static_cast<int>(std::round(x)), y);
+    }
+    std::size_t getIndex(double x, double y) const {
+        return getIndex(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
+    }
+
+    std::size_t getXNumBlocks() const { return _xNumBlocks; }
+    std::size_t getYNumBlocks() const { return _yNumBlocks; }
+    std::size_t getNumBlocks() const { return _xNumBlocks*_yNumBlocks; }
+    ndarray::Array<int const, 1, 1> getXBlocks() const { return _xBlocks; }
+    ndarray::Array<int const, 1, 1> getYBlocks() const { return _yBlocks; }
+
+  private:
+    std::size_t _xNumBlocks;
+    std::size_t _yNumBlocks;
+    std::size_t _step;
+    ndarray::Array<int, 1, 1> _xBlocks;
+    ndarray::Array<int, 1, 1> _yBlocks;
+};
+
+
+}  // namespace detail
+
+
+class BaseKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
     int getHalfWidth() const { return _halfWidth; }
-    int getOrder() const { return _order; }
-    std::size_t getNumPoly() const { return _numPoly; }
     std::size_t getNumParams() const { return _numParams; }
     ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
-    std::vector<Polynomial> const& getPolynomials() const { return _polynomials; }
 
     std::shared_ptr<FiberTrace<float>> convolve(
         FiberTrace<float> const& trace,
@@ -48,21 +84,17 @@ class PolynomialKernel {
     }
 
   protected:
-    PolynomialKernel(
-        lsst::geom::Box2D const& range,
+    BaseKernel(
+        lsst::geom::Extent2I const& dims,
         int halfWidth,
-        int order,
-        std::size_t numPoly,
+        std::size_t numParams,
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
 
+    lsst::geom::Extent2I _dims;
     int _halfWidth;
-    int _order;
-    std::size_t _numCoeffs;  ///< number of coefficients in each polynomial
-    std::size_t _numPoly;  ///< number of polynomials
-    std::size_t _numParams;  ///< number of parameters in the kernel (should be numPoly * numOffsets)
+    std::size_t _numParams;  ///< number of parameters in the kernel
     ndarray::Array<double, 1, 1> _coefficients;
-    std::vector<Polynomial> _polynomials;
 
   private:
     virtual std::shared_ptr<FiberTrace<float>> convolveImpl(
@@ -76,13 +108,14 @@ class PolynomialKernel {
 };
 
 
-class FiberKernel : public PolynomialKernel {
+class FiberKernel : public BaseKernel {
   public:
 
     FiberKernel(
-        lsst::geom::Box2D const& range,
+        lsst::geom::Extent2I const& dims,
         int halfWidth,
-        int order,
+        int xNumBlocks,
+        int yNumBlocks,
         ndarray::ArrayRef<double const, 1, 1> const& coefficients
     );
 
@@ -102,30 +135,8 @@ class FiberKernel : public PolynomialKernel {
     ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
         lsst::geom::Extent2I const& dims
     ) const override;
-};
 
-
-/// A FiberKernel where the normalization is allowed to vary
-class FluxVariableFiberKernel : public PolynomialKernel {
-  public:
-    FluxVariableFiberKernel(
-        lsst::geom::Box2D const& range,
-        int halfWidth,
-        int order,
-        ndarray::ArrayRef<double const, 1, 1> const& coefficients
-    );
-
-  private:
-    std::shared_ptr<FiberTrace<float>> convolveImpl(
-        FiberTrace<float> const& trace,
-        lsst::geom::Box2I const& bbox
-    ) const override;
-    lsst::afw::image::Image<float> convolveImpl(
-        lsst::afw::image::Image<float> const& image
-    ) const override;
-    ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
-        lsst::geom::Extent2I const& dims
-    ) const override;
+    detail::PiecewiseConstantInterpolator _interp;
 };
 
 
@@ -134,7 +145,8 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,
     int kernelHalfWidth,
-    int kernelOrder,
+    int xKernelNum,
+    int yKernelNum,
     int xBackgroundSize,
     int yBackgroundSize,
     ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
@@ -150,7 +162,8 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& target,
     lsst::afw::image::MaskPixel badBitMask,
     int kernelHalfWidth,
-    int kernelOrder,
+    int xKernelNum,
+    int yKernelNum,
     int xBackgroundSize,
     int yBackgroundSize,
     ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),

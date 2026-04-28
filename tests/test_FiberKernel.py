@@ -191,15 +191,15 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
 
     def testIntegerOffset(self):
         kernelHalfWidth = 2
-        kernelOrder = 0
-        bgWidth = self.config.width
+        kernelNum = 1
+        bgNum = 1
         bgHeight = self.config.height
         xOffset = 1.0
         source = self.makeImage()
         target = self.makeImage(xOffset=xOffset, background=self.background)
 
         kernel, background = fitFiberKernel(
-            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            source, target, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
         self.assertResidual(source, target, kernel, background)
         self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
@@ -212,15 +212,14 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
     def testOffset(self):
         """We apply a subpixel offset"""
         kernelHalfWidth = 3
-        kernelOrder = 0
-        bgWidth = self.config.width
-        bgHeight = self.config.height
+        kernelNum = 1
+        bgNum = 1
         xOffset = -0.5
         source = self.makeImage()
         target = self.makeImage(xOffset=xOffset, background=self.background)
 
         kernel, background = fitFiberKernel(
-            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            source, target, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
         self.assertResidual(source, target, kernel, background)
         self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
@@ -235,15 +234,14 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
 
     def testWidth(self):
         kernelHalfWidth = 3
-        kernelOrder = 0
-        bgWidth = self.config.width
-        bgHeight = self.config.height
+        kernelNum = 1
+        bgNum = 1
         source = self.makeImage()
         self.config.fwhm = 3.33
         target = self.makeImage(background=self.background)
 
         kernel, background = fitFiberKernel(
-            source, target, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            source, target, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
         self.assertResidual(source, target, kernel, background)
         self.assertSpectra(source, target, kernel, background, self.makeFiberTraces())
