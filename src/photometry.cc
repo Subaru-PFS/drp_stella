@@ -79,13 +79,14 @@ lsst::afw::table::BaseCatalog photometer(
     }
 
     // Identify blends: PSFs that touch each other
-    std::unordered_map<std::size_t, std::vector<std::size_t>> blendComponents;
+    using BlendId = std::uint64_t;
+    std::unordered_map<BlendId, std::vector<BlendId>> blendComponents;
     {
-        lsst::afw::image::Image<std::size_t> blendImage{image.getBBox()};
+        lsst::afw::image::Image<BlendId> blendImage{image.getBBox()};
         blendImage = 0;  // 0 means no blend at this position
-        std::unordered_map<std::size_t, std::size_t> blendAliases;
-        std::size_t blendIndex = 1;  // 0 in the blendImage means no blend, so start at 1
-        for (std::size_t ii = 0; ii < num; ++ii) {
+        std::unordered_map<BlendId, BlendId> blendAliases;
+        BlendId blendIndex = 1;  // 0 in the blendImage means no blend, so start at 1
+        for (BlendId ii = 0; ii < num; ++ii) {
             double const xx = positions[ii][0];
             double const yy = positions[ii][1];
             if (!std::isfinite(xx) || !std::isfinite(yy)) {
@@ -104,8 +105,8 @@ lsst::afw::table::BaseCatalog photometer(
             lsst::geom::Box2I subBox{box};
             subBox.grow(1);  // for good measure
             subBox.clip(blendImage.getBBox());
-            lsst::afw::image::Image<std::size_t> subImage{blendImage, subBox};
-            std::set<std::size_t> blends{subImage.begin(), subImage.end()};
+            lsst::afw::image::Image<BlendId> subImage{blendImage, subBox};
+            std::set<BlendId> blends{subImage.begin(), subImage.end()};
             blends.erase(0);
             switch (blends.size()) {
               case 0:
@@ -116,7 +117,7 @@ lsst::afw::table::BaseCatalog photometer(
                 continue;
               case 1: {
                 // A single overlap. This is a blend with the other source already there.
-                std::size_t bb = *(blends.begin());
+                BlendId bb = *(blends.begin());
                 while (blendAliases.find(bb) != blendAliases.end()) bb = blendAliases[bb];
                 subImage = bb;
                 blendComponents[bb].push_back(ii);
@@ -125,7 +126,7 @@ lsst::afw::table::BaseCatalog photometer(
               default: {
                 // Multiple overlaps. We've joined multiple blends into a much larger blend.
                 // Take the first (lowest value), and have all the others point to that now.
-                std::size_t bb = *(blends.begin());
+                BlendId bb = *(blends.begin());
                 while (blendAliases.find(bb) != blendAliases.end()) bb = blendAliases[bb];
                 subImage = bb;
                 auto & target = blendComponents[bb];
@@ -133,7 +134,7 @@ lsst::afw::table::BaseCatalog photometer(
                 auto iter = blends.begin();
                 ++iter;  // Don't want the first, as that's the target.
                 for (; iter != blends.end(); ++iter) {
-                    std::size_t aa = *iter;
+                    BlendId aa = *iter;
                     while (blendAliases.find(aa) != blendAliases.end()) aa = blendAliases[aa];
                     if (aa == bb) continue;  // must have already done this one
                     auto & source = blendComponents[aa];
@@ -161,7 +162,7 @@ lsst::afw::table::BaseCatalog photometer(
         auto const varArray = image.getVariance()->getArray();
         auto const bbox = image.getBBox();
         for (std::size_t ii = 0; ii < blendSize; ++ii) {
-            std::size_t const iIndex = indices[ii];
+            BlendId const iIndex = indices[ii];
             lsst::geom::Point2D const iPoint{positions[iIndex][0], positions[iIndex][1]};
             auto & row = catalog[iIndex];
             auto const iPsfImage = getPsfImage(psf, iPoint, bbox);
@@ -203,7 +204,7 @@ lsst::afw::table::BaseCatalog photometer(
 
             auto const bounds = lsst::geom::Box2D::makeCenteredBox(iPoint, 2.0*iBox.getDimensions());
             for (std::size_t jj = ii + 1; jj < blendSize; ++jj) {
-                std::size_t const jIndex = indices[jj];
+                BlendId const jIndex = indices[jj];
                 lsst::geom::Point2D const jPoint{positions[jIndex][0], positions[jIndex][1]};
                 if (!bounds.contains(jPoint)) {
                     continue;
