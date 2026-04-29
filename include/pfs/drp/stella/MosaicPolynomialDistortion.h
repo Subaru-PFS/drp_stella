@@ -104,16 +104,16 @@ class MosaicPolynomialDistortion :
     }
     //@}
 
-    bool isPersistable() const noexcept { return true; }
+    bool isPersistable() const noexcept override { return true; }
 
     class Factory;
 
   protected:
     friend std::ostream& operator<<(std::ostream& os, MosaicPolynomialDistortion const& model);
 
-    std::string getPersistenceName() const { return "MosaicPolynomialDistortion"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    std::string getPersistenceName() const override { return "MosaicPolynomialDistortion"; }
+    std::string getPythonModule() const override { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
     /// Split single coefficients array into affineCoeff, xCoeff, yCoeff arrays
     ///

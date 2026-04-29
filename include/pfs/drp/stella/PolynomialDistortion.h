@@ -89,16 +89,16 @@ class PolynomialDistortion :
     //@}
 
 
-    bool isPersistable() const noexcept { return true; }
+    bool isPersistable() const noexcept override { return true; }
 
     class Factory;
 
   protected:
     friend std::ostream& operator<<(std::ostream& os, PolynomialDistortion const& model);
 
-    std::string getPersistenceName() const { return "PolynomialDistortion"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    std::string getPersistenceName() const override { return "PolynomialDistortion"; }
+    std::string getPythonModule() const override { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
     /// Split single coefficients array into xCoeff, yCoeff arrays
     ///
