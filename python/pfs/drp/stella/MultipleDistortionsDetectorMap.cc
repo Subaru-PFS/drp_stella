@@ -11,8 +11,7 @@ using namespace pybind11::literals;
 
 namespace pfs { namespace drp { namespace stella {
 
-PYBIND11_PLUGIN(MultipleDistortionsDetectorMap) {
-    py::module mod("MultipleDistortionsDetectorMap");
+PYBIND11_MODULE(MultipleDistortionsDetectorMap, mod) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     auto cls = python::wrapDetectorMap<MultipleDistortionsDetectorMap>(
         mod, "MultipleDistortionsDetectorMap"
@@ -52,8 +51,6 @@ PYBIND11_PLUGIN(MultipleDistortionsDetectorMap) {
             );
         }
     ));
-
-    return mod.ptr();
 }
 
 }}} // pfs::drp::stella
