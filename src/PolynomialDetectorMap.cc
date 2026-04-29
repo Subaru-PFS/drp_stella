@@ -27,4 +27,8 @@ PolynomialDetectorMap::Factory registration("PolynomialDetectorMap");
 }  // anonymous namespace
 
 
+// Explicit instantiation
+template class DistortionBasedDetectorMap<pfs::drp::stella::PolynomialDistortion>;
+
+
 }}}  // namespace pfs::drp::stella

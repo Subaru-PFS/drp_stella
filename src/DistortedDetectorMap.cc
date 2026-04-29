@@ -26,4 +26,8 @@ DistortedDetectorMap::Factory registration("DistortedDetectorMap");
 }  // anonymous namespace
 
 
+// Explicit instantiation
+template class DistortionBasedDetectorMap<DetectorDistortion>;
+
+
 }}}  // namespace pfs::drp::stella
