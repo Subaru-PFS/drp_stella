@@ -190,7 +190,6 @@ class ImageKernelTestCase(lsst.utils.tests.TestCase):
         kernelHalfWidth = 2
         kernelNum = 1
         bgNum = 1
-        bgHeight = self.config.height
         xOffset = 1.0
         source = self.makeImage()
         target = self.makeImage(xOffset=xOffset, background=self.background)
