@@ -50,7 +50,7 @@ struct ScopedTimer {
 };
 
 
-using DotTerms = std::pair<std::size_t, ndarray::Array<double, 1, 1>>;
+using DotTerms = std::pair<std::ptrdiff_t, ndarray::Array<double, 1, 1>>;
 
 DotTerms emptyDotTerms() {
     return {-1, ndarray::Array<double, 1, 1>()};
@@ -253,6 +253,9 @@ struct FiberModel {
         int const imageWidth = usePixels.size();
         int const xStart = std::max(xMin, 0);
         int const xStop = std::min(xMax, imageWidth - 1);  // inclusive
+        if (xStart > xStop || width <= 0) {
+            return emptyDotTerms();
+        }
         auto const blocks = kernelInterp.getXBlocks();
         std::size_t const minBlock = blocks[xStart];
         std::size_t const maxBlock = blocks[xStop];
@@ -303,6 +306,9 @@ struct FiberModel {
         ndarray::Array<bool const, 1, 1> const& usePixels,
         ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
+        if (other.xMin > xMax || other.xMax < xMin) {
+            return emptyDotTerms();
+        }
         return dotFunction(
             kernelInterp,
             usePixels,
@@ -311,7 +317,7 @@ struct FiberModel {
                 if (xOther < 0 || xOther >= other.width) {
                     return 0.0f;
                 }
-                return values[xModel]*other.values[xOther]*dataVariance[xData];
+                return values[xModel]*other.values[xOther]/dataVariance[xData];
             }
         );
     }
@@ -341,6 +347,9 @@ struct FiberModel {
         int const imageWidth = usePixels.size();
         int const xStart = std::max(xMin, 0);
         int const xStop = std::min(xMax, imageWidth - 1);  // inclusive
+        if (xStart > xStop || width <= 0) {
+            return DotBackgroundTerms{};
+        }
         auto const kernelBlocks = kernelInterp.getXBlocks();
         auto const bgBlocks = bgInterp.getXBlocks();
 
@@ -553,8 +562,8 @@ ndarray::Array<double, 3, 3> FiberKernel::makeOffsetImagesImpl(
             continue;
         }
 
-        double const dx = _dims.getX()/(dims.getX() - 1);
-        double const dy = _dims.getY()/(dims.getY() - 1);
+        double const dx = static_cast<double>(_dims.getX())/dims.getX();
+        double const dy = static_cast<double>(_dims.getY())/dims.getY();
 
         ndarray::ArrayRef<double, 2, 2> image = result[imageIndex];
         double ySample = 0;
@@ -581,18 +590,22 @@ detail::PiecewiseConstantInterpolator::PiecewiseConstantInterpolator(
     _yNumBlocks(yNumBlocks),
     _step(step),
     _xBlocks(ndarray::allocate(dims.getX())),
-    _yBlocks(ndarray::allocate(dims.getY())) {
+    _yBlocks(ndarray::allocate(dims.getY())),
+    _xIndex(ndarray::allocate(dims.getX())),
+    _yIndex(ndarray::allocate(dims.getY())) {
     if (xNumBlocks <= 0 || yNumBlocks <= 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Number of blocks must be positive");
     }
-    double const dx = static_cast<double>(dims.getX())/xNumBlocks*step;
-    double const dy = static_cast<double>(dims.getY())/yNumBlocks*step*xNumBlocks;
+    double const dx = static_cast<double>(xNumBlocks)/dims.getX();
+    double const dy = static_cast<double>(yNumBlocks)/dims.getY();
 
     for (int ii = 0; ii < dims.getX(); ++ii) {
-        _xBlocks[ii] = ii*dx;
+        _xBlocks[ii] = std::size_t(ii*dx);
+        _xIndex[ii] = _xBlocks[ii]*step;
     }
     for (int ii = 0; ii < dims.getY(); ++ii) {
-        _yBlocks[ii] = ii*dy;
+        _yBlocks[ii] = std::size_t(ii*dy)*xNumBlocks;
+        _yIndex[ii] = _yBlocks[ii]*step;
     }
 }
 
@@ -671,7 +684,9 @@ struct FiberKernelFitter {
         _bgStart(2*kernelHalfWidth*_kernel.getNumBlocks()),
         _requireMask(image.getMask()->getPlaneBitMask(fiberMaskPlane)),
         _numParams(_bgStart + _bg.getNumBlocks())
-    {}
+    {
+        std::cerr << "numRows=" << _numRows << " numKernel=" << _numKernel << " numKernelBlocks=" << _kernel.getNumBlocks() << " bgNumBlocks=" << _bg.getNumBlocks() << " numParams=" << _numParams << std::endl;
+    }
 
     // Determine which traces are relevant for this row
     RowData calculateRow(int y) const {
@@ -735,6 +750,7 @@ struct FiberKernelFitter {
         dotBackgroundImage.deep() = 0.0;
         ndarray::Array<double, 1, 1> dotBackgroundConstant = ndarray::allocate(_bg.getXNumBlocks());
         dotBackgroundConstant.deep() = 0.0;
+        auto const& bgBlocks = _bg.getXBlocks();
         auto iter = _image.row_begin(y);
         for (int xx = 0; xx < _image.getWidth(); ++xx, ++iter) {
             bool const usePixel = isGoodImage(iter);
@@ -742,7 +758,7 @@ struct FiberKernelFitter {
             if (!usePixel) {
                 continue;
             }
-            std::size_t const index = _bg.getIndex(xx, y);
+            std::size_t const index = bgBlocks[xx];
             double const invVar = 1.0/iter.variance();
             dotBackgroundImage[index] += iter.image()*invVar;
             dotBackgroundConstant[index] += invVar;
@@ -846,9 +862,11 @@ struct FiberKernelFitter {
         dotModel.reserve(_numFibers - fiberIndex);
         for (std::size_t jFiberIndex = fiberIndex; jFiberIndex < _numFibers; ++jFiberIndex) {
             std::vector<std::vector<DotTerms>> dotModelFiber;
-            dotModelFiber.reserve(2*_kernelHalfWidth + 1);
+            dotModelFiber.assign(2*_kernelHalfWidth + 1, std::vector<DotTerms>(2*_kernelHalfWidth + 1));
             if (!data.useTrace[jFiberIndex]) {
-                dotModelFiber.emplace_back(2*_kernelHalfWidth + 1, emptyDotTerms());
+                for (auto& row : dotModelFiber) {
+                    row.assign(2*_kernelHalfWidth + 1, emptyDotTerms());
+                }
                 continue;
             }
 
@@ -914,15 +932,21 @@ struct FiberKernelFitter {
         double const iFlux = flux[fiberIndex];
 
         std::size_t iOffsetIndex = 0;
-        for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iOffsetIndex) {
+        std::size_t iKernelIndex = 0;
+        for (
+            int iOffset = -_kernelHalfWidth;
+            iOffset <= _kernelHalfWidth;
+            ++iOffset, ++iOffsetIndex, ++iKernelIndex
+        ) {
             DotBackgroundTerms const& bgTerms = data.dotBackground[fiberIndex][iOffsetIndex];
             if (iOffset == 0) {
                 // Subtracting sum_i F_i(y).p_i(x,y) dot B_b(x,y) from the vector
                 auto _t = timer("bg_vector");
                 assert(iOffsetIndex == std::size_t(_kernelHalfWidth));
                 for (const auto& [kIndex, bgIndex, term] : bgTerms) {
-                    vector[bgIndex] -= term*iFlux;
+                    vector[_bgStart + bgIndex] -= term*iFlux;
                 }
+                --iKernelIndex;
                 continue;
             }
 
@@ -931,12 +955,10 @@ struct FiberKernelFitter {
                 auto _t = timer("vector_datum");
 
                 auto const& dotData = data.dotData[fiberIndex][iOffsetIndex];
-                std::size_t dotStart = dotData.first;
-                auto const& dotTerms = dotData.second;
-
-                std::size_t index = dotStart + iOffsetIndex;
-                for (std::size_t ii = 0; ii < dotTerms.size(); ++ii, index += _numKernel) {
-                    vector[index] += iFlux*dotTerms[ii];
+                std::size_t index = dotData.first*_numKernel + iKernelIndex;
+                auto const& terms = dotData.second;
+                for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
+                    vector[index] += iFlux*terms[ii];
                 }
             }
 
@@ -945,13 +967,14 @@ struct FiberKernelFitter {
                 auto _t = timer("vector_cross");
                 for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
                     double const jFlux = flux[jFiberIndex];
+                    double const ijFlux = iFlux*jFlux;
                     auto const dotModel = getDotModel(
                         data, fiberIndex, jFiberIndex, iOffsetIndex, _kernelHalfWidth
                     );
-                    std::size_t index = dotModel.first + iOffsetIndex;
+                    std::size_t index = dotModel.first*_numKernel + iKernelIndex;
                     ndarray::Array<double, 1, 1> const& terms = dotModel.second;
                     for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
-                        vector[index] -= iFlux*jFlux*terms[ii];
+                        vector[index] -= ijFlux*terms[ii];
                     }
                 }
             }
@@ -963,31 +986,34 @@ struct FiberKernelFitter {
                 auto _t = timer("matrix_kernel_kernel");
                 for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
                     double const jFlux = flux[jFiberIndex];
+                    double const ijFlux = iFlux*jFlux;
 
-                    std::size_t jOffsetIndex = 0;
+                    std::size_t jOffsetIndex = iOffsetIndex;
+                    std::size_t jKernelIndex = iKernelIndex;
                     for (
-                        int jOffset = -_kernelHalfWidth;
+                        int jOffset = iOffset;
                         jOffset <= _kernelHalfWidth;
-                        ++jOffset, ++jOffsetIndex
+                        ++jOffset, ++jOffsetIndex, ++jKernelIndex
                     ) {
                         if (jOffset == 0) {
+                            --jKernelIndex;
                             continue;
                         }
                         auto const dotKernel = getDotModel(
                             data, fiberIndex, jFiberIndex, iOffsetIndex, jOffsetIndex
                         );
-                        std::size_t const start = dotKernel.first;
+                        std::size_t const start = dotKernel.first*_numKernel;
                         ndarray::Array<double, 1, 1> const& terms = dotKernel.second;
 
-                        std::size_t iIndex = start + iOffsetIndex;
-                        std::size_t jIndex = start + jOffsetIndex;
+                        std::size_t iIndex = start + iKernelIndex;
+                        std::size_t jIndex = start + jKernelIndex;
                         for (
                             std::size_t ii = 0;
                             ii < terms.size();
                             ++ii, iIndex += _numKernel, jIndex += _numKernel
                         ) {
                             assert(iIndex <= jIndex);
-                            matrix[iIndex][jIndex] += iFlux*jFlux*terms[ii];
+                            matrix[iIndex][jIndex] += ijFlux*terms[ii];
                         }
                     }
                 }
@@ -998,7 +1024,7 @@ struct FiberKernelFitter {
             {
                 auto _t = timer("matrix_kernel_bg");
                 for (const auto& [kIndex, bgIndex, term] : bgTerms) {
-                    matrix[kIndex + iOffsetIndex][bgIndex] += iFlux*term;
+                    matrix[kIndex*_numKernel + iKernelIndex][_bgStart + bgIndex] += iFlux*term;
                 }
             }
         }
@@ -1013,12 +1039,12 @@ struct FiberKernelFitter {
         auto _t = timer("background");
         ndarray::Array<double, 1, 1> const& dotBackgroundImage = data.dotBackgroundImage.second;
         ndarray::Array<double, 1, 1> const& dotBackgroundConstant = data.dotBackgroundConstant.second;
-        std::size_t bgIndex = data.dotBackgroundImage.first;
-        assert(bgIndex == data.dotBackgroundConstant.first);
+        assert(data.dotBackgroundImage.first == data.dotBackgroundConstant.first);
         assert(dotBackgroundImage.size() == dotBackgroundConstant.size());
-        for (std::size_t ii = 0; ii < dotBackgroundImage.size(); ++ii, ++bgIndex) {
-            vector[bgIndex] += dotBackgroundImage[ii];
-            matrix[bgIndex][bgIndex] += dotBackgroundConstant[ii];
+        std::ptrdiff_t index = data.dotBackgroundImage.first;
+        for (std::size_t ii = 0; ii < dotBackgroundImage.size(); ++ii, ++index) {
+            vector[index] += dotBackgroundImage[ii];
+            matrix[index][index] += dotBackgroundConstant[ii];
         }
     }
 
@@ -1059,12 +1085,17 @@ struct FiberKernelFitter {
                 matrix[jj][ii] = matrix[ii][jj];
             }
         }
-
+#if 0
+        std::cerr << "  Matrix: " << matrix << std::endl;
+        std::cerr << "  Vector: " << vector << std::endl;
+#endif
         // Solve the system of equations
         auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
         lsq.setThreshold(lsqThreshold);
         ndarray::Array<double const, 1, 1> solution = lsq.getSolution();
-
+#if 0
+        std::cerr << "  Solution: " << solution << std::endl;
+#endif
         return ndarray::copy(solution);
     }
 
@@ -1074,9 +1105,9 @@ struct FiberKernelFitter {
         // Extract the kernel
         FiberKernel kernel(
             _image.getDimensions(),
+            _kernelHalfWidth,
             _kernel.getXNumBlocks(),
             _kernel.getYNumBlocks(),
-            _kernelHalfWidth,
             solution[ndarray::view(0, _bgStart)]
         );
 
@@ -1169,13 +1200,13 @@ struct FiberKernelFitter {
             if (offset == 0) {
                 modelDotData += ndarray::asEigenArray(dotData.second).sum();  // p_i dot data
                 for (auto const& [kIndex, bgIndex, term] : dotBackground) {
-                    modelDotData -= term*kernelSolution[bgIndex];  // sum_b a_b p_i dot B_b
+                    modelDotData -= term*kernelSolution[_bgStart + bgIndex];  // sum_b a_b p_i dot B_b
                 }
-                continue;
                 --kernelIndex;
+                continue;
             }
 
-            std::size_t index = dotData.first + kernelIndex;
+            std::size_t index = dotData.first*_numKernel + kernelIndex;
             ndarray::Array<double, 1, 1> const& terms = dotData.second;
             for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
                 modelDotData += kernelSolution[index]*terms[ii];  // sum_I a_I K_I dot data
@@ -1183,7 +1214,8 @@ struct FiberKernelFitter {
 
             for (auto const& [kIndex, bgIndex, term] : dotBackground) {
                 // sum_I sum_b a_I a_b K_I dot B_b
-                modelDotData -= kernelSolution[kIndex]*kernelSolution[bgIndex]*term;
+                std::size_t const index = kIndex*_numKernel + kernelIndex;
+                modelDotData -= kernelSolution[index]*kernelSolution[_bgStart + bgIndex]*term;
             }
         }
         vector[iFluxIndex] = modelDotData;
@@ -1194,47 +1226,56 @@ struct FiberKernelFitter {
             if (!data.useTrace[jFiberIndex]) {
                 continue;
             }
-            std::size_t jFluxIndex = getFluxIndex(rowNum, jFiberIndex);
+            std::size_t const jFluxIndex = getFluxIndex(rowNum, jFiberIndex);
             double modelDotModel = 0.0;
+
+            DotTerms const& dotModel = getDotModel(
+                data, fiberIndex, jFiberIndex, _kernelHalfWidth, _kernelHalfWidth
+            );
+            modelDotModel += ndarray::asEigenArray(dotModel.second).sum();  // p_i dot p_j
+
+            std::size_t jOffsetIndex = 0;
+            std::size_t jKernelIndex = 0;
+            for (
+                int jOffset = -_kernelHalfWidth;
+                jOffset <= _kernelHalfWidth;
+                ++jOffset, ++jOffsetIndex, ++jKernelIndex
+            ) {
+                if (jOffset == 0) {
+                    --jKernelIndex;
+                    continue;
+                }
+
+                DotTerms const& dotModel = getDotModel(
+                    data, fiberIndex, jFiberIndex, _kernelHalfWidth, jOffsetIndex
+                );
+
+                std::size_t index = dotModel.first*_numKernel + jKernelIndex;
+                ndarray::Array<double, 1, 1> const& terms = dotModel.second;
+                for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
+                    modelDotModel += kernelSolution[index]*terms[ii];  // sum_J a_J p_i dot K_J
+                }
+            }
 
             std::size_t iOffsetIndex = 0;
             std::size_t iKernelIndex = 0;
             for (
-                int offset = -_kernelHalfWidth;
-                offset <= _kernelHalfWidth;
-                ++offset, ++iOffsetIndex, ++iKernelIndex
+                int iOffset = -_kernelHalfWidth;
+                iOffset <= _kernelHalfWidth;
+                ++iOffset, ++iOffsetIndex, ++iKernelIndex
             ) {
-                if (offset == 0) {
+                if (iOffset == 0) {
                     --iKernelIndex;
-
-                    DotTerms const& dotModel = getDotModel(
-                        data, fiberIndex, jFiberIndex, _kernelHalfWidth, _kernelHalfWidth
-                    );
-                    modelDotModel += ndarray::asEigenArray(dotModel.second).sum();  // p_i dot p_j
-
-                    std::size_t jOffsetIndex = 0;
-                    std::size_t jKernelIndex = 0;
-                    for (
-                        int jOffset = -_kernelHalfWidth;
-                        jOffset <= _kernelHalfWidth;
-                        ++jOffsetIndex, ++jKernelIndex
-                    ) {
-                        if (jOffset == 0) {
-                            --jKernelIndex;
-                        }
-
-                        DotTerms const& dotModel = getDotModel(
-                            data, fiberIndex, jFiberIndex, iOffsetIndex, jOffsetIndex
-                        );
-
-                        std::size_t index = dotModel.first + jKernelIndex;
-                        ndarray::Array<double, 1, 1> const& terms = dotModel.second;
-                        for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
-                            modelDotModel += kernelSolution[index]*terms[ii];  // sum_J a_J p_i dot K_J
-                        }
-                    }
-
                     continue;
+                }
+
+                auto const dotModel = getDotModel(
+                    data, fiberIndex, jFiberIndex, iOffsetIndex, _kernelHalfWidth
+                );
+                ndarray::Array<double, 1, 1> const& terms = dotModel.second;
+                std::size_t index = dotModel.first*_numKernel + iKernelIndex;
+                for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
+                    modelDotModel += kernelSolution[index]*terms[ii];  // sum_I a_I K_I dot p_j
                 }
 
                 std::size_t jOffsetIndex = 0;
@@ -1242,27 +1283,17 @@ struct FiberKernelFitter {
                 for (
                     int jOffset = -_kernelHalfWidth;
                     jOffset <= _kernelHalfWidth;
-                    ++jOffsetIndex, ++jKernelIndex
+                    ++jOffset, ++jOffsetIndex, ++jKernelIndex
                 ) {
                     if (jOffset == 0) {
                         --jKernelIndex;
-
-                        auto const dotModel = getDotModel(
-                            data, fiberIndex, jFiberIndex, iOffsetIndex, _kernelHalfWidth
-                        );
-                        std::size_t const start = dotModel.first;
-                        ndarray::Array<double, 1, 1> const& terms = dotModel.second;
-                        std::size_t index = start + iKernelIndex;
-                        for (std::size_t ii = 0; ii < terms.size(); ++ii, index += _numKernel) {
-                            modelDotModel += kernelSolution[index]*terms[ii];  // sum_I a_I K_I dot p_j
-                        }
-
+                        continue;
                     }
 
                     auto const dotModel = getDotModel(
                         data, fiberIndex, jFiberIndex, iOffsetIndex, jOffsetIndex
                     );
-                    std::size_t const start = dotModel.first;
+                    std::size_t const start = dotModel.first*_numKernel;
                     ndarray::Array<double, 1, 1> const& terms = dotModel.second;
                     std::size_t iIndex = start + iKernelIndex;
                     std::size_t jIndex = start + jKernelIndex;
@@ -1605,7 +1636,7 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
             FiberModel const& iModel = kernelModels[iOffsetIndex];
 
             auto const dotData = iModel.dotData(kernel, image, usePixels, variance);
-            std::size_t index = dotData.first + iOffsetIndex;
+            std::size_t index = dotData.first*numKernels + iOffsetIndex;
             ndarray::Array<double, 1, 1> const& terms = dotData.second;
             for (std::size_t ii = 0; ii < terms.size(); ++ii, index += numKernels) {
                 vector[index] += terms[ii];
@@ -1619,8 +1650,8 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
                 }
                 FiberModel const& jModel = kernelModels[jOffsetIndex];
                 auto const dotKernel = iModel.dotOther(kernel, jModel, usePixels, variance);
-                std::size_t iIndex = dotKernel.first + iOffsetIndex;
-                std::size_t jIndex = dotKernel.first + jOffsetIndex;
+                std::size_t iIndex = dotKernel.first*numKernels + iOffsetIndex;
+                std::size_t jIndex = dotKernel.first*numKernels + jOffsetIndex;
                 ndarray::Array<double, 1, 1> const& terms = dotKernel.second;
                 for (
                     std::size_t ii = 0;
@@ -1633,22 +1664,21 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
 
             DotBackgroundTerms const& dotBackground = iModel.dotBackground(kernel, bg, usePixels, variance);
             for (auto const& [kIndex, bgIndex, term] : dotBackground) {
-                matrix[kIndex][bgIndex] += term;
+                std::size_t const index = kIndex*numKernels + iOffsetIndex;
+                matrix[index][bgStart + bgIndex] += term;
             }
         }
 
         auto img = image.begin();
         auto var = variance.begin();
-        std::size_t const rowBgIndex = bgStart + bg.getIndex(0, yy);
-        auto const xBgBlocks = bg.getXBlocks();
         for (int xx = 0; xx < target.getWidth(); ++xx, ++img, ++var) {
             if (!usePixels[xx]) {
                 continue;
             }
-            std::size_t const block = rowBgIndex + xBgBlocks[xx];
+            std::size_t const index = bgStart + bg.getIndex(xx, yy);
             double const weight = 1.0/(*var);
-            matrix[block][block] += weight;
-            vector[block] += (*img)*weight;
+            matrix[index][index] += weight;
+            vector[index] += (*img)*weight;
         }
     }
 
