@@ -119,7 +119,7 @@ class AnalyticDistortion : public Distortion {
     AnalyticDistortion & operator=(AnalyticDistortion const&) = default;
     AnalyticDistortion & operator=(AnalyticDistortion &&) = default;
 
-    virtual std::shared_ptr<Distortion> clone() const {
+    virtual std::shared_ptr<Distortion> clone() const override {
         return std::make_shared<Derived>(*static_cast<Derived const*>(this));
     }
 

@@ -87,7 +87,7 @@ class RotScaleDistortion : public Distortion {
     RotScaleDistortion & operator=(RotScaleDistortion const&) = default;
     RotScaleDistortion & operator=(RotScaleDistortion &&) = default;
 
-    virtual std::shared_ptr<Distortion> clone() const {
+    virtual std::shared_ptr<Distortion> clone() const override {
         return std::make_shared<RotScaleDistortion>(getRange(), getParameters());
     }
 
@@ -191,7 +191,7 @@ class DoubleRotScaleDistortion : public Distortion {
     DoubleRotScaleDistortion & operator=(DoubleRotScaleDistortion const&) = default;
     DoubleRotScaleDistortion & operator=(DoubleRotScaleDistortion &&) = default;
 
-    virtual std::shared_ptr<Distortion> clone() const {
+    virtual std::shared_ptr<Distortion> clone() const override {
         return std::make_shared<DoubleRotScaleDistortion>(getRange(), getParameters());
     }
 

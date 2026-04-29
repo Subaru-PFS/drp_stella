@@ -298,14 +298,14 @@ void ImagingSpectralPsf::write(OutputArchiveHandle& handle) const {
 
 // Explicit instantiation
 #define INSTANTIATE(TYPE) \
-std::shared_ptr<lsst::afw::image::Image<TYPE>> \
-resampleKernelImage( \
+template std::shared_ptr<lsst::afw::image::Image<TYPE>> \
+resampleKernelImage<TYPE>( \
     lsst::afw::image::Image<TYPE> const& image, \
     int binning, \
     lsst::geom::Box2I const& bbox, \
     lsst::geom::Point2D const& center \
 ); \
-std::shared_ptr<lsst::afw::image::Image<TYPE>> \
+template std::shared_ptr<lsst::afw::image::Image<TYPE>> \
 recenterOversampledKernelImage( \
     lsst::afw::image::Image<TYPE> const& image, \
     int binning, \

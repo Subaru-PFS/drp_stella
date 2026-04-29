@@ -38,10 +38,8 @@ void declareMosaicPolynomialDistortion(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(MosaicPolynomialDistortion) {
-    py::module mod("MosaicPolynomialDistortion");
+PYBIND11_MODULE(MosaicPolynomialDistortion, mod) {
     declareMosaicPolynomialDistortion(mod);
-    return mod.ptr();
 }
 
 } // anonymous namespace

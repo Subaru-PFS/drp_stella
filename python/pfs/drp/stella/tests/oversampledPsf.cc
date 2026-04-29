@@ -98,7 +98,7 @@ class GaussianOversampledPsf :
     // Return an oversampled image of the PSF, with the center at 0,0
     virtual std::shared_ptr<Image> doComputeOversampledKernelImage(
         lsst::geom::Point2D const& position
-    ) const {
+    ) const override {
         auto const targetBox = computeBBox(position);
         int const oversampleFactor = getOversampleFactor();
         lsst::geom::Box2I bbox{lsst::geom::Point2I(-targetBox.getWidth()*oversampleFactor/2,
