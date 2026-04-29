@@ -65,15 +65,14 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
     def testIntegerOffset(self):
         kernelHalfWidth = 2
-        kernelOrder = 0
-        bgWidth = 300
-        bgHeight = 30
+        kernelNum = 1
+        bgNum = 1
         xOffset = 1.0
         image = self.makeImage(xOffset=xOffset, background=self.background)
         fiberTraces = self.makeFiberTraces()
 
         kernel, background, flux = fitFiberKernel(
-            image, fiberTraces, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            image, fiberTraces, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
 
         self.assertFloatsAlmostEqual(background.array, self.background, atol=0.2)
@@ -88,15 +87,14 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
     def testOffset(self):
         """We apply a subpixel offset"""
         kernelHalfWidth = 3
-        kernelOrder = 0
-        bgWidth = self.config.width
-        bgHeight = self.config.height
+        kernelNum = 1
+        bgNum = 1
         xOffset = -0.5
         image = self.makeImage(xOffset=xOffset, background=self.background)
         fiberTraces = self.makeFiberTraces()
 
         kernel, background, flux = fitFiberKernel(
-            image, fiberTraces, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            image, fiberTraces, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
         self.assertFloatsAlmostEqual(background.array, self.background, atol=1.0)
         self.assertFloatsAlmostEqual(flux, self.flux, rtol=2.0e-3)
@@ -112,14 +110,13 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
     def testWidth(self):
         kernelHalfWidth = 3
-        kernelOrder = 0
-        bgWidth = self.config.width
-        bgHeight = self.config.height
+        kernelNum = 1
+        bgNum = 1
         image = self.makeImage(background=self.background)
         fiberTraces = self.makeFiberTraces(3.33)
 
         kernel, background, flux = fitFiberKernel(
-            image, fiberTraces, 0, kernelHalfWidth, kernelOrder, bgWidth, bgHeight
+            image, fiberTraces, 0, kernelHalfWidth, kernelNum, kernelNum, bgNum, bgNum
         )
         self.assertFloatsAlmostEqual(background.array, self.background, atol=1.0)
         self.assertFloatsAlmostEqual(flux, self.flux, rtol=2.0e-3)
