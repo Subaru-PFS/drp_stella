@@ -26,8 +26,18 @@ class PiecewiseConstantInterpolator {
         std::size_t step=1
     );
 
-    std::size_t getIndex(int x, int y) const {
+    std::size_t getBlock(int x, int y) const {
         return _yBlocks[y] + _xBlocks[x];
+    }
+    std::size_t getBlock(double x, int y) const {
+        return getBlock(static_cast<int>(std::round(x)), y);
+    }
+    std::size_t getBlock(double x, double y) const {
+        return getBlock(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
+    }
+
+    std::size_t getIndex(int x, int y) const {
+        return _yIndex[y] + _xIndex[x];
     }
     std::size_t getIndex(double x, int y) const {
         return getIndex(static_cast<int>(std::round(x)), y);
@@ -39,15 +49,19 @@ class PiecewiseConstantInterpolator {
     std::size_t getXNumBlocks() const { return _xNumBlocks; }
     std::size_t getYNumBlocks() const { return _yNumBlocks; }
     std::size_t getNumBlocks() const { return _xNumBlocks*_yNumBlocks; }
-    ndarray::Array<int const, 1, 1> getXBlocks() const { return _xBlocks; }
-    ndarray::Array<int const, 1, 1> getYBlocks() const { return _yBlocks; }
+    ndarray::Array<std::size_t const, 1, 1> getXBlocks() const { return _xBlocks; }
+    ndarray::Array<std::size_t const, 1, 1> getYBlocks() const { return _yBlocks; }
+    ndarray::Array<std::size_t const, 1, 1> getXIndex() const { return _xIndex; }
+    ndarray::Array<std::size_t const, 1, 1> getYIndex() const { return _yIndex; }
 
   private:
     std::size_t _xNumBlocks;
     std::size_t _yNumBlocks;
     std::size_t _step;
-    ndarray::Array<int, 1, 1> _xBlocks;
-    ndarray::Array<int, 1, 1> _yBlocks;
+    ndarray::Array<std::size_t, 1, 1> _xBlocks;
+    ndarray::Array<std::size_t, 1, 1> _yBlocks;
+    ndarray::Array<std::size_t, 1, 1> _xIndex;
+    ndarray::Array<std::size_t, 1, 1> _yIndex;
 };
 
 
