@@ -72,6 +72,12 @@ class BaseKernel {
   public:
     using Polynomial = math::NormalizedPolynomial2<double>;
 
+    BaseKernel(BaseKernel const&) = default;
+    BaseKernel(BaseKernel &&) = default;
+    BaseKernel & operator=(BaseKernel const&) = default;
+    BaseKernel & operator=(BaseKernel &&) = default;
+    virtual ~BaseKernel() = default;
+
     int getHalfWidth() const { return _halfWidth; }
     std::size_t getNumParams() const { return _numParams; }
     ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
