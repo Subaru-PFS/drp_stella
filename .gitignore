@@ -18,3 +18,4 @@ sphinx/_build/
 .coverage
 .pytest_cache
 .nfs*
+python/debug.py
