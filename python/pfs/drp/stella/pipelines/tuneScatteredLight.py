@@ -56,7 +56,14 @@ __all__ = (
     "TuneScatteredLightConfig",
     "TuneScatteredLightTask",
     "tuneCamerasInParallel",
-    "tuneScatteredLight",
+    # NOTE: the function ``tuneScatteredLight`` is intentionally NOT in
+    # ``__all__``. The package's ``__init__.py`` does
+    # ``from .tuneScatteredLight import *``, which would overwrite the
+    # submodule attribute on the parent package and break
+    # ``import pfs.drp.stella.pipelines.tuneScatteredLight as tsl``
+    # (``tsl`` would then resolve to the function via attribute lookup,
+    # not the module). Import the function explicitly when needed:
+    #   from pfs.drp.stella.pipelines.tuneScatteredLight import tuneScatteredLight
     "diagnoseScatteredLight",
 )
 
