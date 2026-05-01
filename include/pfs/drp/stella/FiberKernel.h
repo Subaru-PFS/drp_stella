@@ -14,59 +14,6 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
-namespace detail {
-
-
-class PiecewiseConstantInterpolator {
-  public:
-    PiecewiseConstantInterpolator(
-        lsst::geom::Extent2I const& dims,
-        int xNumBlocks,
-        int yNumBlocks,
-        std::size_t step=1
-    );
-
-    std::size_t getBlock(int x, int y) const {
-        return _yBlocks[y] + _xBlocks[x];
-    }
-    std::size_t getBlock(double x, int y) const {
-        return getBlock(static_cast<int>(std::round(x)), y);
-    }
-    std::size_t getBlock(double x, double y) const {
-        return getBlock(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-    }
-
-    std::size_t getIndex(int x, int y) const {
-        return _yIndex[y] + _xIndex[x];
-    }
-    std::size_t getIndex(double x, int y) const {
-        return getIndex(static_cast<int>(std::round(x)), y);
-    }
-    std::size_t getIndex(double x, double y) const {
-        return getIndex(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-    }
-
-    std::size_t getXNumBlocks() const { return _xNumBlocks; }
-    std::size_t getYNumBlocks() const { return _yNumBlocks; }
-    std::size_t getNumBlocks() const { return _xNumBlocks*_yNumBlocks; }
-    ndarray::Array<std::size_t const, 1, 1> getXBlocks() const { return _xBlocks; }
-    ndarray::Array<std::size_t const, 1, 1> getYBlocks() const { return _yBlocks; }
-    ndarray::Array<std::size_t const, 1, 1> getXIndex() const { return _xIndex; }
-    ndarray::Array<std::size_t const, 1, 1> getYIndex() const { return _yIndex; }
-
-  private:
-    std::size_t _xNumBlocks;
-    std::size_t _yNumBlocks;
-    std::size_t _step;
-    ndarray::Array<std::size_t, 1, 1> _xBlocks;
-    ndarray::Array<std::size_t, 1, 1> _yBlocks;
-    ndarray::Array<std::size_t, 1, 1> _xIndex;
-    ndarray::Array<std::size_t, 1, 1> _yIndex;
-};
-
-
-}  // namespace detail
-
 
 class BaseKernel {
   public:
@@ -108,7 +55,7 @@ class BaseKernel {
         lsst::geom::Extent2I const& dims,
         int halfWidth,
         std::size_t numParams,
-        ndarray::ArrayRef<double const, 1, 1> const& coefficients
+        ndarray::Array<double const, 1, 1> const& coefficients
     );
 
     lsst::geom::Extent2I _dims;
@@ -136,7 +83,7 @@ class FiberKernel : public BaseKernel {
         int halfWidth,
         int xNumBlocks,
         int yNumBlocks,
-        ndarray::ArrayRef<double const, 1, 1> const& coefficients
+        ndarray::Array<double const, 1, 1> const& coefficients
     );
 
     ndarray::Array<double, 1, 1> evaluate(double x, double y) const;
@@ -156,19 +103,24 @@ class FiberKernel : public BaseKernel {
         lsst::geom::Extent2I const& dims
     ) const override;
 
-    detail::PiecewiseConstantInterpolator _interp;
+    lsst::geom::Point2I getBlock(double x, double y) const {
+        return lsst::geom::Point2I(getXBlock(x), getYBlock(y));
+    }
+    int getXBlock(double x) const;
+    int getYBlock(double y) const;
+
+    int _xNumBlocks;
+    int _yNumBlocks;
 };
 
 
-std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2, 2>> fitFiberKernel(
+FiberKernel fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,
     int kernelHalfWidth,
     int xKernelNum,
     int yKernelNum,
-    int xBackgroundSize,
-    int yBackgroundSize,
     ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
     int maxIter=20,
     int andersonDepth=5,
@@ -177,15 +129,13 @@ std::tuple<FiberKernel, lsst::afw::image::Image<float>, ndarray::Array<double, 2
 );
 
 
-std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
+FiberKernel fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& source,
     lsst::afw::image::MaskedImage<float> const& target,
     lsst::afw::image::MaskPixel badBitMask,
     int kernelHalfWidth,
     int xKernelNum,
     int yKernelNum,
-    int xBackgroundSize,
-    int yBackgroundSize,
     ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
     double lsqThreshold=1.0e-16
 );

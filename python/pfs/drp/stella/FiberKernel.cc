@@ -93,8 +93,6 @@ PYBIND11_MODULE(FiberKernel, mod) {
             int,
             int,
             int,
-            int,
-            int,
             ndarray::Array<int, 1, 1> const&,
             int,
             int,
@@ -107,8 +105,6 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "kernelHalfWidth"_a=2,
         "xKernelNum"_a=7,
         "yKernelNum"_a=7,
-        "xBackgroundNum"_a=9,
-        "yBackgroundNum"_a=9,
         "rows"_a=nullptr,
         "maxIter"_a=20,
         "andersonDepth"_a=5,
@@ -124,8 +120,6 @@ PYBIND11_MODULE(FiberKernel, mod) {
             int,
             int,
             int,
-            int,
-            int,
             ndarray::Array<int, 1, 1> const&,
             double
         >(&fitFiberKernel),
@@ -135,8 +129,6 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "kernelHalfWidth"_a=2,
         "xKernelNum"_a=7,
         "yKernelNum"_a=7,
-        "xBackgroundNum"_a=9,
-        "yBackgroundNum"_a=9,
         "rows"_a=nullptr,
         "lsqThreshold"_a=1.0e-16
     );
