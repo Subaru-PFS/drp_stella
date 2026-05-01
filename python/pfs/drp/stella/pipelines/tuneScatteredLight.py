@@ -386,20 +386,44 @@ def _tuneOneCameraWorker(args):
     detMap = butler.get("detectorMap_calib", dataId, visit=calibVisit)
     profiles = butler.get("fiberProfiles", dataId, visit=calibVisit)
 
-    postISRs = []
-    for v in useVisits:
+    def _loadOne(vid):
         did = dict(dataId)
-        did["visit"] = int(v)
+        did["visit"] = int(vid)
         postISR = butler.get("postISRCCD", did)
         calexp = butler.get("calexp", did)
         postISR.mask.array[:] = calexp.mask.array[:]
-        postISRs.append(postISR)
+        return postISR
+
+    postISRs = []
+    for v in useVisits:
+        if isinstance(v, (tuple, list)):
+            # Coadd a group of consecutive same-config exposures (calibration
+            # pairs, etc.). The kernel-relevant signal is identical across the
+            # group, so the mean image gives a √N noise reduction at the same
+            # scatter signal. Mask is OR-reduced; variance is sum/N² (variance
+            # of the mean for independent exposures).
+            exps = [_loadOne(vid) for vid in v]
+            coadded = exps[0].clone()
+            imgs = np.stack([e.image.array for e in exps], axis=0)
+            coadded.image.array[:] = imgs.mean(axis=0)
+            vars_ = np.stack([e.variance.array for e in exps], axis=0)
+            coadded.variance.array[:] = vars_.sum(axis=0) / (len(exps) ** 2)
+            masks = np.stack([e.mask.array for e in exps], axis=0)
+            coadded.mask.array[:] = np.bitwise_or.reduce(masks, axis=0)
+            postISRs.append(coadded)
+        else:
+            postISRs.append(_loadOne(v))
 
     config = TuneScatteredLightConfig()
     for key, val in (configKwargs or {}).items():
         setattr(config, key, val)
     task = TuneScatteredLightTask(config=config)
-    struct = task.run(postISRs, detMap, profiles, camera=camera, visits=list(useVisits))
+    # Provenance: keep mixed singleton/tuple layout in the output payload.
+    visits_for_log = [
+        list(v) if isinstance(v, (tuple, list)) else int(v) for v in useVisits
+    ]
+    struct = task.run(postISRs, detMap, profiles, camera=camera,
+                      visits=visits_for_log)
     return camera, struct.tuneResult
 
 
@@ -427,8 +451,13 @@ def tuneCamerasInParallel(
         Input collections to search for postISRCCD + calibrations.
     cameras : sequence of `str`
         e.g. ``['b1','r1','b2','r2','b3','r3','b4','r4']``.
-    useVisits : sequence of `int`
-        Visits whose postISRCCD frames drive the tuning. Same set is used
+    useVisits : sequence of `int` or sequence of (sequence of `int`)
+        Visits whose postISRCCD frames drive the tuning. A mixed list is
+        accepted: bare ints are loaded as singleton frames, tuples/lists of
+        ints are loaded and **coadded** (mean image, OR-reduced mask, sum/N²
+        variance) into a single effective frame. Coadd same-configuration
+        exposure groups (e.g. calibration pairs) to gain √N noise reduction
+        at no signal cost. Same set is used
         for every camera.
     calibVisit : `int`
         Visit used to resolve the detectorMap and fiberProfiles calibrations.
