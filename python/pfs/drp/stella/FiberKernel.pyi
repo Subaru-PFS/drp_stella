@@ -46,14 +46,12 @@ def fitFiberKernel(
     kernelHalfWidth: int = 2,
     xKernelNum: int = 7,
     yKernelNum: int = 7,
-    xBackgroundNum: int = 9,
-    yBackgroundNum: int = 9,
     rows: np.ndarray | None = None,
     maxIter: int = 20,
     andersonDepth: int = 5,
     fluxTol: float = 1.0e-3,
     lsqThreshold: float = 1.0e-16,
-) -> tuple[FiberKernel, Image, np.ndarray]: ...
+) -> FiberKernel: ...
 @overload
 def fitImageKernel(
     source: MaskedImage,
@@ -66,4 +64,4 @@ def fitImageKernel(
     yBackgroundNum: int = 9,
     rows: np.ndarray | None = None,
     lsqThreshold: float = 1.0e-16,
-) -> tuple[FiberKernel, Image]: ...
+) -> FiberKernel: ...
