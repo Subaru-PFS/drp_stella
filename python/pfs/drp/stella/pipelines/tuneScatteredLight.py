@@ -154,6 +154,80 @@ class TuneScatteredLightConfig(
         default=list(DEFAULT_BIN_EDGES),
         doc="Distance bin edges (px from nearest illuminated fiber).",
     )
+    useGrossBg = Field(
+        dtype=bool, default=True,
+        doc="Subtract a per-row linear background (anchored at the CCD edges "
+            "beyond the slit boundary) before kernel optimisation, so the "
+            "kernel is tuned only against fiber-correlated scatter.",
+    )
+    grossBgEdgeWidth = Field(
+        dtype=int, default=20,
+        doc="Width (in cols) of the outer-edge anchor bands used for the "
+            "gross bg fit. Only the leftmost N cols of CCD1 and the "
+            "rightmost N cols of CCD2 are used (the inner-edges next to "
+            "the CCD gap are too close to fibers and would absorb halo).",
+    )
+    useFineBg = Field(
+        dtype=bool, default=False,
+        doc="Inside the kernel-evaluation cost, also apply the iterative "
+            "fine 2-D polynomial bg refinement (in physical pixel coords) "
+            "after FFT-IF. ~3× more expensive per grid point but tunes the "
+            "kernel against the FULL production pipeline residual.",
+    )
+    fineBgIter = Field(
+        dtype=int, default=1,
+        doc="Number of fine-bg refinement iterations per FFT-IF call.",
+    )
+    fineBgDegCol = Field(
+        dtype=int, default=2,
+        doc="Degree of the fine bg polynomial in the (physical) column.",
+    )
+    fineBgDegRow = Field(
+        dtype=int, default=3,
+        doc="Degree of the fine bg polynomial in the row direction.",
+    )
+    useIterative = Field(
+        dtype=bool, default=False,
+        doc="Use the production-style iterative pipeline as the cost: in "
+            "physical-pixel space, alternate between a gross deg=2 bg fit "
+            "(through 3 anchors: ccd1-outer, middle, ccd2-outer) and the "
+            "FFT inverse filter for `nIter` iterations. Cost is then the "
+            "residual at 8 specific scatter regions (4 per CCD).",
+    )
+    nIter = Field(
+        dtype=int, default=3,
+        doc="Number of iterations of (grossBg, FFT-IF) when useIterative.",
+    )
+    outerRegionWeight = Field(
+        dtype=float, default=5.0,
+        doc="Weight multiplier on the outermost cost regions (CCD1 outer-left "
+            "and CCD2 outer-right) in the weighted-RMS aggregation. Higher → "
+            "the optimiser is more strongly anchored to bg ≈ 0 at the truly "
+            "outer edges, which breaks the bg-vs-kernel-tail degeneracy "
+            "(an additive bg shift biases the outer regions; the kernel tail "
+            "biases them less). Set to 1.0 to disable.",
+    )
+    radialPenaltyWeight = Field(
+        dtype=float, default=1.0,
+        doc="Weight on the radial-shape penalty in the cost: "
+            "|<bins[near]> − <bins[far]>| where near and far are regions with "
+            "`mean_dist < radialNearThreshold` and `> radialFarThreshold` "
+            "respectively. Penalises kernels whose radial shape mismatches "
+            "the residual radial profile (complementary to the weighted RMS, "
+            "which only sees overall amplitude). Set to 0.0 to disable.",
+    )
+    radialNearThreshold = Field(
+        dtype=float, default=30.0,
+        doc="Cost regions with mean distance-to-nearest-fiber below this "
+            "value (px, in physical coords) are 'near' for the radial-shape "
+            "penalty.",
+    )
+    radialFarThreshold = Field(
+        dtype=float, default=60.0,
+        doc="Cost regions with mean distance-to-nearest-fiber above this "
+            "value (px, in physical coords) are 'far' for the radial-shape "
+            "penalty.",
+    )
 
 
 class TuneScatteredLightTask(PipelineTask):
@@ -256,6 +330,18 @@ class TuneScatteredLightTask(PipelineTask):
             halfIllum=self.config.halfIllum,
             brightPercentile=self.config.brightPercentile,
             binEdges=tuple(self.config.binEdges),
+            useGrossBg=self.config.useGrossBg,
+            grossBgEdgeWidth=self.config.grossBgEdgeWidth,
+            useFineBg=self.config.useFineBg,
+            fineBgIter=self.config.fineBgIter,
+            fineBgDegCol=self.config.fineBgDegCol,
+            fineBgDegRow=self.config.fineBgDegRow,
+            useIterative=self.config.useIterative,
+            nIter=self.config.nIter,
+            outerRegionWeight=self.config.outerRegionWeight,
+            radialPenaltyWeight=self.config.radialPenaltyWeight,
+            radialNearThreshold=self.config.radialNearThreshold,
+            radialFarThreshold=self.config.radialFarThreshold,
         )
 
         best = result["best"]
@@ -382,6 +468,18 @@ def tuneScatteredLight(
     halfIllum: int = 5,
     brightPercentile: float = 60.0,
     binEdges: Sequence[int] = DEFAULT_BIN_EDGES,
+    useGrossBg: bool = True,
+    grossBgEdgeWidth: int = 20,
+    useFineBg: bool = False,
+    fineBgIter: int = 1,
+    fineBgDegCol: int = 2,
+    fineBgDegRow: int = 3,
+    useIterative: bool = False,
+    nIter: int = 3,
+    outerRegionWeight: float = 5.0,
+    radialPenaltyWeight: float = 1.0,
+    radialNearThreshold: float = 30.0,
+    radialFarThreshold: float = 60.0,
 ) -> dict:
     """Optimize scattered-light kernel parameters against a set of frames.
 
@@ -428,7 +526,13 @@ def tuneScatteredLight(
 
     prep = _prepare(postISRCCDs, detectorMap, fiberProfiles,
                     halfIllum=halfIllum, brightPercentile=brightPercentile,
-                    binEdges=binEdges)
+                    binEdges=binEdges, useGrossBg=useGrossBg,
+                    grossBgEdgeWidth=grossBgEdgeWidth,
+                    outerRegionWeight=outerRegionWeight)
+    fineBgKwargs = dict(
+        useFineBg=useFineBg, fineBgIter=fineBgIter,
+        fineBgDegCol=fineBgDegCol, fineBgDegRow=fineBgDegRow,
+    )
 
     fixed = {p: float(scatConfig.getValue(p, camera or "")) for p in _KERNEL_PARAMS}
     halfSize = int(scatConfig.halfSize)
@@ -445,23 +549,50 @@ def tuneScatteredLight(
     rms_grid = np.full(shape, np.nan)
     bin_grid = np.full(shape + (len(prep["binLabels"]),), np.nan)
 
-    for flatIdx in np.ndindex(*shape):
-        params = dict(fixed)
-        for n, i in zip(names, flatIdx):
-            params[n] = float(grids[n][i])
-        K1_hat = k1_cache[(params["powerLaw1"], params["soften1"])]
-        K2_hat = k2_cache[(params["powerLaw2"], params["soften2"])]
-        bins = _meanBinResiduals(prep, K1_hat, K2_hat,
-                                 params["frac1"], params["frac2"])
-        rms_grid[flatIdx] = float(np.sqrt(np.nanmean(bins ** 2)))
-        bin_grid[flatIdx] = bins
+    if useIterative:
+        # Each grid point evaluated as: nIter-iteration physical-pixel
+        # pipeline, cost = weighted RMS over the 8 cost regions plus a
+        # radial-shape penalty (see `_aggregateCost`).
+        n_regions = len(prep["cost_regions"])
+        bin_grid = np.full(shape + (n_regions,), np.nan)
+        cost_kw = dict(
+            weights=prep["cost_region_weights"],
+            dists=prep["cost_region_dists"],
+            radial_weight=radialPenaltyWeight,
+            near_thresh=radialNearThreshold,
+            far_thresh=radialFarThreshold,
+        )
+        for flatIdx in np.ndindex(*shape):
+            params = dict(fixed)
+            for n, i in zip(names, flatIdx):
+                params[n] = float(grids[n][i])
+            K1_hat = k1_cache[(params["powerLaw1"], params["soften1"])]
+            K2_hat = k2_cache[(params["powerLaw2"], params["soften2"])]
+            bins = _meanRegionResiduals(prep, K1_hat, K2_hat,
+                                         params["frac1"], params["frac2"],
+                                         n_iter=nIter)
+            rms_grid[flatIdx] = _aggregateCost(bins, **cost_kw)
+            bin_grid[flatIdx] = bins
+        raw_bins = _meanRegionResiduals(prep, None, None, 0.0, 0.0,
+                                         n_iter=nIter)
+    else:
+        for flatIdx in np.ndindex(*shape):
+            params = dict(fixed)
+            for n, i in zip(names, flatIdx):
+                params[n] = float(grids[n][i])
+            K1_hat = k1_cache[(params["powerLaw1"], params["soften1"])]
+            K2_hat = k2_cache[(params["powerLaw2"], params["soften2"])]
+            bins = _meanBinResiduals(prep, K1_hat, K2_hat,
+                                     params["frac1"], params["frac2"],
+                                     **fineBgKwargs)
+            rms_grid[flatIdx] = float(np.sqrt(np.nanmean(bins ** 2)))
+            bin_grid[flatIdx] = bins
+        raw_bins = _meanBinResiduals(prep, None, None, 0.0, 0.0)
 
     imin = np.unravel_index(np.nanargmin(rms_grid), rms_grid.shape)
     best = dict(fixed)
     for n, i in zip(names, imin):
         best[n] = float(grids[n][i])
-
-    raw_bins = _meanBinResiduals(prep, None, None, 0.0, 0.0)
 
     _log.info(
         "Best: %s  RMS=%.5f  bins=%s",
@@ -504,6 +635,8 @@ def diagnoseScatteredLight(
     halfIllum: int = 5,
     brightPercentile: float = 60.0,
     binEdges: Sequence[int] = DEFAULT_BIN_EDGES,
+    useGrossBg: bool = True,
+    grossBgEdgeWidth: int = 20,
     plotPath: Optional[str] = None,
     show: bool = False,
 ):
@@ -537,7 +670,8 @@ def diagnoseScatteredLight(
 
     prep = _prepare(postISRCCDs, detectorMap, fiberProfiles,
                     halfIllum=halfIllum, brightPercentile=brightPercentile,
-                    binEdges=binEdges)
+                    binEdges=binEdges, useGrossBg=useGrossBg,
+                    grossBgEdgeWidth=grossBgEdgeWidth)
 
     def k_hats(p):
         return (
@@ -668,8 +802,175 @@ def _validateTuneGrids(tuneGrids):
             )
 
 
+def _imgToPhysical(img, bad, ccd_split, x_gap):
+    """Insert the physical CCD gap (xGap zero rows in the cross-disp dir)
+    so cols become physical coords.  Returns (imgp, badp) of shape (H, W+xGap).
+    Gap region: image=0, bad=True (excluded from fits)."""
+    H, W = img.shape
+    WP = W + x_gap
+    imgp = np.zeros((H, WP), dtype=img.dtype)
+    badp = np.ones((H, WP), dtype=bool)
+    imgp[:, :ccd_split] = img[:, :ccd_split]
+    badp[:, :ccd_split] = bad[:, :ccd_split]
+    imgp[:, ccd_split + x_gap:] = img[:, ccd_split:]
+    badp[:, ccd_split + x_gap:] = bad[:, ccd_split:]
+    return imgp, badp
+
+
+def _imgFromPhysical(imgp, ccd_split, x_gap):
+    """Inverse of `_imgToPhysical`: drop the gap region, returning array coords."""
+    H, WP = imgp.shape
+    W = WP - x_gap
+    out = np.empty((H, W), dtype=imgp.dtype)
+    out[:, :ccd_split] = imgp[:, :ccd_split]
+    out[:, ccd_split:] = imgp[:, ccd_split + x_gap:]
+    return out
+
+
+def _fillGapLinear(imgp, badp, ccd_split, x_gap, ramp_width=8):
+    """Linearly-interpolate imgp across the physical CCD gap, per row.
+
+    Why: the FFT-based inverse filter sees a sharp ~xGap-px zero step at the
+    gap boundary. The step is broadband in Fourier space, and the kernel ends
+    up "explaining" it — biasing the inner-edge cost regions. A linear ramp
+    between the boundary medians removes that step at zero cost, since the
+    gap region is dropped on output anyway (`_imgFromPhysical`).
+
+    Per-row median over the ``ramp_width`` boundary columns on each side.
+    Bad pixels are excluded; rows with no good boundary pixels keep 0.
+    Does not modify ``badp`` — the gap stays flagged bad for fits.
+    """
+    if x_gap <= 0:
+        return imgp
+    gap_lo, gap_hi = ccd_split, ccd_split + x_gap
+    left_lo = max(0, ccd_split - ramp_width)
+    right_hi = min(imgp.shape[1], gap_hi + ramp_width)
+    left_block = imgp[:, left_lo:ccd_split].astype(np.float64, copy=True)
+    left_block[badp[:, left_lo:ccd_split]] = np.nan
+    right_block = imgp[:, gap_hi:right_hi].astype(np.float64, copy=True)
+    right_block[badp[:, gap_hi:right_hi]] = np.nan
+    with np.errstate(invalid='ignore'):
+        v_l = np.nanmedian(left_block, axis=1)
+        v_r = np.nanmedian(right_block, axis=1)
+    v_l = np.where(np.isfinite(v_l), v_l, 0.0)
+    v_r = np.where(np.isfinite(v_r), v_r, 0.0)
+    t = (np.arange(1, x_gap + 1, dtype=np.float64)) / (x_gap + 1.0)
+    ramp = v_l[:, None] * (1.0 - t)[None, :] + v_r[:, None] * t[None, :]
+    out = imgp.copy()
+    out[:, gap_lo:gap_hi] = ramp
+    return out
+
+
+def _wienerInverse(img_fft, Khat, shape, eps=1e-3):
+    """Wiener-regularised inverse of the (δ + K) blur.
+
+    Standard inverse `irfft2(F / (1 + K̂))` blows up where ``1 + K̂`` is small
+    (kernel hard-edge ringing in Fourier space). Wiener replaces the division
+    by a regularised pseudo-inverse:
+
+        clean = irfft2( F · (1 + K̂)* / (|1 + K̂|² + eps) )
+
+    For a real-symmetric kernel ``K̂`` is real and ``conj = identity``, but we
+    use ``np.conj`` defensively so the formula is correct if the layout is
+    ever changed to a non-symmetric kernel.
+    """
+    denom_hat = 1.0 + Khat
+    return np.fft.irfft2(
+        img_fft * np.conj(denom_hat) / (np.abs(denom_hat) ** 2 + eps),
+        s=shape,
+    )
+
+
+def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys):
+    """Per-row deg=2 polynomial through 3 (col_phys, median) anchors.
+
+    Vectorised across rows. Rows where any anchor has < 3 good pixels are
+    filled by linear interpolation along the row axis from neighbouring good
+    rows (the previous behaviour of leaving them at zero produced a step into
+    the FFT).
+    """
+    if len(anchors_phys) != 3:
+        raise ValueError("Expected exactly 3 anchors")
+    H, WP = imgp.shape
+    cols_arr = np.arange(WP, dtype=np.float64)
+    x_centers = np.array([0.5 * (lo + hi - 1) for lo, hi in anchors_phys],
+                          dtype=np.float64)
+
+    # Per-row median and good-pixel count at each anchor (vectorised).
+    medians = np.full((H, 3), np.nan)
+    counts = np.zeros((H, 3), dtype=np.int32)
+    for k, (c_lo, c_hi) in enumerate(anchors_phys):
+        sub = imgp[:, c_lo:c_hi].astype(np.float64, copy=True)
+        sub[badp[:, c_lo:c_hi]] = np.nan
+        with np.errstate(invalid='ignore'):
+            medians[:, k] = np.nanmedian(sub, axis=1)
+        counts[:, k] = (~badp[:, c_lo:c_hi]).sum(axis=1)
+
+    valid = (counts >= 3).all(axis=1) & np.isfinite(medians).all(axis=1)
+    if not valid.any():
+        _log.warning("gross-bg deg2: no rows have 3 good pixels in all 3 "
+                     "anchors; returning zero bg")
+        return np.zeros_like(imgp)
+
+    # Solve V·c = m for c on every valid row at once.  V is the same 3×3
+    # Vandermonde for all rows so we factor once.
+    V = np.vstack([np.ones(3), x_centers, x_centers ** 2]).T  # (3, 3)
+    coefs = np.linalg.solve(V, medians[valid].T)              # (3, n_valid)
+
+    pow_cols = np.vstack([np.ones(WP), cols_arr, cols_arr ** 2])  # (3, WP)
+    bg_valid = coefs.T @ pow_cols                                 # (n_valid, WP)
+
+    bg = np.zeros((H, WP), dtype=np.float64)
+    bg[valid] = bg_valid
+
+    # Fill invalid rows by linear interpolation along the row axis (per col).
+    # Vectorised in 1 D (np.interp loops in C).
+    if not valid.all():
+        n_bad = int((~valid).sum())
+        _log.debug("gross-bg deg2: filling %d/%d invalid rows by row interp",
+                   n_bad, H)
+        rows_all = np.arange(H, dtype=np.float64)
+        valid_rows = rows_all[valid]
+        invalid_rows = rows_all[~valid]
+        for c in range(WP):
+            bg[~valid, c] = np.interp(invalid_rows, valid_rows, bg[valid, c])
+
+    return bg
+
+
+def _grossBgPerRow(img, bad, left_cols, right_cols):
+    """Per-row linear background from medians at the two far-edge anchors.
+
+    Returns the per-pixel bg image (zero on rows where either anchor has too
+    few good pixels)."""
+    H, W = img.shape
+    bg = np.zeros_like(img)
+    cols_arr = np.arange(W, dtype=np.float64)
+    l_lo, l_hi = left_cols
+    r_lo, r_hi = right_cols
+    if l_hi <= l_lo or r_hi <= r_lo:
+        return bg
+    x_l = 0.5 * (l_lo + l_hi - 1)
+    x_r = 0.5 * (r_lo + r_hi - 1)
+    for r in range(H):
+        bad_row = bad[r]
+        sel_l = ~bad_row[l_lo:l_hi]
+        sel_r = ~bad_row[r_lo:r_hi]
+        if sel_l.sum() < 3 or sel_r.sum() < 3:
+            continue
+        v_l = np.median(img[r, l_lo:l_hi][sel_l])
+        v_r = np.median(img[r, r_lo:r_hi][sel_r])
+        if not (np.isfinite(v_l) and np.isfinite(v_r)):
+            continue
+        slope = (v_r - v_l) / (x_r - x_l)
+        bg[r] = v_l + slope * (cols_arr - x_l)
+    return bg
+
+
 def _prepare(postISRCCDs, detectorMap, fiberProfiles,
-             halfIllum, brightPercentile, binEdges):
+             halfIllum, brightPercentile, binEdges,
+             useGrossBg=False, grossBgEdgeWidth=20,
+             outerRegionWeight=5.0):
     """Build shared mask + distance map and per-frame FFT/masks/bright rows."""
     bbox = detectorMap.getBBox()
     H = bbox.getHeight()
@@ -697,25 +998,156 @@ def _prepare(postISRCCDs, detectorMap, fiberProfiles,
         raise RuntimeError("No illuminated fibers in profiles.fiberId")
 
     illum_arr = np.asarray(illum_centers, dtype=np.float32)
+    # Distance map in PHYSICAL coords: a pixel at array col `ccdSplit+1` is
+    # ~xGap further from a CCD1 fiber than the array distance suggests, so
+    # array-space distances would underestimate the true sky-distance at the
+    # inner edges and bias the inner bin assignments.
     col_arr = np.arange(W, dtype=np.float32)
+    col_phys_arr = np.where(col_arr < ccdSplit, col_arr,
+                             col_arr + xGap).astype(np.float32)
+    illum_phys = np.where(illum_arr < ccdSplit, illum_arr,
+                           illum_arr + xGap).astype(np.float32)
     dist_map = np.full((H, W), np.inf, dtype=np.float32)
     for r in range(H):
-        sc = np.sort(illum_arr[:, r])
-        ins = np.clip(np.searchsorted(sc, col_arr), 1, len(sc) - 1)
+        sc = np.sort(illum_phys[:, r])
+        ins = np.clip(np.searchsorted(sc, col_phys_arr), 1, len(sc) - 1)
         dist_map[r] = np.minimum.reduce([
-            np.abs(col_arr - sc[ins - 1]),
-            np.abs(col_arr - sc[ins]),
-            np.abs(col_arr - sc[0]),
-            np.abs(col_arr - sc[-1]),
+            np.abs(col_phys_arr - sc[ins - 1]),
+            np.abs(col_phys_arr - sc[ins]),
+            np.abs(col_phys_arr - sc[0]),
+            np.abs(col_phys_arr - sc[-1]),
         ])
 
     binLabels = [f"{binEdges[i]}-{binEdges[i+1]}px"
                  for i in range(len(binEdges) - 1)]
 
+    # Far-edge bg anchors: outermost N cols on each side, but capped so we
+    # never reach into the fiber halo zone (would absorb scatter into bg).
+    # We use ONLY ccd1-left and ccd2-right (the truly outer edges); the
+    # inner-edges next to the CCD gap are too close to fibers (~16 px on
+    # ccd1-right, ~42 px on ccd2-left) and would absorb halo signal.
+    xc_min = int(np.floor(illum_arr.min()))
+    xc_max = int(np.ceil(illum_arr.max()))
+    left_safe_max = max(0, xc_min - halfIllum - 1)
+    right_safe_min = min(W, xc_max + halfIllum + 2)
+    left_anchor = (0, min(grossBgEdgeWidth, left_safe_max))
+    right_anchor = (max(W - grossBgEdgeWidth, right_safe_min), W)
+    if useGrossBg:
+        _log.info(
+            "Gross bg anchors (outer %d cols): left [%d:%d], right [%d:%d]",
+            grossBgEdgeWidth,
+            left_anchor[0], left_anchor[1], right_anchor[0], right_anchor[1],
+        )
+
+    # Fine bg anchors (3 anchors used by _fineBg2D in physical pixel coords):
+    # ccd1-left, ccd2-left at the gap, ccd2-right. ccd1-right is excluded
+    # (only ~16 px from rightmost ccd1 fiber → inside halo).
+    fine_anchors = [
+        left_anchor,                                    # ccd1-left
+        (ccdSplit, ccdSplit + grossBgEdgeWidth),        # ccd2-left
+        right_anchor,                                   # ccd2-right
+    ]
+
+    # Gross-bg anchors for the iterative pipeline, in PHYSICAL coords (3 pts).
+    # Middle anchor: pick whichever of CCD1-right or CCD2-left is FURTHER
+    # from a fiber so we don't bias the kernel by absorbing halo into bg.
+    ccd1_right_arr = ccdSplit - 1                            # last array col of CCD1
+    ccd2_left_arr  = ccdSplit                                # first array col of CCD2
+    fiber_mean_col = illum_arr.mean(axis=1)
+    right_c1_arr = float(np.max(fiber_mean_col[fiber_mean_col < ccdSplit])
+                          if (fiber_mean_col < ccdSplit).any() else 0)
+    left_c2_arr  = float(np.min(fiber_mean_col[fiber_mean_col >= ccdSplit])
+                          if (fiber_mean_col >= ccdSplit).any() else W)
+    dist_ccd1_inner = ccd1_right_arr - right_c1_arr
+    dist_ccd2_inner = left_c2_arr - ccd2_left_arr
+    if dist_ccd2_inner > dist_ccd1_inner:
+        mid_anchor_phys = (ccdSplit + xGap, ccdSplit + xGap + grossBgEdgeWidth)
+        mid_label = f"CCD2-left (d={dist_ccd2_inner:.1f} > {dist_ccd1_inner:.1f})"
+    else:
+        mid_anchor_phys = (ccdSplit - grossBgEdgeWidth, ccdSplit)
+        mid_label = f"CCD1-right (d={dist_ccd1_inner:.1f} >= {dist_ccd2_inner:.1f})"
+    # Outer anchors in physical coords
+    left_anchor_phys = left_anchor                       # ccd1-left (cols < ccdSplit, no shift)
+    right_anchor_phys = (right_anchor[0] + xGap, right_anchor[1] + xGap)
+    gross_bg_anchors_phys = [left_anchor_phys, mid_anchor_phys, right_anchor_phys]
+    _log.info("Iterative gross-bg 3 anchors (phys): "
+              "[%d:%d] [%d:%d] [%d:%d]  middle=%s",
+              left_anchor_phys[0], left_anchor_phys[1],
+              mid_anchor_phys[0], mid_anchor_phys[1],
+              right_anchor_phys[0], right_anchor_phys[1], mid_label)
+
+    # 8 cost regions for the iterative pipeline (4 per CCD), in array coords:
+    # CCD1: outer-left, 2 wide-fiber-gap interiors, inner-right
+    # CCD2: inner-left, 2 wide-fiber-gap interiors, outer-right
+    #
+    # Detect "wide" fiber gaps in COLUMN space (sorted by xCenter) rather than
+    # by fiberId — adjacent fiberIds aren't necessarily adjacent in column
+    # space (engineering fibers, broken fibers), and a 4-fiberId gap can be
+    # tiny in cols. We require ≥ 30 px of clear sky (after halfIllum margin
+    # on each side) for a region to qualify.
+    xc_arr = np.array(sorted(
+        float(np.median(detectorMap.getXCenter(int(fid))))
+        for fid in detectorMap.fiberId if int(fid) in illumIds
+    ))
+    minGapPx = 2 * halfIllum + 8       # need ≥ 8 px clear sky after margins
+    interior_ccd1, interior_ccd2 = [], []
+    for k in np.where(np.diff(xc_arr) >= minGapPx)[0]:
+        x_lo = xc_arr[k] + halfIllum
+        x_hi = xc_arr[k + 1] - halfIllum
+        if x_hi <= x_lo:
+            continue
+        if x_hi < ccdSplit:
+            interior_ccd1.append((int(x_lo), int(x_hi)))
+        elif x_lo >= ccdSplit:
+            interior_ccd2.append((int(x_lo), int(x_hi)))
+        # else: spans the gap, skip
+    cost_regions = (
+        [('ccd1 outer-left', left_anchor)]
+        + [(f'ccd1 inner @{(b[0]+b[1])//2}', b) for b in interior_ccd1]
+        + [('ccd1 inner-right', (max(0, int(right_c1_arr) + halfIllum + 1), ccdSplit))]
+        + [('ccd2 inner-left', (ccdSplit, max(ccdSplit, int(left_c2_arr) - halfIllum - 1)))]
+        + [(f'ccd2 inner @{(b[0]+b[1])//2}', b) for b in interior_ccd2]
+        + [('ccd2 outer-right', right_anchor)]
+    )
+
+    # Per-region metadata for the cost aggregator:
+    #   • mean_dist: median distance-to-nearest-fiber (in physical px) over
+    #     the region's scatter pixels — used to bin regions as "near" vs
+    #     "far" for the radial-shape penalty.
+    #   • weight: multiplier on that region in the weighted-RMS aggregation;
+    #     outermost regions are anchored at `outerRegionWeight` (default 5×)
+    #     to break the bg-vs-kernel-tail degeneracy (an additive bg shift
+    #     biases outer regions; the kernel tail mostly biases inner ones).
+    cost_region_dists = np.zeros(len(cost_regions), dtype=np.float64)
+    cost_region_weights = np.ones(len(cost_regions), dtype=np.float64)
+    for k, (name, (c_lo, c_hi)) in enumerate(cost_regions):
+        if c_hi <= c_lo:
+            cost_region_dists[k] = np.nan
+            continue
+        sub_dist = dist_map[:, c_lo:c_hi]
+        sub_scatter = (~illum_mask[:, c_lo:c_hi]) & np.isfinite(sub_dist)
+        if sub_scatter.any():
+            cost_region_dists[k] = float(np.median(sub_dist[sub_scatter]))
+        else:
+            cost_region_dists[k] = float(np.median(sub_dist))
+        if name.endswith('outer-left') or name.endswith('outer-right'):
+            cost_region_weights[k] = float(outerRegionWeight)
+    _log.info("Cost regions (%d):", len(cost_regions))
+    for (name, (c_lo, c_hi)), d, w in zip(
+        cost_regions, cost_region_dists, cost_region_weights
+    ):
+        _log.info("    %-22s [%4d:%4d]  mean_dist=%5.1f px  weight=%.1f",
+                  name, c_lo, c_hi, d, w)
+
     frames = []
     for idx, exp in enumerate(postISRCCDs):
         img = exp.image.array.astype(np.float64)
         bad = exp.mask.array.astype(np.uint32) != 0
+
+        if useGrossBg:
+            bg_gross = _grossBgPerRow(img, bad, left_anchor, right_anchor)
+            img = img - bg_gross
+
         scatter_mask = (~illum_mask) & (~bad)
         bin_masks = [
             scatter_mask
@@ -733,14 +1165,23 @@ def _prepare(postISRCCDs, detectorMap, fiberProfiles,
         imgp = np.zeros((H, wp))
         imgp[:, :ccdSplit] = img[:, :ccdSplit]
         imgp[:, ccdSplit + xGap:] = img[:, ccdSplit:]
+        # Linear-fill the gap so the FFT-IF input has no broadband step.
+        # Without this, the kernel inversion absorbs the gap discontinuity
+        # and biases the inner-edge residuals (cf. iterative branch).
+        badp_frame = np.ones((H, wp), dtype=bool)
+        badp_frame[:, :ccdSplit] = bad[:, :ccdSplit]
+        badp_frame[:, ccdSplit + xGap:] = bad[:, ccdSplit:]
+        imgp = _fillGapLinear(imgp, badp_frame, ccdSplit, xGap)
         img_fft = np.fft.rfft2(imgp)
 
         _log.info(
-            "  frame %d: shape=%dx%d  median=%.1f  bright rows=%d (thr=%.1f)",
+            "  frame %d: shape=%dx%d  median=%.1f  bright rows=%d (thr=%.1f)"
+            "%s",
             idx, H, W, float(np.median(img)), len(bright_rows), thr,
+            "  (gross-bg subtracted)" if useGrossBg else "",
         )
         frames.append(dict(
-            img=img, scatter_mask=scatter_mask, bin_masks=bin_masks,
+            img=img, bad=bad, scatter_mask=scatter_mask, bin_masks=bin_masks,
             illum_per_row=illum_per_row, bright_rows=bright_rows,
             img_fft=img_fft,
         ))
@@ -755,6 +1196,11 @@ def _prepare(postISRCCDs, detectorMap, fiberProfiles,
         illum_mask=illum_mask, dist_map=dist_map,
         binEdges=list(binEdges), binLabels=binLabels,
         frames=frames, nIllumFibers=len(illum_centers),
+        fine_anchors=fine_anchors,
+        gross_bg_anchors_phys=gross_bg_anchors_phys,
+        cost_regions=cost_regions,
+        cost_region_dists=cost_region_dists,
+        cost_region_weights=cost_region_weights,
     )
 
 
@@ -790,17 +1236,34 @@ def _unitKernelFft(powerLaw, soften, halfSize, shape):
     return np.fft.rfft2(k)
 
 
-def _deconvolveOne(frame, K1_hat, K2_hat, frac1, frac2, prep):
-    """Deconvolve one frame. If frac1=frac2=0, returns the raw image unchanged."""
-    if frac1 == 0.0 and frac2 == 0.0:
-        return frame["img"]
-    Khat = frac1 * K1_hat + frac2 * K2_hat
-    dp = np.fft.irfft2(frame["img_fft"] / (1.0 + Khat), s=(prep["H"], prep["wp"]))
+def _deconvolveOne(frame, K1_hat, K2_hat, frac1, frac2, prep,
+                    useFineBg=False, fineBgIter=1,
+                    fineBgDegCol=2, fineBgDegRow=3):
+    """Deconvolve one frame. If frac1=frac2=0, returns the raw image unchanged.
+
+    With ``useFineBg=True`` the cleaned image is further refined by an
+    iterative 2-D Chebyshev polynomial bg fit at the three trusted anchor
+    regions (ccd1-left, ccd2-left, ccd2-right) in physical column coords,
+    matching the production pipeline.
+    """
     H, W, ccdSplit, xGap = prep["H"], prep["W"], prep["ccdSplit"], prep["xGap"]
-    res = np.empty((H, W))
-    res[:, :ccdSplit] = dp[:, :ccdSplit]
-    res[:, ccdSplit:] = dp[:, ccdSplit + xGap:]
-    return res
+    if frac1 == 0.0 and frac2 == 0.0:
+        cleaned = frame["img"]
+    else:
+        Khat = frac1 * K1_hat + frac2 * K2_hat
+        dp = _wienerInverse(frame["img_fft"], Khat, (H, prep["wp"]))
+        cleaned = np.empty((H, W))
+        cleaned[:, :ccdSplit] = dp[:, :ccdSplit]
+        cleaned[:, ccdSplit:] = dp[:, ccdSplit + xGap:]
+
+    if useFineBg and "fine_anchors" in prep and "bad" in frame:
+        for _ in range(max(1, fineBgIter)):
+            fine_bg = _fineBg2D(
+                cleaned, frame["bad"], xGap, ccdSplit, prep["fine_anchors"],
+                deg_col=fineBgDegCol, deg_row=fineBgDegRow,
+            )
+            cleaned = cleaned - fine_bg
+    return cleaned
 
 
 def _binRatios(img, frame, illum_mask):
@@ -832,13 +1295,395 @@ def _perRowRatio(img, frame, illum_mask):
     return sc / il
 
 
-def _meanBinResiduals(prep, K1_hat, K2_hat, frac1, frac2):
+def _meanBinResiduals(prep, K1_hat, K2_hat, frac1, frac2,
+                      useFineBg=False, fineBgIter=1,
+                      fineBgDegCol=2, fineBgDegRow=3):
     """Mean per-bin residual averaged over frames."""
     per_visit = []
     for frame in prep["frames"]:
-        clean = _deconvolveOne(frame, K1_hat, K2_hat, frac1, frac2, prep)
+        clean = _deconvolveOne(
+            frame, K1_hat, K2_hat, frac1, frac2, prep,
+            useFineBg=useFineBg, fineBgIter=fineBgIter,
+            fineBgDegCol=fineBgDegCol, fineBgDegRow=fineBgDegRow,
+        )
         per_visit.append(_binRatios(clean, frame, prep["illum_mask"]))
     return np.nanmean(per_visit, axis=0)
+
+
+def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
+                        wiener_eps=1e-3):
+    """Iterative production-style pipeline in physical-pixel space.
+
+    Pseudocode the user specified:
+        fiberScatter = 0
+        for _ in range(n_iter):
+            bck = grossBg(postISR - fiberScatter)
+            fiberScatter = (postISR - bck) - FFT_IF(postISR - bck)
+        clean = postISR - bck - fiberScatter
+
+    Both grossBg and FFT_IF operate on physical-pixel images (so the
+    deg=2 polynomial through 3 anchors is naturally smooth across the
+    physical CCD gap).  The final cleaned image is returned in array
+    coords (gap region dropped).
+    """
+    H, ccdSplit, xGap, wp = (prep["H"], prep["ccdSplit"],
+                              prep["xGap"], prep["wp"])
+    img = frame["img"]              # array coords
+    bad = frame["bad"]              # array coords
+    imgp, badp = _imgToPhysical(img, bad, ccdSplit, xGap)
+    anchors_phys = prep["gross_bg_anchors_phys"]
+    gap_lo, gap_hi = ccdSplit, ccdSplit + xGap   # the 75-px gap region
+
+    def _zeroGap(arr):
+        """Force `arr` to 0 in the physical gap region (in-place safe)."""
+        arr[:, gap_lo:gap_hi] = 0.0
+        return arr
+
+    if frac1 == 0.0 and frac2 == 0.0:
+        bg_phys = _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys)
+        _zeroGap(bg_phys)
+        clean_phys = imgp - bg_phys
+        return _imgFromPhysical(clean_phys, ccdSplit, xGap)
+
+    Khat = frac1 * K1_hat + frac2 * K2_hat
+    fiberScatter_phys = np.zeros_like(imgp)
+    bg_phys = np.zeros_like(imgp)
+    for _ in range(max(1, n_iter)):
+        bg_phys = _grossBgDeg2_3anchorsPhysical(
+            imgp - fiberScatter_phys, badp, anchors_phys
+        )
+        # bg_phys is naturally smooth across the gap (deg-2 polynomial in
+        # physical coords). Compute denom = imgp - bg_phys, then linear-fill
+        # the gap so the FFT-IF input has no broadband step. The gap fill is
+        # only used by the FFT — bg_phys and fiberScatter_phys are zeroed in
+        # the gap on output, and the gap is dropped by `_imgFromPhysical`.
+        denom = imgp - bg_phys
+        denom_for_fft = _fillGapLinear(denom, badp, ccdSplit, xGap)
+        cleaned = _wienerInverse(np.fft.rfft2(denom_for_fft), Khat, (H, wp),
+                                  eps=wiener_eps)
+        fiberScatter_phys = denom_for_fft - cleaned
+        _zeroGap(fiberScatter_phys)                 # don't leak deconvolution into gap
+
+    _zeroGap(bg_phys)                               # gap stays 0 on output
+    clean_phys = imgp - bg_phys - fiberScatter_phys
+    return _imgFromPhysical(clean_phys, ccdSplit, xGap)
+
+
+def _regionResiduals(clean, regions, scatter_mask, sigma=3.5):
+    """Sigma-clipped median absolute residual at each named region.
+
+    The cost metric is the *unsigned* residual size — `nanmedian(|v|)` after
+    a MAD sigma-clip. Mean was wrong: signed cancellation lets a poor kernel
+    score zero by oversubtracting some regions and undersubtracting others.
+    Median(|v|) penalises any non-zero residual regardless of sign, and
+    sigma-clipping guards against cosmic-ray contamination on arc visits.
+    """
+    out = np.full(len(regions), np.nan)
+    for k, (_, (c_lo, c_hi)) in enumerate(regions):
+        if c_hi <= c_lo:
+            continue
+        sub_clean = clean[:, c_lo:c_hi]
+        sub_mask = scatter_mask[:, c_lo:c_hi]
+        v = sub_clean[sub_mask]
+        v = v[np.isfinite(v)]
+        if v.size == 0:
+            continue
+        med = np.median(v)
+        mad = np.median(np.abs(v - med))
+        if mad > 0.0:
+            keep = np.abs(v - med) < sigma * 1.4826 * mad
+            v = v[keep]
+        if v.size:
+            out[k] = float(np.median(np.abs(v)))
+    return out
+
+
+def _meanRegionResiduals(prep, K1_hat, K2_hat, frac1, frac2, n_iter=3):
+    """Mean per-region residual (averaged over frames) for the iterative
+    pipeline.  Used as the kernel-tuning cost when ``useIterative=True``.
+    """
+    per_visit = []
+    regions = prep["cost_regions"]
+    for frame in prep["frames"]:
+        clean = _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2,
+                                    prep, n_iter=n_iter)
+        per_visit.append(_regionResiduals(clean, regions, frame["scatter_mask"]))
+    return np.nanmean(per_visit, axis=0)
+
+
+def _aggregateCost(bins, weights, dists,
+                    radial_weight=1.0, near_thresh=30.0, far_thresh=60.0):
+    """Combine per-region residual magnitudes into a scalar cost.
+
+    Two complementary terms:
+
+    1. **Weighted RMS** of per-region magnitudes — penalises any non-zero
+       residual amplitude. Outermost regions are anchored at higher weight
+       (set in ``_prepare``) so the optimiser cannot trade a constant bg
+       offset for a more extended kernel tail without paying a price at
+       the truly outer (fiber-free) edges.
+
+    2. **Radial-shape penalty** — ``|<bins[near]> − <bins[far]>|`` where
+       ``near = mean_dist < near_thresh`` and ``far = mean_dist > far_thresh``.
+       Penalises kernels whose radial shape mismatches the residual radial
+       profile. Complementary to the RMS: a kernel whose total amplitude is
+       right but whose tail exponent is wrong will have near-residual ≠
+       far-residual, so the penalty fires even though the unsigned-RMS may
+       look fine. This term is what breaks the bg-vs-extended-tail
+       degeneracy diagnosed in the physics review.
+
+    Set ``radial_weight=0`` to disable the radial term and recover plain
+    weighted RMS.
+    """
+    bins = np.asarray(bins, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    d = np.asarray(dists, dtype=np.float64)
+    finite = np.isfinite(bins) & np.isfinite(w) & (w > 0)
+    if not finite.any():
+        return float('nan')
+    bf, wf, df = bins[finite], w[finite], d[finite]
+    rms = float(np.sqrt(np.sum(wf * bf ** 2) / np.sum(wf)))
+    near = bf[df < near_thresh]
+    far = bf[df > far_thresh]
+    if near.size and far.size and radial_weight > 0:
+        shape_penalty = float(abs(np.nanmean(near) - np.nanmean(far)))
+    else:
+        shape_penalty = 0.0
+    return rms + radial_weight * shape_penalty
+
+
+def _fineBg2D(residual, bad, x_gap, ccd_split, anchors_array,
+              deg_col=2, deg_row=3):
+    """2-D Chebyshev polynomial fit of residual at the given anchor regions,
+    with column coordinate in *physical* pixels (so the fit spans both CCDs
+    smoothly across the physical gap).
+
+    Parameters
+    ----------
+    residual : ndarray (H, W)
+        Image to be fit (typically postISR − cleaned, or post-FFT-IF residual).
+    bad : ndarray (H, W) bool
+        Bad-pixel mask (True = exclude from fit).
+    x_gap : int
+        Physical gap (pixels) between the two CCD halves.
+    ccd_split : int
+        Array column at which CCD2 begins (= W//2 typically).
+    anchors_array : list of (col_lo, col_hi)
+        Array-coordinate column ranges to use as fit anchors.
+    deg_col, deg_row : int
+        Polynomial degrees in physical column / row direction.
+
+    Returns
+    -------
+    bg : ndarray (H, W)
+        Polynomial bg evaluated at every pixel of the (H, W) array grid.
+    """
+    H, W = residual.shape
+    cols_arr = np.arange(W, dtype=np.float64)
+    cols_phys = np.where(cols_arr < ccd_split, cols_arr, cols_arr + x_gap)
+    WP_minus1 = float(W + x_gap - 1)
+    H_minus1 = float(H - 1)
+
+    # Build (x_phys, y, value) data points from anchor regions
+    xs, ys, zs = [], [], []
+    for col_lo, col_hi in anchors_array:
+        col_lo, col_hi = int(col_lo), int(col_hi)
+        if col_hi <= col_lo:
+            continue
+        sub_phys = cols_phys[col_lo:col_hi]   # (W_anchor,)
+        sub_img = residual[:, col_lo:col_hi]  # (H, W_anchor)
+        sub_bad = bad[:, col_lo:col_hi]
+        # rows × cols meshgrid
+        rs, cs = np.indices(sub_img.shape)
+        finite = np.isfinite(sub_img) & ~sub_bad
+        rs = rs[finite]; cs = cs[finite]; vals = sub_img[finite]
+        xs.append(sub_phys[cs])
+        ys.append(rs.astype(np.float64))
+        zs.append(vals)
+    if not xs:
+        return np.zeros_like(residual)
+    xs = np.concatenate(xs)
+    ys = np.concatenate(ys)
+    zs = np.concatenate(zs)
+
+    # Normalise to [-1, 1] for Chebyshev stability
+    x_norm = 2 * xs / WP_minus1 - 1
+    y_norm = 2 * ys / H_minus1 - 1
+
+    Tx = np.polynomial.chebyshev.chebvander(x_norm, deg_col)
+    Ty = np.polynomial.chebyshev.chebvander(y_norm, deg_row)
+    M = (Tx[:, :, None] * Ty[:, None, :]).reshape(len(xs), -1)
+    coef, *_ = np.linalg.lstsq(M, zs, rcond=None)
+    coef_2d = coef.reshape(deg_col + 1, deg_row + 1)
+
+    # Evaluate everywhere
+    XN = 2 * cols_phys / WP_minus1 - 1
+    YN = 2 * np.arange(H, dtype=np.float64) / H_minus1 - 1
+    Tx_full = np.polynomial.chebyshev.chebvander(XN, deg_col)   # (W, deg_col+1)
+    Ty_full = np.polynomial.chebyshev.chebvander(YN, deg_row)   # (H, deg_row+1)
+    bg = np.einsum('ij,ci,rj->rc', coef_2d, Tx_full, Ty_full)
+    return bg
+
+
+def applyScatteredLightCorrection(
+    img, bad, detectorMap, fiberProfiles, kernelParams,
+    halfIllum=11, grossBgEdgeWidth=20,
+    fineBgDegCol=2, fineBgDegRow=3,
+    nFineIter=1, useIterative=True, nIter=3, wiener_eps=1e-3,
+):
+    """Apply the full scattered-light correction pipeline to one frame.
+
+    Two pipelines are available, selected by ``useIterative``:
+
+    * ``useIterative=True`` (default): the production-style **iterative**
+      pipeline — physical-pixel space, alternate (deg-2 gross bg through 3
+      anchors) and (Wiener FFT inverse filter, gap linearly interpolated on
+      input) for ``nIter`` iterations. This matches the cost function used by
+      ``tuneScatteredLight``, so kernel parameters tuned by that task are
+      applied via the *same* code path.
+
+    * ``useIterative=False``: legacy non-iterative pipeline for diagnostic
+      comparison — per-row linear gross bg + Wiener FFT-IF + iterative fine
+      2-D polynomial bg refinement at three anchors.
+
+    Parameters
+    ----------
+    img : ndarray (H, W)
+        postISRCCD image.
+    bad : ndarray (H, W) bool
+        Bad-pixel mask.
+    detectorMap, fiberProfiles : pfs DRP objects
+        Used for fiber positions / illum mask geometry.
+    kernelParams : dict
+        Keys ``frac1, frac2, powerLaw1, powerLaw2, soften1, soften2`` and
+        ``halfSize``. (Typically the output of ``tuneScatteredLight``.)
+    halfIllum : int
+        Mask radius (cols) around each illuminated fiber.
+    grossBgEdgeWidth : int
+        Width of the outer-edge anchor bands for the gross bg sub.
+    fineBgDegCol, fineBgDegRow : int
+        Polynomial degrees for the fine 2-D bg fit (legacy branch only).
+    nFineIter : int
+        Fine-bg refinement iterations after the FFT-IF (legacy branch only).
+    useIterative : bool
+        Use the iterative production pipeline (default).
+    nIter : int
+        Number of iterations of (gross-bg, FFT-IF) when ``useIterative``.
+
+    Returns
+    -------
+    cleaned : ndarray (H, W)
+        Final scatter+bg-corrected image.
+    diagnostics : dict
+        Pipeline-dependent intermediate maps for inspection.
+    """
+    bbox = detectorMap.getBBox()
+    H = bbox.getHeight()
+    W = bbox.getWidth()
+    if isinstance(detectorMap, LayeredDetectorMap):
+        xGap = -int(round(detectorMap.rightCcd.getTranslation().getX()))
+        xGap = -xGap if xGap < 0 else xGap   # always non-negative
+    else:
+        xGap = 0
+    ccdSplit = W // 2
+    wp = W + xGap
+
+    # Illum mask + xc range (for anchor capping)
+    illum_centers = []
+    illumIds = {int(fid) for fid in fiberProfiles.fiberId}
+    for fid in detectorMap.fiberId:
+        if int(fid) in illumIds:
+            illum_centers.append(detectorMap.getXCenter(int(fid)).astype(np.float32))
+    if not illum_centers:
+        raise RuntimeError("No illuminated fibers in profiles.fiberId")
+    illum_arr = np.asarray(illum_centers, dtype=np.float32)
+    xc_min = int(np.floor(illum_arr.min()))
+    xc_max = int(np.ceil(illum_arr.max()))
+
+    # Outer-edge bg anchors
+    left_safe_max = max(0, xc_min - halfIllum - 1)
+    right_safe_min = min(W, xc_max + halfIllum + 2)
+    left_anchor_gross = (0, min(grossBgEdgeWidth, left_safe_max))
+    right_anchor_gross = (max(W - grossBgEdgeWidth, right_safe_min), W)
+
+    K1_hat = _unitKernelFft(
+        kernelParams["powerLaw1"], kernelParams["soften1"],
+        int(kernelParams.get("halfSize", 4096)), (H, wp),
+    )
+    K2_hat = _unitKernelFft(
+        kernelParams["powerLaw2"], kernelParams["soften2"],
+        int(kernelParams.get("halfSize", 4096)), (H, wp),
+    )
+
+    if useIterative:
+        # Same anchor-selection logic as `_prepare`: pick the inner anchor
+        # (CCD1-right or CCD2-left) that is FURTHER from a fiber.
+        fiber_mean_col = illum_arr.mean(axis=1)
+        right_c1_arr = float(np.max(fiber_mean_col[fiber_mean_col < ccdSplit])
+                              if (fiber_mean_col < ccdSplit).any() else 0)
+        left_c2_arr = float(np.min(fiber_mean_col[fiber_mean_col >= ccdSplit])
+                              if (fiber_mean_col >= ccdSplit).any() else W)
+        if (left_c2_arr - ccdSplit) > (ccdSplit - 1 - right_c1_arr):
+            mid_anchor_phys = (ccdSplit + xGap, ccdSplit + xGap + grossBgEdgeWidth)
+        else:
+            mid_anchor_phys = (ccdSplit - grossBgEdgeWidth, ccdSplit)
+        left_anchor_phys = left_anchor_gross
+        right_anchor_phys = (right_anchor_gross[0] + xGap,
+                              right_anchor_gross[1] + xGap)
+        anchors_phys = [left_anchor_phys, mid_anchor_phys, right_anchor_phys]
+
+        prep_lite = dict(H=H, ccdSplit=ccdSplit, xGap=xGap, wp=wp)
+        frame = dict(img=img.astype(np.float64, copy=False), bad=bad)
+        # Reuse `_iterativeCleanOne` with a minimal prep dict.
+        prep_lite["gross_bg_anchors_phys"] = anchors_phys
+        cleaned = _iterativeCleanOne(
+            frame, K1_hat, K2_hat,
+            float(kernelParams["frac1"]), float(kernelParams["frac2"]),
+            prep_lite, n_iter=nIter, wiener_eps=wiener_eps,
+        )
+        return cleaned, dict(
+            anchors_phys=anchors_phys,
+            xGap=xGap, ccdSplit=ccdSplit, nIter=nIter,
+        )
+
+    # Legacy non-iterative path (preserved for diagnostic comparison).
+    fine_anchors = [
+        left_anchor_gross,
+        (ccdSplit, ccdSplit + grossBgEdgeWidth),
+        right_anchor_gross,
+    ]
+    gross_bg = _grossBgPerRow(img, bad, left_anchor_gross, right_anchor_gross)
+    img_grossbg = img - gross_bg
+
+    Khat = (kernelParams["frac1"] * K1_hat
+            + kernelParams["frac2"] * K2_hat)
+    imgp = np.zeros((H, wp))
+    imgp[:, :ccdSplit] = img_grossbg[:, :ccdSplit]
+    imgp[:, ccdSplit + xGap:] = img_grossbg[:, ccdSplit:]
+    badp = np.ones((H, wp), dtype=bool)
+    badp[:, :ccdSplit] = bad[:, :ccdSplit]
+    badp[:, ccdSplit + xGap:] = bad[:, ccdSplit:]
+    imgp = _fillGapLinear(imgp, badp, ccdSplit, xGap)
+    cleaned_padded = _wienerInverse(np.fft.rfft2(imgp), Khat, (H, wp),
+                                     eps=wiener_eps)
+    cleaned = np.empty_like(img)
+    cleaned[:, :ccdSplit] = cleaned_padded[:, :ccdSplit]
+    cleaned[:, ccdSplit:] = cleaned_padded[:, ccdSplit + xGap:]
+    cleaned_kernel_only = cleaned.copy()
+
+    fine_bg = np.zeros_like(img)
+    for _ in range(max(1, nFineIter)):
+        fine_bg = _fineBg2D(
+            cleaned, bad, xGap, ccdSplit, fine_anchors,
+            deg_col=fineBgDegCol, deg_row=fineBgDegRow,
+        )
+        cleaned = cleaned - fine_bg
+
+    return cleaned, dict(
+        gross_bg=gross_bg,
+        fine_bg=fine_bg,
+        cleaned_kernel_only=cleaned_kernel_only,
+    )
 
 
 def _toJsonSafe(obj):
