@@ -569,12 +569,12 @@ def tuneScatteredLight(
             K1_hat = k1_cache[(params["powerLaw1"], params["soften1"])]
             K2_hat = k2_cache[(params["powerLaw2"], params["soften2"])]
             bins = _meanRegionResiduals(prep, K1_hat, K2_hat,
-                                         params["frac1"], params["frac2"],
-                                         n_iter=nIter)
+                                        params["frac1"], params["frac2"],
+                                        n_iter=nIter)
             rms_grid[flatIdx] = _aggregateCost(bins, **cost_kw)
             bin_grid[flatIdx] = bins
         raw_bins = _meanRegionResiduals(prep, None, None, 0.0, 0.0,
-                                         n_iter=nIter)
+                                        n_iter=nIter)
     else:
         for flatIdx in np.ndindex(*shape):
             params = dict(fixed)
@@ -894,7 +894,7 @@ def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys):
     H, WP = imgp.shape
     cols_arr = np.arange(WP, dtype=np.float64)
     x_centers = np.array([0.5 * (lo + hi - 1) for lo, hi in anchors_phys],
-                          dtype=np.float64)
+                         dtype=np.float64)
 
     # Per-row median and good-pixel count at each anchor (vectorised).
     medians = np.full((H, 3), np.nan)
@@ -1004,9 +1004,9 @@ def _prepare(postISRCCDs, detectorMap, fiberProfiles,
     # inner edges and bias the inner bin assignments.
     col_arr = np.arange(W, dtype=np.float32)
     col_phys_arr = np.where(col_arr < ccdSplit, col_arr,
-                             col_arr + xGap).astype(np.float32)
+                            col_arr + xGap).astype(np.float32)
     illum_phys = np.where(illum_arr < ccdSplit, illum_arr,
-                           illum_arr + xGap).astype(np.float32)
+                          illum_arr + xGap).astype(np.float32)
     dist_map = np.full((H, W), np.inf, dtype=np.float32)
     for r in range(H):
         sc = np.sort(illum_phys[:, r])
@@ -1052,12 +1052,12 @@ def _prepare(postISRCCDs, detectorMap, fiberProfiles,
     # Middle anchor: pick whichever of CCD1-right or CCD2-left is FURTHER
     # from a fiber so we don't bias the kernel by absorbing halo into bg.
     ccd1_right_arr = ccdSplit - 1                            # last array col of CCD1
-    ccd2_left_arr  = ccdSplit                                # first array col of CCD2
+    ccd2_left_arr = ccdSplit                                 # first array col of CCD2
     fiber_mean_col = illum_arr.mean(axis=1)
     right_c1_arr = float(np.max(fiber_mean_col[fiber_mean_col < ccdSplit])
-                          if (fiber_mean_col < ccdSplit).any() else 0)
-    left_c2_arr  = float(np.min(fiber_mean_col[fiber_mean_col >= ccdSplit])
-                          if (fiber_mean_col >= ccdSplit).any() else W)
+                         if (fiber_mean_col < ccdSplit).any() else 0)
+    left_c2_arr = float(np.min(fiber_mean_col[fiber_mean_col >= ccdSplit])
+                        if (fiber_mean_col >= ccdSplit).any() else W)
     dist_ccd1_inner = ccd1_right_arr - right_c1_arr
     dist_ccd2_inner = left_c2_arr - ccd2_left_arr
     if dist_ccd2_inner > dist_ccd1_inner:
@@ -1237,8 +1237,8 @@ def _unitKernelFft(powerLaw, soften, halfSize, shape):
 
 
 def _deconvolveOne(frame, K1_hat, K2_hat, frac1, frac2, prep,
-                    useFineBg=False, fineBgIter=1,
-                    fineBgDegCol=2, fineBgDegRow=3):
+                   useFineBg=False, fineBgIter=1,
+                   fineBgDegCol=2, fineBgDegRow=3):
     """Deconvolve one frame. If frac1=frac2=0, returns the raw image unchanged.
 
     With ``useFineBg=True`` the cleaned image is further refined by an
@@ -1311,7 +1311,7 @@ def _meanBinResiduals(prep, K1_hat, K2_hat, frac1, frac2,
 
 
 def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
-                        wiener_eps=1e-3):
+                       wiener_eps=1e-3):
     """Iterative production-style pipeline in physical-pixel space.
 
     Pseudocode the user specified:
@@ -1327,7 +1327,7 @@ def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
     coords (gap region dropped).
     """
     H, ccdSplit, xGap, wp = (prep["H"], prep["ccdSplit"],
-                              prep["xGap"], prep["wp"])
+                             prep["xGap"], prep["wp"])
     img = frame["img"]              # array coords
     bad = frame["bad"]              # array coords
     imgp, badp = _imgToPhysical(img, bad, ccdSplit, xGap)
@@ -1360,7 +1360,7 @@ def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
         denom = imgp - bg_phys
         denom_for_fft = _fillGapLinear(denom, badp, ccdSplit, xGap)
         cleaned = _wienerInverse(np.fft.rfft2(denom_for_fft), Khat, (H, wp),
-                                  eps=wiener_eps)
+                                 eps=wiener_eps)
         fiberScatter_phys = denom_for_fft - cleaned
         _zeroGap(fiberScatter_phys)                 # don't leak deconvolution into gap
 
@@ -1406,13 +1406,13 @@ def _meanRegionResiduals(prep, K1_hat, K2_hat, frac1, frac2, n_iter=3):
     regions = prep["cost_regions"]
     for frame in prep["frames"]:
         clean = _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2,
-                                    prep, n_iter=n_iter)
+                                   prep, n_iter=n_iter)
         per_visit.append(_regionResiduals(clean, regions, frame["scatter_mask"]))
     return np.nanmean(per_visit, axis=0)
 
 
 def _aggregateCost(bins, weights, dists,
-                    radial_weight=1.0, near_thresh=30.0, far_thresh=60.0):
+                   radial_weight=1.0, near_thresh=30.0, far_thresh=60.0):
     """Combine per-region residual magnitudes into a scalar cost.
 
     Two complementary terms:
@@ -1496,7 +1496,9 @@ def _fineBg2D(residual, bad, x_gap, ccd_split, anchors_array,
         # rows × cols meshgrid
         rs, cs = np.indices(sub_img.shape)
         finite = np.isfinite(sub_img) & ~sub_bad
-        rs = rs[finite]; cs = cs[finite]; vals = sub_img[finite]
+        rs = rs[finite]
+        cs = cs[finite]
+        vals = sub_img[finite]
         xs.append(sub_phys[cs])
         ys.append(rs.astype(np.float64))
         zs.append(vals)
@@ -1620,16 +1622,16 @@ def applyScatteredLightCorrection(
         # (CCD1-right or CCD2-left) that is FURTHER from a fiber.
         fiber_mean_col = illum_arr.mean(axis=1)
         right_c1_arr = float(np.max(fiber_mean_col[fiber_mean_col < ccdSplit])
-                              if (fiber_mean_col < ccdSplit).any() else 0)
+                             if (fiber_mean_col < ccdSplit).any() else 0)
         left_c2_arr = float(np.min(fiber_mean_col[fiber_mean_col >= ccdSplit])
-                              if (fiber_mean_col >= ccdSplit).any() else W)
+                            if (fiber_mean_col >= ccdSplit).any() else W)
         if (left_c2_arr - ccdSplit) > (ccdSplit - 1 - right_c1_arr):
             mid_anchor_phys = (ccdSplit + xGap, ccdSplit + xGap + grossBgEdgeWidth)
         else:
             mid_anchor_phys = (ccdSplit - grossBgEdgeWidth, ccdSplit)
         left_anchor_phys = left_anchor_gross
         right_anchor_phys = (right_anchor_gross[0] + xGap,
-                              right_anchor_gross[1] + xGap)
+                             right_anchor_gross[1] + xGap)
         anchors_phys = [left_anchor_phys, mid_anchor_phys, right_anchor_phys]
 
         prep_lite = dict(H=H, ccdSplit=ccdSplit, xGap=xGap, wp=wp)
@@ -1665,7 +1667,7 @@ def applyScatteredLightCorrection(
     badp[:, ccdSplit + xGap:] = bad[:, ccdSplit:]
     imgp = _fillGapLinear(imgp, badp, ccdSplit, xGap)
     cleaned_padded = _wienerInverse(np.fft.rfft2(imgp), Khat, (H, wp),
-                                     eps=wiener_eps)
+                                    eps=wiener_eps)
     cleaned = np.empty_like(img)
     cleaned[:, :ccdSplit] = cleaned_padded[:, :ccdSplit]
     cleaned[:, ccdSplit:] = cleaned_padded[:, ccdSplit + xGap:]
