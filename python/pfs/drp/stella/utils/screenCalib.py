@@ -104,25 +104,32 @@ def buildRatioImage(butler, dataId, quartzVisit):
 # ── spectrum resampling ───────────────────────────────────────────────────────
 
 def resampleFibers(fl, w, m, wgrid):
-    """Resample per-fiber spectra onto a common wavelength grid.
+    """Resample per-fiber spectra onto a common wavelength grid (flux-conserving).
+
+    Native pixel flux is ``f(λ) × Δλ_per_native_pixel``; converting to flux
+    density (``flux / Δλ``) before interpolation makes per-pixel values
+    comparable across fibers, even when their dispersions differ.
 
     Parameters
     ----------
-    fl : ndarray (nFibers, nWave)
-    w  : ndarray (nFibers, nWave)  per-fiber wavelength arrays
+    fl : ndarray (nFibers, nWave)  flux per native pixel (counts)
+    w  : ndarray (nFibers, nWave)  per-fiber wavelength arrays (nm)
     m  : bool ndarray (nFibers, nWave)  True = masked (bad)
     wgrid : ndarray (nWaveOut,)
 
     Returns
     -------
-    out : ndarray (nFibers, nWaveOut)  NaN where insufficient good pixels
+    out : ndarray (nFibers, nWaveOut)  flux density (counts / nm),
+          NaN where insufficient good pixels
     """
     out = np.full((len(fl), len(wgrid)), np.nan)
     for i, (flux, wave, mask) in enumerate(zip(fl, w, m)):
         good = ~mask
         if good.sum() < 2:
             continue
-        out[i] = np.interp(wgrid, wave[good], flux[good], left=np.nan, right=np.nan)
+        density = flux / np.gradient(wave)
+        out[i] = np.interp(wgrid, wave[good], density[good],
+                           left=np.nan, right=np.nan)
     return out
 
 
