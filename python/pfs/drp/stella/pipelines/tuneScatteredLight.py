@@ -971,6 +971,13 @@ def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys):
         for c in range(WP):
             bg[~valid, c] = np.interp(invalid_rows, valid_rows, bg[valid, c])
 
+    # Physical constraint: a negative bg correction means we'd ADD flux,
+    # which is unphysical (sky and residual halo are both ≥ 0). Clip to 0.
+    # This is a hard prior that breaks the bg-vs-extended-tail degeneracy:
+    # if the kernel over-subtracts and the fit wants negative bg to
+    # compensate, the optimiser is forced to find a less-aggressive kernel
+    # rather than trade signal for unphysical bg.
+    np.maximum(bg, 0.0, out=bg)
     return bg
 
 
