@@ -110,6 +110,7 @@ PYBIND11_MODULE(FiberKernel, mod) {
             int,
             int,
             double,
+            double,
             double
         >(&fitFiberKernel),
         "image"_a,
@@ -121,6 +122,7 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "rows"_a=nullptr,
         "maxIter"_a=20,
         "andersonDepth"_a=5,
+        "andersonDamping"_a=0.25,
         "fluxTol"_a=1.0e-3,
         "lsqThreshold"_a=1.0e-16
     );

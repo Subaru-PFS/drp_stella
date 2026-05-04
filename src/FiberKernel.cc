@@ -1012,8 +1012,9 @@ struct FiberKernelFitter {
         std::size_t rowNum,
         RowData const& data,
         ndarray::Array<double const, 1, 1> const& kernelSolution,
-        math::SymmetricSparseSquareMatrix & matrix,
-        ndarray::Array<double, 1, 1> & vector
+        math::NonsymmetricSparseSquareMatrix & matrix,
+        ndarray::Array<double, 1, 1> & vector,
+        ndarray::Array<bool, 1, 1> & haveParam
     ) const {
         auto _t = timer("flux");
 
@@ -1083,6 +1084,10 @@ struct FiberKernelFitter {
                 }
             }
             matrix.add(iIndex, jIndex, modelDotModel);
+            if (iIndex != jIndex) {
+                matrix.add(jIndex, iIndex, modelDotModel);
+            }
+            haveParam[iIndex] |= modelDotModel != 0.0;
         }
     }
 
@@ -1091,12 +1096,14 @@ struct FiberKernelFitter {
         ndarray::Array<double const, 1, 1> const& kernelSolution
     ) {
         std::size_t const numFluxParams = _numFibers*_numRows;
-        math::SymmetricSparseSquareMatrix matrix(numFluxParams);
+        math::NonsymmetricSparseSquareMatrix matrix(numFluxParams);
         ndarray::Array<double, 1, 1> vector = ndarray::allocate(numFluxParams);
         vector.deep() = 0.0;
+        ndarray::Array<bool, 1, 1> haveParam = ndarray::allocate(numFluxParams);
+        haveParam.deep() = false;
         for (std::size_t ii = 0; ii < data.size(); ++ii) {
             for (std::size_t fiberIndex = 0; fiberIndex < _numFibers; ++fiberIndex) {
-                accumulateFlux(fiberIndex, ii, data[ii], kernelSolution, matrix, vector);
+                accumulateFlux(fiberIndex, ii, data[ii], kernelSolution, matrix, vector, haveParam);
             }
         }
 
@@ -1104,7 +1111,7 @@ struct FiberKernelFitter {
 
         // Avoid non-singular matrix from missing fibers
         for (std::size_t ii = 0; ii < numFluxParams; ++ii) {
-            if (matrix.get(ii, ii) == 0.0) {
+            if (!haveParam[ii]) {
                 assert(vector[ii] == 0.0);
                 matrix.add(ii, ii, 1.0);
             }
@@ -1120,9 +1127,21 @@ struct FiberKernelFitter {
 #endif
 
         ndarray::Array<double, 2, 2> flux = ndarray::allocate(_numRows, _numFibers);
-
+#if 0
         using Solver = math::SymmetricSparseSquareMatrix::SimplicialLDLTSolverUpper;
         ndarray::Array<double, 1, 1> solution = matrix.solve<Solver>(vector);
+#else
+        using Solver = Eigen::ConjugateGradient<
+            typename math::NonsymmetricSparseSquareMatrix::Matrix,
+            Eigen::Upper | Eigen::Lower,
+            Eigen::DiagonalPreconditioner<double>
+        >;
+        Solver solver;
+        solver.setMaxIterations(numFluxParams*10);
+        solver.setTolerance(1.0e-4);
+        ndarray::Array<double, 1, 1> solution = ndarray::allocate(numFluxParams);
+        matrix.solve(solution, vector, solver);
+#endif
 
         std::size_t start = 0;
         std::size_t stop = _numFibers;
@@ -1135,6 +1154,7 @@ struct FiberKernelFitter {
     ndarray::Array<double, 1, 1> run(
         int maxIter,
         int andersonDepth,
+        double andersonDamping,
         double fluxTol,
         double lsqThreshold
     ) {
@@ -1152,6 +1172,7 @@ struct FiberKernelFitter {
         fluxHistory.reserve(andersonDepth + 2);
 
         bool converged = false;
+        double delta = 0.0;
         for (int ii = 0; ii < maxIter; ++ii) {
             auto _t = timer("iteration");
             ndarray::Array<double, 1, 1> const fluxVector = utils::flattenArray(flux);
@@ -1166,7 +1187,11 @@ struct FiberKernelFitter {
             double const rms = std::sqrt(
                 ndarray::asEigenArray(fluxResidual).square().sum()/fluxResidual.size()
             );
-            std::cerr << "Iteration " << ii << ": flux RMS change = " << rms << std::endl;
+            double newDelta = (ndarray::asEigenMatrix(newFluxVector) - ndarray::asEigenMatrix(fluxVector)).norm();
+            double const spectralRadius = newDelta/delta;
+            delta = newDelta;
+
+            std::cerr << "Iteration " << ii << ": flux RMS change = " << rms << ", spectral radius = " << spectralRadius << std::endl;
             if (rms < fluxTol) {
                 flux = std::move(newFlux);
                 converged = true;
@@ -1201,8 +1226,10 @@ struct FiberKernelFitter {
                     ndarray::asEigenMatrix(dKernel) + ndarray::asEigenMatrix(dFlux)
                 )*gamma;
                 Eigen::VectorXd const andersonFluxVector = ndarray::asEigenMatrix(newFluxVector) - correction;
+
                 if (andersonFluxVector.array().isFinite().all()) {
-                    ndarray::asEigenArray(nextFluxVector) = andersonFluxVector.array();
+                    ndarray::asEigenArray(nextFluxVector) = andersonFluxVector.array()*andersonDamping +
+                        ndarray::asEigenArray(newFluxVector)*(1.0 - andersonDamping);
                 }
             }
 
@@ -1262,6 +1289,7 @@ FiberKernel fitFiberKernel(
     ndarray::Array<int, 1, 1> const& rows,
     int maxIter,
     int andersonDepth,
+    double andersonDamping,
     double fluxTol,
     double lsqThreshold
 ) {
@@ -1278,6 +1306,11 @@ FiberKernel fitFiberKernel(
     }
     if (andersonDepth < 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "andersonDepth must be non-negative");
+    }
+    if (andersonDamping <= 0.0 || andersonDamping >= 1.0) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError, "andersonDamping must be between 0 and 1"
+        );
     }
     if (!(std::isfinite(fluxTol) && fluxTol > 0.0)) {
         throw LSST_EXCEPT(
@@ -1318,7 +1351,7 @@ FiberKernel fitFiberKernel(
                 image, fiberTraces, badBitMask,
                 kernelHalfWidth, box,
                 rows.isEmpty() ? utils::arange<int>(0, image.getHeight()) : rows
-            ).run(maxIter, andersonDepth, fluxTol, lsqThreshold);
+            ).run(maxIter, andersonDepth, andersonDamping, fluxTol, lsqThreshold);
         }
     }
     return FiberKernel(image.getDimensions(), kernelHalfWidth, xKernelNum, yKernelNum, coefficients);

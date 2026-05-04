@@ -165,6 +165,7 @@ FiberKernel fitFiberKernel(
     ndarray::Array<int, 1, 1> const& rows=ndarray::Array<int, 1, 1>(),
     int maxIter=20,
     int andersonDepth=5,
+    double andersonDamping=0.25,
     double fluxTol=1.0e-3,
     double lsqThreshold=1.0e-16
 );
