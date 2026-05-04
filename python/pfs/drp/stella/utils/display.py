@@ -455,7 +455,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
       xcen: `int`
          Label fibres near this x-value
       fiberIds: `list` of `int`
-         Label fibres near this set of fiberIds
+         Label fibres near this set of fiberIds. `None` for all fibres (default), `[]` for no fibres
       lines: `pfs.drp.stella.referenceLine.ReferenceLineSet`
          Lines to show on the display
       alpha: `float`
@@ -477,10 +477,13 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     SuNSS = TargetType.SUNSS_IMAGING in pfsConfig.targetType
 
     showAll = False
+    showFibers = True
     if xcen is None:
         if fiberIds is None:
             fiberIds = detMap.fiberId
             showAll = True
+        elif len(fiberIds) == 0:
+            showFibers = False
         else:
             try:
                 fiberIds[0]
@@ -498,7 +501,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         pass  # xcen is already set
 
     nFiberShown = 0
-    for fid in detMap.fiberId:
+    for fid in (detMap.fiberId if showFibers else []):
         ls = '-'
         if fid in pfsConfig.fiberId:
             ind = pfsConfig.selectFiber([fid])
@@ -542,7 +545,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     # Plot the position of a set of lines
     #
     if lines:
-        if fiberIds is None or len(fiberIds) == 0:
+        if showAll or not showFibers:
             fiberIds = detMap.fiberId
             stride = len(fiberIds)//25 + 1
         else:
@@ -583,7 +586,8 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             if len(fiberIds) > 1:
                 good = np.isfinite(xy[0])
                 if sum(good) > 0:
-                    plt.plot(xy[0][good], xy[1][good], color=ctype, alpha=alpha)
+                    order = np.argsort(xy[0][good])
+                    plt.plot(xy[0][good][order], xy[1][good][order], color=ctype, alpha=alpha)
 
     if not showAll:
         if nFiberShown > 0 and showLegend:
