@@ -205,6 +205,33 @@ class TuneScatteredLightConfig(
         dtype=int, default=3,
         doc="Number of iterations of (grossBg, FFT-IF) when useIterative.",
     )
+    bgClip = Field(
+        dtype=bool, default=True,
+        doc="Clip the gross-bg polynomial fit at 0 (physically: no negative "
+            "bg correction). Set to False as a diagnostic to see whether the "
+            "optimiser actually wants negative bg values — which would "
+            "indicate the kernel is over-correcting locally and the bg fit "
+            "is compensating, signalling a kernel-shape problem.",
+    )
+    useAlpha = Field(
+        dtype=bool, default=False,
+        doc="Replace the additive bg subtraction with a multiplicative "
+            "α(col_phys, row) attenuation of the FFT-IF kernel piece. The "
+            "pipeline becomes: single Wiener-IF on the raw image to extract "
+            "fiberScatter, then fit a smooth 2-D Chebyshev α at scatter "
+            "pixels so img ≈ α·fiberScatter; clean = img − α·fiberScatter. "
+            "Avoids the negative-bg clip behaviour of the iterative path "
+            "and naturally captures position-dependent kernel strength. "
+            "When True, ``useIterative`` and ``useGrossBg`` are ignored.",
+    )
+    alphaDegCol = Field(
+        dtype=int, default=3,
+        doc="Chebyshev degree of α in the (physical) column direction.",
+    )
+    alphaDegRow = Field(
+        dtype=int, default=3,
+        doc="Chebyshev degree of α in the row direction.",
+    )
     outerRegionWeight = Field(
         dtype=float, default=5.0,
         doc="Weight multiplier on the outermost cost regions (CCD1 outer-left "
@@ -345,6 +372,10 @@ class TuneScatteredLightTask(PipelineTask):
             fineBgDegRow=self.config.fineBgDegRow,
             useIterative=self.config.useIterative,
             nIter=self.config.nIter,
+            bgClip=self.config.bgClip,
+            useAlpha=self.config.useAlpha,
+            alphaDegCol=self.config.alphaDegCol,
+            alphaDegRow=self.config.alphaDegRow,
             outerRegionWeight=self.config.outerRegionWeight,
             radialPenaltyWeight=self.config.radialPenaltyWeight,
             radialNearThreshold=self.config.radialNearThreshold,
@@ -474,20 +505,57 @@ def tuneCamerasInParallel(
     results : dict[str, dict]
         Maps camera name to the ``tuneResult`` dict returned by the task.
     """
+    import datetime
+    import sys
     jobs = [
         (c, list(useVisits), int(calibVisit), repo, list(collections), configKwargs)
         for c in cameras
     ]
+    t0 = datetime.datetime.now()
+    n_total = len(cameras)
+    print(f"[{t0:%H:%M:%S}] starting {n_total} cameras × "
+          f"{maxWorkers} workers ({context} context)", flush=True)
+    sys.stdout.flush()
+
     results: dict = {}
+    n_done = 0
     with mp.get_context(context).Pool(maxWorkers) as pool:
         for camera, payload in pool.imap_unordered(_tuneOneCameraWorker, jobs):
             results[camera] = payload
-            best = payload.get("best", {})
+            n_done += 1
+            t = datetime.datetime.now()
+            elapsed = t - t0
+            best = payload.get("best", {}) or {}
+
+            # Edge-of-grid check: was the minimum at a grid boundary?
+            edge_flags = []
+            for name in ("frac1", "frac2", "powerLaw1", "powerLaw2"):
+                grid = payload.get("grids", {}).get(name)
+                v = best.get(name)
+                if grid is None or v is None:
+                    continue
+                grid = list(grid)
+                if v == grid[0] or v == grid[-1]:
+                    short = name.replace("frac", "f").replace("powerLaw", "PL")
+                    edge_flags.append(short)
+            edge_str = (" EDGE: " + ",".join(edge_flags)) if edge_flags else ""
+
             print(
-                f"[{camera}] frac1={best.get('frac1', float('nan')):.4f} "
-                f"frac2={best.get('frac2', float('nan')):.4f}  "
-                f"RMS={payload.get('best_rms', float('nan')):.5f}"
+                f"[{t:%H:%M:%S}] [{camera}] "
+                f"f1={best.get('frac1', float('nan')):.4f} "
+                f"f2={best.get('frac2', float('nan')):.4f} "
+                f"PL1={best.get('powerLaw1', float('nan')):.2f} "
+                f"PL2={best.get('powerLaw2', float('nan')):.2f} "
+                f"RMS={payload.get('best_rms', float('nan')):.4f}  "
+                f"({n_done}/{n_total} done, +{elapsed})"
+                f"{edge_str}",
+                flush=True,
             )
+            sys.stdout.flush()
+
+    t1 = datetime.datetime.now()
+    print(f"[{t1:%H:%M:%S}] all {n_total} cameras done in {t1 - t0}",
+          flush=True)
     return {c: results.get(c) for c in cameras}
 
 
@@ -512,6 +580,10 @@ def tuneScatteredLight(
     fineBgDegRow: int = 3,
     useIterative: bool = False,
     nIter: int = 3,
+    bgClip: bool = True,
+    useAlpha: bool = False,
+    alphaDegCol: int = 3,
+    alphaDegRow: int = 3,
     outerRegionWeight: float = 5.0,
     radialPenaltyWeight: float = 1.0,
     radialNearThreshold: float = 30.0,
@@ -585,10 +657,12 @@ def tuneScatteredLight(
     rms_grid = np.full(shape, np.nan)
     bin_grid = np.full(shape + (len(prep["binLabels"]),), np.nan)
 
-    if useIterative:
-        # Each grid point evaluated as: nIter-iteration physical-pixel
-        # pipeline, cost = weighted RMS over the 8 cost regions plus a
-        # radial-shape penalty (see `_aggregateCost`).
+    if useIterative or useAlpha:
+        # Each grid point evaluated against the 8 cost regions per CCD,
+        # via either the iterative gross-bg + FFT-IF cleaner (default) or
+        # the single-FFT-IF + α(col_phys, row) multiplicative cleaner
+        # (when `useAlpha=True`). Cost = weighted RMS over the 8 regions
+        # plus a radial-shape penalty (see `_aggregateCost`).
         n_regions = len(prep["cost_regions"])
         bin_grid = np.full(shape + (n_regions,), np.nan)
         cost_kw = dict(
@@ -598,6 +672,11 @@ def tuneScatteredLight(
             near_thresh=radialNearThreshold,
             far_thresh=radialFarThreshold,
         )
+        cleaner_kw = dict(
+            n_iter=nIter, useAlpha=useAlpha,
+            alphaDegCol=alphaDegCol, alphaDegRow=alphaDegRow,
+            bgClip=bgClip,
+        )
         for flatIdx in np.ndindex(*shape):
             params = dict(fixed)
             for n, i in zip(names, flatIdx):
@@ -606,11 +685,11 @@ def tuneScatteredLight(
             K2_hat = k2_cache[(params["powerLaw2"], params["soften2"])]
             bins = _meanRegionResiduals(prep, K1_hat, K2_hat,
                                         params["frac1"], params["frac2"],
-                                        n_iter=nIter)
+                                        **cleaner_kw)
             rms_grid[flatIdx] = _aggregateCost(bins, **cost_kw)
             bin_grid[flatIdx] = bins
         raw_bins = _meanRegionResiduals(prep, None, None, 0.0, 0.0,
-                                        n_iter=nIter)
+                                        **cleaner_kw)
     else:
         for flatIdx in np.ndindex(*shape):
             params = dict(fixed)
@@ -917,13 +996,24 @@ def _wienerInverse(img_fft, Khat, shape, eps=1e-3):
     )
 
 
-def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys):
+def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys, bgClip=True):
     """Per-row deg=2 polynomial through 3 (col_phys, median) anchors.
 
     Vectorised across rows. Rows where any anchor has < 3 good pixels are
     filled by linear interpolation along the row axis from neighbouring good
     rows (the previous behaviour of leaving them at zero produced a step into
     the FFT).
+
+    Parameters
+    ----------
+    imgp, badp, anchors_phys :
+        See module docstring.
+    bgClip : bool, default True
+        If True, clip ``bg < 0`` to 0 (physically: no negative bg correction).
+        If False, return the unclipped polynomial — useful as a diagnostic to
+        see whether the optimiser actually wants negative values (which would
+        indicate the kernel is over-correcting locally and the bg fit is
+        compensating).
     """
     if len(anchors_phys) != 3:
         raise ValueError("Expected exactly 3 anchors")
@@ -971,13 +1061,15 @@ def _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys):
         for c in range(WP):
             bg[~valid, c] = np.interp(invalid_rows, valid_rows, bg[valid, c])
 
-    # Physical constraint: a negative bg correction means we'd ADD flux,
-    # which is unphysical (sky and residual halo are both ≥ 0). Clip to 0.
-    # This is a hard prior that breaks the bg-vs-extended-tail degeneracy:
-    # if the kernel over-subtracts and the fit wants negative bg to
-    # compensate, the optimiser is forced to find a less-aggressive kernel
-    # rather than trade signal for unphysical bg.
-    np.maximum(bg, 0.0, out=bg)
+    # Physical constraint (when ``bgClip=True``): a negative bg correction
+    # means we'd ADD flux, which is unphysical for sky / residual halo
+    # backgrounds. Clipping to 0 is a hard prior that breaks the bg-vs-
+    # extended-tail degeneracy. With ``bgClip=False`` the unclipped
+    # polynomial is returned — useful as a diagnostic to see whether the
+    # optimiser actually wants negative values (which would indicate the
+    # kernel is over-correcting locally and the bg fit is compensating).
+    if bgClip:
+        np.maximum(bg, 0.0, out=bg)
     return bg
 
 
@@ -1354,7 +1446,7 @@ def _meanBinResiduals(prep, K1_hat, K2_hat, frac1, frac2,
 
 
 def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
-                       wiener_eps=1e-3):
+                       wiener_eps=1e-3, bgClip=True):
     """Iterative production-style pipeline in physical-pixel space.
 
     Pseudocode the user specified:
@@ -1383,7 +1475,8 @@ def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
         return arr
 
     if frac1 == 0.0 and frac2 == 0.0:
-        bg_phys = _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys)
+        bg_phys = _grossBgDeg2_3anchorsPhysical(imgp, badp, anchors_phys,
+                                                bgClip=bgClip)
         _zeroGap(bg_phys)
         clean_phys = imgp - bg_phys
         return _imgFromPhysical(clean_phys, ccdSplit, xGap)
@@ -1393,7 +1486,7 @@ def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
     bg_phys = np.zeros_like(imgp)
     for _ in range(max(1, n_iter)):
         bg_phys = _grossBgDeg2_3anchorsPhysical(
-            imgp - fiberScatter_phys, badp, anchors_phys
+            imgp - fiberScatter_phys, badp, anchors_phys, bgClip=bgClip,
         )
         # bg_phys is naturally smooth across the gap (deg-2 polynomial in
         # physical coords). Compute denom = imgp - bg_phys, then linear-fill
@@ -1410,6 +1503,128 @@ def _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep, n_iter=3,
     _zeroGap(bg_phys)                               # gap stays 0 on output
     clean_phys = imgp - bg_phys - fiberScatter_phys
     return _imgFromPhysical(clean_phys, ccdSplit, xGap)
+
+
+def _fitAlpha2D(img, fs, scatter_mask, ccdSplit, xGap,
+                deg_col=3, deg_row=3, fs_frac_thresh=0.05):
+    """Fit a smooth 2-D Chebyshev multiplier α(col_phys, row) such that
+    ``img ≈ α · fs`` at scatter pixels.
+
+    The motivation is to replace the additive bg correction (which had to
+    be clipped at 0 to stay physical) with a multiplicative attenuation of
+    the kernel piece — naturally non-negative when α > 0, and physically
+    interpretable as "how strongly does this CCD region scatter relative
+    to the average".
+
+    Parameters
+    ----------
+    img : ndarray (H, W)
+        Observed image in array coords.
+    fs : ndarray (H, W)
+        Single-FFT-IF kernel piece (``imgp − wiener(imgp)`` with gap
+        zeroed and dropped back to array coords).
+    scatter_mask : ndarray (H, W) bool
+        True where the pixel is fittable (illuminated and bad pixels excluded).
+    ccdSplit, xGap : int
+        Physical-coordinate parameters for col → col_phys mapping.
+    deg_col, deg_row : int
+        Chebyshev polynomial degrees in physical column and row.
+    fs_frac_thresh : float
+        Pixels with |fs| < ``fs_frac_thresh × median(|fs|)`` are excluded —
+        their implicit α (= img / fs) blows up otherwise.
+
+    Returns
+    -------
+    alpha : ndarray (H, W)
+        α evaluated on every pixel of the image grid.
+    """
+    H, W = img.shape
+    rows_arr, cols_arr = np.indices(img.shape)
+    cols_phys = np.where(cols_arr < ccdSplit, cols_arr,
+                         cols_arr + xGap).astype(np.float64)
+    fs_med = float(np.nanmedian(np.abs(fs[scatter_mask])))
+    fs_thresh = fs_frac_thresh * fs_med
+    valid = scatter_mask & np.isfinite(img) & np.isfinite(fs) \
+        & (np.abs(fs) > fs_thresh)
+    if int(valid.sum()) < (deg_col + 1) * (deg_row + 1) * 10:
+        # Not enough pixels — fall back to α=1 everywhere
+        return np.ones_like(img)
+
+    xs = cols_phys[valid]
+    ys = rows_arr[valid].astype(np.float64)
+    img_v = img[valid]
+    fs_v = fs[valid]
+
+    WP_minus1 = float(W + xGap - 1)
+    H_minus1 = float(H - 1)
+    x_norm = 2 * xs / WP_minus1 - 1
+    y_norm = 2 * ys / H_minus1 - 1
+    Tx = np.polynomial.chebyshev.chebvander(x_norm, deg_col)
+    Ty = np.polynomial.chebyshev.chebvander(y_norm, deg_row)
+    # Design matrix: Mij = Tx_i × Ty_j × fs_i;  weight by |fs_i| so the fit
+    # is dominated by high-signal pixels (low-fs pixels have noisy implicit α).
+    M = (Tx[:, :, None] * Ty[:, None, :]).reshape(len(xs), -1) * fs_v[:, None]
+    w = np.abs(fs_v)
+    Mw = M * w[:, None]
+    bw = img_v * w
+    coef, *_ = np.linalg.lstsq(Mw, bw, rcond=None)
+    coef_2d = coef.reshape(deg_col + 1, deg_row + 1)
+
+    # Evaluate α on the full grid
+    cols_all = np.arange(W, dtype=np.float64)
+    cols_all_phys = np.where(cols_all < ccdSplit, cols_all,
+                             cols_all + xGap)
+    rows_all = np.arange(H, dtype=np.float64)
+    XN = 2 * cols_all_phys / WP_minus1 - 1
+    YN = 2 * rows_all / H_minus1 - 1
+    Tx_full = np.polynomial.chebyshev.chebvander(XN, deg_col)
+    Ty_full = np.polynomial.chebyshev.chebvander(YN, deg_row)
+    return np.einsum('ij,ci,rj->rc', coef_2d, Tx_full, Ty_full)
+
+
+def _alphaCleanOne(frame, K1_hat, K2_hat, frac1, frac2, prep,
+                   alpha_deg_col=3, alpha_deg_row=3, wiener_eps=1e-3):
+    """Single FFT-IF + multiplicative α(x,y) correction.
+
+    Pipeline:
+
+        imgp_filled = fillGap(imgp)
+        cleaned_raw = wiener(imgp_filled)
+        fs          = imgp_filled − cleaned_raw          (kernel piece)
+        α(col_phys, row) ← lstsq fit so img ≈ α · fs at scatter pixels
+        clean = img − α · fs
+
+    Replaces the additive gross-bg subtraction of `_iterativeCleanOne` with
+    a multiplicative kernel-attenuation. Avoids the need to clip negative
+    bg values; α naturally stays in [0, ~1.5] for a well-fit kernel and
+    captures position-dependent kernel strength (analogous to the boss's
+    1-D `top`/`bottom` ramp in `ScatteredLightModel`, here generalised to
+    a low-degree 2-D polynomial).
+    """
+    H, ccdSplit, xGap, wp = (prep["H"], prep["ccdSplit"],
+                             prep["xGap"], prep["wp"])
+    img = frame["img"]
+    bad = frame["bad"]
+    scatter_mask = frame["scatter_mask"]
+
+    if frac1 == 0.0 and frac2 == 0.0:
+        return img.copy()
+
+    imgp, badp = _imgToPhysical(img, bad, ccdSplit, xGap)
+    imgp_filled = _fillGapLinear(imgp, badp, ccdSplit, xGap)
+    Khat = frac1 * K1_hat + frac2 * K2_hat
+    cleaned_raw_phys = _wienerInverse(
+        np.fft.rfft2(imgp_filled), Khat, (H, wp), eps=wiener_eps,
+    )
+    fs_phys = imgp_filled - cleaned_raw_phys
+    fs_phys[:, ccdSplit:ccdSplit + xGap] = 0.0
+    fs = _imgFromPhysical(fs_phys, ccdSplit, xGap)
+
+    alpha = _fitAlpha2D(
+        img, fs, scatter_mask, ccdSplit, xGap,
+        deg_col=alpha_deg_col, deg_row=alpha_deg_row,
+    )
+    return img - alpha * fs
 
 
 def _regionResiduals(clean, regions, scatter_mask, sigma=3.5):
@@ -1441,15 +1656,25 @@ def _regionResiduals(clean, regions, scatter_mask, sigma=3.5):
     return out
 
 
-def _meanRegionResiduals(prep, K1_hat, K2_hat, frac1, frac2, n_iter=3):
-    """Mean per-region residual (averaged over frames) for the iterative
-    pipeline.  Used as the kernel-tuning cost when ``useIterative=True``.
+def _meanRegionResiduals(prep, K1_hat, K2_hat, frac1, frac2, n_iter=3,
+                         useAlpha=False, alphaDegCol=3, alphaDegRow=3,
+                         bgClip=True):
+    """Mean per-region residual (averaged over frames).
+
+    Dispatches to the iterative gross-bg + FFT-IF cleaner by default, or
+    to the single FFT-IF + α(col_phys, row) cleaner when ``useAlpha=True``.
     """
     per_visit = []
     regions = prep["cost_regions"]
     for frame in prep["frames"]:
-        clean = _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2,
-                                   prep, n_iter=n_iter)
+        if useAlpha:
+            clean = _alphaCleanOne(
+                frame, K1_hat, K2_hat, frac1, frac2, prep,
+                alpha_deg_col=alphaDegCol, alpha_deg_row=alphaDegRow,
+            )
+        else:
+            clean = _iterativeCleanOne(frame, K1_hat, K2_hat, frac1, frac2,
+                                       prep, n_iter=n_iter, bgClip=bgClip)
         per_visit.append(_regionResiduals(clean, regions, frame["scatter_mask"]))
     return np.nanmean(per_visit, axis=0)
 
@@ -1575,6 +1800,7 @@ def applyScatteredLightCorrection(
     halfIllum=11, grossBgEdgeWidth=20,
     fineBgDegCol=2, fineBgDegRow=3,
     nFineIter=1, useIterative=True, nIter=3, wiener_eps=1e-3,
+    bgClip=True,
 ):
     """Apply the full scattered-light correction pipeline to one frame.
 
@@ -1684,7 +1910,7 @@ def applyScatteredLightCorrection(
         cleaned = _iterativeCleanOne(
             frame, K1_hat, K2_hat,
             float(kernelParams["frac1"]), float(kernelParams["frac2"]),
-            prep_lite, n_iter=nIter, wiener_eps=wiener_eps,
+            prep_lite, n_iter=nIter, wiener_eps=wiener_eps, bgClip=bgClip,
         )
         return cleaned, dict(
             anchors_phys=anchors_phys,
