@@ -8,11 +8,47 @@
 #include "pfs/drp/stella/FiberTraceSet.h"
 #include "pfs/drp/stella/SpectrumSet.h"
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
+#include "pfs/drp/stella/GridTransform.h"
 
 
 namespace pfs {
 namespace drp {
 namespace stella {
+
+namespace detail {
+
+
+template <typename T>
+class LinearInterpolationHelper {
+  public:
+    using IndexWeightPair = std::pair<std::size_t, T>;
+
+    LinearInterpolationHelper(
+        ndarray::Array<T, 1, 1> const& x,
+        std::size_t length
+    );
+
+    LinearInterpolationHelper(LinearInterpolationHelper const&) = default;
+    LinearInterpolationHelper(LinearInterpolationHelper&&) = default;
+    LinearInterpolationHelper& operator=(LinearInterpolationHelper const&) = default;
+    LinearInterpolationHelper& operator=(LinearInterpolationHelper&&) = default;
+    ~LinearInterpolationHelper() = default;
+
+    ndarray::Array<T, 1, 1> getX() const { return _x; }
+    std::size_t getLength() const { return _length; }
+
+    std::pair<IndexWeightPair, IndexWeightPair> operator()(std::size_t x) const;
+
+
+  private:
+    ndarray::Array<T, 1, 1> _x;
+    std::size_t _length;
+    ndarray::Array<T, 1, 1> _index;
+    ndarray::Array<T, 1, 1> _weight;
+};
+
+
+}  // namespace detail
 
 
 class BaseKernel {
@@ -71,7 +107,9 @@ class BaseKernel {
     virtual lsst::afw::image::Image<float> convolveImpl(
         lsst::afw::image::Image<float> const& image
     ) const = 0;
-    virtual ndarray::Array<double, 3, 3> makeOffsetImagesImpl(lsst::geom::Extent2I const& dims) const = 0;
+    virtual ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
+        lsst::geom::Extent2I const& dims
+    ) const = 0;
 };
 
 
@@ -103,14 +141,17 @@ class FiberKernel : public BaseKernel {
         lsst::geom::Extent2I const& dims
     ) const override;
 
-    lsst::geom::Point2I getBlock(double x, double y) const {
-        return lsst::geom::Point2I(getXBlock(x), getYBlock(y));
-    }
-    int getXBlock(double x) const;
-    int getYBlock(double y) const;
+    template <int C>
+    void _evaluate(
+        ndarray::Array<double, 1, C> & result,
+        double x,
+        double y
+    ) const;
 
     int _xNumBlocks;
     int _yNumBlocks;
+    detail::LinearInterpolationHelper<double> _xInterp;
+    detail::LinearInterpolationHelper<double> _yInterp;
 };
 
 

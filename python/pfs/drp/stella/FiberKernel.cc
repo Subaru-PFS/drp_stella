@@ -14,6 +14,18 @@ namespace pfs { namespace drp { namespace stella {
 namespace {
 
 
+template <typename T>
+void declareLinearInterpolationHelper(py::module & mod) {
+    py::class_<detail::LinearInterpolationHelper<T>> cls(mod, "LinearInterpolationHelper");
+    cls.def(py::init<ndarray::Array<T, 1, 1> const&, std::size_t>(), "x"_a, "length"_a);
+    cls.def("getX", &detail::LinearInterpolationHelper<T>::getX);
+    cls.def_property_readonly("x", &detail::LinearInterpolationHelper<T>::getX);
+    cls.def("getLength", &detail::LinearInterpolationHelper<T>::getLength);
+    cls.def_property_readonly("length", &detail::LinearInterpolationHelper<T>::getLength);
+    cls.def("__call__", &detail::LinearInterpolationHelper<T>::operator(), "x"_a);
+}
+
+
 void declareBaseKernel(py::module & mod) {
     py::class_<BaseKernel> cls(mod, "BaseKernel");
     cls.def_property_readonly("halfWidth", &BaseKernel::getHalfWidth);
@@ -82,6 +94,7 @@ void declareFiberKernel(py::module & mod) {
 
 
 PYBIND11_MODULE(FiberKernel, mod) {
+    declareLinearInterpolationHelper<double>(mod);
     declareBaseKernel(mod);
     declareFiberKernel(mod);
     mod.def(
