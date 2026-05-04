@@ -27,8 +27,11 @@ class ReadLineListConfig(Config):
                                     "If the value is not an absolute path, "
                                     "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``."),
                                default={'Ar': 'Ar.txt',
+                                        'H': 'H.txt',
+                                        'He': 'He.txt',
                                         'Ne': 'Ne.txt',
                                         'Kr': 'Kr.txt',
+                                        'OI': 'contamination.txt',
                                         'Xe': 'Xe.txt',
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
@@ -115,6 +118,10 @@ class ReadLineListTask(Task):
                 engineeringIlluminated.add(ll)
             else:
                 scienceIlluminated.add(ll)
+
+            if ll not in self.config.lightSourceMap:
+                raise KeyError(
+                    f"Lamp {ll} is unknown; valid options [{', '.join(self.config.lightSourceMap)}]")
 
             filename = self.config.lightSourceMap[ll]
             if filename is not None:
