@@ -28,12 +28,14 @@ void declareLinearInterpolationHelper(py::module & mod) {
 
 void declareBaseKernel(py::module & mod) {
     py::class_<BaseKernel> cls(mod, "BaseKernel");
+    cls.def_property_readonly("dims", &BaseKernel::getDims);
     cls.def_property_readonly("halfWidth", &BaseKernel::getHalfWidth);
     cls.def_property_readonly("numParams", &BaseKernel::getNumParams);
-    cls.def_property_readonly("coefficients", &BaseKernel::getCoefficients);
+    cls.def_property_readonly("values", &BaseKernel::getValues);
+    cls.def("getDims", &BaseKernel::getDims);
     cls.def("getHalfWidth", &BaseKernel::getHalfWidth);
     cls.def("getNumParams", &BaseKernel::getNumParams);
-    cls.def("getCoefficients", &BaseKernel::getCoefficients);
+    cls.def("getValues", &BaseKernel::getValues);
 
     cls.def(
         "convolve",
@@ -76,14 +78,18 @@ void declareFiberKernel(py::module & mod) {
             int,
             int,
             int,
-            ndarray::ArrayRef<double const, 1, 1> const&
+            ndarray::Array<double const, 1, 1> const&
         >(),
-        "range"_a,
+        "dims"_a,
         "halfWidth"_a,
-        "xKernelNum"_a,
-        "yKernelNum"_a,
-        "coefficients"_a
+        "xNumBlocks"_a,
+        "yNumBlocks"_a,
+        "values"_a
     );
+    cls.def_property_readonly("xNumBlocks", &FiberKernel::getXNumBlocks);
+    cls.def_property_readonly("yNumBlocks", &FiberKernel::getYNumBlocks);
+    cls.def("getXNumBlocks", &FiberKernel::getXNumBlocks);
+    cls.def("getYNumBlocks", &FiberKernel::getYNumBlocks);
     cls.def("evaluate", py::overload_cast<double, double>(&FiberKernel::evaluate, py::const_), "x"_a, "y"_a);
     cls.def(
         "evaluate",

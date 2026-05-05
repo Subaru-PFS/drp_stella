@@ -415,13 +415,13 @@ BaseKernel::BaseKernel(
     lsst::geom::Extent2I const& dims,
     int halfWidth,
     std::size_t numParams,
-    ndarray::Array<double const, 1, 1> const& coefficients
+    ndarray::Array<double const, 1, 1> const& values
 ) : _dims(dims),
     _halfWidth(halfWidth),
     _numParams(numParams),
-    _coefficients(ndarray::copy(coefficients))
+    _values(ndarray::copy(values))
 {
-    utils::checkSize(coefficients.size(), _numParams, "coefficients");
+    utils::checkSize(values.size(), _numParams, "values");
 }
 
 
@@ -461,12 +461,12 @@ FiberKernel::FiberKernel(
     int halfWidth,
     int xNumBlocks,
     int yNumBlocks,
-    ndarray::Array<double const, 1, 1> const& coefficients
+    ndarray::Array<double const, 1, 1> const& values
 ) : BaseKernel(
         dims,
         halfWidth,
         (2*halfWidth)*xNumBlocks*yNumBlocks,
-        coefficients
+        values
     ),
     _xNumBlocks(xNumBlocks),
     _yNumBlocks(yNumBlocks),
@@ -474,7 +474,7 @@ FiberKernel::FiberKernel(
     _yInterp(makeInterpolationHelper(yNumBlocks, dims.getY()))
 {
     utils::checkSize(
-            static_cast<int>(coefficients.size()), (2*halfWidth)*xNumBlocks*yNumBlocks, "coefficients"
+            static_cast<int>(values.size()), (2*halfWidth)*xNumBlocks*yNumBlocks, "values"
         );
 }
 
@@ -584,8 +584,8 @@ void FiberKernel::_evaluate(
     double const lowerWeight = yInterp.first.second;
     double const upperWeight = yInterp.second.second;
 
-    auto getCoefficient = [this, numKernel](std::size_t xIndex, std::size_t yIndex, std::size_t kernelIndex) {
-        return _coefficients[(yIndex*_xNumBlocks + xIndex)*numKernel + kernelIndex];
+    auto getValue = [this, numKernel](std::size_t xIndex, std::size_t yIndex, std::size_t kernelIndex) {
+        return _values[(yIndex*_xNumBlocks + xIndex)*numKernel + kernelIndex];
     };
 
     std::size_t index = 0;
@@ -594,10 +594,10 @@ void FiberKernel::_evaluate(
             --index;
             continue;
         }
-        double const lowerLeft = getCoefficient(leftIndex, lowerIndex, index);
-        double const lowerRight = getCoefficient(rightIndex, lowerIndex, index);
-        double const upperLeft = getCoefficient(leftIndex, upperIndex, index);
-        double const upperRight = getCoefficient(rightIndex, upperIndex, index);
+        double const lowerLeft = getValue(leftIndex, lowerIndex, index);
+        double const lowerRight = getValue(rightIndex, lowerIndex, index);
+        double const upperLeft = getValue(leftIndex, upperIndex, index);
+        double const upperRight = getValue(rightIndex, upperIndex, index);
 
         double const value = leftWeight*lowerWeight*lowerLeft +
             rightWeight*lowerWeight*lowerRight +
@@ -643,7 +643,7 @@ namespace {
     std::vector<std::vector<std::size_t>> overlaps;  // [fiber][offset] overlapping fiber indices within kernelHalfWidth
 
     // Layout of models: offset=-kernelWidth, ... offset=0, ... offset=+kernelWidth
-    // Note that this is different from the layout of coefficients in the matrix, which skips offset=0.
+    // Note that this is different from the layout of values in the matrix, which skips offset=0.
     ndarray::Array<double, 2, 2> dotData;  // [fiber][offset] model dot data
 
     // [fiber][otherFiber][offset][otherOffset] model dot Model; first otherFiber is the same as fiber
@@ -1331,7 +1331,7 @@ FiberKernel fitFiberKernel(
 
     std::cerr << "width=" << image.getWidth() << ", height=" << image.getHeight() << std::endl;
 
-    ndarray::Array<double, 1, 1> coefficients = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
+    ndarray::Array<double, 1, 1> values = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
     std::size_t start = 0;
     std::size_t stop = 2*kernelHalfWidth;
     for (std::size_t ii = 0; ii < yKernelNum; ++ii) {
@@ -1352,14 +1352,14 @@ FiberKernel fitFiberKernel(
             box.clip(image.getBBox());
 
             std::cerr << "Fitting kernel for box " << box << std::endl;
-            coefficients[ndarray::view(start, stop)] = FiberKernelFitter(
+            values[ndarray::view(start, stop)] = FiberKernelFitter(
                 image, fiberTraces, badBitMask,
                 kernelHalfWidth, box,
                 rows.isEmpty() ? utils::arange<int>(0, image.getHeight()) : rows
             ).run(maxIter, andersonDepth, andersonDamping, fluxTol, lsqThreshold);
         }
     }
-    return FiberKernel(image.getDimensions(), kernelHalfWidth, xKernelNum, yKernelNum, coefficients);
+    return FiberKernel(image.getDimensions(), kernelHalfWidth, xKernelNum, yKernelNum, values);
 }
 
 
@@ -1523,7 +1523,7 @@ FiberKernel fitFiberKernel(
         );
     }
 
-    ndarray::Array<double, 1, 1> coefficients = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
+    ndarray::Array<double, 1, 1> values = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
     std::size_t start = 0;
     std::size_t stop = 2*kernelHalfWidth;
     for (std::size_t ii = 0; ii < yKernelNum; ++ii) {
@@ -1546,7 +1546,7 @@ FiberKernel fitFiberKernel(
             );
             box.clip(source.getBBox());
 
-            coefficients[ndarray::view(start, stop)] = _fitFiberKernel(
+            values[ndarray::view(start, stop)] = _fitFiberKernel(
                 source, target, badBitMask, kernelHalfWidth, box, rows, lsqThreshold
             );
         }
@@ -1557,7 +1557,7 @@ FiberKernel fitFiberKernel(
         kernelHalfWidth,
         xKernelNum,
         yKernelNum,
-        coefficients
+        values
     );
 }
 
