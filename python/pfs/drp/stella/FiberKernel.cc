@@ -96,6 +96,29 @@ void declareFiberKernel(py::module & mod) {
         py::overload_cast<lsst::geom::Point2D const&>(&FiberKernel::evaluate, py::const_),
         "xy"_a
     );
+    cls.def(py::pickle(
+        [](FiberKernel const& self) {
+            return py::make_tuple(
+                self.getDims(),
+                self.getHalfWidth(),
+                self.getXNumBlocks(),
+                self.getYNumBlocks(),
+                self.getValues()
+            );
+        },
+        [](py::tuple const& t) {
+            if (t.size() != 5) {
+                throw std::runtime_error("Invalid state for FiberKernel");
+            }
+            return new FiberKernel(
+                t[0].cast<lsst::geom::Extent2I>(),
+                t[1].cast<int>(),
+                t[2].cast<int>(),
+                t[3].cast<int>(),
+                t[4].cast<ndarray::Array<double, 1, 1>>()
+            );
+        }
+    ));
 }
 
 
