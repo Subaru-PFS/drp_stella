@@ -209,7 +209,7 @@ def calculateFitStatistics(
         softenChi2 : callable
             Function that calculates chi^2 given a softening parameter.
         """
-        if residuals.size == 0:
+        if residuals.size == 0 or dof <= 0:
             return 0.0
         residuals2 = residuals**2
         errors2 = errors**2
@@ -234,7 +234,8 @@ def calculateFitStatistics(
             with np.errstate(invalid="ignore", divide="ignore"):
                 return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
-        if softenChi2(0.0) < 0:
+        val = softenChi2(0.0)
+        if not np.isfinite(val) or val < 0:
             return 0.0
         if softenChi2(maxSoften) > 0:
             return np.nan
