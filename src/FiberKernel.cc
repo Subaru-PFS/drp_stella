@@ -14,6 +14,7 @@
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
+#include "pfs/drp/stella/math/quartiles.h"
 
 namespace pfs {
 namespace drp {
@@ -1184,9 +1185,13 @@ struct FiberKernelFitter {
             ndarray::Array<double, 1, 1> fluxResidual = ndarray::allocate(numFluxParams);
             ndarray::asEigenArray(fluxResidual) =
                 ndarray::asEigenArray(newFluxVector) - ndarray::asEigenArray(fluxVector);
-            double const rms = std::sqrt(
-                ndarray::asEigenArray(fluxResidual).square().sum()/fluxResidual.size()
-            );
+
+            // Use robust estimator for RMS, to avoid outliers. I'm especially worried about fibers
+            // on the edge of the box, which may fall in and out depending on the kernel.
+            ndarray::Array<bool, 1, 1> const isZero = ndarray::allocate(numFluxParams);
+            ndarray::asEigenArray(isZero) = ndarray::asEigenArray(fluxResidual).array() == 0.0;
+            double const rms = math::robustRms<double, 1>(fluxResidual, isZero);
+
             double newDelta = (ndarray::asEigenMatrix(newFluxVector) - ndarray::asEigenMatrix(fluxVector)).norm();
             double const spectralRadius = newDelta/delta;
             delta = newDelta;

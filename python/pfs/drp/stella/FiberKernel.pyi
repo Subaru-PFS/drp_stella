@@ -61,7 +61,7 @@ def fitFiberKernel(
     maxIter: int = 20,
     andersonDepth: int = 5,
     andersonDamping: float = 0.25,
-    fluxTol: float = 1.0e-3,
+    fluxTol: float = 1.0e-2,
     lsqThreshold: float = 1.0e-16,
 ) -> FiberKernel: ...
 @overload
