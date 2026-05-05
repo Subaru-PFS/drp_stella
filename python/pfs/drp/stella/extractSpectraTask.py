@@ -122,10 +122,13 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
+        kernel = None
         if isBoxcar or not allowConvolution:
             spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
         else:
-            spectra = self.extractWithConvolution(maskedImage, fiberTraceSet, detectorMap)
+            extraction = self.extractWithConvolution(maskedImage, fiberTraceSet, detectorMap)
+            spectra = extraction.spectra
+            kernel = extraction.kernel
 
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
@@ -133,7 +136,7 @@ class ExtractSpectraTask(pipeBase.Task):
         if self.config.doCrosstalk:
             self.crosstalkCorrection(spectra)
 
-        return pipeBase.Struct(spectra=spectra)
+        return pipeBase.Struct(spectra=spectra, kernel=kernel)
 
     def extractAllSpectra(
         self,
@@ -252,7 +255,7 @@ class ExtractSpectraTask(pipeBase.Task):
             for spectrum in spectra:
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
 
-        return spectra
+        return pipeBase.Struct(spectra=spectra, kernel=kernel)
 
     def extractSpectrum(
         self, maskedImage: MaskedImage, fiberTrace: FiberTrace, detectorMap: Optional[DetectorMap] = None
