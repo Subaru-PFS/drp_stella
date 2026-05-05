@@ -281,6 +281,57 @@ class ScatteredLightConfig(Config):
     halfSize = Field(dtype=int, default=4096, doc="Half-size of the kernel")
     interpWinSize = Field(dtype=int, default=5, doc="Interpolation window size in pixel")
 
+    # ── Data-driven gross-bg subtraction parameters ────────────────────
+    # The default ScatteredLightTask.run uses a single 2-D Chebyshev fit
+    # per CCD half through the scatter pixels (chip edges + inter-fiber
+    # gaps), no kernel. The 2-D fit naturally regularises (35 coefficients
+    # for the default deg_x=4, deg_y=6) and avoids per-row noise. The
+    # kernel-based config fields above are kept for backward compatibility
+    # but are no longer used by the default Task.
+    halfIllum = Field(
+        dtype=int, default=14,
+        doc="Mask radius (cols) around each illuminated fiber center. Pixels "
+            "within ±halfIllum of any fiber are excluded from the bg fit. "
+            "14 is large enough that the per-fiber wing tail (5% of inter-"
+            "fiber level) is not absorbed as 'scatter'.",
+    )
+    polyDegX = Field(
+        dtype=int, default=4,
+        doc="Chebyshev polynomial degree in the column (cross-dispersion) "
+            "direction, fit per CCD half.",
+    )
+    polyDegY = Field(
+        dtype=int, default=6,
+        doc="Chebyshev polynomial degree in the row (dispersion) direction. "
+            "Higher than polyDegX because the diffuse pedestal varies more "
+            "with wavelength than across the slit.",
+    )
+    sigmaClip = Field(
+        dtype=float, default=3.5,
+        doc="Sigma-clipping threshold for anchor pixels (CRs, hot pixels, "
+            "unmasked fiber-wing leakage). Applied globally across all "
+            "anchors after an initial unweighted fit.",
+    )
+    sigmaClipIters = Field(
+        dtype=int, default=2,
+        doc="Number of sigma-clip + refit iterations.",
+    )
+    readNoiseFloor = Field(
+        dtype=float, default=4.0,
+        doc="Floor (ADU²) on the per-pixel variance used as the inverse-"
+            "variance weight in the lstsq fit. Without it, the fit is "
+            "dominated by chip-corner pixels (very low variance) and the "
+            "bg pedestal is biased low.",
+    )
+    maxAnchors = Field(
+        dtype=int, default=500000,
+        doc="Maximum number of anchor pixels to use in the 2-D fit. Random "
+            "subsampling beyond this. Engineering frames have ~14M anchor "
+            "pixels (88%% of chip is dark since only 16 fibers are "
+            "illuminated); the 35-coefficient fit is massively over-"
+            "determined by 500K random samples.",
+    )
+
     def getValue(self, name: str, camera: str) -> float:
         """Get a value for a camera from the configuration
 
@@ -337,29 +388,131 @@ class ScatteredLightTask(Task):
     _DefaultName = "scatteredLight"
 
     def run(self, image: MaskedImage, pfsArm: "PfsArm", detectorMap: "DetectorMap") -> Struct:
-        """Subtract the scattered light in an image
+        """Subtract a data-driven gross background from the image.
 
-        No subtraction is performed if the scattered light scale factor is zero.
+        Per CCD half: a single 2-D Chebyshev fit (degree polyDegX in column,
+        polyDegY in row) through the scatter pixels (chip edges + inter-
+        fiber gaps), inverse-variance weighted with a read-noise floor and
+        sigma-clipping for CRs / hot pixels. Subtract the fit from the
+        image.
+
+        Replaces the previous kernel-based ScatteredLightModel approach.
+        The kernel-related config fields (frac1, powerLaw1, etc.) are kept
+        for backward compatibility but are no longer used.
 
         Parameters
         ----------
         image : `MaskedImage`
-            Image from which to subtract the scattered light; modified.
+            Image from which to subtract the bg; modified in place.
         pfsArm : `PfsArm`
-            Spectra from which to estimate the scattered light.
+            Spectra; used here only to identify the illuminated fibers via
+            ``pfsArm.fiberId``.
         detectorMap : `DetectorMap`
-            Mapping of fiberId,wavelength to x,y.
+            Mapping of fiberId,wavelength to x,y; used for the per-row
+            x-centers.
 
         Returns
         -------
         model : `Image`
-            Scattered light model image.
+            The fitted bg image (the "scattered light" subtracted).
         """
-        model = self.config.getModel(pfsArm.identity.arm, pfsArm.identity.spectrograph)
-        if model.top == 0.0 and model.bottom == 0.0:
-            self.log.warn("Scattered light model scale is zero; not subtracting")
-            return Struct(model=None)
-        self.log.info("Subtracting scattered light model: %s", model)
-        modelImage = model.calculateImage(pfsArm, detectorMap)
-        image -= modelImage
-        return Struct(model=modelImage)
+        from .LayeredDetectorMapContinued import LayeredDetectorMap
+
+        bbox = detectorMap.getBBox()
+        height = bbox.getHeight()
+        width = bbox.getWidth()
+        ccdSplit = width // 2
+
+        # Physical CCD gap (in px). The two CCD halves are separated by
+        # this many physical pixels; cols ≥ ccdSplit map to physical
+        # x = col + xGap. Joint-fit in physical coords lets the inter-fiber
+        # anchor gap (typically near the chip middle) constrain both halves.
+        if isinstance(detectorMap, LayeredDetectorMap):
+            xGap = -int(round(detectorMap.rightCcd.getTranslation().getX()))
+            xGap = abs(xGap)
+        else:
+            xGap = 0
+
+        # Build illum mask from the illuminated fibers in pfsArm
+        halfIllum = self.config.halfIllum
+        illumIds = set(int(fid) for fid in pfsArm.fiberId)
+        illum_mask = np.zeros((height, width), dtype=bool)
+        rows_idx = np.arange(height)
+        for fid in detectorMap.fiberId:
+            if int(fid) not in illumIds:
+                continue
+            xc = np.round(detectorMap.getXCenter(int(fid))).astype(np.int64)
+            for dr in range(-halfIllum, halfIllum + 1):
+                illum_mask[rows_idx, np.clip(xc + dr, 0, width - 1)] = True
+
+        bad = (image.mask.array & 0xFFFF).astype(bool)
+        scatter_mask = (~illum_mask) & (~bad)
+        img_arr = image.image.array.astype(np.float64)
+        var_arr = image.variance.array.astype(np.float64)
+
+        deg_x = self.config.polyDegX
+        deg_y = self.config.polyDegY
+        sigma_clip = self.config.sigmaClip
+        n_clip = self.config.sigmaClipIters
+        var_floor = self.config.readNoiseFloor
+
+        # Joint 2-D Chebyshev fit in PHYSICAL column coords (col + xGap for
+        # CCD2). The inter-fiber anchor gap near the chip middle then
+        # constrains the fit on both halves, instead of leaving CCD1's
+        # interior under-determined when there's only a left-edge anchor.
+        cols = np.arange(width, dtype=np.float64)
+        cols_phys = np.where(cols < ccdSplit, cols, cols + xGap)
+        wp = float(width + xGap - 1) if width + xGap > 1 else 1.0
+        x_norm = 2 * cols_phys / wp - 1.0
+        y_norm = 2 * np.arange(height, dtype=np.float64) / max(height - 1, 1) - 1.0
+
+        rs, cs = np.where(scatter_mask)
+        xn = x_norm[cs]
+        yn = y_norm[rs]
+        zs = img_arr[rs, cs]
+        vs = np.maximum(var_arr[rs, cs], var_floor)
+
+        Tx = np.polynomial.chebyshev.chebvander(xn, deg_x)
+        Ty = np.polynomial.chebyshev.chebvander(yn, deg_y)
+        M = (Tx[:, :, None] * Ty[:, None, :]).reshape(len(rs), -1)
+        n_coef = M.shape[1]
+
+        keep = np.ones(len(rs), dtype=bool)
+        coef = None
+        for it in range(max(1, n_clip)):
+            w = 1.0 / vs[keep]
+            Mw = M[keep] * np.sqrt(w[:, None])
+            bw = zs[keep] * np.sqrt(w)
+            coef, *_ = np.linalg.lstsq(Mw, bw, rcond=None)
+            pred = M[keep] @ coef
+            resid = zs[keep] - pred
+            rms = float(np.sqrt(np.mean((resid * np.sqrt(w)) ** 2)))
+            clip_mask = np.abs(resid * np.sqrt(w)) < sigma_clip * rms
+            kept_idx = np.where(keep)[0]
+            keep[kept_idx[~clip_mask]] = False
+            if it == n_clip - 1:
+                break
+
+        n_kept = int(keep.sum())
+        n_total = int(len(rs))
+
+        # Evaluate over the full chip
+        x_eval, y_eval = np.meshgrid(x_norm, y_norm, indexing='xy')
+        Tx_e = np.polynomial.chebyshev.chebvander(x_eval.ravel(), deg_x)
+        Ty_e = np.polynomial.chebyshev.chebvander(y_eval.ravel(), deg_y)
+        M_e = (Tx_e[:, :, None] * Ty_e[:, None, :]).reshape(-1, n_coef)
+        bg = (M_e @ coef).reshape(height, width)
+
+        cam_label = f"{pfsArm.identity.arm}{pfsArm.identity.spectrograph}"
+        self.log.info(
+            "Data-driven bg sub %s [deg_x=%d, deg_y=%d, halfIllum=%d, "
+            "xGap=%d, %dx %.1fσ-clip], anchors kept %d/%d, "
+            "bg range [%.2f, %.2f] ADU, median %.2f",
+            cam_label, deg_x, deg_y, halfIllum, xGap, n_clip, sigma_clip,
+            n_kept, n_total, float(bg.min()), float(bg.max()),
+            float(np.median(bg)),
+        )
+
+        bg_image = ImageF(bg.astype(np.float32))
+        image -= bg_image
+        return Struct(model=bg_image)
