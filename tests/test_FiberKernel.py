@@ -3,12 +3,14 @@ import numpy as np
 import lsst.utils.tests
 
 from lsst.afw.image import makeMaskedImage, MaskedImage
+from lsst.geom import Extent2I
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.FiberTraceSetContinued import FiberTraceSet
-from pfs.drp.stella.FiberKernel import fitFiberKernel, FiberKernel, LinearInterpolationHelper
+from pfs.drp.stella.FiberKernel import fitFiberKernel, LinearInterpolationHelper
+from pfs.drp.stella.FiberKernelContinued import FiberKernel
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticFlat
 from pfs.drp.stella.tests import runTests
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -110,7 +112,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         kernel = fitFiberKernel(
             image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum
         )
-        print(kernel.coefficients)
+        print(kernel.values)
 
         # Check that the kernel gives the expected offset
         # This is allowed to vary rather more than I'm comfortable with, but the
@@ -165,6 +167,24 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
         kernel = fitFiberKernel(image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum)
         self.assertResidual(image, kernel, fiberTraces)
+
+    def testIO(self):
+        rng = np.random.default_rng(12345)
+        dims = Extent2I(4321, 5678)
+        halfWidth = 12
+        xNumBlocks = 3
+        yNumBlocks = 4
+        values = rng.uniform(size=(2*halfWidth)*xNumBlocks*yNumBlocks)
+
+        kernel = FiberKernel(dims, halfWidth, xNumBlocks, yNumBlocks, values)
+        with lsst.utils.tests.getTempFilePath(".fits") as filename:
+            kernel.writeFits(filename)
+            newKernel = FiberKernel.readFits(filename)
+            self.assertEqual(newKernel.dims, kernel.dims)
+            self.assertEqual(newKernel.halfWidth, kernel.halfWidth)
+            self.assertEqual(newKernel.xNumBlocks, kernel.xNumBlocks)
+            self.assertEqual(newKernel.yNumBlocks, kernel.yNumBlocks)
+            self.assertFloatsEqual(newKernel.values, kernel.values)
 
 
 class ImageKernelTestCase(lsst.utils.tests.TestCase):

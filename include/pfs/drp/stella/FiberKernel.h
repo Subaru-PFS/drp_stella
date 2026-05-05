@@ -61,9 +61,10 @@ class BaseKernel {
     BaseKernel & operator=(BaseKernel &&) = default;
     virtual ~BaseKernel() = default;
 
+    lsst::geom::Extent2I getDims() const { return _dims; }
     int getHalfWidth() const { return _halfWidth; }
     std::size_t getNumParams() const { return _numParams; }
-    ndarray::Array<double, 1, 1> getCoefficients() const { return _coefficients; }
+    ndarray::Array<double, 1, 1> getValues() const { return _values; }
 
     std::shared_ptr<FiberTrace<float>> convolve(
         FiberTrace<float> const& trace,
@@ -91,13 +92,13 @@ class BaseKernel {
         lsst::geom::Extent2I const& dims,
         int halfWidth,
         std::size_t numParams,
-        ndarray::Array<double const, 1, 1> const& coefficients
+        ndarray::Array<double const, 1, 1> const& values
     );
 
     lsst::geom::Extent2I _dims;
     int _halfWidth;
     std::size_t _numParams;  ///< number of parameters in the kernel
-    ndarray::Array<double, 1, 1> _coefficients;
+    ndarray::Array<double, 1, 1> _values;
 
   private:
     virtual std::shared_ptr<FiberTrace<float>> convolveImpl(
@@ -121,8 +122,11 @@ class FiberKernel : public BaseKernel {
         int halfWidth,
         int xNumBlocks,
         int yNumBlocks,
-        ndarray::Array<double const, 1, 1> const& coefficients
+        ndarray::Array<double const, 1, 1> const& values
     );
+
+    int getXNumBlocks() const { return _xNumBlocks; }
+    int getYNumBlocks() const { return _yNumBlocks; }
 
     ndarray::Array<double, 1, 1> evaluate(double x, double y) const;
     ndarray::Array<double, 1, 1> evaluate(lsst::geom::Point2D const& xy) const {
