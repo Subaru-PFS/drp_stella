@@ -66,6 +66,7 @@ class ExtractSpectraTask(pipeBase.Task):
         detectorMap: Optional[DetectorMap] = None,
         fiberId: Optional[np.ndarray] = None,
         isBoxcar: bool = False,
+        allowConvolution: bool = False,
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -86,6 +87,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Fiber identifiers to include in output.
         isBoxcar : `bool`
             fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
+        allowConvolution : `bool`
+            Allow fitting for convolution kernel?
 
         Returns
         -------
@@ -119,7 +122,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
-        if isBoxcar:
+        if isBoxcar or not allowConvolution:
             spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
         else:
             spectra = self.extractWithConvolution(maskedImage, fiberTraceSet, detectorMap)
