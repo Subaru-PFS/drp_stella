@@ -551,18 +551,8 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
         else:
             stride = 1
 
-        # find the first and last valid fibres
-        firstGood, lastGood = None, None
-        ll = lines[0]
-        for i, fid in enumerate(fiberIds):
-            xc, yc = detMap.findPoint(fid, ll.wavelength)
-
-            if np.isnan(xc + yc):
-                continue
-
-            if firstGood is None:
-                firstGood = i
-            lastGood = i
+        bbox = detMap.getBBox()
+        y0, y1 = bbox.getBeginY(), bbox.getEndY() - 1
 
         for ll in lines:
             ctype = getCtypeFromReferenceLine(ll)
@@ -571,8 +561,14 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
 
             xy = np.zeros((2, len(fiberIds))) + np.nan
 
+            nFibers = len(fiberIds)
             for i, fid in enumerate(fiberIds):
-                if i%stride != 0 and i not in (firstGood, lastGood):
+                if i % stride != 0 and i not in (0, nFibers - 1):
+                    continue
+
+                lam0, lam1 = [detMap.findWavelength(fid, y) for y in [y0, y1]]
+
+                if not lam0 <= ll.wavelength <= lam1:
                     continue
 
                 xc, yc = detMap.findPoint(fid, ll.wavelength)
@@ -586,8 +582,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
             if len(fiberIds) > 1:
                 good = np.isfinite(xy[0])
                 if sum(good) > 0:
-                    order = np.argsort(xy[0][good])
-                    plt.plot(xy[0][good][order], xy[1][good][order], color=ctype, alpha=alpha)
+                    plt.plot(xy[0][good], xy[1][good], color=ctype, alpha=alpha)
 
     if not showAll:
         if nFiberShown > 0 and showLegend:
