@@ -308,6 +308,12 @@ class FitDistortedDetectorMapConfig(Config):
                  )
     minSignalToNoise = Field(dtype=float, default=10.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
+    minSignalToNoisePerSpecies = DictField(
+        keytype=str, itemtype=float, default={},
+        doc="Per-species minimum signal-to-noise ratio. Overrides minSignalToNoise for named species. "
+            "Use this to relax (or tighten) the S/N gate for lamps that are intrinsically faint in "
+            "certain arms (e.g. {'Ar': 3.0} to keep faint Argon lines in the blue arm).",
+    )
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     maxRejectionFrac = Field(
         dtype=float,
@@ -593,11 +599,17 @@ class FitDistortedDetectorMapTask(Task):
         if hasattr(lines, "slope"):
             good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
-        if self.config.minSignalToNoise > 0:
+        if self.config.minSignalToNoise > 0 or self.config.minSignalToNoisePerSpecies:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
             with np.errstate(invalid="ignore", divide="ignore"):
-                good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
+                snr = lines.flux / lines.fluxErr
+            # Build a per-line threshold array: start from the global default then
+            # override individual species that have an explicit per-species threshold.
+            snrThresh = np.full(len(lines), self.config.minSignalToNoise, dtype=float)
+            for species, thresh in self.config.minSignalToNoisePerSpecies.items():
+                snrThresh[lines.description == species] = thresh
+            good &= snr > snrThresh
             self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
