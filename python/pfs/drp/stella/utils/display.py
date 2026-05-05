@@ -719,7 +719,8 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, thres
     return mos
 
 
-def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, clearLegend=False):
+def showPixelMask(spec, ignore=[], showLegend=True, usePixels=False,
+                  ax=None, y0=0.99, dy=0.02, clearLegend=False):
     """Show a set of spectra's pixel mask bits (e.g. pfsArm.mask)
 
     spec : `pfsArm` or `pfsMerged` or `pfsObject`
@@ -728,6 +729,8 @@ def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, c
        List of names of mask bits to ignore
     showLegend: `bool`
        show a legend identifying the bits (default: True)
+    usePixels: `bool`
+       Use pixel, not wavelength, as x axis (default: False)
     ax: `matplotlib.axes.Axes`
        The axes to annotate
     y0: `float`
@@ -738,7 +741,7 @@ def showPixelMask(spec, ignore=[], showLegend=True, ax=None, y0=0.99, dy=0.02, c
        Clear the legend before creating a legend to label bits
     """
     mask = np.bitwise_or.reduce(spec.mask, axis=0)
-    wavelength = np.nanmean(spec.wavelength, axis=0)
+    wavelength = np.arange(spec.wavelength.shape[1]) if usePixels else np.nanmean(spec.wavelength, axis=0)
 
     masksSet = []
     for fname in spec.flags:
