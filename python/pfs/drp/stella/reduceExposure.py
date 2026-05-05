@@ -19,6 +19,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+import re
 import warnings
 import numpy as np
 from astropy.io.fits.verify import VerifyWarning
@@ -467,7 +468,13 @@ class ReduceExposureTask(PipelineTask):
 
         kwargs = {}
         if self.config.targetType:
-            kwargs.update(targetType=TargetType.fromList(self.config.targetType))
+            # Work around Rubin(?) bug which splits ["^ABC"] into ['[', '^', 'A', 'B', 'C', ']']
+            targetType = self.config.targetType
+            if targetType[0] == '[' and targetType[-1] == ']':
+                # put the string back together, then split on ',' (while being nice about whitespace)
+                targetType = re.split(r"\s*,\s*", "".join(targetType[1:-1]))
+
+            kwargs.update(targetType=TargetType.fromList(targetType))
 
         # Handle the IIS fibres for the user
         boxcarWidth = self.config.boxcarWidth if self.config.doBoxcarExtraction else -1
