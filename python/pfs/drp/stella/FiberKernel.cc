@@ -123,7 +123,7 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "maxIter"_a=20,
         "andersonDepth"_a=5,
         "andersonDamping"_a=0.25,
-        "fluxTol"_a=1.0e-3,
+        "fluxTol"_a=1.0e-2,
         "lsqThreshold"_a=1.0e-16
     );
     mod.def(

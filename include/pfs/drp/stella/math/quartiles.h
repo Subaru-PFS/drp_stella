@@ -401,6 +401,25 @@ calculateQuartiles(
 }
 //@}
 
+
+/// Calculate robust RMS of a masked array, using inter-quartile range
+///
+/// You'll have to specify the template parameters explicitly, since the return
+/// type can't be deduced from the arguments (because they're in the "... Args")
+///
+/// @param values : Numbers for which to calculate RMS
+/// @param masks : Whether the numbers are to be considered as masked (true means bad value)
+/// @return robust RMS
+template <typename T, int C, typename... Args>
+double robustRms(Args&&... args)
+{
+    auto const quartiles = calculateQuartiles(std::forward<Args>(args)...);
+    double const q1 = std::get<0>(quartiles);
+    double const q3 = std::get<2>(quartiles);
+    return 0.741 * (q3 - q1);
+}
+
+
 }}}}  // namespace pfs::drp::stella::math
 
 #endif

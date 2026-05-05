@@ -36,7 +36,7 @@ class ExtractSpectraConfig(pexConfig.Config):
     andersonDepth = pexConfig.Field(dtype=int, default=5, doc="Anderson acceleration depth in kernel fitting")
     andersonDamping = pexConfig.Field(dtype=float, default=0.25, doc="Damping in kernel fitting")
     fluxTol = pexConfig.Field(
-        dtype=float, default=1.0, doc="Tolerance for flux convergence in kernel fitting"
+        dtype=float, default=1.0e-2, doc="Tolerance for flux convergence in kernel fitting"
     )
     lsqThreshold = pexConfig.Field(
         dtype=float, default=1.0e-16, doc="Threshold for least-squares convergence in kernel fitting"
