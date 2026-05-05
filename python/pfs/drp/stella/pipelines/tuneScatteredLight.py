@@ -429,18 +429,53 @@ def _tuneOneCameraWorker(args):
     for v in useVisits:
         if isinstance(v, (tuple, list)):
             # Coadd a group of consecutive same-config exposures (calibration
-            # pairs, etc.). The kernel-relevant signal is identical across the
-            # group, so the mean image gives a √N noise reduction at the same
-            # scatter signal. Mask is OR-reduced; variance is sum/N² (variance
-            # of the mean for independent exposures).
+            # pairs, etc.). The kernel-relevant signal is identical across
+            # the group; we want a √N noise reduction at the same scatter
+            # signal.
+            #
+            # Per-pixel **mask-aware** mean: bad pixels (mask != 0) are
+            # excluded from the average. Without this, a cosmic ray flagged
+            # in 1 of N frames leaks 1/N of its flux into the coadded image
+            # — even though the output mask says "bad", any downstream code
+            # that reads IMAGE without consulting MASK (e.g. the FFT in the
+            # iterative cleaner) sees the contamination.
+            #
+            # Output mask: bitwise-AND across inputs where any pixel was
+            # good (a flag is set in the coadd only if every input had it),
+            # falling back to bitwise-OR if every input was flagged bad.
             exps = [_loadOne(vid) for vid in v]
             coadded = exps[0].clone()
-            imgs = np.stack([e.image.array for e in exps], axis=0)
-            coadded.image.array[:] = imgs.mean(axis=0)
-            vars_ = np.stack([e.variance.array for e in exps], axis=0)
-            coadded.variance.array[:] = vars_.sum(axis=0) / (len(exps) ** 2)
-            masks = np.stack([e.mask.array for e in exps], axis=0)
-            coadded.mask.array[:] = np.bitwise_or.reduce(masks, axis=0)
+            imgs = np.stack(
+                [e.image.array.astype(np.float64) for e in exps], axis=0,
+            )
+            vars_ = np.stack(
+                [e.variance.array.astype(np.float64) for e in exps], axis=0,
+            )
+            masks = np.stack(
+                [e.mask.array.astype(np.uint32) for e in exps], axis=0,
+            )
+            good = masks == 0                          # (N, H, W) bool
+            n_good = good.sum(axis=0).astype(np.int32)
+            has_good = n_good > 0
+            safe_n = np.where(has_good, n_good, 1).astype(np.float64)
+            img_co = np.where(
+                has_good,
+                np.where(good, imgs, 0.0).sum(axis=0) / safe_n,
+                0.0,
+            )
+            var_co = np.where(
+                has_good,
+                np.where(good, vars_, 0.0).sum(axis=0) / (safe_n * safe_n),
+                0.0,
+            )
+            mask_co = np.where(
+                has_good,
+                np.bitwise_and.reduce(masks, axis=0),
+                np.bitwise_or.reduce(masks, axis=0),
+            ).astype(coadded.mask.array.dtype)
+            coadded.image.array[:] = img_co.astype(coadded.image.array.dtype)
+            coadded.variance.array[:] = var_co.astype(coadded.variance.array.dtype)
+            coadded.mask.array[:] = mask_co
             postISRs.append(coadded)
         else:
             postISRs.append(_loadOne(v))
