@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,7 +9,9 @@ from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
-__all__ = ["momentsToABT", "getFWHM", "showImageQuality", "showCobraConvergence", "opaqueColorbar"]
+__all__ = ["momentsToABT", "getFWHM", "computeImageQuality", "plotImageQuality",
+           "loadImageQualityData", "showImageQuality",
+           "showCobraConvergence", "opaqueColorbar"]
 
 
 from contextlib import contextmanager
@@ -58,12 +62,265 @@ def getFWHM(als):
     return 2*np.sqrt(2*np.log(2))*r, theta
 
 
+def computeImageQuality(als):
+    """Compute image quality metrics from arc line measurements.
+
+    Parameters
+    ----------
+    als : `ArcLineSet` or `pandas.DataFrame`
+        Arc line measurements, enriched with ``lam``, ``lamErr``, and
+        ``tracePos`` columns by `addTraceLambdaToArclines`.
+
+    Returns
+    -------
+    data : `pandas.DataFrame`
+        Arc line data with additional columns:
+
+        ``fwhm``
+            Gaussian-equivalent FWHM in pixels.  When full second moments are
+            not available, populated from the trace width (``xx``).  All
+            ``NaN`` when no finite shape measurements are available.
+        ``theta``
+            Position angle of the PSF major axis in radians.  ``NaN`` when
+            only trace widths are available, or when no finite measurements
+            exist.
+        ``traceOnly``
+            ``True`` when only trace widths (``xx``) were available, not the
+            full second-moment tensor (``xx``, ``xy``, ``yy``).
+    """
+    data = als.data.copy() if hasattr(als, 'data') else als.copy()
+
+    ll_full = np.isfinite(data.xx + data.xy + data.yy)
+    if ll_full.sum() > 0:
+        traceOnly = False
+        fwhm, theta = getFWHM(data)
+    elif np.isfinite(data.xx).sum() > 0:
+        traceOnly = True
+        fwhm = data["xx"].copy()
+        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
+    else:
+        warnings.warn("No finite shape measurements (xx, xy, yy) found in arc lines; "
+                      "fwhm and theta will be all NaN. "
+                      "Is this a non-arc (e.g. quartz) visit?")
+        traceOnly = False
+        fwhm = pd.Series(np.full(len(data), np.nan), index=data.index)
+        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
+
+    data["fwhm"] = fwhm
+    data["theta"] = theta
+    data["traceOnly"] = traceOnly
+
+    return data
+
+
+def plotImageQuality(
+    ax,
+    data,
+    *,
+    showWhisker=False,
+    showFWHM=False,
+    showFWHMAgainstLambda=False,
+    showFWHMHistogram=False,
+    showFluxHistogram=False,
+    minFluxPercentile=10,
+    vmin=2.5,
+    vmax=3.5,
+    maxFwhm=8,
+    logScale=True,
+    gridsize=100,
+    stride=1,
+    useSN=False,
+):
+    """Draw a single image-quality panel on *ax*.
+
+    Parameters
+    ----------
+    ax : `matplotlib.axes.Axes`
+        Axes to draw on.
+    data : `pandas.DataFrame`
+        Output of `computeImageQuality`.  Must contain ``fwhm``, ``theta``,
+        ``x``, ``y``, ``flux``, ``fluxErr``, ``flag``, ``fiberId``, and
+        ``lam`` columns.
+    showWhisker : `bool`
+        Draw FWHM as a whisker (quiver) plot coloured by FWHM magnitude.
+    showFWHM : `bool`
+        Draw a 2D spatial hexbin / scatter map of FWHM.
+    showFWHMAgainstLambda : `bool`
+        Scatter FWHM vs log(flux) or S/N, coloured by wavelength.
+    showFWHMHistogram : `bool`
+        Histogram of FWHM values.
+    showFluxHistogram : `bool`
+        Histogram of line fluxes.
+    minFluxPercentile : `float`
+        Minimum flux percentile for line selection in spatial plots.
+    vmin, vmax : `float`
+        FWHM color-scale range (pixels).
+    maxFwhm : `float`
+        Upper FWHM cutoff for line selection and histogram binning (pixels).
+    logScale : `bool`
+        Log y-axis for histograms.
+    gridsize : `int`
+        hexbin grid size; use ``<=0`` for scatter plot instead.
+    stride : `int`
+        Fiber-ID stride for downsampling in spatial plots.
+    useSN : `bool`
+        Use S/N instead of log10(flux) on the x-axis of FWHM-vs-λ.
+
+    Returns
+    -------
+    C : `matplotlib.cm.ScalarMappable` or ``None``
+        Colorable artist suitable for passing to ``fig.colorbar()``,
+        or ``None`` when no colorbar is applicable or no data is available.
+    colorbarLabel : `str` or ``None``
+        Colorbar label string, or ``None``.
+
+    Raises
+    ------
+    RuntimeError
+        If no plot mode is enabled.
+    """
+    fwhm = data["fwhm"]
+    theta = data["theta"]
+    C = None
+    colorbarLabel = None
+
+    if showWhisker or showFWHM or showFWHMAgainstLambda:
+        if np.sum(np.isfinite(data["flux"])) == 0:
+            return None, None
+
+        q10_arr = np.nanpercentile(data["flux"], [minFluxPercentile])
+        if np.isnan(q10_arr).any():
+            q10_arr = [np.nan]
+        q10 = q10_arr[0]
+
+        ll = np.isfinite(data["fwhm"])
+        ll &= ~data["flag"]
+        ll &= fwhm < maxFwhm
+        ll &= data["flux"] > q10
+        if not useSN:
+            ll &= data["flux"] > 0      # guard against log10(<=0)
+        else:
+            ll &= data["fluxErr"] > 0   # guard against division by zero
+        if stride > 1:
+            ll &= (data["fiberId"] % stride) == 0
+
+        norm = plt.Normalize(vmin, vmax)
+        colorbarLabel = "FWHM (pixels)"
+
+        if showWhisker:
+            imageSize = 4096            # used in estimating scale
+            arrowSize = 4
+            cmap = plt.colormaps["viridis"]
+            C = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            Q = ax.quiver(
+                data["x"][ll], data["y"][ll],
+                (fwhm * np.cos(theta))[ll], (fwhm * np.sin(theta))[ll],
+                fwhm[ll], cmap=cmap, norm=norm,
+                headwidth=0, pivot="middle",
+                angles="xy", scale_units="xy", scale=arrowSize * 30 / imageSize,
+            )
+            ax.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
+        elif showFWHM:
+            if gridsize <= 0:
+                C = ax.scatter(data["x"][ll], data["y"][ll], c=fwhm[ll], s=5, norm=norm)
+            else:
+                C = ax.hexbin(data["x"][ll], data["y"][ll], fwhm[ll], norm=norm, gridsize=gridsize)
+        elif showFWHMAgainstLambda:
+            xarr = data["flux"] / data["fluxErr"] if useSN else np.log10(data["flux"])
+            C = ax.scatter(xarr[ll], fwhm[ll], c=data["lam"][ll], marker=".", alpha=0.75)
+            colorbarLabel = "Wavelength (nm)"
+            ax.set_xlabel("Signal/Noise" if useSN else "lg(flux)")
+            ax.set_ylabel("FWHM (pixels)")
+
+        if not showFWHMAgainstLambda:
+            ax.set_ylim(-1, 4096)
+            ax.set_xlim(-1, 4096)
+            ax.set_xlabel("x (pixels)")
+            ax.set_ylabel("y (pixels)")
+            ax.set_aspect(1)
+    else:
+        ll_hist = np.isfinite(fwhm) & ~data["flag"]
+
+        if showFWHMHistogram:
+            ax.hist(fwhm[ll_hist], bins=np.linspace(0, maxFwhm, 100))
+            ax.set_xlabel("FWHM (pix)")
+        elif showFluxHistogram:
+            finite_flux = data["flux"][ll_hist]
+            if np.sum(np.isfinite(finite_flux)) == 0:
+                return None, None
+            q99 = np.nanpercentile(finite_flux, [99])[0]
+            ax.hist(finite_flux, bins=np.linspace(0, q99, 100))
+            ax.set_xlabel("flux")
+        else:
+            raise RuntimeError(
+                "No plot mode enabled; set one of showWhisker, showFWHM, "
+                "showFWHMAgainstLambda, showFWHMHistogram, or showFluxHistogram"
+            )
+
+        if logScale:
+            ax.set_yscale("log")
+
+    if showWhisker:
+        ax.set_title("FWHM Whisker")
+    elif showFWHM:
+        ax.set_title("FWHM Map")
+    elif showFWHMAgainstLambda:
+        ax.set_title("FWHM vs S/N" if useSN else "FWHM vs lg(flux)")
+    elif showFWHMHistogram:
+        ax.set_title("FWHM Histogram")
+    elif showFluxHistogram:
+        ax.set_title("Flux Histogram")
+
+    return C, colorbarLabel
+
+
+def loadImageQualityData(dataIds, butler, alsCache=None):
+    """Load arc line measurements into a cache dict using a butler.
+
+    Fetches ``lines`` and ``detectorMap`` datasets for any ``dataId`` not
+    already present in *alsCache*, enriches the arc lines with wavelength
+    and trace-position information via `addTraceLambdaToArclines`, and
+    stores the result in the cache.
+
+    Parameters
+    ----------
+    dataIds : iterable of `dict`
+        Each dict must contain ``visit``, ``arm``, and ``spectrograph`` keys.
+    butler : `lsst.daf.butler.Butler`
+        Butler used to read ``lines`` and ``detectorMap`` datasets.
+    alsCache : `dict`, optional
+        Existing cache to update; entries already present are not re-fetched.
+        If ``None``, a new empty cache is created.
+
+    Returns
+    -------
+    alsCache : `dict`
+        Mapping from ``"%(visit)d %(arm)s%(spectrograph)d"`` strings to
+        enriched `ArcLineSet` objects (or ``None`` for datasets not found).
+    """
+    if alsCache is None:
+        alsCache = {}
+
+    for dataId in dataIds:
+        if dataId is None:
+            continue
+        dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
+        if dataIdStr not in alsCache or alsCache[dataIdStr] is None:
+            detMap = butler.get("detectorMap", dataId)
+            try:
+                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
+            except DatasetNotFoundError:
+                alsCache[dataIdStr] = None
+
+    return alsCache
+
+
 def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainstLambda=False,
-                     showFWHMHistogram=False, showFluxHistogram=False, fromTrace=False,
+                     showFWHMHistogram=False, showFluxHistogram=False,
                      useSN=False,
                      assembleSpectrograph=True,
                      minFluxPercentile=10,
-                     vmin=2.5, vmax=3.5,
+                     vmin=2.5, vmax=3.5, maxFwhm=8,
                      logScale=True, gridsize=100, stride=1,
                      butler=None, alsCache=None, title="", figure=None):
     """
@@ -77,14 +334,18 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     showFluxHistogram:    Show a histogram of line fluxes
     assembleSpectrograph: If true, merge visits and arrange plots as b[r,m]n columns
     vmin, vmax:   Range for norm of FWHM plots (default: 2.0, 3.5)
+    maxFwhm:     Upper FWHM cutoff for line selection and histogram binning (default: 8)
     minFluxPercentile: Minimum percentile of flux to include lines (per detector; default 10)
     logScale:    Show log histograme [default]
     gridsize:    Passed to hexbin (default: 100, the same as matplotlib)
                  If <= 0, use plt.scatter() instead
     stride:      Stride when traversing fiberId (default: 1)
     useSN:       Use signal/noise rather than lg(flux) in showFWHMAgainstLambda plots
-    butler:      A butler to read data that isn't in the alsCache
-    alsCache:    A dict to cache line shape data; returned by this function
+    butler:      A butler to read data not already in alsCache.  Either butler
+                 or alsCache must be provided.
+    alsCache:    A pre-populated cache of arc line data (from a previous call or
+                 from `loadImageQualityData`).  Either butler or alsCache must be
+                 provided.  Returned by this function so it can be reused.
     figure:      The figure to use; or None
 
     Typical usage would be something like:
@@ -107,6 +368,11 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     Return:
       alsCache
     """
+    if butler is not None:
+        alsCache = loadImageQualityData(dataIds, butler, alsCache)
+    elif alsCache is None:
+        raise RuntimeError("Please provide either a butler or a pre-populated alsCache")
+
     if not (showWhisker or showFWHM or showFWHMHistogram or showFluxHistogram or showFWHMAgainstLambda):
         showWhisker = True
 
@@ -119,7 +385,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     arms = []
     for a in "brmn":    # show the arms in this order
         if a in _arms:
-            arms[0:0] = a
+            arms[0:0] = [a]
 
     if assembleSpectrograph:
         ny = len(arms)
@@ -155,24 +421,6 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     fig, axs = plt.subplots(ny, nx, num=figure, sharex=True, sharey=True, squeeze=False, layout="constrained")
     axs = axs.flatten()
 
-    if alsCache is None:
-        alsCache = {}
-
-    for dataId in dataIds:
-        if dataId is None:
-            continue
-        dataIdStr = '%(visit)d %(arm)s%(spectrograph)d' % dataId
-        if dataIdStr not in alsCache or alsCache[dataIdStr] is None:
-            if butler is None:
-                raise RuntimeError(f"I'm unable to read data for {dataIdStr} without a butler")
-
-            detMap = butler.get("detectorMap", dataId)
-
-            try:
-                alsCache[dataIdStr] = addTraceLambdaToArclines(butler.get('lines', dataId), detMap)
-            except DatasetNotFoundError:
-                alsCache[dataIdStr] = None
-
     # We need to fake SMs if we've been given a list of dataIds, but don't want to assemble
     # them into a set of spectrographs
     if assembleSpectrograph:
@@ -207,93 +455,37 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
                 if alsCache[dataIdStr] is not None:
                     als = pd.concat([als, alsCache[dataIdStr].data])
 
-        ll = np.isfinite(als.xx + als.xy + als.yy)
-        if sum(ll) > 0:
-            traceOnly = False
-        else:
-            _ll = np.isfinite(als.xx)
-            if sum(_ll) > 0:            # we can use the trace widths
-                ll = _ll
-            traceOnly = True
-
-        if sum(ll) == 0:
+        try:
+            als = computeImageQuality(als)
+        except RuntimeError:
+            ax.set_axis_off()
+            continue
+        if not np.isfinite(als["fwhm"]).any():
             ax.set_axis_off()
             continue
 
-        if traceOnly:
-            a, theta = als.xx, np.nan
-        else:
-            fwhm, theta = getFWHM(als)
+        try:
+            C, colorbarLabel = plotImageQuality(
+                ax, als,
+                showWhisker=showWhisker,
+                showFWHM=showFWHM,
+                showFWHMAgainstLambda=showFWHMAgainstLambda,
+                showFWHMHistogram=showFWHMHistogram,
+                showFluxHistogram=showFluxHistogram,
+                minFluxPercentile=minFluxPercentile,
+                vmin=vmin,
+                vmax=vmax,
+                maxFwhm=maxFwhm,
+                logScale=logScale,
+                gridsize=gridsize,
+                stride=stride,
+                useSN=useSN,
+            )
+        except RuntimeError:
+            ax.set_axis_off()
+            continue
 
-        if np.sum(np.isfinite(als.flux)) == 0:
-            raise RuntimeError("All the provided fluxes are NaN")
-
-        if showWhisker or showFWHM or showFWHMAgainstLambda:
-            q10 = np.nanpercentile(als.flux, [minFluxPercentile])
-            if np.isnan(q10).any():     # nanpercentile returns NaN not [NaN] in case of problems grrr
-                q10 = [np.nan]
-            q10 = q10[0]
-
-            ll = np.isfinite(als.xx if traceOnly else als.xx + als.xy + als.yy)
-            ll &= als.flag == False     # noqa: E712
-            ll &= fwhm < 8
-            ll &= als.flux > q10
-            if stride > 1:
-                ll &= (als.fiberId % stride) == 0
-
-            norm = plt.Normalize(vmin, vmax)
-
-            colorbarLabel = "FWHM (pixels)"
-            if showWhisker:
-                imageSize = 4096            # used in estimating scale
-
-                arrowSize = 4
-                cmap = plt.colormaps["viridis"]
-                C = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-
-                Q = plt.quiver(als.x[ll], als.y[ll], (fwhm*np.cos(theta))[ll], (fwhm*np.sin(theta))[ll],
-                               fwhm[ll], cmap=cmap, norm=norm,
-                               headwidth=0, pivot="middle",
-                               angles='xy', scale_units='xy', scale=arrowSize*30/imageSize)
-
-                plt.quiverkey(Q, 0.1, 1.025, arrowSize, label=f"{arrowSize:.2g} pixels")
-            elif showFWHM:
-                if gridsize <= 0:
-                    C = plt.scatter(als.x[ll], als.y[ll], c=fwhm[ll], s=5, norm=norm)
-                else:
-                    C = plt.hexbin(als.x[ll], als.y[ll], fwhm[ll], norm=norm, gridsize=gridsize)
-            elif showFWHMAgainstLambda:
-                xarr = als.flux/als.fluxErr if useSN else np.log10(als.flux)
-                C = plt.scatter(xarr[ll], fwhm[ll], c=als.lam[ll], marker='.', alpha=0.75)
-                colorbarLabel = "Wavelength (nm)"
-
-                plt.xlabel("Signal/Noise" if useSN else "lg(flux)")
-                plt.ylabel("FWHM (pixels)")
-            else:
-                raise RuntimeError("You can't get here")
-
-            # We'll use C when we add a colorbar to the entire figure
-            if not showFWHMAgainstLambda:
-                plt.xlim(plt.ylim(-1, 4096))
-                plt.xlabel("x (pixels)")
-                plt.ylabel("y (pixels)")
-
-                ax.set_aspect(1)
-            ax.label_outer()
-        else:
-            if showFWHMHistogram:
-                plt.hist(fwhm, bins=np.linspace(0, 10, 100))
-                plt.xlabel(r"FWHM (pix)")
-            elif showFluxHistogram:
-                q99 = np.nanpercentile(als.flux, [99])[0]
-                plt.hist(als.flux, bins=np.linspace(0, q99, 100))
-                plt.xlabel("flux")
-            else:
-                raise RuntimeError("You must want *something* plotted")
-
-            if logScale:
-                plt.yscale("log")
-
+        ax.label_outer()
         txt = dataIdStr[-2:] if assembleSpectrograph else dataIdStr
         plt.text(0.9, 1.02, txt, transform=ax.transAxes, ha='right')
 

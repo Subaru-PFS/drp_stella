@@ -209,7 +209,7 @@ def calculateFitStatistics(
         softenChi2 : callable
             Function that calculates chi^2 given a softening parameter.
         """
-        if residuals.size == 0:
+        if residuals.size == 0 or dof <= 0:
             return 0.0
         residuals2 = residuals**2
         errors2 = errors**2
@@ -234,7 +234,8 @@ def calculateFitStatistics(
             with np.errstate(invalid="ignore", divide="ignore"):
                 return np.sum(residuals2/(soften**2 + errors2))/dof - 1
 
-        if softenChi2(0.0) < 0:
+        val = softenChi2(0.0)
+        if not np.isfinite(val) or val < 0:
             return 0.0
         if softenChi2(maxSoften) > 0:
             return np.nan
@@ -308,6 +309,14 @@ class FitDistortedDetectorMapConfig(Config):
                  )
     minSignalToNoise = Field(dtype=float, default=10.0,
                              doc="Minimum (flux) signal-to-noise ratio of lines to fit")
+    minSignalToNoisePerSpecies = DictField(
+        keytype=str, itemtype=float, default={},
+        doc="Per-species minimum signal-to-noise ratio. Overrides minSignalToNoise for named species. "
+            "Use this to relax (or tighten) the S/N gate for lamps that are intrinsically faint in "
+            "certain arms (e.g. {'ArI': 3.0} to keep faint Argon lines in the blue arm). "
+            "Keys must match the ionic species strings in lines.description (e.g. 'ArI', 'XeI', 'KrI', "
+            "'NeI', 'HgI', 'CdI') — NOT the lamp names from W_SEQNAM.",
+    )
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     maxRejectionFrac = Field(
         dtype=float,
@@ -593,11 +602,23 @@ class FitDistortedDetectorMapTask(Task):
         if hasattr(lines, "slope"):
             good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
-        if self.config.minSignalToNoise > 0:
+        if self.config.minSignalToNoise > 0 or self.config.minSignalToNoisePerSpecies:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
             self.log.debug("%d good lines after finite intensities (%s)", good.sum(), getCounts())
             with np.errstate(invalid="ignore", divide="ignore"):
-                good &= (lines.flux/lines.fluxErr) > self.config.minSignalToNoise
+                snr = lines.flux / lines.fluxErr
+            # Build a per-line threshold array: start from the global default then
+            # override individual species that have an explicit per-species threshold.
+            snrThresh = np.full(len(lines), self.config.minSignalToNoise, dtype=float)
+            for species, thresh in self.config.minSignalToNoisePerSpecies.items():
+                snrThresh[lines.description == species] = thresh
+            if self.config.minSignalToNoisePerSpecies:
+                self.log.info(
+                    "S/N thresholds: global=%.1f, per-species=%s",
+                    self.config.minSignalToNoise,
+                    dict(self.config.minSignalToNoisePerSpecies),
+                )
+            good &= snr > snrThresh
             self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
