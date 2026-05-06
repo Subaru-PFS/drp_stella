@@ -313,7 +313,9 @@ class FitDistortedDetectorMapConfig(Config):
         keytype=str, itemtype=float, default={},
         doc="Per-species minimum signal-to-noise ratio. Overrides minSignalToNoise for named species. "
             "Use this to relax (or tighten) the S/N gate for lamps that are intrinsically faint in "
-            "certain arms (e.g. {'Ar': 3.0} to keep faint Argon lines in the blue arm).",
+            "certain arms (e.g. {'ArI': 3.0} to keep faint Argon lines in the blue arm). "
+            "Keys must match the ionic species strings in lines.description (e.g. 'ArI', 'XeI', 'KrI', "
+            "'NeI', 'HgI', 'CdI') — NOT the lamp names from W_SEQNAM.",
     )
     maxCentroidError = Field(dtype=float, default=0.15, doc="Maximum centroid error (pixels) of lines to fit")
     maxRejectionFrac = Field(
@@ -610,6 +612,12 @@ class FitDistortedDetectorMapTask(Task):
             snrThresh = np.full(len(lines), self.config.minSignalToNoise, dtype=float)
             for species, thresh in self.config.minSignalToNoisePerSpecies.items():
                 snrThresh[lines.description == species] = thresh
+            if self.config.minSignalToNoisePerSpecies:
+                self.log.info(
+                    "S/N thresholds: global=%.1f, per-species=%s",
+                    self.config.minSignalToNoise,
+                    dict(self.config.minSignalToNoisePerSpecies),
+                )
             good &= snr > snrThresh
             self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
         if self.config.maxCentroidError > 0:
