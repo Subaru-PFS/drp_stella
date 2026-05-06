@@ -104,8 +104,10 @@ class FiberKernel:  # noqa: F811 (redefinition)
                     array[self.halfWidth] -= 1.0
                 ax = axes[jj, ii]
                 ax.plot(indices, array, **plotArgs)
-
-                ax.text(s=f"$\mu$={centroid:.2f}\n$\sigma$={rms:.2f}", transform=ax.transAxes, **textArgs)
+                if not suppressCenter:
+                    string = rf"$\mu$={centroid:.2f}" + "\n" + rf"$\sigma$={rms:.2f}"
+                    ax.text(s=string, transform=ax.transAxes, **textArgs)
+                    ax.axvline(0.0, color="grey", linestyle=":")
 
                 ax.set_xlabel("dx")
                 ax.set_ylabel("Value")
