@@ -167,7 +167,8 @@ SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 
 def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                      normalize=False, normalizeBySpec=False,
-                     nPlotPerFig=16, collection=None, saveDir=None):
+                     nPlotPerFig=16, collection=None, saveDir=None,
+                     useCalexp=None):
     """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
 
     Parameters
@@ -225,10 +226,12 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     if visit is not None or quartzVisit is not None:
         suptitle_base += f"  (twilight={visit}, quartz={quartzVisit})"
     suptitle_base += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
-    if normalize:
-        suptitle_base += "  [recentred per bin, % dev]"
-    elif normalizeBySpec:
+    if useCalexp is not None:
+        suptitle_base += f"  [useCalexp={useCalexp}]"
+    if normalizeBySpec:
         suptitle_base += "  [recentred per (bin, spectrograph), % dev]"
+    elif normalize:
+        suptitle_base += "  [recentred per bin, % dev]"
     if collection:
         suptitle_base += f"\n{collection}"
 
