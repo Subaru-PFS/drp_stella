@@ -758,7 +758,7 @@ class FitDistortedDetectorMapTask(Task):
                 yChoose = chooseFiber & notTraceFiber
 
                 # Robust measurement
-                spatialFiber = -np.median(dxFiber)
+                spatialFiber = -np.median(dxFiber[chooseFiber])
                 if np.any(yChoose):
                     spectralFiber = -np.median(dyFiber[yChoose])
                 else:
@@ -802,6 +802,10 @@ class FitDistortedDetectorMapTask(Task):
                           len(noMeasurements), sorted(map(int, noMeasurements)))
             badFibers = np.isin(detectorMap.fiberId, np.array(list(noMeasurements)))
             goodFibers = ~badFibers
+            if not np.any(goodFibers):
+                raise FittingError(
+                    "No fibers with slit offset measurements; cannot fill fallback values."
+                )
             spatial[badFibers] = np.mean(spatial[goodFibers])
             spectral[badFibers] = np.mean(spectral[goodFibers])
 
@@ -1164,9 +1168,10 @@ class FitDistortedDetectorMapTask(Task):
             self.log.info("Softened fit: "
                           "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                           result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                          result.xSoften, result.ySoften, used.sum(),
+                           result.xSoften, result.ySoften, used.sum(),
                           getDescriptionCounts(lines.description, used))
 
+        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
         reservedStats = calculateFitStatistics(
             fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
         )
