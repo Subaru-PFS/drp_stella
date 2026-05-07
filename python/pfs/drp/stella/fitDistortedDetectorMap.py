@@ -434,6 +434,15 @@ class FitDistortedDetectorMapTask(Task):
                 for _ in range(self.config.slitOffsetIterations):
                     offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
                 numParameters += offsets.numParameters
+                # Propagate refined per-fiber offsets back to base so that the next
+                # trace iteration's calculateBaseResiduals sees residuals already
+                # cleaned of the slit-offset signal, preventing the distortion
+                # polynomial from absorbing smooth slit-alignment components.
+                base.setSlitOffsets(
+                    base.getSpatialOffsets() + detectorMap.getSpatialOffsets(),
+                    base.getSpectralOffsets() + detectorMap.getSpectralOffsets(),
+                )
+                detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
 
