@@ -204,10 +204,11 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     -------
     figs : list of Figure
     """
-    if normalize and normalizeBySpec:
-        raise ValueError("normalize and normalizeBySpec are mutually exclusive")
     if nPlotPerFig not in (1, 4, 16):
         raise ValueError(f"nPlotPerFig must be 1, 4 or 16 (got {nPlotPerFig})")
+    # normalizeBySpec implies a global normalization first
+    if normalizeBySpec:
+        normalize = True
 
     visit, quartzVisit = _extractVisitIds(dfs2)
     wmin0 = min(w0 for w0, _ in waveBins)
@@ -253,26 +254,26 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
             wv = int(round((wmin + wmax) / 2))
             dfi = dfs2[dfs2.wavelength == wv]
 
-            offsets_per_spec = {}
+            global_offset = 0.0
+            spec_relative = {sp: 0.0 for sp in (1, 2, 3, 4)}
             if normalize:
-                med = np.nanmedian(dfi["scatModel"].to_numpy())
-                offsets_per_spec = {sp: med for sp in (1, 2, 3, 4)}
-            elif normalizeBySpec:
+                global_offset = float(np.nanmedian(dfi["scatModel"].to_numpy()))
+            if normalizeBySpec:
                 for sp in (1, 2, 3, 4):
                     specMask = mergedSpec.spectrograph == sp
                     sub = dfi[specMask]["scatModel"].to_numpy()
                     if sub.size:
-                        offsets_per_spec[sp] = np.nanmedian(sub)
+                        spec_relative[sp] = float(np.nanmedian(sub)) - global_offset
                     else:
-                        offsets_per_spec[sp] = 0.0
+                        spec_relative[sp] = 0.0
 
             for spectrograph in (1, 2, 3, 4):
                 specMask = mergedSpec.spectrograph == spectrograph
                 perSpec = dfi[specMask]
                 color = SP_COLORS[spectrograph]
 
-                if normalize or normalizeBySpec:
-                    off = offsets_per_spec.get(spectrograph, 0.0)
+                if normalize:
+                    off = global_offset + spec_relative[spectrograph]
                     illum = (perSpec.illumCorr - off) * 100.0
                     model = (perSpec.scatModel - off) * 100.0
                 else:
@@ -284,14 +285,16 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                 ax.plot(perSpec.fiberId, model, "-", color=color,
                         lw=1.5, label=f"sp{spectrograph}")
 
-            ref = 0.0 if (normalize or normalizeBySpec) else 1.0
+            ref = 0.0 if normalize else 1.0
             ax.axhline(ref, color="k", lw=0.7, ls="--", alpha=0.5)
 
             title = f"{wv} nm  [{wmin:g}–{wmax:g}]"
+            if normalize:
+                title += f"  off={global_offset:.3f}"
             if normalizeBySpec:
-                title += "  off=" + ",".join(
-                    f"{offsets_per_spec[sp]:.3f}" for sp in (1, 2, 3, 4)
-                )
+                title += "  rel=" + ",".join(
+                    f"{spec_relative[sp]*100:+.2f}" for sp in (1, 2, 3, 4)
+                ) + "%"
             ax.set_title(title, fontsize=panel_title_fs)
             ax.set_ylim(*ylim)
             ax.tick_params(labelsize=11)
