@@ -323,10 +323,10 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                 tag += f"_t{visit}"
             if quartzVisit is not None:
                 tag += f"_q{quartzVisit}"
-            if normalize:
-                tag += "_norm"
-            elif normalizeBySpec:
+            if normalizeBySpec:
                 tag += "_normBySpec"
+            elif normalize:
+                tag += "_norm"
             tag += f"_n{nPlotPerFig}_fig{fig_idx + 1:02d}.png"
             path = f"{saveDir}/{tag}"
             fig.savefig(path, dpi=120)
