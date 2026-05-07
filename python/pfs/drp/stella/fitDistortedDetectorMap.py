@@ -1235,7 +1235,8 @@ class FitDistortedDetectorMapTask(Task):
         """
         if not np.any(select):
             raise FittingError("No selected lines to fit")
-        numWavelengths = len(set(lines.wavelength[select]))
+        isLineSelect = select & (lines.description != "Trace")
+        numWavelengths = len(set(lines.wavelength[isLineSelect]))
         if numWavelengths < self.config.minNumWavelengths:
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
@@ -1488,8 +1489,10 @@ class FitDistortedDetectorMapTask(Task):
         keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
         minKeepFrac = 1.0 - self.config.maxRejectionFrac
         if keep.sum() < minKeepFrac*fitStats.selection.sum():
+            lineSelection = fitStats.selection & ~fitStats.isTrace
             xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
-            yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+            yResidLimit = (np.percentile(yResid[lineSelection], minKeepFrac*100)
+                           if np.any(lineSelection) else self.config.rejection)
             keep = (xResid < xResidLimit) & ((yResid < yResidLimit) | fitStats.isTrace)
             self.log.debug(
                 "Standard rejection limit (%f) too severe; using %f, %f",
