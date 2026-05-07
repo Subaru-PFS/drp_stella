@@ -339,6 +339,16 @@ class FitDistortedDetectorMapConfig(Config):
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
+    maxAdaptiveSoften = Field(
+        dtype=float,
+        default=0.3,
+        doc=(
+            "Maximum adaptive softening (pixels) used when normalising residuals in rejectOutliers. "
+            "Caps xRobustRms/yRobustRms so that a poor initial fit cannot inflate the rejection "
+            "threshold to the point where no outliers are removed. Set to a large value (e.g. np.inf) "
+            "to disable the cap."
+        ),
+    )
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -1491,8 +1501,9 @@ class FitDistortedDetectorMapTask(Task):
         keep : `np.ndarray` of `bool`
             Array indicating which points should be kept.
         """
-        xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
-        ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
+        maxSoften = self.config.maxAdaptiveSoften
+        xSoften = min(fitStats.xRobustRms, maxSoften) if np.isfinite(fitStats.xRobustRms) else 0.0
+        ySoften = min(fitStats.yRobustRms, maxSoften) if np.isfinite(fitStats.yRobustRms) else 0.0
         xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
         yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
         keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
