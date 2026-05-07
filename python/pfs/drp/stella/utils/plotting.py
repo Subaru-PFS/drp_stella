@@ -166,7 +166,8 @@ SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 
 
 def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
-                     normalize=False, collection=None):
+                     normalize=False, normalizeBySpec=False,
+                     nPlotPerFig=16, collection=None, saveDir=None):
     """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
 
     Parameters
@@ -178,72 +179,159 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     waveBins   : sequence of (wmin, wmax) tuples. Bin centres are derived as
                  ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
                  column produced by ``evaluate``.
-    ylim       : y-axis limits
+    ylim       : y-axis limits. When ``normalize`` or ``normalizeBySpec`` is
+                 set the data is rescaled to percent so pass percent limits
+                 (e.g. ``(-7, 22)``).
     normalize  : bool
-        Display-only rescaling: divide ``illumCorr`` (dots) and ``scatModel``
-        (line) by the per-bin median of ``scatModel`` so each panel is
-        centred on 1.0. The underlying fit is unchanged; this only re-gauges
-        the scat/illum multiplicative degeneracy for visualisation.
+        Additive per-bin re-gauging: subtract the per-bin median of
+        ``scatModel`` from both dots and line, then multiply by 100 to
+        display as percent deviation. Preserves the dispersion (no division).
+    normalizeBySpec : bool
+        Like ``normalize`` but the offset is computed per-spectrograph (per
+        wavelength bin). The four subtracted values are written into the
+        per-panel title. Mutually exclusive with ``normalize``.
+    nPlotPerFig : int, one of {1, 4, 16}
+        Number of subplots per figure. Multiple figures are returned when
+        ``len(waveBins)`` exceeds ``nPlotPerFig``.
     collection : str, optional
         Name of the butler collection / reduction used, added to the suptitle
         for provenance.
+    saveDir : str, optional
+        If provided, save each figure as a PNG named
+        ``scatterModel_t{visit}_q{quartzVisit}_fig{i}.png``.
 
     Returns
     -------
-    fig : Figure
+    figs : list of Figure
     """
+    if normalize and normalizeBySpec:
+        raise ValueError("normalize and normalizeBySpec are mutually exclusive")
+    if nPlotPerFig not in (1, 4, 16):
+        raise ValueError(f"nPlotPerFig must be 1, 4 or 16 (got {nPlotPerFig})")
+
     visit, quartzVisit = _extractVisitIds(dfs2)
     wmin0 = min(w0 for w0, _ in waveBins)
     wmax0 = max(w1 for _, w1 in waveBins)
     bin_w = (waveBins[0][1] - waveBins[0][0])
 
-    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(22, 20), sharey=True)
-    title = "Scatter model: twilight/quartz vs fiberId"
+    layout = {1: (1, 1), 4: (2, 2), 16: (4, 4)}[nPlotPerFig]
+    nrows, ncols = layout
+    figsize = {1: (8, 6), 4: (14, 12), 16: (22, 20)}[nPlotPerFig]
+    panel_title_fs = {1: 14, 4: 12, 16: 12}[nPlotPerFig]
+    suptitle_fs = {1: 14, 4: 16, 16: 18}[nPlotPerFig]
+
+    suptitle_base = "Scatter model: twilight/quartz vs fiberId"
     if visit is not None or quartzVisit is not None:
-        title += f"  (twilight={visit}, quartz={quartzVisit})"
-    title += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
+        suptitle_base += f"  (twilight={visit}, quartz={quartzVisit})"
+    suptitle_base += f"  [{wmin0:g}–{wmax0:g} nm, bin ~{bin_w:g} nm]"
     if normalize:
-        title += "  [model re-centred on 1]"
+        suptitle_base += "  [recentred per bin, % dev]"
+    elif normalizeBySpec:
+        suptitle_base += "  [recentred per (bin, spectrograph), % dev]"
     if collection:
-        title += f"\n{collection}"
-    fig.suptitle(title, fontsize=18)
+        suptitle_base += f"\n{collection}"
 
-    for ax, (wmin, wmax) in zip(axs.flat, waveBins):
-        wv = int(round((wmin + wmax) / 2))
-        dfi = dfs2[dfs2.wavelength == wv]
+    if saveDir:
+        import os
+        os.makedirs(saveDir, exist_ok=True)
 
-        gauge = 1.0
-        if normalize:
-            med = np.nanmedian(dfi["scatModel"].to_numpy())
-            if np.isfinite(med) and med > 0:
-                gauge = med
+    figs = []
+    chunks = [waveBins[i:i + nPlotPerFig]
+              for i in range(0, len(waveBins), nPlotPerFig)]
 
-        for spectrograph in [1, 2, 3, 4]:
-            specMask = mergedSpec.spectrograph == spectrograph
-            perSpec = dfi[specMask]
-            color = SP_COLORS[spectrograph]
+    for fig_idx, chunk in enumerate(chunks):
+        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize,
+                                 sharey=True, squeeze=False)
+        suptitle = suptitle_base
+        if len(chunks) > 1:
+            suptitle += f"  (page {fig_idx + 1}/{len(chunks)})"
+        fig.suptitle(suptitle, fontsize=suptitle_fs)
 
-            ax.plot(perSpec.fiberId, perSpec.illumCorr / gauge, ".", color=color,
-                    alpha=0.3, ms=2)
-            ax.plot(perSpec.fiberId, perSpec.scatModel / gauge, "-", color=color,
-                    lw=1.5, label=f"sp{spectrograph}")
+        flat_axes = axs.flat
 
-        ax.axhline(1.0, color="k", lw=0.7, ls="--", alpha=0.5)
-        ax.set_title(f"{wv} nm  [{wmin:g}–{wmax:g}]", fontsize=14)
-        ax.set_ylim(*ylim)
-        ax.tick_params(labelsize=11)
-        ax.grid(alpha=0.3)
+        for ax, (wmin, wmax) in zip(flat_axes, chunk):
+            wv = int(round((wmin + wmax) / 2))
+            dfi = dfs2[dfs2.wavelength == wv]
 
-    for ax in axs[-1]:
-        ax.set_xlabel("fiberId", fontsize=13)
-    for ax in axs[:, 0]:
-        ax.set_ylabel("twilight / quartz", fontsize=13)
+            offsets_per_spec = {}
+            if normalize:
+                med = np.nanmedian(dfi["scatModel"].to_numpy())
+                offsets_per_spec = {sp: med for sp in (1, 2, 3, 4)}
+            elif normalizeBySpec:
+                for sp in (1, 2, 3, 4):
+                    specMask = mergedSpec.spectrograph == sp
+                    sub = dfi[specMask]["scatModel"].to_numpy()
+                    if sub.size:
+                        offsets_per_spec[sp] = np.nanmedian(sub)
+                    else:
+                        offsets_per_spec[sp] = 0.0
 
-    handles, labels = axs[0, 0].get_legend_handles_labels()
-    fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
-               fontsize=12, frameon=False)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.97])
-    return fig
+            for spectrograph in (1, 2, 3, 4):
+                specMask = mergedSpec.spectrograph == spectrograph
+                perSpec = dfi[specMask]
+                color = SP_COLORS[spectrograph]
+
+                if normalize or normalizeBySpec:
+                    off = offsets_per_spec.get(spectrograph, 0.0)
+                    illum = (perSpec.illumCorr - off) * 100.0
+                    model = (perSpec.scatModel - off) * 100.0
+                else:
+                    illum = perSpec.illumCorr
+                    model = perSpec.scatModel
+
+                ax.plot(perSpec.fiberId, illum, ".", color=color,
+                        alpha=0.3, ms=2)
+                ax.plot(perSpec.fiberId, model, "-", color=color,
+                        lw=1.5, label=f"sp{spectrograph}")
+
+            ref = 0.0 if (normalize or normalizeBySpec) else 1.0
+            ax.axhline(ref, color="k", lw=0.7, ls="--", alpha=0.5)
+
+            title = f"{wv} nm  [{wmin:g}–{wmax:g}]"
+            if normalizeBySpec:
+                title += "  off=" + ",".join(
+                    f"{offsets_per_spec[sp]:.3f}" for sp in (1, 2, 3, 4)
+                )
+            ax.set_title(title, fontsize=panel_title_fs)
+            ax.set_ylim(*ylim)
+            ax.tick_params(labelsize=11)
+            ax.grid(alpha=0.3)
+
+        # hide unused axes (when last page is partial)
+        for ax in list(flat_axes)[len(chunk):]:
+            ax.set_visible(False)
+
+        for ax in axs[-1]:
+            ax.set_xlabel("fiberId", fontsize=13)
+        ylabel = ("(twilight/quartz − offset) × 100 [%]"
+                  if (normalize or normalizeBySpec)
+                  else "twilight / quartz")
+        for ax in axs[:, 0]:
+            ax.set_ylabel(ylabel, fontsize=13)
+
+        handles, labels = axs[0, 0].get_legend_handles_labels()
+        fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
+                   fontsize=12, frameon=False)
+        fig.tight_layout(rect=[0, 0.03, 1, 0.97])
+
+        if saveDir:
+            tag = "scatterModel"
+            if visit is not None:
+                tag += f"_t{visit}"
+            if quartzVisit is not None:
+                tag += f"_q{quartzVisit}"
+            if normalize:
+                tag += "_norm"
+            elif normalizeBySpec:
+                tag += "_normBySpec"
+            tag += f"_n{nPlotPerFig}_fig{fig_idx + 1:02d}.png"
+            path = f"{saveDir}/{tag}"
+            fig.savefig(path, dpi=120)
+            print(f"saved {path}")
+
+        figs.append(fig)
+
+    return figs
 
 
 def plotIllumModel(dfs2, x, y, waveBins, vmin=-5, vmax=5, normalize=False,
