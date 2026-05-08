@@ -168,20 +168,24 @@ SP_COLORS = {1: "C0", 2: "C1", 3: "C2", 4: "C3"}
 def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                      normalize=False, normalizeBySpec=False,
                      nPlotPerFig=16, collection=None, saveDir=None,
-                     useCalexp=None):
-    """Per-spectrograph scatter model vs fiberId, one panel per wavelength bin.
+                     useCalexp=None, plotWrt='fiberId'):
+    """Per-spectrograph scatter model vs fiberId (or vs PFI x,y), one panel
+    per wavelength bin.
 
     Parameters
     ----------
     dfs2       : DataFrame output of ``fitModels``. Should carry ``visit`` and
                  ``quartzVisit`` columns (populated by ``evaluate``) so the
                  suptitle can reference them.
-    mergedSpec : merged spectra object with .spectrograph attribute
+    mergedSpec : merged spectra object with .spectrograph attribute, and (when
+                 ``plotWrt='xy'``) .x / .y attributes giving PFI focal-plane
+                 positions.
     waveBins   : sequence of (wmin, wmax) tuples. Bin centres are derived as
                  ``int(round((wmin + wmax) / 2))`` to match the ``wavelength``
                  column produced by ``evaluate``.
-    ylim       : y-axis limits. When ``normalize`` or ``normalizeBySpec`` is
-                 set the data is rescaled to percent so pass percent limits
+    ylim       : y-axis limits (``plotWrt='fiberId'``) or colour-scale limits
+                 (``plotWrt='xy'``). When ``normalize`` or ``normalizeBySpec``
+                 is set the data is rescaled to percent so pass percent limits
                  (e.g. ``(-7, 22)``).
     normalize  : bool
         Additive per-bin re-gauging: subtract the per-bin median of
@@ -190,7 +194,7 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     normalizeBySpec : bool
         Like ``normalize`` but the offset is computed per-spectrograph (per
         wavelength bin). The four subtracted values are written into the
-        per-panel title. Mutually exclusive with ``normalize``.
+        per-panel title. ``normalizeBySpec`` implies ``normalize``.
     nPlotPerFig : int, one of {1, 4, 16}
         Number of subplots per figure. Multiple figures are returned when
         ``len(waveBins)`` exceeds ``nPlotPerFig``.
@@ -200,6 +204,14 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     saveDir : str, optional
         If provided, save each figure as a PNG named
         ``scatterModel_t{visit}_q{quartzVisit}_fig{i}.png``.
+    useCalexp  : bool, optional
+        Annotation only; written into the suptitle.
+    plotWrt    : {'fiberId', 'xy'}, default 'fiberId'
+        ``'fiberId'``: per-panel curve plot of ``illumCorr`` (dots) and
+        ``scatModel`` (line) versus fiberId, coloured per spectrograph.
+        ``'xy'``: per-panel focal-plane scatter at ``(mergedSpec.x,
+        mergedSpec.y)`` coloured by ``illumCorr`` after the optional
+        normalisation. Useful for spotting spatial structure.
 
     Returns
     -------
@@ -207,6 +219,8 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
     """
     if nPlotPerFig not in (1, 4, 16):
         raise ValueError(f"nPlotPerFig must be 1, 4 or 16 (got {nPlotPerFig})")
+    if plotWrt not in ('fiberId', 'xy'):
+        raise ValueError(f"plotWrt must be 'fiberId' or 'xy' (got {plotWrt!r})")
     # normalizeBySpec implies a global normalization first
     if normalizeBySpec:
         normalize = True
@@ -245,7 +259,8 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
 
     for fig_idx, chunk in enumerate(chunks):
         fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize,
-                                 sharey=True, squeeze=False)
+                                 sharey=(plotWrt == 'fiberId'),
+                                 squeeze=False)
         suptitle = suptitle_base
         if len(chunks) > 1:
             suptitle += f"  (page {fig_idx + 1}/{len(chunks)})"
@@ -270,26 +285,51 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                     else:
                         spec_relative[sp] = 0.0
 
-            for spectrograph in (1, 2, 3, 4):
-                specMask = mergedSpec.spectrograph == spectrograph
-                perSpec = dfi[specMask]
-                color = SP_COLORS[spectrograph]
+            if plotWrt == 'fiberId':
+                for spectrograph in (1, 2, 3, 4):
+                    specMask = mergedSpec.spectrograph == spectrograph
+                    perSpec = dfi[specMask]
+                    color = SP_COLORS[spectrograph]
 
-                if normalize:
-                    off = global_offset + spec_relative[spectrograph]
-                    illum = (perSpec.illumCorr - off) * 100.0
-                    model = (perSpec.scatModel - off) * 100.0
-                else:
-                    illum = perSpec.illumCorr
-                    model = perSpec.scatModel
+                    if normalize:
+                        off = global_offset + spec_relative[spectrograph]
+                        illum = (perSpec.illumCorr - off) * 100.0
+                        model = (perSpec.scatModel - off) * 100.0
+                    else:
+                        illum = perSpec.illumCorr
+                        model = perSpec.scatModel
 
-                ax.plot(perSpec.fiberId, illum, ".", color=color,
-                        alpha=0.3, ms=2)
-                ax.plot(perSpec.fiberId, model, "-", color=color,
-                        lw=1.5, label=f"sp{spectrograph}")
+                    ax.plot(perSpec.fiberId, illum, ".", color=color,
+                            alpha=0.3, ms=2)
+                    ax.plot(perSpec.fiberId, model, "-", color=color,
+                            lw=1.5, label=f"sp{spectrograph}")
 
-            ref = 0.0 if normalize else 1.0
-            ax.axhline(ref, color="k", lw=0.7, ls="--", alpha=0.5)
+                ref = 0.0 if normalize else 1.0
+                ax.axhline(ref, color="k", lw=0.7, ls="--", alpha=0.5)
+                ax.set_ylim(*ylim)
+
+            else:  # plotWrt == 'xy'
+                xs = np.asarray(mergedSpec.x)
+                ys = np.asarray(mergedSpec.y)
+                # Build per-fiber illumCorr value with the appropriate offset.
+                vals = np.full(len(xs), np.nan)
+                for spectrograph in (1, 2, 3, 4):
+                    specMask = mergedSpec.spectrograph == spectrograph
+                    perSpec = dfi[specMask]
+                    illum_arr = perSpec.illumCorr.to_numpy()
+                    if normalize:
+                        off = global_offset + spec_relative[spectrograph]
+                        illum_arr = (illum_arr - off) * 100.0
+                    # mergedSpec rows align with dfs2 rows for this wv,
+                    # filtered by spectrograph mask.
+                    vals[specMask] = illum_arr
+                sc = ax.scatter(xs, ys, c=vals, cmap='RdBu_r',
+                                vmin=ylim[0], vmax=ylim[1],
+                                s=12, edgecolor='none')
+                ax.set_aspect('equal')
+
+            ax.tick_params(labelsize=11)
+            ax.grid(alpha=0.3)
 
             title = f"{wv} nm  [{wmin:g}–{wmax:g}]"
             if normalize:
@@ -299,25 +339,33 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                     f"{spec_relative[sp]*100:+.2f}" for sp in (1, 2, 3, 4)
                 ) + "%"
             ax.set_title(title, fontsize=panel_title_fs)
-            ax.set_ylim(*ylim)
-            ax.tick_params(labelsize=11)
-            ax.grid(alpha=0.3)
 
         # hide unused axes (when last page is partial)
         for ax in list(flat_axes)[len(chunk):]:
             ax.set_visible(False)
 
-        for ax in axs[-1]:
-            ax.set_xlabel("fiberId", fontsize=13)
-        ylabel = ("(twilight/quartz − offset) × 100 [%]"
-                  if (normalize or normalizeBySpec)
-                  else "twilight / quartz")
-        for ax in axs[:, 0]:
-            ax.set_ylabel(ylabel, fontsize=13)
+        if plotWrt == 'fiberId':
+            for ax in axs[-1]:
+                ax.set_xlabel("fiberId", fontsize=13)
+            ylabel = ("(twilight/quartz − offset) × 100 [%]"
+                      if (normalize or normalizeBySpec)
+                      else "twilight / quartz")
+            for ax in axs[:, 0]:
+                ax.set_ylabel(ylabel, fontsize=13)
+            handles, labels = axs[0, 0].get_legend_handles_labels()
+            fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
+                       fontsize=12, frameon=False)
+        else:
+            for ax in axs[-1]:
+                ax.set_xlabel("PFI x [mm]", fontsize=13)
+            for ax in axs[:, 0]:
+                ax.set_ylabel("PFI y [mm]", fontsize=13)
+            cbar_label = ("(twilight/quartz − offset) × 100 [%]"
+                          if (normalize or normalizeBySpec)
+                          else "twilight / quartz")
+            fig.colorbar(sc, ax=axs.ravel().tolist(), shrink=0.8,
+                         label=cbar_label)
 
-        handles, labels = axs[0, 0].get_legend_handles_labels()
-        fig.legend(handles[:4], labels[:4], loc="lower center", ncol=4,
-                   fontsize=12, frameon=False)
         fig.tight_layout(rect=[0, 0.03, 1, 0.97])
 
         if saveDir:
@@ -330,6 +378,8 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                 tag += "_normBySpec"
             elif normalize:
                 tag += "_norm"
+            if plotWrt == 'xy':
+                tag += "_xy"
             tag += f"_n{nPlotPerFig}_fig{fig_idx + 1:02d}.png"
             path = f"{saveDir}/{tag}"
             fig.savefig(path, dpi=120)
