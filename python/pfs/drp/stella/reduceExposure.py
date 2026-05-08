@@ -171,7 +171,7 @@ class ReduceExposureConnections(
         if not self.config.doApplySkyNorms:
             self.prerequisiteInputs.remove("skyNorms")
         if not self.config.doConvolution:
-            self.outputConnections.remove("kernel")
+            self.outputs.remove("kernel")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
