@@ -326,21 +326,32 @@ def _extractCameraSimpleWorker(camKey, spectrograph, arm, postISR, calexp,
 def _extractCameraNormWorker(camKey, spectrograph, arm,
                              postISR_tw, calexp_tw, postISR_q, calexp_q,
                              fiberTrace, detectorMap, selVisit, useCalexp,
+                             kernel_tw, kernel_q,
                              tmpDir):
     """Extract twilight and quartz separately, divide spectra, write PfsArm.
 
     Extracting separately and dividing cancels the fiberProfile normalisation,
     unlike extracting from a pre-divided ratio image.
+
+    If ``kernel_tw`` / ``kernel_q`` are provided (FiberKernel objects from
+    ``fitFiberKernel``), the per-fiber traces are convolved with the matching
+    kernel before extraction. The forward model becomes ``image = K_X·(P·f)``,
+    so extracting with ``K_X·P`` recovers the per-fiber flux for that SED
+    instead of one biased by the SED-mismatched profile.
     """
     from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 
     extractSpectra = ExtractSpectraTask(config=ExtractSpectraTask.ConfigClass())
     dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
 
+    bbox = (calexp_tw if useCalexp else postISR_tw).getBBox()
+    traces_tw = kernel_tw.convolve(fiberTrace, bbox) if kernel_tw else fiberTrace
+    traces_q = kernel_q.convolve(fiberTrace, bbox) if kernel_q else fiberTrace
+
     pfsArm_tw = _extractOnePfsArm(extractSpectra, postISR_tw, calexp_tw,
-                                  fiberTrace, detectorMap, dataId, useCalexp)
+                                  traces_tw, detectorMap, dataId, useCalexp)
     pfsArm_q = _extractOnePfsArm(extractSpectra, postISR_q, calexp_q,
-                                 fiberTrace, detectorMap, dataId, useCalexp)
+                                 traces_q, detectorMap, dataId, useCalexp)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio_flux = pfsArm_tw.flux / pfsArm_q.flux
@@ -415,7 +426,7 @@ def extractPfsArmsParallel(butler, selVisit, fiberTraces, detectorMaps,
 
 
 def extractPfsArmsNormParallel(butler, selVisit, quartzVisit, fiberTraces,
-                               detectorMaps, useCalexp=False):
+                               detectorMaps, useCalexp=False, kernels=None):
     """Extract twilight/quartz ratio spectra for all cameras in parallel.
 
     Same parallel pattern as ``extractPfsArmsParallel`` but extracts ``selVisit``
@@ -429,6 +440,13 @@ def extractPfsArmsNormParallel(butler, selVisit, quartzVisit, fiberTraces,
     fiberTraces   : dict  camKey -> FiberTraceSet
     detectorMaps  : dict  camKey -> DetectorMap
     useCalexp     : bool  see ``extractPfsArmsParallel``
+    kernels       : dict, optional
+        ``camKey -> {'kernel1': K_twilight, 'kernel2': K_quartz}`` as
+        produced by ``fitFiberKernel``. When provided, the per-fiber traces
+        are convolved with the SED-matched kernel before each extraction so
+        the deblending solve sees the right forward model. Per-camera
+        missing kernels are silently skipped (falls back to un-convolved
+        traces).
 
     Returns
     -------
@@ -438,6 +456,7 @@ def extractPfsArmsNormParallel(butler, selVisit, quartzVisit, fiberTraces,
     for spectrograph, arm in _CAMERAS:
         camKey = f"{arm}{spectrograph}"
         dataId = dict(spectrograph=spectrograph, arm=arm, visit=selVisit)
+        per = (kernels or {}).get(camKey, {})
         perCameraArgs[camKey] = (
             camKey, spectrograph, arm,
             butler.get("postISRCCD", dataId),
@@ -445,5 +464,6 @@ def extractPfsArmsNormParallel(butler, selVisit, quartzVisit, fiberTraces,
             butler.get("postISRCCD", dataId, visit=quartzVisit),
             butler.get("calexp", dataId, visit=quartzVisit),
             fiberTraces[camKey], detectorMaps[camKey], selVisit, useCalexp,
+            per.get('kernel1'), per.get('kernel2'),
         )
     return _runCamerasParallel(_extractCameraNormWorker, perCameraArgs)
