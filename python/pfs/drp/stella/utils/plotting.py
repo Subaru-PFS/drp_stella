@@ -327,6 +327,11 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                                 vmin=ylim[0], vmax=ylim[1],
                                 s=12, edgecolor='none')
                 ax.set_aspect('equal')
+                cbar_label = ("(t/q − off) × 100 [%]"
+                              if (normalize or normalizeBySpec)
+                              else "t/q")
+                plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.02,
+                             label=cbar_label)
 
             ax.tick_params(labelsize=11)
             ax.grid(alpha=0.3)
@@ -360,11 +365,6 @@ def plotScatterModel(dfs2, mergedSpec, waveBins, ylim=(0.93, 1.22),
                 ax.set_xlabel("PFI x [mm]", fontsize=13)
             for ax in axs[:, 0]:
                 ax.set_ylabel("PFI y [mm]", fontsize=13)
-            cbar_label = ("(twilight/quartz − offset) × 100 [%]"
-                          if (normalize or normalizeBySpec)
-                          else "twilight / quartz")
-            fig.colorbar(sc, ax=axs.ravel().tolist(), shrink=0.8,
-                         label=cbar_label)
 
         fig.tight_layout(rect=[0, 0.03, 1, 0.97])
 
