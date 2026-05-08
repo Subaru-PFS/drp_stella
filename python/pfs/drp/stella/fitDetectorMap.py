@@ -754,7 +754,7 @@ class FitDetectorMapTask(Task):
                 yChoose = chooseFiber & notTraceFiber
 
                 # Robust measurement
-                spatialFiber = np.median(dxFiber)
+                spatialFiber = np.median(dxFiber[chooseFiber])
                 if np.any(yChoose):
                     spectralFiber = np.median(dyFiber[yChoose])
                 else:
