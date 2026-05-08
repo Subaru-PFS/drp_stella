@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
 from lsst.utils import continueClass
 from lsst.geom import Extent2I
@@ -79,8 +81,6 @@ class FiberKernel:  # noqa: F811 (redefinition)
         axes : `numpy.ndarray` of `matplotlib.axes.Axes`
             The axes containing the plots for each block.
         """
-        import matplotlib.pyplot as plt
-
         if figArgs is None:
             figArgs = dict(figsize=(10, 10))
         if plotArgs is None:
