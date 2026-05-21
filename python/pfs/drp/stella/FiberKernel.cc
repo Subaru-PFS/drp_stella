@@ -57,6 +57,15 @@ void declareBaseKernel(py::module & mod) {
         "image"_a
     );
     cls.def(
+        "convolve",
+        py::overload_cast<lsst::afw::image::MaskedImage<float> const&, lsst::afw::image::MaskPixel, double>(
+            &BaseKernel::convolve, py::const_
+        ),
+        "image"_a,
+        "badBitMask"_a,
+        "maskThreshold"_a=0.1
+    );
+    cls.def(
         "makeOffsetImages",
         py::overload_cast<lsst::geom::Extent2I const&>(&BaseKernel::makeOffsetImages, py::const_),
         "dims"_a
@@ -152,7 +161,7 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "maxIter"_a=20,
         "andersonDepth"_a=5,
         "andersonDamping"_a=0.25,
-        "fluxTol"_a=1.0e-2,
+        "fluxTol"_a=1.0e-1,
         "lsqThreshold"_a=1.0e-16
     );
     mod.def(

@@ -79,6 +79,13 @@ class BaseKernel {
     lsst::afw::image::Image<float> convolve(lsst::afw::image::Image<float> const& image) const {
         return convolveImpl(image);
     }
+    lsst::afw::image::MaskedImage<float> convolve(
+        lsst::afw::image::MaskedImage<float> const& image,
+        lsst::afw::image::MaskPixel badBitMask,
+        double maskThreshold=0.1
+    ) const {
+        return convolveImpl(image, badBitMask, maskThreshold);
+    }
 
     ndarray::Array<double, 3, 3> makeOffsetImages(lsst::geom::Extent2I const& dims) const {
         return makeOffsetImagesImpl(dims);
@@ -107,6 +114,11 @@ class BaseKernel {
     ) const = 0;
     virtual lsst::afw::image::Image<float> convolveImpl(
         lsst::afw::image::Image<float> const& image
+    ) const = 0;
+    virtual lsst::afw::image::MaskedImage<float> convolveImpl(
+        lsst::afw::image::MaskedImage<float> const& image,
+        lsst::afw::image::MaskPixel badBitMask,
+        double maskThreshold
     ) const = 0;
     virtual ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
         lsst::geom::Extent2I const& dims
@@ -141,6 +153,11 @@ class FiberKernel : public BaseKernel {
     lsst::afw::image::Image<float> convolveImpl(
         lsst::afw::image::Image<float> const& image
     ) const override;
+    lsst::afw::image::MaskedImage<float> convolveImpl(
+        lsst::afw::image::MaskedImage<float> const& image,
+        lsst::afw::image::MaskPixel badBitMask,
+        double maskThreshold
+    ) const override;
     ndarray::Array<double, 3, 3> makeOffsetImagesImpl(
         lsst::geom::Extent2I const& dims
     ) const override;
@@ -159,7 +176,7 @@ class FiberKernel : public BaseKernel {
 };
 
 
-FiberKernel fitFiberKernel(
+std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
     lsst::afw::image::MaskPixel badBitMask,

@@ -98,7 +98,7 @@ class FiberKernel:  # noqa: F811 (redefinition)
                 array = images[:, jj, ii]
 
                 centroid = (indices*array).sum()/array.sum()
-                rms = np.sqrt((indices**2*array).sum()/array.sum())
+                rms = np.sqrt(((indices - centroid)**2*array).sum()/array.sum())
 
                 if suppressCenter:
                     array[self.halfWidth] -= 1.0

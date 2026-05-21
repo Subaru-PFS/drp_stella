@@ -28,15 +28,15 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
-    kernelHalfWidth = pexConfig.Field(dtype=int, default=3, doc="Half-width of convolution kernel")
-    xKernelNum = pexConfig.Field(dtype=int, default=5, doc="Number of constant kernels in x")
-    yKernelNum = pexConfig.Field(dtype=int, default=5, doc="Number of constant kernels in y")
-    numRows = pexConfig.Field(dtype=int, default=500, doc="Number of rows to use in kernel fitting")
+    kernelHalfWidth = pexConfig.Field(dtype=int, default=5, doc="Half-width of convolution kernel")
+    xKernelNum = pexConfig.Field(dtype=int, default=9, doc="Number of constant kernels in x")
+    yKernelNum = pexConfig.Field(dtype=int, default=9, doc="Number of constant kernels in y")
+    numRows = pexConfig.Field(dtype=int, default=2000, doc="Number of rows to use in kernel fitting")
     maxIter = pexConfig.Field(dtype=int, default=20, doc="Maximum number of iterations in kernel fitting")
-    andersonDepth = pexConfig.Field(dtype=int, default=5, doc="Anderson acceleration depth in kernel fitting")
+    andersonDepth = pexConfig.Field(dtype=int, default=2, doc="Anderson acceleration depth in kernel fitting")
     andersonDamping = pexConfig.Field(dtype=float, default=0.25, doc="Damping in kernel fitting")
     fluxTol = pexConfig.Field(
-        dtype=float, default=1.0e-2, doc="Tolerance for flux convergence in kernel fitting"
+        dtype=float, default=5.0e-1, doc="Tolerance for flux convergence in kernel fitting"
     )
     lsqThreshold = pexConfig.Field(
         dtype=float, default=1.0e-16, doc="Threshold for least-squares convergence in kernel fitting"
@@ -214,7 +214,7 @@ class ExtractSpectraTask(pipeBase.Task):
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
         rows = np.linspace(0, maskedImage.getHeight() - 1, self.config.numRows, dtype=np.int32)
-        kernel = fitFiberKernel(
+        kernel, bg = fitFiberKernel(
             maskedImage,
             fiberTraceSet,
             badBitMask,
@@ -229,7 +229,7 @@ class ExtractSpectraTask(pipeBase.Task):
             lsqThreshold=self.config.lsqThreshold,
         )
 
-        if False:
+        if True:
             maskedImage.writeFits("image.fits")
 
             spectra = fiberTraceSet.extractSpectra(
@@ -240,12 +240,18 @@ class ExtractSpectraTask(pipeBase.Task):
             residual -= model
             residual.writeFits("origResidual.fits")
 
+        from lsst.afw.math import BackgroundMI
+        from lsst.afw.image import makeMaskedImage
+        background = BackgroundMI(maskedImage.getBBox(), makeMaskedImage(bg))
+        maskedImage -= background.getImageF("AKIMA_SPLINE", "REDUCE_INTERP_ORDER")
+
         convolvedTraces = kernel.convolve(fiberTraceSet, maskedImage.getBBox())
         spectra = convolvedTraces.extractSpectra(
             maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
         )
 
-        if False:
+        if True:
+            bg.writeFits("background.fits")
             model = spectra.makeImage(maskedImage.getBBox(), convolvedTraces)
             residual = maskedImage.clone()
             residual -= model
