@@ -95,6 +95,7 @@ void declareFiberKernel(py::module & mod) {
         "yNumBlocks"_a,
         "values"_a
     );
+    cls.def(py::init<FiberKernel const&>(), "other"_a);
     cls.def_property_readonly("xNumBlocks", &FiberKernel::getXNumBlocks);
     cls.def_property_readonly("yNumBlocks", &FiberKernel::getYNumBlocks);
     cls.def("getXNumBlocks", &FiberKernel::getXNumBlocks);

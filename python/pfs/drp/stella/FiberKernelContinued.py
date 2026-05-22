@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import scipy.ndimage
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -10,6 +11,7 @@ from lsst.utils import continueClass
 from lsst.geom import Extent2I
 
 from .FiberKernel import FiberKernel
+from .fiberProfile import FiberProfile
 from pfs.datamodel.pfsFiberKernel import PfsFiberKernel
 
 __all__ = ["FiberKernel"]
@@ -48,6 +50,42 @@ class FiberKernel:  # noqa: F811 (redefinition)
     def readFits(cls, filename) -> "FiberKernel":
         """Read from a FITS file"""
         return cls.fromDatamodel(PfsFiberKernel.readFits(filename))
+
+    def convolveProfile(
+        self, profile: FiberProfile, xCenter: np.ndarray, order: int = 3
+    ) -> FiberProfile:
+        """Convolve a fiber profile with the kernel
+
+        We oversample the kernel by the profile's oversampling factor (with
+        spline interpolation of the specified order) and then convolve with
+        the profile.
+
+        Parameters
+        ----------
+        profile : `FiberProfile`
+            The fiber profile to convolve.
+        xCenter : `numpy.ndarray`
+            The x center of the fiber profile for each profile sample:
+            ``detectorMap.getXCenter(fiberId, profile.rows)``.
+        order : `int`, optional
+            The order of the spline interpolation to use when oversampling the
+            kernel.
+
+        Returns
+        -------
+        convolved : `FiberProfile`
+            The convolved fiber profile. The normalization is not preserved:
+            you should re-measure the normalization with the convolved profile.
+        """
+        convolved = profile.profiles.copy()
+        for ii, (xx, yy) in enumerate(zip(xCenter, profile.rows)):
+            kernel = self.evaluate(xx, yy)
+            oversampled = scipy.ndimage.zoom(kernel, profile.oversample, order=order)
+            oversampled /= oversampled.sum()
+            convolved[ii] = scipy.signal.fftconvolve(profile.profiles[ii], oversampled, mode="same")
+        return FiberProfile(
+            profile.radius, profile.oversample, profile.rows.copy(), convolved, norm=None
+        )
 
     def plot(
         self,

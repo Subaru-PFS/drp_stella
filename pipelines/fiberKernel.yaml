@@ -1,0 +1,8 @@
+description: Measure a FiberKernel from quartzes, and generate a new fiberProfile
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  measureFiberKernel:
+    class: pfs.drp.stella.measureFiberKernel.MeasureFiberKernelTask
