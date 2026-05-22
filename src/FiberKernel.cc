@@ -780,7 +780,7 @@ struct FiberKernelFitter {
         RowData data(y, _numFibers, _image.getWidth(), _kernelHalfWidth);
         for (std::size_t ii = 0; ii < _numFibers; ++ii) {
             auto const& traceBox = _fiberTraces[ii]->getTrace().getBBox();
-            if (traceBox.getMaxX() < _box.getMinX() || traceBox.getMinX() >= _box.getMaxX()) {
+            if (traceBox.getMaxX() < _box.getMinX() || traceBox.getMinX() > _box.getMaxX()) {
                 continue;
             }
             int xMin = 0;
@@ -1152,10 +1152,10 @@ struct FiberKernelFitter {
                 continue;
             }
             modelDotData += kernelSolution[kernelIndex]*dotData[offsetIndex];  // K_I dot data
-            vector[iIndex] -= bg*kernelSolution[kernelIndex]*data.dotBackground[fiberIndex][kernelIndex];
+            vector[iIndex] -= bg*kernelSolution[kernelIndex]*data.dotBackground[fiberIndex][offsetIndex];
 
         }
-        vector[iIndex] = modelDotData;
+        vector[iIndex] += modelDotData;
 
         // Calculate model dot model
         std::size_t const numOverlaps = data.dotModel[fiberIndex].size();
@@ -1452,7 +1452,9 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     ndarray::Array<double, 1, 1> values = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
     std::size_t start = 0;
     std::size_t stop = 2*kernelHalfWidth;
-    lsst::afw::image::Image<float> background{xKernelNum, yKernelNum};
+    lsst::afw::image::Image<float> background{
+        static_cast<unsigned int>(xKernelNum), static_cast<unsigned int>(yKernelNum)
+    };
     for (std::size_t ii = 0; ii < yKernelNum; ++ii) {
         for (
             std::size_t jj = 0;

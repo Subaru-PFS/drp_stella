@@ -213,6 +213,14 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
+
+
+        self.log.warn("XXX Clearing CR mask")
+        maskedImage.mask.array &= ~maskedImage.mask.getPlaneBitMask("CR")
+        numBad = ((maskedImage.mask.array & badBitMask) != 0).sum()
+        self.log.warn("Number of bad pixels: %d/%d = %f", numBad, maskedImage.getHeight()*maskedImage.getWidth(), numBad/(maskedImage.getHeight()*maskedImage.getWidth()))
+
+
         rows = np.linspace(0, maskedImage.getHeight() - 1, self.config.numRows, dtype=np.int32)
         kernel, bg = fitFiberKernel(
             maskedImage,
