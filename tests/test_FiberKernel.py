@@ -89,10 +89,12 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         self,
         image: MaskedImage,
         kernel: FiberKernel,
+        background: np.ndarray,
         fiberTraces: FiberTraceSet,
     ) -> None:
         """Check that the residual image is zero"""
         resid = image.clone()
+        resid -= np.median(background.array)
         convolvedTraces = kernel.convolve(fiberTraces, image.getBBox())
         spectra = convolvedTraces.extractSpectra(resid)
         model = spectra.makeImage(image.getBBox(), convolvedTraces)
@@ -109,7 +111,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         image = self.makeImage(xOffset=xOffset)
         fiberTraces = self.makeFiberTraces()
 
-        kernel = fitFiberKernel(
+        kernel, background = fitFiberKernel(
             image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum
         )
         print(kernel.values)
@@ -127,7 +129,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
                     expect = 1.0 if offset == xOffset else 0.0
                     self.assertFloatsAlmostEqual(value, expect, rtol=0.3, atol=0.4)
 
-        self.assertResidual(image, kernel, fiberTraces)
+        self.assertResidual(image, kernel, background, fiberTraces)
 
     def testOffset(self):
         """We apply a subpixel offset"""
@@ -138,7 +140,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         image = self.makeImage(xOffset=xOffset)
         fiberTraces = self.makeFiberTraces()
 
-        kernel = fitFiberKernel(
+        kernel, background = fitFiberKernel(
             image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum
         )
 
@@ -156,7 +158,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
                 print(f"Kernel {ii}, {jj}={kernelImages[:, jj, ii]}, centroid={centroid}")
                 self.assertFloatsAlmostEqual(centroid, xOffset, rtol=0.3, atol=0.3)
 
-        self.assertResidual(image, kernel, fiberTraces)
+        self.assertResidual(image, kernel, background,fiberTraces)
 
     def testWidth(self):
         kernelHalfWidth = 3
@@ -165,8 +167,10 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         image = self.makeImage()
         fiberTraces = self.makeFiberTraces(3.33)
 
-        kernel = fitFiberKernel(image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum)
-        self.assertResidual(image, kernel, fiberTraces)
+        kernel, background = fitFiberKernel(
+            image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum
+            )
+        self.assertResidual(image, kernel, background, fiberTraces)
 
     def testIO(self):
         rng = np.random.default_rng(12345)
