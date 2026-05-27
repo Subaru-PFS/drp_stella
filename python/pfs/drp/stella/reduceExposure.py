@@ -150,12 +150,6 @@ class ReduceExposureConnections(
         storageClass="DetectorMap",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    kernel = OutputConnection(
-        name="kernel",
-        doc="Convolution kernel used for extraction (if any)",
-        storageClass="FiberKernel",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
 
     def __init__(self, *, config=None):
         super().__init__(config=config)
@@ -170,8 +164,6 @@ class ReduceExposureConnections(
             self.prerequisiteInputs.remove("fiberNorms")
         if not self.config.doApplySkyNorms:
             self.prerequisiteInputs.remove("skyNorms")
-        if not self.config.doConvolution:
-            self.outputs.remove("kernel")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -217,7 +209,6 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
     doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
-    doConvolution = Field(dtype=bool, default=True, doc="Solve for the convulution kernel during extraction?")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -392,32 +383,25 @@ class ReduceExposureTask(PipelineTask):
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
 
         fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
-        kernel = None
-        extraction = self.extractSpectra.run(
+        spectra = self.extractSpectra.run(
             exposure.maskedImage,
             measurements.fiberTraces,
             measurements.detectorMap,
             fiberId,
             True if boxcarWidth > 0 else False,
-            allowConvolution=self.config.doConvolution and not self.config.doScatteredLight,
-        )
-        spectra = extraction.spectra
+        ).spectra
 
         if self.config.doScatteredLight and not isWindowed(exposure.getMetadata(), exposure.getHeight()):
             pfsArm = spectra.toPfsArm(identity)
             self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
             # Extract spectra again after scattered light correction
-            extraction = self.extractSpectra.run(
+            spectra = self.extractSpectra.run(
                 exposure.maskedImage,
                 measurements.fiberTraces,
                 measurements.detectorMap,
                 fiberId,
                 True if boxcarWidth > 0 else False,
-                allowConvolution=self.config.doConvolution,
-            )
-            spectra = extraction.spectra
-        if self.config.doConvolution:
-            kernel = extraction.kernel
+            ).spectra
 
         if self.config.doBlackSpotCorrection:
             self.blackSpotCorrection.run(pfsConfig, spectra)
@@ -458,7 +442,6 @@ class ReduceExposureTask(PipelineTask):
             lines=measurements.lines,
             apCorr=measurements.apCorr,
             lsf=lsf,
-            kernel=kernel,
         )
 
     def checkPfsConfig(self, pfsConfig: PfsConfig, detectorMap: DetectorMap, spectrograph: int) -> PfsConfig:

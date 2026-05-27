@@ -158,7 +158,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
                 print(f"Kernel {ii}, {jj}={kernelImages[:, jj, ii]}, centroid={centroid}")
                 self.assertFloatsAlmostEqual(centroid, xOffset, rtol=0.3, atol=0.3)
 
-        self.assertResidual(image, kernel, background,fiberTraces)
+        self.assertResidual(image, kernel, background, fiberTraces)
 
     def testWidth(self):
         kernelHalfWidth = 3
@@ -169,7 +169,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
         kernel, background = fitFiberKernel(
             image, fiberTraces, 0, kernelHalfWidth, xKernelNum, yKernelNum
-            )
+        )
         self.assertResidual(image, kernel, background, fiberTraces)
 
     def testIO(self):

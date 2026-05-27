@@ -14,7 +14,6 @@ from .FiberTrace import FiberTrace
 from .FiberTraceSet import FiberTraceSet
 from .Spectrum import Spectrum
 from .SpectrumSet import SpectrumSet
-from .FiberKernel import fitFiberKernel
 
 
 class ExtractSpectraConfig(pexConfig.Config):
@@ -27,19 +26,6 @@ class ExtractSpectraConfig(pexConfig.Config):
         dtype=float,
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
-    )
-    kernelHalfWidth = pexConfig.Field(dtype=int, default=5, doc="Half-width of convolution kernel")
-    xKernelNum = pexConfig.Field(dtype=int, default=9, doc="Number of constant kernels in x")
-    yKernelNum = pexConfig.Field(dtype=int, default=9, doc="Number of constant kernels in y")
-    numRows = pexConfig.Field(dtype=int, default=2000, doc="Number of rows to use in kernel fitting")
-    maxIter = pexConfig.Field(dtype=int, default=20, doc="Maximum number of iterations in kernel fitting")
-    andersonDepth = pexConfig.Field(dtype=int, default=2, doc="Anderson acceleration depth in kernel fitting")
-    andersonDamping = pexConfig.Field(dtype=float, default=0.25, doc="Damping in kernel fitting")
-    fluxTol = pexConfig.Field(
-        dtype=float, default=5.0e-1, doc="Tolerance for flux convergence in kernel fitting"
-    )
-    lsqThreshold = pexConfig.Field(
-        dtype=float, default=1.0e-16, doc="Threshold for least-squares convergence in kernel fitting"
     )
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
@@ -66,7 +52,6 @@ class ExtractSpectraTask(pipeBase.Task):
         detectorMap: Optional[DetectorMap] = None,
         fiberId: Optional[np.ndarray] = None,
         isBoxcar: bool = False,
-        allowConvolution: bool = False,
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -87,8 +72,6 @@ class ExtractSpectraTask(pipeBase.Task):
             Fiber identifiers to include in output.
         isBoxcar : `bool`
             fiberTraceSet consists of boxcar apertures (peak 1, not row-normalised to 1)
-        allowConvolution : `bool`
-            Allow fitting for convolution kernel?
 
         Returns
         -------
@@ -122,13 +105,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
-        kernel = None
-        if isBoxcar or not allowConvolution:
-            spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
-        else:
-            extraction = self.extractWithConvolution(maskedImage, fiberTraceSet, detectorMap)
-            spectra = extraction.spectra
-            kernel = extraction.kernel
+        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar)
 
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
@@ -136,7 +113,7 @@ class ExtractSpectraTask(pipeBase.Task):
         if self.config.doCrosstalk:
             self.crosstalkCorrection(spectra)
 
-        return pipeBase.Struct(spectra=spectra, kernel=kernel)
+        return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(
         self,
@@ -182,94 +159,6 @@ class ExtractSpectraTask(pipeBase.Task):
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
 
         return spectra
-
-    def extractWithConvolution(
-        self,
-        maskedImage: MaskedImage,
-        fiberTraceSet: FiberTraceSet,
-        detectorMap: Optional[DetectorMap] = None,
-    ) -> SpectrumSet:
-        """Extract spectra using convolution
-
-        Since the fiber profiles may have changed slightly from when they were
-        measured, we fit for the convolution kernel that minimizes the residuals
-        and then re-extract the spectra using the convolved fiber profiles. We
-        also have the opportunity to fit for the background.
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra.
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
-            Fiber traces to extract.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Map of expected detector coordinates to fiber, wavelength.
-            If provided, they will be used to normalise the spectrum
-            and provide a rough wavelength calibration.
-
-        Returns
-        -------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        """
-        badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
-
-
-        self.log.warn("XXX Clearing CR mask")
-        maskedImage.mask.array &= ~maskedImage.mask.getPlaneBitMask("CR")
-        numBad = ((maskedImage.mask.array & badBitMask) != 0).sum()
-        self.log.warn("Number of bad pixels: %d/%d = %f", numBad, maskedImage.getHeight()*maskedImage.getWidth(), numBad/(maskedImage.getHeight()*maskedImage.getWidth()))
-
-
-        rows = np.linspace(0, maskedImage.getHeight() - 1, self.config.numRows, dtype=np.int32)
-        kernel, bg = fitFiberKernel(
-            maskedImage,
-            fiberTraceSet,
-            badBitMask,
-            self.config.kernelHalfWidth,
-            self.config.xKernelNum,
-            self.config.yKernelNum,
-            rows=rows,
-            maxIter=self.config.maxIter,
-            andersonDepth=self.config.andersonDepth,
-            andersonDamping=self.config.andersonDamping,
-            fluxTol=self.config.fluxTol,
-            lsqThreshold=self.config.lsqThreshold,
-        )
-
-        if True:
-            maskedImage.writeFits("image.fits")
-
-            spectra = fiberTraceSet.extractSpectra(
-                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
-            )
-            model = spectra.makeImage(maskedImage.getBBox(), fiberTraceSet)
-            residual = maskedImage.clone()
-            residual -= model
-            residual.writeFits("origResidual.fits")
-
-        from lsst.afw.math import BackgroundMI
-        from lsst.afw.image import makeMaskedImage
-        background = BackgroundMI(maskedImage.getBBox(), makeMaskedImage(bg))
-        maskedImage -= background.getImageF("AKIMA_SPLINE", "REDUCE_INTERP_ORDER")
-
-        convolvedTraces = kernel.convolve(fiberTraceSet, maskedImage.getBBox())
-        spectra = convolvedTraces.extractSpectra(
-            maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
-        )
-
-        if True:
-            bg.writeFits("background.fits")
-            model = spectra.makeImage(maskedImage.getBBox(), convolvedTraces)
-            residual = maskedImage.clone()
-            residual -= model
-            residual.writeFits("newResidual.fits")
-
-        if detectorMap is not None:
-            for spectrum in spectra:
-                spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
-
-        return pipeBase.Struct(spectra=spectra, kernel=kernel)
 
     def extractSpectrum(
         self, maskedImage: MaskedImage, fiberTrace: FiberTrace, detectorMap: Optional[DetectorMap] = None
