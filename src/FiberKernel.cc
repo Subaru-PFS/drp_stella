@@ -16,6 +16,9 @@
 #include "pfs/drp/stella/math/SparseSquareMatrix.h"
 #include "pfs/drp/stella/math/quartiles.h"
 
+
+//#define DEBUG_TIMING 1  // Uncomment to enable timing output for fitFiberKernel
+
 namespace pfs {
 namespace drp {
 namespace stella {
@@ -316,8 +319,6 @@ struct FiberModel {
         int const thisStart = start - xMin;
         int const thisStop = stop - xMin;  // exclusive
 
-    //    if (y == 0) std::cerr << "dotFunction: offset=" << offset << " start=" << start << " stop=" << stop << " thisStart=" << thisStart << " thisStop=" << thisStop << std::endl;
-
         double result = 0.0;
         for (std::size_t xx = start, xThis = thisStart; xx < stop; ++xx, ++xThis) {
             if (!use[xThis] || !usePixels[xx]) {
@@ -334,15 +335,9 @@ struct FiberModel {
         ndarray::Array<bool const, 1, 1> const& usePixels,
         ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
-        // if (y == 0) {
-        //     std::cerr << "dotSelf: offset=" << offset << " ..." << std::endl;
-        // }
         return dotFunction(usePixels, dataVariance, [this](
             int x, int xThis, double weight
         ) {
-            // if (y == 0) {
-            //     std::cerr << "dotSelf: offset=" << offset << " xx=" << x << " xThis=" << xThis << " weight=" << weight << " model=" << values[xThis] << std::endl;
-            // }
             return weight*std::pow(values[xThis], 2);
         });
     }
@@ -352,16 +347,9 @@ struct FiberModel {
         ndarray::Array<bool const, 1, 1> const& usePixels,
         ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
-        // if (y == 0) {
-        //     std::cerr << "dotData: offset=" << offset << " ..." << std::endl;
-        // }
-
         return dotFunction(usePixels, dataVariance, [this, &dataValues](
             int x, int xThis, double weight
         ) {
-            // if (y == 0) {
-            //     std::cerr << "dotData: offset=" << offset << " xx=" << x << " xThis=" << xThis << " weight=" << weight << " model=" << values[xThis] << " data=" << dataValues[x] << std::endl;
-            // }
             return weight*values[xThis]*dataValues[x];
         });
     }
@@ -371,10 +359,6 @@ struct FiberModel {
         ndarray::Array<bool const, 1, 1> const& usePixels,
         ndarray::Array<float const, 1, 1> const& dataVariance
     ) const {
-        // if (y == 0) {
-        //     std::cerr << "dotOther: offset=" << offset << " ..." << std::endl;
-        // }
-
         return dotFunction(usePixels, dataVariance, [this, &other](
             int x, int xThis, double weight
         ) {
@@ -382,9 +366,6 @@ struct FiberModel {
             if (xOther < 0 || xOther >= other.width || !other.use[xOther]) {
                 return 0.0;
             }
-            // if (y == 0) {
-            //     std::cerr << "dotOther: offset=" << offset << " xx=" << x << " xThis=" << xThis << " weight=" << weight << " model=" << values[xThis] << " other=" << other.values[xOther] << std::endl;
-            // }
             return weight*values[xThis]*other.values[xOther];
         });
     }
@@ -1066,12 +1047,6 @@ struct FiberKernelFitter {
             }
         }
 
-#if 0
-        lsst::afw::image::Image<double>(matrix).writeFits("matrix.fits");
-        std::cerr << "Matrix:\n" << matrix << std::endl;
-        std::cerr << "Vector:\n" << vector << std::endl;
-#endif
-
         // Solve the system of equations
         auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
         lsq.setThreshold(lsqThreshold);
@@ -1229,20 +1204,7 @@ struct FiberKernelFitter {
             }
         }
 
-#if 0
-        std::cerr << "Flux matrix diagonal: ";
-        for (std::size_t ii = 0; ii < 3; ++ii) {
-            std::cerr << matrix.get(ii, ii) << " ";
-        }
-        std::cerr << "..." << std::endl;
-        std::cerr << "Flux vector: " << vector[ndarray::view(0, 3)] << " ..." << std::endl;
-#endif
-
         ndarray::Array<double, 2, 2> flux = ndarray::allocate(_numRows, _numFibers);
-#if 0
-        using Solver = math::SymmetricSparseSquareMatrix::SimplicialLDLTSolverUpper;
-        ndarray::Array<double, 1, 1> solution = matrix.solve<Solver>(vector);
-#else
         using Solver = Eigen::ConjugateGradient<
             typename math::NonsymmetricSparseSquareMatrix::Matrix,
             Eigen::Upper | Eigen::Lower,
@@ -1253,7 +1215,6 @@ struct FiberKernelFitter {
         solver.setTolerance(1.0e-4);
         ndarray::Array<double, 1, 1> solution = ndarray::allocate(numFluxParams);
         matrix.solve(solution, vector, solver);
-#endif
 
         std::size_t start = 0;
         std::size_t stop = _numFibers;
@@ -1276,7 +1237,6 @@ struct FiberKernelFitter {
 
         ndarray::Array<double, 1, 1> kernel = utils::arrayFilled<double, 1, 1>(_numParams, 0.0);
         ndarray::Array<double, 2, 2> flux = fitFlux(data, kernel);
-        std::cerr << "Initial flux: " << flux[0][ndarray::view(0, 3)] << " ..." << std::endl;
 
         std::vector<ndarray::Array<double, 1, 1>> kernelHistory;
         std::vector<ndarray::Array<double, 1, 1>> fluxHistory;
@@ -1289,7 +1249,6 @@ struct FiberKernelFitter {
             auto _t = timer("iteration");
             ndarray::Array<double, 1, 1> const fluxVector = utils::flattenArray(flux);
             kernel = fitKernel(data, flux, lsqThreshold);
-            std::cerr << "New kernel: " << kernel << std::endl;
 
             ndarray::Array<double, 2, 2> newFlux = fitFlux(data, kernel);
             ndarray::Array<double, 1, 1> const newFluxVector = utils::flattenArray(newFlux);
@@ -1307,7 +1266,6 @@ struct FiberKernelFitter {
             double const spectralRadius = newDelta/delta;
             delta = newDelta;
 
-            std::cerr << "Iteration " << ii << ": flux RMS change = " << rms << ", spectral radius = " << spectralRadius << std::endl;
             if (rms < fluxTol) {
                 flux = std::move(newFlux);
                 converged = true;
@@ -1359,7 +1317,6 @@ struct FiberKernelFitter {
                 nextFluxVector, _numRows, _numFibers
             );
             ndarray::asEigenArray(flux) = ndarray::asEigenArray(reshapedFlux);
-            std::cerr << "New flux: " << flux[0][ndarray::view(0, 3)] << " ..." << std::endl;
         }
         if (!converged) {
             throw LSST_EXCEPT(
@@ -1368,10 +1325,12 @@ struct FiberKernelFitter {
             );
         }
 
+#ifdef DEBUG_TIMING
         std::cerr << "Timing results (accumulated over all iterations, seconds):\n";
         for (auto const& [name, elapsed] : _timings) {
             std::cerr << "  " << name << ": " << elapsed << "\n";
         }
+#endif
 
         return fitKernel(data, flux, lsqThreshold);
     }
@@ -1447,8 +1406,6 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
         );
     }
 
-    std::cerr << "width=" << image.getWidth() << ", height=" << image.getHeight() << std::endl;
-
     ndarray::Array<double, 1, 1> values = ndarray::allocate(2*kernelHalfWidth*xKernelNum*yKernelNum);
     std::size_t start = 0;
     std::size_t stop = 2*kernelHalfWidth;
@@ -1472,7 +1429,6 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
             );
             box.clip(image.getBBox());
 
-            std::cerr << "Fitting kernel for box " << box << std::endl;
             ndarray::Array<double, 1, 1> const solution = FiberKernelFitter(
                 image, fiberTraces, badBitMask,
                 kernelHalfWidth, box,
@@ -1501,7 +1457,6 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
     ndarray::Array<int, 1, 1> const& rows,
     double lsqThreshold
 ) {
-    std::cerr << "Fitting kernel for box " << box << std::endl;
     std::size_t const numParams = 2*kernelHalfWidth;
 
     ndarray::Array<double, 2, 2> matrix = ndarray::allocate(numParams, numParams);
@@ -1535,12 +1490,10 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
                 usePixels[xx] = false;
             } else {
                 if (usePixels[xx] && !first) {
-//                    std::cerr << "Row " << yy << ": first good pixel at x=" << xx << std::endl;
                     first = true;
                 }
             }
         }
-//        std::cerr << "Row " << yy << ": usePixels=" << usePixels << std::endl;
 
         ndarray::Array<float, 1, 1> image = ndarray::copy(target.getImage()->getArray()[yy]);
         ndarray::asEigenArray(image) -= ndarray::asEigenArray(source.getImage()->getArray()[yy]);
@@ -1554,13 +1507,11 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
         FiberModel sourceModel = FiberModel::fromImage(
             source, yy, source.getBBox(), badBitMask, usePixels
         );
-//        std::cerr << "Source model: " << sourceModel << std::endl;
         for (int offset = -kernelHalfWidth; offset <= kernelHalfWidth; ++offset) {
             if (offset == 0) {
                 continue;
             }
             kernelModels.emplace_back(std::move(sourceModel.applyOffset(offset, source.getWidth())));
-            // std::cerr << "Kernel model (offset " << offset << "): " << kernelModels.back() << std::endl;
         }
 
         // Model is:
@@ -1608,14 +1559,9 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
         }
     }
 
-    std::cerr << "Matrix:\n" << matrix << std::endl;
-    std::cerr << "Vector:\n" << vector << std::endl;
-
     // Solve the system of equations
     auto lsq = lsst::afw::math::LeastSquares::fromNormalEquations(matrix, vector);
     lsq.setThreshold(lsqThreshold);
-
-    std::cerr << "Solution: " << lsq.getSolution() << std::endl;
 
     return ndarray::copy(lsq.getSolution());
 }

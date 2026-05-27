@@ -2,8 +2,7 @@ from typing import overload
 import numpy as np
 from lsst.geom import Point2D, Extent2I, Box2I
 from lsst.afw.image import Image, MaskedImage
-from pfs.drp.stella import FiberTrace, FiberTraceSet, SpectrumSet
-from pfs.drp.stella.math import NormalizedPolynomial2D
+from pfs.drp.stella import FiberTrace, FiberTraceSet
 
 class LinearInterpolationHelper:
     IndexWeightPair = tuple[int, float]
