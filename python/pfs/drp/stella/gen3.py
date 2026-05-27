@@ -534,6 +534,85 @@ def ingestPfsConfig(
     butler.ingest(*datasets, transfer=transfer)
 
 
+def certifyDatasets(
+    repo: str,
+    instrument: str,
+    sourceDatasetType: str,
+    calibDatasetType: str,
+    formatterClass: type,
+    collection: str,
+    target: str,
+    timespan: Timespan,
+    transfer: Optional[str] = "copy",
+) -> list[DatasetRef]:
+    """Ingest and certify datasets.
+
+    Building some PFS calib datasets using a bootstrap process (e.g.,
+    detectorMaps, fiberProfiles) requires writing the new dataset as a separate
+    dataset type from the calib dataset type in order to avoid cycles in the
+    pipeline. This function copies the new datasets as calib datasets, and then
+    certifies them for new use as calibs.
+
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    sourceDatasetType : `str`
+        Dataset type of the files to certify.
+    calibDatasetType : `str`
+        Dataset type to use for the certified datasets.
+    formatterClass : `type`
+        Formatter class to use for the certified datasets.
+    collection : `str`
+        The collection containing the files to certify.
+    target : `str`
+        The collection to which the certified calibs will be added.
+    timespan : `Timespan`
+        Timespan to use for certification.
+    transfer : `str`, optional
+        Transfer mode to use for ingest. If not `None`, must be one of 'auto',
+        'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
+        'symlink'.
+    """
+    log = getLogger("pfs.certifyDatasets")
+    run = collection + "/certify"
+    butler = Butler(repo, run=run)
+    registry = butler.registry
+    instrumentName = Instrument.from_string(instrument, registry).getName()
+
+    fromType = registry.getDatasetType(sourceDatasetType)
+    toType = registry.getDatasetType(calibDatasetType)
+
+    query = [ref for ref in registry.queryDatasets(
+        fromType, collections=collection, instrument=instrumentName
+    )]
+    if not query:
+        log.warning("No %s datasets found.", sourceDatasetType)
+        return []
+    datasets = []
+    for ref in query:
+        log.info("Ingesting %s ...", ref.dataId)
+        uri = butler.getURI(ref)
+        dataId = dict(
+            instrument=instrumentName, arm=ref.dataId["arm"], spectrograph=ref.dataId["spectrograph"]
+        )
+        new = DatasetRef(toType, dataId, run)
+        datasets.append(FileDataset(path=uri, refs=[new], formatter=formatterClass))
+
+    with registry.transaction():
+        butler.ingest(*datasets, transfer=transfer)
+
+        log.info("Certifying newly-ingested %s datasets...", calibDatasetType)
+        query = list(registry.queryDatasets(toType, collections=run))
+        if not datasets:
+            raise RuntimeError("Unable to find newly-ingested %s datasets!", calibDatasetType)
+        registry.registerCollection(target, type=CollectionType.CALIBRATION)
+        registry.certify(target, query, timespan)
+    return datasets
+
+
 def certifyDetectorMaps(
     repo: str,
     instrument: str,
@@ -542,7 +621,7 @@ def certifyDetectorMaps(
     target: str,
     timespan: Timespan,
     transfer: Optional[str] = "copy",
-) -> None:
+) -> list[DatasetRef]:
     """Ingest and certify detectorMaps.
 
     Building PFS detectorMaps frequently uses the calib detectorMap as part of
@@ -550,9 +629,6 @@ def certifyDetectorMaps(
     starting point, and the slit offsets). In order to avoid cycles when
     building the detectorMap, we write the new detectorMap as a separate
     dataset type from the calib detectorMap dataset type.
-
-    This function copies the new detectorMaps as calib detectorMaps, and then
-    certifies them for new use as calibs.
 
     Parameters
     ----------
@@ -573,40 +649,65 @@ def certifyDetectorMaps(
         'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
         'symlink'.
     """
-    log = getLogger("pfs.certifyDetectorMaps")
-    run = collection + "/certify"
-    butler = Butler(repo, run=run)
-    registry = butler.registry
-    instrumentName = Instrument.from_string(instrument, registry).getName()
+    return certifyDatasets(
+        repo,
+        instrument,
+        datasetType,
+        "detectorMap_calib",
+        DetectorMapFormatter,
+        collection,
+        target,
+        timespan,
+        transfer=transfer,
+    )
 
-    fromType = registry.getDatasetType(datasetType)
-    toType = registry.getDatasetType("detectorMap_calib")
 
-    query = [ref for ref in registry.queryDatasets(
-        fromType, collections=collection, instrument=instrumentName
-    )]
-    if not query:
-        log.warning("No detectorMaps found.")
-        return
-    datasets = []
-    for ref in query:
-        log.info("Ingesting %s ...", ref.dataId)
-        uri = butler.getURI(ref)
-        dataId = dict(
-            instrument=instrumentName, arm=ref.dataId["arm"], spectrograph=ref.dataId["spectrograph"]
-        )
-        new = DatasetRef(toType, dataId, run)
-        datasets.append(FileDataset(path=uri, refs=[new], formatter=DetectorMapFormatter))
+def certifyFiberProfiles(
+    repo: str,
+    instrument: str,
+    datasetType: str,
+    collection: str,
+    target: str,
+    timespan: Timespan,
+    transfer: Optional[str] = "copy",
+) -> list[DatasetRef]:
+    """Ingest and certify fiberProfiles.
 
-    with registry.transaction():
-        butler.ingest(*datasets, transfer=transfer)
+    Building PFS fiberProfiles frequently uses the calib fiberProfiles as part of
+    the process of fitting new fiberProfiles. In order to avoid cycles when
+    building the fiberProfiles, we write the new fiberProfiles as a separate
+    dataset type from the calib fiberProfiles dataset type.
 
-        log.info("Certifying newly-ingested detectorMaps...")
-        query = list(registry.queryDatasets(toType, collections=run))
-        if not datasets:
-            raise RuntimeError("Unable to find newly-ingested detectorMaps!")
-        registry.registerCollection(target, type=CollectionType.CALIBRATION)
-        registry.certify(target, query, timespan)
+    Parameters
+    ----------
+    repo : `str`
+        URI string of the Butler repo to use.
+    instrument : `str`
+        Instrument name or fully-qualified class name as a string.
+    datasetType : `str`
+        Dataset type of the fiberProfiles to certify.
+    collection : `str`
+        The collection containing the files to certify.
+    target : `str`
+        The collection to which the certified fiberProfiles will be added.
+    timespan : `Timespan`
+        Timespan to use for certification.
+    transfer : `str`, optional
+        Transfer mode to use for ingest. If not `None`, must be one of 'auto',
+        'move', 'copy', 'direct', 'split', 'hardlink', 'relsymlink' or
+        'symlink'.
+    """
+    return certifyDatasets(
+        repo,
+        instrument,
+        datasetType,
+        "fiberProfiles",
+        FitsGenericFormatter,
+        collection,
+        target,
+        timespan,
+        transfer=transfer,
+    )
 
 
 def defineFiberProfilesInputs(
