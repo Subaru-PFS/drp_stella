@@ -376,6 +376,10 @@ class MeasureExposureFiberKernelTask(PipelineTask):
     ConfigClass = MeasureExposureFiberKernelConfig
     _DefaultName = "measureExposureFiberKernel"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("measureFiberKernel")
+
     def run(self, exposure, detectorMap, profiles) -> Struct:
         """Measure the fiber kernel for a single exposure
 
@@ -395,5 +399,5 @@ class MeasureExposureFiberKernelTask(PipelineTask):
 
             * ``kernel``: the measured fiber kernel.
         """
-        kernel = self.measureFiberKernel.run(exposure, detectorMap, profiles).kernel
+        kernel = self.measureFiberKernel.run(exposure, detectorMap, profiles)
         return Struct(kernel=kernel)
