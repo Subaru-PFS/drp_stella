@@ -336,7 +336,7 @@ class ConvolveFiberProfilesTask(CalibCombineTask):
 
 
 class MeasureExposureFiberKernelConnnections(
-    PipelineTaskConnections, dimensions=("instrument", "arm", "spectrograph")
+    PipelineTaskConnections, dimensions=("visit", "arm", "spectrograph")
 ):
     exposure = InputConnection(
         name="calexp",
