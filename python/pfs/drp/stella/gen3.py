@@ -21,6 +21,7 @@ from lsst.daf.butler import (
     DatasetType,
     DimensionGroup,
     DimensionUniverse,
+    EmptyQueryResultError,
     FileDataset,
     Registry,
     Timespan,
@@ -1261,7 +1262,11 @@ def cleanRun(
                         butler.query_datasets(dst, collections=coll, data_id=coord, where=where, limit=limit)
                     )
             else:
-                refs = list(butler.query_datasets(dst, collections=coll, where=where, limit=limit))
+                try:
+                    refs = list(butler.query_datasets(dst, collections=coll, where=where, limit=limit))
+                except EmptyQueryResultError:
+                    log.debug("No datasets found for %s in %s", dst, coll)
+                    continue
             if not refs:
                 log.debug("No datasets found for %s in %s", dst, coll)
                 continue
