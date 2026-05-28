@@ -330,7 +330,7 @@ class ConvolveFiberProfilesTask(CalibCombineTask):
 
         return Struct(
             kernel=kernel,
-            fiberProfiles_convolved=convolved,
+            convolved=convolved,
             combined=combined,
         )
 
