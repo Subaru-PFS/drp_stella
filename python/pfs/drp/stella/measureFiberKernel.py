@@ -4,7 +4,7 @@ import numpy as np
 
 from lsst.pex.config import Config, ConfigurableField, Field, ListField
 
-from lsst.afw.image import Exposure, VisitInfo
+from lsst.afw.image import MaskedImage, VisitInfo
 from lsst.cp.pipe.cpCombine import CalibCombineConfig, CalibCombineConnections, CalibCombineTask
 from lsst.daf.base import PropertyList
 from lsst.daf.butler import DeferredDatasetHandle
@@ -61,12 +61,12 @@ class MeasureFiberKernelTask(Task):
     ConfigClass = MeasureFiberKernelConfig
     _DefaultName = "measureFiberKernel"
 
-    def run(self, exposure: Exposure, detectorMap: DetectorMap, profiles: FiberProfileSet) -> FiberKernel:
+    def run(self, image: MaskedImage, detectorMap: DetectorMap, profiles: FiberProfileSet) -> FiberKernel:
         """Measure the fiber kernel for a single exposure
 
         Parameters
         ----------
-        exposure : `lsst.afw.image.Exposure`
+        image : `lsst.afw.image.MaskedImage`
             The input exposure to measure the kernel from.
         detectorMap : `DetectorMap`
             Mapping from fiberId,wavelength to x,y.
@@ -82,12 +82,12 @@ class MeasureFiberKernelTask(Task):
 
         rows = None
         if self.config.numRows > 0:
-            rows = np.linspace(0, exposure.getHeight() - 1, self.config.numRows, dtype=np.int32)
+            rows = np.linspace(0, image.getHeight() - 1, self.config.numRows, dtype=np.int32)
 
         kernel, background = fitFiberKernel(
-            exposure.maskedImage,
+            image,
             fiberTraces,
-            exposure.mask.getPlaneBitMask(self.config.mask),
+            image.mask.getPlaneBitMask(self.config.mask),
             self.config.kernelHalfWidth,
             self.config.xKernelNum,
             self.config.yKernelNum,
@@ -313,7 +313,7 @@ class ConvolveFiberProfilesTask(CalibCombineTask):
             seed=combined.visitInfo.id,
         ).detectorMap
 
-        kernel = self.measureFiberKernel.run(combined, detectorMap, profiles)
+        kernel = self.measureFiberKernel.run(combined.maskedImage, detectorMap, profiles)
         convolved = self.measureFiberKernel.convolveProfiles(
             kernel, profiles, detectorMap, identity, combined.visitInfo, combined.metadata.deepCopy()
         )
@@ -399,5 +399,5 @@ class MeasureExposureFiberKernelTask(PipelineTask):
 
             * ``kernel``: the measured fiber kernel.
         """
-        kernel = self.measureFiberKernel.run(exposure, detectorMap, profiles)
+        kernel = self.measureFiberKernel.run(exposure.maskedImage, detectorMap, profiles)
         return Struct(kernel=kernel)

@@ -11,6 +11,7 @@ from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.FiberTraceSetContinued import FiberTraceSet
 from pfs.drp.stella.FiberKernel import fitFiberKernel, LinearInterpolationHelper
 from pfs.drp.stella.FiberKernelContinued import FiberKernel
+from pfs.drp.stella.measureFiberKernel import MeasureFiberKernelConfig, MeasureFiberKernelTask
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticFlat
 from pfs.drp.stella.tests import runTests
 from pfs.drp.stella.utils.psf import fwhmToSigma
@@ -66,7 +67,7 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
 
         self.detMap = makeSyntheticDetectorMap(self.config)
 
-    def makeFiberTraces(self, fwhm: float | None = None) -> FiberTraceSet:
+    def makeFiberProfiles(self, fwhm: float | None = None) -> FiberProfileSet:
         identity = CalibIdentity("2020-01-01", 5, "x", 12345)
         if fwhm is None:
             fwhm = self.config.fwhm
@@ -76,6 +77,10 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
         profiles = FiberProfileSet.makeEmpty(identity)
         for fiberId in self.config.fiberId:
             profiles[fiberId] = FiberProfile.makeGaussian(sigma, self.config.height, radius, oversample)
+        return profiles
+
+    def makeFiberTraces(self, fwhm: float | None = None) -> FiberTraceSet:
+        profiles = self.makeFiberProfiles(fwhm)
         return profiles.makeFiberTracesFromDetectorMap(self.detMap)
 
     def makeImage(self, xOffset: float = 0.0) -> MaskedImage:
@@ -189,6 +194,26 @@ class FiberKernelTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(newKernel.xNumBlocks, kernel.xNumBlocks)
             self.assertEqual(newKernel.yNumBlocks, kernel.yNumBlocks)
             self.assertFloatsEqual(newKernel.values, kernel.values)
+
+    def testMeasureFiberKernelTask(self):
+        kernelHalfWidth = 3
+        xKernelNum = 3
+        yKernelNum = 1
+        image = self.makeImage()
+        profiles = self.makeFiberProfiles(3.33)
+
+        config = MeasureFiberKernelConfig()
+        config.kernelHalfWidth = kernelHalfWidth
+        config.xKernelNum = xKernelNum
+        config.yKernelNum = yKernelNum
+        task = MeasureFiberKernelTask(config=config)
+        kernel = task.run(image, self.detMap, profiles)
+        convolved = task.convolveProfiles(
+            kernel, profiles, self.detMap, CalibIdentity("2020-01-01", 5, "x", 12345), None, None
+        )
+
+        new = task.run(image, self.detMap, convolved)
+        self.assertFloatsAlmostEqual(new.values, 0.0, atol=1.5e-1)
 
 
 class ImageKernelTestCase(lsst.utils.tests.TestCase):

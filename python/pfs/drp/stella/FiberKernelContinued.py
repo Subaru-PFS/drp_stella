@@ -128,7 +128,9 @@ class FiberKernel:  # noqa: F811 (redefinition)
 
         images = self.makeOffsetImages(self.xNumBlocks, self.yNumBlocks)
 
-        fig, axes = plt.subplots(nrows=self.yNumBlocks, ncols=self.xNumBlocks, sharex=True, sharey=True)
+        fig, axes = plt.subplots(
+            nrows=self.yNumBlocks, ncols=self.xNumBlocks, sharex=True, sharey=True, squeeze=False
+        )
 
         indices = np.arange(-self.halfWidth, self.halfWidth + 1)
         for ii in range(self.xNumBlocks):
