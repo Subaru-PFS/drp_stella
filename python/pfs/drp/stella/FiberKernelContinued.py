@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-import scipy.ndimage
+import scipy.signal
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -12,6 +12,7 @@ from lsst.geom import Extent2I
 
 from .FiberKernel import FiberKernel
 from .fiberProfile import FiberProfile
+from .interpolate import interpolateFlux
 from pfs.datamodel.pfsFiberKernel import PfsFiberKernel
 
 __all__ = ["FiberKernel"]
@@ -52,7 +53,7 @@ class FiberKernel:  # noqa: F811 (redefinition)
         return cls.fromDatamodel(PfsFiberKernel.readFits(filename))
 
     def convolveProfile(
-        self, profile: FiberProfile, xCenter: np.ndarray, order: int = 3
+        self, profile: FiberProfile, xCenter: np.ndarray, order: int = 1
     ) -> FiberProfile:
         """Convolve a fiber profile with the kernel
 
@@ -68,8 +69,7 @@ class FiberKernel:  # noqa: F811 (redefinition)
             The x center of the fiber profile for each profile sample:
             ``detectorMap.getXCenter(fiberId, profile.rows)``.
         order : `int`, optional
-            The order of the spline interpolation to use when oversampling the
-            kernel.
+            The interpolation order to use when oversampling the kernel.
 
         Returns
         -------
@@ -78,11 +78,13 @@ class FiberKernel:  # noqa: F811 (redefinition)
             you should re-measure the normalization with the convolved profile.
         """
         convolved = profile.profiles.copy()
+        oversample = profile.oversample
         for ii, (xx, yy) in enumerate(zip(xCenter, profile.rows)):
             kernel = self.evaluate(xx, yy)
-            oversampled = scipy.ndimage.zoom(kernel, profile.oversample, order=order)
-            oversampled /= oversampled.sum()
-            convolved[ii] = scipy.signal.fftconvolve(profile.profiles[ii], oversampled, mode="same")
+            for jj in range(oversample):
+                convolved[ii, jj::oversample] = scipy.signal.convolve(
+                    profile.profiles[ii, jj::oversample], kernel, mode="same", method="direct"
+                )
         return FiberProfile(
             profile.radius, profile.oversample, profile.rows.copy(), convolved, norm=None
         )
