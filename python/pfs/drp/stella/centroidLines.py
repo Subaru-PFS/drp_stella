@@ -175,7 +175,24 @@ class CentroidLinesTask(Task):
                 exposure.image.array += traces
 
         lines = self.translate(catalog)
-        self.log.info("Measured %d line centroids", len(lines))
+
+        nTotal = len(catalog)
+        nIgnored = int(np.sum(catalog[self.ignore]))
+        centroidFlag = catalog[self.centroidName + "_flag"]
+        photFlag = catalog[self.photometryName + "_flag"]
+        nCentroidFail = int(np.sum(centroidFlag & ~catalog[self.ignore]))
+        nPhotFail = int(np.sum(photFlag & ~centroidFlag & ~catalog[self.ignore]))
+        nGood = nTotal - nIgnored - nCentroidFail - nPhotFail
+        self.log.info(
+            "Measured %d line centroids: %d good (%.0f%%), %d low-S/N < %.1f (%.0f%%),"
+            " %d centroid-fail (%.0f%%), %d phot-fail (%.0f%%)",
+            nTotal,
+            nGood, 100 * nGood / max(nTotal, 1),
+            nIgnored, self.config.threshold, 100 * nIgnored / max(nTotal, 1),
+            nCentroidFail, 100 * nCentroidFail / max(nTotal, 1),
+            nPhotFail, 100 * nPhotFail / max(nTotal, 1),
+        )
+
         return lines
 
     def convolveImage(self, exposure):
