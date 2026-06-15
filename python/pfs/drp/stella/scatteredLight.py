@@ -159,7 +159,7 @@ class ScatteredLightModel:
         # Interpolate masked pixels in pfsArm.flux
         flux_new = []
         for flx, msk in zip(pfsArm.flux, pfsArm.mask):
-            bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
+            bad = ((msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP")) != 0) | np.isnan(flx)
             flx[bad] = np.nan
             invalid_indices = np.where(bad)[0]
             length = len(flx)
