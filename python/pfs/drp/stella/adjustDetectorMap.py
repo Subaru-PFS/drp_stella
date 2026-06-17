@@ -112,6 +112,29 @@ class AdjustDetectorMapTask(FitDistortedDetectorMapTask):
         numGoodLines = good.sum()
 
         if numGoodLines < needNumLines:
+            total_lines = len(lines)
+            bad_flag = (lines.flag != 0).sum()
+            status_mask = ReferenceLineStatus.fromNames(*self.config.lineFlags)
+            bad_status = ((lines.status & status_mask) != 0).sum()
+            non_finite = (~(np.isfinite(lines.x) & np.isfinite(lines.y) & np.isfinite(lines.xErr) & np.isfinite(lines.yErr))).sum()
+            bad_snr = 0
+            if self.config.minSignalToNoise > 0 or self.config.minSignalToNoisePerSpecies:
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    snr = lines.flux / lines.fluxErr
+                snrThresh = np.full(len(lines), self.config.minSignalToNoise, dtype=float)
+                for species, thresh in self.config.minSignalToNoisePerSpecies.items():
+                    snrThresh[lines.description == species] = thresh
+                bad_snr = (snr <= snrThresh).sum()
+            bad_centroid = 0
+            if self.config.maxCentroidError > 0:
+                maxCentroidError = self.config.maxCentroidError
+                bad_centroid = (~(((lines.xErr > 0) & (lines.xErr < maxCentroidError)) &
+                                  (((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | (lines.description == "Trace")))).sum()
+            self.log.error(
+                "adjustDetectorMap failed: Insufficient good lines (%d good vs %d required out of %d total). "
+                "Rejection reasons: bad flag=%d, bad status=%d, non-finite=%d, low S/N=%d, large centroid error=%d",
+                numGoodLines, needNumLines, total_lines, bad_flag, bad_status, non_finite, bad_snr, bad_centroid
+            )
             raise RuntimeError(f"Insufficient good lines: {numGoodLines} vs {needNumLines}")
         for ii in range(self.config.traceIterations or 1):
             self.log.debug("Commencing trace iteration %d", ii)

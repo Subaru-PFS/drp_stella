@@ -89,7 +89,12 @@ class FitFocalPlaneTask(Task):
             values = spectra.flux / spectra.norm
             variances = spectra.variance / spectra.norm**2
         mask = (spectra.mask & spectra.flags.get(*self.config.mask)) != 0
-        positions = pfsConfig.pfiCenter
+        indices = {ff: ii for ii, ff in enumerate(pfsConfig.fiberId)}
+        try:
+            selectIndices = np.array([indices[ff] for ff in fiberId])
+        except KeyError as e:
+            raise RuntimeError(f"FiberId {e} in spectra is not present in pfsConfig") from e
+        positions = pfsConfig.pfiCenter[selectIndices]
         return self.fitArrays(fiberId, wavelength, values, mask, variances, positions, **kwargs)
 
     def fitArrays(
@@ -222,7 +227,14 @@ class FitFocalPlaneTask(Task):
             valuesList = [ss.flux/ss.norm for ss in spectraList]
             variancesList = [ss.variance/ss.norm**2 for ss in spectraList]
         masksList = [ss.mask & ss.flags.get(*self.config.mask) for ss in spectraList]
-        positionsList = [pfsConfig.pfiCenter for pfsConfig in pfsConfigList]
+        positionsList = []
+        for ss, pfsConfig in zip(spectraList, pfsConfigList):
+            indices = {ff: ii for ii, ff in enumerate(pfsConfig.fiberId)}
+            try:
+                selectIndices = np.array([indices[ff] for ff in ss.fiberId])
+            except KeyError as e:
+                raise RuntimeError(f"FiberId {e} in spectra is not present in pfsConfig") from e
+            positionsList.append(pfsConfig.pfiCenter[selectIndices])
         return self.fitMultipleArrays(
             fiberIdList, wavelengthList, valuesList, masksList, variancesList, positionsList, **kwargs
         )

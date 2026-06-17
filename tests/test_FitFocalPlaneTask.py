@@ -192,6 +192,24 @@ class FitFocalPlaneTaskTestCase(lsst.utils.tests.TestCase):
             copy = FocalPlaneFunction.readFits(path)
         self.assertFunction(copy)
 
+    def testMismatchedFibers(self):
+        """Test that we can fit even if pfsConfig has a superset of the fibers in spectra"""
+        # Filter spectra to a subset of fibers (e.g. keep first 3 fibers)
+        keepFibers = self.spectra.fiberId[:3]
+        spectraSubset = self.spectra.select(fiberId=keepFibers)
+
+        # Fit should run successfully
+        config = self.Task.ConfigClass()
+        for name in self.params:
+            setattr(config, name, self.params[name])
+        task = self.Task(name="fit", config=config, log=getLogger("pfs.drp.stella.tests"))
+        func = task.run(spectraSubset, self.pfsConfig)
+
+        # Evaluate should run successfully
+        evaluation = func(spectraSubset.wavelength, self.pfsConfig)
+        # Verify the dimensions match the subset of fibers
+        self.assertEqual(evaluation.values.shape, (len(keepFibers), self.length))
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
