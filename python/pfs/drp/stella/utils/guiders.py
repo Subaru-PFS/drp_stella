@@ -104,24 +104,23 @@ def readSpSInfo(opdb, taken_after=None, min_exptime=0, exp_type='object', limit=
     WHERE = "" if where == [] else f"WHERE {' AND '.join(where)}"
     LIMIT = "" if limit <= 0 else f"LIMIT {limit}"
 
-    with opdb:
-        tmp = pd_read_sql(f'''
-           SELECT DISTINCT
-               sps_exposure.pfs_visit_id AS pfs_visit_id, sps_exposure.time_exp_start as taken_at, exptime,
-               exp_type, altitude, azimuth, insrot, design_name
-               , sequence_group.group_id, sequence_group.group_name
-            FROM
-               sps_exposure
-            JOIN pfs_visit ON pfs_visit.pfs_visit_id = sps_exposure.pfs_visit_id
-            JOIN pfs_design ON pfs_design.pfs_design_id = pfs_visit.pfs_design_id
-            JOIN sps_visit ON sps_visit.pfs_visit_id = sps_exposure.pfs_visit_id
-            LEFT JOIN tel_status ON tel_status.pfs_visit_id = sps_exposure.pfs_visit_id
-            LEFT JOIN visit_set ON visit_set.pfs_visit_id = sps_exposure.pfs_visit_id
-            JOIN iic_sequence ON iic_sequence.iic_sequence_id = visit_set.iic_sequence_id
-            LEFT JOIN sequence_group ON sequence_group.group_id = iic_sequence.group_id
-            {WHERE}
-            {LIMIT}
-           ''', opdb, showQuery=showQuery)
+    tmp = opdb.query_dataframe(f'''
+        SELECT DISTINCT
+            sps_exposure.pfs_visit_id AS pfs_visit_id, sps_exposure.time_exp_start as taken_at, exptime,
+            exp_type, altitude, azimuth, insrot, design_name
+            , sequence_group.group_id, sequence_group.group_name
+        FROM
+            sps_exposure
+        JOIN pfs_visit ON pfs_visit.pfs_visit_id = sps_exposure.pfs_visit_id
+        JOIN pfs_design ON pfs_design.pfs_design_id = pfs_visit.pfs_design_id
+        JOIN sps_visit ON sps_visit.pfs_visit_id = sps_exposure.pfs_visit_id
+        LEFT JOIN tel_status ON tel_status.pfs_visit_id = sps_exposure.pfs_visit_id
+        LEFT JOIN visit_set ON visit_set.pfs_visit_id = sps_exposure.pfs_visit_id
+        JOIN iic_sequence ON iic_sequence.iic_sequence_id = visit_set.iic_sequence_id
+        LEFT JOIN sequence_group ON sequence_group.group_id = iic_sequence.group_id
+        {WHERE}
+        {LIMIT}
+        ''')
 
     # The taken_at times don't quite match between the arms, so group the data by pfs_visit_id
     grouped = tmp.groupby("pfs_visit_id", as_index=False)
@@ -141,16 +140,15 @@ def readSpSInfo(opdb, taken_after=None, min_exptime=0, exp_type='object', limit=
 
 
 def readPfsDesign(opdb, pfs_visit_id):
-    with opdb:
-        tmp = pd_read_sql(f'''
-           SELECT
-               pfs_visit.pfs_design_id,
-               pfs_design.design_name
-           FROM pfs_visit
-           JOIN pfs_design on pfs_design.pfs_design_id = pfs_visit.pfs_design_id
-           WHERE
-               pfs_visit_id = {pfs_visit_id}
-           ''', opdb)
+    tmp = opdb.query_dataframe(f'''
+        SELECT
+            pfs_visit.pfs_design_id,
+            pfs_design.design_name
+        FROM pfs_visit
+        JOIN pfs_design on pfs_design.pfs_design_id = pfs_visit.pfs_design_id
+        WHERE
+            pfs_visit_id = :pfs_visit_id
+        ''', params=dict(pfs_visit_id=pfs_visit_id))
 
     return tmp
 
@@ -160,8 +158,7 @@ def readAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCo
 
     N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
     """
-    with opdb:
-        tmp = pd_read_sql(f'''
+    tmp = opdb.query_dataframe(f'''
            SELECT
                min(agc_exposure.pfs_visit_id) AS pfs_visit_id,
                agc_exposure.agc_exposure_id,
@@ -195,9 +192,9 @@ def readAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCo
            JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
            LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
            WHERE
-               agc_exposure.pfs_visit_id = {pfs_visit_id}
+               agc_exposure.pfs_visit_id = :pfs_visit_id
            GROUP BY guide_star_id, agc_exposure.agc_exposure_id
-           ''', opdb)
+           ''', params=dict(pfs_visit_id=pfs_visit_id))
 
     if flipToHardwareCoords:
         tmp.agc_nominal_y_mm *= -1
@@ -211,42 +208,40 @@ def readAGCStars(opdb, pfs_design_id, pfs_visit_id=0):
     """
 
     if pfs_visit_id <= 0:   # Easy!
-        with opdb:
-            tmp = pd_read_sql(f'''
-               SELECT
-                   pfs_design.pfs_design_id, pfs_design_agc.agc_camera_id,
-                   pfs_design_agc.guide_star_id, guide_star_ra, guide_star_dec,
-                   guide_star_pm_ra, guide_star_pm_dec, guide_star_parallax
-                   ra_center_design, dec_center_design, pa_design
-               FROM pfs_design
-               JOIN pfs_design_agc ON pfs_design_agc.pfs_design_id = pfs_design.pfs_design_id
-               WHERE
-                   pfs_design.pfs_design_id = {pfs_design_id}
-               ''', opdb)
+        tmp = opdb.query_dataframe(f'''
+            SELECT
+                pfs_design.pfs_design_id, pfs_design_agc.agc_camera_id,
+                pfs_design_agc.guide_star_id, pfs_design_agc.guide_star_ra, pfs_design_agc.guide_star_dec,
+                pfs_design_agc.guide_star_pm_ra, pfs_design_agc.guide_star_pm_dec, pfs_design_agc.guide_star_parallax,
+                pfs_design.ra_center_design, pfs_design.dec_center_design, pfs_design.pa_design
+            FROM pfs_design
+            JOIN pfs_design_agc ON pfs_design_agc.pfs_design_id = pfs_design.pfs_design_id
+            WHERE
+                pfs_design.pfs_design_id = :pfs_design_id
+            ''', params=dict(pfs_design_id=pfs_design_id))
     else:
-        with opdb:
-            tmp = pd_read_sql(f'''
-               SELECT DISTINCT
-                  pfs_design.pfs_design_id, pfs_config_sps.pfs_visit_id, pfs_design_agc.agc_camera_id,
-                  pfs_design_agc.guide_star_id, guide_star_ra, guide_star_dec,
-                  guide_star_pm_ra, guide_star_pm_dec, guide_star_parallax,
-                  ra_center_config, dec_center_config, pa_config,
-                  agc_final_x_pix, agc_final_y_pix
-               FROM pfs_design
-               JOIN pfs_design_agc ON pfs_design_agc.pfs_design_id = pfs_design.pfs_design_id
-               JOIN pfs_config_sps ON pfs_config_sps.pfs_visit_id = {pfs_visit_id}
-               JOIN pfs_config ON pfs_config_sps.visit0 >= pfs_config.visit0 AND
-                                  pfs_config.pfs_design_id = {pfs_design_id}
-               JOIN pfs_config_agc ON pfs_config_agc.pfs_design_id = pfs_design.pfs_design_id AND
-                                      pfs_config_agc.guide_star_id = pfs_design_agc.guide_star_id AND
-                                      pfs_config_agc.visit0 = pfs_config_sps.visit0
-               WHERE
-                   pfs_design.pfs_design_id = {pfs_design_id}
-                   AND converg_num_iter IS NOT NULL
-                   -- AND pfs_design_agc.guide_star_id = 1154055066736045824
-               ''', opdb)
+        tmp = opdb.query_dataframe(f'''
+            SELECT DISTINCT
+                pfs_design.pfs_design_id, pfs_config_sps.pfs_visit_id, pfs_design_agc.agc_camera_id,
+                pfs_design_agc.guide_star_id, pfs_design_agc.guide_star_ra, pfs_design_agc.guide_star_dec,
+                pfs_design_agc.guide_star_pm_ra, pfs_design_agc.guide_star_pm_dec, pfs_design_agc.guide_star_parallax,
+                pfs_config.ra_center_config, pfs_config.dec_center_config, pfs_config.pa_config,
+                pfs_config_agc.agc_final_x_pix, pfs_config_agc.agc_final_y_pix
+            FROM pfs_design
+            JOIN pfs_design_agc ON pfs_design_agc.pfs_design_id = pfs_design.pfs_design_id
+            JOIN pfs_config_sps ON pfs_config_sps.pfs_visit_id = :pfs_visit_id
+            JOIN pfs_config ON pfs_config_sps.visit0 >= pfs_config.visit0 AND
+                                pfs_config.pfs_design_id = :pfs_design_id
+            JOIN pfs_config_agc ON pfs_config_agc.pfs_design_id = pfs_design.pfs_design_id AND
+                                    pfs_config_agc.guide_star_id = pfs_design_agc.guide_star_id AND
+                                    pfs_config_agc.visit0 = pfs_config_sps.visit0
+            WHERE
+                pfs_design.pfs_design_id = :pfs_design_id
+                AND converg_num_iter IS NOT NULL
+            ''', params=dict(pfs_design_id=pfs_design_id, pfs_visit_id=pfs_visit_id))
 
     return tmp
+
 
 
 def readAgcDataFromOpdb(opdb, visits, butler=None, dataId=None):
@@ -340,50 +335,50 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
     N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
     """
     extra = "agc_exposure.azimuth, agc_exposure.adc_pa, "
-    with opdb:
-        tmp = pd_read_sql(f'''
-           SELECT
-               agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
-               agc_exposure.agc_exptime, agc_exposure.m2_pos3,
-               {extra}
-               agc_exposure.altitude, agc_exposure.insrot,
-               agc_data.flags as agc_data_flags,
-               agc_match.guide_star_id, agc_data.agc_camera_id, pfs_design_agc.guide_star_flag,
-               agc_match.flags as agc_match_flags,
-               agc_center_x_mm, agc_center_y_mm,
-               agc_nominal_x_mm, agc_nominal_y_mm,
-               CASE
-                   WHEN sps_exposure.pfs_visit_id IS NULL THEN 2
-                   WHEN (agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND
-                                                       sps_exposure.time_exp_end) THEN 1
-                   ELSE 0
-               END AS shutter_open,
-               image_moment_00_pix, centroid_x_pix, centroid_y_pix,
-               -- central_image_moment_02_pix as mxx,   -- note: 02 not 20
-               -- central_image_moment_11_pix as mxy,
-               -- central_image_moment_20_pix as myy,   -- note: 20 not 01
-               central_image_moment_20_pix as mxx,   -- fixed for May 2025 run
-               central_image_moment_11_pix as mxy,
-               central_image_moment_02_pix as myy,
-               peak_pixel_x_pix, peak_pixel_y_pix,
-               peak_intensity, background,
-               estimated_magnitude,
-               agc_data.flags,
-               guide_delta_z,
-               guide_delta_z1, guide_delta_z2, guide_delta_z3, guide_delta_z4, guide_delta_z5, guide_delta_z6
-           FROM agc_exposure
-           JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
-           LEFT JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
-                             agc_match.agc_camera_id = agc_data.agc_camera_id AND
-                             agc_match.spot_id = agc_data.spot_id
-           LEFT JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-           JOIN pfs_visit ON pfs_visit.pfs_visit_id = agc_exposure.pfs_visit_id
-           LEFT JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id AND
-                                  pfs_design_agc.pfs_design_id = pfs_visit.pfs_design_id
-           LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
-           WHERE
-               agc_exposure.pfs_visit_id = {pfs_visit_id}
-           ''', opdb)
+
+    tmp = opdb.query_dataframe(f'''
+        SELECT
+            agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
+            agc_exposure.agc_exptime, agc_exposure.m2_pos3,
+            {extra}
+            agc_exposure.altitude, agc_exposure.insrot,
+            agc_data.flags as agc_data_flags,
+            agc_match.guide_star_id, agc_data.agc_camera_id, pfs_design_agc.guide_star_flag,
+            agc_match.flags as agc_match_flags,
+            agc_center_x_mm, agc_center_y_mm,
+            agc_nominal_x_mm, agc_nominal_y_mm,
+            CASE
+                WHEN sps_exposure.pfs_visit_id IS NULL THEN 2
+                WHEN (agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND
+                                                    sps_exposure.time_exp_end) THEN 1
+                ELSE 0
+            END AS shutter_open,
+            image_moment_00_pix, centroid_x_pix, centroid_y_pix,
+            -- central_image_moment_02_pix as mxx,   -- note: 02 not 20
+            -- central_image_moment_11_pix as mxy,
+            -- central_image_moment_20_pix as myy,   -- note: 20 not 01
+            central_image_moment_20_pix as mxx,   -- fixed for May 2025 run
+            central_image_moment_11_pix as mxy,
+            central_image_moment_02_pix as myy,
+            peak_pixel_x_pix, peak_pixel_y_pix,
+            peak_intensity, background,
+            estimated_magnitude,
+            agc_data.flags,
+            guide_delta_z,
+            guide_delta_z1, guide_delta_z2, guide_delta_z3, guide_delta_z4, guide_delta_z5, guide_delta_z6
+        FROM agc_exposure
+        JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
+        LEFT JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+                            agc_match.agc_camera_id = agc_data.agc_camera_id AND
+                            agc_match.spot_id = agc_data.spot_id
+        LEFT JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+        JOIN pfs_visit ON pfs_visit.pfs_visit_id = agc_exposure.pfs_visit_id
+        LEFT JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id AND
+                                pfs_design_agc.pfs_design_id = pfs_visit.pfs_design_id
+        LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+        WHERE
+            agc_exposure.pfs_visit_id = :pfs_visit_id
+        ''', params=dict(pfs_visit_id=pfs_visit_id))
 
     tmp.drop_duplicates(inplace=True)   # the LEFT JOINs can generate duplicate rows
 
@@ -396,57 +391,56 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
     #
     # We rely on the fact that both agc_exposure_id and status_sequence_id are monotonic increasing,
     # and the the latter is incremented every time that the former is
-    with opdb:
-        tmp1 = pd_read_sql(f'''
-           SELECT
-               agc_exposure_id
-           FROM
-               agc_exposure
-           WHERE
-               pfs_visit_id = {pfs_visit_id}
-           ORDER BY agc_exposure_id
-           ''', opdb)
+    tmp1 = opdb.query_dataframe(f'''
+        SELECT
+            agc_exposure_id
+        FROM
+            agc_exposure
+        WHERE
+            pfs_visit_id = :pfs_visit_id
+        ORDER BY agc_exposure_id
+        ''', params=dict(pfs_visit_id=pfs_visit_id))
 
-        tmp2 = pd_read_sql(f'''
-           SELECT
-               m2_off3, tel_ra, tel_dec
-           FROM
-               tel_status
-           WHERE
-               pfs_visit_id = {pfs_visit_id} AND caller = 'agcc' -- 'ag'
-           ORDER BY status_sequence_id
-           ''', opdb)
+    tmp2 = opdb.query_dataframe(f'''
+        SELECT
+            m2_off3, tel_ra, tel_dec
+        FROM
+            tel_status
+        WHERE
+            pfs_visit_id = :pfs_visit_id AND caller = 'agcc' -- 'ag'
+        ORDER BY status_sequence_id
+        ''', params=dict(pfs_visit_id=pfs_visit_id))
 
-        doConcat = True                 # OK to merge tmp1 and tmp2
-        if len(tmp1) != len(tmp2):      # should be impossible, but ...
-            l1, l2 = len(tmp1), len(tmp2)
-            if True:
-                action = "dropping last "
-                if l1 < l2:
-                    tmp2 = tmp2[:l1 - l2]
-                    action += ("row" if l2 - l1 == 1 else f"{l2 - l1} rows") + " of tel_status"
-                else:
-                    tmp1 = tmp1[:l2 - l1]
-                    action += ("row" if l1 - l2 == 1 else f"{l1 - l2} rows") + " of agc_exposure"
+    doConcat = True                 # OK to merge tmp1 and tmp2
+    if len(tmp1) != len(tmp2):      # should be impossible, but ...
+        l1, l2 = len(tmp1), len(tmp2)
+        if True:
+            action = "dropping last "
+            if l1 < l2:
+                tmp2 = tmp2[:l1 - l2]
+                action += ("row" if l2 - l1 == 1 else f"{l2 - l1} rows") + " of tel_status"
             else:
-                if l1 == l2 - 1:
-                    tmp2 = tmp2[:-1]
-                    action = "dropping last row of tel_status"
-                else:
-                    tmp["m2_off3"] = np.full(len(tmp), np.nan)
-                    action = "m2_off3 set to NaN"
-                    doConcat = False
+                tmp1 = tmp1[:l2 - l1]
+                action += ("row" if l1 - l2 == 1 else f"{l1 - l2} rows") + " of agc_exposure"
+        else:
+            if l1 == l2 - 1:
+                tmp2 = tmp2[:-1]
+                action = "dropping last row of tel_status"
+            else:
+                tmp["m2_off3"] = np.full(len(tmp), np.nan)
+                action = "m2_off3 set to NaN"
+                doConcat = False
 
-            print(f"pfs_visit_id {pfs_visit_id}: mismatch in number of agc_exposures ({l1}) and "
-                  f"number of AG entries in tel_status ({l2}); {action}")
+        print(f"pfs_visit_id {pfs_visit_id}: mismatch in number of agc_exposures ({l1}) and "
+                f"number of AG entries in tel_status ({l2}); {action}")
 
-        if doConcat:
-            if np.sum(~pd.isnull(tmp2.m2_off3)) == 0:
-                tmp2.fillna(np.nan, inplace=True)  # generates a pandas 3.0 warning which I don't understand
+    if doConcat:
+        if np.sum(~pd.isnull(tmp2.m2_off3)) == 0:
+            tmp2.fillna(np.nan, inplace=True)  # generates a pandas 3.0 warning which I don't understand
 
-            tmp1 = pd.concat([tmp1, tmp2], axis=1)
+        tmp1 = pd.concat([tmp1, tmp2], axis=1)
 
-            tmp = pd.merge(tmp, tmp1, on='agc_exposure_id')
+        tmp = pd.merge(tmp, tmp1, on='agc_exposure_id')
 
     if flipToHardwareCoords:
         tmp.agc_nominal_y_mm *= -1
@@ -469,15 +463,13 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
 def readTelStatus(opdb, pfs_visit_id):
     """Return the telescope status for a given pfs_visit_id
     """
-
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT
-                *
-            FROM tel_status
-            WHERE
-                pfs_visit_id = {pfs_visit_id}
-            ''', opdb)
+    tmp = opdb.query_dataframe(f'''
+        SELECT
+            *
+        FROM tel_status
+        WHERE
+            pfs_visit_id = :pfs_visit_id
+        ''', params=dict(pfs_visit_id=pfs_visit_id))
 
     return tmp
 
