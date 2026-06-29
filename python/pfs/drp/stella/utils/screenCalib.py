@@ -32,8 +32,11 @@ from pfs.datamodel import Identity, PfsArm
 
 __all__ = [
     "buildRatioImage",
+    "extractArm",
     "resampleFibers",
+    "resampleArm",
     "evaluate",
+    "evaluateRaw",
     "fitModels",
     "extractPfsArmsParallel",
     "extractPfsArmsNormParallel",
@@ -103,12 +106,35 @@ def buildRatioImage(butler, dataId, quartzVisit):
 
 # ── spectrum resampling ───────────────────────────────────────────────────────
 
+def _interpolateDensity(fl_nm, w, m, wgrid):
+    """Interpolate per-fiber flux density onto a common wavelength grid.
+
+    Parameters
+    ----------
+    fl_nm : ndarray (nFibers, nWave)  flux density (counts/nm)
+    w     : ndarray (nFibers, nWave)  per-fiber wavelength arrays (nm)
+    m     : bool ndarray (nFibers, nWave)  True = masked (bad)
+    wgrid : ndarray (nWaveOut,)
+
+    Returns
+    -------
+    out : ndarray (nFibers, nWaveOut), NaN where insufficient good pixels
+    """
+    out = np.full((len(fl_nm), len(wgrid)), np.nan)
+    for i, (density, wave, mask) in enumerate(zip(fl_nm, w, m)):
+        good = ~mask
+        if good.sum() < 2:
+            continue
+        out[i] = np.interp(wgrid, wave[good], density[good],
+                           left=np.nan, right=np.nan)
+    return out
+
+
 def resampleFibers(fl, w, m, wgrid):
     """Resample per-fiber spectra onto a common wavelength grid (flux-conserving).
 
-    Native pixel flux is ``f(λ) × Δλ_per_native_pixel``; converting to flux
-    density (``flux / Δλ``) before interpolation makes per-pixel values
-    comparable across fibers, even when their dispersions differ.
+    Converts raw pixel flux to flux density (counts/nm) before interpolation
+    so that fibers with different dispersions are comparable.
 
     Parameters
     ----------
@@ -119,18 +145,90 @@ def resampleFibers(fl, w, m, wgrid):
 
     Returns
     -------
-    out : ndarray (nFibers, nWaveOut)  flux density (counts / nm),
+    out : ndarray (nFibers, nWaveOut)  flux density (counts/nm),
           NaN where insufficient good pixels
     """
-    out = np.full((len(fl), len(wgrid)), np.nan)
-    for i, (flux, wave, mask) in enumerate(zip(fl, w, m)):
-        good = ~mask
-        if good.sum() < 2:
-            continue
-        density = flux / np.gradient(wave)
-        out[i] = np.interp(wgrid, wave[good], density[good],
-                           left=np.nan, right=np.nan)
-    return out
+    fl_nm = fl / np.gradient(w, axis=1)
+    return _interpolateDensity(fl_nm, w, m, wgrid)
+
+
+def extractArm(pfsArms, arm, selfibs):
+    """Concatenate pfsArm data across spectrographs, convert to flux density.
+
+    Converts raw pixel flux to flux density (counts/nm) before any further
+    processing, making fibers with different dispersions directly comparable.
+
+    Parameters
+    ----------
+    pfsArms : dict mapping camera name → pfsArm.
+    arm     : 'b', 'r', or 'br'.  When 'br', blue and red are concatenated
+              along the wavelength axis for each spectrograph.
+    selfibs : iterable of fiberIds to keep (e.g. ``mergedSpec.fiberId``).
+
+    Returns
+    -------
+    fl_nm    : (n_fib, n_wave)  flux density (counts/nm)
+    w        : (n_fib, n_wave)  wavelength (nm)
+    m        : (n_fib, n_wave)  bad-pixel mask (True = bad)
+    fiberIds : (n_fib,)
+    """
+    arms = list(arm)  # 'br' → ['b', 'r'], 'b' → ['b']
+    fl, w, m, fibs = [], [], [], []
+    for sp in (1, 2, 3, 4):
+        pas = [pfsArms[f"{a}{sp}"] for a in arms]
+        if len(pas) > 1:
+            for pa0, pa1 in zip(pas, pas[1:]):
+                np.testing.assert_array_equal(pa0.fiberId, pa1.fiberId)
+        fl.append(np.concatenate([pa.flux       for pa in pas], axis=1))
+        w.append( np.concatenate([pa.wavelength for pa in pas], axis=1))
+        m.append( np.concatenate([pa.mask != 0  for pa in pas], axis=1))
+        fibs.append(pas[0].fiberId)
+
+    fl   = np.concatenate(fl,   axis=0)
+    w    = np.concatenate(w,    axis=0)
+    m    = np.concatenate(m,    axis=0)
+    fibs = np.concatenate(fibs, axis=0)
+
+    maskFib  = np.isin(fibs, selfibs)
+    fl_nm    = fl[maskFib] / np.gradient(w[maskFib], axis=1)
+    return fl_nm, w[maskFib], m[maskFib], fibs[maskFib]
+
+
+def resampleArm(fl_nm, w, m, doNormalize=False):
+    """Resample per-fiber flux density onto a common wavelength grid.
+
+    The grid is built by integrating the per-fiber-averaged dispersion forward
+    from the common minimum wavelength, which is more accurate than taking
+    the per-pixel median wavelength directly.
+
+    Parameters
+    ----------
+    fl_nm       : (n_fib, n_wave)  flux density (counts/nm); see extractArm.
+    w           : (n_fib, n_wave)  per-fiber wavelength arrays (nm).
+    m           : (n_fib, n_wave)  bad-pixel mask (True = bad).
+    doNormalize : bool, default False.  If True, divide the resampled flux by
+                  the sigma-clipped per-wavelength mean across fibers.
+
+    Returns
+    -------
+    flResampled : (n_fib, n_wave_out)  flux density on common grid (counts/nm)
+    wgrid       : (n_wave_out,)        common wavelength grid (nm)
+    """
+    wmin = np.nanmax([np.nanmin(wi) for wi in w])
+    wmax = np.nanmin([np.nanmax(wi) for wi in w])
+
+    disp  = np.nanmean(np.diff(w, axis=1), axis=0)
+    wgrid = np.concatenate(([wmin], wmin + np.cumsum(disp)))
+    wgrid = wgrid[(wgrid >= wmin) & (wgrid <= wmax)]
+
+    flResampled = _interpolateDensity(fl_nm, w, m, wgrid)
+
+    if doNormalize:
+        med = sigma_clip(flResampled, sigma=3, axis=0).mean(axis=0)
+        med = np.where(np.isfinite(med) & (med != 0), med, 1.0)
+        flResampled = flResampled / med
+
+    return flResampled, wgrid
 
 
 # ── wavelength-bin statistics ─────────────────────────────────────────────────
@@ -190,6 +288,52 @@ def evaluate(wavegrid, array, fiberId, waveBins, sigma=3,
         df["wavelength_m"] = wavegrid[sel].mean()
         df["visit"] = -1 if visit is None else int(visit)
         df["quartzVisit"] = -1 if quartzVisit is None else int(quartzVisit)
+        dfs.append(df)
+    return pd.concat(dfs).reset_index(drop=True)
+
+
+def evaluateRaw(w, fl_nm, fiberId, waveBins, sigma=3, visit=None, quartzVisit=None):
+    """Per-fiber wavelength-bin statistics directly from native pixel data.
+
+    Identical output format to ``evaluate()``, but works on per-fiber native
+    wavelength grids without prior resampling to a common grid.  Use alongside
+    ``evaluate()`` to compare resampled vs. native-pixel binning.
+
+    Parameters
+    ----------
+    w        : (nFibers, nWave)  per-fiber wavelength arrays (nm); see extractArm.
+    fl_nm    : (nFibers, nWave)  flux density (counts/nm); see extractArm.
+    fiberId  : (nFibers,)
+    waveBins : list of (wmin, wmax) tuples
+    sigma    : float, clipping threshold
+    visit, quartzVisit : int, optional
+
+    Returns
+    -------
+    pandas.DataFrame  same columns as evaluate()
+    """
+    dfs = []
+    for wmin, wmax in waveBins:
+        rows = []
+        for i, fib in enumerate(fiberId):
+            sel = (w[i] >= wmin) & (w[i] <= wmax) & ~np.isnan(fl_nm[i])
+            vals = fl_nm[i, sel]
+            if len(vals) < 2:
+                rows.append({"meanVals": np.nan, "stdVals": np.nan,
+                             "medianVals": np.nan, "fiberId": fib})
+                continue
+            clipped = sigma_clip(vals, sigma=sigma)
+            rows.append({
+                "meanVals":   float(np.ma.filled(clipped.mean(), np.nan)),
+                "stdVals":    float(np.ma.filled(clipped.std(),  np.nan)),
+                "medianVals": float(np.ma.filled(np.ma.median(vals), np.nan)),
+                "fiberId":    fib,
+            })
+        df = pd.DataFrame(rows)
+        df["wavelength"]   = int(round((wmin + wmax) / 2))
+        df["wavelength_m"] = (wmin + wmax) / 2.0
+        df["visit"]        = -1 if visit is None else int(visit)
+        df["quartzVisit"]  = -1 if quartzVisit is None else int(quartzVisit)
         dfs.append(df)
     return pd.concat(dfs).reset_index(drop=True)
 
