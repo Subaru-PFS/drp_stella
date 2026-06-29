@@ -153,10 +153,10 @@ def resampleFibers(fl, w, m, wgrid):
 
 
 def extractArm(pfsArms, arm, selfibs):
-    """Concatenate pfsArm data across spectrographs, convert to flux density.
+    """Concatenate pfsArm data across spectrographs and filter to selected fibers.
 
-    Converts raw pixel flux to flux density (counts/nm) before any further
-    processing, making fibers with different dispersions directly comparable.
+    The flux is the dimensionless twilight/quartz ratio (e-/px ÷ e-/px);
+    no dispersion conversion is applied since it cancels in the ratio.
 
     Parameters
     ----------
@@ -167,7 +167,7 @@ def extractArm(pfsArms, arm, selfibs):
 
     Returns
     -------
-    fl_nm    : (n_fib, n_wave)  flux density (counts/nm)
+    fl       : (n_fib, n_wave)  dimensionless twilight/quartz ratio
     w        : (n_fib, n_wave)  wavelength (nm)
     m        : (n_fib, n_wave)  bad-pixel mask (True = bad)
     fiberIds : (n_fib,)
@@ -189,9 +189,8 @@ def extractArm(pfsArms, arm, selfibs):
     m    = np.concatenate(m,    axis=0)
     fibs = np.concatenate(fibs, axis=0)
 
-    maskFib  = np.isin(fibs, selfibs)
-    fl_nm    = fl[maskFib] / np.gradient(w[maskFib], axis=1)
-    return fl_nm, w[maskFib], m[maskFib], fibs[maskFib]
+    maskFib = np.isin(fibs, selfibs)
+    return fl[maskFib], w[maskFib], m[maskFib], fibs[maskFib]
 
 
 def resampleArm(fl_nm, w, m, doNormalize=False):
