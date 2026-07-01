@@ -10,6 +10,7 @@ from pfs.utils.coordinates.transform import MeasureDistortion
 import pfs.utils.coordinates.CoordTransp as ct
 from .sysUtils import pd_read_sql
 from .quality import opaqueColorbar
+from .ag_to_zenith_offset import ag_pfimm_to_zenith_offset, fit_global_model_pfimm
 
 __all__ = ["GuiderConfig", "agcCameraCenters", "showAgcErrorsForVisits",
            "readAgcDataFromOpdb",
@@ -185,8 +186,10 @@ def readAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCo
                min(agc_match.flags) AS agc_match_flags,
                CASE
                    WHEN min(sps_exposure.pfs_visit_id) IS NULL THEN 2
-                   WHEN (min(agc_exposure.taken_at) BETWEEN min(sps_exposure.time_exp_start) AND
-                                                            min(sps_exposure.time_exp_end)) THEN 1
+                   WHEN (min(agc_exposure.taken_at -- AT TIME ZONE 'HST' AT TIME ZONE 'UTC'
+                                                  )
+                         BETWEEN min(sps_exposure.time_exp_start) AND
+                                 min(sps_exposure.time_exp_end)) THEN 1
                    ELSE 0
                END AS shutter_open,
                min(guide_delta_insrot) as guide_delta_insrot,
@@ -197,7 +200,7 @@ def readAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCo
            JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
                              agc_match.agc_camera_id = agc_data.agc_camera_id AND
                              agc_match.spot_id = agc_data.spot_id
-           JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+           LEFT JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
            LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
            WHERE
                agc_exposure.pfs_visit_id = {pfs_visit_id}
@@ -344,13 +347,22 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
 
     N.b. shutter_open is 0/1 when the spectrographs are in use, otherwise 2
     """
-    extra = "agc_exposure.azimuth, agc_exposure.adc_pa, "
+    extra = []
+    extra.append("agc_exposure.azimuth")
+    extra.append("agc_exposure.adc_pa")
+    if False:
+        extra.append("agc_exposure.taken_at")
+        extra.append("agc_exposure.taken_at AT TIME ZONE 'HST' AT TIME ZONE 'UTC' AS ATA_HST_UTC")
+        extra.append("sps_exposure.time_exp_start")
+    if extra:
+        extra.append("")                # add a final ,
+
     with opdb:
         tmp = pd_read_sql(f'''
            SELECT
                agc_exposure.pfs_visit_id, agc_exposure.agc_exposure_id,
                agc_exposure.agc_exptime, agc_exposure.m2_pos3,
-               {extra}
+               {', '.join(extra)}
                agc_exposure.altitude, agc_exposure.insrot,
                agc_data.flags as agc_data_flags,
                agc_match.guide_star_id, agc_data.agc_camera_id,
@@ -360,11 +372,11 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
                agc_nominal_x_mm, agc_nominal_y_mm,
                CASE
                    WHEN sps_exposure.pfs_visit_id IS NULL THEN 2
-                   WHEN (agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND
-                                                       sps_exposure.time_exp_end) THEN 1
+                   WHEN (agc_exposure.taken_at -- AT TIME ZONE 'HST' AT TIME ZONE 'UTC'
+                        BETWEEN sps_exposure.time_exp_start AND
+                                sps_exposure.time_exp_end) THEN 1
                    ELSE 0
                END AS shutter_open,
-               agc_final_x_pix, agc_final_y_pix,
                image_moment_00_pix, centroid_x_pix, centroid_y_pix,
                -- central_image_moment_02_pix as mxx,   -- note: 02 not 20
                -- central_image_moment_11_pix as mxy,
@@ -377,28 +389,33 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
                estimated_magnitude,
                agc_data.flags,
                guide_delta_z,
-               guide_delta_z1, guide_delta_z2, guide_delta_z3, guide_delta_z4, guide_delta_z5, guide_delta_z6
+               guide_delta_z1, guide_delta_z2, guide_delta_z3, guide_delta_z4, guide_delta_z5, guide_delta_z6,
+               guide_delta_insrot, guide_delta_az, guide_delta_el,
+               guide_delta_ra, guide_delta_dec, guide_dec,
+               guide_delta_scale
            FROM agc_exposure
+           JOIN pfs_visit ON pfs_visit.pfs_visit_id = agc_exposure.pfs_visit_id
            JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
-           LEFT JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+           JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
                              agc_match.agc_camera_id = agc_data.agc_camera_id AND
                              agc_match.spot_id = agc_data.spot_id
            LEFT JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-           JOIN pfs_visit ON pfs_visit.pfs_visit_id = agc_exposure.pfs_visit_id
-           LEFT JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id AND
-                                    pfs_design_agc.pfs_design_id = pfs_visit.pfs_design_id
-           LEFT JOIN pfs_config_agc ON pfs_config_agc.guide_star_id = pfs_design_agc.guide_star_id AND
-                                       pfs_config_agc.pfs_design_id = pfs_design_agc.pfs_design_id
-           LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+           LEFT JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id AND
+                                     sps_exposure.sps_camera_id = 1
+           JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id AND
+                                  pfs_design_agc.pfs_design_id = pfs_visit.pfs_design_id
            WHERE
                agc_exposure.pfs_visit_id = {pfs_visit_id}
+               AND agc_match.flags = 1
            ''', opdb)
 
+    n = len(tmp)
     tmp.drop_duplicates(inplace=True)   # the LEFT JOINs can generate duplicate rows
+    assert len(tmp) == n, f"{len(tmp)=} == {n=}"
 
     try:
         tmp.guide_star_flag = np.where(np.isfinite(tmp.guide_star_flag), tmp.guide_star_flag, 0).astype(int)
-    except TypeError:
+    except (AttributeError, TypeError):
         pass
 
     # m2_off3, tel_ra, tel_dec, aren't available from the agc_exposure table
@@ -451,13 +468,18 @@ def readAGCStarsForVisitByPfsVisitId(opdb, pfs_visit_id, flipToHardwareCoords=Tr
 
         if doConcat:
             if np.sum(~pd.isnull(tmp2.m2_off3)) == 0:
-                tmp2.fillna(np.nan, inplace=True)  # generates a pandas 3.0 warning which I don't understand
+                if False:
+                    tmp2.fillna(np.nan, inplace=True)  # generates a pandas 3.0 warning
+                else:
+                    pd.set_option('future.no_silent_downcasting', True)   # enable pandas 3.0 behaviour
+                    tmp2 = tmp2.fillna(np.nan).infer_objects(copy=False)  # and work around the problem
 
             tmp1 = pd.concat([tmp1, tmp2], axis=1)
 
             tmp = pd.merge(tmp, tmp1, on='agc_exposure_id')
 
     if flipToHardwareCoords:
+        tmp.agc_center_y_mm *= -1
         tmp.agc_nominal_y_mm *= -1
 
     setImageSizes(tmp, useTraceRadius)
@@ -529,6 +551,8 @@ def showAgcErrorsForVisits(agcData,
     if agc_exposure_ids is not None:
         agcData = agcData[agcData.isin(dict(agc_exposure_id=agc_exposure_ids)).agc_exposure_id]
 
+    agcData = agcData[agcData.agc_match_flags == 0x1]  # only the good matches
+
     if len(agcData) == 0:
         raise RuntimeError("I have no data to plot")
 
@@ -537,7 +561,7 @@ def showAgcErrorsForVisits(agcData,
     grouped = agcData.groupby("agc_exposure_id")
 
     pfs_visit_ids = grouped.pfs_visit_id.min()
-    taken_ats = grouped.taken_at.mean()
+    taken_ats = grouped.taken_at.mean() if byTime else None
     shutter_open = grouped.shutter_open.max()
 
     tmp = pd.DataFrame(dict(agc_exposure_id=agcData.agc_exposure_id,
@@ -580,12 +604,16 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                                    plotXY=False, connectDxDy=False, plotXYStride=1,
                                    plotDzDfocus=False,
                                    plotPerCamera=False,
-                                   nVisitMin=0,
+                                   rotateToZenith=True,
+                                   fitPfiModel=False, fitPfiRotation=True, fitPfiScale=True,
+                                   fitAgcOffsets=False, fitAgcRotation=False,
+                                   nVisitMin=0, showCovariance=False,
+                                   drawVisitBoundaries=False,
                                    xminmax=0, yminmax=0, showFocusSets=False,
                                    alpha=0.5, scatterMarkerSize=None,
                                    figure=None, axes=None):
     """
-    Break down AGC errors per camera
+    Break down AGC errors per camera, relative to the mean position of each camera (calculated independently)
 
     Note the this routine can read from the database using readAGCStarsForVisitSetByPfsVisitId(), or it
     can reuse a passed-in dataframe.  Either way it returns the dataframe, which may be used next time
@@ -603,10 +631,18 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
     plotBy: string specifying the x-axis variable (if plotXY and plotDzDfocus are False)
     colorBy: string specifying how to colour the points (e.g. "camera", "insrot")
     plotPerCamera: where appropriate, break out plots into one per camera (e.g. for plotXY or plotDzDfocus)
-    showAltInsrot:  show offsets as a function of altitude and insrot
+    rotateToZenith: rotate the coordinates so y points to zenith
+    fitPfiModel: Fit a model of the PFI offsets for each exposure (and maybe the AGs too) [False]
+    fitPfiRotation: If fitPfiModel is True, also fit for PFI rotation per exposure [True]
+    fitPfiScale: If fitPfiModel is True, also fit for PFI scale per exposure [True]
+    fitAgcOffsets: If fitPfiModel is True, fit for one set of  AG camera offsets (in alt/az) [False]
+    fitAgcRotation: If fitPfiModel is True, fit for one set  AG camera rotations) [False]
+    showAltInsrot:  show offsets as a hexbin plot with axes altitude and insrot
     showCamerasAsLegend: If true, identify cameras in a legend not a colorbar (True)
     plotXY: `bool`  plot the per-camera offsets between nominal and center in x and y
+    showCovariance: if True and plotXY, draw the 1-sigma and 3-sigma ellipses
     connectDxDy: `bool` Connect the offsets when plotXY is True
+    drawVisitBoundaries: `bool` Show the visit boundaries when plotting against agc_exposure_id
     plotXYStride: `int` Only plot every plotXYStride'th agc_exposure when plotXY is True
        If None, plot averages per visits
     plotDzDfocus: plot focus error against error nominal - center for x and y
@@ -614,6 +650,9 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
     figure: the matplotlib.Figure to use; or None
     axes: An array of the appropriate number of matplotlib.Axes to use; or None
     """
+
+    if plotXY and plotDzDfocus:
+        print("Both plotXY and plotDzDfocus are true; ignoring plotDzDfocus")
 
     if plotXY:
         plots = ["xy"]
@@ -625,6 +664,8 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
     nY = len(plots)
     if plotPerCamera:
         nX = len(AGC)
+        if plotXY and nX == 6:
+            nX, nY = 3, 2
     else:
         nX = 1
 
@@ -659,17 +700,40 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
         if len(visits) == 0:
             raise RuntimeError("Please specify a set of pfs_visit_ids")
 
-        agcData = readAGCStarsForVisitSetByPfsVisitId(opdb, visits, False)
+        agcData = readAGCStarsForVisitSetByPfsVisitId(opdb, visits, flipToHardwareCoords=True)
 
     agcData0 = agcData
 
     agcData = agcData.copy()
+    agcData = agcData[agcData.shutter_open > 0]
+    agcData = agcData[(agcData.agc_data_flags & ~0x1) == 0]
     if False:                            # RHL misinterpreted the agc_match columns
         agcData["dx"] = agcData.agc_nominal_x_mm - agcData.agc_center_x_mm
         agcData["dy"] = agcData.agc_nominal_y_mm - agcData.agc_center_y_mm
     else:                               # from agc_data and pfs_config_agc
-        agcData["dx"] = (agcData.centroid_x_pix - agcData.agc_final_x_pix)*(agcPixelSize*1e-3)  # mm
-        agcData["dy"] = (agcData.centroid_y_pix - agcData.agc_final_y_pix)*(agcPixelSize*1e-3)  # mm
+        if fitPfiModel:
+            model_x, model_y, params = fit_global_model_pfimm(
+                agcData.agc_nominal_x_mm, -agcData.agc_nominal_y_mm,
+                agcData.agc_center_x_mm, -agcData.agc_center_y_mm,
+                agcData.insrot, agcData.agc_exposure_id, agc_camera_id=agcData.agc_camera_id,
+                valid=(agcData.agc_match_flags == 1),
+                fitPfiRotation=fitPfiRotation, fitPfiScale=fitPfiScale,
+                fitAgcOffsets=fitAgcOffsets, fitAgcRotation=fitAgcRotation)
+
+            agcData.agc_center_x_mm -= model_x
+            agcData.agc_center_y_mm += model_y  # note sign!
+
+        if rotateToZenith:
+            dzenith_centroid, dhoriz_centroid = \
+                ag_pfimm_to_zenith_offset(agcData.agc_center_x_mm, -agcData.agc_center_y_mm, agcData.insrot)
+            dzenith_nominal, dhoriz_nominal = \
+                ag_pfimm_to_zenith_offset(agcData.agc_nominal_x_mm, -agcData.agc_nominal_y_mm, agcData.insrot)
+
+            agcData["dx"] = dhoriz_centroid - dhoriz_nominal
+            agcData["dy"] = dzenith_centroid - dzenith_nominal
+        else:
+            agcData["dx"] = agcData.agc_center_x_mm - agcData.agc_nominal_x_mm
+            agcData["dy"] = agcData.agc_center_y_mm - agcData.agc_nominal_y_mm
 
     # unpack 6 guide_delta_zN columns into one guide_delta_z_cid based on agc_camera_id==N
     guide_delta_z_cid = np.empty(len(agcData))
@@ -711,7 +775,8 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                 cmap, norm = None, None
 
             for j, camera_id in enumerate(np.array(AGC) - 1 if plotPerCamera else [None]):
-                ax = axes[i, j]
+                ax = axes[i, j] if j < 3 else axes[1, j - 3]
+
                 if plotXYStride is None:    # plot per pfs_visit instead
                     grouped = tmp_ac[np.isfinite(tmp_ac.dx + tmp_ac.dy)].groupby(
                         ["pfs_visit_id", "agc_camera_id"], as_index=False)
@@ -749,6 +814,51 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                     if connectDxDy:
                         plt.plot(dx, dy, color=f"C{cid}", alpha=alpha)
 
+                    #
+                    # Draw covariance matrix?
+                    #
+                    # Use clipped estimates of second moments
+                    #
+                    if showCovariance:
+                        niter = 3
+                        nclip = 6
+                        _dx, _dy = dx.to_numpy(), dy.to_numpy()
+                        for iter in range(niter):
+                            Ix = np.nanmedian(_dx)
+                            Iy = np.nanmedian(_dy)
+
+                            Ixx = np.nanmean((_dx - Ix)*(_dx - Ix))
+                            Ixy = np.nanmean((_dx - Ix)*(_dy - Iy))
+                            Iyy = np.nanmean((_dy - Iy)*(_dy - Iy))
+
+                            cov = [[Ixx, Ixy], [Ixy, Iyy]]
+
+                            inv_cov = np.linalg.inv(cov)
+
+                            diff = np.stack([_dx, _dy]).T - (Ix, Iy)
+                            dist_sq = np.einsum('ij,jk,ik->i', diff, inv_cov, diff)
+
+                            _dx = _dx[dist_sq < nclip**2]
+                            _dy = _dy[dist_sq < nclip**2]
+
+                        vals, vecs = np.linalg.eigh(cov)
+                        order = vals.argsort()[::-1]
+                        vals, vecs = vals[order], vecs[:, order]
+
+                        vx, vy = vecs.T[0]
+                        theta = np.degrees(np.arctan2(vy, vx))
+                        width, height = 2*np.sqrt(vals)
+
+                        from matplotlib.patches import Ellipse
+                        ellipse = Ellipse(xy=(Ix, Iy), width=width, height=height, angle=theta,
+                                          color='red', fill=False)
+                        ax.add_patch(ellipse)
+
+                        if False:
+                            ellipse = Ellipse(xy=(Ix, Iy), width=3*width, height=3*height, angle=theta,
+                                              color='magenta', fill=False)
+                            ax.add_patch(ellipse)
+
                 if yminmax > 0:
                     ax.set_xlim(ax.set_ylim(yminmax*np.array([-1, 1])))
                 ax.set_aspect(1)
@@ -758,7 +868,7 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                 ax.axhline(0, color='black', alpha=0.5)
                 ax.axvline(0, color='black', alpha=0.5)
 
-                if j == 0:
+                if j%3 == 0:
                     figure.supxlabel("Mean AGC x-position (microns)")
                     ax.set_ylabel("Mean AGC y-position (microns)")
         elif z in ["dx", "dy"]:
@@ -768,7 +878,6 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
                 dfocus -= np.nanmedian(dfocus)
 
                 ax = axes[i, j if plotPerCamera else 0]
-
                 color = f"C{cid - 1}"
                 if False:
                     ax.plot(dfocus, 1e3*tmp_ac[z][ll], '.', alpha=0.1, color=color)
@@ -827,7 +936,7 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
 
                     if j == 0:
                         ax.set_ylabel("insrot")
-                    if i == 0:
+                    if i == 1:
                         ax.set_xlabel("altitude")
 
                     colorbarLabel = f"Mean {z} offset (microns)"
@@ -865,16 +974,16 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
         else:
             with opaqueColorbar(S):
                 if nY > 1:
-                    from mpl_toolkits.axes_grid1 import make_axes_locatable
-                    divider = make_axes_locatable(ax)
-                    cax = divider.append_axes('right', size=f'{2*nX}%', pad=0.05)
-                    figure.colorbar(S, label=colorbarLabel, cax=cax, orientation='vertical')
+                    if i == 0:
+                        figure.colorbar(S, label=colorbarLabel, ax=axes, orientation='vertical',
+                                        shrink=0.85 if plotXY else 1.0)
                 else:
                     figure.colorbar(S, label=colorbarLabel, ax=axes, orientation='horizontal')
 
-        if plotBy == "agc_exposure_id":
+        if plotBy == "agc_exposure_id" and drawVisitBoundaries:
             visits = np.sort(agcData.pfs_visit_id.unique())
-            showVisitBoundaries(ax, agcData, visits)
+            for ax in axes.flatten():
+                showVisitBoundaries(ax, agcData, visits)
             if opdb is not None:
                 ax.format_coord = FormatCoord(plotBy, agcData, opdb)
 
@@ -883,6 +992,14 @@ def showAgcErrorsForVisitsByCamera(opdb=None, agcData=None, visits=[],
     figure.suptitle("pfs_visit_id "
                     + (f"{','.join(str(v) for v in visits)}" if len(visits) < 5 else
                        f"{visits[0]}..{visits[-1]}")
+                    + ("  Zenith is up" if rotateToZenith else "")
+                    + ("" if not fitPfiModel else
+                       "\nFit PFI offsets" +
+                       (" rotation" if fitPfiRotation else "") +
+                       (" scale" if fitPfiScale else "") +
+                       ((" Fit AGC" +
+                        (" offsets" if fitAgcOffsets else "") +
+                        (" rotations" if fitAgcRotation else "")) if fitAgcOffsets or fitAgcRotation else ""))
                     + (f"\n{', '.join(f'AG{int(c) + 1}' for c in np.sort(tmp_ac.agc_camera_id.unique()))}"),
                     y=1
                     )
@@ -1048,7 +1165,7 @@ class GuiderConfig:
             sel &= agcData.agc_exposure_id >= self.agc_exposure_idMin
         if self.agc_exposure_idMax > 0:
             sel &= agcData.agc_exposure_id <= self.agc_exposure_idMax
-            # sel &= agcData.agc_match_flags == 0
+            # sel &= agcData.agc_match_flags == 1
 
         return sel
 
@@ -1138,7 +1255,7 @@ def showGuiderErrors(agcData, config,
     if livePlot is not None:
         fig, ax, colorbar = livePlot.fig, livePlot.axes[-1], livePlot.colorbar
     else:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots() if False else (plt.gcf(), plt.gca())
         colorbar = None
 
     agc_exposure_ids = np.sort(agcData.agc_exposure_id.unique())
@@ -1151,6 +1268,7 @@ def showGuiderErrors(agcData, config,
                 continue
 
             sel = agcData.agc_exposure_id == aid
+            sel &= (agcData.agc_data_flags & ~0x1) == 0
 
             if verbose:
                 print(f"Solving for offsets/rotations for {aid}")
@@ -1203,7 +1321,7 @@ def showGuiderErrors(agcData, config,
     for agc_camera_id in agc_camera_ids:
         sel = config.selectStars(agcData, agc_camera_id, guidingErrors)
 
-        if sum(sel) == 0:
+        if np.sum(sel) == 0:
             continue
 
         if config.solveForAGTransforms or (config.modelCCDOffset and agc_camera_id not in config.transforms):
@@ -1266,6 +1384,7 @@ def showGuiderErrors(agcData, config,
         AGlabel = f"AG{agc_camera_id + 1}"
 
         sel = config.selectStars(agcData, agc_camera_id, guidingErrors)
+        sel &= (agcData.agc_data_flags & ~0x1) == 0
 
         if sum(sel) == 0:
             continue
@@ -1878,7 +1997,10 @@ def estimateGuideErrors(agcData, plot=False, guideStrategy="center0", showNomina
     agcData = set_center0(agcData, xy0Stat)
     agcData = set_nominal0(agcData, xy0Stat)
 
-    agcData = agcData[agcData.shutter_open > 0]
+    agcData = agcData[(agcData.shutter_open > 0) &
+                      (agcData.agc_match_flags == 0x1)]  # only the good matches
+
+    agcData = agcData.copy()
 
     if guideStrategy == "boresight":
         tmp = pd.DataFrame(dict(pfs_visit_id=agcData.pfs_visit_id,
@@ -2359,7 +2481,7 @@ class ShowFocusFit:
 
         self.indicateFocusPosition = indicateFocusPosition
         self._axes = axes
-        ax = axes[0]
+        ax = axes.flatten()[0]
         self._text = ax.text(0.99, 0.02, "Click to set M2_OFF3",
                              ha="right", va="bottom", transform=ax.transAxes)
         self._focus = None
@@ -2614,6 +2736,7 @@ def plotFocus(opdb, visits, agcData=None,
     # Make top two plots, one from AGActor one from our private analysis from opdb guide star parameters
     #
     ai = -1
+    aj = 0
 
     for AGActor in ([True] if showAGActorFocus else []) + ([False] if showOpdbFocus else []):
         ai += 1
@@ -2660,10 +2783,11 @@ def plotFocus(opdb, visits, agcData=None,
                     yy = mmToMicrons*_focus.guide_delta_z
                     cc = _focus[colorBy]
 
-                deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - _focus.rms[~_focus.left].to_numpy()**2
-                focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D, includePistonCorrection=False)
                 raise RuntimeError("Fix RHL's known bugs with uninitialised variables")
                 ## focusErrors[ic] = focusError  # where is focusErrors[] defined? BUG
+
+                deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - _focus.rms[~_focus.left].to_numpy()**2
+                focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D, includePistonCorrection=False)
 
                 ## xx = x[_focus.left]     # what is x? BUG
                 yy = focusError
@@ -3150,7 +3274,10 @@ def drawCircularArrow(radius, cen, theta12, clockwise=True, angle=0, ax=None, **
                                 **kwargs))
 
 
-def showAGCameraCartoon(ax1, showInstrot=False, showUp=False, lookingAtHardware=True, insrot=None):
+def showAGCameraCartoon(ax1=None, showInstrot=False, showUp=False, lookingAtHardware=True, insrot=None):
+    if ax1 is None:
+        ax1 = plt.gca()
+
     ax = ax1.inset_axes([0.01, 0.01, 0.2, 0.2])
     ax.set_aspect(1)
     ax.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
