@@ -247,7 +247,8 @@ except ImportError:
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
 
-    def addPfsCursor(disp, detectorMap=None, pfsConfig=None, lineList=None, mtpDetails=(True, False, True),
+    def addPfsCursor(disp, detectorMap=None, pfsConfig=None, lineList=None,
+                     mtpDetails=(True, False, True, True, True),
                      showIntensity=False,
                      replaceCallback=False):
         """Add PFS specific information to an afwDisplay.Display
@@ -260,11 +261,13 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         if detectorMap is None this function does nothing useful;
         otherwise it adds fiberId and wavelength to the display.
 
-        If pfsConfig is also provided, include MTP information.  The
-        fields included are set by mtpDetails (`bool`[3]):
+        If pfsConfig is also provided, include MTP and TargetType/FiberStatus information.
+        The fields included are set by mtpDetails (`bool`[5]):
             [0]: Show MTPID
             [1]: Show holes for A, BA, BC, and C connectors
             [2]: Show cobraId (or -SuNSSId)
+            [3]: Show FiberStatus
+            [4]: Show TargetType
 
         if lineList is not None, report details of lines near the cursor
 
@@ -291,11 +294,16 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                     fid = detectorMap.findFiberId(geom.PointD(x, y))
                     fidStr = f"{fid:3}"
                     if pfsConfig:
-                        try:
+                        ind = np.where(pfsConfig.fiberId == fid)[0]
+                        if len(ind) > 0:
+                            ind = ind[0]
                             mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
                             fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
-                        except RuntimeError:
-                            pass            # fiber isn't in pfsConfig
+
+                            if mtpDetails[3]:
+                                fidStr += f" {FiberStatus(pfsConfig.fiberStatus[ind])}"
+                            if mtpDetails[4]:
+                                fidStr += f" {TargetType(pfsConfig.targetType[ind])}"
 
                     return f"FiberId {fidStr}    {detectorMap.findWavelength(fid, y):8.3f}nm"
             return pfs_format_coord
@@ -326,20 +334,26 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                 detMap = disp._impl._detMap
                 if detMap is not None:
                     fid = detMap.findFiberId(geom.PointD(x, y))
-                    fidStr = f"{fid:3}"
-                    if pfsConfig:
-                        try:
-                            mtpInfo = list(fiberIds.fiberIdToMTP([fid], pfsConfig)[0])
-                            cobraId = mtpInfo[2]
-                            if cobraId == fiberIds.MISSING_VALUE:
-                                mtpInfo[2] = fiberIds.scienceFiberId[fid - 1]
+                    fidInfo = [f"{fid:3}"]
 
-                            fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
-                        except RuntimeError:
-                            pass            # fiber isn't in pfsConfig
+                    ind = [] if pfsConfig is None else np.where(pfsConfig.fiberId == fid)[0]
+                    if len(ind) > 0:
+                        ind = ind[0]
+
+                        mtpInfo = list(fiberIds.fiberIdToMTP([fid], pfsConfig)[0])
+                        cobraId = mtpInfo[2]
+                        if cobraId == fiberIds.MISSING_VALUE:
+                            mtpInfo[2] = fiberIds.scienceFiberId[fid - 1]
+
+                        fidInfo += [str(i) for i, l in zip(mtpInfo, mtpDetails) if l]
+
+                        if mtpDetails[3]:
+                            fidInfo.append(f"{FiberStatus(pfsConfig.fiberStatus[ind])}")
+                        if mtpDetails[4]:
+                            fidInfo.append(f"{TargetType(pfsConfig.targetType[ind])}")
 
                     lam = detMap.findWavelength(fid, y)
-                    msg += f"FiberId {fidStr}    {lam:8.3f}nm" + " "
+                    msg += f"FiberId {', '.join(fidInfo)}    {lam:8.3f}nm" + " "
 
                     if lineList:
                         line = findLine(lineList, lam)
