@@ -232,9 +232,11 @@ def calculateFitStatistics(
                 chi^2/dof - 1
             """
             with np.errstate(invalid="ignore", divide="ignore"):
-                return np.sum(residuals2/(soften**2 + errors2))/dof - 1
+                # nansum treats 0/0 terms (zero error + zero residual) as 0
+                return np.nansum(residuals2/(soften**2 + errors2))/dof - 1
 
-        if softenChi2(0.0) < 0:
+        f0 = softenChi2(0.0)
+        if not np.isfinite(f0) or f0 < 0:
             return 0.0
         if softenChi2(maxSoften) > 0:
             return np.nan
@@ -337,6 +339,16 @@ class FitDistortedDetectorMapConfig(Config):
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
+    maxAdaptiveSoften = Field(
+        dtype=float,
+        default=0.3,
+        doc=(
+            "Maximum adaptive softening (pixels) used when normalising residuals in rejectOutliers. "
+            "Caps xRobustRms/yRobustRms so that a poor initial fit cannot inflate the rejection "
+            "threshold to the point where no outliers are removed. Set to a large value (e.g. np.inf) "
+            "to disable the cap."
+        ),
+    )
 
 
 class FitDistortedDetectorMapTask(Task):
@@ -432,6 +444,15 @@ class FitDistortedDetectorMapTask(Task):
                 for _ in range(self.config.slitOffsetIterations):
                     offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
                 numParameters += offsets.numParameters
+                # Propagate refined per-fiber offsets back to base so that the next
+                # trace iteration's calculateBaseResiduals sees residuals already
+                # cleaned of the slit-offset signal, preventing the distortion
+                # polynomial from absorbing smooth slit-alignment components.
+                base.setSlitOffsets(
+                    base.getSpatialOffsets() + detectorMap.getSpatialOffsets(),
+                    base.getSpectralOffsets() + detectorMap.getSpectralOffsets(),
+                )
+                detectorMap.setSlitOffsets(np.zeros(len(base)), np.zeros(len(base)))
             if not self.updateTraceWavelengths(lines, detectorMap):
                 break
 
@@ -758,7 +779,7 @@ class FitDistortedDetectorMapTask(Task):
                 yChoose = chooseFiber & notTraceFiber
 
                 # Robust measurement
-                spatialFiber = -np.median(dxFiber)
+                spatialFiber = -np.median(dxFiber[chooseFiber])
                 if np.any(yChoose):
                     spectralFiber = -np.median(dyFiber[yChoose])
                 else:
@@ -802,6 +823,10 @@ class FitDistortedDetectorMapTask(Task):
                           len(noMeasurements), sorted(map(int, noMeasurements)))
             badFibers = np.isin(detectorMap.fiberId, np.array(list(noMeasurements)))
             goodFibers = ~badFibers
+            if not np.any(goodFibers):
+                raise FittingError(
+                    "No fibers with slit offset measurements; cannot fill fallback values."
+                )
             spatial[badFibers] = np.mean(spatial[goodFibers])
             spectral[badFibers] = np.mean(spectral[goodFibers])
 
@@ -1164,9 +1189,10 @@ class FitDistortedDetectorMapTask(Task):
             self.log.info("Softened fit: "
                           "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
                           result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                          result.xSoften, result.ySoften, used.sum(),
+                           result.xSoften, result.ySoften, used.sum(),
                           getDescriptionCounts(lines.description, used))
 
+        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
         reservedStats = calculateFitStatistics(
             fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
         )
@@ -1228,7 +1254,8 @@ class FitDistortedDetectorMapTask(Task):
         """
         if not np.any(select):
             raise FittingError("No selected lines to fit")
-        numWavelengths = len(set(lines.wavelength[select]))
+        isLineSelect = select & (lines.description != "Trace")
+        numWavelengths = len(set(lines.wavelength[isLineSelect]))
         if numWavelengths < self.config.minNumWavelengths:
             raise FittingError(f"Insufficient discrete wavelengths ({numWavelengths} vs "
                                f"{self.config.minNumWavelengths} required)")
@@ -1474,15 +1501,18 @@ class FitDistortedDetectorMapTask(Task):
         keep : `np.ndarray` of `bool`
             Array indicating which points should be kept.
         """
-        xSoften = fitStats.xRobustRms if np.isfinite(fitStats.xRobustRms) else 0.0
-        ySoften = fitStats.yRobustRms if np.isfinite(fitStats.yRobustRms) else 0.0
+        maxSoften = self.config.maxAdaptiveSoften
+        xSoften = min(fitStats.xRobustRms, maxSoften) if np.isfinite(fitStats.xRobustRms) else 0.0
+        ySoften = min(fitStats.yRobustRms, maxSoften) if np.isfinite(fitStats.yRobustRms) else 0.0
         xResid = np.abs(fitStats.xResid/np.hypot(xErr, xSoften))
         yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
         keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
         minKeepFrac = 1.0 - self.config.maxRejectionFrac
         if keep.sum() < minKeepFrac*fitStats.selection.sum():
+            lineSelection = fitStats.selection & ~fitStats.isTrace
             xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
-            yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+            yResidLimit = (np.percentile(yResid[lineSelection], minKeepFrac*100)
+                           if np.any(lineSelection) else self.config.rejection)
             keep = (xResid < xResidLimit) & ((yResid < yResidLimit) | fitStats.isTrace)
             self.log.debug(
                 "Standard rejection limit (%f) too severe; using %f, %f",
