@@ -184,6 +184,7 @@ def readAGCPositionsForVisitByAgcExposureId(opdb, pfs_visit_id, flipToHardwareCo
                avg(agc_nominal_y_mm) AS agc_nominal_y_mm,
                avg(agc_center_y_mm) AS agc_center_y_mm,
                min(agc_match.flags) AS agc_match_flags,
+               min(agc_data.flags) AS agc_data_flags,
                CASE
                    WHEN min(sps_exposure.pfs_visit_id) IS NULL THEN 2
                    WHEN (min(agc_exposure.taken_at -- AT TIME ZONE 'HST' AT TIME ZONE 'UTC'
