@@ -2639,6 +2639,7 @@ def plotFocus(opdb, visits, agcData=None,
                                                       butler=butler)
 
     agcData0 = agcData
+    agcData = agcData.copy()          # don't mutate the caller's DataFrame
 
     ll = np.ones(len(agcData), dtype=bool)
     ll &= (agcData.agc_data_flags & ~0x1) == 0
