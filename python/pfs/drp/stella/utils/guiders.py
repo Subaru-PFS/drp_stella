@@ -2724,6 +2724,10 @@ def plotFocus(opdb, visits, agcData=None,
         nY += 1
         height_ratios.append(3)
 
+    if nY == 0:
+        raise RuntimeError("Nothing to plot: enable at least one of "
+                           "showAGActorFocus, showOpdbFocus, showFWHM")
+
     if plotPerCamera:
         nX = len(AGC)
     else:
