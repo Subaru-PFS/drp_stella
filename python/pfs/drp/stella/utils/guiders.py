@@ -2742,19 +2742,16 @@ def plotFocus(opdb, visits, agcData=None,
     for AGActor in ([True] if showAGActorFocus else []) + ([False] if showOpdbFocus else []):
         ai += 1
         for aj, camera_id in enumerate(np.array(AGC) - 1 if plotPerCamera else [None]):
-            if AGActor:
-                if showAGActorFocus:
-                    ax = axes[ai, aj]
-                else:
-                    continue
-            else:
-                if showOpdbFocus:
-                    ax = axes[ai, aj]
-                else:
-                    continue
+            ax = axes[ai, aj]
 
             marker, alpha = ('o', 1) if averageByFocusPosition else \
                 getMA(len(focus)/(1 + focus.agc_camera_id.nunique()), forceAlpha)
+
+            camera_ids_to_plot = ([camera_id] if plotPerCamera
+                                  else sorted(focus.agc_camera_id.unique()))
+
+            xx = yy = cc = None
+            S = None
 
             if AGActor:
                 #
@@ -2762,13 +2759,15 @@ def plotFocus(opdb, visits, agcData=None,
                 #
                 if colorBy == "camera":
                     xx = focus[what]
-                    for ic in sorted([camera_id] if plotPerCamera else focus.agc_camera_id.unique()):
+                    for ic in camera_ids_to_plot:
                         ic = int(ic)
                         ll = focus.agc_camera_id == ic
-                        _x, _y = xx[ll].to_numpy(), mmToMicrons*focus[ll][f"guide_delta_z{ic + 1}"].to_numpy()
+                        _x = xx[ll].to_numpy()
+                        _y = mmToMicrons*focus[ll][f"guide_delta_z{ic + 1}"].to_numpy()
                         if averageByFocusPosition:
                             _x, _y = averageArraysByFocusPosition(focus.focusPosition[ll], _x, _y)
                         ax.plot(_x, _y, marker, alpha=alpha, color=f"C{ic}", label=f"AG{ic + 1}")
+                    xx = None                   # not used for the shared scatter below
                 else:
                     grouped = focus.groupby(["agc_exposure_id"])
                     _focus = grouped.agg(
@@ -2784,70 +2783,22 @@ def plotFocus(opdb, visits, agcData=None,
                     yy = mmToMicrons*_focus.guide_delta_z
                     cc = _focus[colorBy]
 
-                raise RuntimeError("Fix RHL's known bugs with uninitialised variables")
-                ## focusErrors[ic] = focusError  # where is focusErrors[] defined? BUG
-
-                deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - _focus.rms[~_focus.left].to_numpy()**2
-                focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D, includePistonCorrection=False)
-
-                ## xx = x[_focus.left]     # what is x? BUG
-                yy = focusError
-
-                if colorBy != "camera":
-                    cc = _focus[colorBy][_focus.left]
-                    agc_camera_id = _focus.agc_camera_id[_focus.left]
-                    break
-
-                if averageByFocusPosition:
-                    xx, yy = averageArraysByFocusPosition(_focus.focusPosition[_focus.left], xx, yy)
-
-                color = f"C{ic}"
-                if not (showMedian and showOnlyMedian):
-                    ax.plot(xx, yy, marker, alpha=alpha, color=color)
-                if len(xx) > 0:
-                    ax.plot([np.nan], [np.nan], 'o', color=color, label=f"AG{ic + 1}")
-
-                if showMedian:
-                    if plotBy == "focus":
-                        scaling = 1e3
-                    else:
-                        scaling = 1
-
-                    # distinct rounded values of xx
-                    xvals = np.sort(list(set(np.round(scaling*xx).astype(int))))/scaling
-                    _xx = np.empty(len(xvals))
-                    _yy = np.empty_like(_xx)
-
-                    for i, xv in enumerate(xvals):
-                        _xx[i] = xv
-                        _yy[i] = np.nanmedian(yy[np.abs(xx - xv) < 1/scaling])
-                    ax.plot(_xx, _yy, '-' if connectMedian else marker,
-                            color=color, alpha=1 if connectMedian else alpha)
-
-                del _focus
-
-            ylab = r"$\Delta$ focus"
-
-        S = None
-        if colorBy == "camera":
-            ax.legend(ncols=6)
-        else:
-            if len(focus[colorBy].unique()) == 0:
-                ax.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
+                ylab = "AG Actor Focus error"
             else:
                 #
-                # Estimate and plot a focus correction
+                # Estimate and plot a focus correction from opdb star parameters
                 #
                 # Handle the case where all the stars are on either the left or right sides
                 #
                 focusErrors = {}
-                for ic in sorted([camera_id] if plotPerCamera else focus.agc_camera_id.unique()):
+                for ic in camera_ids_to_plot:
                     ic = int(ic)
-                    focusErrors[ic] = {}
 
-                    _focus = focus[focus.agc_camera_id == ic]
-                    if colorBy != "camera":
-                        grouped = _focus.groupby(["agc_exposure_id", "left"])
+                    if colorBy == "camera":
+                        _focus = focus[focus.agc_camera_id == ic]
+                    else:
+                        _focus_pre = focus[focus.agc_camera_id == ic] if plotPerCamera else focus
+                        grouped = _focus_pre.groupby(["agc_exposure_id", "left"])
                         _focus = grouped.agg(
                             pfs_visit_id=("pfs_visit_id", "first"),
                             altitude=("altitude", "mean"),
@@ -2858,7 +2809,7 @@ def plotFocus(opdb, visits, agcData=None,
                         )
                         _focus.reset_index(inplace=True)
 
-                    # noLR == not left AND right
+                    # noLR: exposure_ids that have data on only one side
                     noLR = set(_focus.agc_exposure_id[~_focus.left]) ^ \
                         set(_focus.agc_exposure_id[_focus.left])
                     _focus = _focus[~np.isin(_focus.agc_exposure_id, list(noLR))]
@@ -2867,7 +2818,7 @@ def plotFocus(opdb, visits, agcData=None,
                     deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - \
                         _focus.rms[~_focus.left].to_numpy()**2
                     focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D,
-                                                                        includePistonCorrection=False)
+                                                                       includePistonCorrection=False)
                     focusErrors[ic] = focusError
 
                     xx = x[_focus.left]
@@ -2875,7 +2826,6 @@ def plotFocus(opdb, visits, agcData=None,
 
                     if colorBy != "camera":
                         cc = _focus[colorBy][_focus.left]
-                        agc_camera_id = _focus.agc_camera_id[_focus.left]
                         break
 
                     if averageByFocusPosition:
@@ -2885,7 +2835,7 @@ def plotFocus(opdb, visits, agcData=None,
                     if not (showMedian and showOnlyMedian):
                         ax.plot(xx, yy, marker, alpha=alpha, color=color)
                     if len(xx) > 0:
-                        ax.plot([np.NaN], [np.NaN], 'o', color=color, label=f"AG{ic + 1}")
+                        ax.plot([np.nan], [np.nan], 'o', color=color, label=f"AG{ic + 1}")
 
                     if showMedian:
                         if plotBy == "focus":
@@ -2904,14 +2854,18 @@ def plotFocus(opdb, visits, agcData=None,
                         ax.plot(_xx, _yy, '-' if connectMedian else marker,
                                 color=color, alpha=1 if connectMedian else alpha)
 
-                    del _focus
+                if colorBy == "camera":
+                    xx = None                   # per-camera lines already drawn above
 
                 ylab = r"$\Delta$ focus"
 
-            S = None
+            #
+            # Shared post-branch drawing (runs for both AGActor and colorBy values)
+            #
             if colorBy == "camera":
-                ax.legend(ncols=6)
-            else:
+                if ax.get_legend_handles_labels()[0]:
+                    ax.legend(ncols=6)
+            elif xx is not None:
                 if len(focus[colorBy].unique()) == 0:
                     ax.plot(xx, yy, marker, alpha=alpha, color='black', zorder=3)
                 else:
@@ -2931,7 +2885,7 @@ def plotFocus(opdb, visits, agcData=None,
             if yLimitsMicron[0] != 0:
                 ax.set_ylim(1e-3*mmToMicrons*np.array(yLimitsMicron))
 
-            if plotPerCamera and ai == 0:
+            if plotPerCamera and ai == 0 and camera_id is not None:
                 ax.text(0.1, 0.95, f"AG{camera_id + 1}", transform=ax.transAxes,
                         color=f"C{camera_id}", zorder=10)
 
@@ -2939,14 +2893,14 @@ def plotFocus(opdb, visits, agcData=None,
                 ax.set_ylabel(f"{ylab}\n({'mm' if mmToMicrons == 1 else 'micron'})")
 
                 if S is None:
-                    secay = axes[0, aj].secondary_yaxis('right',
-                                                        functions=(lambda x: x*guiderFocus_to_M2_OFF3,
-                                                                   lambda x: x/guiderFocus_to_M2_OFF3))
+                    secay = ax.secondary_yaxis('right',
+                                               functions=(lambda x: x*guiderFocus_to_M2_OFF3,
+                                                          lambda x: x/guiderFocus_to_M2_OFF3))
                     secay.set_ylabel(r"$\Delta$ M2_OFF3 (mm)")
                 else:
                     with opaqueColorbar(S):
                         from mpl_toolkits.axes_grid1 import make_axes_locatable
-                        divider = make_axes_locatable(axes[0, nX - 1])
+                        divider = make_axes_locatable(axes[ai, nX - 1])
                         cax = divider.append_axes('right', size=f'{2*nX}%', pad=0.05)
                         figure.colorbar(S, label=colorBy, cax=cax, orientation='vertical')
 
