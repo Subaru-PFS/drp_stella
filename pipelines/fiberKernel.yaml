@@ -1,0 +1,8 @@
+description: Measure a FiberKernel from each quartz exposure
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+imports:
+  - $DRP_STELLA_DIR/pipelines/reduceExposure.yaml
+
+tasks:
+  measureFiberKernel:
+    class: pfs.drp.stella.measureFiberKernel.MeasureExposureFiberKernelTask
