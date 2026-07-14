@@ -2683,7 +2683,10 @@ def plotFocus(opdb, visits, agcData=None,
     # The Focus Offset assumed in the AGActor
     focusOffset = MomentDifferenceToMmPiston(0, includePistonCorrection=True)
 
-    if visits[-1] < 122129:
+    # Use the visit set actually present in agcData so the caching entry-point
+    # (visits=[], agcData=<cached>) is honoured.
+    visitsInData = agcData.pfs_visit_id if len(agcData) else pd.Series([], dtype=int)
+    if len(visitsInData) and visitsInData.max() < 122129:
         # Kawanomoto-san used to use 4*(a**2 + b**2) rather than (a**2 + b**2) in the focus code;
         # this was a bug (INSTRM-2501), fixed on 2025-03-23
         for c in range(0, 6):
