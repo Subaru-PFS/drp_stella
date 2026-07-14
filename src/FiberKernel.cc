@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <string>
 #include <unordered_map>
 
@@ -97,21 +98,34 @@ struct ScopedTimer {
 };
 
 
+/// Model of a single row of a fiber trace, used for fitting the kernel
+///
+/// May also be a collection of many fiber traces (when we're fitting the kernel
+/// from an image rather than from a FiberTrace).
+///
+/// This handles the calculations of which pixels to use for fitting, and the
+/// various dot products.
+///
+/// It may be offset (corresponding to a shift of the fiber trace), in which case
+/// we subtract the original model from the image to maintain flux conservation.
 struct FiberModel {
-    ndarray::Array<float const, 1, 1> values;
-    ndarray::Array<bool const, 1, 1> use;
-    int y;
+    ndarray::Array<float const, 1, 1> values;  // values of the FiberTrace
+    ndarray::Array<bool const, 1, 1> use;  // whether the pixel should be used for fitting
+    int y;  // row in the image
     int xMin;  // relative to the image, inclusive
     int xMax;  // relative to the image, exclusive
-    int width;
-    int offset;
+    int width;  // width of the model (xMax - xMin)
+    int offset;  // offset applied to the model (positive: shifted to the right)
 
+    /// Construct from a FiberTrace
+    ///
+    /// Uses only the pixels in the specified range.
     static FiberModel fromFiberTrace(
-        FiberTrace<float> const& fiberTrace,
-        int y,
-        int xStart,  // relative to trace bbox
-        int xStop,  // relative to trace bbox, inclusive
-        lsst::afw::image::MaskPixel requireMask
+        FiberTrace<float> const& fiberTrace,  // FiberTrace from which to construct
+        int y,  // row of interest
+        int xStart,  // starting column, relative to trace bbox
+        int xStop,  // stopping column, relative to trace bbox, inclusive
+        lsst::afw::image::MaskPixel requireMask  // mask bits that must be set for a pixel to be used
     ) {
         if (xStop < xStart) {
             return dummy();
@@ -134,12 +148,13 @@ struct FiberModel {
         };
     }
 
+    /// Construct from an image
     static FiberModel fromImage(
-        lsst::afw::image::MaskedImage<float> const& image,
-        int y,
-        lsst::geom::Box2I const& box,
-        lsst::afw::image::MaskPixel badBitMask,
-        ndarray::Array<bool, 1, 1> const& usePixels=ndarray::Array<bool, 1, 1>()
+        lsst::afw::image::MaskedImage<float> const& image,  // MaskedImage from which to construct
+        int y,  // row of interest
+        lsst::geom::Box2I const& box,  // box defining the region of interest (relative to the image)
+        lsst::afw::image::MaskPixel badBitMask,  // mask bits that indicate a pixel should not be used
+        ndarray::Array<bool, 1, 1> const& usePixels=ndarray::Array<bool, 1, 1>()  // which pixels may be used?
     ) {
         ndarray::Array<bool, 1, 1> use = ndarray::allocate(box.getWidth());
         ndarray::asEigenArray(use) = ndarray::asEigenArray(
@@ -160,10 +175,11 @@ struct FiberModel {
         };
     }
 
+    /// Construct from an image (no mask)
     static FiberModel fromImage(
-        lsst::afw::image::Image<float> const& image,
-        int y,
-        lsst::geom::Box2I const& box
+        lsst::afw::image::Image<float> const& image,  // Image from which to construct
+        int y,  // row of interest
+        lsst::geom::Box2I const& box  // box defining the region of interest (relative to the image)
     ) {
         ndarray::Array<bool, 1, 1> use = ndarray::allocate(box.getWidth());
         use.deep() = true;
@@ -178,27 +194,38 @@ struct FiberModel {
         };
     }
 
+    /// Construct a dummy (empty) model
     static FiberModel dummy() {
         return FiberModel{
             ndarray::Array<float const, 1, 1>(), ndarray::Array<bool const, 1, 1>(), 0, 0, 0, 0, 0
         };
     }
 
-    FiberModel applyOffset(int newOffset, int imageWidth, bool subtract=true) const {
+    /// Apply an offset to this model
+    ///
+    /// Returns a new model with the specified offset applied. For a non-zero
+    /// offset, the returned model will be shifted by the specified number of pixels,
+    /// and the original model will be subtracted from the returned model to maintain
+    /// flux conservation.
+    FiberModel applyOffset(
+        int newOffset,  // offset to apply (positive: shift to the right)
+        int imageWidth,  // width of the image (for clipping)
+        bool subtract=true  // subtract the original model?
+    ) const {
         assert(offset == 0);  // haven't done the math to support offsets on top of offsets
         if (newOffset == 0) {
             return *this;
         }
-        if (xMax <=xMin) {
+        if (xMax <= xMin) {
             return dummy();
         }
         int const newMin = std::max(0, xMin + std::min(0, newOffset));
         int const newMax = std::min(imageWidth, xMax + std::max(0, newOffset));  // exclusive
         int const newWidth = newMax - newMin;
 
-        ndarray::Array<float, 1, 1> newValues = ndarray::allocate(newWidth);
+        ndarray::Array<float, 1, 1> neweightedValues = ndarray::allocate(newWidth);
         ndarray::Array<bool, 1, 1> newUse = ndarray::allocate(newWidth);
-        newValues.deep() = 0.0;
+        neweightedValues.deep() = 0.0;
         newUse.deep() = false;
 
         // Original model: 0.1, 0.8, 0.1
@@ -220,7 +247,7 @@ struct FiberModel {
             int const newStop = shiftedMax - newMin;  // exclusive
             assert(newStart >= 0 && newStop <= newWidth);
             assert(start >= 0 && stop <= this->width);
-            newValues[ndarray::view(newStart, newStop)] = values[ndarray::view(start, stop)];
+            neweightedValues[ndarray::view(newStart, newStop)] = values[ndarray::view(start, stop)];
             newUse[ndarray::view(newStart, newStop)] = use[ndarray::view(start, stop)];
         }
 
@@ -231,19 +258,19 @@ struct FiberModel {
             int const newStop = xMax - newMin;
             assert(newStart >= 0 && newStop <= newWidth);
             assert(newStop - newStart == this->width);
-            newValues[ndarray::view(newStart, newStop)] -= values;
+            neweightedValues[ndarray::view(newStart, newStop)] -= values;
             newUse[ndarray::view(newStart, newStop)] &= use;
         }
 
-        return FiberModel{std::move(newValues), std::move(newUse), y, newMin, newMax, newWidth, newOffset};
+        return FiberModel{std::move(neweightedValues), std::move(newUse), y, newMin, newMax, newWidth, newOffset};
     }
 
     template <typename T>
     FiberModel operator*(ndarray::ArrayRef<T, 1, 1> const& rhs) const {
         assert(rhs.size() == std::size_t(width));
-        ndarray::Array<float, 1, 1> newValues = ndarray::copy(values);
-        ndarray::asEigenArray(newValues) *= ndarray::asEigenArray(rhs).template cast<float>();
-        return FiberModel{newValues, ndarray::copy(use), y, xMin, xMax, width, offset};
+        ndarray::Array<float, 1, 1> neweightedValues = ndarray::copy(values);
+        ndarray::asEigenArray(neweightedValues) *= ndarray::asEigenArray(rhs).template cast<float>();
+        return FiberModel{neweightedValues, ndarray::copy(use), y, xMin, xMax, width, offset};
     }
 
 #if 0
@@ -262,18 +289,6 @@ struct FiberModel {
     }
 #endif
 
-    double sum(
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance
-    ) const {
-        auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
-        auto const modelGood = ndarray::asEigenArray(use);
-        auto const weight = (dataGood && modelGood).select(
-            1.0/ndarray::asEigenArray(dataVariance[ndarray::view(xMin, xMax)]).template cast<double>(), 0.0
-        );
-        return (ndarray::asEigenArray(values).template cast<double>()*weight).sum();
-    }
-
     double centroid() const {
         double centroid = 0.0;
         double sum = 0.0;
@@ -286,88 +301,73 @@ struct FiberModel {
         return centroid/sum;
     }
 
-#if 0
-    double dotSelf() const {
-        return ndarray::asEigenArray(use).select(
-            ndarray::asEigenArray(values).template cast<double>(), 0.0
-        ).square().sum();
-    }
-
-    double dotSelf(ndarray::Array<bool const, 1, 1> const& usePixels) const {
-        auto const modelGood = ndarray::asEigenArray(use);
-        auto const dataGood = ndarray::asEigenArray(usePixels[ndarray::view(xMin, xMax)]);
-        return (modelGood && dataGood).select(
-            ndarray::asEigenArray(values).template cast<double>(), 0.0
-        ).square().sum();
-    }
-#endif
-
-    template <typename Func>
-    double dotFunction(
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance,
-        Func func
-    ) const {
-        assert(usePixels.size() == dataVariance.size());
-
-        int start = std::max(xMin, 0);
-        int stop = std::min(xMax, static_cast<int>(usePixels.size()));  // exclusive
-        if (stop <= start) {
-            return 0.0;
+    // Precompute masked model values for use with the dot product methods below.
+    // Returns use[xThis] ? values[xThis] : 0 for xThis in [0, width).
+    ndarray::Array<double, 1, 1> makeWeights() const {
+        if (width == 0) return ndarray::Array<double, 1, 1>();
+        ndarray::Array<double, 1, 1> wv = ndarray::allocate(width);
+        for (int k = 0; k < width; ++k) {
+            wv[k] = use[k] ? (double)values[k] : 0.0;
         }
-
-        int const thisStart = start - xMin;
-        int const thisStop = stop - xMin;  // exclusive
-
-        double result = 0.0;
-        for (std::size_t xx = start, xThis = thisStart; xx < stop; ++xx, ++xThis) {
-            if (!use[xThis] || !usePixels[xx]) {
-                continue;
-            }
-            double const weight = 1.0/dataVariance[xx];
-            result += func(xx, xThis, weight);
-        }
-        return result;
+        return wv;
     }
 
-
-    double dotSelf(
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance
-    ) const {
-        return dotFunction(usePixels, dataVariance, [this](
-            int x, int xThis, double weight
-        ) {
-            return weight*std::pow(values[xThis], 2);
-        });
-    }
+    // Vectorized dot products using precomputed per-row image weights and masked model values.
+    // weight[x] = usePixel[x] ? 1/variance[x] : 0  (full row, size imageWidth)
+    // weightedValues[xThis] = use[xThis] ? values[xThis] : 0    (this model, size width)
+    // otherWeightedValues[xOther] = other.use[xOther] ? other.values[xOther] : 0  (other model, size other.width)
 
     double dotData(
         ndarray::Array<float const, 1, 1> const& dataValues,
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance
+        ndarray::Array<double const, 1, 1> const& weight,
+        ndarray::Array<double const, 1, 1> const& weightedValues
     ) const {
-        return dotFunction(usePixels, dataVariance, [this, &dataValues](
-            int x, int xThis, double weight
-        ) {
-            return weight*values[xThis]*dataValues[x];
-        });
+        int const start = std::max(xMin, 0);
+        int const stop = std::min(xMax, (int)weight.size());
+        if (stop <= start) return 0.0;
+        auto const w = ndarray::asEigenArray(weightedValues[ndarray::view(start - xMin, stop - xMin)]);
+        auto const iw = ndarray::asEigenArray(weight[ndarray::view(start, stop)]);
+        auto const dv = ndarray::asEigenArray(dataValues[ndarray::view(start, stop)]).template cast<double>();
+        return (w * iw * dv).sum();
+    }
+
+    double dotSelf(
+        ndarray::Array<double const, 1, 1> const& weight,
+        ndarray::Array<double const, 1, 1> const& weightedValues
+    ) const {
+        int const start = std::max(xMin, 0);
+        int const stop = std::min(xMax, (int)weight.size());
+        if (stop <= start) return 0.0;
+        auto const w = ndarray::asEigenArray(weightedValues[ndarray::view(start - xMin, stop - xMin)]);
+        auto const iw = ndarray::asEigenArray(weight[ndarray::view(start, stop)]);
+        return (w.square() * iw).sum();
     }
 
     double dotOther(
         FiberModel const& other,
-        ndarray::Array<bool const, 1, 1> const& usePixels,
-        ndarray::Array<float const, 1, 1> const& dataVariance
+        ndarray::Array<double const, 1, 1> const& weight,
+        ndarray::Array<double const, 1, 1> const& weightedValues,
+        ndarray::Array<double const, 1, 1> const& otherWeightedValues
     ) const {
-        return dotFunction(usePixels, dataVariance, [this, &other](
-            int x, int xThis, double weight
-        ) {
-            int const xOther = x - other.xMin;
-            if (xOther < 0 || xOther >= other.width || !other.use[xOther]) {
-                return 0.0;
-            }
-            return weight*values[xThis]*other.values[xOther];
-        });
+        int const start = std::max({xMin, other.xMin, 0});
+        int const stop = std::min({xMax, other.xMax, (int)weight.size()});
+        if (stop <= start) return 0.0;
+        auto const w = ndarray::asEigenArray(weightedValues[ndarray::view(start - xMin, stop - xMin)]);
+        auto const iw = ndarray::asEigenArray(weight[ndarray::view(start, stop)]);
+        auto const ow = ndarray::asEigenArray(otherWeightedValues[ndarray::view(start - other.xMin, stop - other.xMin)]);
+        return (w * iw * ow).sum();
+    }
+
+    double sum(
+        ndarray::Array<double const, 1, 1> const& weight,
+        ndarray::Array<double const, 1, 1> const& weightedValues
+    ) const {
+        int const start = std::max(xMin, 0);
+        int const stop = std::min(xMax, (int)weight.size());
+        if (stop <= start) return 0.0;
+        auto const w = ndarray::asEigenArray(weightedValues[ndarray::view(start - xMin, stop - xMin)]);
+        auto const iw = ndarray::asEigenArray(weight[ndarray::view(start, stop)]);
+        return (w * iw).sum();
     }
 
     void addToImage(
@@ -520,17 +520,43 @@ lsst::afw::image::Image<float> FiberKernel::convolveImpl(
     ndarray::Array<double, 1, 1> row = ndarray::allocate(image.getWidth());
 
     for (int yy = 0; yy < height; ++yy) {
+        // Precompute y-interpolation once per row (constant across all x)
+        auto const yInterp = _yInterp(yy);
+        std::size_t const lowerIndex = yInterp.first.first;
+        std::size_t const upperIndex = yInterp.second.first;
+        double const lowerWeight = yInterp.first.second;
+        double const upperWeight = yInterp.second.second;
+
         for (int xx = 0; xx < image.getWidth(); ++xx) {
-            _evaluate(kernel, xx, yy);
+            // Inline kernel evaluation using precomputed yInterp
+            auto const xInterp = _xInterp(xx);
+            std::size_t const leftIndex = xInterp.first.first;
+            std::size_t const rightIndex = xInterp.second.first;
+            double const leftWeight = xInterp.first.second;
+            double const rightWeight = xInterp.second.second;
+
+            kernel[_halfWidth] = 1.0;
+            std::size_t index = 0;
+            for (int pixel = 0; pixel <= numKernel; ++pixel, ++index) {
+                if (pixel == _halfWidth) { --index; continue; }
+                double const val =
+                    leftWeight  * lowerWeight * _values[(lowerIndex*_xNumBlocks + leftIndex) *numKernel + index] +
+                    rightWeight * lowerWeight * _values[(lowerIndex*_xNumBlocks + rightIndex)*numKernel + index] +
+                    leftWeight  * upperWeight * _values[(upperIndex*_xNumBlocks + leftIndex) *numKernel + index] +
+                    rightWeight * upperWeight * _values[(upperIndex*_xNumBlocks + rightIndex)*numKernel + index];
+                kernel[pixel] = val;
+                kernel[_halfWidth] -= val;
+            }
+            ndarray::asEigenArray(kernel) /= ndarray::asEigenArray(kernel).sum();
 
             double sum = 0.0;
-            std::size_t index = 0;
-            for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++index) {
+            std::size_t kIdx = 0;
+            for (int offset = -_halfWidth; offset <= _halfWidth; ++offset, ++kIdx) {
                 int const xKernel = xx - offset;
                 if (xKernel < 0 || xKernel >= image.getWidth()) {
                     continue;
                 }
-                sum += kernel[index]*image(xKernel, yy);
+                sum += kernel[kIdx]*image(xKernel, yy);
             }
             row[xx] = sum;
         }
@@ -687,9 +713,12 @@ namespace {
     int y;
     ndarray::Array<bool, 1, 1> useTrace;  // trace overlaps this row?
     ndarray::Array<bool, 1, 1> usePixel;  // pixel in row should be used?
+    ndarray::Array<double, 1, 1> weight;  // 1/variance[x] for good pixels, else 0
     ndarray::Array<double, 1, 1> xCenter; // center of trace in x, for kernel polynomial
     std::vector<FiberModel> models;  // model for each fiber at this row
     std::vector<std::vector<FiberModel>> kernelModels;  // kernel-offset models [fiber][offset]
+    // Masked model values: kernelWeightedValues[fiber][offset][xThis] = use[xThis] ? values[xThis] : 0
+    std::vector<std::vector<ndarray::Array<double, 1, 1>>> kernelWeightedValues;
     std::vector<std::vector<std::size_t>> overlaps;  // [fiber][offset] overlapping fiber indices within kernelHalfWidth
 
     // Layout of models: offset=-kernelWidth, ... offset=0, ... offset=+kernelWidth
@@ -711,9 +740,11 @@ namespace {
     ) : y(y),
         useTrace(ndarray::allocate(numFibers)),
         usePixel(ndarray::allocate(imageWidth)),
+        weight(ndarray::allocate(imageWidth)),
         xCenter(ndarray::allocate(numFibers)),
         models(numFibers, FiberModel::dummy()),
         kernelModels(numFibers, std::vector<FiberModel>(2*kernelHalfWidth + 1, FiberModel::dummy())),
+        kernelWeightedValues(numFibers, std::vector<ndarray::Array<double, 1, 1>>(2*kernelHalfWidth + 1)),
         overlaps(numFibers),
         dotData(numFibers),
         dotModel(numFibers),
@@ -723,6 +754,7 @@ namespace {
     {
         useTrace.deep() = false;
         usePixel.deep() = false;
+        weight.deep() = 0.0;
     }
 };
 
@@ -797,6 +829,11 @@ struct FiberKernelFitter {
             for (int offset = -_kernelHalfWidth; offset <= _kernelHalfWidth; ++offset, ++kernelIndex) {
                 data.kernelModels[ii][kernelIndex] = model.applyOffset(offset, _image.getWidth());
             }
+
+            // Precompute masked model values: weightedValues[xThis] = use[xThis] ? values[xThis] : 0
+            for (std::size_t kk = 0; kk < 2*_kernelHalfWidth + 1; ++kk) {
+                data.kernelWeightedValues[ii][kk] = data.kernelModels[ii][kk].makeWeights();
+            }
         }
 
         auto iter = _image.row_begin(y) + _box.getMinX();
@@ -804,23 +841,36 @@ struct FiberKernelFitter {
             data.usePixel[xx] = isGoodImage(iter);
         }
 
-        for (std::size_t ii = 0; ii < _numFibers; ++ii) {
-            if (!data.useTrace[ii]) {
-                continue;
+        // Precompute per-pixel image weight: 1/variance for good pixels, else 0
+        {
+            auto const& dataVariance = _image.getVariance()->getArray()[y];
+            for (int xx = 0; xx < _image.getWidth(); ++xx) {
+                data.weight[xx] = data.usePixel[xx] ? 1.0/dataVariance[xx] : 0.0;
             }
-            FiberModel const& left = data.models[ii];
-            int const leftMin = left.xMin - _kernelHalfWidth;
-            int const leftMax = left.xMax + _kernelHalfWidth;
-            std::vector<std::size_t>& overlaps = data.overlaps[ii];
-            for (std::size_t jj = 0; jj < _numFibers; ++jj) {
-                if (!data.useTrace[jj]) {
-                    continue;
+        }
+
+        // O(N) overlap sweep (fibers are spatially ordered by x position)
+        {
+            std::vector<std::size_t> activeFibers;
+            activeFibers.reserve(_numFibers);
+            for (std::size_t ii = 0; ii < _numFibers; ++ii) {
+                if (data.useTrace[ii]) activeFibers.push_back(ii);
+            }
+            std::size_t const nActive = activeFibers.size();
+            std::size_t lo = 0;
+            for (std::size_t ai = 0; ai < nActive; ++ai) {
+                std::size_t const ii = activeFibers[ai];
+                int const iMin = data.models[ii].xMin - _kernelHalfWidth;
+                int const iMax = data.models[ii].xMax + _kernelHalfWidth;
+                // Advance lo: skip fibers whose right boundary no longer reaches iMin
+                while (lo < nActive &&
+                       data.models[activeFibers[lo]].xMax + _kernelHalfWidth <= iMin) {
+                    ++lo;
                 }
-                FiberModel const& right = data.models[jj];
-                int const rightMin = right.xMin - _kernelHalfWidth;
-                int const rightMax = right.xMax + _kernelHalfWidth;
-                if (std::max(leftMin, rightMin) < std::min(leftMax, rightMax)) {
-                    overlaps.push_back(jj);
+                for (std::size_t aj = lo; aj < nActive; ++aj) {
+                    std::size_t const jj = activeFibers[aj];
+                    if (data.models[jj].xMin - _kernelHalfWidth >= iMax) break;
+                    data.overlaps[ii].push_back(jj);
                 }
             }
         }
@@ -879,44 +929,62 @@ struct FiberKernelFitter {
         }
 
         auto const& dataImage = _image.getImage()->getArray()[y];
-        auto const& dataVariance = _image.getVariance()->getArray()[y];
 
         ndarray::Array<double, 1, 1> dotData = ndarray::allocate(2*_kernelHalfWidth + 1);
         ndarray::Array<double, 1, 1> dotBackground = ndarray::allocate(2*_kernelHalfWidth + 1);
         std::size_t iIndex = 0;
         for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iIndex) {
             FiberModel const& iModel = data.kernelModels[fiberIndex][iIndex];
-            dotData[iIndex] = iModel.dotData(dataImage, data.usePixel, dataVariance);
-            dotBackground[iIndex] = iModel.sum(data.usePixel, dataVariance);
+            auto const& iWeightedValues = data.kernelWeightedValues[fiberIndex][iIndex];
+            dotData[iIndex] = iModel.dotData(dataImage, data.weight, iWeightedValues);
+            dotBackground[iIndex] = iModel.sum(data.weight, iWeightedValues);
         }
         data.dotData[fiberIndex] = std::move(dotData);
         data.dotBackground[fiberIndex] = std::move(dotBackground);
 
+        // Geometric extent of fiberIndex (with kernel padding) for overlap detection
+        FiberModel const& baseModel = data.models[fiberIndex];
+        int const leftMin = baseModel.xMin - _kernelHalfWidth;
+        int const leftMax = baseModel.xMax + _kernelHalfWidth;
+
         std::vector<ndarray::Array<double, 2, 2>> dotModel;
         dotModel.reserve(_numFibers - fiberIndex);
         for (std::size_t jFiberIndex = fiberIndex; jFiberIndex < _numFibers; ++jFiberIndex) {
-            ndarray::Array<double, 2, 2> dotModelFiber = ndarray::allocate(
-                _numKernelParams + 1, _numKernelParams + 1
-            );
             if (!data.useTrace[jFiberIndex]) {
+                // Must push a placeholder to maintain delta-based indexing in getDotModel
+                ndarray::Array<double, 2, 2> dotModelFiber = ndarray::allocate(
+                    _numKernelParams + 1, _numKernelParams + 1
+                );
                 dotModelFiber.deep() = 0.0;
                 dotModel.push_back(std::move(dotModelFiber));
                 continue;
             }
 
-            std::size_t iIndex = 0;
-            for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iIndex) {
-                FiberModel const& iModel = data.kernelModels[fiberIndex][iIndex];
-                std::size_t jIndex = 0;
-                for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jIndex) {
-                    FiberModel const& jModel = data.kernelModels[jFiberIndex][jIndex];
-                    dotModelFiber[iIndex][jIndex] = iModel.dotOther(jModel, data.usePixel, dataVariance);
+            // Geometric overlap check before allocating or computing
+            if (jFiberIndex != fiberIndex) {
+                FiberModel const& right = data.models[jFiberIndex];
+                int const rightMin = right.xMin - _kernelHalfWidth;
+                int const rightMax = right.xMax + _kernelHalfWidth;
+                if (std::max(leftMin, rightMin) >= std::min(leftMax, rightMax)) {
+                    break;  // Fibers are spatially ordered; no subsequent fiber will overlap either
                 }
             }
-            bool const isZero = (ndarray::asEigenArray(dotModelFiber) == 0.0).all();
-            if (isZero) {
-                // The fibers are ordered, so all subsequent fibers will also be zero
-                break;
+
+            ndarray::Array<double, 2, 2> dotModelFiber = ndarray::allocate(
+                _numKernelParams + 1, _numKernelParams + 1
+            );
+            std::size_t iIdx = 0;
+            for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iIdx) {
+                FiberModel const& iModel = data.kernelModels[fiberIndex][iIdx];
+                auto const& iWeightedValues = data.kernelWeightedValues[fiberIndex][iIdx];
+                std::size_t jIdx = 0;
+                for (int jOffset = -_kernelHalfWidth; jOffset <= _kernelHalfWidth; ++jOffset, ++jIdx) {
+                    FiberModel const& jModel = data.kernelModels[jFiberIndex][jIdx];
+                    auto const& jWeightedValues = data.kernelWeightedValues[jFiberIndex][jIdx];
+                    dotModelFiber[iIdx][jIdx] = iModel.dotOther(
+                        jModel, data.weight, iWeightedValues, jWeightedValues
+                    );
+                }
             }
             dotModel.push_back(std::move(dotModelFiber));
         }
@@ -967,6 +1035,28 @@ struct FiberKernelFitter {
         ndarray::Array<double, 1, 1> const& dotDataArray = data.dotData[fiberIndex];
         ndarray::Array<double, 1, 1> const& dotBackgroundArray = data.dotBackground[fiberIndex];
 
+        // Precompute per-overlapping-fiber data to improve cache access patterns.
+        // For vector_cross: column _kernelHalfWidth of dotModel matrix (strided → sequential).
+        // For matrix_kernel_kernel: flux product.
+        struct OverlapCache {
+            std::size_t jFiberIndex;
+            double fluxProduct;  // iFlux * jFlux
+            std::vector<double> crossCol;  // dotModel[*][_kernelHalfWidth], length numKernelParams+1
+        };
+        std::vector<OverlapCache> overlapCache;
+        overlapCache.reserve(data.overlaps[fiberIndex].size());
+        {
+            auto _t = timer("vector_cross");
+            for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
+                double const jFlux = flux[jFiberIndex];
+                std::vector<double> col(_numKernelParams + 1);
+                for (std::size_t idx = 0; idx <= _numKernelParams; ++idx) {
+                    col[idx] = getDotModel(data, fiberIndex, jFiberIndex, idx, _kernelHalfWidth);
+                }
+                overlapCache.push_back({jFiberIndex, iFlux*jFlux, std::move(col)});
+            }
+        }
+
         std::size_t iIndex = 0;
         std::size_t iKernel = 0;
         for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iIndex, ++iKernel) {
@@ -978,15 +1068,12 @@ struct FiberKernelFitter {
             vector[iKernel] += iFlux*dotData;  // F_i(y) K_i(x,y) dot Image
             matrix[iKernel][bgIndex] += iFlux*dotBackgroundArray[iIndex];
 
-            // Subtracting sum_j F_j(y).p_j(x,y) dot F_i(y).K_i(x,y) from the vector
+            // Subtracting sum_j F_j(y).p_j(x,y) dot F_i(y).K_i(x,y) from the vector.
+            // Uses precomputed sequential crossCol instead of strided dotModel column access.
             {
                 auto _t = timer("vector_cross");
-                for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
-                    double const jFlux = flux[jFiberIndex];
-                    double const dotModel = getDotModel(
-                        data, fiberIndex, jFiberIndex, iIndex, _kernelHalfWidth
-                    );
-                    vector[iKernel] -= dotModel*iFlux*jFlux;
+                for (auto const& entry : overlapCache) {
+                    vector[iKernel] -= entry.crossCol[iIndex] * entry.fluxProduct;
                 }
             }
 
@@ -994,9 +1081,7 @@ struct FiberKernelFitter {
             // We accumulate only the upper triangle (jKernel >= iKernel),
             // but include all ordered fiber pairs for the full normal equations.
             auto _t = timer("matrix_kernel_kernel");
-            for (std::size_t jFiberIndex : data.overlaps[fiberIndex]) {
-                double const jFlux = flux[jFiberIndex];
-
+            for (auto const& entry : overlapCache) {
                 std::size_t jIndex = iIndex;
                 std::size_t jKernel = iKernel;
                 for (int jOffset = iOffset; jOffset <= _kernelHalfWidth; ++jOffset, ++jIndex, ++jKernel) {
@@ -1004,10 +1089,10 @@ struct FiberKernelFitter {
                         --jKernel;
                         continue;
                     }
-
-                    double const dotKernel = getDotModel(data, fiberIndex, jFiberIndex, iIndex, jIndex);
-                    // F_i(y).K_j(x,y) dot F_i(y).K_j(x,y)
-                    matrix[iKernel][jKernel] += dotKernel*iFlux*jFlux;
+                    double const dotKernel = getDotModel(
+                        data, fiberIndex, entry.jFiberIndex, iIndex, jIndex
+                    );
+                    matrix[iKernel][jKernel] += dotKernel * entry.fluxProduct;
                 }
             }
         }
@@ -1075,11 +1160,10 @@ struct FiberKernelFitter {
             for (std::size_t jj = 0; jj < _numFibers; ++jj) {
                 calculateFiber(yy, jj, data);
             }
-            auto const img = ndarray::asEigenArray(_image.getImage()->getArray()[yy]);
-            auto const msk = ndarray::asEigenArray(data.usePixel);
-            auto const var = ndarray::asEigenArray(_image.getVariance()->getArray()[yy]);
-            data.sumImage = msk.select(img/var, 0.0).template cast<double>().sum();
-            data.sumOne = msk.select(1.0/var, 0.0).template cast<double>().sum();
+            auto const img = ndarray::asEigenArray(_image.getImage()->getArray()[yy]).template cast<double>();
+            auto const iw = ndarray::asEigenArray(data.weight);
+            data.sumImage = (iw * img).sum();
+            data.sumOne = iw.sum();
             result.push_back(std::move(data));
         }
         return result;
@@ -1119,64 +1203,44 @@ struct FiberKernelFitter {
         // model_i dot (image - bg) = p_i dot (image - bg) + sum_I K_I dot (image - bg)
         //                          = p_i dot image - bg.sum(p_i) + sum_I K_I dot image - bg.sum_I(K_I)
 
-        // Calculate model dot data
+        // Build augmented kernel vector k of size (nK+1).
+        // k[i] = kernelSolution[i] for i < hw, k[hw] = 0, k[i] = kernelSolution[i-1] for i > hw.
+        // Setting k[hw]=0 lets us use the full matrix quadratic form: k^T*M*k naturally skips
+        // the center row/column because those contributions are multiplied by k[hw]=0.
+        int const hw = _kernelHalfWidth;
+        int const nK = _numKernelParams;
+        Eigen::VectorXd k = Eigen::VectorXd::Zero(nK + 1);
+        for (int ii = 0; ii < hw; ++ii) k[ii] = kernelSolution[ii];
+        for (int ii = hw + 1; ii <= nK; ++ii) k[ii] = kernelSolution[ii - 1];
+
+        // k_full is like k but with k_full[hw]=1, representing the p_i contribution.
+        Eigen::VectorXd k_full = k;
+        k_full[hw] = 1.0;
+
+        // Calculate model dot data using vectorized dot product
         ndarray::Array<double, 1, 1> const& dotData = data.dotData[fiberIndex];
         ndarray::Array<double, 1, 1> const& dotBackground = data.dotBackground[fiberIndex];
-        double modelDotData = 0.0;
         double const bg = kernelSolution[_numParams - 1];
-        std::size_t offsetIndex = 0;
-        std::size_t kernelIndex = 0;
-        for (int offset = -_kernelHalfWidth; offset <= _kernelHalfWidth; ++offset, ++offsetIndex, ++kernelIndex) {
-            if (offset == 0) {
-                modelDotData += dotData[offsetIndex];  // p_i dot data
-                vector[iIndex] -= bg*dotBackground[_kernelHalfWidth];
-                --kernelIndex;
-                continue;
-            }
-            modelDotData += kernelSolution[kernelIndex]*dotData[offsetIndex];  // K_I dot data
-            vector[iIndex] -= bg*kernelSolution[kernelIndex]*dotBackground[offsetIndex];
+        auto const dd = Eigen::Map<const Eigen::VectorXd>(dotData.getData(), nK + 1);
+        auto const db = Eigen::Map<const Eigen::VectorXd>(dotBackground.getData(), nK + 1);
+        vector[iIndex] += k_full.dot(dd - bg*db);
 
-        }
-        vector[iIndex] += modelDotData;
-
-        // Calculate model dot model
+        // Calculate model dot model using Eigen quadratic form.
+        // modelDotModel = M(hw,hw) + k.col(hw) + row(hw).k + k^T*M*k
+        // where k[hw]=0 zeroes all center-row/column contributions.
+        using EMatrix = Eigen::Map<
+            const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
         std::size_t const numOverlaps = data.dotModel[fiberIndex].size();
         for (std::size_t jj = 0, jFiberIndex = fiberIndex; jj < numOverlaps; ++jj, ++jFiberIndex) {
             if (!data.useTrace[jFiberIndex]) {
                 continue;
             }
             std::size_t jIndex = getFluxIndex(rowNum, jFiberIndex);
-            ndarray::Array<double, 2, 2> const& dotModel = data.dotModel[fiberIndex][jj];
-
-            double modelDotModel = dotModel[_kernelHalfWidth][_kernelHalfWidth];
-
-            std::size_t iOffsetIndex = 0;
-            std::size_t iKernelIndex = 0;
-            for (int iOffset = -_kernelHalfWidth; iOffset <= _kernelHalfWidth; ++iOffset, ++iOffsetIndex, ++iKernelIndex) {
-                if (iOffset == 0) {
-                    --iKernelIndex;
-                    continue;
-                }
-
-                double const iKernel = kernelSolution[iKernelIndex];
-                modelDotModel += iKernel*dotModel[iOffsetIndex][_kernelHalfWidth];  // K_i dot p_j
-                modelDotModel += iKernel*dotModel[_kernelHalfWidth][iOffsetIndex];  // p_i dot K_j
-
-                std::size_t jOffsetIndex = 0;
-                std::size_t jKernelIndex = 0;
-                for (
-                    int jOffset = -_kernelHalfWidth;
-                    jOffset <= _kernelHalfWidth;
-                    ++jOffset, ++jOffsetIndex, ++jKernelIndex
-                ) {
-                    if (jOffset == 0) {
-                        --jKernelIndex;
-                        continue;
-                    }
-                    double const jKernel = kernelSolution[jKernelIndex];
-                    modelDotModel += iKernel*jKernel*dotModel[iOffsetIndex][jOffsetIndex];  // K_i dot K_j
-                }
-            }
+            EMatrix M(data.dotModel[fiberIndex][jj].getData(), nK + 1, nK + 1);
+            double const modelDotModel = M(hw, hw)
+                + k.dot(M.col(hw))      // K_i dot p_j
+                + M.row(hw).dot(k)      // p_i dot K_j
+                + k.dot(M * k);         // K_i dot K_j
             matrix.add(iIndex, jIndex, modelDotModel);
             if (iIndex != jIndex) {
                 matrix.add(jIndex, iIndex, modelDotModel);
@@ -1245,10 +1309,8 @@ struct FiberKernelFitter {
         ndarray::Array<double, 1, 1> kernel = utils::arrayFilled<double, 1, 1>(_numParams, 0.0);
         ndarray::Array<double, 2, 2> flux = fitFlux(data, kernel);
 
-        std::vector<ndarray::Array<double, 1, 1>> kernelHistory;
-        std::vector<ndarray::Array<double, 1, 1>> fluxHistory;
-        kernelHistory.reserve(andersonDepth + 2);
-        fluxHistory.reserve(andersonDepth + 2);
+        std::deque<ndarray::Array<double, 1, 1>> kernelHistory;
+        std::deque<ndarray::Array<double, 1, 1>> fluxHistory;
 
         bool converged = false;
         double delta = 0.0;
@@ -1288,8 +1350,8 @@ struct FiberKernelFitter {
             kernelHistory.push_back(fluxVector);
             fluxHistory.push_back(fluxResidual);
             if (kernelHistory.size() > std::size_t(andersonDepth + 1)) {
-                kernelHistory.erase(kernelHistory.begin());
-                fluxHistory.erase(fluxHistory.begin());
+                kernelHistory.pop_front();
+                fluxHistory.pop_front();
             }
 
             ndarray::Array<double, 1, 1> nextFluxVector = ndarray::copy(newFluxVector);
@@ -1480,12 +1542,6 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
             continue;
         }
 
-#if 0
-        if (yy != 0) {
-            continue;
-        }
-#endif
-
         ndarray::asEigenArray(usePixels) = ndarray::asEigenArray(
             target.getMask()->getArray()[yy]
         ).unaryExpr([badBitMask](auto const& mask) { return (mask & badBitMask) == 0; });
@@ -1507,8 +1563,16 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
         ndarray::Array<float, 1, 1> variance = ndarray::copy(target.getVariance()->getArray()[yy]);
         ndarray::asEigenArray(variance) += ndarray::asEigenArray(source.getVariance()->getArray()[yy]);
 
+        // Precompute weight = 1/variance for good pixels, else 0
+        ndarray::Array<double, 1, 1> weight = ndarray::allocate(source.getWidth());
+        for (int xx = 0; xx < source.getWidth(); ++xx) {
+            weight[xx] = usePixels[xx] ? 1.0/variance[xx] : 0.0;
+        }
+
         std::vector<FiberModel> kernelModels;  // [offsetIndex]
+        std::vector<ndarray::Array<double, 1, 1>> kernelWeightedValues;  // [offsetIndex]
         kernelModels.reserve(numParams);
+        kernelWeightedValues.reserve(numParams);
         // Build source model from full image to provide full support for kernel shifts.
         // Fit pixels remain restricted to the original box via usePixels.
         FiberModel sourceModel = FiberModel::fromImage(
@@ -1518,7 +1582,9 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
             if (offset == 0) {
                 continue;
             }
-            kernelModels.emplace_back(std::move(sourceModel.applyOffset(offset, source.getWidth())));
+            FiberModel km = sourceModel.applyOffset(offset, source.getWidth());
+            kernelWeightedValues.emplace_back(km.makeWeights());
+            kernelModels.emplace_back(std::move(km));
         }
 
         // Model is:
@@ -1538,8 +1604,9 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
                 continue;
             }
             FiberModel const& iModel = kernelModels[iIndex];
-            vector[iIndex] += iModel.dotData(image, usePixels, variance);
-            matrix[iIndex][iIndex] += iModel.dotSelf(usePixels, variance);
+            auto const& iWeightedValues = kernelWeightedValues[iIndex];
+            vector[iIndex] += iModel.dotData(image, weight, iWeightedValues);
+            matrix[iIndex][iIndex] += iModel.dotSelf(weight, iWeightedValues);
 
             std::size_t jIndex = iIndex + 1;
             for (int jOffset = iOffset + 1; jOffset <= kernelHalfWidth; ++jOffset, ++jIndex) {
@@ -1548,7 +1615,7 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
                     continue;
                 }
                 FiberModel const& jModel = kernelModels[jIndex];
-                matrix[iIndex][jIndex] += iModel.dotOther(jModel, usePixels, variance);
+                matrix[iIndex][jIndex] += iModel.dotOther(jModel, weight, iWeightedValues, kernelWeightedValues[jIndex]);
             }
         }
     }
