@@ -2726,7 +2726,7 @@ def plotFocus(opdb, visits, agcData=None,
         nX = 1
 
     if axes is None:
-        figure, axes = plt.subplots(nY, nX, num=figure, sharex=True, sharey=True,
+        figure, axes = plt.subplots(nY, nX, num=figure, sharex=True, sharey=False,
                                     height_ratios=height_ratios, squeeze=False)
     else:
         assert axes.shape == (nY, nX), f"I need {(nY, nX)} axes; you gave me {axes.shape}"
@@ -2907,8 +2907,8 @@ def plotFocus(opdb, visits, agcData=None,
     # -------------
 
     if showFWHM:
-        ax = axes[ai, aj]
-        ai += 1
+        ai += 1                         # advance to the next unused axis row
+        ax = axes[ai, 0]
 
         x = agcData[what]
 
