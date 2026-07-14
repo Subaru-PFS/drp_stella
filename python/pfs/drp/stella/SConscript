@@ -30,6 +30,7 @@ scripts.BasicSConscript.pybind11(
      'OpticalModel',
      'OpticalModelDetectorMap',
      'warp',
+     'FiberKernel',
      ],
     addUnderscore=False
 )
