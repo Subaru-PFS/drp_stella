@@ -2689,7 +2689,7 @@ def plotFocus(opdb, visits, agcData=None,
     if len(visitsInData) and visitsInData.max() < 122129:
         # Kawanomoto-san used to use 4*(a**2 + b**2) rather than (a**2 + b**2) in the focus code;
         # this was a bug (INSTRM-2501), fixed on 2025-03-23
-        for c in range(0, 6):
+        for c in range(0, 7):
             if c == 0:
                 c = ""
             agcData[f"guide_delta_z{c}"] = focusOffset + (agcData[f"guide_delta_z{c}"] - focusOffset)/4
