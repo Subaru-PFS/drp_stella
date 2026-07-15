@@ -14,7 +14,7 @@ from ..centroidLines import CentroidLinesTask
 from ..centroidTraces import CentroidTracesTask
 from ..datamodel import PfsConfig
 from ..DetectorMapContinued import DetectorMap
-from ..fitDistortedDetectorMap import FittingError
+from ..fitDetectorMap import FittingError
 from ..readLineList import ReadLineListTask
 
 __all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask")

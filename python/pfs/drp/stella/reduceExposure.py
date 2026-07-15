@@ -55,7 +55,7 @@ from .screen import ScreenResponseTask
 from .barycentricCorrection import calculateBarycentricCorrection
 from .pipelines.lookups import lookupFiberNorms
 from .applyFluxCal import applyFiberNorms
-from .fitDistortedDetectorMap import FittingError
+from .fitDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
 from .focalPlaneFunction import ConstantPerFiber
@@ -380,7 +380,7 @@ class ReduceExposureTask(PipelineTask):
             exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
         )
 
-        lsf = self.defaultLsf(arm, pfsConfig.fiberId, detectorMap)
+        lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
 
         fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
         spectra = self.extractSpectra.run(
