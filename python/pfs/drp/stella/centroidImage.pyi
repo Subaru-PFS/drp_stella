@@ -1,0 +1,16 @@
+from typing import overload
+from lsst.afw.detection import Psf
+from lsst.afw.image import ExposureF, ImageD, MaskedImageF
+from lsst.geom import Point2D, Point2I
+
+
+def findPeak(
+    image: MaskedImageF, center: Point2D, halfWidth: int, badBitMask: int = 0
+) -> Point2I: ...
+def centroidExposure(exposure: ExposureF, point: Point2D) -> Point2D: ...
+@overload
+def centroidImage(image: ImageD, psf: Psf) -> Point2D: ...
+@overload
+def centroidImage(image: ImageD, sigma: float, nSigma: float = 3.0) -> Point2D: ...
+@overload
+def centroidImage(image: ImageD, nSigma: float = 3.0) -> Point2D: ...
