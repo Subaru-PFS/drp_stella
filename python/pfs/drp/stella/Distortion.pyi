@@ -9,6 +9,7 @@ import pfs.datamodel
 __all__ = ("Distortion",)
 
 class Distortion:
+    def clone(self) -> "Distortion": ...
     @classmethod
     def register(cls, SubClass: type): ...
     @classmethod
