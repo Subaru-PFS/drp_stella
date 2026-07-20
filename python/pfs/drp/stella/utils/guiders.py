@@ -2826,7 +2826,7 @@ def plotFocus(opdb, visits, agcData=None,
                     deltaMxx1D = _focus.rms[_focus.left].to_numpy()**2 - \
                         _focus.rms[~_focus.left].to_numpy()**2
                     focusError = mmToMicrons*MomentDifferenceToMmPiston(deltaMxx1D,
-                                                                       includePistonCorrection=False)
+                                                                        includePistonCorrection=False)
                     focusErrors[ic] = focusError
 
                     xx = x[_focus.left]
