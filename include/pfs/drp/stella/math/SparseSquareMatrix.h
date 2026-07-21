@@ -76,6 +76,17 @@ class MatrixTriplets {
     }
     //@}
 
+    /// Get a matrix element
+    ElemT get(IndexT row, IndexT col) const {
+        _checkIndex(row, col);
+        auto const& map = _triplets[row];
+        auto iter = map.find(col);
+        if (iter == map.end()) {
+            return 0.0;
+        }
+        return iter->second;
+    }
+
     /// Clear the list of triplets
     void clear() {
         _triplets.clear();
@@ -215,6 +226,10 @@ class SparseSquareMatrix {
         typename SparseSquareMatrix<symmetric>::Matrix,
         Eigen::NaturalOrdering<typename SparseSquareMatrix<symmetric>::IndexT>
     >;
+    using SimplicialLDLTSolver = Eigen::SimplicialLDLT<typename SparseSquareMatrix<symmetric>::Matrix>;
+    using SimplicialLDLTSolverUpper = Eigen::SimplicialLDLT<
+        typename SparseSquareMatrix<symmetric>::Matrix, Eigen::Upper
+    >;
 
     /// Ctor
     ///
@@ -255,6 +270,10 @@ class SparseSquareMatrix {
             throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index j < i for symmetric matrix");
         }
         _triplets.add(ii, jj, value);
+    }
+
+    ElemT get(IndexT ii, IndexT jj) {
+        return _triplets.get(ii, jj);
     }
 
     //@{
@@ -308,6 +327,92 @@ class SparseSquareMatrix {
         }
     }
     //@}
+
+    void solveNonnegative(
+        ndarray::Array<ElemT, 1, 1> & solution,
+        ndarray::Array<ElemT, 1, 1> const& rhs,
+        ndarray::Array<bool, 1, 1> const& requireNonnegative=ndarray::Array<bool, 1, 1>(),
+        double stepSize = 1.0,
+        int maxIter = 1000,
+        double tol = 1.0e-6
+    ) {
+        utils::checkSize(solution.size(), std::size_t(_num), "solution");
+        utils::checkSize(rhs.size(), std::size_t(_num), "rhs");
+        if (!requireNonnegative.empty()) {
+            utils::checkSize(requireNonnegative.size(), std::size_t(_num), "requireNonnegative");
+        }
+
+        for (IndexT ii = 0; ii < _num; ++ii) {
+            if (requireNonnegative.empty() || requireNonnegative[ii]) {
+                solution[ii] = std::max(solution[ii], 0.0);
+            }
+        }
+
+        Matrix matrix{_num, _num};
+        matrix.setFromTriplets(_triplets.begin(), _triplets.end());
+        matrix.makeCompressed();
+
+#if 0
+        Matrix qq = matrix.transpose() * matrix;
+        qq /= qq.norm();
+        Matrix identity(_num, _num);
+        identity.setIdentity();
+        qq = identity - qq;
+        Eigen::VectorXd pp = (matrix.transpose() * ndarray::asEigenMatrix(rhs)) / qq.norm();
+#else
+        Matrix qq = matrix.selfadjointView<Eigen::Upper>();
+        double const norm = qq.norm();
+        qq /= norm;
+
+        Eigen::VectorXd pp = ndarray::asEigenMatrix(rhs)/norm;
+#endif
+
+        Eigen::VectorXd xx = ndarray::asEigenArray(solution);
+        Eigen::VectorXd yy = xx;
+        Eigen::VectorXd last = xx;
+        double lastObj = std::numeric_limits<double>::max();
+        double kk = 1.0;
+
+        for (int iter = 0; iter < maxIter; ++iter) {
+            double const beta = (double(kk) - 1)/(double(kk) + 2);
+            yy = xx + beta * (xx - last);
+            xx = yy - (qq*yy - pp);
+            for (IndexT ii = 0; ii < _num; ++ii) {
+                if (requireNonnegative.empty() || requireNonnegative[ii]) {
+                    xx[ii] = std::max(xx[ii], 0.0);
+                }
+            }
+
+            double const obj = 0.5*(xx.dot(qq*xx)) - pp.dot(xx);
+            double const change = (xx - last).norm()/std::max(1.0, xx.norm());
+            std::cerr << "Iter " << iter << " obj: " << obj << " change: " << change << std::endl;
+            if (change < tol) {
+                ndarray::asEigenArray(solution) = xx;
+                return;
+            }
+            if (obj > lastObj) {
+                std::cerr << "Restarting" << std::endl;
+                // Restart
+                xx = qq*xx - pp;
+                for (IndexT ii = 0; ii < _num; ++ii) {
+                    if (requireNonnegative.empty() || requireNonnegative[ii]) {
+                        xx[ii] = std::max(xx[ii], 0.0);
+                    }
+                }
+                yy = xx;
+                last = xx;
+                kk = 1.0;
+                continue;
+            }
+
+            last = xx;
+            kk += 1.0;
+            lastObj = obj;
+        }
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::RuntimeError, "Non-negative least squares failed to converge"
+        );
+    }
 
     /// Reset the matrix to zero
     void reset() {

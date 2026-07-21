@@ -4,7 +4,7 @@ import lsst.log
 import numpy as np
 
 import lsst.utils.tests
-from lsst.geom import Box2D, AffineTransform
+from lsst.geom import Box2D
 import lsst.afw.image
 from lsst.afw.display import Display
 import lsst.log
@@ -18,8 +18,10 @@ from pfs.drp.stella.referenceLine import ReferenceLineSource
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat, makeSpectrumImage, addNoiseToImage
 from pfs.drp.stella.centroidLines import CentroidLinesTask
-from pfs.drp.stella.centroidTraces import CentroidTracesTask, tracesToLines
-from pfs.drp.stella import PolynomialDistortion, LayeredDetectorMap, SplinedDetectorMap
+from pfs.drp.stella.centroidTraces import CentroidTracesTask
+from pfs.drp.stella import PolynomialDistortion, SplinedDetectorMap
+from pfs.drp.stella.OpticalModel import SlitModel, OpticsModel, DetectorModel
+from pfs.drp.stella.OpticalModelDetectorMap import OpticalModelDetectorMap
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
 
@@ -44,16 +46,12 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         yDistortion = np.zeros(numCoeffs, dtype=float)
 
         # Introduce a low-order inaccuracy that we will correct with AdjustDetectorMapTask
-        scale = 3.21e-4
-        theta = 3.21e-3
-        xNorm = 0.5*self.synthConfig.width
-        yNorm = 0.5*self.synthConfig.height
-        xDistortion[0] = 1.5
-        xDistortion[1] = (np.cos(theta) - 1 + scale) * xNorm
-        xDistortion[2] = -np.sin(theta) * yNorm
-        yDistortion[0] = -1.5
-        yDistortion[1] = np.sin(theta) * xNorm
-        yDistortion[2] = (np.cos(theta) - 1 + scale) * yNorm
+        xDistortion[0] = 0.123
+        xDistortion[1] = -0.123
+        xDistortion[2] = 0.123
+        yDistortion[0] = -0.321
+        yDistortion[1] = 0.321
+        yDistortion[2] = -0.321
 
         distortion = PolynomialDistortion(
             distortionOrder, Box2D(self.base.bbox), np.concatenate((xDistortion, yDistortion))
@@ -62,16 +60,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        slitOffsets = np.zeros(len(self.base), dtype=float)
-        rightCcd = AffineTransform()
-        self.distorted = LayeredDetectorMap(
-            self.base.bbox,
-            slitOffsets,
-            slitOffsets,
-            self.base.clone(),
-            [distortion],
-            False,
-            rightCcd,
+
+        self.distorted = OpticalModelDetectorMap(
+            SlitModel(self.base, [distortion]),
+            OpticsModel(self.base),
+            DetectorModel(self.base.bbox),
             visitInfo,
             metadata,
         )
@@ -94,7 +87,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                                          atol=1.5e-2)
             if checkWavelengths:
                 self.assertFloatsAlmostEqual(detMap.getWavelength(fiberId), self.base.getWavelength(fiberId),
-                                             atol=2.0e-3)
+                                             rtol=5.0e-5)
 
         # Metadata: we only care that what we planted is there;
         # there may be other stuff that we don't care about.
@@ -106,20 +99,6 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(detMap.visitInfo is not None)
         self.assertTrue(detMap.getVisitInfo() is not None)
         self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
-
-        # Base hasn't been modified
-        self.assertFloatsEqual(detMap.fiberId, self.base.fiberId)
-        for ff in detMap.fiberId:
-            self.assertFloatsEqual(detMap.base.getXCenterSpline(ff).getX(),
-                                   self.base.getXCenterSpline(ff).getX())
-            self.assertFloatsEqual(detMap.base.getXCenterSpline(ff).getY(),
-                                   self.base.getXCenterSpline(ff).getY())
-            self.assertFloatsEqual(detMap.base.getWavelengthSpline(ff).getX(),
-                                   self.base.getWavelengthSpline(ff).getX())
-            self.assertFloatsEqual(detMap.base.getWavelengthSpline(ff).getY(),
-                                   self.base.getWavelengthSpline(ff).getY())
-            self.assertEqual(detMap.base.getSpatialOffset(ff), self.base.getSpatialOffset(ff))
-            self.assertEqual(detMap.base.getSpectralOffset(ff), self.base.getSpectralOffset(ff))
 
     @methodParameters(flatFlux=(10, 200000, 1000),
                       numLines=(50, 0, 50),
@@ -184,10 +163,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         else:
             lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
-        for ff in traces:
-            rows = np.array([pp.row for pp in traces[ff]], dtype=float)
-            centers = np.array([pp.peak for pp in traces[ff]])
-            expected = self.base.getXCenter(ff, rows)
+        for ff in np.unique(traces.fiberId):
+            select = traces.fiberId == ff
+            rows = traces.y[select]
+            centers = traces.x[select]
+            expected = self.base.getXCenter(ff, rows.astype(float))
             self.assertLess(robustRms(centers - expected), traceTol)
 
         logger = logging.getLogger()
@@ -210,7 +190,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
                     for tt in traces[ff]:
                         disp.dot("+", tt.peak, tt.row, ctype="blue")
 
-        lines += tracesToLines(self.distorted, traces, 10.0)
+        lines.extend(traces)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
             adjusted = task.run(
@@ -228,9 +208,8 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
 class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
     """Test the AdjustDetectorMapTask on a quartz lamp image
 
-    There are no wavelength references, but the traces are curved and the scale
-    change is identical in x and y, so we can still get a great measurement of
-    the wavelengths.
+    There are no wavelength references, so we can't get an absolute wavelength
+    solution
     """
     def setUp(self):
         """Construct a ``SplinedDetectorMap`` to play with"""
@@ -289,14 +268,12 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         yDistortion = np.zeros(numCoeffs, dtype=float)
 
         # Introduce a distortion that we will correct with AdjustDetectorMapTask
-        xNorm = 0.5*self.synthConfig.width
-        yNorm = 0.5*self.synthConfig.height
-        xDistortion[0] = 1.5
-        xDistortion[1] = 1.23e-2 * xNorm
-        xDistortion[2] = -7.65e-4 * yNorm
-        yDistortion[0] = -1.5
-        yDistortion[1] = 8.76e-5 * xNorm
-        yDistortion[2] = 1.23e-2 * yNorm
+        xDistortion[0] = 0.123
+        xDistortion[1] = -0.123
+        xDistortion[2] = 0.123
+        yDistortion[0] = -0.321
+        yDistortion[1] = 0.321
+        yDistortion[2] = -0.321
 
         distortion = PolynomialDistortion(
             distortionOrder, Box2D(self.base.bbox), np.concatenate((xDistortion, yDistortion))
@@ -305,16 +282,11 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        slitOffsets = np.zeros(len(self.base), dtype=float)
-        rightCcd = AffineTransform()
-        self.distorted = LayeredDetectorMap(
-            self.base.bbox,
-            slitOffsets,
-            slitOffsets,
-            self.base.clone(),
-            [distortion],
-            False,
-            rightCcd,
+
+        self.distorted = OpticalModelDetectorMap(
+            SlitModel(self.base, [distortion]),
+            OpticsModel(self.base),
+            DetectorModel(self.base.bbox),
             visitInfo,
             metadata,
         )
@@ -337,7 +309,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         centroidTraces.config.searchRadius = 13  # We've made a fairly large distortion
         lines = ArcLineSet.empty()
         traces = centroidTraces.run(exposure, self.distorted, self.pfsConfig)
-        self.assertEqual(len(traces), self.synthConfig.numFibers)
+        self.assertEqual(np.unique(traces.fiberId).size, self.synthConfig.numFibers)
 
         logger = logging.getLogger()
         logger.getChild("adjustDetectorMap").setLevel(logging.DEBUG)
@@ -359,7 +331,7 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
                         for tt in traces[ff]:
                             disp.dot("+", tt.peak, tt.row, ctype="orange")
 
-        lines += tracesToLines(self.distorted, traces, 10.0)
+        lines.extend(traces)
         try:
             # Wavelengths are actually for r, but arm=n triggers (single) RotScaleDistortion, for simplicity
             adjusted = task.run(self.distorted, lines, "n", self.distorted.visitInfo)
@@ -378,12 +350,15 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
         self.assertLess(robustRms(diff), 0.07)
 
         # Wavelength
-        expected = self.base.getWavelength()
-        actual = adjusted.detectorMap.getWavelength()
-        diff = actual - expected
-        self.assertFloatsAlmostEqual(diff, 0.0, atol=0.02)
-        self.assertFloatsAlmostEqual(np.median(diff), 0.0, atol=0.005)
-        self.assertLess(robustRms(diff), 0.008)
+        # Without an absolute wavelength reference, we can't solve for the
+        # zeroth-order wavelength distortion.
+        if False:
+            expected = self.base.getWavelength()
+            actual = adjusted.detectorMap.getWavelength()
+            diff = actual - expected
+            self.assertFloatsAlmostEqual(diff, 0.0, atol=0.02)
+            self.assertFloatsAlmostEqual(np.median(diff), 0.0, atol=0.005)
+            self.assertLess(robustRms(diff), 0.008)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

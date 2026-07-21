@@ -13,8 +13,8 @@ namespace utils {
 
 /// Convert an ndarray::Array from one type to another
 template <typename T, typename U, int N, int C>
-ndarray::Array<T, N, C> convertArray(ndarray::Array<U, N, C> const& array) {
-    ndarray::Array<T, N, C> out = ndarray::allocate(array.getShape());
+ndarray::Array<T, N, N> convertArray(ndarray::Array<U, N, C> const& array) {
+    ndarray::Array<T, N, N> out = ndarray::allocate(array.getShape());
     std::copy(array.begin(), array.end(), out.begin());
     return out;
 }
@@ -180,6 +180,58 @@ ndarray::Array<T, 1, 1> reversed(ndarray::Array<T, 1, 1> const& array) {
     ndarray::Array<T, 1, 1> out = ndarray::allocate(array.size());
     std::reverse_copy(array.begin(), array.end(), out.begin());
     return out;
+}
+
+
+/// Flatten a 2D array to 1D
+template <typename T, int C>
+ndarray::Array<std::remove_const_t<T>, 1, 1> flattenArray(ndarray::Array<T, 2, C> const& array) {
+    auto const shape = array.getShape();
+    std::size_t const numRows = shape[0];
+    std::size_t const numCols = shape[1];
+    ndarray::Array<std::remove_const_t<T>, 1, 1> result = ndarray::allocate(numRows * numCols);
+    for (
+        std::size_t ii = 0, start = 0, end = numCols;
+        ii < numRows;
+        start += numCols, end += numCols, ++ii
+    ) {
+        result[ndarray::view(start, end)] = array[ii];
+    }
+    return result;
+}
+
+
+/// Unflatten a 1D array to 2D
+template <typename T, int C>
+ndarray::Array<std::remove_const_t<T>, 2, 1> unflattenArray(
+    ndarray::Array<T, 1, C> const& array,
+    std::size_t numRows,
+    std::size_t numCols
+) {
+    utils::checkSize(array.size(), numCols*numRows, "array size vs numCols*numRows");
+    ndarray::Array<std::remove_const_t<T>, 2, 1> result = ndarray::allocate(numRows, numCols);
+    for (
+        std::size_t ii = 0, start = 0, end = numCols;
+        ii < numRows;
+        start += numCols, end += numCols, ++ii
+    ) {
+        result[ii] = array[ndarray::view(start, end)];
+    }
+    return result;
+}
+
+
+/// Minimum value in an array
+template <typename T, int N, int C>
+std::remove_const_t<T> arrayMin(ndarray::Array<T, N, C> const& array) {
+    return *std::min_element(array.begin(), array.end());
+}
+
+
+/// Maximum value in an array
+template <typename T, int N, int C>
+std::remove_const_t<T> arrayMax(ndarray::Array<T, N, C> const& array) {
+    return *std::max_element(array.begin(), array.end());
 }
 
 

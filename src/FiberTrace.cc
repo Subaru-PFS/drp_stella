@@ -24,7 +24,7 @@ namespace pfs { namespace drp { namespace stella {
 template<typename ImageT, typename MaskT, typename VarianceT>
 FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     MaskedImageT const& trace,
-    std::size_t fiberId
+    int fiberId
 ) : _trace(trace),
     _fiberId(fiberId)
     {}
