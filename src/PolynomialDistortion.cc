@@ -131,12 +131,16 @@ struct FitData {
     //
     // @param range : Box enclosing all x,y coordinates.
     // @param order : Polynomial order.
-    // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t numLines_, std::size_t numTraces_) :
+    // @param numLines_ : Number of arc line measurements.
+    // @param numTrace_ : Number of binned trace measurements.
+    FitData(
+        lsst::geom::Box2D const& range, int order,
+        std::size_t numLines_, std::size_t numTrace_
+    ) :
         poly(order, range),
         numLines(numLines_),
-        numTraces(numTraces_),
-        length(2*numLines + numTraces),
+        numTrace(numTrace_),
+        length(2*numLines + 2*numTrace),
         measurements(ndarray::allocate(length)),
         errors(ndarray::allocate(length)),
         design(ndarray::allocate(length, 2*poly.getNParameters())),
@@ -144,19 +148,17 @@ struct FitData {
         design.deep() = 0.0;
     }
 
-    // Add a point to the design matrix
+    // Add an arc line measurement to the design matrix
+    //
+    // Contributes one row for x and one row for y.
     //
     // @param xy : Point at which to evaluate the polynomial
-    // @param meas : Measured value
-    // @param err : Error in measured value
-    // @param isLine : True if this is a line measurement
-    // @param slope : Slope of the trace
+    // @param meas : Measured residual
+    // @param err : Error in measured residual
     void add(
         lsst::geom::Point2D const& xy,
         lsst::geom::Point2D const& meas,
-        lsst::geom::Point2D const& err,
-        bool isLine,
-        double slope
+        lsst::geom::Point2D const& err
     ) {
         std::size_t const ii = index++;
         assert(ii < length);
@@ -169,19 +171,50 @@ struct FitData {
         measurements[ii] = meas.getX();
         errors[ii] = err.getX();
 
-        // y part of the design matrix
-        if (isLine) {
-            // For a line, the y part is independent of the x part.
-            std::size_t const jj = index++;
-            assert(jj < length);
-            std::copy(terms.begin(), terms.end(), design[jj].begin() + poly.getNParameters());
-            measurements[jj] = meas.getY();
-            errors[jj] = err.getY();
-        } else {
-            // For a trace, the y part is linked to the x part by the slope.
-            auto lhs = design[ii][ndarray::view(poly.getNParameters(), 2*poly.getNParameters())];
-            ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(utils::vectorToArray(terms));
+        // y part of the design matrix (independent of x part)
+        std::size_t const jj = index++;
+        assert(jj < length);
+        std::copy(terms.begin(), terms.end(), design[jj].begin() + poly.getNParameters());
+        measurements[jj] = meas.getY();
+        errors[jj] = err.getY();
+    }
+
+    // Add a binned trace measurement to the design matrix
+    //
+    // Contributes two rows, both in x-polynomial columns only:
+    //   - one for the position constraint at the bin center
+    //   - one for the slope constraint d(delta_x)/dy
+    //
+    // @param xy : Position at which to evaluate the constraints
+    // @param posMeas : Measured x residual at bin center
+    // @param posErr : Error in x residual
+    // @param slopeMeas : Measured slope residual d(x_resid)/dy
+    // @param slopeErr : Error in slope
+    void addTrace(
+        lsst::geom::Point2D const& xy,
+        double posMeas, double posErr,
+        double slopeMeas, double slopeErr
+    ) {
+        // Position row: x-polynomial only; y-polynomial columns remain zero.
+        std::size_t const ii = index++;
+        assert(ii < length);
+        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
+        std::copy(terms.begin(), terms.end(), design[ii].begin());
+        measurements[ii] = posMeas;
+        errors[ii] = posErr;
+
+        // Slope row: numerical derivative of x-polynomial w.r.t. y.
+        std::size_t const jj = index++;
+        assert(jj < length);
+        auto const termsPlus = poly.getDFuncDParameters(xy.getX(), xy.getY() + 1.0);
+        auto const termsMinus = poly.getDFuncDParameters(xy.getX(), xy.getY() - 1.0);
+        std::size_t const numPoly = poly.getNParameters();
+        for (std::size_t kk = 0; kk < numPoly; ++kk) {
+            design[jj][kk] = 0.5*(termsPlus[kk] - termsMinus[kk]);
         }
+        // y-polynomial columns remain zero; slope constrains delta_y negligibly (s*d(delta_y)/dy, s~0.016).
+        measurements[jj] = slopeMeas;
+        errors[jj] = slopeErr;
     }
 
     // Solve the least-squares problem
@@ -202,9 +235,9 @@ struct FitData {
     }
 
     PolynomialDistortion::Polynomial poly;  // Polynomial used for calculating design
-    std::size_t numLines;  // Number of lines
-    std::size_t numTraces;  // Number of traces
-    std::size_t length;  // Number of measurements
+    std::size_t numLines;  // Number of arc line measurements
+    std::size_t numTrace;  // Number of binned trace measurements
+    std::size_t length;  // Total number of design matrix rows
     Array1D measurements;  // Measurements
     Array1D errors;  // Errors in measurements
     Array2D design;  // Design matrix
@@ -226,33 +259,41 @@ PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     ndarray::Array<double, 1, 1> const& yMeas,
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<bool, 1, 1> const& isLine,
-    ndarray::Array<double, 1, 1> const& slope,
     double threshold,
     ndarray::Array<bool, 1, 1> const& forced,
-    ndarray::Array<double, 1, 1> const& params
+    ndarray::Array<double, 1, 1> const& params,
+    ndarray::Array<double, 1, 1> const& xTrace,
+    ndarray::Array<double, 1, 1> const& yTrace,
+    ndarray::Array<double, 1, 1> const& tracePos,
+    ndarray::Array<double, 1, 1> const& tracePosErr,
+    ndarray::Array<double, 1, 1> const& traceSlope,
+    ndarray::Array<double, 1, 1> const& traceSlopeErr
 ) {
-    using Array1D = PolynomialDistortion::Array1D;
-    using Array2D = PolynomialDistortion::Array2D;
-    std::size_t const length = xx.size();
-    utils::checkSize(yy.size(), length, "y");
-    utils::checkSize(xMeas.size(), length, "xMeas");
-    utils::checkSize(yMeas.size(), length, "yMeas");
-    utils::checkSize(xErr.size(), length, "xErr");
-    utils::checkSize(yErr.size(), length, "yErr");
+    std::size_t const numLines = xx.size();
+    utils::checkSize(yy.size(), numLines, "y");
+    utils::checkSize(xMeas.size(), numLines, "xMeas");
+    utils::checkSize(yMeas.size(), numLines, "yMeas");
+    utils::checkSize(xErr.size(), numLines, "xErr");
+    utils::checkSize(yErr.size(), numLines, "yErr");
 
-    std::size_t const numLines = std::count(isLine.begin(), isLine.end(), true);
-    std::size_t const numTraces = length - numLines;
+    std::size_t const numTrace = xTrace.size();
+    utils::checkSize(yTrace.size(), numTrace, "yTrace");
+    utils::checkSize(tracePos.size(), numTrace, "tracePos");
+    utils::checkSize(tracePosErr.size(), numTrace, "tracePosErr");
+    utils::checkSize(traceSlope.size(), numTrace, "traceSlope");
+    utils::checkSize(traceSlopeErr.size(), numTrace, "traceSlopeErr");
 
-    FitData fit(range, distortionOrder, numLines, numTraces);
-    for (std::size_t ii = 0; ii < length; ++ii) {
+    FitData fit(range, distortionOrder, numLines, numTrace);
+    for (std::size_t ii = 0; ii < numLines; ++ii) {
         fit.add(
             lsst::geom::Point2D(xx[ii], yy[ii]),
             lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
-            lsst::geom::Point2D(xErr[ii], yErr[ii]),
-            isLine[ii],
-            slope[ii]
+            lsst::geom::Point2D(xErr[ii], yErr[ii])
         );
+    }
+    for (std::size_t ii = 0; ii < numTrace; ++ii) {
+        fit.addTrace(lsst::geom::Point2D(xTrace[ii], yTrace[ii]),
+                     tracePos[ii], tracePosErr[ii], traceSlope[ii], traceSlopeErr[ii]);
     }
 
     auto const solution = fit.getSolution(threshold, forced, params);
