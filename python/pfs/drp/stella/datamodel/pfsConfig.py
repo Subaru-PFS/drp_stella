@@ -1,6 +1,7 @@
 import os
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
+from pfs.utils.pfsConfigFixes import fixPfsConfig
 import pfs.datamodel.pfsConfig
 
 __all__ = ("PfsConfig",)
@@ -18,6 +19,10 @@ class PfsConfig(pfs.datamodel.PfsConfig):
     but necessary.
     """
     fileNameRegex = r"^pfsConfig-(0x[0-9a-f]+)-([0-9]+)\.fits.*"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        fixPfsConfig(self)
 
     @property
     def spectrograph(self):
