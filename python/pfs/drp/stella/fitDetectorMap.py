@@ -269,6 +269,7 @@ class FitDetectorMapConfig(Config):
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
+    numRows = Field(dtype=int, default=20, doc="Number of rows to bin for measuring trace slopes")
     lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
     doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
     slitOffsetIterations = Field(dtype=int, default=2, doc="Number of iterations for measuring slit offsets")
@@ -1134,7 +1135,7 @@ class FitDetectorMapTask(Task):
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       result.xSoften, result.ySoften, used.sum(), numGood - numReserved,
                       getDescriptionCounts(lines.description, used))
-        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
+        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, isLine)
         soften = (self.config.soften, self.config.soften)
         reservedStats = calculateFitStatistics(
             fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
@@ -1182,6 +1183,108 @@ class FitDetectorMapTask(Task):
         if self.debugInfo.residuals:
             self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
         return result
+
+    def measureTraceSlopes(
+        self,
+        fiberId: np.ndarray,
+        xBase: np.ndarray,
+        yBase: np.ndarray,
+        xResid: np.ndarray,
+        xErr: np.ndarray,
+    ) -> Struct:
+        """Measure trace positions and slopes by binning in y.
+
+        For each fiber, bins trace measurements into groups of
+        ``config.numRows`` rows and fits a weighted linear regression
+        ``xResid = a + b*(y - yCenter)`` to each bin.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers for each trace measurement.
+        xBase : `numpy.ndarray` of `float`
+            DetectorMap-predicted x positions.
+        yBase : `numpy.ndarray` of `float`
+            y positions (detectorMap-predicted row).
+        xResid : `numpy.ndarray` of `float`
+            Measured x residuals (measured x - predicted x).
+        xErr : `numpy.ndarray` of `float`
+            Errors in x residuals.
+
+        Returns
+        -------
+        xBase : `numpy.ndarray` of `float`
+            Mean detectorMap x position of each bin.
+        yBase : `numpy.ndarray` of `float`
+            Mean y position (bin center) of each bin.
+        posX : `numpy.ndarray` of `float`
+            Fitted x residual at bin center.
+        posXErr : `numpy.ndarray` of `float`
+            Error in fitted x residual.
+        slopeX : `numpy.ndarray` of `float`
+            Fitted slope d(xResid)/dy at bin center.
+        slopeXErr : `numpy.ndarray` of `float`
+            Error in fitted slope.
+        """
+        numRows = self.config.numRows
+        outXBase = []
+        outYBase = []
+        outPosX = []
+        outPosXErr = []
+        outSlopeX = []
+        outSlopeXErr = []
+
+        for fid in np.unique(fiberId):
+            fMask = fiberId == fid
+            yFiber = yBase[fMask]
+            xBFiber = xBase[fMask]
+            xFiber = xResid[fMask]
+            eFiber = xErr[fMask]
+
+            binIndices = (yFiber / numRows).astype(int)
+            for iBin in np.unique(binIndices):
+                mask = binIndices == iBin
+                yBin = yFiber[mask]
+                xBBin = xBFiber[mask]
+                xBin = xFiber[mask]
+                eBin = eFiber[mask]
+
+                good = np.isfinite(eBin) & (eBin > 0)
+                if good.sum() < 3:
+                    continue
+                yBin = yBin[good]
+                xBBin = xBBin[good]
+                xBin = xBin[good]
+                eBin = eBin[good]
+
+                yCenter = yBin.mean()
+                w = 1.0 / eBin**2
+                dy = yBin - yCenter
+                A = np.column_stack([np.ones(len(yBin)), dy])
+                AtW = A.T * w
+                AtWA = AtW @ A
+                AtWx = AtW @ xBin
+                try:
+                    cov = np.linalg.inv(AtWA)
+                except np.linalg.LinAlgError:
+                    continue
+                params = cov @ AtWx
+
+                outXBase.append(xBBin.mean())
+                outYBase.append(yCenter)
+                outPosX.append(params[0])
+                outPosXErr.append(np.sqrt(cov[0, 0]))
+                outSlopeX.append(params[1])
+                outSlopeXErr.append(np.sqrt(cov[1, 1]))
+
+        return Struct(
+            xBase=np.array(outXBase, dtype=float),
+            yBase=np.array(outYBase, dtype=float),
+            posX=np.array(outPosX, dtype=float),
+            posXErr=np.array(outPosXErr, dtype=float),
+            slopeX=np.array(outSlopeX, dtype=float),
+            slopeXErr=np.array(outSlopeXErr, dtype=float),
+        )
 
     def fitModel(self, bbox, lines, select, weights, soften=None, DistortionClass=None):
         """Fit a model to the arc lines
@@ -1235,21 +1338,33 @@ class FitDetectorMapTask(Task):
             soften = (self.config.soften, self.config.soften)
         xSoften, ySoften = soften
 
+        isLine = lines.description != "Trace"
         xx = lines.x[select].astype(float)
         yy = lines.y[select].astype(float)
         xBase = lines.xBase[select]
         yBase = lines.yBase[select]
-        slope = lines.slope[select]
         with np.errstate(invalid="ignore", divide="ignore"):
             xErr = np.hypot(lines.xErr[select].astype(float), xSoften)/weights[select]
-            yErr = np.where(lines.description[select] == "Trace", np.inf,
-                            np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select])
+            yErr = np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select]
 
-        isLine = lines.description != "Trace"
-        distortion = self.fitModelImpl(
-            Box2D(bbox), xBase, yBase, xx, yy, xErr, yErr, slope, isLine[select], DistortionClass
+        isTrace = ~isLine[select]
+        traceSlopes = self.measureTraceSlopes(
+            lines.fiberId[select][isTrace],
+            xBase[isTrace],
+            yBase[isTrace],
+            (xx - xBase)[isTrace],
+            xErr[isTrace],
         )
-        fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, lines.slope, isLine)
+        lineSelect = isLine[select]
+        distortion = self.fitModelImpl(
+            Box2D(bbox),
+            xBase[lineSelect], yBase[lineSelect],
+            xx[lineSelect], yy[lineSelect],
+            xErr[lineSelect], yErr[lineSelect],
+            DistortionClass,
+            traceSlopes=traceSlopes,
+        )
+        fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, isLine)
 
         return calculateFitStatistics(
             fit, lines, select, distortion.getNumParameters(), soften, True, distortion=distortion
@@ -1264,9 +1379,8 @@ class FitDetectorMapTask(Task):
         yMeas: np.ndarray,
         xErr: np.ndarray,
         yErr: np.ndarray,
-        slope: np.ndarray,
-        isLine: np.ndarray,
         DistortionClass: Type[Distortion],
+        traceSlopes: Optional[Struct] = None,
     ) -> Distortion:
         """Implementation for fitting the distortion model
 
@@ -1278,18 +1392,17 @@ class FitDetectorMapTask(Task):
         bbox : `lsst.geom.Box2D`
             Bounding box for detector.
         xBase, yBase : `numpy.ndarray` of `float`
-            Base position for each line (pixels).
+            Base position for each arc line (pixels).
         xMeas, yMeas : `numpy.ndarray` of `float`
-            Measured position for each line (pixels).
+            Measured position for each arc line (pixels).
         xErr, yErr : `numpy.ndarray` of `float`
-            Error in measured position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``isLine`` is `False`.
-        isLine : `numpy.ndarray` of `bool`
-            Is this point a line? Otherwise, it's a trace.
+            Error in measured position for each arc line (pixels).
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion.
+        traceSlopes : `lsst.pipe.base.Struct`, optional
+            Binned trace slope measurements from ``measureTraceSlopes``.
+            Has fields ``xBase``, ``yBase``, ``posX``, ``posXErr``,
+            ``slopeX``, ``slopeXErr``.
 
         Returns
         -------
@@ -1305,11 +1418,15 @@ class FitDetectorMapTask(Task):
             yMeas,
             xErr,
             yErr,
-            isLine,
-            slope,
             self.config.lsqThreshold,
             self.config.forced or None,
             self.config.parameters or None,
+            xTrace=traceSlopes.xBase if traceSlopes is not None else None,
+            yTrace=traceSlopes.yBase if traceSlopes is not None else None,
+            tracePos=traceSlopes.posX if traceSlopes is not None else None,
+            tracePosErr=traceSlopes.posXErr if traceSlopes is not None else None,
+            traceSlope=traceSlopes.slopeX if traceSlopes is not None else None,
+            traceSlopeErr=traceSlopes.slopeXErr if traceSlopes is not None else None,
         )
 
     def evaluateModel(
@@ -1317,15 +1434,9 @@ class FitDetectorMapTask(Task):
         distortion: Distortion,
         xBase: np.ndarray,
         yBase: np.ndarray,
-        slope: np.ndarray,
         isLine: np.ndarray,
     ) -> np.ndarray:
         """Evaluate the distortion model
-
-        When fitting distortions, the trace positions are calculated with a
-        guessed wavelength, so the model spectral distortion needs to be
-        converted into spatial distortion, which requires that the ``lines``
-        includes a ``slope`` field.
 
         Parameters
         ----------
@@ -1333,9 +1444,6 @@ class FitDetectorMapTask(Task):
             Distortion model to evaluate.
         xBase, yBase : `numpy.ndarray` of `float`
             Base position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``isLine`` is `False`.
         isLine : `numpy.ndarray` of `bool`
             Is this point a line? Otherwise, it's a trace.
 
@@ -1345,19 +1453,8 @@ class FitDetectorMapTask(Task):
             Fitted position for each line (pixels).
         """
         fit = distortion(xBase, yBase)
-
         if not np.all(isLine):
-            # If dy from the distortion model is positive, the observed position of
-            # a line with the corresponding wavelength would be at larger y. That
-            # means that the wavelength we're using for the trace sample is smaller
-            # than what it should be. That means that the magnitude of the dx should
-            # be smaller. Hence we subtract the correction.
-            isTrace = ~isLine
-            xModel = fit[:, 0]
-            yModel = fit[:, 1]
-            xModel[isTrace] -= slope[isTrace]*yModel[isTrace]
-            yModel[isTrace] = 0.0
-
+            fit[~isLine, 1] = 0.0
         return fit
 
     def measureQuality(self, lines: ArcLineSet, detectorMap: DetectorMap, selection, numParameters) -> Struct:

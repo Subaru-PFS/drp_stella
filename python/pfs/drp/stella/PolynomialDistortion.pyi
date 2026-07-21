@@ -23,11 +23,15 @@ class PolynomialDistortion(Distortion):
         yMeas: np.ndarray,
         xErr: np.ndarray,
         yErr: np.ndarray,
-        isLine: np.ndarray,
-        slope: np.ndarray,
         threshold: float = 1.0e-6,
         forced: Optional[np.ndarray] = None,
         params: Optional[np.ndarray] = None,
+        xTrace: Optional[np.ndarray] = None,
+        yTrace: Optional[np.ndarray] = None,
+        tracePos: Optional[np.ndarray] = None,
+        tracePosErr: Optional[np.ndarray] = None,
+        traceSlope: Optional[np.ndarray] = None,
+        traceSlopeErr: Optional[np.ndarray] = None,
     ) -> "PolynomialDistortion": ...
     @staticmethod
     def getNumParametersForOrder(distortionOrder: int) -> int: ...
