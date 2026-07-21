@@ -292,9 +292,8 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         yMeas: np.ndarray,
         xErr: np.ndarray,
         yErr: np.ndarray,
-        slope : np.ndarray,
-        isLine: np.ndarray,
         DistortionClass: Type[Distortion],
+        traceSlopes=None,
     ) -> Distortion:
         """Implementation for fitting the distortion model
 
@@ -306,18 +305,15 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         bbox : `lsst.geom.Box2D`
             Bounding box for detector.
         xBase, yBase : `numpy.ndarray` of `float`
-            Base position for each line (pixels).
+            Base position for each arc line (pixels).
         xMeas, yMeas : `numpy.ndarray` of `float`
-            Measured position for each line (pixels).
+            Measured position for each arc line (pixels).
         xErr, yErr : `numpy.ndarray` of `float`
-            Error in measured position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``useForWavelength`` is `False`.
-        isLine : `numpy.ndarray` of `bool`
-            Is this point a line? Otherwise, it's a trace.
+            Error in measured position for each arc line (pixels).
         DistortionClass : `type`
             Class to use for the distortion.
+        traceSlopes : ignored
+            Accepted for API compatibility with the base class.
 
         Returns
         -------
@@ -336,8 +332,6 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             yMeas,
             xErr,
             yErr,
-            isLine,
-            slope,
             threshold,
             forced,
             parameters,

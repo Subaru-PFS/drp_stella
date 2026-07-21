@@ -127,16 +127,20 @@ class AnalyticDistortion : public Distortion {
     ///
     /// @param order : polynomial order for distortion
     /// @param range : range for input x,y values
-    /// @param xx : Distortion in x
-    /// @param yy : Distortion in y
-    /// @param xMeas : Measured x position
-    /// @param yMeas : Measured y position
-    /// @param xErr : Error in measured x position
-    /// @param yErr : Error in measured y position
-    /// @param isLine : Is this a line measurement? Otherwise, it's a trace.
-    /// @param slope : Slope (dx/dy) at the point (only used if isLine is true)
+    /// @param xx : x base positions of arc line measurements
+    /// @param yy : y base positions of arc line measurements
+    /// @param xMeas : measured x residuals for arc lines
+    /// @param yMeas : measured y residuals for arc lines
+    /// @param xErr : errors in x residuals for arc lines
+    /// @param yErr : errors in y residuals for arc lines
     /// @param threshold : eigenvalue threshold for matrix solving
-    /// @returns design matrix
+    /// @param xTrace : x base positions of binned trace measurements
+    /// @param yTrace : y base positions of binned trace measurements
+    /// @param tracePos : x residuals at bin centers (position constraints)
+    /// @param tracePosErr : errors in x residuals
+    /// @param traceSlope : slope residuals d(delta_x)/dy (slope constraints)
+    /// @param traceSlopeErr : errors in slope residuals
+    /// @returns distortion
     static Derived fit(
         int order,
         lsst::geom::Box2D const& range,
@@ -146,11 +150,15 @@ class AnalyticDistortion : public Distortion {
         Array1D const& yMeas,
         Array1D const& xErr,
         Array1D const& yErr,
-        ndarray::Array<bool, 1, 1> const& isLine,
-        ndarray::Array<double, 1, 1> const& slope,
         double threshold=1.0e-6,
         ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
+        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>(),
+        Array1D const& xTrace=Array1D(),
+        Array1D const& yTrace=Array1D(),
+        Array1D const& tracePos=Array1D(),
+        Array1D const& tracePosErr=Array1D(),
+        Array1D const& traceSlope=Array1D(),
+        Array1D const& traceSlopeErr=Array1D()
     );
 
     //@{
