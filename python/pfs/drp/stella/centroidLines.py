@@ -10,13 +10,13 @@ from lsst.meas.base import SdssCentroidAlgorithm, SdssCentroidControl
 from lsst.meas.base import SdssShapeAlgorithm, SdssShapeControl
 from lsst.meas.base import PsfFluxAlgorithm, PsfFluxControl
 
-from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet
 from .centroidImage import findPeak
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
 from .utils.psf import checkPsf
 from .makeFootprint import makeFootprint
+from .selectFibers import SelectFibersTask
 from .traces import medianFilterColumns
 from .referenceLine import ReferenceLineStatus
 
@@ -54,6 +54,7 @@ class CentroidLinesConfig(Config):
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     threshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for lines")
+    selectFibers = ConfigurableField(target=SelectFibersTask, doc="Select fibers to centroid")
 
     def setDefaults(self):
         super().setDefaults()
@@ -87,6 +88,7 @@ class CentroidLinesTask(Task):
                                            self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
         self.makeSubtask("continuum")
+        self.makeSubtask("selectFibers")
 
     def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None, seed=0):
         """Centroid lines on an arc
@@ -232,8 +234,8 @@ class CentroidLinesTask(Task):
         bbox = convolved.getBBox()
 
         if pfsConfig is not None:
-            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
-            fiberId = detectorMap.fiberId[indices]
+            fiberId = self.selectFibers.run(pfsConfig).fiberId
+            fiberId = np.intersect1d(fiberId, detectorMap.fiberId)
         else:
             fiberId = detectorMap.fiberId
 
