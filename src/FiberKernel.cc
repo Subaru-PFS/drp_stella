@@ -23,6 +23,9 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
+namespace {
+LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberKernel");
+}  // anonymous namespace
 
 template <typename T>
 detail::LinearInterpolationHelper<T>::LinearInterpolationHelper(
@@ -1355,7 +1358,12 @@ struct FiberKernelFitter {
             double const spectralRadius = newDelta/delta;
             delta = newDelta;
 
+            LOGL_DEBUG(_log, "Iteration %d: flux residual RMS=%.4f, delta=%.4g, spectralRadius=%.4f",
+                       ii, rms, delta, spectralRadius);
+            LOGLS_DEBUG(_log, "Kernel solution: " << kernel);
+
             if (rms < fluxTol) {
+                LOGL_DEBUG(_log, "Converged after %d iterations (flux residual RMS=%.4f < 0.1)", ii, rms);
                 flux = std::move(newFlux);
                 converged = true;
                 break;
