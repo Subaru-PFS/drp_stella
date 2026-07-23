@@ -44,6 +44,7 @@ from .extractSpectraTask import ExtractSpectraTask
 from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
+from .centroidAbsorption import CentroidAbsorptionTask
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
@@ -59,6 +60,7 @@ from .fitDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
 from .focalPlaneFunction import ConstantPerFiber
+from .referenceLine import ReferenceLineSet
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -178,6 +180,9 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
                                      doc="Require detectorMap adjustment to succeed?")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
+    centroidAbsorption = ConfigurableField(target=CentroidAbsorptionTask, doc="Centroid absorption lines")
+    doCentroidAbsorption = Field(dtype=bool, default=True, doc="Centroid absorption lines for sky exposures?")
+    absorptionLineList = Field(dtype=str, default="solar.txt", doc="Line list for absorption lines")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     doPhotometerLines = Field(dtype=bool, default=True, doc="Measure photometry for lines?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
@@ -267,6 +272,7 @@ class ReduceExposureTask(PipelineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("readLineList")
         self.makeSubtask("centroidLines")
+        self.makeSubtask("centroidAbsorption")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("photometerLines")
         self.makeSubtask("adjustDetectorMap")
@@ -530,6 +536,15 @@ class ReduceExposureTask(PipelineTask):
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(traces)
+        if (
+            self.config.doCentroidAbsorption
+            and self.readLineList.getLamps(exposure.getMetadata()).lamps == {"sky"}
+        ):
+            absLineList = ReferenceLineSet.fromLineList(self.config.absorptionLineList)
+            absLines = self.centroidAbsorption.run(
+                exposure, absLineList, detectorMap, pfsConfig, fiberTraces, seed=seed
+            )
+            lines.extend(absLines)
 
         windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
 
