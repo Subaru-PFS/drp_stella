@@ -41,7 +41,11 @@ class SelectFibersTask(Task):
         """
         fiberStatus = [FiberStatus.fromString(fs) for fs in self.config.fiberStatus]
         targetType = [TargetType.fromString(fs) for fs in self.config.targetType]
-        pfsConfig = pfsConfig.select(fiberStatus=fiberStatus, targetType=targetType)
+
+        pfsConfig = pfsConfig.select(
+            fiberStatus=fiberStatus if len(fiberStatus) > 0 else None,
+            targetType=targetType if len(targetType) > 0 else None,
+        )
 
         if self.config.fiberFilter == "ALL":
             return pfsConfig
