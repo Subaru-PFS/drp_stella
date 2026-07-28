@@ -1316,6 +1316,29 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
         doc="Width of smoothing filter (median filter) applied to spectra"
         " before they are used to compute broadband photometry [nm].",
     )
+    fluxRefMinRadialVelocityErr = Field(
+        dtype=float,
+        default=-1.0,
+        doc="Selection criteria for flux reference: minimum radial velocity error [km/s]"
+        " (ignored if set to -1).",
+    )
+    fluxRefMaxRadialVelocityErr = Field(
+        dtype=float,
+        default=20.0,
+        doc="Selection criteria for flux reference: maximum radial velocity error [km/s]"
+        " (ignored if set to -1).",
+    )
+    fluxRefMinReducedChi2 = Field(
+        dtype=float,
+        default=1.0,
+        doc="Selection criteria for flux reference: minimum reduced chi square (ignored if set to -1).",
+    )
+    fluxRefMaxReducedChi2 = Field(
+        dtype=float,
+        default=100.0,
+        doc="Selection criteria for flux reference: maximum reduced chi square (ignored if set to -1).",
+    )
+
     minIntegrandWavelength = Field(
         dtype=float,
         default=380,
@@ -1376,6 +1399,7 @@ class FitFluxCalTask(PipelineTask):
             Flux calibration solution.
         """
         removeBadFluxes(pfsConfig, self.config.broadbandFluxType, self.config.fabricatedBroadbandFluxErrSNR)
+        self.flagBadReferences(references)
         fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, references)
 
         return Struct(
@@ -1483,6 +1507,36 @@ class FitFluxCalTask(PipelineTask):
             tol=self.config.minimizationTolerance,
             log=self.log,
         )
+
+    def flagBadReferences(
+        self,
+        pfsFluxReference: PfsFluxReference,
+    ) -> None:
+        """Flag flux references that don't meet this task's own criteria.
+
+        Parameters
+        ----------
+        pfsFluxReference : `PfsFluxReference`
+            Model reference template set for flux calibration.
+        """
+        isGood = np.ones(shape=pfsFluxReference.fitFlag.shape, dtype=bool)
+
+        radialVelocityError = pfsFluxReference.fitParams["radial_velocity_err"]
+        if self.config.fluxRefMinRadialVelocityErr >= 0:
+            isGood &= radialVelocityError >= self.config.fluxRefMinRadialVelocityErr
+        if self.config.fluxRefMaxRadialVelocityErr >= 0:
+            isGood &= radialVelocityError <= self.config.fluxRefMaxRadialVelocityErr
+
+        reducedChi2 = (
+            pfsFluxReference.fitParams["flux_scaling_chi2"] / pfsFluxReference.fitParams["flux_scaling_dof"]
+        )
+        if self.config.fluxRefMinReducedChi2 >= 0:
+            isGood &= reducedChi2 >= self.config.fluxRefMinReducedChi2
+        if self.config.fluxRefMaxReducedChi2 >= 0:
+            isGood &= reducedChi2 <= self.config.fluxRefMaxReducedChi2
+
+        flag = pfsFluxReference.fitFlagNames.add("REJECTED_BY_FITFLUXCAL")
+        pfsFluxReference.fitFlag |= np.where(isGood, 0, flag)
 
     def getHeightsOfCalibVectors(self, calibVectors: PfsMerged) -> np.ndarray:
         """Get relative heights of calib vectors (observed spectra) / (reference spectra).
