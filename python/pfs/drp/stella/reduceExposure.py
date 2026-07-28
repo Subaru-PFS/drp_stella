@@ -538,7 +538,7 @@ class ReduceExposureTask(PipelineTask):
             lines.extend(traces)
         if (
             self.config.doCentroidAbsorption
-            and self.readLineList.getLamps(exposure.getMetadata()).lamps == {"sky"}
+            and self.readLineList.getLampInfo(exposure.getMetadata()).lamps == {"sky"}
         ):
             absLineList = ReferenceLineSet.fromLineList(self.config.absorptionLineList)
             absLines = self.centroidAbsorption.run(
