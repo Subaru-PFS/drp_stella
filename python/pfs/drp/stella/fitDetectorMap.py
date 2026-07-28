@@ -918,6 +918,7 @@ class FitDetectorMapTask(Task):
         dy = yy - points[:, 1]
 
         slope = base.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
+        slope[:] = 0.0
 
         if self.debugInfo.baseResiduals:
             import matplotlib.pyplot as plt
