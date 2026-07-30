@@ -246,8 +246,13 @@ class FiberKernel : public BaseKernel {
 /// @param maxIter : maximum number of iterations to perform
 /// @param andersonDepth : number of previous iterations to use for Anderson acceleration (0 to disable)
 /// @param andersonDamping : damping factor to use for Anderson acceleration (between 0 and 1)
-/// @param fluxTol : tolerance for convergence of fluxes (relative change)
+/// @param fluxTol : absolute tolerance for change in flux between iterations
 /// @param lsqThreshold : threshold for least-squares fit SVD
+/// @param minIter : minimum number of iterations before convergence can be declared
+/// @param noiseFloorFrac : fraction of the median per-fiber flux uncertainty used as
+///     a noise-based convergence floor; 0 disables the noise floor
+/// @param divergenceThreshold : factor above the previous-iteration RMS at which the
+///     current iteration is considered divergent (must be > 1)
 std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     lsst::afw::image::MaskedImage<float> const& image,
     FiberTraceSet<float> const& fiberTraces,
@@ -260,7 +265,10 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     int andersonDepth=5,
     double andersonDamping=0.25,
     double fluxTol=1.0e-3,
-    double lsqThreshold=1.0e-16
+    double lsqThreshold=1.0e-16,
+    int minIter=3,
+    double noiseFloorFrac=0.3,
+    double divergenceThreshold=1.1
 );
 
 

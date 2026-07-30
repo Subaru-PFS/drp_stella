@@ -150,6 +150,9 @@ PYBIND11_MODULE(FiberKernel, mod) {
             int,
             double,
             double,
+            double,
+            int,
+            double,
             double
         >(&fitFiberKernel),
         "image"_a,
@@ -163,7 +166,10 @@ PYBIND11_MODULE(FiberKernel, mod) {
         "andersonDepth"_a=5,
         "andersonDamping"_a=0.25,
         "fluxTol"_a=1.0e-1,
-        "lsqThreshold"_a=1.0e-16
+        "lsqThreshold"_a=1.0e-16,
+        "minIter"_a=3,
+        "noiseFloorFrac"_a=0.3,
+        "divergenceThreshold"_a=1.1
     );
     mod.def(
         "fitFiberKernel",
