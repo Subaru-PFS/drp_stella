@@ -78,6 +78,9 @@ def fitFiberKernel(
     andersonDamping: float = 0.25,
     fluxTol: float = 1.0e-2,
     lsqThreshold: float = 1.0e-16,
+    minIter: int = 3,
+    noiseFloorFrac: float = 0.3,
+    divergenceThreshold: float = 1.1,
 ) -> tuple[FiberKernel, Image]: ...
 @overload
 def fitImageKernel(

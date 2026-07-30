@@ -43,12 +43,33 @@ class MeasureFiberKernelConfig(Config):
         doc="Number of rows to use when fitting the kernel; if 0, use all rows.",
     )
     maxIter = Field(dtype=int, default=30, doc="Maximum number of iterations to run")
+    minIter = Field(
+        dtype=int,
+        default=3,
+        doc="Minimum number of iterations before convergence can be declared",
+    )
     andersonDepth = Field(dtype=int, default=5, doc="Anderson acceleration depth")
     andersonDamping = Field(dtype=float, default=0.25, doc="Anderson acceleration damping parameter")
     fluxTol = Field(
         dtype=float,
         default=1.0e-1,
         doc="Tolerance for change in flux between iterations for convergence",
+    )
+    noiseFloorFrac = Field(
+        dtype=float,
+        default=0.3,
+        doc=(
+            "Fraction of the median per-fiber flux uncertainty used as a noise-based "
+            "convergence floor. 0 disables the noise floor."
+        ),
+    )
+    divergenceThreshold = Field(
+        dtype=float,
+        default=1.1,
+        doc=(
+            "Factor above the previous-iteration RMS at which the current iteration "
+            "is considered divergent (must be > 1)."
+        ),
     )
     lsqThreshold = Field(
         dtype=float,
@@ -97,6 +118,9 @@ class MeasureFiberKernelTask(Task):
             self.config.andersonDamping,
             self.config.fluxTol,
             self.config.lsqThreshold,
+            self.config.minIter,
+            self.config.noiseFloorFrac,
+            self.config.divergenceThreshold,
         )
         self.log.info("Measured background:\n%s", background.array)
         return FiberKernel(kernel)  # Convert from pybind class to "Continued" class

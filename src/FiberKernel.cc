@@ -1321,8 +1321,13 @@ struct FiberKernelFitter {
         int andersonDepth,
         double andersonDamping,
         double fluxTol,
-        double lsqThreshold
+        double lsqThreshold,
+        int minIter,
+        double noiseFloorFrac,
+        double divergenceThreshold
     ) {
+        LOGLS_DEBUG(_log, "Fitting kernel for " << _box);
+
         std::vector<RowData> data = calculate(_rows);
 
         std::size_t const numFluxParams = _numRows*_numFibers;
@@ -1330,13 +1335,62 @@ struct FiberKernelFitter {
         ndarray::Array<double, 1, 1> kernel = utils::arrayFilled<double, 1, 1>(_numParams, 0.0);
         ndarray::Array<double, 2, 2> flux = fitFlux(data, kernel);
 
-        std::vector<ndarray::Array<double, 1, 1>> kernelHistory;
-        std::vector<ndarray::Array<double, 1, 1>> fluxHistory;
-        kernelHistory.reserve(andersonDepth + 2);
-        fluxHistory.reserve(andersonDepth + 2);
+        // Anderson history: for each stored iteration k,
+        // fluxInputHistory[k] is x_k (flux vector fed into the iteration) and
+        // residualHistory[k] is f_k = G(x_k) - x_k (Picard update). Deltas of these
+        // are used to solve for the Anderson mixing coefficients.
+        std::vector<ndarray::Array<double, 1, 1>> fluxInputHistory;
+        std::vector<ndarray::Array<double, 1, 1>> residualHistory;
+        fluxInputHistory.reserve(andersonDepth + 2);
+        residualHistory.reserve(andersonDepth + 2);
+
+        // Best flux state seen so far (smallest Picard-residual RMS); restored on divergence.
+        ndarray::Array<double, 1, 1> bestFluxVector;
+        double bestRms = std::numeric_limits<double>::max();
+
+        // Step size for the Picard fallback used when Anderson history is unavailable
+        // (at start-up, and immediately after a rollback). Halved on divergence, restored
+        // on progress; alpha < 1 breaks 2-cycles that undamped Picard can settle into.
+        double picardDamping = 1.0;
+
+        // Noise-based convergence floor. Once the Picard residual RMS is smaller than
+        // the per-fiber flux uncertainty, further iteration can't move the answer by
+        // more than the noise, so we stop even if the tighter fluxTol isn't met.
+        // fluxErr = 1/sqrt(sum(profile^2/variance)) is the WLS flux uncertainty from
+        // the profile alone; the kernel is a small perturbation and not worth
+        // recomputing fluxErr for on every iteration.
+        double noiseFloor = 0.0;
+        {
+            std::vector<double> fluxErr;
+            fluxErr.reserve(_numRows*_numFibers);
+            for (RowData const& rowData : data) {
+                auto const varianceRow = _image.getVariance()->getArray()[rowData.y];
+                for (std::size_t fiberIndex = 0; fiberIndex < _numFibers; ++fiberIndex) {
+                    if (!rowData.useTrace[fiberIndex]) continue;
+                    double const dotSelf = rowData.models[fiberIndex].dotSelf(
+                        rowData.usePixel, varianceRow
+                    );
+                    if (dotSelf > 0.0) {
+                        fluxErr.push_back(1.0/std::sqrt(dotSelf));
+                    }
+                }
+            }
+            if (!fluxErr.empty()) {
+                std::size_t const middle = fluxErr.size()/2;
+                std::nth_element(fluxErr.begin(), fluxErr.begin() + middle, fluxErr.end());
+                // noiseFloorFrac < 1 lets the fit push somewhat below the typical
+                // per-fiber noise before we call it done.
+                noiseFloor = noiseFloorFrac*fluxErr[middle];
+            }
+        }
+        double const convergenceTol = std::max(fluxTol, noiseFloor);
+        LOGL_DEBUG(_log, "Noise floor (median flux uncertainty)=%.4g, convergenceTol=%.4g",
+                   noiseFloor, convergenceTol);
 
         bool converged = false;
         double delta = 0.0;
+        double previousRms = std::numeric_limits<double>::max();
+        bool justRolledBack = false;
         for (int ii = 0; ii < maxIter; ++ii) {
             auto _t = timer("iteration");
             ndarray::Array<double, 1, 1> const fluxVector = utils::flattenArray(flux);
@@ -1362,45 +1416,84 @@ struct FiberKernelFitter {
                        ii, rms, delta, spectralRadius);
             LOGLS_DEBUG(_log, "Kernel solution: " << kernel);
 
-            if (rms < fluxTol) {
-                LOGL_DEBUG(_log, "Converged after %d iterations (flux residual RMS=%.4f < 0.1)", ii, rms);
+            if (ii + 1 >= minIter && rms < convergenceTol) {
+                LOGL_DEBUG(_log, "Converged after %d iterations (flux residual RMS=%.4f < %.4f)",
+                           ii, rms, convergenceTol);
                 flux = std::move(newFlux);
                 converged = true;
                 break;
             }
 
-            if (spectralRadius > 1.1) {
-                // Diverging; reset history
-                kernelHistory.clear();
-                fluxHistory.clear();
+            // Compare against the previous iteration's RMS, not the best-ever: once
+            // Anderson pushes us to a new plateau we still need to make progress from
+            // there. Skip the check on the iteration right after a rollback, since
+            // there is no meaningful previous state to compare against.
+            //
+            // Use RMS only: spectralRadius uses the L2 norm of the Picard step, which
+            // is dominated by a handful of oscillating edge fibers and false-alarms
+            // even when the robust RMS is improving.
+            bool const diverging = ii > 0 && !justRolledBack &&
+                rms > divergenceThreshold*previousRms;
+
+            if (diverging) {
+                LOGL_DEBUG(_log,
+                           "Diverging (rms=%.4f, prev=%.4f); rolling back to best (rms=%.4f)",
+                           rms, previousRms, bestRms);
+                fluxInputHistory.clear();
+                residualHistory.clear();
+                picardDamping = std::max(0.01, picardDamping*0.5);
+                if (!bestFluxVector.empty()) {
+                    ndarray::Array<double, 2, 1> reshapedBest = utils::unflattenArray(
+                        bestFluxVector, _numRows, _numFibers
+                    );
+                    ndarray::asEigenArray(flux) = ndarray::asEigenArray(reshapedBest);
+                }
+                delta = 0.0;
+                justRolledBack = true;
+                continue;
+            }
+            justRolledBack = false;
+            previousRms = rms;
+            if (rms < bestRms) {
+                bestRms = rms;
+                bestFluxVector = ndarray::copy(fluxVector);
+            }
+            picardDamping = std::min(1.0, picardDamping*1.5);
+
+            fluxInputHistory.push_back(fluxVector);
+            residualHistory.push_back(fluxResidual);
+            if (fluxInputHistory.size() > std::size_t(andersonDepth + 1)) {
+                fluxInputHistory.erase(fluxInputHistory.begin());
+                residualHistory.erase(residualHistory.begin());
             }
 
-            kernelHistory.push_back(fluxVector);
-            fluxHistory.push_back(fluxResidual);
-            if (kernelHistory.size() > std::size_t(andersonDepth + 1)) {
-                kernelHistory.erase(kernelHistory.begin());
-                fluxHistory.erase(fluxHistory.begin());
-            }
+            // Default step: relaxed Picard, x_{k+1} = alpha*G(x_k) + (1-alpha)*x_k.
+            // With alpha=1 this is exactly the original Picard step; with alpha<1 (after
+            // a divergence-induced reset) it damps the update enough to escape 2-cycles.
+            ndarray::Array<double, 1, 1> nextFluxVector = ndarray::allocate(numFluxParams);
+            ndarray::asEigenArray(nextFluxVector) =
+                ndarray::asEigenArray(newFluxVector)*picardDamping +
+                ndarray::asEigenArray(fluxVector)*(1.0 - picardDamping);
 
-            ndarray::Array<double, 1, 1> nextFluxVector = ndarray::copy(newFluxVector);
-            std::size_t const numSteps = kernelHistory.size() - 1;
+            std::size_t const numSteps = fluxInputHistory.size() - 1;
             if (numSteps > 0) {
                 std::size_t const mk = std::min<std::size_t>(andersonDepth, numSteps);
-                ndarray::Array<double, 2, 2> dFlux = ndarray::allocate(numFluxParams, mk);
-                ndarray::Array<double, 2, 2> dKernel = ndarray::allocate(numFluxParams, mk);
-                std::size_t const start = kernelHistory.size() - mk - 1;
+                ndarray::Array<double, 2, 2> dResidual = ndarray::allocate(numFluxParams, mk);
+                ndarray::Array<double, 2, 2> dInput = ndarray::allocate(numFluxParams, mk);
+                std::size_t const start = fluxInputHistory.size() - mk - 1;
                 for (std::size_t jj = 0; jj < mk; ++jj) {
                     for (std::size_t kk = 0; kk < numFluxParams; ++kk) {
-                        dFlux[kk][jj] = fluxHistory[start + jj + 1][kk] - fluxHistory[start + jj][kk];
-                        dKernel[kk][jj] = kernelHistory[start + jj + 1][kk] - kernelHistory[start + jj][kk];
+                        dResidual[kk][jj] = residualHistory[start + jj + 1][kk]
+                                          - residualHistory[start + jj][kk];
+                        dInput[kk][jj] = fluxInputHistory[start + jj + 1][kk]
+                                       - fluxInputHistory[start + jj][kk];
                     }
                 }
 
-                Eigen::VectorXd const gamma = ndarray::asEigenMatrix(dFlux).colPivHouseholderQr().solve(
-                    ndarray::asEigenMatrix(fluxResidual)
-                );
+                Eigen::VectorXd const gamma = ndarray::asEigenMatrix(dResidual).colPivHouseholderQr()
+                    .solve(ndarray::asEigenMatrix(fluxResidual));
                 Eigen::VectorXd const correction = (
-                    ndarray::asEigenMatrix(dKernel) + ndarray::asEigenMatrix(dFlux)
+                    ndarray::asEigenMatrix(dInput) + ndarray::asEigenMatrix(dResidual)
                 )*gamma;
                 Eigen::VectorXd const andersonFluxVector = ndarray::asEigenMatrix(newFluxVector) - correction;
 
@@ -1470,7 +1563,10 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     int andersonDepth,
     double andersonDamping,
     double fluxTol,
-    double lsqThreshold
+    double lsqThreshold,
+    int minIter,
+    double noiseFloorFrac,
+    double divergenceThreshold
 ) {
     if (kernelHalfWidth <= 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Kernel half-width must be positive");
@@ -1483,6 +1579,9 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     if (maxIter <= 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "maxIter must be positive");
     }
+    if (minIter <= 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "minIter must be positive");
+    }
     if (andersonDepth < 0) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "andersonDepth must be non-negative");
     }
@@ -1494,6 +1593,18 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
     if (!(std::isfinite(fluxTol) && fluxTol > 0.0)) {
         throw LSST_EXCEPT(
             lsst::pex::exceptions::InvalidParameterError, "fluxTol must be finite and positive"
+        );
+    }
+    if (!(std::isfinite(noiseFloorFrac) && noiseFloorFrac >= 0.0)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "noiseFloorFrac must be finite and non-negative"
+        );
+    }
+    if (!(std::isfinite(divergenceThreshold) && divergenceThreshold > 1.0)) {
+        throw LSST_EXCEPT(
+            lsst::pex::exceptions::InvalidParameterError,
+            "divergenceThreshold must be finite and greater than 1"
         );
     }
     if (!(std::isfinite(lsqThreshold) && lsqThreshold > 0.0)) {
@@ -1530,7 +1641,8 @@ std::pair<FiberKernel, lsst::afw::image::Image<float>> fitFiberKernel(
                 image, fiberTraces, badBitMask,
                 kernelHalfWidth, box,
                 rows.isEmpty() ? utils::arange<int>(0, image.getHeight()) : rows
-            ).run(maxIter, andersonDepth, andersonDamping, fluxTol, lsqThreshold);
+            ).run(maxIter, andersonDepth, andersonDamping, fluxTol, lsqThreshold,
+                  minIter, noiseFloorFrac, divergenceThreshold);
             values[ndarray::view(start, stop)] = solution[ndarray::view(0, 2*kernelHalfWidth)];
             background(jj, ii) = solution[2*kernelHalfWidth];
         }
