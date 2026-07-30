@@ -94,6 +94,7 @@ class ReferenceLineSource(Bitmask):
     OSTERBROCK97 = 0x04, 'Osterbrock+1996 (1996PASP..108..277O) and Osterbrock+1997 (1997PASP..109..614O)'
     ROUSSELOT2000 = 0x08, 'Rousselot+2000 (2000A&A...354.1134R)'
     SDSS = 0x10, 'Lines taken from SDSS (https://www.sdss.org/dr14/spectro/spectro_basics)'
+    RAGNAR = 0x20, 'Lines taken from Ragnar sky line list; Christian Kragh Jespersen thesis, 2026'
 
 
 class ReferenceLineSet(Table):
