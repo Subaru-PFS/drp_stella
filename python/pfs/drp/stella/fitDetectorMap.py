@@ -1103,7 +1103,7 @@ class FitDetectorMapTask(Task):
             if self.debugInfo.residuals:
                 self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
-                newUsed = good & ~reserved
+                newUsed = used.copy()
                 if self.config.doSlitOffsets:
                     # There may be fiber-specific offsets, so do rejection for individual fibers
                     for fiberId in set(lines.fiberId[used]):
