@@ -599,8 +599,8 @@ class FitDetectorMapTask(Task):
         """Initialize slit offsets for base detectorMap
 
         We initialize the slit offsets for all fibers to the median of the
-        residuals. This especially allows a better fit in the spectral
-        dimension.
+        residuals. This allows a better fit in the spectral dimension, although
+        it doesn't seem to help with the spatial dimension.
 
         The detectorMap is modified in-place.
 
@@ -614,21 +614,23 @@ class FitDetectorMapTask(Task):
             Dispersion (nm/pixel) to use for applying exclusion zone.
         """
         numFibers = len(detectorMap)
-        good = self.getGoodLines(lines, dispersion)
-        notTrace = lines.description[good] != "Trace"
+        select = self.getGoodLines(lines, dispersion)
+        select &= lines.description != "Trace"
 
-        modelSlit = detectorMap.slitModel.spectrographToPreSlit(lines.fiberId[good], lines.wavelength[good])
+        modelSlit = detectorMap.slitModel.spectrographToPreSlit(
+            lines.fiberId[select], lines.wavelength[select]
+        )
         measSlit = detectorMap.slitModel.slitToPreSlit(
             detectorMap.opticsModel.detectorToSlit(
-                detectorMap.detectorModel.pixelsToDetector(lines.x[good], lines.y[good])
+                detectorMap.detectorModel.pixelsToDetector(lines.x[select], lines.y[select])
             )
         )
 
-        spatialResidual = measSlit[:, 0] - modelSlit[:, 0]
         spectralResidual = measSlit[:, 1] - modelSlit[:, 1]
 
-        spatial = np.median(spatialResidual)
-        spectral = np.median(spectralResidual[notTrace])
+        spatial = 0.0  # This works better than the median spatial residual
+        spectral = np.median(spectralResidual)
+
         self.log.info("Initializing slit offsets to spatial=%.3f, spectral=%.3f", spatial, spectral)
         detectorMap.setSlitOffsets(
             np.full(numFibers, spatial, dtype=float), np.full(numFibers, spectral, dtype=float)
@@ -1101,7 +1103,7 @@ class FitDetectorMapTask(Task):
             if self.debugInfo.residuals:
                 self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
-                newUsed = good & ~reserved
+                newUsed = used.copy()
                 if self.config.doSlitOffsets:
                     # There may be fiber-specific offsets, so do rejection for individual fibers
                     for fiberId in set(lines.fiberId[used]):
