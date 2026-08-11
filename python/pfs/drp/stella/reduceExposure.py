@@ -45,6 +45,7 @@ from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .centroidAbsorption import CentroidAbsorptionTask
+from .centroidSolar import CentroidSolarTask
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
@@ -181,8 +182,10 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     centroidAbsorption = ConfigurableField(target=CentroidAbsorptionTask, doc="Centroid absorption lines")
-    doCentroidAbsorption = Field(dtype=bool, default=True, doc="Centroid absorption lines for sky exposures?")
+    doCentroidAbsorption = Field(dtype=bool, default=False, doc="Centroid absorption lines for sky exposures?")
     absorptionLineList = Field(dtype=str, default="solar.txt", doc="Line list for absorption lines")
+    doCentroidSolar = Field(dtype=bool, default=False, doc="Centroid solar spectra for b?")
+    centroidSolar = ConfigurableField(target=CentroidAbsorptionTask, doc="Centroid on solar spectra")
     doForceTraces = Field(dtype=bool, default=True, doc="Force use of traces for non-continuum data?")
     doPhotometerLines = Field(dtype=bool, default=True, doc="Measure photometry for lines?")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
@@ -273,6 +276,7 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("readLineList")
         self.makeSubtask("centroidLines")
         self.makeSubtask("centroidAbsorption")
+        self.makeSubtask("centroidSolar")
         self.makeSubtask("centroidTraces")
         self.makeSubtask("photometerLines")
         self.makeSubtask("adjustDetectorMap")
@@ -383,7 +387,7 @@ class ReduceExposureTask(PipelineTask):
             exposure.mask |= crMask
 
         measurements = self.measure(
-            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
+            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, identity
         )
 
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
@@ -523,7 +527,7 @@ class ReduceExposureTask(PipelineTask):
         detectorMap: DetectorMap,
         fiberNorms: PfsFiberNorms | None,
         boxcarWidth: int,
-        arm: str,
+        identity: Identity,
     ) -> Struct:
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
@@ -553,7 +557,7 @@ class ReduceExposureTask(PipelineTask):
                 detectorMap = self.adjustDetectorMap.run(
                     detectorMap,
                     lines,
-                    arm,
+                    identity.arm,
                     exposure.visitInfo,
                     exposure.metadata,
                     seed=seed,
@@ -566,6 +570,39 @@ class ReduceExposureTask(PipelineTask):
             if fiberProfiles is not None:
                 # make fiberTraces with new detectorMap
                 fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
+
+        if self.config.doCentroidSolar and identity.arm == "b":
+            # This requires spectra, so we use the current best detectorMap (which should have good
+            # x positions) to extract the spectra.
+            pfsArm = self.extractSpectra.run(
+                exposure.maskedImage,
+                fiberTraces,
+                detectorMap,
+                np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId))),
+                True if boxcarWidth > 0 else False,
+            ).spectra.toPfsArm(identity)
+            solar = self.centroidSolar.run(pfsArm, pfsConfig, detectorMap)
+            lines.extend(solar)
+
+            # Now re-adjust the detectorMap with the new information
+            if self.config.doAdjustDetectorMap and not windowed:
+                try:
+                    detectorMap = self.adjustDetectorMap.run(
+                        detectorMap,
+                        lines,
+                        identity.arm,
+                        exposure.visitInfo,
+                        exposure.metadata,
+                        seed=seed,
+                    ).detectorMap
+                except (FittingError, RuntimeError) as exc:
+                    if self.config.requireAdjustDetectorMap:
+                        raise
+                    self.log.warn("DetectorMap adjustment failed: %s", exc)
+
+                if fiberProfiles is not None:
+                    # make fiberTraces with new detectorMap
+                    fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
 
         # Update photometry using best detectorMap
         notTrace = lines.description != "Trace"
