@@ -77,38 +77,51 @@ def computeImageQuality(als):
         Arc line data with additional columns:
 
         ``fwhm``
-            Gaussian-equivalent FWHM in pixels.  When full second moments are
-            not available, populated from the trace width (``xx``).  All
-            ``NaN`` when no finite shape measurements are available.
+            Gaussian-equivalent FWHM in pixels.  For rows where the full
+            second-moment tensor is not available, populated from the trace
+            width (``xx``).  ``NaN`` for rows with no finite shape
+            measurements.
         ``theta``
-            Position angle of the PSF major axis in radians.  ``NaN`` when
-            only trace widths are available, or when no finite measurements
-            exist.
+            Position angle of the PSF major axis in radians.  ``NaN`` for
+            rows where only the trace width is available, or where no finite
+            measurements exist.
         ``traceOnly``
-            ``True`` when only trace widths (``xx``) were available, not the
-            full second-moment tensor (``xx``, ``xy``, ``yy``).
+            ``True`` for rows where only the trace width (``xx``) was
+            available, not the full second-moment tensor (``xx``, ``xy``,
+            ``yy``).
+
+    Notes
+    -----
+    The choice between the full-moment and trace-only widths is made
+    per row, so tables concatenated from visits with differing measurements
+    (e.g. arcs and traces) are handled correctly.
     """
     data = als.data.copy() if hasattr(als, 'data') else als.copy()
 
-    ll_full = np.isfinite(data.xx + data.xy + data.yy)
-    if ll_full.sum() > 0:
-        traceOnly = False
-        fwhm, theta = getFWHM(data)
-    elif np.isfinite(data.xx).sum() > 0:
-        traceOnly = True
-        fwhm = data["xx"].copy()
-        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
-    else:
+    # Work with numpy arrays; concatenated tables may carry duplicate index
+    # labels, which makes pandas alignment unreliable.
+    xx = np.asarray(data["xx"], dtype=float)
+    ll_full = np.asarray(np.isfinite(data.xx + data.xy + data.yy))
+    ll_trace = np.isfinite(xx) & ~ll_full
+
+    fwhm = np.full(len(data), np.nan)
+    theta = np.full(len(data), np.nan)
+
+    if ll_full.any():
+        fullFwhm, fullTheta = getFWHM(data)
+        fwhm[ll_full] = np.asarray(fullFwhm)[ll_full]
+        theta[ll_full] = np.asarray(fullTheta)[ll_full]
+
+    fwhm[ll_trace] = xx[ll_trace]   # theta is unknowable from the trace width alone
+
+    if not (ll_full.any() or ll_trace.any()):
         warnings.warn("No finite shape measurements (xx, xy, yy) found in arc lines; "
                       "fwhm and theta will be all NaN. "
                       "Is this a non-arc (e.g. quartz) visit?")
-        traceOnly = False
-        fwhm = pd.Series(np.full(len(data), np.nan), index=data.index)
-        theta = pd.Series(np.full(len(data), np.nan), index=data.index)
 
     data["fwhm"] = fwhm
     data["theta"] = theta
-    data["traceOnly"] = traceOnly
+    data["traceOnly"] = ll_trace
 
     return data
 
@@ -239,14 +252,16 @@ def plotImageQuality(
             ax.set_ylabel("y (pixels)")
             ax.set_aspect(1)
     else:
-        ll_hist = np.isfinite(fwhm) & ~data["flag"]
+        notFlagged = ~data["flag"]
 
         if showFWHMHistogram:
+            ll_hist = np.isfinite(fwhm) & notFlagged
             ax.hist(fwhm[ll_hist], bins=np.linspace(0, maxFwhm, 100))
             ax.set_xlabel("FWHM (pix)")
         elif showFluxHistogram:
-            finite_flux = data["flux"][ll_hist]
-            if np.sum(np.isfinite(finite_flux)) == 0:
+            # N.b. this plot doesn't use the FWHM, so don't require it to be finite
+            finite_flux = data["flux"][np.isfinite(data["flux"]) & notFlagged]
+            if len(finite_flux) == 0:
                 return None, None
             q99 = np.nanpercentile(finite_flux, [99])[0]
             ax.hist(finite_flux, bins=np.linspace(0, q99, 100))
@@ -385,7 +400,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
     arms = []
     for a in "brmn":    # show the arms in this order
         if a in _arms:
-            arms[0:0] = [a]
+            arms.append(a)
 
     if assembleSpectrograph:
         ny = len(arms)
@@ -430,7 +445,10 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         for dataId in dataIds:
             SMs[(dataId["arm"], dataId["spectrograph"], dataId["visit"])] = [dataId["visit"]]
 
+    needsFwhm = showWhisker or showFWHM or showFWHMAgainstLambda or showFWHMHistogram
+
     C = None
+    colorbarLabel = None
     for i, (ax, SM) in enumerate(zip(axs, SMs)):
         plt.sca(ax)
 
@@ -460,12 +478,12 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         except RuntimeError:
             ax.set_axis_off()
             continue
-        if not np.isfinite(als["fwhm"]).any():
+        if needsFwhm and not np.isfinite(als["fwhm"]).any():
             ax.set_axis_off()
             continue
 
         try:
-            C, colorbarLabel = plotImageQuality(
+            panelC, panelColorbarLabel = plotImageQuality(
                 ax, als,
                 showWhisker=showWhisker,
                 showFWHM=showFWHM,
@@ -484,6 +502,9 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         except RuntimeError:
             ax.set_axis_off()
             continue
+
+        if panelC is not None:          # don't let an empty panel erase an earlier panel's artist
+            C, colorbarLabel = panelC, panelColorbarLabel
 
         ax.label_outer()
         txt = dataIdStr[-2:] if assembleSpectrograph else dataIdStr
@@ -504,7 +525,7 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
         else:
             shrink = 1 if nx <= 2 else 0.93 if nx <= 4 else 0.85
 
-        if C:
+        if C is not None:
             with opaqueColorbar(C):
                 fig.colorbar(C, shrink=shrink, label=colorbarLabel, ax=axs)
 
