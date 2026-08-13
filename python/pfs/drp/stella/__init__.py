@@ -41,3 +41,23 @@ for plane in (
     "UNMASKEDNAN", "BAD_PFI_CORRECTION"
 ):
     Mask.addMaskPlane(plane)
+
+# afw hands a plane the lowest free bit when it is first claimed, so the
+# name-to-bit map depends on the order planes are claimed in the process.
+# `SpectrumSet.toPfsArm` freezes that map into the pfsArm it writes: `Spectrum.mask`
+# is an afw Mask, and the datamodel `MaskHelper` is a verbatim copy of its plane
+# dictionary. `MaskHelper` then compares those numbers between files without
+# remapping them, so two processes that numbered their planes differently write
+# pfsArms that will not merge.
+#
+# Reading a postISRCCD is not enough to pick up the numbering it was written with:
+# `conformMaskPlanes` remaps any plane the reading process does not already know
+# into its own next free bit, taking the unknown names in alphabetical order. Only
+# a process that claimed the planes before it opened the file keeps the file's
+# numbering.
+#
+# Hence claiming obs_pfs's planes here rather than where they are used: this package
+# is where `toPfsArm` lives, so importing it is the one thing every process that can
+# write a pfsArm has in common.
+from lsst.obs.pfs.maskPlanes import addObsPfsMaskPlanes  # noqa: E402
+addObsPfsMaskPlanes()
