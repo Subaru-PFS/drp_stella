@@ -19,13 +19,15 @@ void declareOpticalModelDetectorMapData(py::module_ & mod) {
             OpticalModelDetectorMap::Array1D const&,
             ndarray::Array<double, 2, 2> const&,
             ndarray::Array<double, 2, 2> const&,
+            ndarray::Array<double, 2, 2> const&,
             ndarray::Array<double, 2, 2> const&
         >(),
-        "wavelength"_a, "slit"_a, "detector"_a, "pixels"_a
+        "wavelength"_a, "slit"_a, "preslit"_a, "detector"_a, "pixels"_a
     );
 
     cls.def_readonly("wavelength", &OpticalModelDetectorMap::Data::wavelength);
     cls.def_readonly("slit", &OpticalModelDetectorMap::Data::slit);
+    cls.def_readonly("preslit", &OpticalModelDetectorMap::Data::preslit);
     cls.def_readonly("detector", &OpticalModelDetectorMap::Data::detector);
     cls.def_readonly("pixels", &OpticalModelDetectorMap::Data::pixels);
 
@@ -44,12 +46,15 @@ void declareOpticalModelDetectorMap(py::module_ & mod) {
     coord.value("WAVELENGTH", OpticalModelDetectorMap::Coordinate::WAVELENGTH);
     coord.value("SLIT_SPATIAL", OpticalModelDetectorMap::Coordinate::SLIT_SPATIAL);
     coord.value("SLIT_SPECTRAL", OpticalModelDetectorMap::Coordinate::SLIT_SPECTRAL);
+    coord.value("PRESLIT_XI", OpticalModelDetectorMap::Coordinate::PRESLIT_XI);
+    coord.value("PRESLIT_ETA", OpticalModelDetectorMap::Coordinate::PRESLIT_ETA);
     coord.value("DETECTOR_X", OpticalModelDetectorMap::Coordinate::DETECTOR_X);
     coord.value("DETECTOR_Y", OpticalModelDetectorMap::Coordinate::DETECTOR_Y);
     coord.value("PIXELS_P", OpticalModelDetectorMap::Coordinate::PIXELS_P);
     coord.value("PIXELS_Q", OpticalModelDetectorMap::Coordinate::PIXELS_Q);
     coord.value("ROW", OpticalModelDetectorMap::Coordinate::ROW);
     coord.value("COL", OpticalModelDetectorMap::Coordinate::COL);
+    coord.export_values();
 
     cls.def(
         py::init<
