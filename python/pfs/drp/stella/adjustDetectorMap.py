@@ -144,7 +144,7 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
-            self.plotWavelengthResiduals(results.detectorMap, lines, fit.selection, fit.reserved)
+            self.plotWavelengthResiduals(results.detectorMap, lines, results.selection, results.reserved)
         return results
 
     def getDistortionClass(self, arm: str) -> Type:
@@ -194,57 +194,32 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         residuals : `ArcLineResidualsSet`
             Arc line position residuals.
         """
-        # Convert to "pre-slit" coordinates, which are slit coordinates (spatial,spectral) in units of pixels
-        # We don't apply any slit distortions, since we're going to fit those.
-        modelSlit = detectorMap.slitModel.withoutDistortion().spectrographToPreSlit(
-            lines.fiberId, lines.wavelength
-        )
-        measSlit = detectorMap.slitModel.slitToPreSlit(
-            detectorMap.opticsModel.detectorToSlit(
-                detectorMap.detectorModel.pixelsToDetector(lines.x, lines.y)
-            )
-        )
-
-        slope = np.zeros(len(lines), dtype=float)
-        isTrace = lines.description == "Trace"
-        if np.any(isTrace):
-            delta = 1.0
-            dySlit = detectorMap.slitModel.slitToPreSlit(
-                detectorMap.opticsModel.detectorToSlit(
-                    detectorMap.detectorModel.pixelsToDetector(lines.x[isTrace], lines.y[isTrace] + delta)
-                )
-            )
-            slope[isTrace] = (dySlit[:, 0] - measSlit[isTrace, 0])  # dx/dy
+        positions = self.calculateSlitPositions(detectorMap, lines)
 
         # Measurement minus model: our fitted distortions get added to the model
-        xx = measSlit[:, 0]
-        yy = measSlit[:, 1]
-        xBase = modelSlit[:, 0]
-        yBase = modelSlit[:, 1]
-        dx = xx - xBase
-        dy = yy - yBase
-        xErr = lines.xErr
-        yErr = lines.yErr
+        dx = positions.xiMeas - positions.xiModel
+        dy = positions.etaMeas - positions.etaModel
+        slope = np.zeros(len(lines), dtype=float)  # We'll be removing the use of the slope in the fit soon
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
             wavelength=lines.wavelength,
             x=dx,
             y=dy,
-            xOrig=xx,
-            yOrig=yy,
+            xOrig=positions.xiMeas,
+            yOrig=positions.etaMeas,
             slope=slope,
-            xBase=xBase,
-            yBase=yBase,
-            xErr=xErr,
-            yErr=yErr,
+            xBase=positions.xiModel,
+            yBase=positions.etaModel,
+            xErr=lines.xErr,
+            yErr=lines.yErr,
             xx=lines.xx,
             yy=lines.yy,
             xy=lines.xy,
             flux=lines.flux,
             fluxErr=lines.fluxErr,
             fluxNorm=lines.fluxNorm,
-            flag=lines.flag | np.any(np.isnan(modelSlit), axis=1),
+            flag=lines.flag | np.isnan(positions.xiModel) | np.isnan(positions.etaModel),
             status=lines.status,
             description=lines.description,
             transition=lines.transition,
