@@ -591,6 +591,95 @@ class FitDetectorMapTask(Task):
                            good.sum(), exclusionRadius, getCounts())
         return good
 
+    def calculateSlitPositions(
+        self,
+        detectorMap: DetectorMap,
+        lines: ArcLineSet,
+    ) -> Struct:
+        """Calculate the positions in the preslit frame for each measurement
+
+        The "preslit" frame is the slit frame before applying the slit offsets,
+        in units of pixels. It is useful for measuring the slit offsets and any
+        distortion in the slit frame.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            DetectorMap to use for calculating residuals.
+        lines : `ArcLineSet`
+            Arc line measurements.
+
+        Returns
+        -------
+        xiModel, etaModel : `numpy.ndarray` of `float`
+            Expected position in the preslit frame (pixels).
+        xiMeas, etaMeas : `numpy.ndarray` of `float`
+            Measured position in the preslit frame (pixels).
+        """
+        numLines = len(lines)
+        xiModel = np.full(numLines, np.nan, dtype=float)
+        etaModel = np.full(numLines, np.nan, dtype=float)
+        xiMeas = np.full(numLines, np.nan, dtype=float)
+        etaMeas = np.full(numLines, np.nan, dtype=float)
+
+        isTrace = lines.description == "Trace"
+        isLine = ~isTrace
+
+        # We don't apply any slit distortions, since we're going to fit those.
+        # This prevents us from applying distortion on top of distortions
+        # It also ensures that the fiberPitch is positive, which is important for fitting the distortions.
+        dummy = OpticalModelDetectorMap(
+            detectorMap.slitModel.withoutDistortion(),
+            detectorMap.opticsModel.copy(),
+            detectorMap.detectorModel.copy(),
+        )
+
+        if np.any(isLine):
+            modelSlit = dummy.slitModel.spectrographToPreSlit(
+                lines.fiberId[isLine], lines.wavelength[isLine]
+            )
+            measSlit = dummy.slitModel.slitToPreSlit(
+                dummy.opticsModel.detectorToSlit(
+                    dummy.detectorModel.pixelsToDetector(lines.x[isLine], lines.y[isLine])
+                )
+            )
+
+            xiMeas[isLine] = measSlit[:, 0]
+            etaMeas[isLine] = measSlit[:, 1]
+            xiModel[isLine] = modelSlit[:, 0]
+            etaModel[isLine] = modelSlit[:, 1]
+
+        if np.any(isTrace):
+            # We need to calculate the position of the trace in pre-slit coordinates
+            # but we don't have a wavelength for it. We have splines for each fiber
+            # that we can use to calculate the model pre-slit x position.
+            for ff in np.unique(lines.fiberId[isTrace]):
+                select = (lines.fiberId == ff) & isTrace
+                if not np.any(select):
+                    continue
+                xiSpline = dummy.getSpline(
+                    ff,
+                    OpticalModelDetectorMap.Coordinate.DETECTOR_Y,
+                    OpticalModelDetectorMap.Coordinate.PRESLIT_XI,
+                )
+                etaSpline = dummy.getSpline(
+                    ff,
+                    OpticalModelDetectorMap.Coordinate.DETECTOR_Y,
+                    OpticalModelDetectorMap.Coordinate.PRESLIT_ETA,
+                )
+                measSlit = dummy.slitModel.slitToPreSlit(
+                    dummy.opticsModel.detectorToSlit(
+                        dummy.detectorModel.pixelsToDetector(lines.x[select], lines.y[select])
+                    )
+                )
+
+                xiModel[select] = xiSpline(lines.y[select].astype(float))
+                etaModel[select] = etaSpline(lines.y[select].astype(float))
+                xiMeas[select] = measSlit[:, 0]
+                etaMeas[select] = measSlit[:, 1]
+
+        return Struct(xiModel=xiModel, etaModel=etaModel, xiMeas=xiMeas, etaMeas=etaMeas)
+
     def initializeSlitOffsets(
         self,
         detectorMap: DetectorMap,
@@ -618,16 +707,8 @@ class FitDetectorMapTask(Task):
         select = self.getGoodLines(lines, dispersion)
         select &= lines.description != "Trace"
 
-        modelSlit = detectorMap.slitModel.spectrographToPreSlit(
-            lines.fiberId[select], lines.wavelength[select]
-        )
-        measSlit = detectorMap.slitModel.slitToPreSlit(
-            detectorMap.opticsModel.detectorToSlit(
-                detectorMap.detectorModel.pixelsToDetector(lines.x[select], lines.y[select])
-            )
-        )
-
-        spectralResidual = measSlit[:, 1] - modelSlit[:, 1]
+        positions = self.calculateSlitPositions(detectorMap, lines[select])
+        spectralResidual = positions.etaMeas - positions.etaModel
 
         spatial = 0.0  # This works better than the median spatial residual
         spectral = np.median(spectralResidual)
@@ -684,7 +765,9 @@ class FitDetectorMapTask(Task):
         notTrace = ~isTrace
 
         # Predicted pixel positions
-        model = detectorMap.findPoint(lines.fiberId, lines.wavelength)
+        model = np.full((len(lines), 2), np.nan, dtype=float)
+        model[notTrace] = detectorMap.findPoint(lines.fiberId[notTrace], lines.wavelength[notTrace])
+        model[isTrace, 0] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
 
         # Calculate scale of slit offsets in the slit coordinates, for converting measurements to slit offsets
         offsetDetectorMap = detectorMap.clone()
@@ -1934,6 +2017,7 @@ class FitDetectorMapTask(Task):
         import matplotlib.pyplot as plt
         from matplotlib.font_manager import FontProperties
 
+        lines = lines[lines.description != "Trace"]  # Only want lines with wavelengths
         fiberId = np.array(list(sorted(set(lines.fiberId))))
         numFibers = len(fiberId)
 
