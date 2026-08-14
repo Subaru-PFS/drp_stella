@@ -34,6 +34,10 @@ OpticalModelDetectorMap::Array1D OpticalModelDetectorMap::Data::getArray(Coordin
             return pixels[ndarray::view(0)];
         case PIXELS_Q:
             return pixels[ndarray::view(1)];
+        case PRESLIT_XI:
+            return preslit[ndarray::view(0)];
+        case PRESLIT_ETA:
+            return preslit[ndarray::view(1)];
         default:
             throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Invalid system");
     }
@@ -204,6 +208,7 @@ OpticalModelDetectorMap::Data OpticalModelDetectorMap::makeData(int fiberId) con
     }
 
     ndarray::Array<double, 2, 2> slit = ndarray::allocate(2, numKnots);
+    ndarray::Array<double, 2, 2> preslit = ndarray::allocate(2, numKnots);
     ndarray::Array<double, 2, 2> detector = ndarray::allocate(2, numKnots);
     ndarray::Array<double, 2, 2> pixels = ndarray::allocate(2, numKnots);
 
@@ -212,16 +217,21 @@ OpticalModelDetectorMap::Data OpticalModelDetectorMap::makeData(int fiberId) con
     ndarray::Array<double, 1, 1> row = ndarray::allocate(numKnots);
     for (std::size_t ii = 0; ii < numKnots; ++ii) {
         lsst::geom::Point2D const slitCoord = _slitModel.spectrographToSlit(fiberId, wavelength[ii]);
+        lsst::geom::Point2D const preslitCoord = _slitModel.spectrographToPreSlit(
+            fiberId, wavelength[ii]
+        );
         lsst::geom::Point2D const detectorCoord = _opticsModel.slitToDetector(slitCoord);
         lsst::geom::Point2D const pixelsCoord = _detectorModel.detectorToPixels(detectorCoord);
         slit[0][ii] = slitCoord.getX();
         slit[1][ii] = slitCoord.getY();
+        preslit[0][ii] = preslitCoord.getX();
+        preslit[1][ii] = preslitCoord.getY();
         detector[0][ii] = detectorCoord.getX();
         detector[1][ii] = detectorCoord.getY();
         pixels[0][ii] = pixelsCoord.getX();
         pixels[1][ii] = pixelsCoord.getY();
     }
-    return Data(wavelength, slit, detector, pixels);
+    return Data(wavelength, slit, preslit, detector, pixels);
 }
 
 

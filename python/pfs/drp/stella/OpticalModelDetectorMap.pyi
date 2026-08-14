@@ -14,23 +14,27 @@ class _OpticalModelDetectorMapCoordinate:
     WAVELENGTH = 1
     SLIT_SPATIAL = 2
     SLIT_SPECTRAL = 3
-    DETECTOR_X = 4
-    DETECTOR_Y = 5
-    PIXELS_P = 6
-    PIXELS_Q = 7
-    ROW = 7
-    COL = 6
+    PRESLIT_XI = 4
+    PRESLIT_ETA = 5
+    DETECTOR_X = 6
+    DETECTOR_Y = 7
+    PIXELS_P = 8
+    PIXELS_Q = 9
+    ROW = 9
+    COL = 8
 
 class OpticalModelDetectorMapData:
     def __init__(
         self,
         wavelength: np.ndarray,
         slit: np.ndarray,
+        preslit: np.ndarray,
         detector: np.ndarray,
         pixels: np.ndarray,
     ): ...
     wavelength: np.ndarray
     slit: np.ndarray
+    preslit: np.ndarray
     detector: np.ndarray
     pixels: np.ndarray
     def getArray(self, coord: OpticalModelDetectorMap.Coordinate) -> np.ndarray: ...
@@ -69,7 +73,6 @@ class OpticalModelDetectorMap(DetectorMap):
         fiberId: int,
         coordFrom: Coordinate,
         coordTo: Coordinate,
-        value: float,
     ) -> SplineD: ...
     @overload
     def calculate(
