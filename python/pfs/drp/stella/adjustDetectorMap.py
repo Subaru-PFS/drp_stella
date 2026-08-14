@@ -144,7 +144,7 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         if self.debugInfo.lineQa:
             self.lineQa(lines, results.detectorMap)
         if self.debugInfo.wlResid:
-            self.plotWavelengthResiduals(results.detectorMap, lines, results.selection, results.reserved)
+            self.plotWavelengthResiduals(results.detectorMap, lines, fit.selection, fit.reserved)
         return results
 
     def getDistortionClass(self, arm: str) -> Type:
