@@ -2017,7 +2017,11 @@ class FitDetectorMapTask(Task):
         import matplotlib.pyplot as plt
         from matplotlib.font_manager import FontProperties
 
-        lines = lines[lines.description != "Trace"]  # Only want lines with wavelengths
+        notTrace = lines.description != "Trace"
+        lines = lines[notTrace]  # Only want lines with wavelengths
+        used = used[notTrace]
+        reserved = reserved[notTrace]
+
         fiberId = np.array(list(sorted(set(lines.fiberId))))
         numFibers = len(fiberId)
 
