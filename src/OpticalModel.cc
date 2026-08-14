@@ -69,6 +69,10 @@ SlitModel::SlitModel(
     _fiberMap(makeFiberMap(fiberId)),
     _distortions(distortions)
 {
+    if (fiberPitch < 0 || wavelengthDispersion < 0) {
+        std::cerr << "Warning: fiberPitch and wavelengthDispersion should be positive; got "
+                  << fiberPitch << " and " << wavelengthDispersion << std::endl;
+    }
     utils::checkSize(fiberId.size(), spatialOffsets.size(), "fiberId vs spatialOffsets");
     utils::checkSize(fiberId.size(), spectralOffsets.size(), "fiberId vs spectralOffsets");
 }
@@ -79,9 +83,9 @@ SlitModel::SlitModel(
     DistortionList const& distortions
 ) : SlitModel(
         source.getFiberId(),
-        calculateFiberPitch(source),
+        std::abs(calculateFiberPitch(source)),
         utils::arrayMin(source.getFiberId()),
-        calculateWavelengthDispersion(source),
+        std::abs(calculateWavelengthDispersion(source)),
         utils::arrayMin(source.getWavelength(source.getFiberId()[source.getFiberId().size()/2])),
         source.getSpatialOffsets(),
         source.getSpectralOffsets(),
@@ -135,11 +139,14 @@ SlitModel SlitModel::withDistortion(std::shared_ptr<Distortion> distortion) cons
 
 
 SlitModel SlitModel::withoutDistortion() const {
+    // Before PIPE2D-1823, the fiberPitch could be negative, and this leads to worse distortion fits
+    // because the normalized range is outside the expected bounds. But if there's no distortion,
+    // we can fix it without causing any further problems, and get better fits in the future.
     return SlitModel(
         ndarray::copy(getFiberId()),
-        getFiberPitch(),
+        std::abs(getFiberPitch()),
         getFiberMin(),
-        getWavelengthDispersion(),
+        std::abs(getWavelengthDispersion()),
         getWavelengthMin(),
         ndarray::copy(getSpatialOffsets()),
         ndarray::copy(getSpectralOffsets()),
