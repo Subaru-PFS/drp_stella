@@ -218,7 +218,7 @@ class SlitModel {
     //@}
 
     //@{
-    /// Convert from spectrograph coordinates (fiberId,wavelength) to pre-slit coordinates
+    /// Convert from spectrograph coordinates (fiberId,wavelength) to pre-slit coordinates (xi,eta)
     ///
     /// This applies the slit offsets and distortion, but doesn't convert back to fiber-wavelength units.
     /// This is used for getting coordinates in pixel units, which is needed for measuring and applying
@@ -237,7 +237,7 @@ class SlitModel {
     //@}
 
     //@{
-    /// Convert from pre-slit coordinates to slit coordinates (spatial, spectral)
+    /// Convert from pre-slit coordinates (xi, eta) to slit coordinates (spatial, spectral)
     lsst::geom::Point2D preSlitToSlit(double spatial, double spectral) const {
         return _preSlitToSlit(spatial, spectral);
     }
@@ -255,7 +255,7 @@ class SlitModel {
     //@}}
 
     //@{
-    /// Convert from slit coordinates (spatial, spectral) to pre-slit coordinates
+    /// Convert from slit coordinates (spatial, spectral) to pre-slit coordinates (xi, eta)
     ///
     /// This scales the coordinates to the same units, but doesn't apply the slit offsets or distortion.
     /// This is used for getting coordinates in pixel units, which is needed for measuring and applying

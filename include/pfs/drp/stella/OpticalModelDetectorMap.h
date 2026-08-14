@@ -41,12 +41,14 @@ class OpticalModelDetectorMap : public DetectorMap {
         WAVELENGTH = 1,
         SLIT_SPATIAL = 2,
         SLIT_SPECTRAL = 3,
-        DETECTOR_X = 4,
-        DETECTOR_Y = 5,
-        PIXELS_P = 6,
-        PIXELS_Q = 7,
-        ROW = 7,  // Alias for PIXELS_Q
-        COL = 6  // Alias for PIXELS_P
+        PRESLIT_XI = 4,
+        PRESLIT_ETA = 5,
+        DETECTOR_X = 6,
+        DETECTOR_Y = 7,
+        PIXELS_P = 8,
+        PIXELS_Q = 9,
+        ROW = 9,  // Alias for PIXELS_Q
+        COL = 8,  // Alias for PIXELS_P
     };
 
     using Spline = math::Spline<double>;
@@ -56,20 +58,22 @@ class OpticalModelDetectorMap : public DetectorMap {
     /// Data from the optical model, for a single fiber
     ///
     /// Each wavelength is associated with a position in slit coordinates
-    /// (spatial, spectral), detector coordinates (x, y), and pixel coordinates
-    /// (p, q).
+    /// (spatial, spectral), preslit coordinates (xi, eta), detector coordinates
+    /// (x, y), and pixel coordinates (p, q).
     struct Data {
         Array1D wavelength;  ///< wavelengths for each point along the fiber trace
         ndarray::Array<double, 2, 2> slit;  ///< corresponding slit coordinates (spatial, spectral)
+        ndarray::Array<double, 2, 2> preslit;  ///< corresponding preslit coordinates (xi, eta)
         ndarray::Array<double, 2, 2> detector;  ///< corresponding detector coordinates (x, y)
         ndarray::Array<double, 2, 2> pixels;  ///< corresponding pixel coordinates (p, q)
 
         Data(
             Array1D const& wavelength,
             ndarray::Array<double, 2, 2> const& slit,
+            ndarray::Array<double, 2, 2> const& preslit,
             ndarray::Array<double, 2, 2> const& detector,
             ndarray::Array<double, 2, 2> const& pixels
-        ) : wavelength(wavelength), slit(slit), detector(detector), pixels(pixels) {}
+        ) : wavelength(wavelength), slit(slit), preslit(preslit), detector(detector), pixels(pixels) {}
 
         /// Return the array for the given coordinate
         Array1D getArray(Coordinate coord) const;
