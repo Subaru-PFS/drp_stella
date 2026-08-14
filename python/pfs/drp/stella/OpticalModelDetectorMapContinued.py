@@ -81,9 +81,18 @@ class OpticalModelDetectorMap:  # noqa: F811 (redefinition)
         """
         if not isinstance(detMap, pfs.datamodel.OpticalModelDetectorMap):
             raise RuntimeError(f"Wrong type: {detMap}")
+
+        # Before PIPE2D-1823, the fiberPitch could be negative, and this leads to worse distortion fits
+        # because the normalized range is outside the expected bounds. If the fiberPitch is negative and
+        # there's a distortion, it was fit using the negative fiberPitch, so we'll leave it alone.
+        # But if there's no distortion, we can fix it without causing any problems.
+        fiberPitch = detMap.fiberPitch
+        if fiberPitch < 0 and not detMap.slitDistortions:
+            fiberPitch = abs(fiberPitch)
+
         slit = SlitModel(
             detMap.fiberId.astype(np.int32),
-            detMap.fiberPitch, detMap.fiberMin, detMap.wavelengthDispersion, detMap.wavelengthMin,
+            fiberPitch, detMap.fiberMin, detMap.wavelengthDispersion, detMap.wavelengthMin,
             detMap.spatialOffsets.astype(np.float64), detMap.spectralOffsets.astype(np.float64),
             [Distortion.fromDatamodel(dd) for dd in detMap.slitDistortions],
         )
