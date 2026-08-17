@@ -110,9 +110,8 @@ def fitWavelengthOffset(
     flux = np.mean(spectrumFlux) if spectrumFlux.size > 0 else np.nan
     fluxErr = np.sqrt(np.sum(spectrumVariance))/spectrumFlux.size if spectrumFlux.size > 0 else np.nan
 
-    select = (template.mask & template.flags.get(*templateMask)) == 0
-    templateWavelength = template.wavelength[select]
-    templateFlux = template.flux[select].astype(float)
+    templateWavelength = template.wavelength.astype(float)
+    templateFlux = template.flux.astype(float)
 
     def calculateLogLikelihood(offset):
         """Calculate the log-likelihood of the fit for a given wavelength offset
@@ -184,7 +183,6 @@ def fitWavelengthOffset(
         vectorizedLogLikelihood,
         np.array([offset]),
         initial_step=initialStep,
-        step_factor=0.5,
         tolerances=dict(rtol=hessianRtol),
     )
     offsetErr = np.sqrt(-1.0/hessian.ddf[0, 0])
@@ -214,7 +212,7 @@ class CentroidSolarConfig(Config):
     selectFibers = ConfigurableField(target=SelectFibersTask, doc="Task to select fibers")
     wavelengths = ListField(
         dtype=float,
-        default=[400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0, 580.0, 600.0],
+        default=[400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0, 660.0, 720, 740, 780, 800, 820, 840, 860, 880, 900],
         doc="Central wavelengths to use for centroiding (nm)",
     )
     halfWidth = ListField(
@@ -234,7 +232,7 @@ class CentroidSolarConfig(Config):
     )
     resampleOrder = Field(
         dtype=int,
-        default=3,
+        default=1,
         doc="Order of the resampling kernel to use for interpolating the template "
         "(1 is linear, >=2 are Lanczos)",
     )
@@ -276,7 +274,7 @@ class CentroidSolarConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
-        self.selectFibers.targetType = ["SKY"]  # Don't want contamination from bright science targets
+####        self.selectFibers.targetType = ["SKY"]  # Don't want contamination from bright science targets
 
 
 class CentroidSolarTask(Task):
@@ -295,7 +293,7 @@ class CentroidSolarTask(Task):
         self.makeSubtask("selectFibers")
 
     def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig, detectorMap: DetectorMap) -> Struct:
-        """Centroid absorption lines in an exposure
+        """Centroid using cross-correlation of solar spectral template
 
         Parameters
         ----------
@@ -320,6 +318,10 @@ class CentroidSolarTask(Task):
         subConfig = self.selectFibers.run(pfsConfig.select(fiberId=pfsArm.fiberId))
         template = self.loadTemplate()
 
+        detMapWavelength = detectorMap.getWavelength()
+        minWl = detMapWavelength.min()
+        maxWl = detMapWavelength.max()
+
         fiberId = []
         wavelength = []
         xList = []
@@ -334,7 +336,16 @@ class CentroidSolarTask(Task):
         for ff in subConfig.fiberId:
             spectrum = pfsArm.extractFiber(PfsSingle, pfsConfig, ff)
             for centerWavelength, halfWidth in zip(self.config.wavelengths, self.config.halfWidth):
-                result = self.fitTemplate(spectrum, template, centerWavelength, halfWidth)
+                if centerWavelength - halfWidth < minWl or centerWavelength + halfWidth > maxWl:
+                    continue
+                try:
+                    result = self.fitTemplate(spectrum, template, centerWavelength, halfWidth)
+                except RuntimeError as exc:
+                    self.log.debug(
+                        "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
+                    )
+                    continue
+
                 good = np.isfinite(result.offset) and np.isfinite(result.offsetErr)
 
                 point = detectorMap.findPoint(ff, centerWavelength)
@@ -371,6 +382,9 @@ class CentroidSolarTask(Task):
             transition=["UNKNOWN"]*num,
             source=np.full(num, ReferenceLineSource.MANUAL.value, dtype=np.int32),
         )
+
+        self.log.info("Measured %d/%d solar centroids", (~lines.flag).sum(), len(lines))
+
         return Struct(
             lines=lines,
             offset=np.array(offset, dtype=float),
