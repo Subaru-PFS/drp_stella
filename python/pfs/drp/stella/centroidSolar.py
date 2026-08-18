@@ -16,7 +16,7 @@ from pfs.datamodel import PfsConfig
 from .arcLine import ArcLineSet
 from .datamodel import PfsSingle
 from .DetectorMapContinued import DetectorMap
-from .interpolate import interpolateFlux
+from .interpolate import Interpolator
 from .referenceLine import ReferenceLineSource, ReferenceLineStatus
 from .selectFibers import SelectFibersTask
 
@@ -113,6 +113,12 @@ def fitWavelengthOffset(
     templateWavelength = template.wavelength.astype(float)
     templateFlux = template.flux.astype(float)
 
+    # Constructing the Interpolator is much more expensive than evaluating it (the template is a
+    # high-resolution solar spectrum with ~1e6 points), so build it once here and reuse it for every
+    # evaluation of the log-likelihood below (of which there are many: both the offset optimizer and
+    # the curvature estimate call it repeatedly), rather than rebuilding it on every evaluation.
+    templateInterpolator = Interpolator(templateWavelength)
+
     def calculateLogLikelihood(offset):
         """Calculate the log-likelihood of the fit for a given wavelength offset
 
@@ -128,8 +134,8 @@ def fitWavelengthOffset(
         """
         # A positive offset means the observed spectrum's features are redshifted relative to the
         # template's rest wavelengths, so we look up the template at the corresponding bluer wavelength.
-        shiftedTemplateFlux = interpolateFlux(
-            templateWavelength, templateFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder
+        shiftedTemplateFlux = templateInterpolator.interpolateFlux(
+            templateFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder
         )
         good = np.isfinite(shiftedTemplateFlux)
         if not np.any(good):
@@ -212,12 +218,12 @@ class CentroidSolarConfig(Config):
     selectFibers = ConfigurableField(target=SelectFibersTask, doc="Task to select fibers")
     wavelengths = ListField(
         dtype=float,
-        default=[400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0, 660.0, 720, 740, 780, 800, 820, 840, 860, 880, 900],
+        default=[400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0, 655.0, 859.0],
         doc="Central wavelengths to use for centroiding (nm)",
     )
     halfWidth = ListField(
         dtype=float,
-        default=[10.0] * 11,
+        default=[10.0] * 10 + [11],
         doc="Half-width of the region to use for centroiding (nm)",
     )
     template = Field(
@@ -275,6 +281,14 @@ class CentroidSolarConfig(Config):
     def setDefaults(self):
         super().setDefaults()
 ####        self.selectFibers.targetType = ["SKY"]  # Don't want contamination from bright science targets
+
+    def validate(self):
+        super().validate()
+        if len(self.wavelengths) != len(self.halfWidth):
+            raise RuntimeError(
+                f"Length mismatch between wavelengths ({len(self.wavelengths)} "
+                f"and halfWidth ({len(self.halfWidth)})"
+            )
 
 
 class CentroidSolarTask(Task):
@@ -335,6 +349,30 @@ class CentroidSolarTask(Task):
         logLikelihood = []
         for ff in subConfig.fiberId:
             spectrum = pfsArm.extractFiber(PfsSingle, pfsConfig, ff)
+
+            if False:
+                import matplotlib.pyplot as plt
+                plt.plot(spectrum.wavelength, spectrum.flux, "k-")
+                cmap = plt.matplotlib.cm.get_cmap("rainbow")
+                wavelengths = np.array(self.config.wavelengths)
+                halfWidth = np.array(self.config.halfWidth)
+                select = (wavelengths + halfWidth > minWl) & (wavelengths - halfWidth < maxWl)
+                colors = cmap(np.linspace(0, 1, select.sum()))
+                for wl, hw, col in zip(
+                    wavelengths[select], halfWidth[select], colors
+                ):
+                    plt.axvspan(
+                        wl - hw,
+                        wl + hw,
+                        label=str(wl),
+                        color=col,
+                        alpha=0.2,
+                    )
+                plt.legend()
+                plt.xlabel("Wavelength (nm)")
+                plt.ylabel("Flux (normalized)")
+                plt.show()
+
             for centerWavelength, halfWidth in zip(self.config.wavelengths, self.config.halfWidth):
                 if centerWavelength - halfWidth < minWl or centerWavelength + halfWidth > maxWl:
                     continue
@@ -347,6 +385,7 @@ class CentroidSolarTask(Task):
                     continue
 
                 good = np.isfinite(result.offset) and np.isfinite(result.offsetErr)
+                self.log.debug("Fitting for fiberId=%d, wavelength=%f: %s", ff, centerWavelength, result)
 
                 point = detectorMap.findPoint(ff, centerWavelength)
                 dispersion = detectorMap.getDispersion(ff, centerWavelength)  # nm/pixel
