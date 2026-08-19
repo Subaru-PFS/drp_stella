@@ -85,7 +85,13 @@ class Interpolator:
         return result
 
     def interpolateFlux(
-        self, fromFlux: np.ndarray, toWavelength: np.ndarray, *, fill: float = 0.0, order: int = 3
+        self,
+        fromFlux: np.ndarray,
+        toWavelength: np.ndarray,
+        *,
+        fill: float = 0.0,
+        order: int = 3,
+        fromMask: np.ndarray | None = None,
     ) -> np.ndarray:
         """Interpolate a flux-like spectrum
 
@@ -104,13 +110,24 @@ class Interpolator:
             Interpolation order to use. Less than or equal to 1 means linear
             interpolation; higher orders use Lanczos interpolation of the
             given order.
+        fromMask : `numpy.ndarray` of `bool`, optional
+            Source bad-pixel mask (`True` marks a bad sample). If provided,
+            bad samples are excluded from the interpolation kernel and the
+            result renormalized over the remaining weight, so a single bad
+            neighbor only perturbs the output smoothly instead of poisoning
+            it outright; the output is only marked bad (set to ``fill``) if
+            too little weight remains. If not provided, all source samples
+            are assumed good.
 
         Returns
         -------
         toFlux : `numpy.ndarray` of `float`
             Target flux-(like) array.
         """
-        return interpolateFluxImpl(fromFlux, self.indices(toWavelength), fill, order)
+        indices = self.indices(toWavelength)
+        if fromMask is None:
+            return interpolateFluxImpl(fromFlux, indices, fill, order)
+        return interpolateFluxImpl(fromFlux, fromMask, indices, fill, order)
 
     def interpolateCovariance(
         self,
