@@ -24,6 +24,63 @@ from .selectFibers import SelectFibersTask
 __all__ = ("CentroidSolarConfig", "CentroidSolarTask")
 
 
+def safeInterpolationMask(
+    interpolator: Interpolator,
+    bad: np.ndarray,
+    wavelength: np.ndarray,
+    minOffset: float,
+    maxOffset: float,
+    halfSize: int,
+) -> np.ndarray:
+    """Identify spectrum points whose interpolation kernel never crosses a masked template sample
+
+    ``Interpolator.interpolateFlux``'s ``fromMask`` handling excludes masked
+    samples from the kernel and renormalizes over the remaining weight, but
+    which kernel samples are masked can change discretely as the trial
+    offset varies continuously (each time the kernel's integer sample window
+    shifts by one). This produces small discontinuities in the
+    log-likelihood as a function of offset, wherever a spectrum point's
+    kernel window could cross a masked template sample for some offset in
+    the search range. Excluding those points entirely (for every offset)
+    keeps the log-likelihood smooth.
+
+    Parameters
+    ----------
+    interpolator : `Interpolator`
+        Interpolator for the template.
+    bad : `numpy.ndarray` of `bool`
+        Bad-pixel mask for the template, in the template's index space.
+    wavelength : `numpy.ndarray` of `float`
+        Spectrum wavelengths to be interpolated to.
+    minOffset, maxOffset : `float`
+        Bounds of the wavelength offset to search for (nm).
+    halfSize : `int`
+        Half-size of the interpolation kernel (in template samples).
+
+    Returns
+    -------
+    safe : `numpy.ndarray` of `bool`
+        `True` for spectrum points whose kernel window cannot cross a masked
+        template sample for any offset in ``[minOffset, maxOffset]``.
+    """
+    loIndex = interpolator.indices(wavelength - maxOffset)
+    hiIndex = interpolator.indices(wavelength - minOffset)
+    good = np.isfinite(loIndex) & np.isfinite(hiIndex)
+    safe = np.zeros(wavelength.shape, dtype=bool)
+    if not np.any(good):
+        return safe
+
+    start = np.floor(loIndex[good]).astype(np.int64) - halfSize
+    stop = np.ceil(hiIndex[good]).astype(np.int64) + halfSize + 1
+    start = np.clip(start, 0, bad.size)
+    stop = np.clip(stop, 0, bad.size)
+
+    cumBad = np.concatenate([[0], np.cumsum(bad.astype(np.int64))])
+    anyBad = cumBad[stop] - cumBad[start] > 0
+    safe[good] = ~anyBad
+    return safe
+
+
 def fitWavelengthOffset(
     spectrum: PfsFiberArray,
     targetTemplate: PfsSimpleSpectrum,
@@ -168,6 +225,22 @@ def fitWavelengthOffset(
     targetInterpolator = Interpolator(targetWavelength)
     skyInterpolator = Interpolator(skyWavelength)
 
+    # Permanently exclude points whose interpolation kernel could ever cross a masked template
+    # sample for some offset in the search range: which kernel samples are masked can change
+    # discretely as the offset varies continuously, producing discontinuities in the
+    # log-likelihood. See `safeInterpolationMask` for details.
+    kernelHalfSize = 1 if resampleOrder <= 1 else resampleOrder
+    targetSafe = safeInterpolationMask(
+        targetInterpolator, targetBad, spectrumWavelength, minOffset, maxOffset, kernelHalfSize
+    )
+    skySafe = safeInterpolationMask(
+        skyInterpolator, skyBad, spectrumWavelength, minOffset, maxOffset, kernelHalfSize
+    )
+    safe = targetSafe & skySafe
+    spectrumWavelength = spectrumWavelength[safe]
+    spectrumFlux = spectrumFlux[safe]
+    spectrumVariance = spectrumVariance[safe]
+
     def calculateLogLikelihood(offset):
         """Calculate the log-likelihood of the fit for a given wavelength offset
 
@@ -210,7 +283,12 @@ def fitWavelengthOffset(
         weight = 1.0/spectrumVariance[good]
         phi = design.T @ (weight*spectrumFlux[good])
         chi = design.T @ (weight[:, np.newaxis]*design)
-        coeff, *_ = np.linalg.lstsq(chi, phi, rcond=None)
+        # A tiny ridge regularizes the normal-equations matrix when a template component
+        # contributes ~0 signal in a window (e.g., the sky template outside its emission lines):
+        # `lstsq`'s automatic rank-threshold can otherwise flip discretely as the offset varies
+        # infinitesimally, producing discontinuities in the log-likelihood.
+        chi = chi + 1.0e-8*np.diag(np.diag(chi))
+        coeff = np.linalg.solve(chi, phi)
         logLikelihood = 0.5*(phi @ coeff)
         logLikelihood -= 0.5*(offset/priorOffset)**2  # Gaussian prior centered on zero offset
 
