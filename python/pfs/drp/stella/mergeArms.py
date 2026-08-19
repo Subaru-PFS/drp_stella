@@ -32,9 +32,14 @@ from .fitContinuum import FitContinuumTask
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
 from .wavelengthSampling import WavelengthSamplingTask
+from .inferPersistence import H4PersistenceInputConnectionMixIn
 
 
-class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
+class MergeArmsConnections(
+    H4PersistenceInputConnectionMixIn,
+    PipelineTaskConnections,
+    dimensions=("instrument", "visit"),
+):
     """Connections for MergeArmsTask"""
     pfsArm = InputConnection(
         name="pfsArm",
@@ -53,6 +58,13 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
         name="pfsArmLsf",
         doc="1D line-spread function",
         storageClass="LsfDict",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+    h4Persistence = InputConnection(
+        name="h4Persistence",
+        doc="H4RG detector persistence",
+        storageClass="H4Persistence",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
@@ -102,6 +114,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         ],
     )
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
+    doSubtractPersistence = Field(dtype=bool, default=True, doc="Subtract persistent electrons?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -131,7 +144,7 @@ class MergeArmsTask(PipelineTask):
         self.makeSubtask("fitContinuum")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, spectra, pfsConfig, lsfList, haveMedRes: bool = False):
+    def run(self, spectra, pfsConfig, lsfList, persistences, haveMedRes: bool = False):
         """Merge all extracted spectra from a single exposure
 
         Parameters
@@ -143,6 +156,8 @@ class MergeArmsTask(PipelineTask):
         lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
             Line-spread functions from the different arms, for each
             spectrograph.
+        persistences : mapping from `int` to `H4Persistence`
+            Mapping from spectrograph No. to H4RG persistence to be subtracted.
         haveMedRes : `bool`
             Do we have medium-resolution data?
 
@@ -155,6 +170,13 @@ class MergeArmsTask(PipelineTask):
         sky1d : `list` of `pfs.drp.stella.FocalPlaneFunction`
             Sky models for each arm.
         """
+        if self.config.doSubtractPersistence:
+            for spec in spectra:
+                for armSpec in spec:
+                    if armSpec.identity.arm == "n":
+                        armSpec.flux -= persistences[armSpec.identity.spectrograph].flux
+                        self.log.info("Persistence was subtracted: %s", armSpec.identity)
+
         wavelength = self.wavelength.run(haveMedRes)
 
         allSpectra = sum(spectra, [])
@@ -262,8 +284,19 @@ class MergeArmsTask(PipelineTask):
             if dataId["arm"] == "m":
                 haveMedRes = True
 
+        if hasattr(inputRefs, "h4Persistence"):
+            persistences = {
+                ref.dataId["spectrograph"]: butler.get(ref)
+                for ref in inputRefs.h4Persistence
+                if ref.dataId["arm"] == "n"
+            }
+        else:
+            persistences = {}
+
         pfsConfig = butler.get(inputRefs.pfsConfig)
-        outputs = self.run(list(pfsArmList.values()), pfsConfig, list(lsfList.values()), haveMedRes)
+        outputs = self.run(
+            list(pfsArmList.values()), pfsConfig, list(lsfList.values()), persistences, haveMedRes
+        )
 
         butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
         butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)

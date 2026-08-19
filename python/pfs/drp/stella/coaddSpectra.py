@@ -28,6 +28,7 @@ from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
+from .inferPersistence import H4PersistenceInputConnectionMixIn
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
 
@@ -65,6 +66,7 @@ class SetWithNaN:
 
 
 class CoaddSpectraConnections(
+    H4PersistenceInputConnectionMixIn,
     PipelineTaskConnections,
     dimensions=("instrument", "combination", "cat_id", "obj_group"),
 ):
@@ -94,6 +96,13 @@ class CoaddSpectraConnections(
         name="pfsArmLsf",
         doc="1d line-spread function for extracted spectra",
         storageClass="LsfDict",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+    h4Persistence = InputConnection(
+        name="h4Persistence",
+        doc="H4RG detector persistence",
+        storageClass="H4Persistence",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
@@ -135,6 +144,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     objId = ListField(dtype=int, default=[], doc="Object IDs to process; empty for all")
+    doSubtractPersistence = Field(dtype=bool, default=True, doc="Subtract persistent electrons?")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -158,6 +168,8 @@ class CoaddSpectraTask(PipelineTask):
             - ``identity`` (`Identity`): identity of the data.
             - ``pfsArm`` (`PfsArm`): extracted spectra from spectrograph arm.
             - ``pfsArmLsf`` (`LsfDict`): line-spread function for ``pfsArm``.
+            - ``h4Persistence`` (`H4Persistence`): H4RG persistence.
+                ``h4Persistence`` key exists only for ``n`` arm.
             - ``sky1d`` (`FocalPlaneFunction`): 1d sky subtraction model.
             - ``fluxCal`` (`FocalPlaneFunction`): flux calibration solution.
             - ``pfsConfig`` (`PfsConfig`): PFS fiber configuration.
@@ -169,6 +181,12 @@ class CoaddSpectraTask(PipelineTask):
         pfsCoaddLsf : `LsfDict`
             Line-spread functions for coadded spectra, indexed by target.
         """
+        if self.config.doSubtractPersistence:
+            for identity, dd in data.items():
+                if identity.arm == "n":
+                    dd.pfsArm.flux -= dd.h4Persistence.select(dd.pfsArm.fiberId).flux
+                    self.log.info("Persistence was subtracted: %s", identity)
+
         targetTypes = (TargetType.SCIENCE, TargetType.FLUXSTD, TargetType.SKY)
         targetSources = defaultdict(list)
         for identity, dd in data.items():
@@ -240,6 +258,13 @@ class CoaddSpectraTask(PipelineTask):
                 fluxCal=butler.get(fluxCalRef),
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),
             )
+
+        if hasattr(inputRefs, "h4Persistence"):
+            # h4Persistences exist only for n-arm.
+            # We cannot zip it with the other inputs above.
+            for ref in inputRefs.h4Persistence:
+                h4Persistence = butler.get(ref)
+                data[h4Persistence.identity].h4Persistence = h4Persistence
 
         outputs = self.run(data)
         butler.put(outputs, outputRefs)
