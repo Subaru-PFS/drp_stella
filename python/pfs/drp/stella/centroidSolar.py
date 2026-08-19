@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-from scipy import differentiate
 from scipy.optimize import minimize_scalar
 
 from lsst.pipe.base import Task, Struct
@@ -32,53 +31,47 @@ def safeInterpolationMask(
     maxOffset: float,
     halfSize: int,
 ) -> np.ndarray:
-    """Identify spectrum points whose interpolation kernel never crosses a masked template sample
+    """Identify points that can be safely interpolated for any trial offset
 
-    ``Interpolator.interpolateFlux``'s ``fromMask`` handling excludes masked
-    samples from the kernel and renormalizes over the remaining weight, but
-    which kernel samples are masked can change discretely as the trial
-    offset varies continuously (each time the kernel's integer sample window
-    shifts by one). This produces small discontinuities in the
-    log-likelihood as a function of offset, wherever a spectrum point's
-    kernel window could cross a masked template sample for some offset in
-    the search range. Excluding those points entirely (for every offset)
-    keeps the log-likelihood smooth.
+    A point is unsafe if, for some offset within ``[minOffset, maxOffset]``,
+    the interpolation kernel's window would include a masked template sample
+    or reach outside the template's wavelength domain. Excluding such points
+    once, up front, for the entire offset search range (rather than
+    recomputing which points are usable at each trial offset) keeps the set
+    of points used in the fit fixed: if it were instead recomputed at each
+    trial offset, a masked sample entering or leaving the kernel window as
+    the offset varies would flip that point in or out of the fit, producing
+    a genuine discontinuity in the log-likelihood that corrupts the
+    finite-difference curvature estimate used for ``offsetErr``.
 
     Parameters
     ----------
     interpolator : `Interpolator`
         Interpolator for the template.
     bad : `numpy.ndarray` of `bool`
-        Bad-pixel mask for the template, in the template's index space.
+        Bad-pixel mask for the template, aligned with its wavelength array.
     wavelength : `numpy.ndarray` of `float`
-        Spectrum wavelengths to be interpolated to.
+        Wavelengths (nm) of the points to be interpolated, unshifted.
     minOffset, maxOffset : `float`
-        Bounds of the wavelength offset to search for (nm).
+        Bounds of the wavelength offset to be searched over (nm).
     halfSize : `int`
-        Half-size of the interpolation kernel (in template samples).
+        Half-size of the interpolation kernel window (in template samples).
 
     Returns
     -------
     safe : `numpy.ndarray` of `bool`
-        `True` for spectrum points whose kernel window cannot cross a masked
-        template sample for any offset in ``[minOffset, maxOffset]``.
+        `True` for points that are safe to use at every offset in
+        ``[minOffset, maxOffset]``.
     """
     loIndex = interpolator.indices(wavelength - maxOffset)
     hiIndex = interpolator.indices(wavelength - minOffset)
-    good = np.isfinite(loIndex) & np.isfinite(hiIndex)
-    safe = np.zeros(wavelength.shape, dtype=bool)
-    if not np.any(good):
-        return safe
-
-    start = np.floor(loIndex[good]).astype(np.int64) - halfSize
-    stop = np.ceil(hiIndex[good]).astype(np.int64) + halfSize + 1
-    start = np.clip(start, 0, bad.size)
-    stop = np.clip(stop, 0, bad.size)
-
+    inDomain = np.isfinite(loIndex) & np.isfinite(hiIndex)
+    numTemplate = bad.size
+    start = np.clip(np.floor(np.where(inDomain, loIndex, 0)).astype(int) - halfSize, 0, numTemplate)
+    stop = np.clip(np.ceil(np.where(inDomain, hiIndex, 0)).astype(int) + halfSize + 1, 0, numTemplate)
     cumBad = np.concatenate([[0], np.cumsum(bad.astype(np.int64))])
-    anyBad = cumBad[stop] - cumBad[start] > 0
-    safe[good] = ~anyBad
-    return safe
+    noBadInRange = (cumBad[stop] - cumBad[start]) == 0
+    return inDomain & noBadInRange
 
 
 def fitWavelengthOffset(
@@ -96,8 +89,8 @@ def fitWavelengthOffset(
     minOffset: float,
     maxOffset: float,
     priorOffset: float,
-    hessianStepFraction: float,
-    hessianRtol: float,
+    curvatureStepFraction: float,
+    curvatureNumPoints: int,
 ) -> Struct:
     """Fit a wavelength offset between the observed spectrum and two templates
 
@@ -138,16 +131,13 @@ def fitWavelengthOffset(
     priorOffset : `float`
         Width (sigma) of the Gaussian prior on the wavelength offset (nm),
         centered on zero offset.
-    hessianStepFraction : `float`
+    curvatureStepFraction : `float`
         Fraction of the offset search range (``maxOffset - minOffset``) to use
-        as the initial finite-difference step size when estimating the
-        curvature of the log-likelihood (via ``scipy.differentiate.hessian``).
-    hessianRtol : `float`
-        Relative tolerance on the curvature estimate from
-        ``scipy.differentiate.hessian``. The default tolerance used by that
-        function (close to machine precision) is unattainable here because the
-        log-likelihood is not perfectly smooth (see Notes), so this needs to be
-        relaxed.
+        as the spacing between points sampled around the maximum when
+        estimating the curvature of the log-likelihood (see Notes).
+    curvatureNumPoints : `int`
+        Number of points (spaced by ``curvatureStepFraction*(maxOffset -
+        minOffset)``) to sample around the maximum for the curvature estimate.
 
     Notes
     -----
@@ -156,7 +146,11 @@ def fitWavelengthOffset(
     pixel window used for interpolation shifts by integer steps of the
     template's wavelength sampling, producing tiny ripples in the
     log-likelihood on that length scale. This limits the precision with which
-    its curvature can be estimated by finite differences.
+    its curvature can be estimated from finite differences, which is why the
+    curvature is instead estimated from a least-squares parabola fit to
+    several points around the maximum (see ``curvatureStepFraction`` and
+    ``curvatureNumPoints``): this averages over the ripples, rather than
+    differencing across them.
 
     Returns
     -------
@@ -191,7 +185,12 @@ def fitWavelengthOffset(
 
     # Identify bad template pixels; these are passed through to `Interpolator.interpolateFlux` below
     # (as `fromMask`) so it can exclude them from its interpolation kernel and renormalize over the
-    # remaining weight, rather than poisoning the whole output sample.
+    # remaining weight, rather than poisoning the whole output sample. (An earlier version of this
+    # code instead set bad samples to NaN and relied on that poisoning a plain floating-point kernel
+    # sum, but that makes a single bad template pixel near the edge of the offset search range flip
+    # the interpolated flux discretely between a finite value and NaN as the offset crosses the
+    # sample's position -- a real jump in the log-likelihood, not just numerical noise, that
+    # corrupts the finite-difference curvature estimate used for `offsetErr` below.)
     targetBad = (targetTemplate.mask & targetTemplate.flags.get(*targetMask)) != 0
     targetFlux = targetTemplate.flux.astype(float)
     skyBad = (skyTemplate.mask & skyTemplate.flags.get(*skyMask)) != 0
@@ -225,10 +224,10 @@ def fitWavelengthOffset(
     targetInterpolator = Interpolator(targetWavelength)
     skyInterpolator = Interpolator(skyWavelength)
 
-    # Permanently exclude points whose interpolation kernel could ever cross a masked template
-    # sample for some offset in the search range: which kernel samples are masked can change
-    # discretely as the offset varies continuously, producing discontinuities in the
-    # log-likelihood. See `safeInterpolationMask` for details.
+    # Permanently exclude points whose interpolation kernel window could ever include a masked
+    # template sample (or run outside the template's domain) for some offset in the search range;
+    # see `safeInterpolationMask` for why this must be fixed once here rather than recomputed at
+    # each trial offset.
     kernelHalfSize = 1 if resampleOrder <= 1 else resampleOrder
     targetSafe = safeInterpolationMask(
         targetInterpolator, targetBad, spectrumWavelength, minOffset, maxOffset, kernelHalfSize
@@ -283,11 +282,13 @@ def fitWavelengthOffset(
         weight = 1.0/spectrumVariance[good]
         phi = design.T @ (weight*spectrumFlux[good])
         chi = design.T @ (weight[:, np.newaxis]*design)
-        # A tiny ridge regularizes the normal-equations matrix when a template component
-        # contributes ~0 signal in a window (e.g., the sky template outside its emission lines):
-        # `lstsq`'s automatic rank-threshold can otherwise flip discretely as the offset varies
-        # infinitesimally, producing discontinuities in the log-likelihood.
-        chi = chi + 1.0e-8*np.diag(np.diag(chi))
+        # Ridge-regularize: if a component contributes ~0 signal in this window, chi is
+        # near-singular, and np.linalg.lstsq's automatic rank threshold flips in/out discretely as
+        # offset varies infinitesimally, injecting jumps into the log-likelihood that corrupt the
+        # finite-difference curvature (offsetErr) estimate below. A small relative Tikhonov term
+        # keeps chi invertible and the log-likelihood smooth without measurably biasing fits where
+        # all components are well constrained.
+        chi += 1.0e-8*np.diag(np.diag(chi))
         coeff = np.linalg.solve(chi, phi)
         logLikelihood = 0.5*(phi @ coeff)
         logLikelihood -= 0.5*(offset/priorOffset)**2  # Gaussian prior centered on zero offset
@@ -298,54 +299,91 @@ def fitWavelengthOffset(
     result = minimize_scalar(
         lambda offset: -calculateLogLikelihood(offset), bounds=(minOffset, maxOffset), method="bounded"
     )
-    if not result.success:
-        raise RuntimeError(f"Failed to maximize log-likelihood: {result}")
     offset = result.x
     logLikelihood = -result.fun
 
-    # Calculate the error from the curvature of the log-likelihood at its maximum.
-    # ``scipy.differentiate.hessian`` requires a function that accepts an array of shape
-    # (m, ...) and returns shape (...); since we're differentiating a scalar function (m=1),
-    # we take the sole row and evaluate it elementwise, regardless of the shape of "..."
-    # (which varies, since hessian is implemented as nested calls to jacobian).
-    def vectorizedLogLikelihood(offsetArray):
-        row = offsetArray[0]
-        result = np.array([calculateLogLikelihood(oo) for oo in row.ravel()])
-        return result.reshape(row.shape)
+    if False:
+        import matplotlib.pyplot as plt
 
-    # ``differentiate.hessian``'s default initial step (0.5) is on the scale of the *default*
-    # search bounds, not the wavelength offsets (nm) we're actually differentiating with respect
-    # to; left at its default, the finite-difference step can be so much larger than the width of
-    # the likelihood peak that the estimated curvature comes out with the wrong sign. Scale it to
-    # the actual offset search range instead. And because the log-likelihood has the ripples
-    # described above, we use step_factor<1 so the algorithm *grows* the step on successive
-    # iterations (away from the ripples) rather than its default of shrinking (into them), and we
-    # relax the convergence tolerance accordingly (see ``hessianRtol`` docs).
-    initialStep = hessianStepFraction*(maxOffset - minOffset)
-    hessian = differentiate.hessian(
-        vectorizedLogLikelihood,
-        np.array([offset]),
-        initial_step=initialStep,
-        tolerances=dict(rtol=hessianRtol),
+        shiftedTargetFlux = targetInterpolator.interpolateFlux(
+            targetFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder, fromMask=targetBad
+        )
+        shiftedSkyFlux = skyInterpolator.interpolateFlux(
+            skyFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder, fromMask=skyBad
+        )
+        good = np.isfinite(shiftedTargetFlux) & np.isfinite(shiftedSkyFlux)
+        normWavelength = (
+            2*(spectrumWavelength[good] - minWavelength)/(maxWavelength - minWavelength) - 1
+        )
+        targetBasis = np.polynomial.chebyshev.chebvander(normWavelength, targetFluxOrder)
+        skyBasis = np.polynomial.chebyshev.chebvander(normWavelength, skyFluxOrder)
+        design = np.hstack([
+            shiftedTargetFlux[good][:, np.newaxis]*targetBasis,
+            shiftedSkyFlux[good][:, np.newaxis]*skyBasis,
+        ])
+        weight = 1.0/spectrumVariance[good]
+        phi = design.T @ (weight*spectrumFlux[good])
+        chi = design.T @ (weight[:, np.newaxis]*design)
+        chi += 1.0e-8*np.diag(np.diag(chi))
+        coeff = np.linalg.solve(chi, phi)
+        targetCoeff = coeff[:targetFluxOrder + 1]
+        skyCoeff = coeff[targetFluxOrder + 1:]
+        targetModel = (shiftedTargetFlux[good][:, np.newaxis]*targetBasis) @ targetCoeff
+        skyModel = (shiftedSkyFlux[good][:, np.newaxis]*skyBasis) @ skyCoeff
+        model = targetModel + skyModel
+
+        plt.errorbar(
+            spectrumWavelength[good], spectrumFlux[good], yerr=np.sqrt(spectrumVariance[good]),
+            fmt="k.", label="Observed", alpha=0.5,
+        )
+        plt.plot(spectrumWavelength[good], targetModel, "b--", label="Target component")
+        plt.plot(spectrumWavelength[good], skyModel, "g--", label="Sky component")
+        plt.plot(spectrumWavelength[good], model, "r-", label="Best-fit model")
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Flux")
+        plt.title(f"Centroiding fit: offset={offset:.3f} nm ({'SUCCESS' if result.success else 'FAILED'})")
+        plt.legend()
+        plt.show()
+
+    if not result.success:
+        raise RuntimeError(f"Failed to maximize log-likelihood: {result}")
+
+    # Estimate the offset uncertainty from the curvature of the log-likelihood at its maximum, by
+    # fitting a parabola (least squares) to several points spanning a modest range around the
+    # maximum, rather than differencing the function at just two or three points (e.g., via
+    # ``scipy.differentiate.hessian``). ``interpolateFlux``'s kernel window shifts by integer steps
+    # of the template's wavelength sampling as the offset varies continuously (see Notes), producing
+    # small-scale ripples in the log-likelihood; a finite-difference estimate is sensitive to exactly
+    # these ripples; and an adaptive step-growth strategy intended to average over them can grow the
+    # step so far that it leaves the locally-quadratic region around the peak altogether, sometimes
+    # returning a wrong-signed curvature. A least-squares parabola fit over several points instead
+    # averages over the ripples directly, and -- since it only ever evaluates the fixed set of points
+    # below -- can't run away like an adaptive algorithm can.
+    curvatureStep = curvatureStepFraction*(maxOffset - minOffset)
+    curvatureRelOffset = curvatureStep*np.linspace(
+        -(curvatureNumPoints - 1)/2, (curvatureNumPoints - 1)/2, curvatureNumPoints
     )
-    offsetErr = np.sqrt(-1.0/hessian.ddf[0, 0])
+    curvatureOffset = np.clip(offset + curvatureRelOffset, minOffset, maxOffset)
+    curvatureLogLikelihood = np.array([calculateLogLikelihood(oo) for oo in curvatureOffset])
+    quadratic = np.polyfit(curvatureOffset - offset, curvatureLogLikelihood, 2)
+    curvature = 2*quadratic[0]
 
     if False:
         import matplotlib.pyplot as plt
         offsetArray = np.linspace(minOffset, maxOffset, 100)
         plt.plot(offsetArray, [calculateLogLikelihood(oo) for oo in offsetArray])
+        plt.plot(curvatureOffset, curvatureLogLikelihood, "o")
         plt.axvline(offset, color="k", ls="--")
-        plt.axvline(offset - offsetErr, color="k", ls=":")
-        plt.axvline(offset + offsetErr, color="k", ls=":")
         plt.xlabel("Wavelength Offset (nm)")
         plt.ylabel("Log-Likelihood")
-        plt.title(f"Centroiding fit: offset={offset:.3f} +/- {offsetErr:.3f} nm")
+        plt.title(f"Centroiding fit: offset={offset:.3f} nm, curvature={curvature:.3e}")
         plt.show()
 
-    if not hessian.success:
+    if not curvature < 0:
         raise RuntimeError(
-            f"Failed to estimate curvature of log-likelihood at maximum: {hessian}"
+            f"Log-likelihood curvature is non-negative at its maximum (offset={offset}): {curvature}"
         )
+    offsetErr = np.sqrt(-1.0/curvature)
 
     return Struct(offset=offset, offsetErr=offsetErr, logLikelihood=logLikelihood, flux=flux, fluxErr=fluxErr)
 
@@ -416,18 +454,18 @@ class CentroidSolarConfig(Config):
         default=0.05,
         doc="Width (sigma) of the Gaussian prior on the wavelength offset, centered on zero (nm)",
     )
-    hessianStepFraction = Field(
+    curvatureStepFraction = Field(
         dtype=float,
         default=0.02,
-        doc="Fraction of the offset search range (2*maxOffset) to use as the initial "
-        "finite-difference step size when estimating the curvature of the log-likelihood "
+        doc="Fraction of the offset search range (2*maxOffset) to use as the spacing between "
+        "points sampled around the maximum when estimating the curvature of the log-likelihood "
         "(used to derive offsetErr)",
     )
-    hessianRtol = Field(
-        dtype=float,
-        default=0.01,
-        doc="Relative tolerance on the curvature estimate used to derive offsetErr (see "
-        "fitWavelengthOffset for why this needs to be relaxed from scipy's default)",
+    curvatureNumPoints = Field(
+        dtype=int,
+        default=7,
+        doc="Number of points to sample around the maximum for the curvature estimate (see "
+        "curvatureStepFraction)",
     )
     xErr = Field(
         dtype=float,
@@ -601,7 +639,15 @@ class CentroidSolarTask(Task):
         template : `pfs.datamodel.PfsSimpleSpectrum`
             The target template spectrum.
         """
-        return PfsSimpleSpectrum.readFits(self.config.targetTemplate)
+        targetTemplate = PfsSimpleSpectrum.readFits(self.config.targetTemplate)
+        if False:
+            import matplotlib.pyplot as plt
+            plt.plot(targetTemplate.wavelength, targetTemplate.flux, "k-")
+            plt.xlabel("Wavelength (nm)")
+            plt.ylabel("Flux (arbitrary)")
+            plt.title("Target template")
+            plt.show()
+        return targetTemplate
 
     def loadSkyTemplate(self):
         """Load the sky (night-sky emission) template spectrum
@@ -611,7 +657,15 @@ class CentroidSolarTask(Task):
         template : `pfs.datamodel.PfsSimpleSpectrum`
             The sky template spectrum.
         """
-        return PfsSimpleSpectrum.readFits(self.config.skyTemplate)
+        skyTemplate = PfsSimpleSpectrum.readFits(self.config.skyTemplate)
+        if False:
+            import matplotlib.pyplot as plt
+            plt.plot(skyTemplate.wavelength, skyTemplate.flux, "k-")
+            plt.xlabel("Wavelength (nm)")
+            plt.ylabel("Flux (arbitrary)")
+            plt.title("Sky template")
+            plt.show()
+        return skyTemplate
 
     def fitTemplate(
         self,
@@ -667,6 +721,6 @@ class CentroidSolarTask(Task):
             -self.config.maxOffset,
             self.config.maxOffset,
             self.config.priorOffset,
-            self.config.hessianStepFraction,
-            self.config.hessianRtol,
+            self.config.curvatureStepFraction,
+            self.config.curvatureNumPoints,
         )
