@@ -40,6 +40,31 @@ def makeAbsorptionFlux(wavelength, centers, depth, sigma):
     return flux
 
 
+def makeEmissionFlux(wavelength, centers, depth, sigma):
+    """Continuum of unity with narrow Gaussian emission bumps
+
+    Parameters
+    ----------
+    wavelength : `numpy.ndarray` of `float`
+        Wavelength array (nm).
+    centers : iterable of `float`
+        Central wavelengths of the emission lines (nm).
+    depth : `float`
+        Height of each emission line, as a fraction of the continuum.
+    sigma : `float`
+        Width of each emission line (nm).
+
+    Returns
+    -------
+    flux : `numpy.ndarray` of `float`
+        Flux array, with the same shape as ``wavelength``.
+    """
+    flux = np.ones_like(wavelength)
+    for center in centers:
+        flux += depth*np.exp(-0.5*((wavelength - center)/sigma)**2)
+    return flux
+
+
 class CentroidSolarTestCase(lsst.utils.tests.TestCase):
     """Test that `CentroidSolarTask` recovers injected wavelength shifts"""
 
@@ -83,6 +108,10 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         maskFlags = MaskHelper()
         for name in self.centroidSolarConfig.mask:
             maskFlags.add(name)
+        for name in self.centroidSolarConfig.targetMask:
+            maskFlags.add(name)
+        for name in self.centroidSolarConfig.skyMask:
+            maskFlags.add(name)
 
         self.skyFiberId = self.pfsConfig.fiberId[self.pfsConfig.targetType == int(TargetType.SKY)]
         self.assertGreater(len(self.skyFiberId), 1)
@@ -105,7 +134,28 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         self.templatePath = os.path.join(templateDir, "solar_spectrum.fits")
         template.writeFits(self.templatePath)
         self.addCleanup(os.remove, self.templatePath)
-        self.centroidSolarConfig.template = self.templatePath
+        self.centroidSolarConfig.targetTemplate = self.templatePath
+
+        # A sky template with narrow emission bumps (unlike the target template's absorption dips,
+        # so the two templates' flux-ratio bases aren't degenerate/collinear). This test doesn't
+        # inject any sky emission lines into the observed spectrum, so the sky component should
+        # just fit to ~zero amplitude and not affect the recovered offset.
+        skyLineSigma = 1.234  # nm: narrower than the target's lines, so the shapes are distinct
+        skyDepth = 0.4
+        skyCenters = self.rng.uniform(minWavelength - buffer, maxWavelength + buffer, size=int(numLines))
+        skyTemplateFlux = makeEmissionFlux(templateWavelength, skyCenters, skyDepth, skyLineSigma)
+        skyMask = np.zeros(templateWavelength.shape, dtype=np.int32)
+        skyTemplate = PfsSimpleSpectrum(
+            Target(0, 0, "0,0", 0, ra=0.0, dec=0.0),
+            templateWavelength,
+            skyTemplateFlux,
+            skyMask,
+            maskFlags,
+        )
+        self.skyTemplatePath = os.path.join(templateDir, "sky_spectrum.fits")
+        skyTemplate.writeFits(self.skyTemplatePath)
+        self.addCleanup(os.remove, self.skyTemplatePath)
+        self.centroidSolarConfig.skyTemplate = self.skyTemplatePath
 
         # A distinct injected wavelength shift for each sky fiber (nm).
         self.shifts = dict(zip(
@@ -155,7 +205,7 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         offset = results.offset
         offsetErr = results.offsetErr
 
-        template = task.loadTemplate()
+        template = task.loadTargetTemplate()
 
         for ff in self.skyFiberId:
             select = fiberId == ff
