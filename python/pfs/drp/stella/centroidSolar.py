@@ -26,37 +26,56 @@ __all__ = ("CentroidSolarConfig", "CentroidSolarTask")
 
 def fitWavelengthOffset(
     spectrum: PfsFiberArray,
-    template: PfsSimpleSpectrum,
+    targetTemplate: PfsSimpleSpectrum,
+    skyTemplate: PfsSimpleSpectrum,
     minWavelength: float,
     maxWavelength: float,
     spectrumMask: list[str],
-    templateMask: list[str],
+    targetMask: list[str],
+    skyMask: list[str],
     resampleOrder: int,
-    fluxOrder: int,
+    targetFluxOrder: int,
+    skyFluxOrder: int,
     minOffset: float,
     maxOffset: float,
     priorOffset: float,
     hessianStepFraction: float,
     hessianRtol: float,
 ) -> Struct:
-    """Fit a wavelength offset between the observed spectrum and a template
+    """Fit a wavelength offset between the observed spectrum and two templates
+
+    The observed spectrum is modeled as a linear combination of two
+    templates (e.g., a solar continuum/absorption template and a night-sky
+    emission template), each with its own flux-matching polynomial, sharing a
+    single wavelength offset (since the offset reflects a wavelength
+    calibration error common to both).
 
     Parameters
     ----------
     spectrum : `PfsFiberArray`
         Observed spectrum.
-    template : `PfsSimpleSpectrum`
-        Template spectrum. This should already be LSF-convolved to match the
-        observed spectrum.
+    targetTemplate : `PfsSimpleSpectrum`
+        Target template spectrum. This should already be LSF-convolved to
+        match the observed spectrum.
+    skyTemplate : `PfsSimpleSpectrum`
+        Sky template spectrum. This should already be LSF-convolved to match
+        the observed spectrum.
     minWavelength, maxWavelength : `float`
         Bounds of the wavelength range to use for fitting (nm).
     spectrumMask : `list` of `str`
-        Mask planes to use for masking bad pixels.
+        Mask planes to use for masking bad pixels in the observed spectrum.
+    targetMask : `list` of `str`
+        Mask planes to use for masking bad pixels in ``targetTemplate``.
+    skyMask : `list` of `str`
+        Mask planes to use for masking bad pixels in ``skyTemplate``.
     resampleOrder : `int`
         Order of the resampling kernel to use (1 is linear, >=2 are Lanczos).
-    fluxOrder : `int`
+    targetFluxOrder : `int`
         Order of the polynomial to fit the flux ratio between the observed
-        spectrum and the template.
+        spectrum and ``targetTemplate``.
+    skyFluxOrder : `int`
+        Order of the polynomial to fit the flux ratio between the observed
+        spectrum and ``skyTemplate``.
     minOffset, maxOffset : `float`
         Bounds of the wavelength offset to search for (nm).
     priorOffset : `float`
@@ -110,14 +129,44 @@ def fitWavelengthOffset(
     flux = np.mean(spectrumFlux) if spectrumFlux.size > 0 else np.nan
     fluxErr = np.sqrt(np.sum(spectrumVariance))/spectrumFlux.size if spectrumFlux.size > 0 else np.nan
 
-    templateWavelength = template.wavelength.astype(float)
-    templateFlux = template.flux.astype(float)
+    targetWavelength = targetTemplate.wavelength.astype(float)
+    skyWavelength = skyTemplate.wavelength.astype(float)
 
-    # Constructing the Interpolator is much more expensive than evaluating it (the template is a
-    # high-resolution solar spectrum with ~1e6 points), so build it once here and reuse it for every
+    # Identify bad template pixels; these are passed through to `Interpolator.interpolateFlux` below
+    # (as `fromMask`) so it can exclude them from its interpolation kernel and renormalize over the
+    # remaining weight, rather than poisoning the whole output sample.
+    targetBad = (targetTemplate.mask & targetTemplate.flags.get(*targetMask)) != 0
+    targetFlux = targetTemplate.flux.astype(float)
+    skyBad = (skyTemplate.mask & skyTemplate.flags.get(*skyMask)) != 0
+    skyFlux = skyTemplate.flux.astype(float)
+
+    # The two templates are typically stored in very different absolute flux units (e.g., a solar
+    # spectrum in physical flux units vs. a sky-emission template many orders of magnitude fainter),
+    # so their design matrix columns can differ in scale enormously. Left unscaled, this drives the
+    # normal-equations matrix `chi` (below) to a condition number well past double precision's
+    # useful range, corrupting both the fit and the finite-difference curvature estimate used for
+    # `offsetErr`. Rescaling each template to order-unity flux fixes the conditioning without
+    # changing the fit result: the linear flux-scaling coefficients solved for below simply absorb
+    # the rescaling. We use the RMS flux within the fitting window rather than the median: the sky
+    # template is emission lines on a zero background, so most samples are zero/near-zero and the
+    # median would be dominated by that background instead of reflecting the lines' amplitude.
+    targetWindow = (targetWavelength >= minWavelength) & (targetWavelength <= maxWavelength) & ~targetBad
+    skyWindow = (skyWavelength >= minWavelength) & (skyWavelength <= maxWavelength) & ~skyBad
+    targetScale = np.sqrt(np.mean(targetFlux[targetWindow]**2)) if np.any(targetWindow) else np.nan
+    skyScale = np.sqrt(np.mean(skyFlux[skyWindow]**2)) if np.any(skyWindow) else np.nan
+    if not np.isfinite(targetScale) or targetScale == 0:
+        targetScale = 1.0
+    if not np.isfinite(skyScale) or skyScale == 0:
+        skyScale = 1.0
+    targetFlux = targetFlux/targetScale
+    skyFlux = skyFlux/skyScale
+
+    # Constructing the Interpolator is much more expensive than evaluating it (the templates are
+    # high-resolution spectra with ~1e6 points), so build them once here and reuse them for every
     # evaluation of the log-likelihood below (of which there are many: both the offset optimizer and
-    # the curvature estimate call it repeatedly), rather than rebuilding it on every evaluation.
-    templateInterpolator = Interpolator(templateWavelength)
+    # the curvature estimate call it repeatedly), rather than rebuilding them on every evaluation.
+    targetInterpolator = Interpolator(targetWavelength)
+    skyInterpolator = Interpolator(skyWavelength)
 
     def calculateLogLikelihood(offset):
         """Calculate the log-likelihood of the fit for a given wavelength offset
@@ -133,21 +182,31 @@ def fitWavelengthOffset(
             The log-likelihood of the fit.
         """
         # A positive offset means the observed spectrum's features are redshifted relative to the
-        # template's rest wavelengths, so we look up the template at the corresponding bluer wavelength.
-        shiftedTemplateFlux = templateInterpolator.interpolateFlux(
-            templateFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder
+        # templates' rest wavelengths, so we look up the templates at the corresponding bluer
+        # wavelength. Both templates share the same offset: it reflects a wavelength calibration
+        # error common to both, not a property of either source.
+        shiftedTargetFlux = targetInterpolator.interpolateFlux(
+            targetFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder, fromMask=targetBad
         )
-        good = np.isfinite(shiftedTemplateFlux)
+        shiftedSkyFlux = skyInterpolator.interpolateFlux(
+            skyFlux, spectrumWavelength - offset, fill=np.nan, order=resampleOrder, fromMask=skyBad
+        )
+        good = np.isfinite(shiftedTargetFlux) & np.isfinite(shiftedSkyFlux)
         if not np.any(good):
             return -np.inf
 
-        # Fit the flux ratio between the observed spectrum and the template as a polynomial,
-        # and calculate the profile log-likelihood of the fit (linear parameters marginalized out).
+        # Fit the flux ratio between the observed spectrum and each template as a polynomial (with
+        # its own order), linearly combine the two templates, and calculate the profile
+        # log-likelihood of the fit (linear parameters marginalized out).
         normWavelength = (
             2*(spectrumWavelength[good] - minWavelength)/(maxWavelength - minWavelength) - 1
         )
-        basis = np.polynomial.chebyshev.chebvander(normWavelength, fluxOrder)
-        design = shiftedTemplateFlux[good][:, np.newaxis]*basis
+        targetBasis = np.polynomial.chebyshev.chebvander(normWavelength, targetFluxOrder)
+        skyBasis = np.polynomial.chebyshev.chebvander(normWavelength, skyFluxOrder)
+        design = np.hstack([
+            shiftedTargetFlux[good][:, np.newaxis]*targetBasis,
+            shiftedSkyFlux[good][:, np.newaxis]*skyBasis,
+        ])
         weight = 1.0/spectrumVariance[good]
         phi = design.T @ (weight*spectrumFlux[good])
         chi = design.T @ (weight[:, np.newaxis]*design)
@@ -226,27 +285,48 @@ class CentroidSolarConfig(Config):
         default=[10.0] * 10 + [11],
         doc="Half-width of the region to use for centroiding (nm)",
     )
-    template = Field(
+    targetTemplate = Field(
         dtype=str,
         default=os.path.join(getPackageDir("drp_pfs_data"), "templates", "solar_spectrum.fits"),
-        doc="Path for the LSF-convolved solar spectrum template",
+        doc="Path for the LSF-convolved target (solar) spectrum template",
+    )
+    skyTemplate = Field(
+        dtype=str,
+        default=os.path.join(getPackageDir("drp_pfs_data"), "templates", "sky_spectrum.fits"),
+        doc="Path for the LSF-convolved sky (night-sky emission) spectrum template",
     )
     mask = ListField(
         dtype=str,
         default=["BAD", "SAT", "CR", "SUSPECT", "NO_DATA"],
-        doc="Mask planes to use for masking bad pixels",
+        doc="Mask planes to use for masking bad pixels in the observed spectrum",
+    )
+    targetMask = ListField(
+        dtype=str,
+        default=["NO_DATA"],
+        doc="Mask planes to use for masking bad pixels in the target template",
+    )
+    skyMask = ListField(
+        dtype=str,
+        default=["BAD", "SAT", "CR", "SUSPECT", "NO_DATA"],
+        doc="Mask planes to use for masking bad pixels in the sky template",
     )
     resampleOrder = Field(
         dtype=int,
         default=1,
-        doc="Order of the resampling kernel to use for interpolating the template "
+        doc="Order of the resampling kernel to use for interpolating the templates "
         "(1 is linear, >=2 are Lanczos)",
     )
-    fluxOrder = Field(
+    targetFluxOrder = Field(
         dtype=int,
         default=2,
         doc="Order of the polynomial used to fit the flux ratio between the observed spectrum "
-        "and the template",
+        "and the target template",
+    )
+    skyFluxOrder = Field(
+        dtype=int,
+        default=2,
+        doc="Order of the polynomial used to fit the flux ratio between the observed spectrum "
+        "and the sky template",
     )
     maxOffset = Field(
         dtype=float,
@@ -294,7 +374,8 @@ class CentroidSolarConfig(Config):
 class CentroidSolarTask(Task):
     """Centroid absorption lines in an exposure
 
-    We fit a solar template to sky fiber spectra
+    We fit a linear combination of a target (solar) template and a sky
+    (night-sky emission) template to sky fiber spectra.
     """
 
     ConfigClass = CentroidSolarConfig
@@ -330,7 +411,8 @@ class CentroidSolarTask(Task):
               the fits for each fiber.
         """
         subConfig = self.selectFibers.run(pfsConfig.select(fiberId=pfsArm.fiberId))
-        template = self.loadTemplate()
+        targetTemplate = self.loadTargetTemplate()
+        skyTemplate = self.loadSkyTemplate()
 
         detMapWavelength = detectorMap.getWavelength()
         minWl = detMapWavelength.min()
@@ -377,7 +459,9 @@ class CentroidSolarTask(Task):
                 if centerWavelength - halfWidth < minWl or centerWavelength + halfWidth > maxWl:
                     continue
                 try:
-                    result = self.fitTemplate(spectrum, template, centerWavelength, halfWidth)
+                    result = self.fitTemplate(
+                        spectrum, targetTemplate, skyTemplate, centerWavelength, halfWidth
+                    )
                 except RuntimeError as exc:
                     self.log.debug(
                         "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
@@ -431,28 +515,46 @@ class CentroidSolarTask(Task):
             logLikelihood=np.array(logLikelihood, dtype=float),
         )
 
-    def loadTemplate(self):
-        """Load the solar template spectrum
+    def loadTargetTemplate(self):
+        """Load the target (solar) template spectrum
 
         Returns
         -------
         template : `pfs.datamodel.PfsSimpleSpectrum`
-            The solar template spectrum.
+            The target template spectrum.
         """
-        return PfsSimpleSpectrum.readFits(self.config.template)
+        return PfsSimpleSpectrum.readFits(self.config.targetTemplate)
+
+    def loadSkyTemplate(self):
+        """Load the sky (night-sky emission) template spectrum
+
+        Returns
+        -------
+        template : `pfs.datamodel.PfsSimpleSpectrum`
+            The sky template spectrum.
+        """
+        return PfsSimpleSpectrum.readFits(self.config.skyTemplate)
 
     def fitTemplate(
-        self, spectrum: PfsFiberArray, template: PfsSimpleSpectrum, centerWavelength: float, halfWidth: float
+        self,
+        spectrum: PfsFiberArray,
+        targetTemplate: PfsSimpleSpectrum,
+        skyTemplate: PfsSimpleSpectrum,
+        centerWavelength: float,
+        halfWidth: float,
     ) -> Struct:
-        """Fit the template to the observed spectrum in a wavelength window
+        """Fit the templates to the observed spectrum in a wavelength window
 
         Parameters
         ----------
         spectrum : `PfsFiberArray`
             Observed spectrum.
-        template : `PfsSimpleSpectrum`
-            Template spectrum. This should already be LSF-convolved to match
-            the observed spectrum.
+        targetTemplate : `PfsSimpleSpectrum`
+            Target template spectrum. This should already be LSF-convolved to
+            match the observed spectrum.
+        skyTemplate : `PfsSimpleSpectrum`
+            Sky template spectrum. This should already be LSF-convolved to
+            match the observed spectrum.
         centerWavelength : `float`
             Central wavelength of the fitting window (nm).
         halfWidth : `float`
@@ -474,13 +576,16 @@ class CentroidSolarTask(Task):
         """
         return fitWavelengthOffset(
             spectrum,
-            template,
+            targetTemplate,
+            skyTemplate,
             centerWavelength - halfWidth,
             centerWavelength + halfWidth,
             self.config.mask,
-            self.config.mask,
+            self.config.targetMask,
+            self.config.skyMask,
             self.config.resampleOrder,
-            self.config.fluxOrder,
+            self.config.targetFluxOrder,
+            self.config.skyFluxOrder,
             -self.config.maxOffset,
             self.config.maxOffset,
             self.config.priorOffset,
