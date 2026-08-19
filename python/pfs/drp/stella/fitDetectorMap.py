@@ -1866,42 +1866,67 @@ class FitDetectorMapTask(Task):
 
         good = self.getGoodLines(lines, dispersion) & np.isfinite(dx) & np.isfinite(dy)
 
-        fig, axes = plt.subplots(ncols=2)
+        fig, axes = plt.subplots(ncols=2, nrows=2)
 
         notTrace = lines.description != "Trace"
         fiberId = sorted(set(lines.fiberId[good]))
         numFibers = len(fiberId)
-        spatial = np.full(numFibers, np.nan, dtype=float)
-        spectral = np.full(numFibers, np.nan, dtype=float)
+        spatialMedian = np.full(numFibers, np.nan, dtype=float)
+        spectralMedian = np.full(numFibers, np.nan, dtype=float)
+        spatialRms = np.full(numFibers, np.nan, dtype=float)
+        spectralRms = np.full(numFibers, np.nan, dtype=float)
         for ii, ff in enumerate(fiberId):
             choose = good & (lines.fiberId == ff)
-            spatial[ii] = np.median(dx[choose])
-            spectral[ii] = np.median(dy[choose & notTrace])
+            spatialMedian[ii] = np.median(dx[choose])
+            spectralMedian[ii] = np.median(dy[choose & notTrace])
+            spatialRms[ii] = robustRms(dx[choose])
+            spectralRms[ii] = robustRms(dy[choose & notTrace])
 
-        axes[0].scatter(fiberId, spatial, marker=".", color="b", label="dx")
-        axes[0].scatter(fiberId, spectral, marker=".", color="r", label="dy")
-        axes[0].legend()
-        axes[0].set_xlabel("fiberId")
-        axes[0].set_ylabel("Median residual (pixels)")
+        axes[0][0].scatter(fiberId, spatialMedian, marker=".", color="b", label="dx")
+        axes[0][0].scatter(fiberId, spectralMedian, marker=".", color="r", label="dy")
+        axes[0][0].legend()
+        axes[0][0].set_xlabel("fiberId")
+        axes[0][0].set_ylabel("Median residual (pixels)")
+        axes[0][0].set_title("Median fiber residuals")
+
+        axes[0][1].scatter(fiberId, spatialRms, marker=".", color="b", label="dx")
+        axes[0][1].scatter(fiberId, spectralRms, marker=".", color="r", label="dy")
+        axes[0][1].legend()
+        axes[0][1].set_xlabel("fiberId")
+        axes[0][1].set_ylabel("RMS residual (pixels)")
+        axes[0][1].set_title("RMS fiber residuals")
 
         counts = Counter(lines.wavelength[good & notTrace])
         threshold = 0.7*numFibers
         wavelengths = [wl for wl, count in counts.items() if count > threshold]
         numLines = len(wavelengths)
 
-        spatial = np.full(numLines, np.nan, dtype=float)
-        spectral = np.full(numLines, np.nan, dtype=float)
+        spatialMedian = np.full(numLines, np.nan, dtype=float)
+        spectralMedian = np.full(numLines, np.nan, dtype=float)
+        spatialRms = np.full(numLines, np.nan, dtype=float)
+        spectralRms = np.full(numLines, np.nan, dtype=float)
         for ii, wl in enumerate(wavelengths):
             choose = good & (lines.wavelength == wl)
-            spatial[ii] = np.median(dx[choose])
-            spectral[ii] = np.median(dy[choose])
+            spatialMedian[ii] = np.median(dx[choose])
+            spectralMedian[ii] = np.median(dy[choose])
+            spatialRms[ii] = robustRms(dx[choose])
+            spectralRms[ii] = robustRms(dy[choose])
 
-        axes[1].scatter(wavelengths, spatial, marker=".", color="b", label="dx")
-        axes[1].scatter(wavelengths, spectral, marker=".", color="r", label="dy")
-        axes[1].legend()
-        axes[1].set_xlabel("Wavelength (nm)")
-        axes[1].set_ylabel("Median residual (pixels)")
-        axes[1].set_xlim(lines.wavelength.min(), lines.wavelength.max())
+        axes[1][0].scatter(wavelengths, spatialMedian, marker=".", color="b", label="dx")
+        axes[1][0].scatter(wavelengths, spectralMedian, marker=".", color="r", label="dy")
+        axes[1][0].legend()
+        axes[1][0].set_xlabel("Wavelength (nm)")
+        axes[1][0].set_ylabel("Median residual (pixels)")
+        axes[1][0].set_xlim(lines.wavelength.min(), lines.wavelength.max())
+        axes[1][0].set_title("Median line residuals")
+
+        axes[1][1].scatter(wavelengths, spatialRms, marker=".", color="b", label="dx")
+        axes[1][1].scatter(wavelengths, spectralRms, marker=".", color="r", label="dy")
+        axes[1][1].legend()
+        axes[1][1].set_xlabel("Wavelength (nm)")
+        axes[1][1].set_ylabel("RMS residual (pixels)")
+        axes[1][1].set_xlim(lines.wavelength.min(), lines.wavelength.max())
+        axes[1][1].set_title("RMS line residuals")
 
         fig.tight_layout()
 
@@ -2058,10 +2083,8 @@ class FitDetectorMapTask(Task):
         legend = axes.flatten()[0].legend(prop=font)
         for lh in legend.legend_handles:
             lh.set_alpha(1)
-        for ax in axes.flatten():
-            ax.set_xlabel("Row (pixels)")
-        for ax in axes[:, 0]:
-            ax.set_ylabel("Residual (nm)")
+        fig.supxlabel("Row (pixels)")
+        fig.supylabel("Wavelength residual (nm)")
 
         fig.suptitle("Wavelength residuals")
         plt.show()
