@@ -234,10 +234,9 @@ class CosmicRayConfig(PipelineTaskConfig, pipelineConnections=CosmicRayConnectio
     cosmicray = ConfigField(dtype=FindCosmicRaysConfig, doc="Find cosmic rays")
     grow = Field(dtype=int, default=3, doc="Radius to grow CRs")
     doCosmicRay = Field(dtype=bool, default=True, doc="Remove cosmic rays?")
-    doH4MorphologicalCRs = Field(dtype=bool, default=False, doc="""Use morphological CR rejection for H4RGs?
-    This is usually handled in the up-the-ramp code""")
-    crMinReadsH4 = Field(dtype=int, default=4,
-                         doc="Minimum number of reads for up-the-ramp CR rejection in H4RGs")
+    doH4MorphologicalCRs = Field(dtype=bool, default=True, doc="""Use morphological CR rejection for H4RGs?
+    The up-the-ramp code in ISR tests each pixel on its own, along the ramp, so it cannot use a CR's
+    spatial footprint; this pass supplies that.""")
     repair = ConfigurableField(target=PfsRepairTask, doc="Task to repair artifacts; used for single exposure")
     grouping = ChoiceField(
         dtype=str,
@@ -325,14 +324,12 @@ class CosmicRayTask(PipelineTask):
         if not self.config.doCosmicRay:
             return result
         if exposures[0].getDetector().getName().startswith("n") and not self.config.doH4MorphologicalCRs:
-            nRead = exposures[0].getMetadata()["W_H4NRED"]
-            if nRead >= self.config.crMinReadsH4:  # we already ran the CR rejection code
-                self.log.info("Assuming that up-the-ramp CR code was already run (nread = %d)", nRead)
-                return result
+            self.log.info("Morphological CR rejection is disabled for H4RGs")
+            return result
 
         # Single exposure cosmic-ray removal: use the repair task
         if len(exposures) == 1:
-            self.log.warn("No subtraction possible with single exposure; using sub-optimal CR removal")
+            self.log.warning("No subtraction possible with single exposure; using sub-optimal CR removal")
             for exp in exposures:
                 self.runSingle(exp)
             return result
@@ -487,7 +484,7 @@ class CosmicRayTask(PipelineTask):
                 self.config.scaleFluxMinNPixels
             )
         except RuntimeError:
-            self.log.warn("Could not calculate per-image scaling falling back to unity...")
+            self.log.warning("Could not calculate per-image scaling falling back to unity...")
             fluxes = np.ones(num)
 
         # Apply the scales to put all images on a common flux scale
