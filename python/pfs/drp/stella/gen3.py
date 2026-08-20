@@ -1079,12 +1079,13 @@ def calculateObjectGroups(
     # Split up any groups that are too big
     tooBig = numPerGroup > maxGroupSize
     if np.any(tooBig):
+        nextGroup = numGroups + 1
         for gg in np.where(tooBig)[0]:
             select = objGroup == gg + 1  # gg is an index into numPerGroup, which starts with groupId=1
             num = np.sum(select)
             numNew = int(np.ceil(num / maxGroupSize))
-            objGroup[select] = np.linspace(numGroups + 1, numGroups + 1 + numNew, num, False, dtype=np.int32)
-            numGroups += numNew - 1  # Replaced one group with numNew groups
+            objGroup[select] = np.linspace(nextGroup, nextGroup + numNew, num, False, dtype=np.int32)
+            nextGroup += numNew
         objGroup = renumber(objGroup)
 
     # Final check
