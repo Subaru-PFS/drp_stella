@@ -1,6 +1,7 @@
 """Helper functions for the LSST Gen3 middleware"""
 
 import functools
+import heapq
 import os
 from collections import defaultdict
 from collections.abc import Sequence
@@ -1032,8 +1033,7 @@ def calculateObjectGroups(
     objDesigns: dict[int, int] = defaultdict(set)  # mapping of objId to set of pfsDesignId
     for pfsConfig in pfsConfigList:
         pfsDesignId = pfsConfig.pfsDesignId
-        pfsConfig = pfsConfig.select(catId=catId)
-        for objId in pfsConfig.objId:
+        for objId in pfsConfig.objId[pfsConfig.catId == catId]:
             objDesigns[objId].add(pfsDesignId)
     objId = np.array(sorted(objDesigns.keys()), dtype=np.int64)
     numObj = objId.size
@@ -1054,27 +1054,37 @@ def calculateObjectGroups(
 
     numGroups = len(groupIds)
     numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
-    indices = np.argsort(numPerGroup)
 
     def renumber(objGroup: np.ndarray) -> np.ndarray:
         """Renumber the groups so that they are contiguous and start at 1"""
-        old = np.sort(np.unique(objGroup))
-        new = np.arange(1, len(old) + 1, dtype=np.int32)
-        newObjGroup = np.zeros_like(objGroup, dtype=np.int32)
-        for ii, oo in enumerate(old):
-            newObjGroup[objGroup == oo] = new[ii]
-        return newObjGroup
+        old = np.unique(objGroup)
+        lookup = np.zeros(int(old[-1]) + 1, dtype=np.int32)
+        lookup[old] = np.arange(1, old.size + 1, dtype=np.int32)
+        return lookup[objGroup]
 
-    # Combine groups so long as we stay under the maxGroupSize limit
-    while numGroups > 1 and np.sum(numPerGroup[indices[:2]]) < maxGroupSize:
-        # Combine the two smallest groups
-        remove = indices[0] + 1
-        keep = indices[1] + 1
-        objGroup[objGroup == remove] = keep
-        objGroup = renumber(objGroup)
-        numGroups -= 1
-        numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
-        indices = np.argsort(numPerGroup)
+    # Combine groups so long as we stay under the maxGroupSize limit.
+    parent = np.arange(numGroups + 1, dtype=np.int32)  # group labels are 1-indexed
+    heap = [(int(numPerGroup[gg - 1]), gg) for gg in range(1, numGroups + 1)]
+    heapq.heapify(heap)
+    while len(heap) > 1:
+        size1, group1 = heapq.heappop(heap)
+        size2, group2 = heapq.heappop(heap)
+        if size1 + size2 >= maxGroupSize:
+            heapq.heappush(heap, (size1, group1))
+            heapq.heappush(heap, (size2, group2))
+            break
+        parent[group1] = group2
+        heapq.heappush(heap, (size1 + size2, group2))
+
+    def findGroup(group: int) -> int:
+        while parent[group] != group:
+            group = parent[group]
+        return group
+
+    remap = np.array([findGroup(gg) for gg in range(numGroups + 1)], dtype=np.int32)
+    objGroup = renumber(remap[objGroup])
+    numGroups = np.unique(objGroup).size
+    numPerGroup = np.bincount(objGroup)[1:]  # groupId is positive, so exclude 0
 
     # Split up any groups that are too big
     tooBig = numPerGroup > maxGroupSize
