@@ -3,6 +3,7 @@ import os
 import numpy as np
 from scipy.optimize import minimize_scalar
 
+from lsst.afw.image import VisitInfo
 from lsst.pipe.base import Task, Struct
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.utils import getPackageDir
@@ -13,9 +14,11 @@ from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.datamodel import PfsConfig
 
 from .arcLine import ArcLineSet
+from .atmosphere import AtmosphericTransmission
 from .datamodel import PfsSingle
 from .DetectorMapContinued import DetectorMap
 from .interpolate import Interpolator
+from .lsf import LsfDict
 from .referenceLine import ReferenceLineSource, ReferenceLineStatus
 from .selectFibers import SelectFibersTask
 
@@ -74,6 +77,26 @@ def safeInterpolationMask(
     return inDomain & noBadInRange
 
 
+def replaceFlux(template: PfsSimpleSpectrum, flux: np.ndarray) -> PfsSimpleSpectrum:
+    """Return a shallow copy of a template spectrum with a different flux array
+
+    Parameters
+    ----------
+    template : `PfsSimpleSpectrum`
+        Template spectrum to copy; only its ``flux`` is replaced.
+    flux : `numpy.ndarray` of `float`
+        Replacement flux array, aligned with ``template.wavelength``.
+
+    Returns
+    -------
+    result : `PfsSimpleSpectrum`
+        Copy of ``template`` with ``flux`` replacing the original flux array.
+    """
+    return PfsSimpleSpectrum(
+        template.target, template.wavelength, flux, template.mask, template.flags, template.metadata
+    )
+
+
 def fitWavelengthOffset(
     spectrum: PfsFiberArray,
     targetTemplate: PfsSimpleSpectrum,
@@ -91,6 +114,13 @@ def fitWavelengthOffset(
     priorOffset: float,
     curvatureStepFraction: float,
     curvatureNumPoints: int,
+    *,
+    computeOffsetErr: bool = True,
+    targetInterpolator: Interpolator = None,
+    skyInterpolator: Interpolator = None,
+    rawTargetFlux: np.ndarray = None,
+    atmosphereTransmission: np.ndarray = None,
+    pwv: float = None,
 ) -> Struct:
     """Fit a wavelength offset between the observed spectrum and two templates
 
@@ -138,6 +168,36 @@ def fitWavelengthOffset(
     curvatureNumPoints : `int`
         Number of points (spaced by ``curvatureStepFraction*(maxOffset -
         minOffset)``) to sample around the maximum for the curvature estimate.
+    computeOffsetErr : `bool`, optional
+        Estimate ``offsetErr`` from the log-likelihood curvature, raising if
+        that curvature is non-negative at the maximum? Set `False` to skip
+        this (returning ``offsetErr=nan`` unconditionally) when only
+        ``logLikelihood`` is needed and a marginal/positive curvature
+        shouldn't invalidate an otherwise-valid fit -- e.g., when summing
+        ``logLikelihood`` across many (fiber, window) pairs for an outer,
+        non-linear fit of a parameter (such as atmospheric PWV) shared across
+        the whole exposure, where excluding whichever pairs happen to have
+        ill-determined offset uncertainties at a given trial would bias the
+        sum toward trial values that happen to leave more pairs well-behaved.
+    targetInterpolator, skyInterpolator : `Interpolator`, optional
+        Prebuilt interpolators for ``targetTemplate.wavelength`` and
+        ``skyTemplate.wavelength``, respectively. Both wavelength grids are
+        typically invariant across many calls to this function (e.g., every
+        (fiber, window) pair fit during a `CentroidSolarTask.run` call), while
+        constructing an `Interpolator` is expensive; callers making many such
+        calls should build each of these once and pass them in, rather than
+        letting this function rebuild them (the default) on every call.
+    rawTargetFlux, atmosphereTransmission : `numpy.ndarray`, optional
+        Debug-plot-only inputs, aligned with ``targetTemplate.wavelength``:
+        the un-attenuated (i.e., before multiplication by the atmospheric
+        transmission), LSF-convolved target flux, and the atmospheric
+        transmission curve itself. ``targetTemplate.flux`` is their product
+        (further LSF-convolved); passing both lets the debug plot below show
+        the target (solar) spectrum and the atmosphere as separate lines
+        rather than only their combined effect. Unused otherwise.
+    pwv : `float`, optional
+        Debug-plot-only input: the precipitable water vapor (mm) corresponding
+        to ``atmosphereTransmission``. Unused otherwise.
 
     Notes
     -----
@@ -218,11 +278,15 @@ def fitWavelengthOffset(
     skyFlux = skyFlux/skyScale
 
     # Constructing the Interpolator is much more expensive than evaluating it (the templates are
-    # high-resolution spectra with ~1e6 points), so build them once here and reuse them for every
-    # evaluation of the log-likelihood below (of which there are many: both the offset optimizer and
-    # the curvature estimate call it repeatedly), rather than rebuilding them on every evaluation.
-    targetInterpolator = Interpolator(targetWavelength)
-    skyInterpolator = Interpolator(skyWavelength)
+    # high-resolution spectra with ~1e6 points), so build them once here (unless the caller already
+    # built and passed one in, e.g. to share across many calls sharing the same wavelength grids) and
+    # reuse them for every evaluation of the log-likelihood below (of which there are many: both the
+    # offset optimizer and the curvature estimate call it repeatedly), rather than rebuilding them on
+    # every evaluation.
+    if targetInterpolator is None:
+        targetInterpolator = Interpolator(targetWavelength)
+    if skyInterpolator is None:
+        skyInterpolator = Interpolator(skyWavelength)
 
     # Permanently exclude points whose interpolation kernel window could ever include a masked
     # template sample (or run outside the template's domain) for some offset in the search range;
@@ -299,10 +363,19 @@ def fitWavelengthOffset(
     result = minimize_scalar(
         lambda offset: -calculateLogLikelihood(offset), bounds=(minOffset, maxOffset), method="bounded"
     )
+
     offset = result.x
     logLikelihood = -result.fun
 
-    if False:
+    if not np.isfinite(logLikelihood):
+        # The bounded optimizer can "succeed" trivially even when the objective is -inf across the
+        # entire search range (e.g., no valid/unmasked data points anywhere in this window for this
+        # fiber). Raise so this (fiber, window) pair is excluded the same way any other fit failure
+        # is, instead of contributing -inf to a sum over many pairs (e.g. the outer PWV objective),
+        # which would make every trial equally (and uninformatively) bad.
+        raise RuntimeError(f"No valid data for fitting (offset={offset}): logLikelihood is not finite")
+
+    if False and minWavelength < 859 and maxWavelength > 859 and spectrum.observations.fiberId[0] == 2:
         import matplotlib.pyplot as plt
 
         shiftedTargetFlux = targetInterpolator.interpolateFlux(
@@ -328,62 +401,91 @@ def fitWavelengthOffset(
         coeff = np.linalg.solve(chi, phi)
         targetCoeff = coeff[:targetFluxOrder + 1]
         skyCoeff = coeff[targetFluxOrder + 1:]
-        targetModel = (shiftedTargetFlux[good][:, np.newaxis]*targetBasis) @ targetCoeff
         skyModel = (shiftedSkyFlux[good][:, np.newaxis]*skyBasis) @ skyCoeff
-        model = targetModel + skyModel
+        model = (shiftedTargetFlux[good][:, np.newaxis]*targetBasis) @ targetCoeff + skyModel
 
-        plt.errorbar(
+        fig, ax = plt.subplots()
+        ax.errorbar(
             spectrumWavelength[good], spectrumFlux[good], yerr=np.sqrt(spectrumVariance[good]),
             fmt="k.", label="Observed", alpha=0.5,
         )
-        plt.plot(spectrumWavelength[good], targetModel, "b--", label="Target component")
-        plt.plot(spectrumWavelength[good], skyModel, "g--", label="Sky component")
-        plt.plot(spectrumWavelength[good], model, "r-", label="Best-fit model")
-        plt.xlabel("Wavelength (nm)")
-        plt.ylabel("Flux")
-        plt.title(f"Centroiding fit: offset={offset:.3f} nm ({'SUCCESS' if result.success else 'FAILED'})")
-        plt.legend()
+        if rawTargetFlux is not None:
+            # Same fitted targetCoeff, applied to the un-attenuated target flux instead of the
+            # attenuated one used in the fit above: shows what the target's contribution to the
+            # model would look like without the atmosphere, so its difference from the model below
+            # is (approximately) the atmosphere's effect.
+            shiftedRawTargetFlux = targetInterpolator.interpolateFlux(
+                rawTargetFlux/targetScale, spectrumWavelength - offset, fill=np.nan, order=resampleOrder,
+                fromMask=targetBad,
+            )
+            targetOnlyModel = (shiftedRawTargetFlux[good][:, np.newaxis]*targetBasis) @ targetCoeff
+            ax.plot(spectrumWavelength[good], targetOnlyModel, "b--", label="Target (solar) spectrum")
+        ax.plot(spectrumWavelength[good], skyModel, "g--", label="Sky spectrum")
+        ax.plot(spectrumWavelength[good], model, "r-", label="Best-fit model")
+        ax.set_xlabel("Wavelength (nm)")
+        ax.set_ylabel("Flux")
+        handles, labels = ax.get_legend_handles_labels()
+        if atmosphereTransmission is not None:
+            shiftedTransmission = targetInterpolator.interpolateFlux(
+                atmosphereTransmission, spectrumWavelength - offset, fill=np.nan, order=resampleOrder,
+            )
+            atmAx = ax.twinx()
+            atmLine, = atmAx.plot(
+                spectrumWavelength[good],
+                shiftedTransmission[good],
+                "m-.",
+                label=f"Atmosphere (PWV={pwv:.1f} mm)" if pwv is not None else "Atmosphere",
+            )
+            atmAx.set_ylabel("Atmospheric transmission")
+            atmAx.set_ylim(0, 1.05)
+            handles.append(atmLine)
+            labels.append(atmLine.get_label())
+        ax.legend(handles, labels)
+        ax.set_title(f"Centroiding fit: offset={offset:.3f} nm ({'SUCCESS' if result.success else 'FAILED'})")
         plt.show()
 
     if not result.success:
         raise RuntimeError(f"Failed to maximize log-likelihood: {result}")
 
-    # Estimate the offset uncertainty from the curvature of the log-likelihood at its maximum, by
-    # fitting a parabola (least squares) to several points spanning a modest range around the
-    # maximum, rather than differencing the function at just two or three points (e.g., via
-    # ``scipy.differentiate.hessian``). ``interpolateFlux``'s kernel window shifts by integer steps
-    # of the template's wavelength sampling as the offset varies continuously (see Notes), producing
-    # small-scale ripples in the log-likelihood; a finite-difference estimate is sensitive to exactly
-    # these ripples; and an adaptive step-growth strategy intended to average over them can grow the
-    # step so far that it leaves the locally-quadratic region around the peak altogether, sometimes
-    # returning a wrong-signed curvature. A least-squares parabola fit over several points instead
-    # averages over the ripples directly, and -- since it only ever evaluates the fixed set of points
-    # below -- can't run away like an adaptive algorithm can.
-    curvatureStep = curvatureStepFraction*(maxOffset - minOffset)
-    curvatureRelOffset = curvatureStep*np.linspace(
-        -(curvatureNumPoints - 1)/2, (curvatureNumPoints - 1)/2, curvatureNumPoints
-    )
-    curvatureOffset = np.clip(offset + curvatureRelOffset, minOffset, maxOffset)
-    curvatureLogLikelihood = np.array([calculateLogLikelihood(oo) for oo in curvatureOffset])
-    quadratic = np.polyfit(curvatureOffset - offset, curvatureLogLikelihood, 2)
-    curvature = 2*quadratic[0]
-
-    if False:
-        import matplotlib.pyplot as plt
-        offsetArray = np.linspace(minOffset, maxOffset, 100)
-        plt.plot(offsetArray, [calculateLogLikelihood(oo) for oo in offsetArray])
-        plt.plot(curvatureOffset, curvatureLogLikelihood, "o")
-        plt.axvline(offset, color="k", ls="--")
-        plt.xlabel("Wavelength Offset (nm)")
-        plt.ylabel("Log-Likelihood")
-        plt.title(f"Centroiding fit: offset={offset:.3f} nm, curvature={curvature:.3e}")
-        plt.show()
-
-    if not curvature < 0:
-        raise RuntimeError(
-            f"Log-likelihood curvature is non-negative at its maximum (offset={offset}): {curvature}"
+    if computeOffsetErr:
+        # Estimate the offset uncertainty from the curvature of the log-likelihood at its maximum, by
+        # fitting a parabola (least squares) to several points spanning a modest range around the
+        # maximum, rather than differencing the function at just two or three points (e.g., via
+        # ``scipy.differentiate.hessian``). ``interpolateFlux``'s kernel window shifts by integer steps
+        # of the template's wavelength sampling as the offset varies continuously (see Notes), producing
+        # small-scale ripples in the log-likelihood; a finite-difference estimate is sensitive to exactly
+        # these ripples; and an adaptive step-growth strategy intended to average over them can grow the
+        # step so far that it leaves the locally-quadratic region around the peak altogether, sometimes
+        # returning a wrong-signed curvature. A least-squares parabola fit over several points instead
+        # averages over the ripples directly, and -- since it only ever evaluates the fixed set of points
+        # below -- can't run away like an adaptive algorithm can.
+        curvatureStep = curvatureStepFraction*(maxOffset - minOffset)
+        curvatureRelOffset = curvatureStep*np.linspace(
+            -(curvatureNumPoints - 1)/2, (curvatureNumPoints - 1)/2, curvatureNumPoints
         )
-    offsetErr = np.sqrt(-1.0/curvature)
+        curvatureOffset = np.clip(offset + curvatureRelOffset, minOffset, maxOffset)
+        curvatureLogLikelihood = np.array([calculateLogLikelihood(oo) for oo in curvatureOffset])
+        quadratic = np.polyfit(curvatureOffset - offset, curvatureLogLikelihood, 2)
+        curvature = 2*quadratic[0]
+
+        if False:
+            import matplotlib.pyplot as plt
+            offsetArray = np.linspace(minOffset, maxOffset, 100)
+            plt.plot(offsetArray, [calculateLogLikelihood(oo) for oo in offsetArray])
+            plt.plot(curvatureOffset, curvatureLogLikelihood, "o")
+            plt.axvline(offset, color="k", ls="--")
+            plt.xlabel("Wavelength Offset (nm)")
+            plt.ylabel("Log-Likelihood")
+            plt.title(f"Centroiding fit: offset={offset:.3f} nm, curvature={curvature:.3e}")
+            plt.show()
+
+        if not curvature < 0:
+            raise RuntimeError(
+                f"Log-likelihood curvature is non-negative at its maximum (offset={offset}): {curvature}"
+            )
+        offsetErr = np.sqrt(-1.0/curvature)
+    else:
+        offsetErr = np.nan
 
     return Struct(offset=offset, offsetErr=offsetErr, logLikelihood=logLikelihood, flux=flux, fluxErr=fluxErr)
 
@@ -413,7 +515,9 @@ class CentroidSolarConfig(Config):
     targetTemplate = Field(
         dtype=str,
         default=os.path.join(getPackageDir("drp_pfs_data"), "templates", "solar_spectrum.fits"),
-        doc="Path for the LSF-convolved target (solar) spectrum template",
+        doc="Path for the raw (pre-LSF-convolution) target (solar) spectrum template; "
+        "it is LSF-convolved at run time (see the ``lsf`` parameter of ``run``), "
+        "after multiplication by the atmospheric transmission if ``doFitAtmosphere`` is set",
     )
     skyTemplate = Field(
         dtype=str,
@@ -482,6 +586,55 @@ class CentroidSolarConfig(Config):
         doc="Uncertainty in the x (spatial) position to assign to each fitted line (pixels), "
         "since we don't measure it",
     )
+    lsfWidthRelTol = Field(
+        dtype=float,
+        default=1.0e-3,
+        doc="Relative tolerance for treating warped LSF widths as equal, so fibers with "
+        "essentially the same LSF share a single template convolution per PWV trial "
+        "instead of paying for one convolution per fiber. This is a speed optimization "
+        "only, introducing at most this fractional error in the shared LSF width; set to "
+        "0 to disable (revert to exact-float grouping, one convolution per distinct fiber).",
+    )
+    doFitAtmosphere = Field(
+        dtype=bool,
+        default=True,
+        doc="Fit a shared precipitable water vapor (PWV) parameter, and multiply the atmospheric "
+        "transmission it implies into the target (solar) template, before LSF convolution?",
+    )
+    atmosphereTransmission = Field(
+        dtype=str,
+        default=os.path.join(getPackageDir("drp_pfs_data"), "atmosphere", "pfs_atmosphere.fits"),
+        doc="Path for the atmospheric transmission model FITS grid (see AtmosphericTransmission.fromFits)",
+    )
+    pwvMin = Field(
+        dtype=float,
+        default=0.0,
+        doc="Minimum precipitable water vapor to consider when fitting (mm); clamped to the range "
+        "spanned by the atmosphereTransmission grid",
+    )
+    pwvMax = Field(
+        dtype=float,
+        default=30.0,
+        doc="Maximum precipitable water vapor to consider when fitting (mm); clamped to the range "
+        "spanned by the atmosphereTransmission grid",
+    )
+    priorPwv = Field(
+        dtype=float,
+        default=None,
+        optional=True,
+        doc="Width (sigma) of an optional Gaussian prior on PWV, centered on zero (mm); "
+        "a numerical-stability aid only, since PWV's own accuracy isn't of interest "
+        "(just its consistency across the exposure)",
+    )
+    pwv = Field(
+        dtype=float,
+        default=3.0,
+        optional=True,
+        doc="Precipitable water vapor (mm) to assume, rather than fitting for it; the "
+        "atmospheric transmission (if doFitAtmosphere is set) is still applied to the target "
+        "template using this fixed value, but the outer PWV search is skipped. Only meaningful "
+        "when doFitAtmosphere is set.",
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -512,7 +665,14 @@ class CentroidSolarTask(Task):
         super().__init__(*args, **kwargs)
         self.makeSubtask("selectFibers")
 
-    def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig, detectorMap: DetectorMap) -> Struct:
+    def run(
+        self,
+        pfsArm: PfsArm,
+        pfsConfig: PfsConfig,
+        detectorMap: DetectorMap,
+        lsf: LsfDict,
+        visitInfo: VisitInfo = None,
+    ) -> Struct:
         """Centroid using cross-correlation of solar spectral template
 
         Parameters
@@ -521,6 +681,18 @@ class CentroidSolarTask(Task):
             The PFS arm spectra.
         pfsConfig : `PfsConfig`
             Top-end fiber configuration.
+        detectorMap : `DetectorMap`
+            Mapping between fiberId,wavelength and detector coordinates.
+        lsf : `LsfDict`
+            Line-spread functions, indexed by fiberId. Used to LSF-convolve the
+            (raw, pre-convolution) target template at run time; see
+            ``CentroidSolarConfig.targetTemplate``.
+        visitInfo : `VisitInfo`, optional
+            Visit information for the exposure being centroided, used to
+            determine the zenith distance. Required if
+            ``config.doFitAtmosphere`` is set; the caller should supply the
+            exposure's own ``visitInfo``, not ``detectorMap.visitInfo`` (which
+            may be a stale, calibration-time value).
 
         Returns
         -------
@@ -534,15 +706,230 @@ class CentroidSolarTask(Task):
               fitted wavelength offsets for each fiber (nm).
             - `logLikelihood` (`numpy.ndarray` of `float`): The maximum log-likelihoods of
               the fits for each fiber.
+            - `pwv` (`float`): The precipitable water vapor (mm): fitted, or
+              fixed at ``config.pwv`` if that is set, or `nan` if
+              ``config.doFitAtmosphere`` is not set. This is a nuisance
+              parameter (its own uncertainty isn't estimated); what matters is
+              that a single value is shared across the whole exposure.
         """
         subConfig = self.selectFibers.run(pfsConfig.select(fiberId=pfsArm.fiberId))
+        self.log.debug("Selected %d fibers for solar centroiding", len(subConfig.fiberId))
         targetTemplate = self.loadTargetTemplate()
         skyTemplate = self.loadSkyTemplate()
+        self.log.debug(
+            "Loaded target template (%d points) and sky template (%d points)",
+            len(targetTemplate.wavelength), len(skyTemplate.wavelength),
+        )
+        # Both templates' wavelength grids are invariant for the whole run below (only the target's
+        # flux is ever replaced, by `replaceFlux`, which leaves `.wavelength` untouched), so build
+        # each Interpolator once here and reuse it for every (fiber, window, PWV trial) fit, rather
+        # than paying for its expensive spline construction on every single one of those fits.
+        targetInterpolator = Interpolator(targetTemplate.wavelength.astype(float))
+        skyInterpolator = Interpolator(skyTemplate.wavelength.astype(float))
+        self.log.debug("Built target and sky interpolators once for the whole exposure")
 
         detMapWavelength = detectorMap.getWavelength()
         minWl = detMapWavelength.min()
         maxWl = detMapWavelength.max()
 
+        spectra = {ff: pfsArm.extractFiber(PfsSingle, pfsConfig, ff) for ff in subConfig.fiberId}
+        windows = [
+            (centerWavelength, halfWidth)
+            for centerWavelength, halfWidth in zip(self.config.wavelengths, self.config.halfWidth)
+            if centerWavelength - halfWidth >= minWl and centerWavelength + halfWidth <= maxWl
+        ]
+        self.log.debug(
+            "Fitting %d fibers x %d wavelength windows = %d (fiber, window) pairs",
+            len(subConfig.fiberId), len(windows), len(subConfig.fiberId)*len(windows),
+        )
+        if False:
+            import matplotlib.pyplot as plt
+            plt.plot(spectra[subConfig.fiberId[0]].wavelength, spectra[subConfig.fiberId[0]].flux)
+            cmap = plt.get_cmap("rainbow")
+            colors = cmap(np.linspace(0, 1, len(windows)))
+            for ww, color in zip(windows, colors):
+                plt.axvspan(
+                    ww[0] - ww[1],
+                    ww[0] + ww[1],
+                    color=color,
+                    alpha=0.2,
+                    label=f"{ww[0]:.1f} +/- {ww[1]:.1f} nm",
+                )
+            plt.legend()
+            plt.xlabel("Wavelength (nm)")
+            plt.ylabel("Flux")
+            plt.title(f"Fiber {subConfig.fiberId[0]} spectrum with centroiding windows")
+            plt.show()
+
+        # Re-express each fiber's LSF on the (high-resolution) target template's own native
+        # wavelength grid, once -- this doesn't depend on PWV, so it's never repeated per trial.
+        warpedLsf = {
+            ff: lsf[ff].warp(detectorMap.getWavelength(ff), targetTemplate.wavelength)
+            for ff in subConfig.fiberId
+        }
+
+        # Fibers sharing (to within lsfWidthRelTol) the same LSF (the common case today, e.g. when
+        # the input LsfDict was built from a single nominal width divided by each fiber's own
+        # dispersion) share a single convolution per PWV trial below, instead of paying for one
+        # convolution per fiber per trial. Grouping by exact float equality would essentially never
+        # match here: warp() re-expresses the width through each fiber's own, slightly different,
+        # wavelength solution, so nominally-identical input widths come out as distinct floats.
+        def widthGroupKey(width):
+            if width is None or self.config.lsfWidthRelTol <= 0:
+                return width
+            return round(np.log(width)/np.log1p(self.config.lsfWidthRelTol))
+
+        widthKey = {
+            ff: widthGroupKey(getattr(warpedLsf[ff], "width", None)) for ff in subConfig.fiberId
+        }
+        representative = {}
+        for ff, key in widthKey.items():
+            if key is not None and key not in representative:
+                representative[key] = warpedLsf[ff]
+        self.log.debug(
+            "Grouped %d fibers into %d distinct LSF widths (%d fibers ungrouped)",
+            len(subConfig.fiberId), len(representative),
+            sum(1 for key in widthKey.values() if key is None),
+        )
+
+        transmissionInterpolator = None
+        pwvBounds = None
+        if self.config.doFitAtmosphere:
+            if visitInfo is None:
+                raise RuntimeError("visitInfo is required when config.doFitAtmosphere is set")
+            atmosphere = AtmosphericTransmission.fromFits(self.config.atmosphereTransmission)
+            zd = 90.0 - visitInfo.getBoresightAzAlt().getLatitude().asDegrees()
+            transmissionInterpolator = atmosphere.makeInterpolator(zd, targetTemplate.wavelength)
+            pwvBounds = (
+                max(self.config.pwvMin, atmosphere.pwv[0]),
+                min(self.config.pwvMax, atmosphere.pwv[-1]),
+            )
+            self.log.debug("Zenith distance=%f deg; searching PWV in %s mm", zd, pwvBounds)
+
+        # The un-attenuated (no atmosphere applied), LSF-convolved target flux doesn't depend on the
+        # trial PWV, so -- unlike the attenuated flux computed per trial below -- it's computed once
+        # here. It's only used by fitWavelengthOffset's debug plot, to show the target (solar)
+        # spectrum and the atmosphere as separate lines rather than only their combined effect.
+        rawFluxByWidth = None
+        rawFluxByFiber = None
+        if self.config.doFitAtmosphere:
+            rawFluxByWidth = {key: rep.convolve(targetTemplate.flux) for key, rep in representative.items()}
+            rawFluxByFiber = {
+                ff: warpedLsf[ff].convolve(targetTemplate.flux) for ff, key in widthKey.items() if key is None
+            }
+
+        def computeTargetFlux(pwv):
+            """Compute this trial's transmission-attenuated, LSF-convolved target flux
+
+            Returns a pair of dicts (by width-group key, and a per-fiberId fallback
+            for fibers whose LSF doesn't expose a ``width``), either of which
+            ``targetTemplateFor`` can look up from, plus the transmission curve used
+            (a scalar 1.0 if ``pwv`` is `None`).
+            """
+            transmission = transmissionInterpolator(pwv) if pwv is not None else 1.0
+            attenuated = targetTemplate.flux*transmission
+            fluxByWidth = {key: rep.convolve(attenuated) for key, rep in representative.items()}
+            fluxByFiber = {
+                ff: warpedLsf[ff].convolve(attenuated) for ff, key in widthKey.items() if key is None
+            }
+            return fluxByWidth, fluxByFiber, transmission
+
+        def targetTemplateFor(fluxByWidth, fluxByFiber, ff):
+            key = widthKey[ff]
+            flux = fluxByWidth[key] if key is not None else fluxByFiber[ff]
+            return replaceFlux(targetTemplate, flux)
+
+        def rawTargetFluxFor(ff):
+            if rawFluxByWidth is None:
+                return None
+            key = widthKey[ff]
+            return rawFluxByWidth[key] if key is not None else rawFluxByFiber[ff]
+
+        def fitAll(pwv, *, computeOffsetErr=True):
+            """Fit every (fiber, window) pair for a trial PWV, returning the results
+
+            A (fiber, window) pair that fails to fit (raises `RuntimeError`) is
+            reported as `None`; it is simply omitted from that trial's total
+            log-likelihood in the outer PWV objective, rather than being
+            permanently excluded from every trial.
+
+            ``computeOffsetErr=False`` (used by the outer PWV objective) skips
+            the offset-uncertainty/curvature estimate, which can spuriously
+            fail (raising `RuntimeError`) even when the fitted log-likelihood
+            itself is perfectly valid; since that failure rate is itself
+            PWV-dependent, letting it exclude items would bias the summed
+            log-likelihood toward whichever trial PWV happens to keep more
+            items "valid", rather than whichever fits best.
+            """
+            self.log.debug("Fitting all (fiber, window) pairs for trial pwv=%s", pwv)
+            fluxByWidth, fluxByFiber, transmission = computeTargetFlux(pwv)
+            atmosphereTransmission = transmission if np.ndim(transmission) > 0 else None
+            results = []
+            for ii, ff in enumerate(subConfig.fiberId):
+                spectrum = spectra[ff]
+                fiberTargetTemplate = targetTemplateFor(fluxByWidth, fluxByFiber, ff)
+                fiberRawTargetFlux = rawTargetFluxFor(ff)
+                numGood = 0
+                for centerWavelength, halfWidth in windows:
+                    try:
+                        result = self.fitTemplate(
+                            spectrum, fiberTargetTemplate, skyTemplate, centerWavelength, halfWidth,
+                            computeOffsetErr=computeOffsetErr,
+                            targetInterpolator=targetInterpolator,
+                            skyInterpolator=skyInterpolator,
+                            rawTargetFlux=fiberRawTargetFlux,
+                            atmosphereTransmission=atmosphereTransmission,
+                            pwv=pwv,
+                        )
+                    except RuntimeError as exc:
+                        self.log.debug(
+                            "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
+                        )
+                        result = None
+                    else:
+                        numGood += 1
+                    results.append((ff, centerWavelength, result))
+                # self.log.debug(
+                #     "Fiber %d/%d (fiberId=%d): %d/%d windows fit successfully",
+                #     ii + 1, len(subConfig.fiberId), ff, numGood, len(windows),
+                # )
+            return results
+
+        pwv = np.nan
+        if self.config.doFitAtmosphere:
+            if self.config.pwv is not None:
+                pwv = self.config.pwv
+                self.log.info("Using fixed PWV=%f mm (not fitting)", pwv)
+            else:
+                def objective(trialPwv):
+                    total = 0.0
+                    numGood = 0
+                    numItems = 0
+                    for _, _, result in fitAll(trialPwv, computeOffsetErr=False):
+                        numItems += 1
+                        if result is None:
+                            continue
+                        total += result.logLikelihood
+                        numGood += 1
+                    if numGood == 0:
+                        self.log.debug("PWV trial: pwv=%f mm, no successful fits", trialPwv)
+                        return np.inf
+                    if self.config.priorPwv is not None:
+                        total -= 0.5*(trialPwv/self.config.priorPwv)**2
+                    self.log.debug(
+                        "PWV trial: pwv=%f mm, logLikelihood=%f (%d/%d fits succeeded)",
+                        trialPwv, total, numGood, numItems,
+                    )
+                    return -total
+
+                self.log.debug("Starting outer PWV search over bounds=%s", pwvBounds)
+                fitResult = minimize_scalar(objective, bounds=pwvBounds, method="bounded", tol=0.5)
+                if not fitResult.success:
+                    raise RuntimeError(f"Failed to fit PWV: {fitResult}")
+                pwv = fitResult.x
+                self.log.info("Fitted PWV=%f mm", pwv)
+
+        self.log.debug("Running final fit pass at pwv=%s to measure offsets", pwv)
         fiberId = []
         wavelength = []
         xList = []
@@ -554,62 +941,26 @@ class CentroidSolarTask(Task):
         offset = []
         offsetErr = []
         logLikelihood = []
-        for ff in subConfig.fiberId:
-            spectrum = pfsArm.extractFiber(PfsSingle, pfsConfig, ff)
+        for ff, centerWavelength, result in fitAll(pwv if self.config.doFitAtmosphere else None):
+            if result is None:
+                continue
+            good = np.isfinite(result.offset) and np.isfinite(result.offsetErr)
+            self.log.debug("Fitting for fiberId=%d, wavelength=%f: %s", ff, centerWavelength, result)
 
-            if False:
-                import matplotlib.pyplot as plt
-                plt.plot(spectrum.wavelength, spectrum.flux, "k-")
-                cmap = plt.matplotlib.cm.get_cmap("rainbow")
-                wavelengths = np.array(self.config.wavelengths)
-                halfWidth = np.array(self.config.halfWidth)
-                select = (wavelengths + halfWidth > minWl) & (wavelengths - halfWidth < maxWl)
-                colors = cmap(np.linspace(0, 1, select.sum()))
-                for wl, hw, col in zip(
-                    wavelengths[select], halfWidth[select], colors
-                ):
-                    plt.axvspan(
-                        wl - hw,
-                        wl + hw,
-                        label=str(wl),
-                        color=col,
-                        alpha=0.2,
-                    )
-                plt.legend()
-                plt.xlabel("Wavelength (nm)")
-                plt.ylabel("Flux (normalized)")
-                plt.show()
+            point = detectorMap.findPoint(ff, centerWavelength)
+            dispersion = detectorMap.getDispersion(ff, centerWavelength)  # nm/pixel
 
-            for centerWavelength, halfWidth in zip(self.config.wavelengths, self.config.halfWidth):
-                if centerWavelength - halfWidth < minWl or centerWavelength + halfWidth > maxWl:
-                    continue
-                try:
-                    result = self.fitTemplate(
-                        spectrum, targetTemplate, skyTemplate, centerWavelength, halfWidth
-                    )
-                except RuntimeError as exc:
-                    self.log.debug(
-                        "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
-                    )
-                    continue
-
-                good = np.isfinite(result.offset) and np.isfinite(result.offsetErr)
-                self.log.debug("Fitting for fiberId=%d, wavelength=%f: %s", ff, centerWavelength, result)
-
-                point = detectorMap.findPoint(ff, centerWavelength)
-                dispersion = detectorMap.getDispersion(ff, centerWavelength)  # nm/pixel
-
-                fiberId.append(ff)
-                wavelength.append(centerWavelength)
-                xList.append(point.getX())
-                yList.append(point.getY() + result.offset/dispersion)
-                yErrList.append(result.offsetErr/dispersion)
-                fluxList.append(result.flux)
-                fluxErrList.append(result.fluxErr)
-                flag.append(not good)
-                offset.append(result.offset)
-                offsetErr.append(result.offsetErr)
-                logLikelihood.append(result.logLikelihood)
+            fiberId.append(ff)
+            wavelength.append(centerWavelength)
+            xList.append(point.getX())
+            yList.append(point.getY() + result.offset/dispersion)
+            yErrList.append(result.offsetErr/dispersion)
+            fluxList.append(result.flux)
+            fluxErrList.append(result.fluxErr)
+            flag.append(not good)
+            offset.append(result.offset)
+            offsetErr.append(result.offsetErr)
+            logLikelihood.append(result.logLikelihood)
 
         num = len(fiberId)
         empty = np.full(num, np.nan)
@@ -638,6 +989,7 @@ class CentroidSolarTask(Task):
             offset=np.array(offset, dtype=float),
             offsetErr=np.array(offsetErr, dtype=float),
             logLikelihood=np.array(logLikelihood, dtype=float),
+            pwv=pwv,
         )
 
     def loadTargetTemplate(self):
@@ -683,6 +1035,13 @@ class CentroidSolarTask(Task):
         skyTemplate: PfsSimpleSpectrum,
         centerWavelength: float,
         halfWidth: float,
+        *,
+        computeOffsetErr: bool = True,
+        targetInterpolator: Interpolator = None,
+        skyInterpolator: Interpolator = None,
+        rawTargetFlux: np.ndarray = None,
+        atmosphereTransmission: np.ndarray = None,
+        pwv: float = None,
     ) -> Struct:
         """Fit the templates to the observed spectrum in a wavelength window
 
@@ -700,6 +1059,17 @@ class CentroidSolarTask(Task):
             Central wavelength of the fitting window (nm).
         halfWidth : `float`
             Half-width of the fitting window (nm).
+        computeOffsetErr : `bool`, optional
+            Estimate ``offsetErr`` from the log-likelihood curvature? See
+            `fitWavelengthOffset`.
+        targetInterpolator, skyInterpolator : `Interpolator`, optional
+            Prebuilt interpolators for the two templates' wavelength grids,
+            to avoid rebuilding them on every call; see `fitWavelengthOffset`.
+        rawTargetFlux, atmosphereTransmission : `numpy.ndarray`, optional
+            Debug-plot-only inputs; see `fitWavelengthOffset`.
+        pwv : `float`, optional
+            Debug-plot-only input: the precipitable water vapor (mm) corresponding
+            to ``atmosphereTransmission``. Unused otherwise.
 
         Returns
         -------
@@ -732,4 +1102,10 @@ class CentroidSolarTask(Task):
             self.config.priorOffset,
             self.config.curvatureStepFraction,
             self.config.curvatureNumPoints,
+            computeOffsetErr=computeOffsetErr,
+            targetInterpolator=targetInterpolator,
+            skyInterpolator=skyInterpolator,
+            rawTargetFlux=rawTargetFlux,
+            atmosphereTransmission=atmosphereTransmission,
+            pwv=pwv,
         )
