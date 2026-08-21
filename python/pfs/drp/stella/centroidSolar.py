@@ -116,6 +116,8 @@ def fitWavelengthOffset(
     curvatureNumPoints: int,
     *,
     computeOffsetErr: bool = True,
+    targetInterpolator: Interpolator = None,
+    skyInterpolator: Interpolator = None,
 ) -> Struct:
     """Fit a wavelength offset between the observed spectrum and two templates
 
@@ -174,6 +176,14 @@ def fitWavelengthOffset(
         the whole exposure, where excluding whichever pairs happen to have
         ill-determined offset uncertainties at a given trial would bias the
         sum toward trial values that happen to leave more pairs well-behaved.
+    targetInterpolator, skyInterpolator : `Interpolator`, optional
+        Prebuilt interpolators for ``targetTemplate.wavelength`` and
+        ``skyTemplate.wavelength``, respectively. Both wavelength grids are
+        typically invariant across many calls to this function (e.g., every
+        (fiber, window) pair fit during a `CentroidSolarTask.run` call), while
+        constructing an `Interpolator` is expensive; callers making many such
+        calls should build each of these once and pass them in, rather than
+        letting this function rebuild them (the default) on every call.
 
     Notes
     -----
@@ -254,11 +264,15 @@ def fitWavelengthOffset(
     skyFlux = skyFlux/skyScale
 
     # Constructing the Interpolator is much more expensive than evaluating it (the templates are
-    # high-resolution spectra with ~1e6 points), so build them once here and reuse them for every
-    # evaluation of the log-likelihood below (of which there are many: both the offset optimizer and
-    # the curvature estimate call it repeatedly), rather than rebuilding them on every evaluation.
-    targetInterpolator = Interpolator(targetWavelength)
-    skyInterpolator = Interpolator(skyWavelength)
+    # high-resolution spectra with ~1e6 points), so build them once here (unless the caller already
+    # built and passed one in, e.g. to share across many calls sharing the same wavelength grids) and
+    # reuse them for every evaluation of the log-likelihood below (of which there are many: both the
+    # offset optimizer and the curvature estimate call it repeatedly), rather than rebuilding them on
+    # every evaluation.
+    if targetInterpolator is None:
+        targetInterpolator = Interpolator(targetWavelength)
+    if skyInterpolator is None:
+        skyInterpolator = Interpolator(skyWavelength)
 
     # Permanently exclude points whose interpolation kernel window could ever include a masked
     # template sample (or run outside the template's domain) for some offset in the search range;
@@ -337,6 +351,14 @@ def fitWavelengthOffset(
     )
     offset = result.x
     logLikelihood = -result.fun
+
+    if not np.isfinite(logLikelihood):
+        # The bounded optimizer can "succeed" trivially even when the objective is -inf across the
+        # entire search range (e.g., no valid/unmasked data points anywhere in this window for this
+        # fiber). Raise so this (fiber, window) pair is excluded the same way any other fit failure
+        # is, instead of contributing -inf to a sum over many pairs (e.g. the outer PWV objective),
+        # which would make every trial equally (and uninformatively) bad.
+        raise RuntimeError(f"No valid data for fitting (offset={offset}): logLikelihood is not finite")
 
     if False:
         import matplotlib.pyplot as plt
@@ -523,6 +545,15 @@ class CentroidSolarConfig(Config):
         doc="Uncertainty in the x (spatial) position to assign to each fitted line (pixels), "
         "since we don't measure it",
     )
+    lsfWidthRelTol = Field(
+        dtype=float,
+        default=1.0e-3,
+        doc="Relative tolerance for treating warped LSF widths as equal, so fibers with "
+        "essentially the same LSF share a single template convolution per PWV trial "
+        "instead of paying for one convolution per fiber. This is a speed optimization "
+        "only, introducing at most this fractional error in the shared LSF width; set to "
+        "0 to disable (revert to exact-float grouping, one convolution per distinct fiber).",
+    )
     doFitAtmosphere = Field(
         dtype=bool,
         default=True,
@@ -638,6 +669,13 @@ class CentroidSolarTask(Task):
             "Loaded target template (%d points) and sky template (%d points)",
             len(targetTemplate.wavelength), len(skyTemplate.wavelength),
         )
+        # Both templates' wavelength grids are invariant for the whole run below (only the target's
+        # flux is ever replaced, by `replaceFlux`, which leaves `.wavelength` untouched), so build
+        # each Interpolator once here and reuse it for every (fiber, window, PWV trial) fit, rather
+        # than paying for its expensive spline construction on every single one of those fits.
+        targetInterpolator = Interpolator(targetTemplate.wavelength.astype(float))
+        skyInterpolator = Interpolator(skyTemplate.wavelength.astype(float))
+        self.log.debug("Built target and sky interpolators once for the whole exposure")
 
         detMapWavelength = detectorMap.getWavelength()
         minWl = detMapWavelength.min()
@@ -660,9 +698,20 @@ class CentroidSolarTask(Task):
             ff: lsf[ff].warp(detectorMap.getWavelength(ff), targetTemplate.wavelength)
             for ff in subConfig.fiberId
         }
-        # Fibers sharing the same LSF (the common case today) share a single convolution per PWV
-        # trial below, instead of paying for one convolution per fiber per trial.
-        widthKey = {ff: getattr(warpedLsf[ff], "width", None) for ff in subConfig.fiberId}
+        # Fibers sharing (to within lsfWidthRelTol) the same LSF (the common case today, e.g. when
+        # the input LsfDict was built from a single nominal width divided by each fiber's own
+        # dispersion) share a single convolution per PWV trial below, instead of paying for one
+        # convolution per fiber per trial. Grouping by exact float equality would essentially never
+        # match here: warp() re-expresses the width through each fiber's own, slightly different,
+        # wavelength solution, so nominally-identical input widths come out as distinct floats.
+        def widthGroupKey(width):
+            if width is None or self.config.lsfWidthRelTol <= 0:
+                return width
+            return round(np.log(width)/np.log1p(self.config.lsfWidthRelTol))
+
+        widthKey = {
+            ff: widthGroupKey(getattr(warpedLsf[ff], "width", None)) for ff in subConfig.fiberId
+        }
         representative = {}
         for ff, key in widthKey.items():
             if key is not None and key not in representative:
@@ -735,6 +784,8 @@ class CentroidSolarTask(Task):
                         result = self.fitTemplate(
                             spectrum, fiberTargetTemplate, skyTemplate, centerWavelength, halfWidth,
                             computeOffsetErr=computeOffsetErr,
+                            targetInterpolator=targetInterpolator,
+                            skyInterpolator=skyInterpolator,
                         )
                     except RuntimeError as exc:
                         self.log.debug(
@@ -744,10 +795,10 @@ class CentroidSolarTask(Task):
                     else:
                         numGood += 1
                     results.append((ff, centerWavelength, result))
-                self.log.debug(
-                    "Fiber %d/%d (fiberId=%d): %d/%d windows fit successfully",
-                    ii + 1, len(subConfig.fiberId), ff, numGood, len(windows),
-                )
+                # self.log.debug(
+                #     "Fiber %d/%d (fiberId=%d): %d/%d windows fit successfully",
+                #     ii + 1, len(subConfig.fiberId), ff, numGood, len(windows),
+                # )
             return results
 
         pwv = np.nan
@@ -888,6 +939,8 @@ class CentroidSolarTask(Task):
         halfWidth: float,
         *,
         computeOffsetErr: bool = True,
+        targetInterpolator: Interpolator = None,
+        skyInterpolator: Interpolator = None,
     ) -> Struct:
         """Fit the templates to the observed spectrum in a wavelength window
 
@@ -908,6 +961,9 @@ class CentroidSolarTask(Task):
         computeOffsetErr : `bool`, optional
             Estimate ``offsetErr`` from the log-likelihood curvature? See
             `fitWavelengthOffset`.
+        targetInterpolator, skyInterpolator : `Interpolator`, optional
+            Prebuilt interpolators for the two templates' wavelength grids,
+            to avoid rebuilding them on every call; see `fitWavelengthOffset`.
 
         Returns
         -------
@@ -941,4 +997,6 @@ class CentroidSolarTask(Task):
             self.config.curvatureStepFraction,
             self.config.curvatureNumPoints,
             computeOffsetErr=computeOffsetErr,
+            targetInterpolator=targetInterpolator,
+            skyInterpolator=skyInterpolator,
         )
