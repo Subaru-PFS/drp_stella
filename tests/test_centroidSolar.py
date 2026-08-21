@@ -1,14 +1,19 @@
+import copy
 import os
 import tempfile
 
+import astropy.io.fits
 import numpy as np
 
 import lsst.utils.tests
+from lsst.afw.image import VisitInfo
+from lsst.geom import SpherePoint, degrees
 
 from pfs.datamodel import Identity, MaskHelper, Target, TargetType
 from pfs.datamodel.pfsSimpleSpectrum import PfsSimpleSpectrum
 from pfs.drp.stella.centroidSolar import CentroidSolarConfig, CentroidSolarTask
 from pfs.drp.stella.datamodel import PfsArm
+from pfs.drp.stella.lsf import GaussianLsf, LsfDict
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.tests import runTests
 
@@ -103,6 +108,8 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         self.centroidSolarConfig.halfWidth = [self.halfWidth]*len(self.centers)
         self.centroidSolarConfig.maxOffset = 0.7
         self.centroidSolarConfig.priorOffset = 0.5
+        # Atmosphere fitting is exercised separately, with its own visitInfo, in testFitAtmosphere.
+        self.centroidSolarConfig.doFitAtmosphere = False
 
         # Ensure mask names are set up
         maskFlags = MaskHelper()
@@ -121,6 +128,12 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         templateWavelength = np.arange(minWavelength - buffer, maxWavelength + buffer, templateResolution)
         numLines = (maxWavelength - minWavelength)/lineSigma*density
         centers = self.rng.uniform(minWavelength - buffer, maxWavelength + buffer, size=int(numLines))
+        # Saved for reuse by tests (e.g. testFitAtmosphere) that need to synthesize an observed
+        # spectrum whose solar-absorption component actually matches this template's lines --
+        # as opposed to self.centers, which is the (unrelated) list of fitting-window centers.
+        self.templateCenters = centers
+        self.templateDepth = depth
+        self.templateLineSigma = lineSigma
         templateFlux = makeAbsorptionFlux(templateWavelength, centers, depth, lineSigma)
         templateMask = np.zeros(templateWavelength.shape, dtype=np.int32)
         template = PfsSimpleSpectrum(
@@ -194,10 +207,18 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
             identity, self.pfsConfig.fiberId, wavelength, flux, mask, sky, norm, covar, maskFlags, {}
         )
 
+        # An LSF so narrow (in detector pixels) that warping it onto the template's much finer
+        # native wavelength grid still yields (to within floating-point precision) an identity
+        # convolution kernel: the runtime LSF-convolution of the (now raw) target template should
+        # not perturb this test's recovered offsets relative to the pre-runtime-convolution behaviour.
+        self.lsf = LsfDict(
+            {ff: GaussianLsf(self.synthConfig.height, 1.0e-6) for ff in self.pfsConfig.fiberId}
+        )
+
     def testRecoverShifts(self):
         """Run CentroidSolarTask and check that the injected shifts are recovered"""
         task = CentroidSolarTask(config=self.centroidSolarConfig)
-        results = task.run(self.pfsArm, self.pfsConfig, self.detectorMap)
+        results = task.run(self.pfsArm, self.pfsConfig, self.detectorMap, self.lsf)
 
         lines = results.lines
         fiberId = np.asarray(lines.fiberId)
@@ -242,6 +263,115 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
             diff = np.abs(offset[select] - self.shifts[ff])
             self.assertTrue(
                 np.all(diff <= 3*offsetErr[select]),
+                msg=f"fiberId={ff}: diff={diff}, offsetErr={offsetErr[select]}",
+            )
+
+    def testFitAtmosphere(self):
+        """Run CentroidSolarTask with doFitAtmosphere and check PWV and shifts are recovered"""
+        featureCenter = 500.0  # nm: within the halfWidth=25nm window centered there
+        featureSigma = 3.0  # nm
+        maxDepth = 0.5  # depth of the absorption feature at pwvGridMax
+        pwvGridMax = 20.0  # mm
+        pwvTrue = 8.0  # mm: the value we're trying to recover
+
+        transmissionWavelength = np.arange(390.0, 610.0, 0.05)
+
+        def makeTransmission(pwv):
+            depth = maxDepth*pwv/pwvGridMax
+            return 1.0 - depth*np.exp(-0.5*((transmissionWavelength - featureCenter)/featureSigma)**2)
+
+        zdGrid = [0.0, 90.0]
+        pwvGrid = [0.0, 5.0, 10.0, 15.0, 20.0]
+        zdList = []
+        pwvList = []
+        transmissionList = []
+        for zd in zdGrid:
+            for pwv in pwvGrid:
+                zdList.append(zd)
+                pwvList.append(pwv)
+                transmissionList.append(makeTransmission(pwv))
+
+        atmosphereDir = tempfile.mkdtemp()
+        atmospherePath = os.path.join(atmosphereDir, "pfs_atmosphere.fits")
+        waveHdu = astropy.io.fits.ImageHDU(
+            transmissionWavelength.astype(np.float64), name="WAVELENGTH"
+        )
+        columns = [
+            astropy.io.fits.Column(name="zd", format="D", array=np.array(zdList, dtype=float)),
+            astropy.io.fits.Column(name="pwv", format="D", array=np.array(pwvList, dtype=float)),
+            astropy.io.fits.Column(
+                name="transmission",
+                format=f"{transmissionWavelength.size}D",
+                array=np.array(transmissionList, dtype=float),
+            ),
+        ]
+        transHdu = astropy.io.fits.BinTableHDU.from_columns(columns, name="TRANSMISSION")
+        hduList = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(), waveHdu, transHdu])
+        hduList.writeto(atmospherePath, overwrite=True)
+        self.addCleanup(os.remove, atmospherePath)
+
+        config = copy.deepcopy(self.centroidSolarConfig)
+        config.doFitAtmosphere = True
+        config.atmosphereTransmission = atmospherePath
+        config.pwvMin = pwvGrid[0]
+        config.pwvMax = pwvGrid[-1]
+
+        # zd=0 exactly matches a grid point (exercises the exact-ZD-match interpolation branch).
+        visitInfo = VisitInfo(boresightAzAlt=SpherePoint(0.0, 90.0, degrees))
+
+        transmissionTrue = makeTransmission(pwvTrue)
+        numFibers = len(self.pfsConfig)
+        length = self.synthConfig.height
+        flux = np.empty((numFibers, length), dtype=np.float32)
+        wavelength = self.pfsArm.wavelength
+        for ii, ff in enumerate(self.pfsConfig.fiberId):
+            wl = wavelength[ii]
+            shift = self.shifts.get(ff, 0.0)
+            # Use the same line centers/depth/sigma that built the actual solar template file
+            # (self.centers is instead the unrelated list of fitting-window centers).
+            spectrumFlux = makeAbsorptionFlux(
+                wl - shift, self.templateCenters, self.templateDepth, self.templateLineSigma
+            )
+            spectrumFlux *= np.interp(wl, transmissionWavelength, transmissionTrue)
+
+            norm = 2*(wl - wl.min())/(wl.max() - wl.min()) - 1
+            coeff = np.array([1.0, 0.0, 0.0]) + self.rng.uniform(-0.1, 0.1, size=3)
+            spectrumFlux = spectrumFlux*np.polynomial.chebyshev.chebval(norm, coeff)
+
+            variance = self.pfsArm.covar[ii, 0, :]
+            spectrumFlux += self.rng.normal(0.0, np.sqrt(variance), size=length)
+            flux[ii] = spectrumFlux
+
+        pfsArm = PfsArm(
+            self.pfsArm.identity,
+            self.pfsConfig.fiberId,
+            wavelength,
+            flux,
+            self.pfsArm.mask,
+            self.pfsArm.sky,
+            self.pfsArm.norm,
+            self.pfsArm.covar,
+            self.pfsArm.flags,
+            {},
+        )
+
+        task = CentroidSolarTask(config=config)
+        results = task.run(pfsArm, self.pfsConfig, self.detectorMap, self.lsf, visitInfo=visitInfo)
+
+        self.assertTrue(np.isfinite(results.pwv))
+        self.assertLess(abs(results.pwv - pwvTrue), 2.0, msg=f"pwv={results.pwv}, expected {pwvTrue}")
+
+        lines = results.lines
+        fiberId = np.asarray(lines.fiberId)
+        flag = np.asarray(lines.flag)
+        offset = results.offset
+        offsetErr = results.offsetErr
+        for ff in self.skyFiberId:
+            select = fiberId == ff
+            self.assertTrue(np.all(~flag[select]), msg=f"fiberId={ff}")
+            diff = np.abs(offset[select] - self.shifts[ff])
+            self.assertTrue(
+                np.all(diff <= 5*offsetErr[select]),
                 msg=f"fiberId={ff}: diff={diff}, offsetErr={offsetErr[select]}",
             )
 
