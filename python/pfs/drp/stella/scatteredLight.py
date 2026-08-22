@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+import scipy.ndimage as ndimage
 import scipy.signal as signal
 
-from lsst.pex.config import Config, DictField, Field
+from lsst.pex.config import Config, DictField, Field, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.image import Image, ImageF, MaskedImage
 
@@ -44,8 +45,23 @@ class ScatteredLightModel:
         Softening (pixels) of the second component.
     halfSize : `int`
         Half-size of the kernel (pixels).
-    interpWinSize : `int`
-        Interpolation window size (pixels).
+    maskPlanes : `tuple` of `str`
+        Mask planes to interpolate over.
+    rejWinSize : `int`
+        Window size (pixels) of the running median used as the local baseline
+        when rejecting unmasked spikes. Should be no larger than the width of
+        a feature that is just resolved by the instrument.
+    contWinSize : `int`
+        Window size (pixels) of the running median used as the continuum when
+        rejecting unmasked spikes.
+    rejThresh : `float`
+        Rejection threshold (standard deviations) for unmasked spikes.
+    rejSharpness : `float`
+        Rejection threshold for unmasked spikes, as a multiple of the
+        amplitude of the resolved feature at that pixel. Larger values
+        preserve sharp lines at the expense of leaving spikes behind.
+    rejIter : `int`
+        Number of spike rejection iterations.
     """
     top: float = 1.0        # Scale factor for the scattered light model at top
     bottom: float = 1.0     # Scale factor for the scattered light model at bottom
@@ -56,7 +72,12 @@ class ScatteredLightModel:
     powerLaw2: float = 3.0  # Power-law index (2-D) of the second component
     soften2: float = 5.0    # Softening (pixels) of the second component
     halfSize: int = 4096    # Half-size of the kernel (pixels)
-    interpWinSize: int = 5  # Interpolation window size (pixels)
+    maskPlanes: tuple[str, ...] = ("BAD", "CR", "SAT", "INTRP")  # Mask planes to interpolate over
+    rejWinSize: int = 5     # Baseline window for spike rejection (pixels)
+    contWinSize: int = 51   # Continuum window for spike rejection (pixels)
+    rejThresh: float = 5.0  # Rejection threshold for spikes (sigma)
+    rejSharpness: float = 1.0  # Rejection threshold for spikes (relative to feature amplitude)
+    rejIter: int = 2        # Number of spike rejection iterations
 
     @property
     def grid(self):
@@ -134,6 +155,96 @@ class ScatteredLightModel:
             kernel += self.makeKernel2()
         return kernel
 
+    def findSpikes(self, values: np.ndarray, bad: np.ndarray, noise: np.ndarray) -> np.ndarray:
+        """Find narrow spikes that the mask missed
+
+        A pixel is flagged only if it is both statistically significant and
+        sharper than the instrument can produce: a feature that is resolved by
+        the line-spread function departs from a narrow running median by only
+        a fraction of its amplitude, while a one or two pixel spike (an
+        unmasked cosmic ray, a hot or cold pixel) departs from it by its full
+        amplitude. Negative excursions must in addition lie significantly
+        below the continuum, so that the valley between two blended lines is
+        not mistaken for a spike.
+
+        Parameters
+        ----------
+        values : `numpy.ndarray` of `float`
+            Flux of a single spectrum.
+        bad : `numpy.ndarray` of `bool`
+            Pixels that are already known to be bad. These are excluded from
+            the statistics (so they cannot bias the filters) and are never
+            flagged again.
+        noise : `numpy.ndarray` of `float`
+            Standard deviation of each pixel; zero where it is not known.
+
+        Returns
+        -------
+        spikes : `numpy.ndarray` of `bool`
+            Pixels newly identified as bad.
+        """
+        spikes = np.zeros_like(bad)
+        good = np.nonzero(~bad)[0]
+        if good.size < self.rejWinSize:
+            return spikes
+        # Work on the good pixels alone: the bad pixels have not been
+        # interpolated yet, and interpolating them first would let a spike
+        # next to a masked region hide behind its own interpolation.
+        flux = values[good]
+        contWinSize = min(self.contWinSize, 2*((good.size - 1)//2) + 1)
+        baseline = ndimage.median_filter(flux, size=self.rejWinSize, mode="mirror")
+        continuum = ndimage.median_filter(flux, size=contWinSize, mode="mirror")
+        resid = flux - baseline
+        scale = 1.4826*np.median(np.abs(resid - np.median(resid)))  # Robust standard deviation
+        if not np.isfinite(scale) or scale < 0:
+            scale = 0.0
+        threshold = self.rejThresh*np.maximum(scale, noise[good])
+        # A resolved feature stands above the continuum in the running median
+        # as well, so allow deviations of that size without rejecting.
+        limit = np.maximum(threshold, self.rejSharpness*np.abs(baseline - continuum))
+        spikes[good] = (
+            (resid > limit) | ((resid < -limit) & (continuum - flux > limit))
+        ) & (threshold > 0)
+        return spikes
+
+    def cleanFlux(self, pfsArm: "PfsArm") -> np.ndarray:
+        """Clean the spectra for use in the scattered light model
+
+        Masked pixels, non-finite pixels and spikes that the mask missed are
+        replaced by linear interpolation over the neighbouring good pixels: a
+        single wild pixel would otherwise be smeared over the entire detector
+        by the convolution with the kernel. Pixels beyond the last good pixel
+        at either end are set to zero, as is a spectrum that is entirely bad.
+
+        Parameters
+        ----------
+        pfsArm : `PfsArm`
+            Spectra to clean; not modified.
+
+        Returns
+        -------
+        flux : `numpy.ndarray` of `float`
+            Cleaned flux.
+        """
+        badBitMask = pfsArm.flags.get(*self.maskPlanes)
+        rows = np.arange(pfsArm.length, dtype=float)
+        flux = np.empty_like(pfsArm.flux)
+        for ii, (flx, msk, var) in enumerate(zip(pfsArm.flux, pfsArm.mask, pfsArm.variance)):
+            values = flx.astype(float)  # Copy, so that the input is left alone
+            bad = ((msk & badBitMask) != 0) | ~np.isfinite(values)
+            noise = np.sqrt(np.where(np.isfinite(var) & (var > 0), var, 0.0))
+            for _ in range(self.rejIter):
+                spikes = self.findSpikes(values, bad, noise)
+                if not np.any(spikes):
+                    break
+                bad |= spikes
+            if np.all(bad):
+                flux[ii] = 0.0
+                continue
+            values[bad] = np.interp(rows[bad], rows[~bad], values[~bad], 0.0, 0.0)
+            flux[ii] = values
+        return flux
+
     def calculateImage(self, pfsArm: "PfsArm", detectorMap: "DetectorMap") -> Image:
         """Calculate the scattered light model image
 
@@ -156,25 +267,8 @@ class ScatteredLightModel:
             centers = detectorMap.getXCenter(fid)
             traces.add(FiberTrace.boxcar(fid, dims, 0.5, centers))
 
-        # Interpolate masked pixels in pfsArm.flux
-        flux_new = []
-        for flx, msk in zip(pfsArm.flux, pfsArm.mask):
-            bad = msk & pfsArm.flags.get("BAD", "CR", "SAT", "INTRP") != 0
-            flx[bad] = np.nan
-            invalid_indices = np.where(bad)[0]
-            length = len(flx)
-            for i in invalid_indices:
-                start = max(0, i - self.interpWinSize)
-                end = min(i + self.interpWinSize + 1, length)
-                if end <= start:
-                    continue
-                flx[i] = np.nanmedian(flx[start:end]) if not np.all(bad[start:end]) else 0.0
-            if np.all(bad):
-                flx[:] = 0.0
-            else:
-                flx[bad] = np.nanmedian(flx[~bad])
-            flux_new.append(flx)
-        pfsArm.flux = np.array(flux_new)
+        # Interpolate over masked pixels and unmasked spikes
+        pfsArm.flux = self.cleanFlux(pfsArm)
 
         spectra = SpectrumSet.fromPfsArm(pfsArm)
         model = spectra.makeImage(dims, traces).array
@@ -279,7 +373,31 @@ class ScatteredLightConfig(Config):
         doc="Softening (pixels) of the second component, indexed by camera name or 'default'",
     )
     halfSize = Field(dtype=int, default=4096, doc="Half-size of the kernel")
-    interpWinSize = Field(dtype=int, default=5, doc="Interpolation window size in pixel")
+    mask = ListField(
+        dtype=str,
+        default=["BAD", "CR", "SAT", "INTRP"],
+        doc="Mask planes to interpolate over when building the scattered light model",
+    )
+    rejWinSize = Field(
+        dtype=int,
+        default=5,
+        doc="Window size (pixels) of the running median used as the local baseline when rejecting "
+            "unmasked spikes; should be no larger than a feature that is just resolved",
+    )
+    contWinSize = Field(
+        dtype=int,
+        default=51,
+        doc="Window size (pixels) of the running median used as the continuum when rejecting "
+            "unmasked spikes",
+    )
+    rejThresh = Field(dtype=float, default=5.0, doc="Rejection threshold (sigma) for unmasked spikes")
+    rejSharpness = Field(
+        dtype=float,
+        default=1.0,
+        doc="Rejection threshold for unmasked spikes, as a multiple of the amplitude of the resolved "
+            "feature at that pixel; larger values preserve sharp lines but leave more spikes behind",
+    )
+    rejIter = Field(dtype=int, default=2, doc="Number of spike rejection iterations")
 
     def getValue(self, name: str, camera: str) -> float:
         """Get a value for a camera from the configuration
@@ -328,7 +446,12 @@ class ScatteredLightConfig(Config):
             powerLaw2=self.getValue("powerLaw2", camera),
             soften2=self.getValue("soften2", camera),
             halfSize=self.halfSize,
-            interpWinSize=self.interpWinSize,
+            maskPlanes=tuple(self.mask),
+            rejWinSize=self.rejWinSize,
+            contWinSize=self.contWinSize,
+            rejThresh=self.rejThresh,
+            rejSharpness=self.rejSharpness,
+            rejIter=self.rejIter,
         )
 
 
