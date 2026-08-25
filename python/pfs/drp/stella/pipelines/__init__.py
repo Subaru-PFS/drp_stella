@@ -1,6 +1,7 @@
 from .extractSpectra import *
 from .fiberProfiles import *
 from .fitDetectorMap import *
+from .fitDetectorMapCombined import *
 from .fitSky2d import *
 from .flat import *
 from .isr import *

@@ -577,7 +577,8 @@ class FitDetectorMapTask(Task):
             self.log.debug("%d good lines after signal-to-noise (%s)", good.sum(), getCounts())
         if self.config.maxCentroidError > 0:
             maxCentroidError = self.config.maxCentroidError
-            good &= (lines.xErr > 0) & (lines.xErr < maxCentroidError)
+            isSolar = lines.description == "solar"
+            good &= ((lines.xErr > 0) & (lines.xErr < maxCentroidError)) | isSolar
             good &= ((lines.yErr > 0) & (lines.yErr < maxCentroidError)) | isTrace
             self.log.debug("%d good lines after centroid errors (%s)", good.sum(), getCounts())
         if dispersion is not None and self.config.exclusionRadius > 0 and not np.all(isTrace):
