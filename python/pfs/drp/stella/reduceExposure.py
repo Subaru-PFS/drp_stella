@@ -41,11 +41,11 @@ from lsst.obs.pfs.utils import getLamps, isWindowed
 from pfs.datamodel import FiberStatus, TargetType, Identity
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from .extractSpectraTask import ExtractSpectraTask
-from .lsf import GaussianLsf, LsfDict
+from .lsf import LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .centroidAbsorption import CentroidAbsorptionTask
-from .centroidSolar import CentroidSolarTask
+from .centroidSolar import CentroidSolarTask, defaultLsf
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
@@ -390,7 +390,7 @@ class ReduceExposureTask(PipelineTask):
             exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, identity
         )
 
-        lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
+        lsf = defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap, self.config.gaussianLsfWidth)
 
         fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
         spectra = self.extractSpectra.run(
@@ -626,27 +626,4 @@ class ReduceExposureTask(PipelineTask):
             apCorr=apCorr,
             detectorMap=detectorMap,
             fiberTraces=fiberTraces,
-        )
-
-    def defaultLsf(self, arm, fiberId, detectorMap):
-        """Generate a default LSF for this exposure
-
-        Parameters
-        ----------
-        arm : `str`
-            Name of the spectrograph arm (one of ``b``, ``r``, ``m``, ``n``).
-        fiberId : iterable of `int`
-            Fiber identifiers.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping of fiberId,wavelength to x,y.
-
-        Returns
-        -------
-        lsf : `LsfDict`
-            Line-spread functions, indexed by fiber identifier.
-        """
-        length = detectorMap.bbox.getHeight()
-        sigma = self.config.gaussianLsfWidth[arm]
-        return LsfDict(
-            {ff: GaussianLsf(length, sigma/detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
         )
