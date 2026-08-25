@@ -18,12 +18,38 @@ from .atmosphere import AtmosphericTransmission
 from .datamodel import PfsSingle
 from .DetectorMapContinued import DetectorMap
 from .interpolate import Interpolator
-from .lsf import LsfDict
+from .lsf import GaussianLsf, LsfDict
 from .referenceLine import ReferenceLineSource, ReferenceLineStatus
 from .selectFibers import SelectFibersTask
 
 
-__all__ = ("CentroidSolarConfig", "CentroidSolarTask")
+__all__ = ("CentroidSolarConfig", "CentroidSolarTask", "defaultLsf")
+
+
+def defaultLsf(arm: str, fiberId, detectorMap: DetectorMap, gaussianLsfWidth) -> LsfDict:
+    """Generate a default Gaussian LSF for an exposure
+
+    Parameters
+    ----------
+    arm : `str`
+        Name of the spectrograph arm (one of ``b``, ``r``, ``m``, ``n``).
+    fiberId : iterable of `int`
+        Fiber identifiers.
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    gaussianLsfWidth : `dict` mapping `str` to `float`
+        Gaussian sigma (nm) for the LSF, indexed by arm.
+
+    Returns
+    -------
+    lsf : `LsfDict`
+        Line-spread functions, indexed by fiber identifier.
+    """
+    length = detectorMap.bbox.getHeight()
+    sigma = gaussianLsfWidth[arm]
+    return LsfDict(
+        {ff: GaussianLsf(length, sigma / detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
+    )
 
 
 def safeInterpolationMask(

@@ -1,0 +1,24 @@
+description: Measure detectorMap from arc and twilight lines simultaneously
+
+parameters:
+  doSlitOffsets: True  # Fit for slit offsets?
+
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      grouping: separate  # We have lots of different kinds of exposures, with lamps warming up
+  measureCentroids:
+    class: pfs.drp.stella.pipelines.MeasureExposureCentroidsTask
+    config:
+      readLineList.exclusionRadius: 0.3  # nm
+  gatherSlitOffsets:
+    class: pfs.drp.stella.pipelines.GatherSlitOffsetsTask
+    config:
+      doSlitOffsets: parameters.doSlitOffsets
+  fitDetectorMap:
+    class: pfs.drp.stella.pipelines.FitDetectorMapCombinedTask
+    config:
+      fitDetectorMap.doSlitOffsets: parameters.doSlitOffsets

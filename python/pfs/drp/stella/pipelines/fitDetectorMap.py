@@ -20,7 +20,7 @@ from ..calibs import setCalibHeader
 from ..fitDetectorMap import FitDetectorMapTask as FitDistortedDetectorMapTask  # Historical name
 from .lookups import lookupDetectorMap
 
-__all__ = ("GatherSlitOffsetsTask", "FitDetectorMapTask")
+__all__ = ("GatherSlitOffsetsTask", "FitDetectorMapTask", "gatherFitDetectorMapInputs")
 
 
 class GatherSlitOffsetsConnections(
@@ -96,6 +96,63 @@ class GatherSlitOffsetsTask(PipelineTask):
 
         offsets = butler.get(inputRefs.slitOffsets)
         butler.put(offsets, outputRefs.output)
+
+
+def gatherFitDetectorMapInputs(
+    butler: QuantumContext,
+    inputRefs: InputQuantizedConnection,
+    doSlitOffsets: bool,
+):
+    """Gather inputs for fitting a detectorMap from multiple exposures
+
+    Parameters
+    ----------
+    butler : `QuantumContext`
+        Data butler, specialised to operate in the context of a quantum.
+    inputRefs : `InputQuantizedConnection`
+        Container with attributes that are data references for the various
+        input connections (as defined by `FitDetectorMapConnections`).
+    doSlitOffsets : `bool`
+        Will slit offsets be fit (as opposed to gathered from the inputs)?
+
+    Returns
+    -------
+    dataId : `dict`
+        Keyword-value pairs identifying the arm and spectrograph.
+    arcLines : `list` of `ArcLineSet`
+        List of centroid measurements from different exposures.
+    visitInfo : `VisitInfo`
+        Visit information to apply to the detectorMap.
+    metadata : `PropertyList`
+        Metadata (header) to apply to the detectorMap.
+    bbox : `Box2I`
+        Bounding box for the detector.
+    slitOffsets : `numpy.ndarray` of `float`, optional
+        Slit offsets to apply to the detectorMap.
+    """
+    # Determine what spectrograph+arm we're dealing with
+    arm = inputRefs.arcLines[0].dataId.arm.name
+    spectrograph = inputRefs.arcLines[0].dataId.spectrograph.num
+    assert arm in "brnm"
+    assert spectrograph in (1, 2, 3, 4)
+    dataId = dict(arm=arm, spectrograph=spectrograph)
+
+    # Get only the first detectorMap, visitInfo and metadata
+    data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "bbox")
+    first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
+
+    metadata = data.metadata[first]
+    setCalibHeader(metadata, "detectorMap", sorted([vi.id for vi in data.visitInfo]), dataId)
+
+    slitOffsets: Optional[np.ndarray] = None
+    if not doSlitOffsets:
+        visitSlitOffsets = butler.get(inputRefs.slitOffsets)
+        for slitOffsets in visitSlitOffsets[1:]:
+            if not np.array_equal(slitOffsets, visitSlitOffsets[0]):
+                raise RuntimeError("Different slit offsets")
+        slitOffsets = visitSlitOffsets[0]
+
+    return dataId, data.arcLines, data.visitInfo[first], metadata, data.bbox[first], slitOffsets
 
 
 class FitDetectorMapConnections(
@@ -207,36 +264,10 @@ class FitDetectorMapTask(PipelineTask):
             Container with attributes that are data references for the various
             output connections.
         """
-        # Determine what spectrograph+arm we're dealing with
-        arm = inputRefs.arcLines[0].dataId.arm.name
-        spectrograph = inputRefs.arcLines[0].dataId.spectrograph.num
-        assert arm in "brnm"
-        assert spectrograph in (1, 2, 3, 4)
-        dataId = dict(arm=arm, spectrograph=spectrograph)
-
-        # Get only the first detectorMap, visitInfo and metadata
-        data = readDatasetRefs(butler, inputRefs, "arcLines", "visitInfo", "metadata", "bbox")
-        first = min(range(len(data.visitInfo)), key=lambda ii: data.visitInfo[ii].id)
-
-        metadata = data.metadata[first]
-        setCalibHeader(metadata, "detectorMap", sorted([vi.id for vi in data.visitInfo]), dataId)
-
-        slitOffsets: Optional[np.ndarray] = None
-        if not self.config.fitDetectorMap.doSlitOffsets:
-            visitSlitOffsets = butler.get(inputRefs.slitOffsets)
-            for slitOffsets in visitSlitOffsets[1:]:
-                if not np.array_equal(slitOffsets, visitSlitOffsets[0]):
-                    raise RuntimeError("Different slit offsets")
-            slitOffsets = visitSlitOffsets[0]
-
-        outputs = self.run(
-            dataId,
-            data.arcLines,
-            data.visitInfo[first],
-            metadata,
-            data.bbox[first],
-            slitOffsets,
+        dataId, arcLines, visitInfo, metadata, bbox, slitOffsets = gatherFitDetectorMapInputs(
+            butler, inputRefs, self.config.fitDetectorMap.doSlitOffsets
         )
+        outputs = self.run(dataId, arcLines, visitInfo, metadata, bbox, slitOffsets)
         butler.put(outputs, outputRefs)
 
     def run(
