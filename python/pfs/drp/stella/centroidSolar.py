@@ -508,7 +508,7 @@ class CentroidSolarConfig(Config):
         dtype=float,
         default=(
             [10.0] * 9  # Blue arm
-            + [10, 11, 15, 15, 10, 15, 15]  # Red/MR arm
+            + [10, 20, 15, 15, 10, 15, 15]  # Red/MR arm
         ),
         doc="Half-width of the region to use for centroiding (nm)",
     )
