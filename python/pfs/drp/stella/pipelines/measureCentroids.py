@@ -1,23 +1,31 @@
+import numpy as np
+
 import lsstDebug
 from lsst.afw.display import Display
 from lsst.afw.image import ExposureF, Mask
-from lsst.pex.config import ConfigurableField, Field
+from lsst.pex.config import ConfigurableField, DictField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
+from lsst.obs.pfs.utils import getLamps
+from pfs.datamodel import Identity
 
 from ..adjustDetectorMap import AdjustDetectorMapTask
 from ..centroidLines import CentroidLinesTask
+from ..centroidSolar import CentroidSolarTask, defaultLsf
 from ..centroidTraces import CentroidTracesTask
 from ..datamodel import PfsConfig
 from ..DetectorMapContinued import DetectorMap
+from ..extractSpectraTask import ExtractSpectraTask
+from ..fiberProfileSet import FiberProfileSet
 from ..fitDetectorMap import FittingError
 from ..readLineList import ReadLineListTask
+from ..referenceLine import ReferenceLineSet
 
-__all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask")
+__all__ = ("MeasureCentroidsTask", "MeasureDetectorMapTask", "MeasureExposureCentroidsTask")
 
 
 class MeasureCentroidsConnections(
@@ -252,3 +260,199 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
 
         data.detectorMap = detectorMap
         return data
+
+
+class MeasureExposureCentroidsConnections(MeasureCentroidsConnections):
+    """Connections for MeasureExposureCentroidsTask"""
+
+    fiberProfiles = PrerequisiteConnection(
+        name="fiberProfiles",
+        doc="Profile of fibers",
+        storageClass="FiberProfileSet",
+        dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
+    )
+
+
+class MeasureExposureCentroidsConfig(
+    MeasureCentroidsConfig, pipelineConnections=MeasureExposureCentroidsConnections
+):
+    """Configuration for MeasureExposureCentroidsTask"""
+
+    extractSpectra = ConfigurableField(
+        target=ExtractSpectraTask, doc="Extract spectra for twilight centroiding"
+    )
+    centroidSolar = ConfigurableField(
+        target=CentroidSolarTask, doc="Centroid twilight (solar-absorption) lines"
+    )
+    adjustDetectorMap = ConfigurableField(
+        target=AdjustDetectorMapTask,
+        doc="Adjust detectorMap to this exposure's traces before extracting twilight spectra",
+    )
+    requireAdjustDetectorMap = Field(
+        dtype=bool, default=False, doc="Require detectorMap adjustment to succeed?"
+    )
+    gaussianLsfWidth = DictField(
+        keytype=str,
+        itemtype=float,
+        doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
+        default=dict(b=0.081, r=0.109, m=0.059, n=0.109),
+    )
+
+
+class MeasureExposureCentroidsTask(MeasureCentroidsTask):
+    """Measure centroids on an exposure, dispatching on lamp state
+
+    This differs from `MeasureCentroidsTask` in that it distinguishes three
+    kinds of exposure by the lamps that were lit (`lsst.obs.pfs.utils.getLamps`):
+    quartz (trace-only), arc (line list + centroiding), and twilight (solar
+    absorption centroiding, `CentroidSolarTask`).
+    """
+
+    ConfigClass = MeasureExposureCentroidsConfig
+    _DefaultName = "measureExposureCentroids"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("extractSpectra")
+        self.makeSubtask("centroidSolar")
+        self.makeSubtask("adjustDetectorMap")
+
+    def runQuantum(
+        self,
+        butler: QuantumContext,
+        inputRefs: InputQuantizedConnection,
+        outputRefs: OutputQuantizedConnection,
+    ):
+        inputs = butler.get(inputRefs)
+        inputs["detectorMap"] = inputs.pop("calibDetectorMap")
+
+        arm = inputRefs.exposure.dataId.arm.name
+        spectrograph = inputRefs.exposure.dataId.spectrograph.num
+        assert arm in "brnm"
+
+        outputs = self.run(**inputs, arm=arm, spectrograph=spectrograph)
+        butler.put(outputs, outputRefs)
+        return outputs
+
+    def run(
+        self,
+        exposure: ExposureF,
+        pfsConfig: PfsConfig,
+        detectorMap: DetectorMap,
+        arm: str,
+        spectrograph: int,
+        fiberProfiles: FiberProfileSet | None = None,
+        crMask: Mask | None = None,
+    ):
+        """Measure centroids on an exposure, dispatching on lamp state
+
+        Parameters
+        ----------
+        exposure : `ExposureF`
+            Exposure from which to measure centroids.
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        arm : `str`
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
+        spectrograph : `int`
+            Spectrograph module number.
+        fiberProfiles : `FiberProfileSet`, optional
+            Profiles of fibers, needed for the twilight branch.
+        crMask : `Mask`, optional
+            Cosmic-ray mask.
+
+        Returns
+        -------
+        refLines : `pfs.drp.stella.referenceLine.ReferenceLineSet`
+            Reference lines.
+        centroids : `ArcLineSet`
+            Measured centroids.
+        """
+        if self.config.doApplyCrMask:
+            if not crMask:
+                raise ValueError("Cosmic-ray mask required but not provided")
+            exposure.mask |= crMask
+
+        lamps = getLamps(exposure.getMetadata())
+        if lamps == {"Quartz"}:
+            lines = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+            return Struct(exposure=exposure, refLines=ReferenceLineSet.empty(), centroids=lines)
+
+        if lamps:
+            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            lines = self.centroidLines.run(
+                exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id
+            )
+            if self.config.doForceTraces or not lines:
+                traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+                lines.extend(traces)
+            return Struct(exposure=exposure, refLines=refLines, centroids=lines)
+
+        return self.runTwilight(exposure, pfsConfig, detectorMap, arm, spectrograph, fiberProfiles)
+
+    def runTwilight(
+        self,
+        exposure: ExposureF,
+        pfsConfig: PfsConfig,
+        detectorMap: DetectorMap,
+        arm: str,
+        spectrograph: int,
+        fiberProfiles: FiberProfileSet,
+    ):
+        """Measure solar-absorption centroids on a twilight exposure
+
+        Parameters
+        ----------
+        exposure : `ExposureF`
+            Twilight exposure from which to measure centroids.
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        detectorMap : `DetectorMap`
+            Calibration mapping of fiberId,wavelength to x,y.
+        arm : `str`
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
+        spectrograph : `int`
+            Spectrograph module number.
+        fiberProfiles : `FiberProfileSet`
+            Profiles of fibers.
+
+        Returns
+        -------
+        refLines : `pfs.drp.stella.referenceLine.ReferenceLineSet`
+            Reference lines (empty; twilight centroiding doesn't use a line list).
+        centroids : `ArcLineSet`
+            Measured (solar-absorption) centroids.
+        """
+        visitInfo = exposure.visitInfo
+        seed = visitInfo.id
+
+        traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+        try:
+            detectorMap = self.adjustDetectorMap.run(
+                detectorMap, traces, arm, visitInfo, exposure.metadata, seed=seed
+            ).detectorMap
+        except FittingError as exc:
+            if self.config.requireAdjustDetectorMap:
+                raise
+            self.log.warn("DetectorMap adjustment failed: %s", exc)
+
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+
+        identity = Identity(
+            visit=visitInfo.id,
+            arm=arm,
+            spectrograph=spectrograph,
+            pfsDesignId=pfsConfig.pfsDesignId,
+            obsTime=visitInfo.date.toString(visitInfo.date.TAI),
+            expTime=visitInfo.exposureTime,
+        )
+        fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
+        spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, fiberId).spectra
+        pfsArm = spectra.toPfsArm(identity)
+
+        lsf = defaultLsf(arm, pfsArm.fiberId, detectorMap, self.config.gaussianLsfWidth)
+        lines = self.centroidSolar.run(pfsArm, pfsConfig, detectorMap, lsf, visitInfo).lines
+        return Struct(exposure=exposure, refLines=ReferenceLineSet.empty(), centroids=lines)
