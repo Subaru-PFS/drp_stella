@@ -1318,9 +1318,15 @@ def cleanRun(
                 refs = []
                 for ident in dataIds:
                     coord = getDataCoordinate(ident, butler.dimensions)
-                    refs.extend(
-                        butler.query_datasets(dst, collections=coll, data_id=coord, where=where, limit=limit)
-                    )
+                    try:
+                        refs.extend(
+                            butler.query_datasets(
+                                dst, collections=coll, data_id=coord, where=where, limit=limit
+                            )
+                        )
+                    except EmptyQueryResultError:
+                        log.debug("No datasets found for %s in %s", dst, coll)
+                        continue
             else:
                 try:
                     refs = list(butler.query_datasets(dst, collections=coll, where=where, limit=limit))
