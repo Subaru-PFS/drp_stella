@@ -108,17 +108,10 @@ template <typename Derived>
 class AnalyticDistortion : public Distortion {
   public:
     AnalyticDistortion(
-        int xOrder,
-        int yOrder,
-        lsst::geom::Box2D const& range,
-        Array1D const& coeff
-    );
-
-    AnalyticDistortion(
         int order,
         lsst::geom::Box2D const& range,
         Array1D const& coeff
-    ) : AnalyticDistortion(order, order, range, coeff) {}
+    );
 
     virtual ~AnalyticDistortion() {}
     AnalyticDistortion(AnalyticDistortion const&) = default;
@@ -132,8 +125,7 @@ class AnalyticDistortion : public Distortion {
 
     /// Fit the distortion
     ///
-    /// @param xOrder : polynomial order for distortion in x
-    /// @param yOrder : polynomial order for distortion in y
+    /// @param order : polynomial order for distortion
     /// @param range : range for input x,y values
     /// @param xx : Distortion in x
     /// @param yy : Distortion in y
@@ -145,22 +137,6 @@ class AnalyticDistortion : public Distortion {
     /// @param slope : Slope (dx/dy) at the point (only used if isLine is true)
     /// @param threshold : eigenvalue threshold for matrix solving
     /// @returns design matrix
-    static Derived fit(
-        int xOrder,
-        int yOrder,
-        lsst::geom::Box2D const& range,
-        Array1D const& xx,
-        Array1D const& yy,
-        Array1D const& xMeas,
-        Array1D const& yMeas,
-        Array1D const& xErr,
-        Array1D const& yErr,
-        ndarray::Array<bool, 1, 1> const& isLine,
-        ndarray::Array<double, 1, 1> const& slope,
-        double threshold=1.0e-6,
-        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
-    );
     static Derived fit(
         int order,
         lsst::geom::Box2D const& range,
@@ -175,40 +151,25 @@ class AnalyticDistortion : public Distortion {
         double threshold=1.0e-6,
         ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
         ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
-    ) {
-        return fit(
-            order, order, range, xx, yy, xMeas, yMeas, xErr, yErr, isLine, slope, threshold, forced, params
-        );
-    }
+    );
 
     //@{
     /// Return the total number of parameters for the model
     static std::size_t getNumParametersForOrder(int order);
     virtual std::size_t getNumParameters() const override {
-        return getNumParametersForOrder(getXOrder()) + getNumParametersForOrder(getYOrder());
+        return getNumParametersForOrder(getOrder());
     }
     //@}
 
     //@{
     /// Accessors
-    int getXOrder() const { return _xOrder; }
-    int getYOrder() const { return _yOrder; }
-    int getOrder() const {
-        if (_xOrder != _yOrder) {
-            throw LSST_EXCEPT(
-                lsst::pex::exceptions::RuntimeError,
-                "Cannot return single order for distortion with different x and y orders"
-            );
-        }
-        return _xOrder;
-    }
+    int getOrder() const { return _order; }
     lsst::geom::Box2D getRange() const { return _range; }
     Array1D getCoefficients() const { return _coeff; }
     //@}
 
   protected:
-    int _xOrder;  // Order for distortion in x
-    int _yOrder;  // Order for distortion in y
+    int _order;  // Order for distortion
     lsst::geom::Box2D _range;  // Range of input x,y positions
     Array1D _coeff;  // Coefficients
 };
