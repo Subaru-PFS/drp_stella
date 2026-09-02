@@ -27,12 +27,7 @@ class MosaicPolynomialDistortion:  # noqa: F811 (redefinition)
         """
         if not isinstance(distortion, pfs.datamodel.MosaicPolynomialDistortion):
             raise RuntimeError(f"Wrong type: {distortion}")
-        return cls(
-            distortion.xOrder,
-            distortion.yOrder,
-            Box2D(distortion.box.toLsst()),
-            distortion.coefficients,
-        )
+        return cls(distortion.order, Box2D(distortion.box.toLsst()), distortion.coefficients)
 
     def toDatamodel(self):
         """Convert to the pfs.datamodel representation
@@ -43,8 +38,7 @@ class MosaicPolynomialDistortion:  # noqa: F811 (redefinition)
             Datamodel representation of MosaicPolynomialDistortion.
         """
         return pfs.datamodel.MosaicPolynomialDistortion(
-            self.getXOrder(),
-            self.getYOrder(),
+            self.getOrder(),
             pfs.datamodel.Box.fromLsst(self.getRange()),
             self.getCoefficients(),
         )
