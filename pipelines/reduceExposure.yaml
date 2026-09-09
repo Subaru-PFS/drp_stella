@@ -15,5 +15,7 @@ tasks:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
       requireAdjustDetectorMap: True
+  inferPersistence1D:
+    class: pfs.drp.stella.inferPersistence1D.InferPersistence1DTask
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask
