@@ -15,7 +15,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
-from lsst.pex.config import ConfigurableField
+from lsst.pex.config import ConfigurableField, Field
 
 from pfs.datamodel import FiberStatus, PfsConfig, PfsFiberNorms, Target, TargetType
 from pfs.datamodel.drp import PfsCalibrated
@@ -29,6 +29,7 @@ from .lsf import Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
 from .utils import getPfsVersions
 from .FluxTableTask import FluxTableTask
+from .inferPersistence import H4Persistence, H4PersistenceInputConnectionMixIn
 
 from collections.abc import Iterable
 
@@ -161,7 +162,11 @@ def calibratePfsArm(
     return spectra
 
 
-class ApplyFluxCalConnections(PipelineTaskConnections, dimensions=("instrument", "visit")):
+class ApplyFluxCalConnections(
+    H4PersistenceInputConnectionMixIn,
+    PipelineTaskConnections,
+    dimensions=("instrument", "visit"),
+):
     """Connections for ApplyFluxCalTask"""
 
     fluxCal = InputConnection(
@@ -202,6 +207,14 @@ class ApplyFluxCalConnections(PipelineTaskConnections, dimensions=("instrument",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
+    h4Persistence = InputConnection(
+        name="h4Persistence",
+        doc="H4RG detector persistence",
+        storageClass="H4Persistence",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,
+    )
+
     pfsCalibrated = OutputConnection(
         name="pfsCalibrated",
         doc="Flux-calibrated object spectrum",
@@ -220,6 +233,7 @@ class ApplyFluxCalConfig(PipelineTaskConfig, pipelineConnections=ApplyFluxCalCon
     """Configuration for ApplyFluxCalTask"""
 
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
+    doSubtractPersistence = Field(dtype=bool, default=True, doc="Subtract persistent electrons?")
 
 
 class ApplyFluxCalTask(PipelineTask):
@@ -242,6 +256,7 @@ class ApplyFluxCalTask(PipelineTask):
         pfsConfig: PfsConfig,
         pfsArmList: list[PfsArm],
         sky1dList: Iterable[FluxCalib],
+        persistences: dict[int, H4Persistence],
     ) -> Struct:
         """Measure and apply the flux calibration
 
@@ -261,6 +276,8 @@ class ApplyFluxCalTask(PipelineTask):
             List of extracted spectra, for constructing the flux table.
         sky1dList : iterable of `FluxCalib`
             Corresponding list of 1d sky subtraction models.
+        persistences : mapping from `int` to `H4Persistence`
+            Mapping from spectrograph No. to H4RG persistence to be subtracted.
 
         Returns
         -------
@@ -274,6 +291,11 @@ class ApplyFluxCalTask(PipelineTask):
         calibrated = []
         fiberToArm = defaultdict(list)
         for ii, (pfsArm, sky1d) in enumerate(zip(pfsArmList, sky1dList)):
+            if self.config.doSubtractPersistence and pfsArm.identity.arm == "n":
+                persistence = persistences[pfsArm.identity.spectrograph]
+                pfsArm.flux -= persistence.select(pfsArm.fiberId).flux
+                self.log.info("Persistence was subtracted: %s", pfsArm.identity)
+
             calibratePfsArm(pfsArm, pfsConfig, sky1d, fluxCal)
             for ff in pfsArm.fiberId:
                 fiberToArm[ff].append(ii)
@@ -322,7 +344,20 @@ class ApplyFluxCalTask(PipelineTask):
             output connections.
         """
         armInputs = readDatasetRefs(butler, inputRefs, "pfsArm", "sky1d")
+
+        if hasattr(inputRefs, "h4Persistence"):
+            persistences = {
+                ref.dataId["spectrograph"]: butler.get(ref)
+                for ref in inputRefs.h4Persistence
+                if ref.dataId["arm"] == "n"
+            }
+            del inputRefs.h4Persistence
+        else:
+            persistences = {}
+
         inputs = butler.get(inputRefs)
 
-        outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
+        outputs = self.run(
+            **inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d, persistences=persistences
+        )
         butler.put(outputs, outputRefs)
