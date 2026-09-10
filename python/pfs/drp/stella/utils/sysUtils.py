@@ -274,7 +274,11 @@ def getHomeVisits(opdb, dateStart=None, dateEnd=None, arm=None, pfsVisits=None,
                 pdf.target_type != {int(TargetType.ENGINEERING)}
              ) as n_fiber
            -- , cmd_str
-           , sps_exposure.time_exp_start AS time_exp_start
+           -- , sps_exposure.time_exp_start
+           -- need to round to e.g. 10s to make outer SELECT DISTINCT work
+           , date_bin('10 seconds', sps_exposure.time_exp_start + interval '5 seconds', '2000-01-01')
+           AS time_exp_start
+
         FROM pfs_config
         JOIN pfs_design ON pfs_design.pfs_design_id = pfs_config.pfs_design_id
         JOIN pfs_config_sps ON pfs_config_sps.visit0 = pfs_config.visit0
@@ -292,7 +296,8 @@ def getHomeVisits(opdb, dateStart=None, dateEnd=None, arm=None, pfsVisits=None,
         {LIMIT}
            ''', opdb)
 
-    return tmp if returnDataFrame else tmp.pfs_visit_id.to_numpy()
+    return tmp if returnDataFrame else \
+        np.sort(np.array([v for v in set(tmp.pfs_visit_id.to_numpy())], dtype=int))
 
 
 def getTimeForVisits(opdb, visits):
