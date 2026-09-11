@@ -18,6 +18,7 @@ from .SplinedDetectorMapContinued import *
 from .spline import *
 from .lsf import *
 from .buildFiberProfiles import *
+from .psfMatch import *
 from .fiberProfile import *
 from .fiberProfileSet import *
 from .fitPolynomial import *
