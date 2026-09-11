@@ -1,15 +1,17 @@
 import math
+import time
 import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from matplotlib.backend_bases import KeyEvent, MouseEvent
+from matplotlib.backend_bases import DrawEvent, KeyEvent, MouseEvent
 from matplotlib.colorbar import Colorbar
 from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
+from matplotlib.transforms import Bbox
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -126,7 +128,15 @@ class PsfMatchDiagnostic:
     - Right click (no drag): remove the nearest mark to the click.
     - Right click and drag: adjust the stretch of the panel group under
       the cursor (dragging right brightens, left darkens; up increases
-      contrast, down decreases it).
+      contrast, down decreases it). Live updates during the drag are
+      throttled to ``dragUpdateInterval`` and drawn by blitting only the
+      affected panels (the colorbar is left showing the value from
+      *before* the drag started until it ends, since redrawing it on
+      every update is comparatively expensive) -- this keeps dragging
+      responsive even over a slow connection (e.g., a remote display).
+      The final position, and colorbar, is always applied in full once
+      the mouse button is released, even if the last few updates during
+      the drag itself were skipped by the throttle.
     - ``c``: clear all marks.
     - ``0``: reset the stretch to the initial, automatically computed
       values.
@@ -191,6 +201,12 @@ class PsfMatchDiagnostic:
     hitRadiusPx : `float`
         Maximum screen-pixel distance for a right-click to remove a
         mark.
+    dragUpdateInterval : `float`
+        Minimum time (seconds) between live stretch redraws while
+        dragging; higher values trade responsiveness-to-the-mouse for
+        fewer redraws (helpful over a slow connection). The final
+        position is always applied when the drag ends, regardless of
+        this throttle.
     figsize : `tuple` of `float`, optional
         Figure size, passed to ``matplotlib.pyplot.subplots``.
     fig : `matplotlib.figure.Figure`, optional
@@ -230,6 +246,7 @@ class PsfMatchDiagnostic:
         markStyle: Optional[dict] = None,
         clickDragThreshold: float = 4.0,
         hitRadiusPx: float = 15.0,
+        dragUpdateInterval: float = 1.0 / 30.0,
         figsize: Optional[Tuple[float, float]] = None,
         fig: Optional[Figure] = None,
         axes: Optional[np.ndarray] = None,
@@ -289,8 +306,10 @@ class PsfMatchDiagnostic:
         diffNorm = Normalize(vmin=diffVmin, vmax=diffVmax)
 
         imSource = axSource.imshow(sourceArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
-        axTarget.imshow(targetArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
-        axConvolved.imshow(convolvedArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
+        imTarget = axTarget.imshow(targetArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
+        imConvolved = axConvolved.imshow(
+            convolvedArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent
+        )
         imDiff = axDiff.imshow(diffArr, origin="lower", cmap=diffCmap, norm=diffNorm, extent=extent)
 
         for axis, title in zip((axSource, axTarget, axConvolved, axDiff), titles):
@@ -320,15 +339,30 @@ class PsfMatchDiagnostic:
             "shared": (vmin, vmax),
             "diff": (diffVmin, diffVmax),
         }
+        # Axes/images belonging to each stretch group, so a live drag update can redraw (by
+        # blitting) only what actually changed, rather than the whole figure.
+        self._groupAxes: Dict[str, List[Axes]] = {
+            "shared": [axSource, axTarget, axConvolved],
+            "diff": [axDiff],
+        }
+        self._groupImages: Dict[str, List[AxesImage]] = {
+            "shared": [imSource, imTarget, imConvolved],
+            "diff": [imDiff],
+        }
 
         self._markStyle = dict(marker="+", color="red", markersize=12, markeredgewidth=1.5, linestyle="None")
         if markStyle:
             self._markStyle.update(markStyle)
         self._clickDragThreshold = clickDragThreshold
         self._hitRadiusPx = hitRadiusPx
+        self._dragUpdateInterval = dragUpdateInterval
         self.marks: List[dict] = []
         self._press: Optional[dict] = None
         self._toolbarGestureActive = False
+        self._lastDragUpdate = 0.0
+        # Cache of the canvas's rendered pixels, refreshed after every real (non-blitted) draw,
+        # so a live drag update can cheaply restore it and paint just the changed panels on top.
+        self._background = None
 
         backend = matplotlib.get_backend().lower()
         if backend in _STATIC_BACKENDS or "inline" in backend:
@@ -344,6 +378,7 @@ class PsfMatchDiagnostic:
             canvas.mpl_connect("motion_notify_event", self._onMotion),
             canvas.mpl_connect("button_release_event", self._onRelease),
             canvas.mpl_connect("key_press_event", self._onKey),
+            canvas.mpl_connect("draw_event", self._onDraw),
         ]
 
     def _toolbarActive(self) -> bool:
@@ -371,12 +406,44 @@ class PsfMatchDiagnostic:
         elif mode == "pan/zoom" and callable(getattr(toolbar, "pan", None)):
             toolbar.pan()
 
+    def _onDraw(self, event: DrawEvent) -> None:
+        """Cache the rendered canvas, for a live drag update to blit against"""
+        self._background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
+
     def _applyStretch(self, group: str, vmin: float, vmax: float) -> None:
-        """Set a stretch group's colormap limits and redraw"""
+        """Set a stretch group's colormap limits and fully redraw
+
+        Includes the colorbar. Used whenever a redraw isn't performance
+        sensitive (a reset, a mark change, or the final position once a
+        drag ends) -- see `_blitGroup` for the cheaper alternative used
+        for live updates during a drag.
+        """
         norm = self._norms[group]
         norm.vmin, norm.vmax = vmin, vmax
         self._colorbars[group].update_normal(self._colorbarMappables[group])
         self.fig.canvas.draw_idle()
+
+    def _blitGroup(self, group: str) -> None:
+        """Cheaply redraw one stretch group's current norm by blitting
+
+        Restores the last cached full render and repaints only this
+        group's own images (and any marks over them) on top, leaving the
+        colorbar showing its previous value -- much cheaper than a full
+        redraw, which matters for live updates during a drag over a slow
+        connection. Falls back to a full redraw if blitting isn't
+        available (e.g., no cached background yet, or an unsupported
+        backend).
+        """
+        canvas = self.fig.canvas
+        if self._background is None or not canvas.supports_blit:
+            canvas.draw_idle()
+            return
+        canvas.restore_region(self._background)
+        for axis, image in zip(self._groupAxes[group], self._groupImages[group]):
+            axis.draw_artist(image)
+            for line in axis.lines:
+                axis.draw_artist(line)
+        canvas.blit(Bbox.union([axis.bbox for axis in self._groupAxes[group]]))
 
     def resetStretch(self) -> None:
         """Reset both stretch groups to their initial, automatic values"""
@@ -478,7 +545,20 @@ class PsfMatchDiagnostic:
         # (shrinks the half-range). Both are normalized by the figure's screen-pixel size.
         newCenter = startCenter - (dx / refWidth) * (startVmax - startVmin)
         newHalfRange = min(max(startHalfRange * 2.0 ** (-dy / refHeight), loLimit), hiLimit)
-        self._applyStretch(self._press["group"], newCenter - newHalfRange, newCenter + newHalfRange)
+        group = self._press["group"]
+        norm = self._norms[group]
+        # Always keep the norm itself exactly in sync with the mouse -- this is essentially
+        # free, and guarantees the final value is correct however the throttle below lands.
+        norm.vmin, norm.vmax = newCenter - newHalfRange, newCenter + newHalfRange
+
+        # Throttle the (comparatively expensive) redraw: doing one on every single motion
+        # event can make dragging feel laggy rather than live, especially over a slow
+        # connection (e.g., a remote display).
+        now = time.monotonic()
+        if now - self._lastDragUpdate < self._dragUpdateInterval:
+            return
+        self._lastDragUpdate = now
+        self._blitGroup(group)
 
     def _onRelease(self, event: MouseEvent) -> None:
         """Event handler for mouse button release: dispatch clicks"""
@@ -490,7 +570,14 @@ class PsfMatchDiagnostic:
             return
         press = self._press
         self._press = None
-        if self._toolbarActive() or press["dragged"] or event.inaxes is not press["axis"]:
+        if press["dragged"]:
+            # norm.vmin/vmax are always kept current by _onMotion, even when the throttle
+            # skipped a redraw; do one final full (non-blitted) redraw now so the colorbar
+            # catches up to the final stretch.
+            norm = self._norms[press["group"]]
+            self._applyStretch(press["group"], norm.vmin, norm.vmax)
+            return
+        if self._toolbarActive() or event.inaxes is not press["axis"]:
             return
         if press["button"] == 1 and event.xdata is not None and event.ydata is not None:
             self.addMark(event.xdata, event.ydata)
