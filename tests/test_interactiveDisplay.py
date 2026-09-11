@@ -208,6 +208,22 @@ class PsfMatchDiagnosticTestCase(lsst.utils.tests.TestCase):
         self.assertLess(halfNew2, halfStart2)
         releaseButton(diagnostic.fig.canvas, x, y + 50, 3)
 
+    def testInteractiveFalseDisablesAllHandling(self):
+        """With interactive=False, no event handlers are connected at all"""
+        diagnostic = PsfMatchDiagnostic(self.source, self.target, self.convolved, interactive=False)
+        diagnostic.fig.canvas.draw()
+        self.addCleanup(diagnostic.close)
+        self.assertEqual(diagnostic._cids, [])
+
+        axis = diagnostic.axes[0, 0]
+        x, y = self.axisCenter(axis)
+        pressButton(diagnostic.fig.canvas, x, y, 1)
+        releaseButton(diagnostic.fig.canvas, x, y, 1)
+        self.assertEqual(len(diagnostic.marks), 0)
+
+        pressKey(diagnostic.fig.canvas, "c")
+        pressKey(diagnostic.fig.canvas, "0")
+
     def testToolbarGuard(self):
         """No interaction happens while the navigation toolbar's pan/zoom is engaged"""
 

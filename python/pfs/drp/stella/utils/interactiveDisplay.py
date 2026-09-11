@@ -216,6 +216,12 @@ class PsfMatchDiagnostic:
         fewer redraws (helpful over a slow connection). The final
         position is always applied when the drag ends, regardless of
         this throttle.
+    interactive : `bool`
+        Connect mouse/key event handling at all (marking, drag-stretch,
+        and the toolbar guard/auto-disengage logic)? Set `False` for a
+        plain static plot -- e.g., if the matplotlib toolbar's own
+        pan/zoom is misbehaving, since that is caused by our handlers'
+        interaction with it (see Notes).
     figsize : `tuple` of `float`, optional
         Figure size, passed to ``matplotlib.pyplot.subplots``.
     fig : `matplotlib.figure.Figure`, optional
@@ -230,6 +236,15 @@ class PsfMatchDiagnostic:
     ``macosx``/``qtagg``/``tkagg`` in a script). Under a static backend
     (e.g., ``inline`` or ``Agg``) the figure still renders correctly, but
     without live interaction.
+
+    With ``interactive=True`` (the default), the toolbar's own Pan/Zoom
+    tools are auto-disengaged once their gesture completes (see
+    ``_disengageToolbar``), so that a single pan or zoom doesn't
+    permanently block our own marking/stretch handling -- but this
+    means the toolbar button must be clicked again for *each* pan/zoom,
+    which can read as "zoom only works once". Pass ``interactive=False``
+    to skip connecting any of our handlers, leaving the toolbar's
+    pan/zoom to behave exactly as it would on a plain matplotlib figure.
     """
 
     def __init__(
@@ -257,6 +272,7 @@ class PsfMatchDiagnostic:
         hitRadiusPx: float = 15.0,
         dragStretchEnabled: bool = False,
         dragUpdateInterval: float = 1.0 / 30.0,
+        interactive: bool = True,
         figsize: Optional[Tuple[float, float]] = None,
         fig: Optional[Figure] = None,
         axes: Optional[np.ndarray] = None,
@@ -374,6 +390,10 @@ class PsfMatchDiagnostic:
         # Cache of the canvas's rendered pixels, refreshed after every real (non-blitted) draw,
         # so a live drag update can cheaply restore it and paint just the changed panels on top.
         self._background = None
+
+        self._cids: List[int] = []
+        if not interactive:
+            return
 
         backend = matplotlib.get_backend().lower()
         if backend in _STATIC_BACKENDS or "inline" in backend:
