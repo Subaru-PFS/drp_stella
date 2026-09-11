@@ -137,6 +137,10 @@ class PsfMatchDiagnostic:
       The final position, and colorbar, is always applied in full once
       the mouse button is released, even if the last few updates during
       the drag itself were skipped by the throttle.
+      **Currently disabled by default** (``dragStretchEnabled=False``)
+      pending further work; pass ``dragStretchEnabled=True`` to turn it
+      back on. A right click without a drag still removes the nearest
+      mark as usual.
     - ``c``: clear all marks.
     - ``0``: reset the stretch to the initial, automatically computed
       values.
@@ -201,6 +205,11 @@ class PsfMatchDiagnostic:
     hitRadiusPx : `float`
         Maximum screen-pixel distance for a right-click to remove a
         mark.
+    dragStretchEnabled : `bool`
+        Enable right-click-and-drag live stretch adjustment. Currently
+        defaults to `False` (disabled) pending further work; the
+        underlying implementation is retained, so this can be re-enabled
+        by passing `True`.
     dragUpdateInterval : `float`
         Minimum time (seconds) between live stretch redraws while
         dragging; higher values trade responsiveness-to-the-mouse for
@@ -246,6 +255,7 @@ class PsfMatchDiagnostic:
         markStyle: Optional[dict] = None,
         clickDragThreshold: float = 4.0,
         hitRadiusPx: float = 15.0,
+        dragStretchEnabled: bool = False,
         dragUpdateInterval: float = 1.0 / 30.0,
         figsize: Optional[Tuple[float, float]] = None,
         fig: Optional[Figure] = None,
@@ -355,6 +365,7 @@ class PsfMatchDiagnostic:
             self._markStyle.update(markStyle)
         self._clickDragThreshold = clickDragThreshold
         self._hitRadiusPx = hitRadiusPx
+        self._dragStretchEnabled = dragStretchEnabled
         self._dragUpdateInterval = dragUpdateInterval
         self.marks: List[dict] = []
         self._press: Optional[dict] = None
@@ -533,6 +544,8 @@ class PsfMatchDiagnostic:
         if not self._press["dragged"] and math.hypot(dx, dy) > self._clickDragThreshold:
             self._press["dragged"] = True
         if self._press["button"] != 3 or not self._press["dragged"]:
+            return
+        if not self._dragStretchEnabled:
             return
 
         startVmin, startVmax = self._press["startRange"]

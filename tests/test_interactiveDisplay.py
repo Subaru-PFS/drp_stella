@@ -143,43 +143,70 @@ class PsfMatchDiagnosticTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(self.diagnostic.marks), 1)
 
     def testDragAdjustsCorrectGroupOnly(self):
-        """A drag in a shared-stretch panel never touches the difference stretch"""
+        """A drag in a shared-stretch panel never touches the difference stretch
+
+        Drag-stretch is disabled by default (see testDragStretchDisabledByDefault),
+        so this test builds its own diagnostic with it explicitly re-enabled.
+        """
+        diagnostic = PsfMatchDiagnostic(self.source, self.target, self.convolved, dragStretchEnabled=True)
+        diagnostic.fig.canvas.draw()
+        self.addCleanup(diagnostic.close)
+        axis = diagnostic.axes[0, 0]
+        x, y = self.axisCenter(axis)
+        initShared = (diagnostic._norms["shared"].vmin, diagnostic._norms["shared"].vmax)
+        initDiff = (diagnostic._norms["diff"].vmin, diagnostic._norms["diff"].vmax)
+
+        pressButton(diagnostic.fig.canvas, x, y, 3)
+        moveMouse(diagnostic.fig.canvas, x + 50, y + 30)
+        releaseButton(diagnostic.fig.canvas, x + 50, y + 30, 3)
+
+        newShared = (diagnostic._norms["shared"].vmin, diagnostic._norms["shared"].vmax)
+        newDiff = (diagnostic._norms["diff"].vmin, diagnostic._norms["diff"].vmax)
+        self.assertNotEqual(initShared, newShared)
+        self.assertEqual(initDiff, newDiff)
+
+    def testDragStretchDisabledByDefault(self):
+        """With the default dragStretchEnabled=False, a right-drag does not touch the stretch"""
         axis = self.diagnostic.axes[0, 0]
         x, y = self.axisCenter(axis)
-        initShared = (self.diagnostic._norms["shared"].vmin, self.diagnostic._norms["shared"].vmax)
-        initDiff = (self.diagnostic._norms["diff"].vmin, self.diagnostic._norms["diff"].vmax)
+        norm = self.diagnostic._norms["shared"]
+        initRange = (norm.vmin, norm.vmax)
 
         pressButton(self.diagnostic.fig.canvas, x, y, 3)
         moveMouse(self.diagnostic.fig.canvas, x + 50, y + 30)
         releaseButton(self.diagnostic.fig.canvas, x + 50, y + 30, 3)
 
-        newShared = (self.diagnostic._norms["shared"].vmin, self.diagnostic._norms["shared"].vmax)
-        newDiff = (self.diagnostic._norms["diff"].vmin, self.diagnostic._norms["diff"].vmax)
-        self.assertNotEqual(initShared, newShared)
-        self.assertEqual(initDiff, newDiff)
+        self.assertEqual((norm.vmin, norm.vmax), initRange)
 
     def testDragDirection(self):
-        """Dragging right brightens (lowers the center); dragging up increases contrast"""
-        axis = self.diagnostic.axes[0, 0]
+        """Dragging right brightens (lowers the center); dragging up increases contrast
+
+        Drag-stretch is disabled by default (see testDragStretchDisabledByDefault),
+        so this test builds its own diagnostic with it explicitly re-enabled.
+        """
+        diagnostic = PsfMatchDiagnostic(self.source, self.target, self.convolved, dragStretchEnabled=True)
+        diagnostic.fig.canvas.draw()
+        self.addCleanup(diagnostic.close)
+        axis = diagnostic.axes[0, 0]
         x, y = self.axisCenter(axis)
-        norm = self.diagnostic._norms["shared"]
+        norm = diagnostic._norms["shared"]
 
         centerStart = 0.5 * (norm.vmin + norm.vmax)
         halfStart = 0.5 * (norm.vmax - norm.vmin)
-        pressButton(self.diagnostic.fig.canvas, x, y, 3)
-        moveMouse(self.diagnostic.fig.canvas, x + 50, y)
+        pressButton(diagnostic.fig.canvas, x, y, 3)
+        moveMouse(diagnostic.fig.canvas, x + 50, y)
         centerNew = 0.5 * (norm.vmin + norm.vmax)
         halfNew = 0.5 * (norm.vmax - norm.vmin)
         self.assertLess(centerNew, centerStart)
         self.assertAlmostEqual(halfNew, halfStart)
-        releaseButton(self.diagnostic.fig.canvas, x + 50, y, 3)
+        releaseButton(diagnostic.fig.canvas, x + 50, y, 3)
 
         halfStart2 = 0.5 * (norm.vmax - norm.vmin)
-        pressButton(self.diagnostic.fig.canvas, x, y, 3)
-        moveMouse(self.diagnostic.fig.canvas, x, y + 50)
+        pressButton(diagnostic.fig.canvas, x, y, 3)
+        moveMouse(diagnostic.fig.canvas, x, y + 50)
         halfNew2 = 0.5 * (norm.vmax - norm.vmin)
         self.assertLess(halfNew2, halfStart2)
-        releaseButton(self.diagnostic.fig.canvas, x, y + 50, 3)
+        releaseButton(diagnostic.fig.canvas, x, y + 50, 3)
 
     def testToolbarGuard(self):
         """No interaction happens while the navigation toolbar's pan/zoom is engaged"""
@@ -207,14 +234,12 @@ class PsfMatchDiagnosticTestCase(lsst.utils.tests.TestCase):
 
     def testResetStretchKey(self):
         """The '0' key resets the stretch to its initial, automatic values"""
-        axis = self.diagnostic.axes[0, 0]
-        x, y = self.axisCenter(axis)
         initShared = self.diagnostic._initRanges["shared"]
-
-        pressButton(self.diagnostic.fig.canvas, x, y, 3)
-        moveMouse(self.diagnostic.fig.canvas, x + 80, y + 80)
-        releaseButton(self.diagnostic.fig.canvas, x + 80, y + 80, 3)
         norm = self.diagnostic._norms["shared"]
+
+        # Directly perturb the stretch (independent of drag-stretch, which is disabled by
+        # default -- see testDragStretchDisabledByDefault) to check that '0' resets it.
+        norm.vmin, norm.vmax = initShared[0] - 1.0, initShared[1] + 1.0
         self.assertNotEqual((norm.vmin, norm.vmax), initShared)
 
         pressKey(self.diagnostic.fig.canvas, "0")
