@@ -545,7 +545,7 @@ def plotSpatialKernel(
 def plotPsfMatchResult(
     source: afwImage.Exposure, target: afwImage.Exposure, result: pipeBase.Struct, **kwargs
 ) -> "PsfMatchDiagnostic":
-    """Interactively plot a `PsfMatchTask.run` result
+    """Plot a `PsfMatchTask.run` result
 
     Convenience wrapper around
     `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`, plotting
@@ -563,12 +563,18 @@ def plotPsfMatchResult(
     **kwargs
         Additional arguments for
         `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`.
+        Note that ``interactive`` defaults to `False` here (unlike
+        `PsfMatchDiagnostic` itself): all mouse/key interaction (marking,
+        drag-stretch, and the toolbar guard) is disabled by default, so
+        the matplotlib toolbar's own pan/zoom behaves normally; pass
+        ``interactive=True`` to restore it.
 
     Returns
     -------
     diagnostic : `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`
-        The interactive diagnostic plot.
+        The diagnostic plot.
     """
     from .utils.interactiveDisplay import plotPsfMatchDiagnostic
 
+    kwargs.setdefault("interactive", False)
     return plotPsfMatchDiagnostic(source, target, result.matchedExposure, **kwargs)
