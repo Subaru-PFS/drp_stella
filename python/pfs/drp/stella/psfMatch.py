@@ -384,9 +384,9 @@ def plotSpatialKernel(
     margin: float = 0.1,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
-    percentile: float = 99.5,
-    symmetric: bool = True,
-    cmap: str = "RdBu_r",
+    percentile: float = 100.0,
+    symmetric: bool = False,
+    cmap: str = "viridis",
     colorbar: Optional[str] = "shared",
     markCenter: bool = True,
     figsize: Optional[Tuple[float, float]] = None,
@@ -434,12 +434,16 @@ def plotSpatialKernel(
         Percentile used to set ``vmin``/``vmax`` automatically, when
         not given explicitly: with ``symmetric=True``, the percentile
         of ``abs(value)``; otherwise the ``percentile`` and
-        ``100 - percentile`` points of the raw values.
+        ``100 - percentile`` points of the raw values. Defaults to
+        ``100.0``, i.e. a plain min/max stretch.
     symmetric : `bool`
-        Force the automatic stretch to be symmetric about zero? This
-        is usually what you want for a diverging ``cmap``, since a
-        delta-function-basis kernel typically has a positive core
-        and negative side lobes.
+        Force the automatic stretch to be symmetric about zero?
+        Defaults to `False`: kernel pixel values are not typically
+        distributed symmetrically about zero (unlike, e.g., a
+        source-minus-template difference image), so a diverging
+        stretch centered on zero is usually not a good default. Set
+        `True` (and pass a diverging ``cmap`` such as ``"RdBu_r"``) if
+        you specifically want that.
     cmap : `str` or `matplotlib.colors.Colormap`
         Colormap to use.
     colorbar : `str`, optional
