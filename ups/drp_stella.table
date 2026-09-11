@@ -6,6 +6,7 @@ setupRequired(drp_pfs_data)
 setupRequired(datamodel)
 setupRequired(sconsUtils)
 setupRequired(ip_isr)
+setupRequired(ip_diffim)
 setupOptional(dustmaps_cachedata)
 setupOptional(fluxmodeldata)
 
