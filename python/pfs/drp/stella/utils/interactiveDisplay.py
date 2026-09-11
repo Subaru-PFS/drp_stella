@@ -11,8 +11,10 @@ from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 import numpy as np
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import lsst.afw.image as afwImage
+import lsst.afw.display.rgb as afwRgb
 
 __all__ = ("PsfMatchDiagnostic", "plotPsfMatchDiagnostic")
 
@@ -77,6 +79,32 @@ def _autoStretch(values: np.ndarray, percentile: float, symmetric: bool) -> Tupl
     return float(np.percentile(finite, 100 - percentile)), float(np.percentile(finite, percentile))
 
 
+def _zscaleStretch(array: np.ndarray, nSamples: int, contrast: float) -> Tuple[float, float]:
+    """Compute ds9/IRAF-style zscale stretch limits for a 2-D array
+
+    Delegates to `lsst.afw.display.rgb.getZScale`, the same algorithm used
+    by ``lsst.display.matplotlib``'s own ``"zscale"`` stretch option.
+
+    Parameters
+    ----------
+    array : `numpy.ndarray`
+        Image to compute the stretch from.
+    nSamples : `int`
+        Number of pixels to sample when fitting the background.
+    contrast : `float`
+        Scaling applied to the fitted slope; lower values increase the
+        stretch's contrast.
+
+    Returns
+    -------
+    vmin, vmax : `float`
+        Stretch limits.
+    """
+    image = afwImage.ImageF(np.ascontiguousarray(array, dtype=np.float32))
+    z1, z2 = afwRgb.getZScale(image, nSamples, contrast)
+    return float(z1), float(z2)
+
+
 class PsfMatchDiagnostic:
     """Interactive 2x2 diagnostic view of a PSF-matching result
 
@@ -105,7 +133,13 @@ class PsfMatchDiagnostic:
     - ``h``: print this help text.
 
     Any of the above is suppressed while the matplotlib toolbar's Pan or
-    Zoom tool is engaged, so as not to conflict with it.
+    Zoom tool is engaged, so as not to conflict with it. That tool is
+    normally "sticky" (it stays engaged, intercepting every subsequent
+    right-drag for its own pan/zoom-out gesture, until the toolbar button is
+    clicked again) -- to avoid a single pan or zoom permanently blocking
+    marking/stretch-dragging, we automatically disengage it once its
+    gesture completes, so the next right-drag goes back to adjusting the
+    stretch. Click the toolbar button again for another pan/zoom.
 
     Parameters
     ----------
@@ -115,13 +149,26 @@ class PsfMatchDiagnostic:
         is typically a PSF-matching result's ``matchedExposure``.
     vmin, vmax : `float`, optional
         Stretch limits for ``source``/``target``/``convolved``. Either
-        left as `None` (the default) is set automatically from
-        ``percentile`` (and ``symmetric``).
+        left as `None` (the default) is set automatically according to
+        ``stretchAlgorithm``.
+    stretchAlgorithm : `str`
+        Algorithm used to compute ``vmin``/``vmax`` automatically, if
+        either is `None`: ``"zscale"`` (the default; the classic ds9/IRAF
+        algorithm, computed per-image and then combined by taking the
+        widest limits of the three) or ``"percentile"`` (see
+        ``percentile``, ``symmetric``).
     percentile : `float`
-        Percentile used to set ``vmin``/``vmax`` automatically.
+        Percentile used to set ``vmin``/``vmax`` automatically, if
+        ``stretchAlgorithm`` is ``"percentile"``.
     symmetric : `bool`
-        Force the automatic ``source``/``target``/``convolved`` stretch
-        to be symmetric about zero?
+        If ``stretchAlgorithm`` is ``"percentile"``, force the automatic
+        ``source``/``target``/``convolved`` stretch to be symmetric about
+        zero?
+    zscaleSamples : `int`
+        Number of pixels to sample, if ``stretchAlgorithm`` is
+        ``"zscale"``.
+    zscaleContrast : `float`
+        Contrast parameter, if ``stretchAlgorithm`` is ``"zscale"``.
     diffVmin, diffVmax : `float`, optional
         Stretch limits for the difference image; as ``vmin``/``vmax``
         but for the difference.
@@ -168,8 +215,11 @@ class PsfMatchDiagnostic:
         *,
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
+        stretchAlgorithm: str = "zscale",
         percentile: float = 99.5,
         symmetric: bool = False,
+        zscaleSamples: int = 1000,
+        zscaleContrast: float = 0.25,
         diffVmin: Optional[float] = None,
         diffVmax: Optional[float] = None,
         diffPercentile: float = 99.5,
@@ -197,11 +247,25 @@ class PsfMatchDiagnostic:
         extent = (x0, x0 + width, y0, y0 + height)
 
         if vmin is None or vmax is None:
-            autoVmin, autoVmax = _autoStretch(
-                np.concatenate([sourceArr.ravel(), targetArr.ravel(), convolvedArr.ravel()]),
-                percentile,
-                symmetric,
-            )
+            if stretchAlgorithm == "zscale":
+                z1s, z2s = zip(
+                    *(
+                        _zscaleStretch(arr, zscaleSamples, zscaleContrast)
+                        for arr in (sourceArr, targetArr, convolvedArr)
+                    )
+                )
+                autoVmin, autoVmax = min(z1s), max(z2s)
+            elif stretchAlgorithm == "percentile":
+                autoVmin, autoVmax = _autoStretch(
+                    np.concatenate([sourceArr.ravel(), targetArr.ravel(), convolvedArr.ravel()]),
+                    percentile,
+                    symmetric,
+                )
+            else:
+                raise ValueError(
+                    f"Unrecognized stretchAlgorithm: {stretchAlgorithm!r}; "
+                    "expected 'zscale' or 'percentile'"
+                )
             vmin = autoVmin if vmin is None else vmin
             vmax = autoVmax if vmax is None else vmax
         if diffVmin is None or diffVmax is None:
@@ -232,8 +296,16 @@ class PsfMatchDiagnostic:
         for axis, title in zip((axSource, axTarget, axConvolved, axDiff), titles):
             axis.set_title(title)
 
-        cbarShared = fig.colorbar(imSource, ax=[axSource, axTarget, axConvolved], shrink=0.8)
-        cbarDiff = fig.colorbar(imDiff, ax=[axDiff], shrink=0.8)
+        # Attach each colorbar directly beside one specific Axes (via a divider), rather than
+        # letting fig.colorbar(..., ax=[...]) steal room from the whole figure for a list of
+        # Axes: with our 2x2 layout, the "shared" group spans both columns (it includes
+        # axTarget, top-right), so a colorbar auto-placed to the right of that whole group
+        # lands over on top of axDiff (bottom-right), which is not part of the group and so
+        # never gets shrunk to make room for it.
+        sharedCax = make_axes_locatable(axTarget).append_axes("right", size="5%", pad=0.1)
+        cbarShared = fig.colorbar(imSource, cax=sharedCax)
+        diffCax = make_axes_locatable(axDiff).append_axes("right", size="5%", pad=0.1)
+        cbarDiff = fig.colorbar(imDiff, cax=diffCax)
 
         self._norms: Dict[str, Normalize] = {"shared": sharedNorm, "diff": diffNorm}
         self._colorbars: Dict[str, Colorbar] = {"shared": cbarShared, "diff": cbarDiff}
@@ -256,6 +328,7 @@ class PsfMatchDiagnostic:
         self._hitRadiusPx = hitRadiusPx
         self.marks: List[dict] = []
         self._press: Optional[dict] = None
+        self._toolbarGestureActive = False
 
         backend = matplotlib.get_backend().lower()
         if backend in _STATIC_BACKENDS or "inline" in backend:
@@ -277,6 +350,26 @@ class PsfMatchDiagnostic:
         """Is the matplotlib navigation toolbar's Pan or Zoom tool engaged?"""
         toolbar = getattr(self.fig.canvas, "toolbar", None)
         return bool(getattr(toolbar, "mode", ""))
+
+    def _disengageToolbar(self) -> None:
+        """Toggle off the toolbar's Pan or Zoom tool, if engaged
+
+        The toolbar's Pan/Zoom tools are "sticky": once toggled on, they stay
+        engaged (and so keep intercepting every right-drag for their own
+        pan/zoom-out gesture, per matplotlib's own button handling) until the
+        user remembers to click the button again. We call this once a
+        press/release we deferred to the toolbar has completed, so a single
+        pan or zoom does not permanently block our own marking/stretch
+        handling.
+        """
+        toolbar = getattr(self.fig.canvas, "toolbar", None)
+        if toolbar is None:
+            return
+        mode = str(getattr(toolbar, "mode", ""))
+        if mode == "zoom rect" and callable(getattr(toolbar, "zoom", None)):
+            toolbar.zoom()
+        elif mode == "pan/zoom" and callable(getattr(toolbar, "pan", None)):
+            toolbar.pan()
 
     def _applyStretch(self, group: str, vmin: float, vmax: float) -> None:
         """Set a stretch group's colormap limits and redraw"""
@@ -338,7 +431,12 @@ class PsfMatchDiagnostic:
 
     def _onPress(self, event: MouseEvent) -> None:
         """Event handler for mouse button press"""
-        if event.inaxes not in self._axisGroup or self._toolbarActive():
+        if self._toolbarActive():
+            # This press has gone to the toolbar's own Pan/Zoom handling instead of ours;
+            # remember to disengage that tool once its gesture completes (see _onRelease).
+            self._toolbarGestureActive = True
+            return
+        if event.inaxes not in self._axisGroup:
             return
         group = self._axisGroup[event.inaxes]
         initVmin, initVmax = self._initRanges[group]
@@ -384,6 +482,10 @@ class PsfMatchDiagnostic:
 
     def _onRelease(self, event: MouseEvent) -> None:
         """Event handler for mouse button release: dispatch clicks"""
+        if self._toolbarGestureActive:
+            self._toolbarGestureActive = False
+            self._disengageToolbar()
+            return
         if self._press is None:
             return
         press = self._press
