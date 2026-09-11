@@ -20,3 +20,5 @@ envPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
 envPrepend(LSST_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+
+envPrepend(BASH_COMPLETION_USER_DIR, ${PRODUCT_DIR}/etc)  # Used by bash-completion (v2, bash >= 4.1)
