@@ -481,8 +481,16 @@ def plotSpatialKernel(
         sumRow = []
         for xPos in xPositions:
             image = afwImage.ImageD(kernel.getDimensions())
-            kernelSum = kernel.computeImage(image, doNormalize, xPos, yPos)
-            imageRow.append(image.array.copy())
+            # Always compute the pre-normalization sum (computeImage returns 1.0
+            # instead, once normalized, so normalization -- if wanted -- is applied
+            # separately below) so the figure title reports it regardless of doNormalize.
+            kernelSum = kernel.computeImage(image, False, xPos, yPos)
+            array = image.array
+            if doNormalize:
+                if kernelSum == 0:
+                    raise ValueError(f"Cannot normalize kernel at ({xPos}, {yPos}): kernel sum is 0")
+                array = array / kernelSum
+            imageRow.append(array.copy())
             sumRow.append(kernelSum)
         images.append(imageRow)
         sums.append(sumRow)
