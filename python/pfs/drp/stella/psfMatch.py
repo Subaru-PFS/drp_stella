@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
@@ -13,7 +13,10 @@ from lsst.ip.diffim.psfMatch import PsfMatchConfigDF
 from lsst.ip.diffim.psfMatch import PsfMatchTask as BasePsfMatchTask
 from lsst.utils.timer import timeMethod
 
-__all__ = ("PsfMatchConfig", "PsfMatchTask", "peakSignalToNoise")
+if TYPE_CHECKING:
+    import matplotlib
+
+__all__ = ("PsfMatchConfig", "PsfMatchTask", "peakSignalToNoise", "plotSpatialKernel")
 
 
 def peakSignalToNoise(maskedImage: afwImage.MaskedImage) -> float:
@@ -361,3 +364,159 @@ class PsfMatchTask(BasePsfMatchTask):
             numCandidates=numCandidates,
             numUsed=len(candidates),
         )
+
+
+def plotSpatialKernel(
+    kernel: afwMath.Kernel,
+    bbox: geom.Box2I,
+    numRows: int = 3,
+    numCols: int = 3,
+    *,
+    doNormalize: bool = True,
+    margin: float = 0.1,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+    percentile: float = 99.5,
+    symmetric: bool = True,
+    cmap: str = "RdBu_r",
+    colorbar: Optional[str] = "shared",
+    markCenter: bool = True,
+    figsize: Optional[Tuple[float, float]] = None,
+    fig: Optional["matplotlib.figure.Figure"] = None,
+    axes: Optional[np.ndarray] = None,
+) -> Tuple["matplotlib.figure.Figure", np.ndarray]:
+    """Plot a spatially varying kernel over a grid of image positions
+
+    Useful for visually inspecting a `PsfMatchTask.run` result's
+    ``psfMatchingKernel`` in a notebook: evaluates the kernel on a
+    ``numRows`` x ``numCols`` grid of positions spanning ``bbox`` and
+    plots each resulting kernel image in its own subplot.
+
+    Parameters
+    ----------
+    kernel : `lsst.afw.math.Kernel`
+        Spatially varying kernel to plot (e.g., ``psfMatchingKernel``
+        from `PsfMatchTask.run`).
+    bbox : `lsst.geom.Box2I`
+        Bounding box of the region the kernel was fit over (e.g., the
+        ``kernelCellSet``'s bounding box, or the source/target
+        exposure's bounding box); used to lay out the grid of
+        positions at which to evaluate ``kernel``.
+    numRows : `int`
+        Number of rows in the grid of positions (and of subplots).
+    numCols : `int`
+        Number of columns in the grid of positions (and of subplots).
+    doNormalize : `bool`
+        Normalize each kernel image to unit sum before plotting? The
+        default of `True` makes the kernel *shape* easy to compare
+        across positions; set `False` to instead see the fitted flux
+        ratio between the two exposures, as `PsfMatchTask.run` uses
+        when convolving. Either way, the range (over the grid of
+        positions) of the pre-normalization kernel sum is reported in
+        the figure title.
+    margin : `float`
+        Fraction of ``bbox``'s width/height by which to inset the
+        grid from its edges, avoiding positions where the spatial
+        polynomial is typically least well constrained.
+    vmin, vmax : `float`, optional
+        Colormap stretch limits. Either left as `None` (the default)
+        is set automatically from ``percentile`` (and ``symmetric``)
+        over all the plotted kernel images.
+    percentile : `float`
+        Percentile used to set ``vmin``/``vmax`` automatically, when
+        not given explicitly: with ``symmetric=True``, the percentile
+        of ``abs(value)``; otherwise the ``percentile`` and
+        ``100 - percentile`` points of the raw values.
+    symmetric : `bool`
+        Force the automatic stretch to be symmetric about zero? This
+        is usually what you want for a diverging ``cmap``, since a
+        delta-function-basis kernel typically has a positive core
+        and negative side lobes.
+    cmap : `str` or `matplotlib.colors.Colormap`
+        Colormap to use.
+    colorbar : `str`, optional
+        One of ``"shared"`` (a single colorbar for the whole figure),
+        ``"each"`` (one colorbar per subplot), or `None` (no
+        colorbar).
+    markCenter : `bool`
+        Draw crosshairs at the geometric center of each kernel image?
+        This makes it easy to see how far the fitted kernel has moved
+        off-center, which is expected: see `PsfMatchTask`'s docstring.
+    figsize : `tuple` of `float`, optional
+        Figure size, passed to ``matplotlib.pyplot.subplots``.
+    fig : `matplotlib.figure.Figure`, optional
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`, optional
+        Existing figure and grid of axes to plot into (e.g., reusing
+        the result of a previous call), instead of creating a new
+        one. If either is provided, both must be, and their shape
+        must match ``(numRows, numCols)``.
+
+    Returns
+    -------
+    fig : `matplotlib.figure.Figure`
+        Figure containing the plot.
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`
+        Grid of axes, of shape ``(numRows, numCols)``.
+    """
+    import matplotlib.pyplot as plt
+
+    marginX = margin * bbox.getWidth()
+    marginY = margin * bbox.getHeight()
+    xPositions = np.linspace(bbox.getMinX() + marginX, bbox.getMaxX() - marginX, numCols)
+    # Top row corresponds to the highest y, to match the image's on-sky orientation.
+    yPositions = np.linspace(bbox.getMaxY() - marginY, bbox.getMinY() + marginY, numRows)
+
+    images = []
+    sums = []
+    for yPos in yPositions:
+        imageRow = []
+        sumRow = []
+        for xPos in xPositions:
+            image = afwImage.ImageD(kernel.getDimensions())
+            kernelSum = kernel.computeImage(image, doNormalize, xPos, yPos)
+            imageRow.append(image.array.copy())
+            sumRow.append(kernelSum)
+        images.append(imageRow)
+        sums.append(sumRow)
+
+    if vmin is None or vmax is None:
+        allValues = np.concatenate([array.ravel() for imageRow in images for array in imageRow])
+        if symmetric:
+            limit = np.percentile(np.abs(allValues), percentile)
+            autoVmin, autoVmax = -limit, limit
+        else:
+            autoVmin = np.percentile(allValues, 100 - percentile)
+            autoVmax = np.percentile(allValues, percentile)
+        vmin = autoVmin if vmin is None else vmin
+        vmax = autoVmax if vmax is None else vmax
+
+    if fig is None or axes is None:
+        fig, axes = plt.subplots(numRows, numCols, figsize=figsize, sharex=True, sharey=True, squeeze=False)
+
+    mappable = None
+    for row in range(numRows):
+        for col in range(numCols):
+            axis = axes[row, col]
+            mappable = axis.imshow(images[row][col], origin="lower", cmap=cmap, vmin=vmin, vmax=vmax)
+            axis.set_title(f"({xPositions[col]:.0f}, {yPositions[row]:.0f})", fontsize=8)
+            axis.set_xticks([])
+            axis.set_yticks([])
+            if markCenter:
+                centerX = (kernel.getWidth() - 1) / 2.0
+                centerY = (kernel.getHeight() - 1) / 2.0
+                axis.axhline(centerY, color="k", ls=":", lw=0.5)
+                axis.axvline(centerX, color="k", ls=":", lw=0.5)
+
+    if colorbar == "shared":
+        fig.colorbar(mappable, ax=axes.ravel().tolist(), shrink=0.8)
+    elif colorbar == "each":
+        for axis in axes.ravel():
+            fig.colorbar(axis.images[0], ax=axis)
+    elif colorbar is not None:
+        raise ValueError(f"Unrecognized colorbar option: {colorbar!r}")
+
+    minSum = min(min(sumRow) for sumRow in sums)
+    maxSum = max(max(sumRow) for sumRow in sums)
+    fig.suptitle(f"PSF-matching kernel (pre-normalization sum: {minSum:.3f}-{maxSum:.3f})")
+
+    return fig, axes
