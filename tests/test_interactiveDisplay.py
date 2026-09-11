@@ -12,6 +12,8 @@ from matplotlib.backend_bases import KeyEvent, MouseEvent  # noqa: E402
 import numpy as np  # noqa: E402
 
 import lsst.utils.tests  # noqa: E402
+import lsst.afw.image as afwImage  # noqa: E402
+import lsst.afw.display.rgb as afwRgb  # noqa: E402
 
 from pfs.drp.stella.utils.interactiveDisplay import PsfMatchDiagnostic  # noqa: E402
 from pfs.drp.stella.tests.utils import runTests  # noqa: E402
@@ -69,9 +71,13 @@ class PsfMatchDiagnosticTestCase(lsst.utils.tests.TestCase):
         titles = [axis.get_title() for axis in self.diagnostic.axes.ravel()]
         self.assertEqual(titles, ["source", "target", "convolved", "target - convolved"])
 
-        allValues = np.concatenate([self.source.ravel(), self.target.ravel(), self.convolved.ravel()])
-        expectedVmin = np.percentile(allValues, 0.5)
-        expectedVmax = np.percentile(allValues, 99.5)
+        z1s, z2s = zip(
+            *(
+                afwRgb.getZScale(afwImage.ImageF(array.astype(np.float32)))
+                for array in (self.source, self.target, self.convolved)
+            )
+        )
+        expectedVmin, expectedVmax = min(z1s), max(z2s)
         shared = self.diagnostic._norms["shared"]
         self.assertAlmostEqual(shared.vmin, expectedVmin)
         self.assertAlmostEqual(shared.vmax, expectedVmax)
