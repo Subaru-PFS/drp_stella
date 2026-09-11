@@ -16,7 +16,15 @@ from lsst.utils.timer import timeMethod
 if TYPE_CHECKING:
     import matplotlib
 
-__all__ = ("PsfMatchConfig", "PsfMatchTask", "peakSignalToNoise", "plotSpatialKernel")
+    from .utils.interactiveDisplay import PsfMatchDiagnostic
+
+__all__ = (
+    "PsfMatchConfig",
+    "PsfMatchTask",
+    "peakSignalToNoise",
+    "plotSpatialKernel",
+    "plotPsfMatchResult",
+)
 
 
 def peakSignalToNoise(maskedImage: afwImage.MaskedImage) -> float:
@@ -520,3 +528,35 @@ def plotSpatialKernel(
     fig.suptitle(f"PSF-matching kernel (pre-normalization sum: {minSum:.3f}-{maxSum:.3f})")
 
     return fig, axes
+
+
+def plotPsfMatchResult(
+    source: afwImage.Exposure, target: afwImage.Exposure, result: pipeBase.Struct, **kwargs
+) -> "PsfMatchDiagnostic":
+    """Interactively plot a `PsfMatchTask.run` result
+
+    Convenience wrapper around
+    `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`, plotting
+    ``source``, ``target``, ``result.matchedExposure`` and their
+    difference.
+
+    Parameters
+    ----------
+    source : `lsst.afw.image.Exposure`
+        Exposure passed to `PsfMatchTask.run` as ``source``.
+    target : `lsst.afw.image.Exposure`
+        Exposure passed to `PsfMatchTask.run` as ``target``.
+    result : `lsst.pipe.base.Struct`
+        Result of `PsfMatchTask.run`.
+    **kwargs
+        Additional arguments for
+        `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`.
+
+    Returns
+    -------
+    diagnostic : `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`
+        The interactive diagnostic plot.
+    """
+    from .utils.interactiveDisplay import plotPsfMatchDiagnostic
+
+    return plotPsfMatchDiagnostic(source, target, result.matchedExposure, **kwargs)
