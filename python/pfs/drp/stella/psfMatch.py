@@ -16,8 +16,6 @@ from lsst.utils.timer import timeMethod
 if TYPE_CHECKING:
     import matplotlib
 
-    from .utils.interactiveDisplay import PsfMatchDiagnostic
-
 __all__ = (
     "PsfMatchConfig",
     "PsfMatchTask",
@@ -543,14 +541,40 @@ def plotSpatialKernel(
 
 
 def plotPsfMatchResult(
-    source: afwImage.Exposure, target: afwImage.Exposure, result: pipeBase.Struct, **kwargs
-) -> "PsfMatchDiagnostic":
+    source: afwImage.Exposure,
+    target: afwImage.Exposure,
+    result: pipeBase.Struct,
+    *,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+    stretchAlgorithm: str = "zscale",
+    percentile: float = 99.5,
+    symmetric: bool = False,
+    zscaleSamples: int = 1000,
+    zscaleContrast: float = 0.25,
+    diffVmin: Optional[float] = None,
+    diffVmax: Optional[float] = None,
+    diffPercentile: float = 99.5,
+    diffSymmetric: bool = True,
+    cmap: str = "viridis",
+    diffCmap: str = "RdBu_r",
+    titles: Tuple[str, str, str, str] = ("source", "target", "convolved", "target - convolved"),
+    figsize: Optional[Tuple[float, float]] = None,
+    fig: Optional["matplotlib.figure.Figure"] = None,
+    axes: Optional[np.ndarray] = None,
+) -> Tuple["matplotlib.figure.Figure", np.ndarray]:
     """Plot a `PsfMatchTask.run` result
 
-    Convenience wrapper around
-    `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`, plotting
-    ``source``, ``target``, ``result.matchedExposure`` and their
-    difference.
+    Static 2x2 view of ``source``, ``target``, ``result.matchedExposure``
+    and their difference, sharing one colormap stretch between
+    ``source``/``target``/``convolved`` and a separate stretch for the
+    difference. Pan/zoom is linked across all four panels (via
+    ``sharex``/``sharey``); no mouse/key event handling is attached, so
+    the matplotlib toolbar's own pan/zoom works normally.
+
+    For an interactive version of this plot (marking, click-drag stretch
+    adjustment), use
+    `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic` directly.
 
     Parameters
     ----------
@@ -560,21 +584,145 @@ def plotPsfMatchResult(
         Exposure passed to `PsfMatchTask.run` as ``target``.
     result : `lsst.pipe.base.Struct`
         Result of `PsfMatchTask.run`.
-    **kwargs
-        Additional arguments for
-        `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`.
-        Note that ``interactive`` defaults to `False` here (unlike
-        `PsfMatchDiagnostic` itself): all mouse/key interaction (marking,
-        drag-stretch, and the toolbar guard) is disabled by default, so
-        the matplotlib toolbar's own pan/zoom behaves normally; pass
-        ``interactive=True`` to restore it.
+    vmin, vmax : `float`, optional
+        Stretch limits for ``source``/``target``/``convolved``. Either
+        left as `None` (the default) is set automatically according to
+        ``stretchAlgorithm``.
+    stretchAlgorithm : `str`
+        Algorithm used to compute ``vmin``/``vmax`` automatically, if
+        either is `None`: ``"zscale"`` (the default; the classic ds9/IRAF
+        algorithm, computed per-image and then combined by taking the
+        widest limits of the three) or ``"percentile"`` (see
+        ``percentile``, ``symmetric``).
+    percentile : `float`
+        Percentile used to set ``vmin``/``vmax`` automatically, if
+        ``stretchAlgorithm`` is ``"percentile"``.
+    symmetric : `bool`
+        If ``stretchAlgorithm`` is ``"percentile"``, force the automatic
+        ``source``/``target``/``convolved`` stretch to be symmetric about
+        zero?
+    zscaleSamples : `int`
+        Number of pixels to sample, if ``stretchAlgorithm`` is
+        ``"zscale"``.
+    zscaleContrast : `float`
+        Contrast parameter, if ``stretchAlgorithm`` is ``"zscale"``.
+    diffVmin, diffVmax : `float`, optional
+        Stretch limits for the difference image; as ``vmin``/``vmax``
+        but for the difference.
+    diffPercentile : `float`
+        As ``percentile``, but for the difference image.
+    diffSymmetric : `bool`
+        As ``symmetric``, but for the difference image. Defaults to
+        `True`, since a residual is naturally zero-centered.
+    cmap, diffCmap : `str` or `matplotlib.colors.Colormap`
+        Colormaps for the shared and difference stretch groups.
+    titles : `tuple` of `str`
+        Panel titles, in the order (source, target, convolved,
+        difference).
+    figsize : `tuple` of `float`, optional
+        Figure size, passed to ``matplotlib.pyplot.subplots``.
+    fig : `matplotlib.figure.Figure`, optional
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`, optional
+        Existing figure and 2x2 grid of axes to plot into, instead of
+        creating new ones. If either is provided, both must be.
 
     Returns
     -------
-    diagnostic : `pfs.drp.stella.utils.interactiveDisplay.PsfMatchDiagnostic`
-        The diagnostic plot.
+    fig : `matplotlib.figure.Figure`
+        Figure containing the plot.
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`
+        Grid of axes, of shape ``(2, 2)``.
     """
-    from .utils.interactiveDisplay import plotPsfMatchDiagnostic
+    import matplotlib.pyplot as plt
+    import lsst.afw.display.rgb as afwRgb
+    from matplotlib.colors import Normalize
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-    kwargs.setdefault("interactive", False)
-    return plotPsfMatchDiagnostic(source, target, result.matchedExposure, **kwargs)
+    convolved = result.matchedExposure
+    sourceArr = source.image.array
+    targetArr = target.image.array
+    convolvedArr = convolved.image.array
+    if sourceArr.shape != targetArr.shape or sourceArr.shape != convolvedArr.shape:
+        raise ValueError(
+            f"source ({sourceArr.shape}), target ({targetArr.shape}) and convolved "
+            f"({convolvedArr.shape}) must have the same shape"
+        )
+    diffArr = targetArr - convolvedArr
+
+    bbox = source.getBBox()
+    height, width = sourceArr.shape
+    extent = (bbox.getMinX(), bbox.getMinX() + width, bbox.getMinY(), bbox.getMinY() + height)
+
+    if vmin is None or vmax is None:
+        if stretchAlgorithm == "zscale":
+            z1s, z2s = zip(
+                *(
+                    afwRgb.getZScale(
+                        afwImage.ImageF(np.ascontiguousarray(arr, dtype=np.float32)),
+                        zscaleSamples,
+                        zscaleContrast,
+                    )
+                    for arr in (sourceArr, targetArr, convolvedArr)
+                )
+            )
+            autoVmin, autoVmax = min(z1s), max(z2s)
+        elif stretchAlgorithm == "percentile":
+            allValues = np.concatenate([sourceArr.ravel(), targetArr.ravel(), convolvedArr.ravel()])
+            finite = allValues[np.isfinite(allValues)]
+            if symmetric:
+                limit = np.percentile(np.abs(finite), percentile)
+                autoVmin, autoVmax = -limit, limit
+            else:
+                autoVmin = np.percentile(finite, 100 - percentile)
+                autoVmax = np.percentile(finite, percentile)
+        else:
+            raise ValueError(
+                f"Unrecognized stretchAlgorithm: {stretchAlgorithm!r}; expected 'zscale' or 'percentile'"
+            )
+        vmin = autoVmin if vmin is None else vmin
+        vmax = autoVmax if vmax is None else vmax
+
+    if diffVmin is None or diffVmax is None:
+        diffFinite = diffArr[np.isfinite(diffArr)]
+        if diffSymmetric:
+            diffLimit = np.percentile(np.abs(diffFinite), diffPercentile)
+            autoDiffVmin, autoDiffVmax = -diffLimit, diffLimit
+        else:
+            autoDiffVmin = np.percentile(diffFinite, 100 - diffPercentile)
+            autoDiffVmax = np.percentile(diffFinite, diffPercentile)
+        diffVmin = autoDiffVmin if diffVmin is None else diffVmin
+        diffVmax = autoDiffVmax if diffVmax is None else diffVmax
+
+    if (fig is None) != (axes is None):
+        raise ValueError("fig and axes must be provided together")
+    if fig is None:
+        fig, axes = plt.subplots(2, 2, figsize=figsize, sharex=True, sharey=True, squeeze=False)
+    elif axes.shape != (2, 2):
+        raise ValueError(f"axes must have shape (2, 2); got {axes.shape}")
+
+    axSource, axTarget = axes[0, 0], axes[0, 1]
+    axConvolved, axDiff = axes[1, 0], axes[1, 1]
+
+    sharedNorm = Normalize(vmin=vmin, vmax=vmax)
+    diffNorm = Normalize(vmin=diffVmin, vmax=diffVmax)
+
+    imSource = axSource.imshow(sourceArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
+    axTarget.imshow(targetArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
+    axConvolved.imshow(convolvedArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
+    imDiff = axDiff.imshow(diffArr, origin="lower", cmap=diffCmap, norm=diffNorm, extent=extent)
+
+    for axis, title in zip((axSource, axTarget, axConvolved, axDiff), titles):
+        axis.set_title(title)
+
+    # Attach each colorbar directly beside one specific Axes (via a divider), rather than
+    # letting fig.colorbar(..., ax=[...]) steal room from the whole figure for a list of
+    # Axes: the "shared" group spans both columns (it includes axTarget, top-right), so a
+    # colorbar auto-placed to the right of that whole group lands on top of axDiff
+    # (bottom-right), which is not part of the group and so never gets shrunk to make room
+    # for it.
+    sharedCax = make_axes_locatable(axTarget).append_axes("right", size="5%", pad=0.1)
+    fig.colorbar(imSource, cax=sharedCax)
+    diffCax = make_axes_locatable(axDiff).append_axes("right", size="5%", pad=0.1)
+    fig.colorbar(imDiff, cax=diffCax)
+
+    return fig, axes
