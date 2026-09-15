@@ -143,16 +143,26 @@ struct AlardLuptonResult {
 /// rejThresh standard deviations, and the fit is repeated; this continues
 /// for up to rejIter rounds (or until no further pixels are rejected).
 ///
-/// A pixel of the output difference image can be computed only if it, and
-/// every source pixel within the kernel footprint centred on it, has usable
+/// A pixel of the output difference image can be computed only if it lies at
+/// least kernelHalfWidth from the edge of the images (so the kernel footprint
+/// centred on it lies entirely within the images) and it has usable target
 /// data (i.e., is finite, has finite positive variance, and is not flagged
-/// with any of the bits in badBitMask); this means a border of
-/// kernelHalfWidth pixels around the edge of the images is not computed. Such
-/// pixels, along with any that fail for other reasons (e.g. an entire region
-/// having too few good pixels to constrain the fit) are flagged with the
-/// "NO_DATA" mask plane in the output, and pixels that were rejected during
-/// the fit are flagged with the "DIFFIM_REJECTED" mask plane. All other mask
-/// planes are propagated from the two input images (bitwise-OR'd together).
+/// with any of the bits in badBitMask). If, in addition, every source pixel
+/// within the kernel footprint has usable data, the pixel is computed
+/// directly from the full footprint, as in Alard & Lupton (1998). If some
+/// (but not all) of those source pixels are unusable, the pixel is instead
+/// computed from only the usable source pixels in the footprint, with the
+/// result rescaled by the ratio of the full kernel sum to the sum of the
+/// kernel weights actually used (compensating for the missing flux under the
+/// assumption that the source is locally flat over the footprint); such
+/// pixels are flagged with the "DIFFIM_PARTIAL" mask plane. A pixel is
+/// flagged "NO_DATA" instead if it is too close to the edge of the images,
+/// its target data is unusable, none (or too little) of the source data
+/// within its footprint is usable, or it fails for other reasons (e.g. an
+/// entire region having too few good pixels to constrain the fit). Pixels
+/// that were rejected during the fit are flagged with the "DIFFIM_REJECTED"
+/// mask plane. All other mask planes are propagated from the two input
+/// images (bitwise-OR'd together).
 ///
 /// @param source : Image to be convolved to match target (e.g., a template image)
 /// @param target : Image to match (e.g., a science image)
