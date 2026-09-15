@@ -153,7 +153,13 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         self.assertIsNone(result.getSolutionAt(self.width, 100))
 
     def testBadPixels(self):
-        """Pixels flagged as bad should not be used, and should be marked NO_DATA in the output"""
+        """Pixels flagged as bad should not be used
+
+        A pixel whose kernel footprint contains some bad source pixels can
+        still be computed from the remaining good ones (and is flagged
+        DIFFIM_PARTIAL); only a pixel whose entire footprint is bad (or that
+        is otherwise too close to the masked region) is marked NO_DATA.
+        """
         trueKernel = self.makeKernel(1.2)
         source = self.makeSource()
         target = self.convolve(source, trueKernel)
@@ -172,8 +178,22 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(solution.success)
         self.assertFloatsAlmostEqual(solution.kernel, trueKernel, atol=2.0e-2)
 
+        # The centre of the masked 10x10 block (indices 53-56 inclusive, for kernelHalfWidth=3) is far
+        # enough from any good source pixel that its entire kernel footprint is bad, so it cannot be
+        # computed even partially.
         noDataBitMask = 1 << result.difference.mask.getMaskPlane("NO_DATA")
-        self.assertTrue(np.all((result.difference.mask.array[50:60, 50:60] & noDataBitMask) != 0))
+        self.assertTrue(np.all((result.difference.mask.array[53:57, 53:57] & noDataBitMask) != 0))
+
+        # Well away from the masked block, the kernel footprint doesn't overlap it at all, so pixels
+        # there are computed normally (and not marked NO_DATA or DIFFIM_PARTIAL).
+        partialBitMask = 1 << result.difference.mask.getMaskPlane("DIFFIM_PARTIAL")
+        farAway = result.difference.mask.array[30, 30]
+        self.assertEqual(farAway & (noDataBitMask | partialBitMask), 0)
+
+        # A pixel just inside the edge of the masked block still has some good source pixels in its
+        # kernel footprint (from outside the block), so it's computed from those (and flagged partial).
+        self.assertNotEqual(result.difference.mask.array[50, 55] & partialBitMask, 0)
+        self.assertEqual(result.difference.mask.array[50, 55] & noDataBitMask, 0)
 
     def testTooSmall(self):
         """An image too small for the requested kernel half-width should raise"""
