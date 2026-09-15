@@ -273,9 +273,10 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
             Draw the boundaries of the ``numRegionsX`` x ``numRegionsY``
             regions the kernel was fit in?
         showRejected : `bool`
-            Overlay, in translucent red on the difference panel, pixels
-            rejected during the fit (the ``DIFFIM_REJECTED`` mask
-            plane)?
+            Mark, with a red hatched overlay on the difference panel,
+            pixels rejected during the fit (the ``DIFFIM_REJECTED`` mask
+            plane)? The overlay has no fill, so the underlying
+            difference values remain visible through the hatching.
         figsize : `tuple` of `float`, optional
             Figure size, passed to ``matplotlib.pyplot.subplots``.
         fig : `matplotlib.figure.Figure`, optional
@@ -292,7 +293,7 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
         """
         import matplotlib.pyplot as plt
         import lsst.afw.display.rgb as afwRgb
-        from matplotlib.colors import ListedColormap, Normalize
+        from matplotlib.colors import Normalize
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
         sourceArr = source.image.array
@@ -386,8 +387,16 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
             rejectedBitMask = 1 << self.difference.mask.getMaskPlane("DIFFIM_REJECTED")
             rejected = (self.difference.mask.array & rejectedBitMask) != 0
             if rejected.any():
-                overlay = np.ma.masked_where(~rejected, rejected)
-                axDiff.imshow(overlay, origin="lower", cmap=ListedColormap(["red"]), extent=extent, alpha=0.6)
+                # Hatch (rather than fill) the rejected pixels, so the underlying difference
+                # values remain visible: filling would hide exactly the values we want to see.
+                rowIndices, colIndices = np.mgrid[0:height, 0:width]
+                xCenters = bbox.getMinX() + colIndices + 0.5
+                yCenters = bbox.getMinY() + rowIndices + 0.5
+                with plt.rc_context({"hatch.color": "red"}):
+                    axDiff.contourf(
+                        xCenters, yCenters, rejected.astype(float),
+                        levels=[0.5, 1.5], colors="none", hatches=["////"],
+                    )
 
         if showRegions and (self.numRegionsX > 1 or self.numRegionsY > 1):
             numRegionsX, numRegionsY = self.numRegionsX, self.numRegionsY
