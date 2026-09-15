@@ -204,6 +204,7 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
         titles: Tuple[str, str, str, str] = ("source", "target", "convolved", "target - convolved"),
         showRegions: bool = True,
         showRejected: bool = True,
+        showPartial: bool = True,
         figsize: Optional[Tuple[float, float]] = None,
         fig: Optional["matplotlib.figure.Figure"] = None,
         axes: Optional[np.ndarray] = None,
@@ -277,6 +278,13 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
             pixels rejected during the fit (the ``DIFFIM_REJECTED`` mask
             plane)? The overlay has no fill, so the underlying
             difference values remain visible through the hatching.
+        showPartial : `bool`
+            Mark, with a blue hatched overlay on the difference panel,
+            pixels computed from only part of the kernel footprint
+            because some source pixels within it were unusable (the
+            ``DIFFIM_PARTIAL`` mask plane)? As with ``showRejected``,
+            the overlay has no fill, so the underlying difference
+            values remain visible through the hatching.
         figsize : `tuple` of `float`, optional
             Figure size, passed to ``matplotlib.pyplot.subplots``.
         fig : `matplotlib.figure.Figure`, optional
@@ -383,20 +391,30 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
         axConvolved.imshow(convolvedArr, origin="lower", cmap=cmap, norm=sharedNorm, extent=extent)
         imDiff = axDiff.imshow(diffArr, origin="lower", cmap=diffCmap, norm=diffNorm, extent=extent)
 
+        def hatchMaskPlane(maskPlane: str, color: str, hatch: str) -> None:
+            """Hatch (rather than fill) the pixels flagged with maskPlane
+
+            Hatching leaves the underlying difference values visible;
+            filling would hide exactly the values we want to see.
+            """
+            bitMask = 1 << self.difference.mask.getMaskPlane(maskPlane)
+            flagged = (self.difference.mask.array & bitMask) != 0
+            if not flagged.any():
+                return
+            rowIndices, colIndices = np.mgrid[0:height, 0:width]
+            xCenters = bbox.getMinX() + colIndices + 0.5
+            yCenters = bbox.getMinY() + rowIndices + 0.5
+            with plt.rc_context({"hatch.color": color}):
+                axDiff.contourf(
+                    xCenters, yCenters, flagged.astype(float),
+                    levels=[0.5, 1.5], colors="none", hatches=[hatch],
+                )
+
         if showRejected:
-            rejectedBitMask = 1 << self.difference.mask.getMaskPlane("DIFFIM_REJECTED")
-            rejected = (self.difference.mask.array & rejectedBitMask) != 0
-            if rejected.any():
-                # Hatch (rather than fill) the rejected pixels, so the underlying difference
-                # values remain visible: filling would hide exactly the values we want to see.
-                rowIndices, colIndices = np.mgrid[0:height, 0:width]
-                xCenters = bbox.getMinX() + colIndices + 0.5
-                yCenters = bbox.getMinY() + rowIndices + 0.5
-                with plt.rc_context({"hatch.color": "red"}):
-                    axDiff.contourf(
-                        xCenters, yCenters, rejected.astype(float),
-                        levels=[0.5, 1.5], colors="none", hatches=["////"],
-                    )
+            hatchMaskPlane("DIFFIM_REJECTED", "red", "////")
+
+        if showPartial:
+            hatchMaskPlane("DIFFIM_PARTIAL", "blue", "....")
 
         if showRegions and (self.numRegionsX > 1 or self.numRegionsY > 1):
             numRegionsX, numRegionsY = self.numRegionsX, self.numRegionsY

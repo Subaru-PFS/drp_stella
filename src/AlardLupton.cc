@@ -45,27 +45,39 @@ bool isGoodPixel(ImageT value, lsst::afw::image::MaskPixel mask, VarianceT varia
 }
 
 
-/// Determine, for every pixel, whether both images have usable data there
-ndarray::Array<bool, 2, 2> computeGood(
-    lsst::afw::image::MaskedImage<float> const& source,
-    lsst::afw::image::MaskedImage<float> const& target,
+/// Determine, for every pixel, whether a single image has usable data there
+ndarray::Array<bool, 2, 2> computeGoodImage(
+    lsst::afw::image::MaskedImage<float> const& image,
     lsst::afw::image::MaskPixel badBitMask
 ) {
-    int const height = source.getHeight();
-    int const width = source.getWidth();
+    int const height = image.getHeight();
+    int const width = image.getWidth();
     ndarray::Array<bool, 2, 2> good = ndarray::allocate(height, width);
-    auto const sourceImage = source.getImage()->getArray();
-    auto const sourceMask = source.getMask()->getArray();
-    auto const sourceVariance = source.getVariance()->getArray();
-    auto const targetImage = target.getImage()->getArray();
-    auto const targetMask = target.getMask()->getArray();
-    auto const targetVariance = target.getVariance()->getArray();
+    auto const imageArray = image.getImage()->getArray();
+    auto const maskArray = image.getMask()->getArray();
+    auto const varianceArray = image.getVariance()->getArray();
     for (int yy = 0; yy < height; ++yy) {
         for (int xx = 0; xx < width; ++xx) {
-            good[yy][xx] = (
-                isGoodPixel(sourceImage[yy][xx], sourceMask[yy][xx], sourceVariance[yy][xx], badBitMask) &&
-                isGoodPixel(targetImage[yy][xx], targetMask[yy][xx], targetVariance[yy][xx], badBitMask)
+            good[yy][xx] = isGoodPixel(
+                imageArray[yy][xx], maskArray[yy][xx], varianceArray[yy][xx], badBitMask
             );
+        }
+    }
+    return good;
+}
+
+
+/// Determine, for every pixel, whether both images have usable data there
+ndarray::Array<bool, 2, 2> computeGood(
+    ndarray::Array<bool, 2, 2> const& sourceGood,
+    ndarray::Array<bool, 2, 2> const& targetGood
+) {
+    int const height = sourceGood.getShape()[0];
+    int const width = sourceGood.getShape()[1];
+    ndarray::Array<bool, 2, 2> good = ndarray::allocate(height, width);
+    for (int yy = 0; yy < height; ++yy) {
+        for (int xx = 0; xx < width; ++xx) {
+            good[yy][xx] = sourceGood[yy][xx] && targetGood[yy][xx];
         }
     }
     return good;
@@ -503,8 +515,19 @@ AlardLuptonResult fitAlardLuptonKernel(
     int const y0 = bbox.getMinY();
     lsst::geom::Extent2I const xy0{x0, y0};
 
-    ndarray::Array<bool, 2, 2> const good = computeGood(source, target, badBitMask);
+    ndarray::Array<bool, 2, 2> const sourceGood = computeGoodImage(source, badBitMask);
+    ndarray::Array<bool, 2, 2> const targetGood = computeGoodImage(target, badBitMask);
+    ndarray::Array<bool, 2, 2> const good = computeGood(sourceGood, targetGood);
     ndarray::Array<bool, 2, 2> const computable = erodeGood(good, kernelHalfWidth);
+
+    // A pixel is within the footprint if the full kernel footprint centred on it lies within the image;
+    // outside that border we can never evaluate a model, regardless of how much data is good.
+    auto const withinFootprint = [height, width, kernelHalfWidth](int yy, int xx) {
+        return (
+            yy >= kernelHalfWidth && yy < height - kernelHalfWidth &&
+            xx >= kernelHalfWidth && xx < width - kernelHalfWidth
+        );
+    };
 
     lsst::afw::image::MaskedImage<float> diff{bbox};
     *diff.getImage() = 0.0;
@@ -513,6 +536,7 @@ AlardLuptonResult fitAlardLuptonKernel(
 
     lsst::afw::image::MaskPixel const noData = 1 << diff.getMask()->addMaskPlane("NO_DATA");
     lsst::afw::image::MaskPixel const diffimRejected = 1 << diff.getMask()->addMaskPlane("DIFFIM_REJECTED");
+    lsst::afw::image::MaskPixel const diffimPartial = 1 << diff.getMask()->addMaskPlane("DIFFIM_PARTIAL");
 
     auto const sourceImage = source.getImage()->getArray();
     auto const targetImage = target.getImage()->getArray();
@@ -527,7 +551,7 @@ AlardLuptonResult fitAlardLuptonKernel(
     for (int yy = 0; yy < height; ++yy) {
         for (int xx = 0; xx < width; ++xx) {
             diffMask[yy][xx] = sourceMask[yy][xx] | targetMask[yy][xx];
-            if (!computable[yy][xx]) {
+            if (!withinFootprint(yy, xx) || !targetGood[yy][xx]) {
                 diffMask[yy][xx] |= noData;
             }
         }
@@ -555,21 +579,59 @@ AlardLuptonResult fitAlardLuptonKernel(
                 math::NormalizedPolynomial2<double> const backgroundPoly(
                     solution.background, lsst::geom::Box2D(localBox)
                 );
+                double const kernelSum = solution.getKernelSum();
+                double const minValidWeight = std::max(1.0e-3*std::abs(kernelSum), 1.0e-6);
                 for (int yy = localBox.getMinY(); yy <= localBox.getMaxY(); ++yy) {
                     for (int xx = localBox.getMinX(); xx <= localBox.getMaxX(); ++xx) {
-                        if (!computable[yy][xx]) {
+                        if (!withinFootprint(yy, xx) || !targetGood[yy][xx]) {
                             continue;
                         }
                         double model = backgroundPoly(double(xx), double(yy));
                         double modelVariance = 0.0;
-                        for (int dy = -kernelHalfWidth; dy <= kernelHalfWidth; ++dy) {
-                            for (int dx = -kernelHalfWidth; dx <= kernelHalfWidth; ++dx) {
-                                double const kernelValue = (
-                                    solution.kernel[dy + kernelHalfWidth][dx + kernelHalfWidth]
-                                );
-                                model += kernelValue*sourceImage[yy - dy][xx - dx];
-                                modelVariance += kernelValue*kernelValue*sourceVariance[yy - dy][xx - dx];
+                        if (computable[yy][xx]) {
+                            // Every source pixel in the footprint is good: sum over the full footprint.
+                            for (int dy = -kernelHalfWidth; dy <= kernelHalfWidth; ++dy) {
+                                for (int dx = -kernelHalfWidth; dx <= kernelHalfWidth; ++dx) {
+                                    double const kernelValue = (
+                                        solution.kernel[dy + kernelHalfWidth][dx + kernelHalfWidth]
+                                    );
+                                    model += kernelValue*sourceImage[yy - dy][xx - dx];
+                                    modelVariance += (
+                                        kernelValue*kernelValue*sourceVariance[yy - dy][xx - dx]
+                                    );
+                                }
                             }
+                        } else {
+                            // Some source pixels in the footprint are bad: sum over only the good
+                            // ones, and rescale by the ratio of the full kernel sum to the sum of the
+                            // kernel weights actually used, to approximately compensate for the missing
+                            // flux (assuming the source is locally flat over the footprint).
+                            double validWeight = 0.0;
+                            double rawModel = 0.0;
+                            double rawModelVariance = 0.0;
+                            for (int dy = -kernelHalfWidth; dy <= kernelHalfWidth; ++dy) {
+                                for (int dx = -kernelHalfWidth; dx <= kernelHalfWidth; ++dx) {
+                                    if (!sourceGood[yy - dy][xx - dx]) {
+                                        continue;
+                                    }
+                                    double const kernelValue = (
+                                        solution.kernel[dy + kernelHalfWidth][dx + kernelHalfWidth]
+                                    );
+                                    validWeight += kernelValue;
+                                    rawModel += kernelValue*sourceImage[yy - dy][xx - dx];
+                                    rawModelVariance += (
+                                        kernelValue*kernelValue*sourceVariance[yy - dy][xx - dx]
+                                    );
+                                }
+                            }
+                            if (std::abs(validWeight) < minValidWeight) {
+                                diffMask[yy][xx] |= noData;
+                                continue;
+                            }
+                            double const scale = kernelSum/validWeight;
+                            model += scale*rawModel;
+                            modelVariance += scale*scale*rawModelVariance;
+                            diffMask[yy][xx] |= diffimPartial;
                         }
                         diffImage[yy][xx] = targetImage[yy][xx] - model;
                         diffVariance[yy][xx] = targetVariance[yy][xx] + modelVariance;
