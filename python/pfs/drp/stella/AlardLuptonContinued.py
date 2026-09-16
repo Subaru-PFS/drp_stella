@@ -211,12 +211,11 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
     ) -> Tuple["matplotlib.figure.Figure", np.ndarray]:
         """Plot a `fitAlardLuptonKernel` result
 
-        Static 2x2 view of ``source``, ``target``, the convolved
-        (matched) source reconstructed as ``target - self.difference``,
-        and the difference itself, sharing one colormap stretch between
-        ``source``/``target``/``convolved`` and a separate stretch for
-        the difference. Pan/zoom is linked across all four panels (via
-        ``sharex``/``sharey``).
+        Static 2x2 view of ``source``, ``target``, ``self.convolved``
+        (the matched source), and ``self.difference``, sharing one
+        colormap stretch between ``source``/``target``/``convolved`` and
+        a separate stretch for the difference. Pan/zoom is linked across
+        all four panels (via ``sharex``/``sharey``).
 
         This mirrors `pfs.drp.stella.psfMatch.plotPsfMatchResult`, but
         for a `fitAlardLuptonKernel` result: since the kernel here is fit
@@ -236,8 +235,8 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
             Stretch limits for ``source``/``target``/``convolved``.
             Either left as `None` (the default) is set automatically
             according to ``stretchAlgorithm``, using only ``source``
-            and ``target`` (``convolved`` has gaps -- ``NaN`` -- where
-            `fitAlardLuptonKernel` could not compute a difference, e.g.
+            and ``target`` (``self.convolved`` has gaps -- ``NaN`` --
+            where `fitAlardLuptonKernel` could not compute a model, e.g.
             near the image edge or in a failed region).
         stretchAlgorithm : `str`
             Algorithm used to compute ``vmin``/``vmax`` automatically,
@@ -307,6 +306,7 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
         sourceArr = source.image.array
         targetArr = target.image.array
         diffArr = np.array(self.difference.image.array, dtype=float)  # copy: we set NO_DATA to NaN below
+        convolvedArr = np.array(self.convolved.image.array, dtype=float)  # copy: ditto
         if sourceArr.shape != targetArr.shape or sourceArr.shape != diffArr.shape:
             raise ValueError(
                 f"source ({sourceArr.shape}), target ({targetArr.shape}) and this result's "
@@ -321,10 +321,7 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
         noDataBitMask = 1 << self.difference.mask.getMaskPlane("NO_DATA")
         noData = (self.difference.mask.array & noDataBitMask) != 0
         diffArr[noData] = np.nan
-        # difference = target - convolved, by construction (see AlardLupton.h), so recover
-        # the convolved (matched) image by inverting that; NaN propagates from diffArr into
-        # the gaps where fitAlardLuptonKernel could not compute a difference.
-        convolvedArr = targetArr - diffArr
+        convolvedArr[noData] = np.nan
 
         bbox = self.difference.getBBox()
         height, width = diffArr.shape
@@ -406,8 +403,12 @@ class AlardLuptonResult:  # noqa: F811 (redefinition)
             yCenters = bbox.getMinY() + rowIndices + 0.5
             with plt.rc_context({"hatch.color": color}):
                 axDiff.contourf(
-                    xCenters, yCenters, flagged.astype(float),
-                    levels=[0.5, 1.5], colors="none", hatches=[hatch],
+                    xCenters,
+                    yCenters,
+                    flagged.astype(float),
+                    levels=[0.5, 1.5],
+                    colors="none",
+                    hatches=[hatch],
                 )
 
         if showRejected:
