@@ -91,8 +91,20 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
             np.std(result.difference.image.array[interior]), 0.0, atol=self.readnoise
         )
 
+        # convolved is a first-class output: difference = target - convolved, by construction,
+        # and the two images share the same mask (NO_DATA/DIFFIM_REJECTED/DIFFIM_PARTIAL).
+        self.assertFloatsAlmostEqual(
+            result.convolved.image.array[interior],
+            target.image.array[interior] - result.difference.image.array[interior],
+            atol=1.0e-3,
+        )
+        self.assertFloatsAlmostEqual(
+            result.convolved.mask.array[interior], result.difference.mask.array[interior]
+        )
+
         badBitMask = 1 << result.difference.mask.getMaskPlane("NO_DATA")
         self.assertTrue(np.all((result.difference.mask.array[:border, :] & badBitMask) != 0))
+        self.assertTrue(np.all((result.convolved.mask.array[:border, :] & badBitMask) != 0))
 
         # Aggregate stats and single-solution stats should agree
         self.assertFloatsAlmostEqual(result.getChi2(), solution.chi2)

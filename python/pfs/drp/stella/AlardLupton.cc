@@ -49,6 +49,7 @@ void declareKernelSolution(py::module & mod) {
 
 void declareAlardLuptonResult(py::module & mod) {
     py::class_<AlardLuptonResult> cls(mod, "AlardLuptonResult");
+    cls.def_readonly("convolved", &AlardLuptonResult::convolved);
     cls.def_readonly("difference", &AlardLuptonResult::difference);
     cls.def_readonly("solutions", &AlardLuptonResult::solutions);
     cls.def_readonly("numRegionsX", &AlardLuptonResult::numRegionsX);

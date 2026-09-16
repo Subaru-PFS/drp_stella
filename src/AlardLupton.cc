@@ -399,12 +399,14 @@ std::ostream& operator<<(std::ostream& os, KernelSolution const& solution) {
 
 
 AlardLuptonResult::AlardLuptonResult(
+    lsst::afw::image::MaskedImage<float> const& convolved_,
     lsst::afw::image::MaskedImage<float> const& difference_,
     std::vector<KernelSolution> const& solutions_,
     int numRegionsX_,
     int numRegionsY_,
     int kernelHalfWidth_
-) : difference(difference_),
+) : convolved(convolved_),
+    difference(difference_),
     solutions(solutions_),
     numRegionsX(numRegionsX_),
     numRegionsY(numRegionsY_),
@@ -534,6 +536,11 @@ AlardLuptonResult fitAlardLuptonKernel(
     *diff.getMask() = 0;
     *diff.getVariance() = 0.0;
 
+    lsst::afw::image::MaskedImage<float> convolved{bbox};
+    *convolved.getImage() = 0.0;
+    *convolved.getMask() = 0;
+    *convolved.getVariance() = 0.0;
+
     lsst::afw::image::MaskPixel const noData = 1 << diff.getMask()->addMaskPlane("NO_DATA");
     lsst::afw::image::MaskPixel const diffimRejected = 1 << diff.getMask()->addMaskPlane("DIFFIM_REJECTED");
     lsst::afw::image::MaskPixel const diffimPartial = 1 << diff.getMask()->addMaskPlane("DIFFIM_PARTIAL");
@@ -547,6 +554,9 @@ AlardLuptonResult fitAlardLuptonKernel(
     auto diffImage = diff.getImage()->getArray();
     auto diffVariance = diff.getVariance()->getArray();
     auto diffMask = diff.getMask()->getArray();
+    auto convolvedImage = convolved.getImage()->getArray();
+    auto convolvedVariance = convolved.getVariance()->getArray();
+    auto convolvedMask = convolved.getMask()->getArray();
 
     for (int yy = 0; yy < height; ++yy) {
         for (int xx = 0; xx < width; ++xx) {
@@ -554,6 +564,7 @@ AlardLuptonResult fitAlardLuptonKernel(
             if (!withinFootprint(yy, xx) || !targetGood[yy][xx]) {
                 diffMask[yy][xx] |= noData;
             }
+            convolvedMask[yy][xx] = diffMask[yy][xx];
         }
     }
 
@@ -626,17 +637,22 @@ AlardLuptonResult fitAlardLuptonKernel(
                             }
                             if (std::abs(validWeight) < minValidWeight) {
                                 diffMask[yy][xx] |= noData;
+                                convolvedMask[yy][xx] |= noData;
                                 continue;
                             }
                             double const scale = kernelSum/validWeight;
                             model += scale*rawModel;
                             modelVariance += scale*scale*rawModelVariance;
                             diffMask[yy][xx] |= diffimPartial;
+                            convolvedMask[yy][xx] |= diffimPartial;
                         }
                         diffImage[yy][xx] = targetImage[yy][xx] - model;
                         diffVariance[yy][xx] = targetVariance[yy][xx] + modelVariance;
+                        convolvedImage[yy][xx] = model;
+                        convolvedVariance[yy][xx] = modelVariance;
                         if (solution.rejected[yy - localBox.getMinY()][xx - localBox.getMinX()]) {
                             diffMask[yy][xx] |= diffimRejected;
+                            convolvedMask[yy][xx] |= diffimRejected;
                         }
                     }
                 }
@@ -644,6 +660,7 @@ AlardLuptonResult fitAlardLuptonKernel(
                 for (int yy = localBox.getMinY(); yy <= localBox.getMaxY(); ++yy) {
                     for (int xx = localBox.getMinX(); xx <= localBox.getMaxX(); ++xx) {
                         diffMask[yy][xx] |= noData;
+                        convolvedMask[yy][xx] |= noData;
                     }
                 }
             }
@@ -652,7 +669,7 @@ AlardLuptonResult fitAlardLuptonKernel(
         }
     }
 
-    return AlardLuptonResult(diff, solutions, numRegionsX, numRegionsY, kernelHalfWidth);
+    return AlardLuptonResult(convolved, diff, solutions, numRegionsX, numRegionsY, kernelHalfWidth);
 }
 
 

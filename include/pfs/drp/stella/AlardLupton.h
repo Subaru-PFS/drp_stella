@@ -94,7 +94,9 @@ std::ostream& operator<<(std::ostream& os, KernelSolution const& solution);
 /// across the image, in place of the spatial polynomial used by the original
 /// Alard & Lupton (1998) algorithm.
 struct AlardLuptonResult {
-    lsst::afw::image::MaskedImage<float> difference;  ///< Difference image (target - matched source)
+    lsst::afw::image::MaskedImage<float> convolved;  ///< Source image convolved with the fitted kernel(s)
+        ///< and differential background added, i.e. the model for target (also known as "matched")
+    lsst::afw::image::MaskedImage<float> difference;  ///< Difference image (target - convolved)
     std::vector<KernelSolution> solutions;  ///< Kernel solution for each region, in row-major (y, x) order
     int numRegionsX;  ///< Number of regions in x
     int numRegionsY;  ///< Number of regions in y
@@ -102,6 +104,7 @@ struct AlardLuptonResult {
 
     /// Ctor
     AlardLuptonResult(
+        lsst::afw::image::MaskedImage<float> const& convolved,
         lsst::afw::image::MaskedImage<float> const& difference,
         std::vector<KernelSolution> const& solutions,
         int numRegionsX,
@@ -143,26 +146,30 @@ struct AlardLuptonResult {
 /// rejThresh standard deviations, and the fit is repeated; this continues
 /// for up to rejIter rounds (or until no further pixels are rejected).
 ///
-/// A pixel of the output difference image can be computed only if it lies at
-/// least kernelHalfWidth from the edge of the images (so the kernel footprint
-/// centred on it lies entirely within the images) and it has usable target
-/// data (i.e., is finite, has finite positive variance, and is not flagged
-/// with any of the bits in badBitMask). If, in addition, every source pixel
-/// within the kernel footprint has usable data, the pixel is computed
-/// directly from the full footprint, as in Alard & Lupton (1998). If some
-/// (but not all) of those source pixels are unusable, the pixel is instead
-/// computed from only the usable source pixels in the footprint, with the
-/// result rescaled by the ratio of the full kernel sum to the sum of the
-/// kernel weights actually used (compensating for the missing flux under the
-/// assumption that the source is locally flat over the footprint); such
-/// pixels are flagged with the "DIFFIM_PARTIAL" mask plane. A pixel is
-/// flagged "NO_DATA" instead if it is too close to the edge of the images,
-/// its target data is unusable, none (or too little) of the source data
-/// within its footprint is usable, or it fails for other reasons (e.g. an
-/// entire region having too few good pixels to constrain the fit). Pixels
-/// that were rejected during the fit are flagged with the "DIFFIM_REJECTED"
-/// mask plane. All other mask planes are propagated from the two input
-/// images (bitwise-OR'd together).
+/// A pixel of the output convolved and difference images can be computed
+/// only if it lies at least kernelHalfWidth from the edge of the images (so
+/// the kernel footprint centred on it lies entirely within the images) and
+/// it has usable target data (i.e., is finite, has finite positive
+/// variance, and is not flagged with any of the bits in badBitMask). If, in
+/// addition, every source pixel within the kernel footprint has usable
+/// data, the pixel is computed directly from the full footprint, as in
+/// Alard & Lupton (1998). If some (but not all) of those source pixels are
+/// unusable, the pixel is instead computed from only the usable source
+/// pixels in the footprint, with the result rescaled by the ratio of the
+/// full kernel sum to the sum of the kernel weights actually used
+/// (compensating for the missing flux under the assumption that the source
+/// is locally flat over the footprint); such pixels are flagged with the
+/// "DIFFIM_PARTIAL" mask plane. A pixel is flagged "NO_DATA" instead if it
+/// is too close to the edge of the images, its target data is unusable,
+/// none (or too little) of the source data within its footprint is usable,
+/// or it fails for other reasons (e.g. an entire region having too few good
+/// pixels to constrain the fit). Pixels that were rejected during the fit
+/// are flagged with the "DIFFIM_REJECTED" mask plane. The convolved and
+/// difference images share identical masks (aside from their variance
+/// planes: the convolved image's variance is that of the model alone,
+/// while the difference image's variance also includes the target's). All
+/// other mask planes are propagated from the two input images (bitwise-
+/// OR'd together).
 ///
 /// @param source : Image to be convolved to match target (e.g., a template image)
 /// @param target : Image to match (e.g., a science image)
@@ -175,7 +182,8 @@ struct AlardLuptonResult {
 /// @param rejThresh : Rejection threshold (standard deviations)
 /// @param lsqThreshold : Threshold (relative to the largest eigenvalue) for singular values to be
 ///     ignored when solving the least-squares matrix equation
-/// @return the difference image and the kernel solution for each region
+/// @return the convolved (matched source) image, the difference image, and the kernel solution for each
+///     region
 /// @throws lsst::pex::exceptions::LengthError if source and target have different bounding boxes, or if
 ///     the images are too small to fit a kernel of the requested half-width
 /// @throws lsst::pex::exceptions::InvalidParameterError if kernelHalfWidth, numRegionsX, numRegionsY,
