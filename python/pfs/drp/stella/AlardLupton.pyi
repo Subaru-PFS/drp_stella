@@ -34,6 +34,7 @@ class KernelSolution:
     def __repr__(self) -> str: ...
 
 class AlardLuptonResult:
+    convolved: MaskedImage
     difference: MaskedImage
     solutions: list[KernelSolution]
     numRegionsX: int
