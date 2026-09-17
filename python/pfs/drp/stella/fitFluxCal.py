@@ -7,6 +7,7 @@ import warnings
 
 from astropy import constants as const
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.ndimage import median_filter
 from scipy.optimize import minimize
 
@@ -1466,9 +1467,8 @@ class FitFluxCalTask(PipelineTask):
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
 
+        self.smoothCalibVectors(pfsConfig, calibVectors)
         scales = self.getHeightsOfCalibVectors(calibVectors)
-
-        # TODO: Smooth the flux calibration vectors.
 
         if self.debugInfo.doWriteCalibVector:
             debugging.writeExtraData(
@@ -1570,3 +1570,68 @@ class FitFluxCalTask(PipelineTask):
         # highest calib vector was positioned better than any other fiber.
         reference = np.nanmax(heights)
         return heights / reference
+
+    def smoothCalibVectors(self, pfsConfig: PfsConfig, calibVectors: PfsMerged) -> None:
+        """Smooth calib vectors (observed spectra) / (reference spectra).
+
+        Parameters
+        ----------
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        calibVectors : `PfsMerged`
+            Calib vectors. ``calibVectors.norm`` must be 1 (constant).
+            This object will be modified by this function.
+        """
+        maskedRanges = np.array(
+            [
+                [588.5, 590.2],
+                [627.6, 629.0],
+                [686.5, 695],
+                [716.0, 734.0],
+                [759.0, 771.0],
+                [813.0, 837.0],
+                [895.0, 985.0],
+                [1100.0, 1210.0],
+                [1260.0, 1280.0],
+            ],
+            dtype=np.float64,
+        )
+        maskMargin = 0.1  # [nm]
+
+        # 0.03nm / pix, so 33 pix corresponds to +/-1nm binning (2nm in full)
+        binSize = 33
+        windowSize = 2 * binSize + 1
+
+        # Smooth calibVectors one by one to reduce memory use.
+        for i in range(len(calibVectors.fiberId)):
+            rawVec = calibVectors.flux[i]
+
+            isMasked = (maskedRanges[:, 0] - maskMargin < calibVectors.wavelength[i]) & (
+                calibVectors.wavelength[i] < maskedRanges[:, 1] + maskMargin
+            )
+
+            # shape (nSamples, windowSize)
+            windows = sliding_window_view(np.pad(rawVec, (binSize, binSize), mode="edge"), windowSize)
+
+            medianFiltered = np.median(windows, axis=-1)
+
+            trimPos = int(0.25 * windowSize)
+            windows = np.partition(
+                windows,
+                (trimPos, windowSize - trimPos - 1),
+                axis=-1,
+            )
+            trimMeanFiltered = windows[:, trimPos : windowSize - trimPos].mean(axis=-1)
+
+            q1 = windows[:, trimPos]
+            q3 = windows[:, windowSize - trimPos - 1]
+            isSteep = q3 - q1 > 10 * q1
+
+            smoothVec = np.select([isMasked, isSteep], [rawVec, medianFiltered], default=trimMeanFiltered)
+
+            if "m" in pfsConfig.arms:
+                # mask bad region around dichroic edges
+                selection = (920 < calibVectors.wavelength[i]) & (calibVectors.wavelength[i] < 935)
+                smoothVec[selection] = 0
+
+            calibVectors.flux[i] = smoothVec
