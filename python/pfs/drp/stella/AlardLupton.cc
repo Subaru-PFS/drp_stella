@@ -89,6 +89,8 @@ void declareAlardLuptonResult(py::module & mod) {
     cls.def_readonly("numRegionsX", &AlardLuptonResult::numRegionsX);
     cls.def_readonly("numRegionsY", &AlardLuptonResult::numRegionsY);
     cls.def_readonly("kernelHalfWidth", &AlardLuptonResult::kernelHalfWidth);
+    cls.def_readonly("commonKernelSum", &AlardLuptonResult::commonKernelSum);
+    cls.def_readonly("commonKernelSumScatter", &AlardLuptonResult::commonKernelSumScatter);
     cls.def("getSolutionAt", &AlardLuptonResult::getSolutionAt, "x"_a, "y"_a);
     cls.def("getChi2", &AlardLuptonResult::getChi2);
     cls.def_property_readonly("chi2", &AlardLuptonResult::getChi2);
@@ -104,11 +106,11 @@ void declareAlardLuptonResult(py::module & mod) {
         [](AlardLuptonResult const& self) {
             return py::make_tuple(
                 self.convolved, self.difference, self.solutions, self.numRegionsX, self.numRegionsY,
-                self.kernelHalfWidth
+                self.kernelHalfWidth, self.commonKernelSum, self.commonKernelSumScatter
             );
         },
         [](py::tuple const& state) {
-            if (state.size() != 6) {
+            if (state.size() != 8) {
                 throw std::runtime_error("Invalid state for AlardLuptonResult");
             }
             return AlardLuptonResult(
@@ -117,7 +119,9 @@ void declareAlardLuptonResult(py::module & mod) {
                 state[2].cast<std::vector<KernelSolution>>(),
                 state[3].cast<int>(),
                 state[4].cast<int>(),
-                state[5].cast<int>()
+                state[5].cast<int>(),
+                state[6].cast<double>(),
+                state[7].cast<double>()
             );
         }
     ));
@@ -139,7 +143,8 @@ PYBIND11_MODULE(AlardLupton, mod) {
         "badBitMask"_a=0,
         "rejIter"_a=2,
         "rejThresh"_a=3.0,
-        "lsqThreshold"_a=1.0e-6
+        "lsqThreshold"_a=1.0e-6,
+        "commonKernelSum"_a=false
     );
 }
 
