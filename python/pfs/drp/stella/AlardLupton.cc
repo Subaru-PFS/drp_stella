@@ -1,4 +1,5 @@
 #include <sstream>
+#include <stdexcept>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -48,6 +49,35 @@ void declareKernelSolution(py::module & mod) {
         os << self;
         return os.str();
     });
+    cls.def(py::pickle(
+        [](KernelSolution const& self) {
+            return py::make_tuple(
+                self.bbox, self.kernelHalfWidth, self.backgroundOrder, self.kernel, self.background,
+                self.rejected, self.success, self.numPixels, self.numFit, self.numRejected,
+                self.numIter, self.chi2, self.rms
+            );
+        },
+        [](py::tuple const& state) {
+            if (state.size() != 13) {
+                throw std::runtime_error("Invalid state for KernelSolution");
+            }
+            return KernelSolution(
+                state[0].cast<lsst::geom::Box2I>(),
+                state[1].cast<int>(),
+                state[2].cast<int>(),
+                state[3].cast<ndarray::Array<double, 2, 2>>(),
+                state[4].cast<ndarray::Array<double, 1, 1>>(),
+                state[5].cast<ndarray::Array<bool, 2, 2>>(),
+                state[6].cast<bool>(),
+                state[7].cast<std::size_t>(),
+                state[8].cast<std::size_t>(),
+                state[9].cast<std::size_t>(),
+                state[10].cast<int>(),
+                state[11].cast<double>(),
+                state[12].cast<double>()
+            );
+        }
+    ));
 }
 
 
@@ -70,6 +100,27 @@ void declareAlardLuptonResult(py::module & mod) {
     cls.def_property_readonly("kernelFirstMoments", &AlardLuptonResult::getKernelFirstMoments);
     cls.def("getKernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
     cls.def_property_readonly("kernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
+    cls.def(py::pickle(
+        [](AlardLuptonResult const& self) {
+            return py::make_tuple(
+                self.convolved, self.difference, self.solutions, self.numRegionsX, self.numRegionsY,
+                self.kernelHalfWidth
+            );
+        },
+        [](py::tuple const& state) {
+            if (state.size() != 6) {
+                throw std::runtime_error("Invalid state for AlardLuptonResult");
+            }
+            return AlardLuptonResult(
+                state[0].cast<lsst::afw::image::MaskedImage<float>>(),
+                state[1].cast<lsst::afw::image::MaskedImage<float>>(),
+                state[2].cast<std::vector<KernelSolution>>(),
+                state[3].cast<int>(),
+                state[4].cast<int>(),
+                state[5].cast<int>()
+            );
+        }
+    ));
 }
 
 
