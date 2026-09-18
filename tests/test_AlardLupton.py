@@ -164,6 +164,61 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         self.assertIsNone(result.getSolutionAt(-1, 100))
         self.assertIsNone(result.getSolutionAt(self.width, 100))
 
+    def testCommonKernelSum(self):
+        """A common kernel-sum constraint should stabilize the kernel sum in a low-signal region"""
+        kernelA = self.makeKernel(0.9)
+        kernelB = self.makeKernel(1.8)
+        trueSum = 1.0  # makeKernel normalizes to sum 1, so both regions share the same true kernel sum
+
+        source = self.makeSource()
+        half = self.width // 2
+        # Make the right half of the source low-signal (flat background + read noise, no point
+        # sources), so the kernel *shape* there is poorly constrained by the data, analogous to a
+        # continuum-only wavelength region with no strong emission lines.
+        lowSignalShape = (self.height, self.width - half)
+        source.image.array[:, half:] = 100.0 + self.rng.normal(0, self.readnoise, lowSignalShape)
+        source.variance.array[:, half:] = self.readnoise**2 + np.clip(
+            source.image.array[:, half:], 0, None
+        )
+
+        convolvedA = self.convolve(source, kernelA)
+        convolvedB = self.convolve(source, kernelB)
+
+        target = source.clone()
+        target.image.array[:, :half] = convolvedA.image.array[:, :half]
+        target.image.array[:, half:] = convolvedB.image.array[:, half:]
+        target.variance.array[:, :half] = convolvedA.variance.array[:, :half]
+        target.variance.array[:, half:] = convolvedB.variance.array[:, half:]
+
+        unconstrained = fitAlardLuptonKernel(
+            source, target, kernelHalfWidth=self.kernelHalfWidth, numRegionsX=2, numRegionsY=1
+        )
+        self.assertTrue(np.isnan(unconstrained.commonKernelSum))
+        self.assertTrue(np.isnan(unconstrained.commonKernelSumScatter))
+        leftUnconstrained, rightUnconstrained = unconstrained.solutions
+
+        constrained = fitAlardLuptonKernel(
+            source,
+            target,
+            kernelHalfWidth=self.kernelHalfWidth,
+            numRegionsX=2,
+            numRegionsY=1,
+            commonKernelSum=True,
+        )
+        self.assertTrue(np.isfinite(constrained.commonKernelSum))
+        self.assertTrue(np.isfinite(constrained.commonKernelSumScatter))
+        leftConstrained, rightConstrained = constrained.solutions
+
+        # The low-signal region's kernel sum should move closer to the true (shared) value...
+        self.assertLess(
+            abs(rightConstrained.getKernelSum() - trueSum),
+            abs(rightUnconstrained.getKernelSum() - trueSum),
+        )
+        # ... while the well-constrained region is essentially undisturbed.
+        self.assertFloatsAlmostEqual(
+            leftConstrained.getKernelSum(), leftUnconstrained.getKernelSum(), atol=1.0e-2
+        )
+
     def testBadPixels(self):
         """Pixels flagged as bad should not be used
 
