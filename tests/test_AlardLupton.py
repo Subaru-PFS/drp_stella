@@ -209,7 +209,11 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.isfinite(constrained.commonKernelSumScatter))
         leftConstrained, rightConstrained = constrained.solutions
 
-        # The low-signal region's kernel sum should move closer to the true (shared) value...
+        # The low-signal region's kernel sum should now match the common value (and hence the true,
+        # shared value) essentially exactly, since the constraint is a hard equality constraint...
+        self.assertFloatsAlmostEqual(
+            rightConstrained.getKernelSum(), constrained.commonKernelSum, atol=1.0e-6
+        )
         self.assertLess(
             abs(rightConstrained.getKernelSum() - trueSum),
             abs(rightUnconstrained.getKernelSum() - trueSum),
@@ -217,6 +221,9 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         # ... while the well-constrained region is essentially undisturbed.
         self.assertFloatsAlmostEqual(
             leftConstrained.getKernelSum(), leftUnconstrained.getKernelSum(), atol=1.0e-2
+        )
+        self.assertFloatsAlmostEqual(
+            leftConstrained.getKernelSum(), constrained.commonKernelSum, atol=1.0e-6
         )
 
     def testBadPixels(self):

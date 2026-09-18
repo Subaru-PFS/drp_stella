@@ -167,10 +167,8 @@ KernelSolution makeFailure(
 ///     footprint) has usable data in both source and target
 /// @param localBox : bounding box of the region, in local (0-indexed) array coordinates
 /// @param globalBox : bounding box of the region, in the coordinate system of the input images
-/// @param commonKernelSumTarget : target value to which the region's kernel sum should be pulled by a
-///     soft (pseudo-measurement) constraint, or NaN to fit unconstrained
-/// @param commonKernelSumError : error (weight) of the commonKernelSumTarget pseudo-measurement; only
-///     used if commonKernelSumTarget is finite
+/// @param commonKernelSumTarget : value to which the sum of the region's kernel taps is exactly
+///     constrained (via variable elimination on the center kernel tap), or NaN to fit unconstrained
 KernelSolution fitRegion(
     lsst::afw::image::MaskedImage<float> const& source,
     lsst::afw::image::MaskedImage<float> const& target,
@@ -182,8 +180,7 @@ KernelSolution fitRegion(
     int rejIter,
     double rejThresh,
     double lsqThreshold,
-    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN(),
-    double commonKernelSumError = std::numeric_limits<double>::quiet_NaN()
+    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN()
 ) {
     int const kernelSize = 2*kernelHalfWidth + 1;
     std::size_t const numKernelParams = std::size_t(kernelSize)*std::size_t(kernelSize);
@@ -311,36 +308,63 @@ KernelSolution fitRegion(
             double finalRms = rms;
 
             if (std::isfinite(commonKernelSumTarget)) {
-                // Append one pseudo-measurement row pulling the sum of the kernel taps towards
-                // commonKernelSumTarget, weighted by commonKernelSumError. The active-pixel rejection
-                // above is left completely unaffected by this (it has already converged), so the
-                // constraint cannot bias which pixels are used; it only affects the final parameter
-                // values (and, below, the reported chi2/rms).
-                std::size_t const numRows = numActive + 1;
-                ndarray::Array<double, 2, 2> designConstrained = ndarray::allocate(numRows, numParams);
-                ndarray::Array<double, 1, 1> measConstrained = ndarray::allocate(numRows);
-                ndarray::Array<double, 1, 1> errConstrained = ndarray::allocate(numRows);
-                for (std::size_t rr = 0; rr < numActive; ++rr) {
-                    for (std::size_t col = 0; col < numParams; ++col) {
-                        designConstrained[rr][col] = designScaled[rr][col];
+                // Exactly constrain the sum of the kernel taps to commonKernelSumTarget by variable
+                // elimination: substitute k_pivot = commonKernelSumTarget - sum(other kernel taps) into
+                // the model (pivoting on the center tap, which typically has the largest coefficient),
+                // and solve the resulting numParams-1 unknown system. The active-pixel rejection above
+                // is left completely unaffected by this (it has already converged), so the constraint
+                // cannot bias which pixels are used; it only affects the final parameter values (and,
+                // below, the reported chi2/rms).
+                std::size_t const pivotCol = (
+                    std::size_t(kernelHalfWidth)*kernelSize + std::size_t(kernelHalfWidth)
+                );
+                std::size_t const numReduced = numParams - 1;
+                std::vector<std::size_t> colMap;
+                colMap.reserve(numReduced);
+                for (std::size_t col = 0; col < numParams; ++col) {
+                    if (col != pivotCol) {
+                        colMap.push_back(col);
                     }
-                    measConstrained[rr] = meas[rr];
-                    errConstrained[rr] = err[rr];
                 }
-                for (std::size_t col = 0; col < numKernelParams; ++col) {
-                    designConstrained[numActive][col] = 1.0/colScale[col];
+
+                ndarray::Array<double, 2, 2> reducedDesign = ndarray::allocate(numActive, numReduced);
+                ndarray::Array<double, 1, 1> reducedMeas = ndarray::allocate(numActive);
+                for (std::size_t rr = 0; rr < numActive; ++rr) {
+                    double const pivotValue = design[rr][pivotCol];
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        std::size_t const col = colMap[jj];
+                        double value = design[rr][col];
+                        if (col < numKernelParams) {
+                            value -= pivotValue;
+                        }
+                        reducedDesign[rr][jj] = value;
+                    }
+                    reducedMeas[rr] = meas[rr] - commonKernelSumTarget*pivotValue;
                 }
-                for (std::size_t col = numKernelParams; col < numParams; ++col) {
-                    designConstrained[numActive][col] = 0.0;
+
+                // Precondition the reduced design matrix columns, exactly as for the unconstrained
+                // system above: its columns differ from the original (kernel columns hold the
+                // difference from the pivot column), so the scaling must be recomputed.
+                ndarray::Array<double, 2, 2> reducedDesignScaled = ndarray::allocate(numActive, numReduced);
+                ndarray::Array<double, 1, 1> reducedColScale = ndarray::allocate(numReduced);
+                for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                    double sumSq = 0.0;
+                    for (std::size_t rr = 0; rr < numActive; ++rr) {
+                        double const value = reducedDesign[rr][jj];
+                        sumSq += value*value;
+                    }
+                    double const colRms = std::sqrt(sumSq/numActive);
+                    reducedColScale[jj] = (colRms > 0.0) ? colRms : 1.0;
+                    for (std::size_t rr = 0; rr < numActive; ++rr) {
+                        reducedDesignScaled[rr][jj] = reducedDesign[rr][jj]/reducedColScale[jj];
+                    }
                 }
-                measConstrained[numActive] = commonKernelSumTarget;
-                errConstrained[numActive] = commonKernelSumError;
 
                 bool constrainedOk = false;
-                ndarray::Array<double, 1, 1> constrainedSolution;
+                ndarray::Array<double, 1, 1> reducedSolution;
                 try {
-                    constrainedSolution = math::solveLeastSquaresDesign(
-                        designConstrained, measConstrained, errConstrained, lsqThreshold
+                    reducedSolution = math::solveLeastSquaresDesign(
+                        reducedDesignScaled, reducedMeas, err, lsqThreshold
                     );
                     constrainedOk = true;
                 } catch (lsst::pex::exceptions::Exception const&) {
@@ -348,14 +372,27 @@ KernelSolution fitRegion(
                 }
 
                 if (constrainedOk) {
-                    for (std::size_t col = 0; col < numParams; ++col) {
-                        constrainedSolution[col] /= colScale[col];
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        reducedSolution[jj] /= reducedColScale[jj];
                     }
+
+                    ndarray::Array<double, 1, 1> constrainedSolution = ndarray::allocate(numParams);
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        constrainedSolution[colMap[jj]] = reducedSolution[jj];
+                    }
+                    double sumOtherKernelTaps = 0.0;
+                    for (std::size_t col = 0; col < numKernelParams; ++col) {
+                        if (col != pivotCol) {
+                            sumOtherKernelTaps += constrainedSolution[col];
+                        }
+                    }
+                    constrainedSolution[pivotCol] = commonKernelSumTarget - sumOtherKernelTaps;
                     finalParams = constrainedSolution;
 
                     // Recompute chi2/rms from the constrained parameters, but summed only over the
-                    // real (non-pseudo) pixel rows: a region whose data genuinely disagrees with the
-                    // shared-sum assumption will show it as elevated chi2/rms here.
+                    // real pixel rows against the original (unscaled) design: a region whose data
+                    // genuinely disagrees with the shared-sum assumption will show it as elevated
+                    // chi2/rms here, rather than the disagreement being invisible.
                     double chi2Constrained = 0.0;
                     double sumSqResidConstrained = 0.0;
                     for (std::size_t rr = 0; rr < numActive; ++rr) {
@@ -454,8 +491,8 @@ std::pair<double, double> computeCommonKernelSum(std::vector<KernelSolution> con
 ///     images into regions in x and y respectively
 /// @param xy0 : offset from local (0-indexed) array coordinates to the coordinate system of the input
 ///     images
-/// @param commonKernelSumTarget, commonKernelSumError : passed through to fitRegion (see there); NaN
-///     (the default) fits every region unconstrained
+/// @param commonKernelSumTarget : passed through to fitRegion (see there); NaN (the default) fits
+///     every region unconstrained
 /// @return kernel solution for each region, in row-major (y, x) order
 std::vector<KernelSolution> fitAllRegions(
     lsst::afw::image::MaskedImage<float> const& source,
@@ -469,8 +506,7 @@ std::vector<KernelSolution> fitAllRegions(
     int rejIter,
     double rejThresh,
     double lsqThreshold,
-    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN(),
-    double commonKernelSumError = std::numeric_limits<double>::quiet_NaN()
+    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN()
 ) {
     std::vector<KernelSolution> solutions;
     solutions.reserve(xBlocks.size()*yBlocks.size());
@@ -484,7 +520,7 @@ std::vector<KernelSolution> fitAllRegions(
             solutions.push_back(fitRegion(
                 source, target, computable, localBox, globalBox,
                 kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold,
-                commonKernelSumTarget, commonKernelSumError
+                commonKernelSumTarget
             ));
         }
     }
@@ -828,7 +864,7 @@ AlardLuptonResult fitAlardLuptonKernel(
             solutions = fitAllRegions(
                 source, target, computable, xBlocks, yBlocks, xy0,
                 kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold,
-                commonKernelSumValue, commonKernelSumScatter
+                commonKernelSumValue
             );
         }
     }
