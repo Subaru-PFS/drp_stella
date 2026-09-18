@@ -2,6 +2,7 @@
 #define PFS_DRP_STELLA_ALARDLUPTON_H
 
 #include <cstddef>
+#include <limits>
 #include <ostream>
 #include <tuple>
 #include <utility>
@@ -120,6 +121,10 @@ struct AlardLuptonResult {
     int numRegionsX;  ///< Number of regions in x
     int numRegionsY;  ///< Number of regions in y
     int kernelHalfWidth;  ///< Half-width of the kernel used for the fit
+    double commonKernelSum;  ///< Robust common kernel-sum prior used to constrain the regions, or NaN
+        ///< if the common-kernel-sum constraint was not requested (see fitAlardLuptonKernel)
+    double commonKernelSumScatter;  ///< Robust scatter of the per-region kernel sums about
+        ///< commonKernelSum, or NaN if the common-kernel-sum constraint was not requested
 
     /// Ctor
     AlardLuptonResult(
@@ -128,7 +133,9 @@ struct AlardLuptonResult {
         std::vector<KernelSolution> const& solutions,
         int numRegionsX,
         int numRegionsY,
-        int kernelHalfWidth
+        int kernelHalfWidth,
+        double commonKernelSum=std::numeric_limits<double>::quiet_NaN(),
+        double commonKernelSumScatter=std::numeric_limits<double>::quiet_NaN()
     );
 
     /// Get the solution for the region containing the point (x, y)
@@ -206,6 +213,25 @@ struct AlardLuptonResult {
 /// other mask planes are propagated from the two input images (bitwise-
 /// OR'd together).
 ///
+/// If commonKernelSum is true, the kernel sum (the overall flux
+/// normalization; see KernelSolution::getKernelSum) is constrained to be the
+/// same in every region, using a two-pass approach: regions are first fit
+/// independently (as when commonKernelSum is false), a robust common kernel
+/// sum and its scatter are estimated from the successful regions, and then
+/// every region is refit with a pseudo-measurement pulling its kernel sum
+/// towards that common value, weighted by the derived scatter. This is a
+/// soft constraint: a region whose data genuinely disagrees with the shared-
+/// value assumption will show it via degraded chi2, rather than being
+/// silently forced to match. The rejection of discrepant pixels is
+/// performed identically to the unconstrained case, before the constraint is
+/// applied, so it cannot bias which pixels are used. If fewer than two
+/// regions fit successfully, the constraint cannot be estimated and is
+/// silently skipped (equivalent to commonKernelSum=false). The derived
+/// common value and its scatter are recorded in
+/// AlardLuptonResult::commonKernelSum and
+/// AlardLuptonResult::commonKernelSumScatter (NaN if the constraint was not
+/// applied).
+///
 /// @param source : Image to be convolved to match target (e.g., a template image)
 /// @param target : Image to match (e.g., a science image)
 /// @param kernelHalfWidth : Half-width of the kernel in x and y
@@ -217,6 +243,7 @@ struct AlardLuptonResult {
 /// @param rejThresh : Rejection threshold (standard deviations)
 /// @param lsqThreshold : Threshold (relative to the largest eigenvalue) for singular values to be
 ///     ignored when solving the least-squares matrix equation
+/// @param commonKernelSum : Constrain the kernel sum to be the same in every region (see above)
 /// @return the convolved (matched source) image, the difference image, and the kernel solution for each
 ///     region
 /// @throws lsst::pex::exceptions::LengthError if source and target have different bounding boxes, or if
@@ -233,7 +260,8 @@ AlardLuptonResult fitAlardLuptonKernel(
     lsst::afw::image::MaskPixel badBitMask=0,
     int rejIter=2,
     double rejThresh=3.0,
-    double lsqThreshold=1.0e-6
+    double lsqThreshold=1.0e-6,
+    bool commonKernelSum=false
 );
 
 
