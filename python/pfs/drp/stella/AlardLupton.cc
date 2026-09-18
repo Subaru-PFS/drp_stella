@@ -39,6 +39,10 @@ void declareKernelSolution(py::module & mod) {
     cls.def_property_readonly("degreesOfFreedom", &KernelSolution::getDegreesOfFreedom);
     cls.def("getReducedChi2", &KernelSolution::getReducedChi2);
     cls.def_property_readonly("reducedChi2", &KernelSolution::getReducedChi2);
+    cls.def("getFirstMoment", &KernelSolution::getFirstMoment);
+    cls.def_property_readonly("firstMoment", &KernelSolution::getFirstMoment);
+    cls.def("getSecondMoment", &KernelSolution::getSecondMoment);
+    cls.def_property_readonly("secondMoment", &KernelSolution::getSecondMoment);
     cls.def("__repr__", [](KernelSolution const& self) {
         std::ostringstream os;
         os << self;
@@ -62,6 +66,10 @@ void declareAlardLuptonResult(py::module & mod) {
     cls.def_property_readonly("numFit", &AlardLuptonResult::getNumFit);
     cls.def("getNumRejected", &AlardLuptonResult::getNumRejected);
     cls.def_property_readonly("numRejected", &AlardLuptonResult::getNumRejected);
+    cls.def("getKernelFirstMoments", &AlardLuptonResult::getKernelFirstMoments);
+    cls.def_property_readonly("kernelFirstMoments", &AlardLuptonResult::getKernelFirstMoments);
+    cls.def("getKernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
+    cls.def_property_readonly("kernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
 }
 
 

@@ -3,10 +3,14 @@
 
 #include <cstddef>
 #include <ostream>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "ndarray_fwd.h"
 #include "lsst/geom/Box.h"
+#include "lsst/geom/Point.h"
+#include "lsst/afw/geom/ellipses/Quadrupole.h"
 #include "lsst/afw/image/MaskedImage.h"
 
 namespace pfs {
@@ -79,6 +83,21 @@ struct KernelSolution {
 
     /// Reduced chi^2 of the fit (chi2/dof), or NaN if there are no degrees of freedom
     double getReducedChi2() const;
+
+    /// Unweighted first moment (centroid) of the kernel, as an (x, y) offset from the kernel center
+    ///
+    /// This is the kernel's "center of mass": zero for a kernel that is symmetric about its center,
+    /// and non-zero if the fit found an overall positional shift between source and target.
+    /// Returns (NaN, NaN) if the fit failed or the kernel sum is zero.
+    lsst::geom::Point2D getFirstMoment() const;
+
+    /// Unweighted second moment (shape) of the kernel, about its first moment
+    ///
+    /// This is a simple (unweighted, non-adaptive) moment calculation, analogous to
+    /// pfs::drp::stella::OversampledPsf::doComputeShape. Because the delta-function kernel can take
+    /// negative values (unlike a physical PSF), the result is not guaranteed to be positive-definite.
+    /// Returns NaN components if the fit failed or the kernel sum is zero.
+    lsst::afw::geom::ellipses::Quadrupole getSecondMoment() const;
 };
 
 
@@ -124,6 +143,22 @@ struct AlardLuptonResult {
     std::size_t getNumFit() const;
     std::size_t getNumRejected() const;
     //@}
+
+    /// Unweighted first moments (centroids) of the fitted kernel in each region
+    ///
+    /// See KernelSolution::getFirstMoment.
+    ///
+    /// @return (x, y) components of the first moment, each of shape (numRegionsY, numRegionsX), in the
+    ///     same row-major (y, x) order as `solutions`
+    std::pair<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>> getKernelFirstMoments() const;
+
+    /// Unweighted second moments (shapes) of the fitted kernel in each region
+    ///
+    /// See KernelSolution::getSecondMoment.
+    ///
+    /// @return (xx, yy, xy) components of the second moment, each of shape (numRegionsY, numRegionsX)
+    std::tuple<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
+        getKernelSecondMoments() const;
 };
 
 
