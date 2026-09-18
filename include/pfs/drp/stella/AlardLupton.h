@@ -214,21 +214,28 @@ struct AlardLuptonResult {
 /// OR'd together).
 ///
 /// If commonKernelSum is true, the kernel sum (the overall flux
-/// normalization; see KernelSolution::getKernelSum) is constrained to be the
-/// same in every region, using a two-pass approach: regions are first fit
-/// independently (as when commonKernelSum is false), a robust common kernel
-/// sum and its scatter are estimated from the successful regions, and then
-/// every region is refit with a pseudo-measurement pulling its kernel sum
-/// towards that common value, weighted by the derived scatter. This is a
-/// soft constraint: a region whose data genuinely disagrees with the shared-
-/// value assumption will show it via degraded chi2, rather than being
-/// silently forced to match. The rejection of discrepant pixels is
-/// performed identically to the unconstrained case, before the constraint is
-/// applied, so it cannot bias which pixels are used. If fewer than two
-/// regions fit successfully, the constraint cannot be estimated and is
-/// silently skipped (equivalent to commonKernelSum=false). The derived
-/// common value and its scatter are recorded in
-/// AlardLuptonResult::commonKernelSum and
+/// normalization; see KernelSolution::getKernelSum) is constrained to be
+/// exactly the same in every region, using a two-pass approach: regions are
+/// first fit independently (as when commonKernelSum is false), a robust
+/// common kernel sum and its scatter are estimated from the successful
+/// regions, and then every region is refit with the sum of its kernel taps
+/// constrained to exactly equal that common value. The constraint is
+/// implemented by variable elimination: one kernel tap (the center tap) is
+/// substituted out of the model as (common value) minus (the sum of the
+/// other taps), the resulting reduced system is solved for the remaining
+/// parameters, and the eliminated tap is then reconstructed from the
+/// constraint - so every successfully-constrained region's kernel sum
+/// equals the common value to solver precision. The rejection of
+/// discrepant pixels is performed identically to the unconstrained case,
+/// before the constraint is applied, so it cannot bias which pixels are
+/// used; and chi2/rms are recomputed from the constrained parameters, so a
+/// region whose data genuinely disagrees with the shared-value assumption
+/// will still show it via degraded chi2, rather than the disagreement being
+/// invisible. If fewer than two regions fit successfully, the constraint
+/// cannot be estimated and is silently skipped (equivalent to
+/// commonKernelSum=false). The derived common value and its scatter (the
+/// latter purely diagnostic; it is not used by the constraint itself) are
+/// recorded in AlardLuptonResult::commonKernelSum and
 /// AlardLuptonResult::commonKernelSumScatter (NaN if the constraint was not
 /// applied).
 ///
