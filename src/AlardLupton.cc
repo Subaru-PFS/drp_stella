@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -388,6 +389,53 @@ double KernelSolution::getReducedChi2() const {
 }
 
 
+lsst::geom::Point2D KernelSolution::getFirstMoment() const {
+    double const nan = std::numeric_limits<double>::quiet_NaN();
+    double const sum0 = getKernelSum();
+    if (!success || sum0 == 0.0) {
+        return lsst::geom::Point2D(nan, nan);
+    }
+    double xSum = 0.0;
+    double ySum = 0.0;
+    auto const shape = kernel.getShape();
+    for (std::size_t yy = 0; yy < shape[0]; ++yy) {
+        double const dy = double(yy) - kernelHalfWidth;
+        for (std::size_t xx = 0; xx < shape[1]; ++xx) {
+            double const dx = double(xx) - kernelHalfWidth;
+            double const value = kernel[yy][xx];
+            xSum += value*dx;
+            ySum += value*dy;
+        }
+    }
+    return lsst::geom::Point2D(xSum/sum0, ySum/sum0);
+}
+
+
+lsst::afw::geom::ellipses::Quadrupole KernelSolution::getSecondMoment() const {
+    double const nan = std::numeric_limits<double>::quiet_NaN();
+    lsst::geom::Point2D const first = getFirstMoment();
+    if (!std::isfinite(first.getX()) || !std::isfinite(first.getY())) {
+        return lsst::afw::geom::ellipses::Quadrupole(nan, nan, nan);
+    }
+    double const sum0 = getKernelSum();
+    double xxSum = 0.0;
+    double yySum = 0.0;
+    double xySum = 0.0;
+    auto const shape = kernel.getShape();
+    for (std::size_t yy = 0; yy < shape[0]; ++yy) {
+        double const dy = double(yy) - kernelHalfWidth - first.getY();
+        for (std::size_t xx = 0; xx < shape[1]; ++xx) {
+            double const dx = double(xx) - kernelHalfWidth - first.getX();
+            double const value = kernel[yy][xx];
+            xxSum += value*dx*dx;
+            yySum += value*dy*dy;
+            xySum += value*dx*dy;
+        }
+    }
+    return lsst::afw::geom::ellipses::Quadrupole(xxSum/sum0, yySum/sum0, xySum/sum0);
+}
+
+
 std::ostream& operator<<(std::ostream& os, KernelSolution const& solution) {
     os << "KernelSolution(bbox=" << solution.bbox << ", success=" << solution.success <<
         ", numPixels=" << solution.numPixels << ", numFit=" << solution.numFit <<
@@ -462,6 +510,40 @@ std::size_t AlardLuptonResult::getNumRejected() const {
         total += solution.numRejected;
     }
     return total;
+}
+
+
+std::pair<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
+AlardLuptonResult::getKernelFirstMoments() const {
+    ndarray::Array<double, 2, 2> momentX = ndarray::allocate(numRegionsY, numRegionsX);
+    ndarray::Array<double, 2, 2> momentY = ndarray::allocate(numRegionsY, numRegionsX);
+    for (int regionY = 0; regionY < numRegionsY; ++regionY) {
+        for (int regionX = 0; regionX < numRegionsX; ++regionX) {
+            std::size_t const index = std::size_t(regionY)*std::size_t(numRegionsX) + std::size_t(regionX);
+            lsst::geom::Point2D const moment = solutions[index].getFirstMoment();
+            momentX[regionY][regionX] = moment.getX();
+            momentY[regionY][regionX] = moment.getY();
+        }
+    }
+    return std::make_pair(momentX, momentY);
+}
+
+
+std::tuple<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
+AlardLuptonResult::getKernelSecondMoments() const {
+    ndarray::Array<double, 2, 2> momentXX = ndarray::allocate(numRegionsY, numRegionsX);
+    ndarray::Array<double, 2, 2> momentYY = ndarray::allocate(numRegionsY, numRegionsX);
+    ndarray::Array<double, 2, 2> momentXY = ndarray::allocate(numRegionsY, numRegionsX);
+    for (int regionY = 0; regionY < numRegionsY; ++regionY) {
+        for (int regionX = 0; regionX < numRegionsX; ++regionX) {
+            std::size_t const index = std::size_t(regionY)*std::size_t(numRegionsX) + std::size_t(regionX);
+            lsst::afw::geom::ellipses::Quadrupole const moment = solutions[index].getSecondMoment();
+            momentXX[regionY][regionX] = moment.getIxx();
+            momentYY[regionY][regionX] = moment.getIyy();
+            momentXY[regionY][regionX] = moment.getIxy();
+        }
+    }
+    return std::make_tuple(momentXX, momentYY, momentXY);
 }
 
 
