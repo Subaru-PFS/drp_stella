@@ -47,6 +47,8 @@ class AlardLuptonResult:
     numRegionsX: int
     numRegionsY: int
     kernelHalfWidth: int
+    commonKernelSum: float
+    commonKernelSumScatter: float
     def getSolutionAt(self, x: int, y: int) -> KernelSolution | None: ...
     def getChi2(self) -> float: ...
     @property
@@ -116,4 +118,5 @@ def fitAlardLuptonKernel(
     rejIter: int = 2,
     rejThresh: float = 3.0,
     lsqThreshold: float = 1.0e-6,
+    commonKernelSum: bool = False,
 ) -> AlardLuptonResult: ...
