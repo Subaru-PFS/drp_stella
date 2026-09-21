@@ -226,6 +226,44 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
             leftConstrained.getKernelSum(), constrained.commonKernelSum, atol=1.0e-6
         )
 
+    def testMinSignalToNoise(self):
+        """A minimum signal-to-noise cut should exclude low-signal pixels from the fit"""
+        trueKernel = self.makeKernel(1.2)
+        source = self.makeSource()
+        target = self.convolve(source, trueKernel)
+
+        baseline = fitAlardLuptonKernel(source, target, kernelHalfWidth=self.kernelHalfWidth).solutions[0]
+        self.assertTrue(baseline.success)
+
+        # minSignalToNoise=0.0 is the default, and should reproduce the no-cut behaviour exactly.
+        explicitZero = fitAlardLuptonKernel(
+            source, target, kernelHalfWidth=self.kernelHalfWidth, minSignalToNoise=0.0
+        ).solutions[0]
+        self.assertEqual(explicitZero.numFit, baseline.numFit)
+        self.assertFloatsEqual(explicitZero.kernel, baseline.kernel)
+
+        # A modest threshold excludes the flat, background-only pixels (source signal-to-noise ~9) from
+        # the fit, but leaves the point sources (which dominate the recovery of the kernel shape)
+        # available, so the kernel should still be recovered accurately.
+        cut = fitAlardLuptonKernel(
+            source, target, kernelHalfWidth=self.kernelHalfWidth, minSignalToNoise=15.0
+        ).solutions[0]
+        self.assertTrue(cut.success)
+        self.assertLess(cut.numFit, baseline.numFit)
+        self.assertFloatsAlmostEqual(cut.kernel, trueKernel, atol=2.0e-2)
+
+        # A threshold so high that no pixel anywhere clears it should cause the region to fail cleanly
+        # (too few pixels to constrain the fit), rather than raising or returning a garbage kernel.
+        impossible = fitAlardLuptonKernel(
+            source, target, kernelHalfWidth=self.kernelHalfWidth, minSignalToNoise=1.0e6
+        ).solutions[0]
+        self.assertFalse(impossible.success)
+
+        with self.assertRaises(Exception):
+            fitAlardLuptonKernel(
+                source, target, kernelHalfWidth=self.kernelHalfWidth, minSignalToNoise=-1.0
+            )
+
     def testBadPixels(self):
         """Pixels flagged as bad should not be used
 

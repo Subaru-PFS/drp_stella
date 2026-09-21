@@ -169,6 +169,8 @@ KernelSolution makeFailure(
 /// @param globalBox : bounding box of the region, in the coordinate system of the input images
 /// @param commonKernelSumTarget : value to which the sum of the region's kernel taps is exactly
 ///     constrained (via variable elimination on the center kernel tap), or NaN to fit unconstrained
+/// @param minSignalToNoise : minimum signal-to-noise ratio (source pixel value over its noise) required
+///     for a pixel to be used in the fit; 0 (the default) applies no cut
 KernelSolution fitRegion(
     lsst::afw::image::MaskedImage<float> const& source,
     lsst::afw::image::MaskedImage<float> const& target,
@@ -180,7 +182,8 @@ KernelSolution fitRegion(
     int rejIter,
     double rejThresh,
     double lsqThreshold,
-    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN()
+    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN(),
+    double minSignalToNoise = 0.0
 ) {
     int const kernelSize = 2*kernelHalfWidth + 1;
     std::size_t const numKernelParams = std::size_t(kernelSize)*std::size_t(kernelSize);
@@ -194,13 +197,23 @@ KernelSolution fitRegion(
     auto const sourceVariance = source.getVariance()->getArray();
     auto const targetVariance = target.getVariance()->getArray();
 
-    // Candidate pixels within the region that have usable data
+    // Candidate pixels within the region that have usable data and (if requested) adequate source
+    // signal-to-noise: a pixel where the source is essentially flat/noise-only carries little or no
+    // information about the kernel *shape* (every kernel tap sees nearly the same value there), so
+    // including it can destabilize the shape fit even though it doesn't visibly hurt chi2.
     std::vector<lsst::geom::Point2I> pixels;
     for (int yy = localBox.getMinY(); yy <= localBox.getMaxY(); ++yy) {
         for (int xx = localBox.getMinX(); xx <= localBox.getMaxX(); ++xx) {
-            if (computable[yy][xx]) {
-                pixels.emplace_back(xx, yy);
+            if (!computable[yy][xx]) {
+                continue;
             }
+            if (minSignalToNoise > 0.0) {
+                double const snr = double(sourceImage[yy][xx])/std::sqrt(double(sourceVariance[yy][xx]));
+                if (!(snr >= minSignalToNoise)) {
+                    continue;
+                }
+            }
+            pixels.emplace_back(xx, yy);
         }
     }
     std::size_t const numPixels = pixels.size();
@@ -493,6 +506,7 @@ std::pair<double, double> computeCommonKernelSum(std::vector<KernelSolution> con
 ///     images
 /// @param commonKernelSumTarget : passed through to fitRegion (see there); NaN (the default) fits
 ///     every region unconstrained
+/// @param minSignalToNoise : passed through to fitRegion (see there); 0 (the default) applies no cut
 /// @return kernel solution for each region, in row-major (y, x) order
 std::vector<KernelSolution> fitAllRegions(
     lsst::afw::image::MaskedImage<float> const& source,
@@ -506,7 +520,8 @@ std::vector<KernelSolution> fitAllRegions(
     int rejIter,
     double rejThresh,
     double lsqThreshold,
-    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN()
+    double commonKernelSumTarget = std::numeric_limits<double>::quiet_NaN(),
+    double minSignalToNoise = 0.0
 ) {
     std::vector<KernelSolution> solutions;
     solutions.reserve(xBlocks.size()*yBlocks.size());
@@ -520,7 +535,7 @@ std::vector<KernelSolution> fitAllRegions(
             solutions.push_back(fitRegion(
                 source, target, computable, localBox, globalBox,
                 kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold,
-                commonKernelSumTarget
+                commonKernelSumTarget, minSignalToNoise
             ));
         }
     }
@@ -755,7 +770,8 @@ AlardLuptonResult fitAlardLuptonKernel(
     int rejIter,
     double rejThresh,
     double lsqThreshold,
-    bool commonKernelSum
+    bool commonKernelSum,
+    double minSignalToNoise
 ) {
     if (source.getBBox() != target.getBBox()) {
         throw LSST_EXCEPT(
@@ -781,6 +797,9 @@ AlardLuptonResult fitAlardLuptonKernel(
     }
     if (!(lsqThreshold > 0)) {
         throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "lsqThreshold must be > 0");
+    }
+    if (minSignalToNoise < 0) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "minSignalToNoise must be >= 0");
     }
 
     lsst::geom::Box2I const bbox = source.getBBox();
@@ -853,7 +872,8 @@ AlardLuptonResult fitAlardLuptonKernel(
 
     std::vector<KernelSolution> solutions = fitAllRegions(
         source, target, computable, xBlocks, yBlocks, xy0,
-        kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold
+        kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold,
+        std::numeric_limits<double>::quiet_NaN(), minSignalToNoise
     );
 
     double commonKernelSumValue = std::numeric_limits<double>::quiet_NaN();
@@ -864,7 +884,7 @@ AlardLuptonResult fitAlardLuptonKernel(
             solutions = fitAllRegions(
                 source, target, computable, xBlocks, yBlocks, xy0,
                 kernelHalfWidth, backgroundOrder, rejIter, rejThresh, lsqThreshold,
-                commonKernelSumValue
+                commonKernelSumValue, minSignalToNoise
             );
         }
     }
