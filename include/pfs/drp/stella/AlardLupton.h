@@ -239,6 +239,27 @@ struct AlardLuptonResult {
 /// AlardLuptonResult::commonKernelSumScatter (NaN if the constraint was not
 /// applied).
 ///
+/// If minSignalToNoise is greater than zero, a pixel is only used to
+/// constrain a region's fit if the source image has at least that much
+/// signal-to-noise (source image value divided by the square root of the
+/// source variance) at that pixel's location. This is independent of, and
+/// complementary to, the commonKernelSum constraint above: a region
+/// dominated by continuum (no point-source or emission-line structure) has a
+/// design matrix whose kernel-tap columns are nearly degenerate, since a
+/// flat source produces nearly the same value at every kernel offset: such
+/// pixels carry almost no information about the kernel's *shape*, and can
+/// destabilize it even though they do not show up as large-residual outliers
+/// in the usual sigma-clipping rejection. Excluding them leaves shape
+/// determination to pixels with genuine spatial structure, while
+/// commonKernelSum (if requested) separately fixes the overall
+/// normalization. Pixels excluded by this cut do not count towards a
+/// region's numPixels/numFit and take no part in its fit, but they are still
+/// assigned a model value in the output convolved/difference images from the
+/// region's fitted kernel, exactly like any other computable pixel. A region
+/// left with too few pixels above the threshold fails in the same way as a
+/// region with too few good pixels generally (see above). The default value
+/// of zero applies no cut.
+///
 /// @param source : Image to be convolved to match target (e.g., a template image)
 /// @param target : Image to match (e.g., a science image)
 /// @param kernelHalfWidth : Half-width of the kernel in x and y
@@ -251,12 +272,14 @@ struct AlardLuptonResult {
 /// @param lsqThreshold : Threshold (relative to the largest eigenvalue) for singular values to be
 ///     ignored when solving the least-squares matrix equation
 /// @param commonKernelSum : Constrain the kernel sum to be the same in every region (see above)
+/// @param minSignalToNoise : Minimum source signal-to-noise ratio required for a pixel to be used to
+///     constrain a region's fit (see above); 0 (the default) applies no cut
 /// @return the convolved (matched source) image, the difference image, and the kernel solution for each
 ///     region
 /// @throws lsst::pex::exceptions::LengthError if source and target have different bounding boxes, or if
 ///     the images are too small to fit a kernel of the requested half-width
 /// @throws lsst::pex::exceptions::InvalidParameterError if kernelHalfWidth, numRegionsX, numRegionsY,
-///     backgroundOrder, rejIter, rejThresh or lsqThreshold is out of range
+///     backgroundOrder, rejIter, rejThresh, lsqThreshold or minSignalToNoise is out of range
 AlardLuptonResult fitAlardLuptonKernel(
     lsst::afw::image::MaskedImage<float> const& source,
     lsst::afw::image::MaskedImage<float> const& target,
@@ -268,7 +291,8 @@ AlardLuptonResult fitAlardLuptonKernel(
     int rejIter=2,
     double rejThresh=3.0,
     double lsqThreshold=1.0e-6,
-    bool commonKernelSum=false
+    bool commonKernelSum=false,
+    double minSignalToNoise=0.0
 );
 
 
