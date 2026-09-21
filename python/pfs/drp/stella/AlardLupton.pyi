@@ -119,4 +119,5 @@ def fitAlardLuptonKernel(
     rejThresh: float = 3.0,
     lsqThreshold: float = 1.0e-6,
     commonKernelSum: bool = False,
+    minSignalToNoise: float = 0.0,
 ) -> AlardLuptonResult: ...
