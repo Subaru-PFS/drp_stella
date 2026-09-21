@@ -20,6 +20,9 @@ class KernelSolution:
     numIter: int
     chi2: float
     rms: float
+    kernelError: np.ndarray
+    backgroundError: np.ndarray
+    kernelSumError: float
     def getNumParams(self) -> int: ...
     @property
     def numParams(self) -> int: ...
