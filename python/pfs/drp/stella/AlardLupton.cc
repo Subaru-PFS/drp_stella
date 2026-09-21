@@ -144,7 +144,8 @@ PYBIND11_MODULE(AlardLupton, mod) {
         "rejIter"_a=2,
         "rejThresh"_a=3.0,
         "lsqThreshold"_a=1.0e-6,
-        "commonKernelSum"_a=false
+        "commonKernelSum"_a=false,
+        "minSignalToNoise"_a=0.0
     );
 }
 
