@@ -402,8 +402,6 @@ PYBIND11_MODULE(math, mod) {
     mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
     mod.def("solveLeastSquaresDesign", &solveLeastSquaresDesign, "design"_a, "meas"_a,
             "err"_a, "threshold"_a=1.0e-6, "forced"_a=nullptr, "params"_a=nullptr);
-    mod.def("solveLeastSquaresDesignCovariance", &solveLeastSquaresDesignCovariance, "design"_a, "meas"_a,
-            "err"_a, "threshold"_a=1.0e-6);
     declareMatrixTriplets(mod);
     declareSparseSquareMatrix<false>(mod, "NonsymmetricSparseSquareMatrix");
     declareSparseSquareMatrix<true>(mod, "SymmetricSparseSquareMatrix");
