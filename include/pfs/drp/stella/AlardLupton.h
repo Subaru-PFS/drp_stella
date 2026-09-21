@@ -52,17 +52,6 @@ struct KernelSolution {
     int numIter;  ///< Number of rejection iterations actually performed
     double chi2;  ///< chi^2 of the final fit, summed over the pixels used in the fit
     double rms;  ///< RMS of the difference image, over the pixels used in the fit
-    ndarray::Array<double, 2, 2> kernelError;  ///< 1-sigma standard error on each kernel tap, same shape
-        ///< as kernel. This is a raw formal (statistical) error derived from the least-squares
-        ///< covariance matrix computed from the pixel noise model (source + target variance); it is
-        ///< NOT rescaled by the fit's reduced chi^2. NaN (filled) if the fit failed.
-    ndarray::Array<double, 1, 1> backgroundError;  ///< 1-sigma standard error on each differential
-        ///< background coefficient, same shape and semantics as kernelError. NaN (filled) if the fit
-        ///< failed.
-    double kernelSumError;  ///< 1-sigma standard error on getKernelSum(), with the same raw/formal
-        ///< semantics as kernelError. Exactly 0 if the common-kernel-sum constraint (see
-        ///< fitAlardLuptonKernel) was successfully applied to this region, since the sum is then fixed
-        ///< by construction. NaN if the fit failed.
 
     /// Ctor
     KernelSolution(
@@ -78,10 +67,7 @@ struct KernelSolution {
         std::size_t numRejected,
         int numIter,
         double chi2,
-        double rms,
-        ndarray::Array<double, 2, 2> const& kernelError,
-        ndarray::Array<double, 1, 1> const& backgroundError,
-        double kernelSumError
+        double rms
     );
 
     /// Number of parameters in the fit (kernel pixels plus background terms)
@@ -273,18 +259,6 @@ struct AlardLuptonResult {
 /// left with too few pixels above the threshold fails in the same way as a
 /// region with too few good pixels generally (see above). The default value
 /// of zero applies no cut.
-///
-/// Each region's KernelSolution also reports a 1-sigma standard error on every
-/// kernel tap, background coefficient, and the kernel sum (KernelSolution::
-/// kernelError, backgroundError, kernelSumError), so that a difference
-/// between two regions' fitted kernels can be judged against the fits' own
-/// uncertainty rather than only compared qualitatively. These are raw formal
-/// (statistical) errors derived directly from the least-squares covariance
-/// matrix, using the same pixel noise model (source + target variance) that
-/// weights the fit; they are not empirically rescaled by the fit's reduced
-/// chi^2. When commonKernelSum is used, kernelSumError is exactly 0 for any
-/// region where the constraint was successfully applied, since the sum is
-/// then fixed by construction.
 ///
 /// @param source : Image to be convolved to match target (e.g., a template image)
 /// @param target : Image to match (e.g., a science image)
