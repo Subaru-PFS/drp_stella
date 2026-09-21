@@ -144,18 +144,22 @@ KernelSolution makeFailure(
     int const kernelSize = 2*kernelHalfWidth + 1;
     std::size_t const numBackgroundParams = math::NormalizedPolynomial2<double>(backgroundOrder).getNParameters();
 
+    double const nan = std::numeric_limits<double>::quiet_NaN();
+
     ndarray::Array<double, 2, 2> kernel = ndarray::allocate(kernelSize, kernelSize);
     kernel.deep() = 0.0;
     ndarray::Array<double, 1, 1> background = ndarray::allocate(numBackgroundParams);
     background.deep() = 0.0;
     ndarray::Array<bool, 2, 2> rejected = ndarray::allocate(globalBox.getHeight(), globalBox.getWidth());
     rejected.deep() = false;
+    ndarray::Array<double, 2, 2> kernelError = ndarray::allocate(kernelSize, kernelSize);
+    kernelError.deep() = nan;
+    ndarray::Array<double, 1, 1> backgroundError = ndarray::allocate(numBackgroundParams);
+    backgroundError.deep() = nan;
 
     return KernelSolution(
         globalBox, kernelHalfWidth, backgroundOrder, kernel, background, rejected,
-        false, numPixels, 0, 0, 0,
-        std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::quiet_NaN()
+        false, numPixels, 0, 0, 0, nan, nan, kernelError, backgroundError, nan
     );
 }
 
@@ -280,13 +284,25 @@ KernelSolution fitRegion(
         }
 
         ndarray::Array<double, 1, 1> paramsSolution;
+        ndarray::Array<double, 2, 2> covariance;
         try {
-            paramsSolution = math::solveLeastSquaresDesign(designScaled, meas, err, lsqThreshold);
+            auto const solved = math::solveLeastSquaresDesignCovariance(
+                designScaled, meas, err, lsqThreshold
+            );
+            paramsSolution = solved.first;
+            covariance = solved.second;
         } catch (lsst::pex::exceptions::Exception const&) {
             return makeFailure(globalBox, kernelHalfWidth, backgroundOrder, numPixels);
         }
         for (std::size_t col = 0; col < numParams; ++col) {
             paramsSolution[col] /= colScale[col];
+        }
+        // Un-scale the covariance to match: since actualParam = scaledParam/colScale,
+        // Cov(actual_i, actual_j) = Cov(scaled_i, scaled_j)/(colScale[i]*colScale[j]).
+        for (std::size_t row = 0; row < numParams; ++row) {
+            for (std::size_t col = 0; col < numParams; ++col) {
+                covariance[row][col] /= colScale[row]*colScale[col];
+            }
         }
 
         double chi2 = 0.0;
@@ -317,8 +333,10 @@ KernelSolution fitRegion(
         );
         if (!canIterate) {
             ndarray::Array<double, 1, 1> finalParams = paramsSolution;
+            ndarray::Array<double, 2, 2> finalCovariance = covariance;
             double finalChi2 = chi2;
             double finalRms = rms;
+            bool sumIsFixed = false;
 
             if (std::isfinite(commonKernelSumTarget)) {
                 // Exactly constrain the sum of the kernel taps to commonKernelSumTarget by variable
@@ -375,10 +393,13 @@ KernelSolution fitRegion(
 
                 bool constrainedOk = false;
                 ndarray::Array<double, 1, 1> reducedSolution;
+                ndarray::Array<double, 2, 2> reducedCovariance;
                 try {
-                    reducedSolution = math::solveLeastSquaresDesign(
+                    auto const reducedSolved = math::solveLeastSquaresDesignCovariance(
                         reducedDesignScaled, reducedMeas, err, lsqThreshold
                     );
+                    reducedSolution = reducedSolved.first;
+                    reducedCovariance = reducedSolved.second;
                     constrainedOk = true;
                 } catch (lsst::pex::exceptions::Exception const&) {
                     constrainedOk = false;
@@ -387,6 +408,11 @@ KernelSolution fitRegion(
                 if (constrainedOk) {
                     for (std::size_t jj = 0; jj < numReduced; ++jj) {
                         reducedSolution[jj] /= reducedColScale[jj];
+                    }
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        for (std::size_t kk = 0; kk < numReduced; ++kk) {
+                            reducedCovariance[jj][kk] /= reducedColScale[jj]*reducedColScale[kk];
+                        }
                     }
 
                     ndarray::Array<double, 1, 1> constrainedSolution = ndarray::allocate(numParams);
@@ -401,6 +427,45 @@ KernelSolution fitRegion(
                     }
                     constrainedSolution[pivotCol] = commonKernelSumTarget - sumOtherKernelTaps;
                     finalParams = constrainedSolution;
+
+                    // Reconstruct the full (numParams x numParams) covariance from the reduced solve's
+                    // covariance: the eliminated pivot tap is a deterministic linear function of the
+                    // other kernel taps (k_pivot = commonKernelSumTarget - sum(other kernel taps)), so
+                    // its variance and its covariance with every other parameter follow by standard
+                    // error propagation through that linear relation (Var(c - X) = Var(X), and
+                    // Cov(c - X, Y) = -Cov(X, Y)).
+                    std::vector<std::size_t> otherKernelIndices;
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        if (colMap[jj] < numKernelParams) {
+                            otherKernelIndices.push_back(jj);
+                        }
+                    }
+                    ndarray::Array<double, 2, 2> constrainedCovariance = ndarray::allocate(
+                        numParams, numParams
+                    );
+                    constrainedCovariance.deep() = 0.0;
+                    for (std::size_t jj = 0; jj < numReduced; ++jj) {
+                        for (std::size_t kk = 0; kk < numReduced; ++kk) {
+                            constrainedCovariance[colMap[jj]][colMap[kk]] = reducedCovariance[jj][kk];
+                        }
+                    }
+                    double pivotVariance = 0.0;
+                    for (std::size_t jj : otherKernelIndices) {
+                        for (std::size_t kk : otherKernelIndices) {
+                            pivotVariance += reducedCovariance[jj][kk];
+                        }
+                    }
+                    constrainedCovariance[pivotCol][pivotCol] = pivotVariance;
+                    for (std::size_t kk = 0; kk < numReduced; ++kk) {
+                        double cov = 0.0;
+                        for (std::size_t jj : otherKernelIndices) {
+                            cov -= reducedCovariance[jj][kk];
+                        }
+                        constrainedCovariance[pivotCol][colMap[kk]] = cov;
+                        constrainedCovariance[colMap[kk]][pivotCol] = cov;
+                    }
+                    finalCovariance = constrainedCovariance;
+                    sumIsFixed = true;
 
                     // Recompute chi2/rms from the constrained parameters, but summed only over the
                     // real pixel rows against the original (unscaled) design: a region whose data
@@ -444,10 +509,42 @@ KernelSolution fitRegion(
                 }
             }
 
+            // Raw formal (statistical) parameter errors, derived directly from the least-squares
+            // covariance matrix computed from the pixel noise model (source + target variance): these
+            // are NOT rescaled by the fit's reduced chi^2.
+            ndarray::Array<double, 2, 2> kernelErrorArray = ndarray::allocate(kernelSize, kernelSize);
+            for (int dy = 0; dy < kernelSize; ++dy) {
+                for (int dx = 0; dx < kernelSize; ++dx) {
+                    std::size_t const col = std::size_t(dy)*kernelSize + std::size_t(dx);
+                    kernelErrorArray[dy][dx] = std::sqrt(std::max(0.0, finalCovariance[col][col]));
+                }
+            }
+            ndarray::Array<double, 1, 1> backgroundErrorArray = ndarray::allocate(numBackgroundParams);
+            for (std::size_t jj = 0; jj < numBackgroundParams; ++jj) {
+                std::size_t const col = numKernelParams + jj;
+                backgroundErrorArray[jj] = std::sqrt(std::max(0.0, finalCovariance[col][col]));
+            }
+            // The kernel sum is fixed by construction under the commonKernelSum constraint, so its
+            // variance is exactly zero in that case; otherwise it's the full (correlated) sum over the
+            // kernel-tap covariance submatrix.
+            double kernelSumError;
+            if (sumIsFixed) {
+                kernelSumError = 0.0;
+            } else {
+                double sumVar = 0.0;
+                for (std::size_t ii = 0; ii < numKernelParams; ++ii) {
+                    for (std::size_t jj = 0; jj < numKernelParams; ++jj) {
+                        sumVar += finalCovariance[ii][jj];
+                    }
+                }
+                kernelSumError = std::sqrt(std::max(0.0, sumVar));
+            }
+
             return KernelSolution(
                 globalBox, kernelHalfWidth, backgroundOrder,
                 kernelArray, backgroundArray, rejectedArray,
-                true, numPixels, numActive, numPixels - numActive, iter, finalChi2, finalRms
+                true, numPixels, numActive, numPixels - numActive, iter, finalChi2, finalRms,
+                kernelErrorArray, backgroundErrorArray, kernelSumError
             );
         }
 
@@ -559,7 +656,10 @@ KernelSolution::KernelSolution(
     std::size_t numRejected_,
     int numIter_,
     double chi2_,
-    double rms_
+    double rms_,
+    ndarray::Array<double, 2, 2> const& kernelError_,
+    ndarray::Array<double, 1, 1> const& backgroundError_,
+    double kernelSumError_
 ) : bbox(bbox_),
     kernelHalfWidth(kernelHalfWidth_),
     backgroundOrder(backgroundOrder_),
@@ -572,7 +672,10 @@ KernelSolution::KernelSolution(
     numRejected(numRejected_),
     numIter(numIter_),
     chi2(chi2_),
-    rms(rms_)
+    rms(rms_),
+    kernelError(kernelError_),
+    backgroundError(backgroundError_),
+    kernelSumError(kernelSumError_)
 {}
 
 
@@ -649,7 +752,8 @@ std::ostream& operator<<(std::ostream& os, KernelSolution const& solution) {
         ", numPixels=" << solution.numPixels << ", numFit=" << solution.numFit <<
         ", numRejected=" << solution.numRejected << ", numIter=" << solution.numIter <<
         ", chi2=" << solution.chi2 << ", reducedChi2=" << solution.getReducedChi2() <<
-        ", rms=" << solution.rms << ", kernelSum=" << solution.getKernelSum() << ")";
+        ", rms=" << solution.rms << ", kernelSum=" << solution.getKernelSum() <<
+        ", kernelSumError=" << solution.kernelSumError << ")";
     return os;
 }
 

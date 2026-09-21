@@ -92,6 +92,12 @@ def solveLeastSquaresDesign(
     forced: Optional[np.ndarray] = None,
     params: Optional[np.ndarray] = None,
 ) -> np.ndarray: ...
+def solveLeastSquaresDesignCovariance(
+    design: np.ndarray,
+    meas: np.ndarray,
+    err: np.ndarray,
+    threshold: float = 1.0e-6,
+) -> Tuple[np.ndarray, np.ndarray]: ...
 @overload
 def calculateMedian(values: np.ndarray, mask: np.ndarray) -> float: ...
 @overload
