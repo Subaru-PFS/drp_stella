@@ -44,6 +44,7 @@ void declareKernelSolution(py::module & mod) {
     cls.def_property_readonly("firstMoment", &KernelSolution::getFirstMoment);
     cls.def("getSecondMoment", &KernelSolution::getSecondMoment);
     cls.def_property_readonly("secondMoment", &KernelSolution::getSecondMoment);
+    cls.def("getWeightedSecondMoment", &KernelSolution::getWeightedSecondMoment, "windowSigma"_a);
     cls.def("__repr__", [](KernelSolution const& self) {
         std::ostringstream os;
         os << self;
@@ -102,6 +103,9 @@ void declareAlardLuptonResult(py::module & mod) {
     cls.def_property_readonly("kernelFirstMoments", &AlardLuptonResult::getKernelFirstMoments);
     cls.def("getKernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
     cls.def_property_readonly("kernelSecondMoments", &AlardLuptonResult::getKernelSecondMoments);
+    cls.def(
+        "getKernelWeightedSecondMoments", &AlardLuptonResult::getKernelWeightedSecondMoments, "windowSigma"_a
+    );
     cls.def(py::pickle(
         [](AlardLuptonResult const& self) {
             return py::make_tuple(

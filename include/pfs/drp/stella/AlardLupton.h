@@ -99,6 +99,18 @@ struct KernelSolution {
     /// negative values (unlike a physical PSF), the result is not guaranteed to be positive-definite.
     /// Returns NaN components if the fit failed or the kernel sum is zero.
     lsst::afw::geom::ellipses::Quadrupole getSecondMoment() const;
+
+    /// Gaussian-weighted second moment (shape) of the kernel, about its first moment
+    ///
+    /// Like getSecondMoment(), but each pixel's contribution to the moment sums is weighted by a
+    /// fixed (non-adaptive) Gaussian window of width windowSigma, centered on getFirstMoment(). This
+    /// suppresses noise in the kernel's low-significance wings -- which, because the delta-function
+    /// kernel can take negative values, can otherwise drive Ixx + Iyy negative and make
+    /// 0.5*sqrt(Ixx + Iyy) come out NaN -- without the iterative window adaptation that causes
+    /// adaptive-moment algorithms (e.g. GalSim's HSM) to fail to converge on small or noisy kernels.
+    /// windowSigma should be chosen comparable to the expected kernel width (e.g. kernelHalfWidth / 2).
+    /// Returns NaN components if the fit failed, the kernel sum is zero, or the weighted sum is zero.
+    lsst::afw::geom::ellipses::Quadrupole getWeightedSecondMoment(double windowSigma) const;
 };
 
 
@@ -166,6 +178,14 @@ struct AlardLuptonResult {
     /// @return (xx, yy, xy) components of the second moment, each of shape (numRegionsY, numRegionsX)
     std::tuple<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
         getKernelSecondMoments() const;
+
+    /// Gaussian-weighted second moments (shapes) of the fitted kernel in each region
+    ///
+    /// See KernelSolution::getWeightedSecondMoment.
+    ///
+    /// @return (xx, yy, xy) components, each of shape (numRegionsY, numRegionsX)
+    std::tuple<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
+        getKernelWeightedSecondMoments(double windowSigma) const;
 };
 
 
