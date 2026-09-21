@@ -32,6 +32,9 @@ void declareKernelSolution(py::module & mod) {
     cls.def_readonly("numIter", &KernelSolution::numIter);
     cls.def_readonly("chi2", &KernelSolution::chi2);
     cls.def_readonly("rms", &KernelSolution::rms);
+    cls.def_readonly("kernelError", &KernelSolution::kernelError);
+    cls.def_readonly("backgroundError", &KernelSolution::backgroundError);
+    cls.def_readonly("kernelSumError", &KernelSolution::kernelSumError);
     cls.def("getNumParams", &KernelSolution::getNumParams);
     cls.def_property_readonly("numParams", &KernelSolution::getNumParams);
     cls.def("getKernelSum", &KernelSolution::getKernelSum);
@@ -54,11 +57,12 @@ void declareKernelSolution(py::module & mod) {
             return py::make_tuple(
                 self.bbox, self.kernelHalfWidth, self.backgroundOrder, self.kernel, self.background,
                 self.rejected, self.success, self.numPixels, self.numFit, self.numRejected,
-                self.numIter, self.chi2, self.rms
+                self.numIter, self.chi2, self.rms, self.kernelError, self.backgroundError,
+                self.kernelSumError
             );
         },
         [](py::tuple const& state) {
-            if (state.size() != 13) {
+            if (state.size() != 16) {
                 throw std::runtime_error("Invalid state for KernelSolution");
             }
             return KernelSolution(
@@ -74,7 +78,10 @@ void declareKernelSolution(py::module & mod) {
                 state[9].cast<std::size_t>(),
                 state[10].cast<int>(),
                 state[11].cast<double>(),
-                state[12].cast<double>()
+                state[12].cast<double>(),
+                state[13].cast<ndarray::Array<double, 2, 2>>(),
+                state[14].cast<ndarray::Array<double, 1, 1>>(),
+                state[15].cast<double>()
             );
         }
     ));
