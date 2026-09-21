@@ -111,6 +111,51 @@ class AlardLuptonTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(result.getNumFit(), solution.numFit)
         self.assertEqual(result.getNumRejected(), solution.numRejected)
 
+    def testWeightedSecondMoment(self):
+        """Gaussian-weighted second moment matches a direct calculation, and stays finite on a kernel
+        whose raw (unweighted) second moment does not"""
+        trueKernel = self.makeKernel(1.2)
+        source = self.makeSource()
+        target = self.convolve(source, trueKernel)
+
+        result = fitAlardLuptonKernel(source, target, kernelHalfWidth=self.kernelHalfWidth)
+        solution = result.solutions[0]
+        self.assertTrue(solution.success)
+
+        windowSigma = 2.0
+        first = solution.getFirstMoment()
+        offset = np.arange(-self.kernelHalfWidth, self.kernelHalfWidth + 1)
+        xx, yy = np.meshgrid(offset, offset)
+        dx = xx - first.getX()
+        dy = yy - first.getY()
+        weight = np.exp(-0.5 * (dx**2 + dy**2) / windowSigma**2)
+        value = np.asarray(solution.kernel) * weight
+        weightSum = value.sum()
+        expectedIxx = (value * dx**2).sum() / weightSum
+        expectedIyy = (value * dy**2).sum() / weightSum
+        expectedIxy = (value * dx * dy).sum() / weightSum
+
+        weighted = solution.getWeightedSecondMoment(windowSigma)
+        self.assertFloatsAlmostEqual(weighted.getIxx(), expectedIxx, atol=1.0e-9)
+        self.assertFloatsAlmostEqual(weighted.getIyy(), expectedIyy, atol=1.0e-9)
+        self.assertFloatsAlmostEqual(weighted.getIxy(), expectedIxy, atol=1.0e-9)
+
+        # Corrupt the kernel with noise in place (solution.kernel is a writeable view onto the
+        # underlying fit data), mimicking the noisy wings that a poorly-constrained delta-function
+        # kernel can have in practice: the raw second moment goes negative (NaN through the sqrt a
+        # caller would take), while the Gaussian-weighted moment -- which suppresses the low-signal
+        # wings responsible -- stays finite.
+        rng = np.random.default_rng(54321)
+        solution.kernel[:] = trueKernel + rng.normal(0, 2 * trueKernel.max(), trueKernel.shape)
+
+        raw = solution.getSecondMoment()
+        self.assertLess(raw.getIxx() + raw.getIyy(), 0.0)
+
+        weightedNoisy = solution.getWeightedSecondMoment(windowSigma)
+        self.assertTrue(np.isfinite(weightedNoisy.getIxx()))
+        self.assertTrue(np.isfinite(weightedNoisy.getIyy()))
+        self.assertGreater(weightedNoisy.getIxx() + weightedNoisy.getIyy(), 0.0)
+
     def testRejection(self):
         """Bad pixels (e.g. a cosmic ray) should be rejected from the fit"""
         trueKernel = self.makeKernel(1.2)

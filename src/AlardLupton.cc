@@ -644,6 +644,36 @@ lsst::afw::geom::ellipses::Quadrupole KernelSolution::getSecondMoment() const {
 }
 
 
+lsst::afw::geom::ellipses::Quadrupole KernelSolution::getWeightedSecondMoment(double windowSigma) const {
+    double const nan = std::numeric_limits<double>::quiet_NaN();
+    lsst::geom::Point2D const first = getFirstMoment();
+    if (!std::isfinite(first.getX()) || !std::isfinite(first.getY())) {
+        return lsst::afw::geom::ellipses::Quadrupole(nan, nan, nan);
+    }
+    double wSum = 0.0;
+    double xxSum = 0.0;
+    double yySum = 0.0;
+    double xySum = 0.0;
+    auto const shape = kernel.getShape();
+    for (std::size_t yy = 0; yy < shape[0]; ++yy) {
+        double const dy = double(yy) - kernelHalfWidth - first.getY();
+        for (std::size_t xx = 0; xx < shape[1]; ++xx) {
+            double const dx = double(xx) - kernelHalfWidth - first.getX();
+            double const weight = std::exp(-0.5*(dx*dx + dy*dy)/(windowSigma*windowSigma));
+            double const value = kernel[yy][xx]*weight;
+            wSum += value;
+            xxSum += value*dx*dx;
+            yySum += value*dy*dy;
+            xySum += value*dx*dy;
+        }
+    }
+    if (wSum == 0.0 || !std::isfinite(wSum)) {
+        return lsst::afw::geom::ellipses::Quadrupole(nan, nan, nan);
+    }
+    return lsst::afw::geom::ellipses::Quadrupole(xxSum/wSum, yySum/wSum, xySum/wSum);
+}
+
+
 std::ostream& operator<<(std::ostream& os, KernelSolution const& solution) {
     os << "KernelSolution(bbox=" << solution.bbox << ", success=" << solution.success <<
         ", numPixels=" << solution.numPixels << ", numFit=" << solution.numFit <<
@@ -750,6 +780,25 @@ AlardLuptonResult::getKernelSecondMoments() const {
         for (int regionX = 0; regionX < numRegionsX; ++regionX) {
             std::size_t const index = std::size_t(regionY)*std::size_t(numRegionsX) + std::size_t(regionX);
             lsst::afw::geom::ellipses::Quadrupole const moment = solutions[index].getSecondMoment();
+            momentXX[regionY][regionX] = moment.getIxx();
+            momentYY[regionY][regionX] = moment.getIyy();
+            momentXY[regionY][regionX] = moment.getIxy();
+        }
+    }
+    return std::make_tuple(momentXX, momentYY, momentXY);
+}
+
+
+std::tuple<ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>, ndarray::Array<double, 2, 2>>
+AlardLuptonResult::getKernelWeightedSecondMoments(double windowSigma) const {
+    ndarray::Array<double, 2, 2> momentXX = ndarray::allocate(numRegionsY, numRegionsX);
+    ndarray::Array<double, 2, 2> momentYY = ndarray::allocate(numRegionsY, numRegionsX);
+    ndarray::Array<double, 2, 2> momentXY = ndarray::allocate(numRegionsY, numRegionsX);
+    for (int regionY = 0; regionY < numRegionsY; ++regionY) {
+        for (int regionX = 0; regionX < numRegionsX; ++regionX) {
+            std::size_t const index = std::size_t(regionY)*std::size_t(numRegionsX) + std::size_t(regionX);
+            lsst::afw::geom::ellipses::Quadrupole const moment =
+                solutions[index].getWeightedSecondMoment(windowSigma);
             momentXX[regionY][regionX] = moment.getIxx();
             momentYY[regionY][regionX] = moment.getIyy();
             momentXY[regionY][regionX] = moment.getIxy();
