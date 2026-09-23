@@ -9,6 +9,9 @@ import numpy as np
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
+# Arms lacking their own per-arm linelist fall back to another arm's file.
+_ARM_ALIASES = {"m": "r"}
+
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
@@ -25,7 +28,11 @@ class ReadLineListConfig(Config):
                                     "A value of ``None`` means no line list file "
                                     "is available for that source. "
                                     "If the value is not an absolute path, "
-                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``."),
+                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``. "
+                                    "The value may contain the literal substring ``{arm}``, which is "
+                                    "substituted with the ``arm`` supplied to ``ReadLineListTask.run`` "
+                                    "(e.g. ``'skyLines-ragnar-{arm}.txt'``); this requires that ``arm`` "
+                                    "be provided to ``run``."),
                                default={'Ar': 'Ar.txt',
                                         'H': 'H.txt',
                                         'He': 'He.txt',
@@ -73,7 +80,7 @@ class ReadLineListTask(Task):
     _DefaultName = "readLineList"
     _isSpeciesPattern = re.compile(r'^[A-Z][A-Za-z]*[IVX]+')
 
-    def run(self, detectorMap=None, metadata=None):
+    def run(self, detectorMap=None, metadata=None, arm: str | None = None):
         """Read a linelist
 
         This serves as a wrapper around the common operation of looking up the
@@ -87,6 +94,9 @@ class ReadLineListTask(Task):
         metadata : `lsst.daf.base.PropertyList`, optional
             FITS header, containing the lamp indicators. This is required in
             order to restrict the linelist by the list of active lamps.
+        arm : `str`, optional
+            Spectrograph arm (``b``, ``r``, ``n``, ``m``). Only required if a
+            selected ``lightSourceMap`` entry contains an ``{arm}`` placeholder.
 
         Returns
         -------
@@ -125,6 +135,13 @@ class ReadLineListTask(Task):
 
             filename = self.config.lightSourceMap[ll]
             if filename is not None:
+                if "{arm}" in filename:
+                    if arm is None:
+                        raise RuntimeError(
+                            f"lightSourceMap entry for {ll!r} ({filename!r}) requires an arm, "
+                            "but none was provided to ReadLineListTask.run"
+                        )
+                    filename = filename.format(arm=_ARM_ALIASES.get(arm, arm))
                 lines.extend(ReferenceLineSet.fromLineList(filename))
 
         if engineeringIlluminated and scienceIlluminated:

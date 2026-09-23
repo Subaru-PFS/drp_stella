@@ -102,7 +102,10 @@ class MeasureCentroidsTask(PipelineTask):
         inputs = butler.get(inputRefs)
         inputs["detectorMap"] = inputs.pop("calibDetectorMap")
 
-        outputs = self.run(**inputs)
+        arm = inputRefs.exposure.dataId.arm.name
+        assert arm in "brnm"
+
+        outputs = self.run(**inputs, arm=arm)
         butler.put(outputs, outputRefs)
         return outputs
 
@@ -111,6 +114,7 @@ class MeasureCentroidsTask(PipelineTask):
         exposure: ExposureF,
         pfsConfig: PfsConfig,
         detectorMap: DetectorMap,
+        arm: str | None = None,
         crMask: Mask | None = None,
     ):
         """Measure (both line and trace) centroids on an exposure
@@ -123,6 +127,8 @@ class MeasureCentroidsTask(PipelineTask):
             PFS fiber configuration.
         detectorMap : `DetectorMap`
             Mapping of fiberId,wavelength to x,y.
+        arm : `str`, optional
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
         crMask : `Mask`, optional
             Cosmic-ray mask.
 
@@ -137,7 +143,7 @@ class MeasureCentroidsTask(PipelineTask):
             if not crMask:
                 raise ValueError("Cosmic-ray mask required but not provided")
             exposure.mask |= crMask
-        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=arm)
         lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id)
         if self.config.doForceTraces or not lines:
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
@@ -224,7 +230,7 @@ class MeasureDetectorMapTask(MeasureCentroidsTask):
         detectorMap : `DetectorMap`
             Adjusted mapping of fiberId,wavelength to x,y.
         """
-        data = super().run(exposure, pfsConfig, detectorMap, crMask=crMask)
+        data = super().run(exposure, pfsConfig, detectorMap, arm=arm, crMask=crMask)
 
         if self.debugInfo.detectorMap:
             display = Display(frame=1)

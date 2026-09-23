@@ -1,3 +1,5 @@
+import os
+import tempfile
 from types import SimpleNamespace
 import numpy as np
 
@@ -49,6 +51,21 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         ]
         self.config = ReadLineListTask.ConfigClass()
 
+    def writeLineList(self, filename, contents):
+        """Write a lineList to file
+
+        Parameters
+        ----------
+        filename : `str`
+            Path to which to write the lineList.
+        contents : iterable of `Line`
+            Lines to write.
+        """
+        with open(filename, "w") as fd:
+            fd.write("# This is a fake line list\n")
+            for line in contents:
+                fd.write(f"{line.wavelength} {line.intensity} {line.description} {line.flag}\n")
+
     def makeLineList(self, lightSource='fake', **kwargs):
         """Generate a lineList from the defined contents
 
@@ -58,10 +75,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         Returns the results of running the `ReadLineListTask`.
         """
         with lsst.utils.tests.getTempFilePath(".txt") as filename:
-            with open(filename, "w") as fd:
-                fd.write("# This is a fake line list\n")
-                for line in self.contents:
-                    fd.write(f"{line.wavelength} {line.intensity} {line.description} {line.flag}\n")
+            self.writeLineList(filename, self.contents)
             self.config.lightSourceMap = {lightSource: filename}
             self.config.lightSources = [lightSource]
             task = ReadLineListTask(name="readLineList", config=self.config)
@@ -302,6 +316,44 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
                                               return_counts=True)
         duplicateLines = uniqueWavelengths[counts > 1]
         self.assertTrue(len(duplicateLines) == 0, f'Duplicate lines found: {duplicateLines}')
+
+    def testArmTemplate(self):
+        """Test that a templated lightSourceMap entry is resolved using the
+        arm supplied to `run`, and that the `m` arm aliases to `r`"""
+        armContents = {
+            "b": [Line(100.0, 1000, "NeI", 0)],
+            "r": [Line(200.0, 1000, "NeI", 0)],
+            "n": [Line(300.0, 1000, "NeI", 0)],
+        }
+        with tempfile.TemporaryDirectory() as tempDir:
+            template = os.path.join(tempDir, "lines-{arm}.txt")
+            for arm, contents in armContents.items():
+                self.writeLineList(template.format(arm=arm), contents)
+
+            self.config.lightSourceMap = {"fake": template}
+            self.config.lightSources = ["fake"]
+            task = ReadLineListTask(name="readLineList", config=self.config)
+
+            for arm, contents in armContents.items():
+                lineList = task.run(arm=arm)
+                self.assertLineList(lineList, contents)
+
+            # "m" arm has no lineList of its own: it should alias to "r"
+            mLines = task.run(arm="m")
+            self.assertLineList(mLines, armContents["r"])
+
+    def testArmRequiredForTemplate(self):
+        """Test that omitting `arm` with a templated lightSourceMap entry
+        raises `RuntimeError`"""
+        with tempfile.TemporaryDirectory() as tempDir:
+            template = os.path.join(tempDir, "lines-{arm}.txt")
+            self.writeLineList(template.format(arm="b"), self.contents)
+
+            self.config.lightSourceMap = {"fake": template}
+            self.config.lightSources = ["fake"]
+            task = ReadLineListTask(name="readLineList", config=self.config)
+            with self.assertRaises(RuntimeError):
+                task.run()
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

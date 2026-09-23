@@ -215,7 +215,7 @@ class MeasurePhotometryTask(PipelineTask):
         # Update photometry using best detectorMap, PSF
         apCorr = None
         if self.config.doMeasureLines:
-            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=arm)
             phot = self.photometerLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
             apCorr = phot.apCorr
             lines = phot.lines
