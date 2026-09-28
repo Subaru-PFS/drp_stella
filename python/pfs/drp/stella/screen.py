@@ -1,29 +1,176 @@
-from typing import Iterable
+import os
 
 import numpy as np
 
-from lsst.pex.config import Config, ListField
+from astropy.io import fits
+
+from lsst.pex.config import Config, Field
 from lsst.pipe.base import Task
 from lsst.daf.base import PropertyList
+from lsst.utils import getPackageDir
 
 from pfs.datamodel import PfsConfig, TargetType, PfsFiberArraySet
 from lsst.obs.pfs.utils import getLamps
 
 
-__all__ = ("ScreenResponseConfig", "ScreenResponseTask", "screenResponse")
+__all__ = ("ScreenResponseConfig", "ScreenResponseTask", "ScreenResponseModel",
+           "rotateCoordinatesAroundCenter")
+
+
+DEFAULT_MODEL = "screenResponse/pfsScreenResponse-2026-09-16.fits"
+"""Screen response model within ``drp_pfs_data``."""
+
+FORMAT_VERSION = 1
+"""Version of the screen response file format."""
+
+
+class ScreenResponseModel:
+    """How the flat-field screen illuminates the fibers, relative to the sky.
+
+    The model is ``S = 100 ln(twilight / quartz)`` as a polynomial surface over the focal
+    plane, in the frame the screen sits in, with one set of coefficients per wavelength
+    bin. The terms are the monomials of ``(x/radius, y/radius)`` up to ``degree``, constant
+    excluded, in the order ``x, y, x^2, xy, y^2, ...``. Evaluating it interpolates the
+    coefficients linearly in wavelength between the bin centres and holds the end values
+    beyond them, and returns the factor ``exp(-S/100)``, the quartz over the twilight.
+
+    The screen does not turn with the instrument rotator, so positions are carried into
+    the frame the screen sits in before the surface is evaluated.
+
+    Parameters
+    ----------
+    wavelengths : `numpy.ndarray`
+        Bin centres in nm, of shape ``(nWavelength,)``, ascending.
+    coefficients : `numpy.ndarray`
+        Surface coefficients in units of ``100 ln``, of shape ``(nWavelength, nTerm)``.
+    degree : `int`
+        Highest total power of the surface; ``nTerm`` is ``(degree + 1)(degree + 2)/2 - 1``.
+    radius : `float`
+        Scale of the positions in mm.
+    """
+
+    def __init__(self, wavelengths, coefficients, degree, radius):
+        self.wavelengths = np.asarray(wavelengths, dtype=float)
+        self.coefficients = np.asarray(coefficients, dtype=float)
+        self.degree = int(degree)
+        self.radius = float(radius)
+
+        numTerms = (self.degree + 1)*(self.degree + 2)//2 - 1
+        if self.coefficients.shape != (self.wavelengths.size, numTerms):
+            raise RuntimeError(f"Coefficients {self.coefficients.shape} do not match "
+                               f"{self.wavelengths.size} wavelengths and degree {self.degree}")
+        if np.any(np.diff(self.wavelengths) <= 0):
+            raise RuntimeError("Wavelengths are not ascending")
+
+    def writeFits(self, path, metadata=None):
+        """Write the model.
+
+        Parameters
+        ----------
+        path : `str`
+            FITS file to write.
+        metadata : `dict`, optional
+            Additional header keywords recording where the model came from.
+        """
+        primary = fits.PrimaryHDU()
+        primary.header["SCRNVER"] = (FORMAT_VERSION, "screen model format version")
+        primary.header["DEGREE"] = (self.degree, "polynomial degree of the surface")
+        primary.header["RADIUS"] = (self.radius, "mm, scale of the positions")
+        primary.header["NWAVE"] = (self.wavelengths.size, "number of wavelength bins")
+        for key, value in (metadata or {}).items():
+            primary.header[key] = value
+
+        fits.HDUList([
+            primary,
+            fits.BinTableHDU.from_columns([
+                fits.Column(name="WAVELENGTH", format="E", unit="nm",
+                            array=self.wavelengths.astype("float32")),
+                fits.Column(name="COEFFICIENTS", format="%dD" % self.coefficients.shape[1],
+                            array=self.coefficients),
+            ], name="SURFACE"),
+        ]).writeto(path, overwrite=True)
+
+    @classmethod
+    def readFits(cls, path):
+        """Read a screen response model.
+
+        Parameters
+        ----------
+        path : `str`
+            FITS file to read.
+
+        Returns
+        -------
+        self : `ScreenResponseModel`
+            The model.
+        """
+        with fits.open(path) as hdus:
+            header = hdus[0].header
+            if header.get("SCRNVER") != FORMAT_VERSION:
+                raise RuntimeError(f"Unsupported screen response format {header.get('SCRNVER')} "
+                                   f"in {path}")
+            table = hdus["SURFACE"].data
+            wavelengths = np.asarray(table["WAVELENGTH"], dtype=float)
+            coefficients = np.asarray(table["COEFFICIENTS"], dtype=float)
+            degree, radius = header["DEGREE"], header["RADIUS"]
+        return cls(wavelengths, coefficients.reshape(wavelengths.size, -1), degree, radius)
+
+    def __call__(self, x, y, insrot, wavelength):
+        """Evaluate the screen response.
+
+        Parameters
+        ----------
+        x, y : `numpy.ndarray`
+            PFI coordinates in mm, of shape ``(nFiber,)``.
+        insrot : `float`
+            The instrument rotator angle in degrees of the exposure.
+        wavelength : `numpy.ndarray`
+            Wavelengths in nm, of shape ``(nFiber, nWavelength)``.
+
+        Returns
+        -------
+        values : `numpy.ndarray`
+            The quartz over the twilight, of shape ``(nFiber, nWavelength)``.
+        """
+        rotated = rotateCoordinatesAroundCenter(np.vstack((x, y)), 0.0, 0.0,
+                                                np.deg2rad(insrot))
+        scaledX, scaledY = rotated/self.radius
+        terms = np.array([scaledX**(order - power)*scaledY**power
+                          for order in range(1, self.degree + 1)
+                          for power in range(order + 1)])
+
+        wavelength = np.asarray(wavelength, dtype=float)
+        # np.interp holds the end values beyond the bin centres
+        coefficients = np.stack([np.interp(wavelength, self.wavelengths, self.coefficients[:, index])
+                                 for index in range(terms.shape[0])], axis=-1)
+        surface = np.einsum("fwt,tf->fw", coefficients, terms)
+        return np.exp(-surface/100.0)
 
 
 class ScreenResponseConfig(Config):
-    screenParams = ListField(
-        dtype=float,
-        default=[0, 0, -1.62131294e-07, -7.96517605e-05, -1.13541195e-04],
-        doc="Flat-field screen response parameters",
+    modelFile = Field(
+        dtype=str,
+        default=DEFAULT_MODEL,
+        doc="Screen response model, as a path within the drp_pfs_data package.",
     )
 
 
 class ScreenResponseTask(Task):
     ConfigClass = ScreenResponseConfig
     _DefaultName = "screenResponse"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._model = None
+
+    @property
+    def model(self):
+        """The screen response model (`ScreenResponseModel`), read on first use."""
+        if self._model is None:
+            path = os.path.join(getPackageDir("drp_pfs_data"), self.config.modelFile)
+            self.log.info("Reading screen response model from %s", path)
+            self._model = ScreenResponseModel.readFits(path)
+        return self._model
 
     def run(self, metadata: PropertyList, spectra: PfsFiberArraySet, pfsConfig: PfsConfig):
         """Correct the spectra for the screen response.
@@ -73,30 +220,28 @@ class ScreenResponseTask(Task):
         insrot : `float`
             The instrument rotator angle (degrees) of the exposure.
         """
-        # Apply screen response correction
         pfsConfig = pfsConfig.select(fiberId=spectra.fiberId)
         if not np.array_equal(pfsConfig.fiberId, spectra.fiberId):
             raise RuntimeError("FiberId mismatch")
         if not np.isfinite(insrot):
             raise RuntimeError("Rotator angle is not finite")
-        screen = screenResponse(
-            pfsConfig.pfiCenter[:, 0],
-            pfsConfig.pfiCenter[:, 1],
-            insrot,
-            self.config.screenParams,
-        )
-
-        noPosition = np.isnan(pfsConfig.pfiCenter).all(axis=1)
-        if np.any(noPosition):
-            screen[noPosition] = 1.0
 
         select = pfsConfig.getSelection(targetType=~TargetType.ENGINEERING)
+        select &= ~np.isnan(pfsConfig.pfiCenter).all(axis=1)
+        if not np.any(select):
+            return
 
-        # The "screen response" is the quartz flux divided by the twilight flux.
-        # To get the twilight flux, we need to divide our quartz flux by the screen response.
-        # We have the quartz flux as the "norm" of the pfsMerged.
-        # By dividing the "norm" by the screen response, we get the twilight flux in the "norm".
-        spectra.norm[select] /= screen[select, np.newaxis]
+        screen = self.model(
+            pfsConfig.pfiCenter[select, 0],
+            pfsConfig.pfiCenter[select, 1],
+            insrot,
+            spectra.wavelength[select],
+        )
+
+        # The screen imprints this pattern on the quartz, and measureFiberNorms divides the
+        # quartz by the norm, so multiplying here is what carries the screen into the fiber
+        # normalisations and cancels it out of the science spectra.
+        spectra.norm[select] *= screen
 
 
 def rotationMatrix(theta: float) -> np.ndarray:
@@ -140,57 +285,3 @@ def rotateCoordinatesAroundCenter(x: np.ndarray, x0: float, y0: float, theta: fl
     xRot = np.matmul(rotation, xCentered)
     xRot += center
     return xRot
-
-
-def poly2dScreen(coords: Iterable[np.ndarray], a: float, b: float, c: float) -> np.ndarray:
-    """Define a 2D polynomial function with cross terms.
-
-    Parameters
-    ----------
-    coords : `tuple` of `numpy.ndarray`
-        The x and y coordinates.
-    a, b, c : `float`
-        The coefficients of the 2D polynomial.
-
-    Returns
-    -------
-    values : `numpy.ndarray`
-        The values of the 2D polynomial at the given coordinates.
-    """
-    x, y = coords
-    return a * x * y + b * x + c * y + 1
-
-
-def screenResponse(x: np.ndarray, y: np.ndarray, insrot: float, params: np.ndarray) -> np.ndarray:
-    """Model of the screen response
-
-    Provides a model of the screen response as a function of position on the
-    focal plane.
-
-    Parameters
-    ----------
-    x, y : `numpy.ndarray`
-        PFI coordinates.
-    insrot : `float`
-        The instrument rotator angle in degrees of the quartz exposure.
-    params : `numpy.ndarray`
-        The screen response parameters. The first two parameters are the
-        coordinates of the center of the screen, and the remaining three
-        parameters are the coefficients of the 2D polynomial.
-
-    Returns
-    -------
-    values : `numpy.ndarray`
-        The simulated screen response values.
-    """
-    if len(params) != 5:
-        raise ValueError("The screen response model requires 5 parameters")
-
-    x0 = params[0]
-    y0 = params[1]
-
-    coords = np.vstack((x, y))
-    rotated = rotateCoordinatesAroundCenter(coords, x0, y0, np.deg2rad(insrot))
-    # You have to remember that we computed this model by dividing twilight by the quartzes.
-    # Providing the twilight is uniform, what you have left is actually the inverse of the screen response.
-    return 1 / poly2dScreen(rotated, *params[2:])
