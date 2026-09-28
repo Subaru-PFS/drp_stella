@@ -7,6 +7,7 @@ import warnings
 
 from astropy import constants as const
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.ndimage import median_filter
 from scipy.optimize import minimize
 
@@ -1271,6 +1272,30 @@ class FitFluxCalConfig(PipelineTaskConfig, pipelineConnections=FitFluxCalConnect
     fitFocalPlane = ConfigurableField(
         target=FitFluxCalibFocalPlaneFunctionTask, doc="Fit flux calibration model"
     )
+    preSmoothFilterWidth = Field(
+        dtype=float,
+        default=5,
+        doc="Width of smoothing filter (trim-mean filter) applied to calib vector"
+        " before they are stacked [nm].",
+    )
+    preSmoothEdgePreservingThreshold = Field(
+        dtype=float,
+        default=10,
+        doc="Switch to an edge-preserving filter if calib vector is steeper than this threshold.",
+    )
+    nonPreSmoothedRangesStart = ListField(
+        dtype=float,
+        default=[588.5, 627.6, 686.5, 716.0, 759.0, 813.0, 895.0, 1100.0, 1260.0],
+        doc="Start-ends of ranges where calib vector should not be smoothed [nm].",
+    )
+    nonPreSmoothedRangesStop = ListField(
+        dtype=float,
+        default=[590.2, 629.0, 695.0, 734.0, 771.0, 837.0, 985.0, 1210.0, 1280.0],
+        doc="Stop-ends of ranges where calib vector should not be smoothed [nm].",
+    )
+    nonPreSmoothedRangesMargin = Field(
+        dtype=float, default=0.1, doc="nonSmoothedRanges are widened by this much [nm]."
+    )
     adjustCalibVectorsRangeStart = Field(
         dtype=float, default=600, doc="Start of wavelength range to use for height adjustment [nm]."
     )
@@ -1466,9 +1491,8 @@ class FitFluxCalTask(PipelineTask):
         calibVectors /= ref
         calibVectors.norm[...] = 1.0  # We're deliberately changing the normalisation
 
+        self.smoothCalibVectors(pfsConfig, calibVectors)
         scales = self.getHeightsOfCalibVectors(calibVectors)
-
-        # TODO: Smooth the flux calibration vectors.
 
         if self.debugInfo.doWriteCalibVector:
             debugging.writeExtraData(
@@ -1570,3 +1594,67 @@ class FitFluxCalTask(PipelineTask):
         # highest calib vector was positioned better than any other fiber.
         reference = np.nanmax(heights)
         return heights / reference
+
+    def smoothCalibVectors(self, pfsConfig: PfsConfig, calibVectors: PfsMerged) -> None:
+        """Smooth calib vectors (observed spectra) / (reference spectra).
+
+        Parameters
+        ----------
+        pfsConfig : `PfsConfig`
+            PFS fiber configuration.
+        calibVectors : `PfsMerged`
+            Calib vectors. ``calibVectors.norm`` must be 1 (constant).
+            This object will be modified by this function.
+        """
+        maskedRangesStart = np.asarray(self.config.nonPreSmoothedRangesStart, dtype=np.float64)
+        maskedRangesStop = np.asarray(self.config.nonPreSmoothedRangesStop, dtype=np.float64)
+
+        maskedRangesStart -= self.config.nonPreSmoothedRangesMargin
+        maskedRangesStop += self.config.nonPreSmoothedRangesMargin
+
+        # shape (nSamples [broadcast], nMasks)
+        maskedRangesStart = maskedRangesStart.reshape(1, -1)
+        maskedRangesStop = maskedRangesStop.reshape(1, -1)
+
+        # Smooth calibVectors one by one to reduce memory use.
+        for i in range(len(calibVectors.fiberId)):
+            rawVec = calibVectors.flux[i]
+            wavelen = calibVectors.wavelength[i]
+
+            wavelenPerPix = np.nanmedian(wavelen[1:] - wavelen[:-1])
+            windowSize = 2 * int(round(self.config.preSmoothFilterWidth / (2 * wavelenPerPix) - 0.5)) + 1
+
+            # shape (nSamples, nMasks [broadcast])
+            wavelen = wavelen.reshape(-1, 1)
+            # shape (nSamples,)
+            isMasked = np.any((maskedRangesStart < wavelen) & (wavelen < maskedRangesStop), axis=1)
+            # shape (nSamples, windowSize)
+            windows = sliding_window_view(
+                np.pad(rawVec, (windowSize // 2, windowSize // 2), mode="edge"), windowSize
+            )
+
+            medianFiltered = np.median(windows, axis=-1)
+
+            # Trim 1/4 from each end of the histogram before taking mean.
+            trimPos = int(0.25 * windowSize)
+            windows = np.partition(
+                windows,
+                (trimPos, windowSize - trimPos - 1),
+                axis=-1,
+            )
+            trimMeanFiltered = windows[:, trimPos : windowSize - trimPos].mean(axis=-1)
+
+            q1 = windows[:, trimPos]
+            q3 = windows[:, windowSize - trimPos - 1]
+            isSteep = q3 - q1 > self.config.preSmoothEdgePreservingThreshold * q1
+
+            smoothVec = np.select([isMasked, isSteep], [rawVec, medianFiltered], default=trimMeanFiltered)
+
+            if "m" in pfsConfig.arms:
+                wavelen = wavelen.reshape(-1)
+                # mask bad region around dichroic edges
+                calibVectors[i].mask[(920 < wavelen) & (wavelen < 935)] = calibVectors[i].flags.add(
+                    "BAD_FLUXCAL"
+                )
+
+            calibVectors.flux[i] = smoothVec
