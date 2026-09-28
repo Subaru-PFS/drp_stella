@@ -193,7 +193,8 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
                                  doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
                                  default=dict(b=0.081, r=0.109, m=0.059, n=0.109))
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
-    doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction to quartz?")
+    doApplyScreenResponse = Field(dtype=bool, default=True,
+                                  doc="Apply the screen response correction to quartz and sky exposures?")
     screen = ConfigurableField(target=ScreenResponseTask, doc="Screen response correction")
     targetType = ListField(dtype=str, default=["^ENGINEERING"],
                            doc="Target type for which to extract spectra")
