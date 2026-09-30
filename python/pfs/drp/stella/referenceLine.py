@@ -232,7 +232,7 @@ class ReferenceLineSet(Table):
                 print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
             print("#", file=fd)
             for line in self.rows:
-                print(f"{line.wavelength:<12.5f} {line.intensity:12.2f}    "
+                print(f"{line.wavelength:<12.5f} {line.intensity:12.7g}    "
                       f"{line.description:7s} {line.status:6d}",
                       f"{line.transition:7s} {line.source:3d}",
                       file=fd)
