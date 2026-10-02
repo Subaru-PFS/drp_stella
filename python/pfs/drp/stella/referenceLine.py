@@ -74,6 +74,8 @@ class ReferenceLineTable(PfsTable):
         Line transitions, or UNKNOWN if not known
     source: `numpy.ndarray` of `int`
         Bitmask indicating the reference source information.
+    intensityErr : `numpy.ndarray` of `float`
+        Estimated uncertainty on ``intensity`` (same units); NaN if not known.
     """
     schema = [
         Column("description", str, "Description of line; usually the atomic or molecular identification", ""),
@@ -82,6 +84,7 @@ class ReferenceLineTable(PfsTable):
         Column("status", np.int32, "Line status bitmask", -1),
         Column("transition", str, "Line transition", "UNKNOWN"),
         Column("source", np.int32, "Source information bitmask", -1),
+        Column("intensityErr", float, "Estimated uncertainty on intensity (same units)", np.nan),
     ]
     fitsExtName = "REFLINES"
 
@@ -95,6 +98,9 @@ class ReferenceLineSource(Bitmask):
     ROUSSELOT2000 = 0x08, 'Rousselot+2000 (2000A&A...354.1134R)'
     SDSS = 0x10, 'Lines taken from SDSS (https://www.sdss.org/dr14/spectro/spectro_basics)'
     RAGNAR = 0x20, 'Lines taken from Ragnar sky line list; Christian Kragh Jespersen thesis, 2026'
+    EMPIRICAL_INTENSITY = 0x40, ('Intensity measured empirically from PFS data, replacing the catalogued '
+                                 'value; PLACEHOLDER, provenance (data/visits used, date, method) not yet '
+                                 'recorded')
 
 
 class ReferenceLineSet(Table):
@@ -140,14 +146,18 @@ class ReferenceLineSet(Table):
                     continue
 
                 fields = line.split()
+                intensityErr = np.nan
                 try:
-                    # Support linelists that do not have transition or source information
+                    # Support linelists that do not have transition or source information, and older
+                    # ones that predate the intensityErr column
                     if len(fields) == 4:
                         wavelength, intensity, description, status = fields
                         transition = "UNKNOWN"
                         source = ReferenceLineSource.NONE
-                    else:
+                    elif len(fields) == 6:
                         wavelength, intensity, description, status, transition, source = fields
+                    else:
+                        wavelength, intensity, description, status, transition, source, intensityErr = fields
                 except Exception as ex:
                     raise RuntimeError(f"Unable to parse line {ii} of {filename}: {ex}")
 
@@ -160,6 +170,11 @@ class ReferenceLineSet(Table):
                 except ValueError:
                     intensity = np.nan
 
+                try:
+                    intensityErr = float(intensityErr)
+                except (ValueError, TypeError):
+                    intensityErr = np.nan
+
                 lines.append(
                     ReferenceLine(
                         description=description,
@@ -168,6 +183,7 @@ class ReferenceLineSet(Table):
                         status=status,
                         transition=transition,
                         source=source,
+                        intensityErr=intensityErr,
                     )
                 )
 
@@ -216,11 +232,12 @@ class ReferenceLineSet(Table):
         with open(filename, "w") as fd:
             print("# Columns:", file=fd)
             print("# 1: wavelength (nm)", file=fd)
-            print("# 2: intensity (arbitrary units)", file=fd)
+            print("# 2: intensity (approximate counts/sec for PFS lamps)", file=fd)
             print("# 3: description (ionic species)", file=fd)
             print("# 4: status (bitmask)", file=fd)
             print("# 5: transition", file=fd)
             print("# 6: source reference", file=fd)
+            print("# 7: intensityErr (uncertainty on intensity; same units)", file=fd)
             print("#", file=fd)
             print("# Status bitmask elements:", file=fd)
             for flag in ReferenceLineStatus:
@@ -232,9 +249,10 @@ class ReferenceLineSet(Table):
                 print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
             print("#", file=fd)
             for line in self.rows:
-                print(f"{line.wavelength:<12.5f} {line.intensity:12.2f}    "
+                print(f"{line.wavelength:<12.5f} {line.intensity:12.7g}    "
                       f"{line.description:7s} {line.status:6d}",
                       f"{line.transition:7s} {line.source:3d}",
+                      f"{line.intensityErr:12.7g}",
                       file=fd)
 
     def plot(self, axes, ls='-', alpha=1, color=None, label=None,
