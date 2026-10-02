@@ -105,8 +105,8 @@ ticket has been completed). At any point, a ticket can also be set to “Won't
 Fix”.
 
 .. _their documentation: https://developer.lsst.io/processes/workflow.html
-.. _PFS JIRA: https://pfs.ipmu.jp/jira/
-.. _JIRA project: https://pfs.ipmu.jp/jira/secure/BrowseProjects.jspa#all
+.. _PFS JIRA: https://pfs-jira.naoj.org/jira/
+.. _JIRA project: https://pfs-jira.naoj.org/jira/secure/BrowseProjects.jspa#all
 
 Sprinting
 ---------
