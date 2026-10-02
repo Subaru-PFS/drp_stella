@@ -10,8 +10,8 @@ from pfs.drp.stella.tests import runTests
 # Plotting, display and opdb tools for notebooks; nothing in the pipeline needs them.
 NOTEBOOK_MODULES = [
     f"pfs.drp.stella.utils.{name}" for name in (
-        "ag_to_zenith_offset", "asinhNorm", "display", "fiberProfiles", "fiberThroughputs", "guiders",
-        "patrolRegionFluxes", "pfiFocus", "plotting", "quality", "raster", "stability", "sunss",
+        "ag_to_zenith_offset", "asinhNorm", "display", "extraction", "fiberProfiles", "fiberThroughputs",
+        "guiders", "patrolRegionFluxes", "pfiFocus", "plotting", "quality", "raster", "stability", "sunss",
     )
 ]
 
