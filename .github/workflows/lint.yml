@@ -1,0 +1,41 @@
+name: Lint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Pinned deliberately. A newer flake8 or plugin can introduce checks that fail
+  # code which was clean when it was written; bump these in their own commit so
+  # the resulting findings get reviewed on their own.
+  FLAKE8_VERSION: "7.4.1"
+  PEP8_NAMING_VERSION: "0.15.1"
+
+jobs:
+  flake8:
+    name: flake8
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # pep8-naming provides the N8xx checks that setup.cfg configures.
+      - name: Install flake8
+        run: python -m pip install "flake8==${FLAKE8_VERSION}" "pep8-naming==${PEP8_NAMING_VERSION}"
+
+      # Configuration is in setup.cfg. Needs no stack: flake8 only parses the files.
+      - name: Lint
+        run: flake8
