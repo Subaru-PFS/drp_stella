@@ -24,7 +24,7 @@ from .datamodel import PfsConfig, PfsArm, PfsMerged
 from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
-from .utils import getPfsVersions
+from .utils.sysUtils import getPfsVersions
 from .lsf import LsfDict, CoaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask

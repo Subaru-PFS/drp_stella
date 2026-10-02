@@ -10,7 +10,7 @@ from .math import makeAffineTransform, getAffineParameters
 from .OpticalModel import SlitModel, OpticsModel, DetectorModel
 from .OpticalModelDetectorMap import OpticalModelDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
-from .utils import headerToMetadata
+from .utils.sysUtils import headerToMetadata
 
 __all__ = ("OpticalModelDetectorMap",)
 

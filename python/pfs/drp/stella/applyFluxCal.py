@@ -27,7 +27,7 @@ from .gen3 import readDatasetRefs
 from .interpolate import calculateDispersion
 from .lsf import Lsf, LsfDict
 from .subtractSky1d import subtractSky1d
-from .utils import getPfsVersions
+from .utils.sysUtils import getPfsVersions
 from .FluxTableTask import FluxTableTask
 
 from collections.abc import Iterable

@@ -23,7 +23,7 @@ from .datamodel.drp import PfsArm, PfsSingle
 from .applyFluxCal import calibratePfsArm
 from .focalPlaneFunction import FocalPlaneFunction
 from .interpolate import calculateDispersion
-from .utils import getPfsVersions
+from .utils.sysUtils import getPfsVersions
 from .wavelengthSampling import WavelengthSamplingTask
 
 __all__ = ("CoaddNoiseConfig", "CoaddNoiseTask")

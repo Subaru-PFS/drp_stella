@@ -5,7 +5,7 @@ from scipy.spatial import ConvexHull
 
 from pfs.datamodel import FiberStatus, TargetType
 from pfs.utils import OneCobra
-from . import calculateNxNy
+from .sysUtils import calculateNxNy
 from .display import addFiberCursor
 from .quality import opaqueColorbar
 from pfs.drp.stella.telecentricity import twoCircleOverlapOnSphere, getFiberAngle
