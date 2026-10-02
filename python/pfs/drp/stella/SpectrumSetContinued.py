@@ -11,7 +11,7 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel import Identity
 from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet
-from .utils import getPfsVersions
+from .utils.sysUtils import getPfsVersions
 
 __all__ = ["SpectrumSet"]
 

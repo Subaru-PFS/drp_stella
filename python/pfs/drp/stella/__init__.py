@@ -15,7 +15,6 @@ from .FiberTraceSet import *
 from .FiberTraceSetContinued import *
 from .DetectorMapContinued import *
 from .SplinedDetectorMapContinued import *
-from .utils import *
 from .spline import *
 from .SpectralPsf import *
 from .SpectralPsfContinued import *

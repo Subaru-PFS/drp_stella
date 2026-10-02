@@ -8,7 +8,7 @@ from .DetectorMapContinued import DetectorMap
 from .Distortion import Distortion
 from .LayeredDetectorMap import LayeredDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
-from .utils import headerToMetadata
+from .utils.sysUtils import headerToMetadata
 
 __all__ = ("LayeredDetectorMap",)
 

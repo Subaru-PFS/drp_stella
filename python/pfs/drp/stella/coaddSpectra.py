@@ -25,7 +25,7 @@ from .datamodel import PfsObject, PfsSingle
 from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
-from .utils import getPfsVersions
+from .utils.sysUtils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .gen3 import DatasetRefList, zipDatasetRefs
 

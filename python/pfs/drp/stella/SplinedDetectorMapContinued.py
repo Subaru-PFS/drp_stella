@@ -6,7 +6,7 @@ from lsst.utils import continueClass
 import pfs.datamodel
 from .SplinedDetectorMap import SplinedDetectorMap
 from .DetectorMapContinued import DetectorMap
-from .utils import headerToMetadata
+from .utils.sysUtils import headerToMetadata
 
 
 __all__ = ["SplinedDetectorMap"]

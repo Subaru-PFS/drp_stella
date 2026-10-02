@@ -5,7 +5,7 @@ from matplotlib.animation import FuncAnimation
 
 from lsst.daf.butler import DatasetNotFoundError
 
-from pfs.drp.stella.utils import addPfsCursor
+from pfs.drp.stella.utils.display import addPfsCursor
 
 __all__ = ["addTraceLambdaToArclines", ]
 
