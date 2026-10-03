@@ -189,7 +189,7 @@ def makePfiTransformFromOpdb(opdb, visitId, subVisitId=0):
 
 
 def getHomeVisits(opdb, dateStart=None, dateEnd=None, arm=None, pfsVisits=None,
-                  returnDataFrame=False, limit=None):
+                  returnDataFrame=False, limit=None, visit0Only=False):
     """Return an array of fiber trace home visits (using the r arm) with insrot == 0
 
     opdb: `pfs.utils.database.opdb.OpDB`
@@ -204,6 +204,9 @@ def getHomeVisits(opdb, dateStart=None, dateEnd=None, arm=None, pfsVisits=None,
        Return the pd.DataFrame if True else pfs_visit_id as a numpy array (default: False)
     limit `int`
        Return at most limit visits
+    visit0Only `bool`
+       Only return visits that are their pfsConfig's visit0, not later visits that reuse
+       that pfsConfig (default: False)
     """
     params = {"good": int(FiberStatus.GOOD), "engineering": int(TargetType.ENGINEERING)}
 
@@ -225,6 +228,8 @@ def getHomeVisits(opdb, dateStart=None, dateEnd=None, arm=None, pfsVisits=None,
     if pfsVisits is not None:
         where.append("sps_exposure.pfs_visit_id = ANY(:pfsVisits)")
         params["pfsVisits"] = [int(v) for v in pfsVisits]
+    if visit0Only:
+        where.append("pfs_config.visit0 = sps_exposure.pfs_visit_id")
 
     tmp = opdb.query_dataframe(f'''
     SELECT DISTINCT
