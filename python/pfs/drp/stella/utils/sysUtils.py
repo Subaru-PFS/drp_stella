@@ -172,14 +172,14 @@ def makePfiTransformFromOpdb(opdb, visitId, subVisitId=0):
 
     tmp = opdb.query_dataframe("""
     SELECT
-       *
+       camera_name, x0, y0, theta, dscale, scale2
     FROM
        mcs_pfi_transformation
     WHERE
        mcs_frame_id = :mcs_frame_id
     """, params=params)
 
-    mcs_frame_id, x0, y0, dscale, scale2, theta, alpha_rot, camera_name = tmp.iloc[0]
+    camera_name, x0, y0, theta, dscale, scale2 = tmp.iloc[0]
 
     mpt = makePfiTransform(camera_name, altitude=altitude, insrot=insrot)
 
