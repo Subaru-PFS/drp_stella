@@ -19,7 +19,6 @@ from pfs.utils.coordinates.CoordTransp import CoordinateTransform
 
 from lsst.ip.isr import AssembleCcdTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from .sysUtils import pd_read_sql
 
 
 __all__ = ["raDecStrToDeg", "makeDither", "makeCobraImages", "makeSkyImageFromCobras",
@@ -707,45 +706,43 @@ def offsetsAsQuiver(pfsConfig, xoff, yoff, usePFImm=False, select=None,
 
 def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
     """Estimate the extinction for a given visit, using Gaia stars detected by the AG code
-    opdb: connection to the opdb
+    opdb: the opdb (`pfs.utils.database.opdb.OpDB`)
     visit: desired visit
     magLim: magnitude limit for Gaia stars to use
     zeroPoint: estimated zero point for AG photometry (if this is wrong, the extinction will be wrong
                by the same amount)
     """
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT
-                agc_exposure_id
-            FROM agc_exposure
-            JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
-            WHERE
-                sps_exposure.pfs_visit_id = {visit} AND
-                agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
-            ORDER BY agc_exposure ASC
-            ''', opdb)
+    tmp = opdb.query_dataframe('''
+        SELECT
+            agc_exposure_id
+        FROM agc_exposure
+        JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+        WHERE
+            sps_exposure.pfs_visit_id = :visit AND
+            agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+        ORDER BY agc_exposure ASC
+        ''', params={"visit": int(visit)})
 
     amin, amax = np.min(tmp.agc_exposure_id), np.max(tmp.agc_exposure_id)
 
     if np.isnan(amin + amax):
         return 0.0
 
-    with opdb:
-        tmp = pd_read_sql(f'''
-        SELECT
-            pfs_visit_id, agc_exposure.agc_exptime, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
-            agc_match.guide_star_id, image_moment_00_pix, pfs_design_agc.guide_star_magnitude,
-            pfs_design_agc.guide_star_color
-        FROM agc_exposure
-        JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
-        JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
-                          agc_match.agc_camera_id = agc_data.agc_camera_id AND
-                          agc_match.spot_id = agc_data.spot_id
-        JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id
-        WHERE
-            pfs_design_agc.passband = 'g_gaia' and
-            agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
-        ''', opdb)
+    tmp = opdb.query_dataframe('''
+    SELECT
+        pfs_visit_id, agc_exposure.agc_exptime, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
+        agc_match.guide_star_id, image_moment_00_pix, pfs_design_agc.guide_star_magnitude,
+        pfs_design_agc.guide_star_color
+    FROM agc_exposure
+    JOIN agc_data ON agc_data.agc_exposure_id = agc_exposure.agc_exposure_id
+    JOIN agc_match ON agc_match.agc_exposure_id = agc_data.agc_exposure_id AND
+                      agc_match.agc_camera_id = agc_data.agc_camera_id AND
+                      agc_match.spot_id = agc_data.spot_id
+    JOIN pfs_design_agc ON pfs_design_agc.guide_star_id = agc_match.guide_star_id
+    WHERE
+        pfs_design_agc.passband = 'g_gaia' and
+        agc_exposure.agc_exposure_id BETWEEN :amin AND :amax
+    ''', params={"amin": int(amin), "amax": int(amax)})
     #
     # Set an array, it, which is the index into the possible timestamps
     # We use this to add NaN entries for guide stars which are only sometimes detected; there
@@ -774,7 +771,7 @@ def estimateExtinction(opdb, visit, magLim=16, zeroPoint=29.06):
 
 def getGuideOffset(opdb, visit):
     """Estimate the mean guide offset for a given visit
-    opdb: connection to the opdb
+    opdb: the opdb (`pfs.utils.database.opdb.OpDB`)
     visit: desired visit
 
     Returns:
@@ -782,34 +779,32 @@ def getGuideOffset(opdb, visit):
        ddec  mean offset in dec (arcseconds)
        df    Pandas data frame for diagnostics, if desired
     """
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT
-                agc_exposure_id
-            FROM agc_exposure
-            JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
-            WHERE
-                sps_exposure.pfs_visit_id = {visit} AND
-                agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
-            ORDER BY agc_exposure ASC
-            ''', opdb)
+    tmp = opdb.query_dataframe('''
+        SELECT
+            agc_exposure_id
+        FROM agc_exposure
+        JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+        WHERE
+            sps_exposure.pfs_visit_id = :visit AND
+            agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+        ORDER BY agc_exposure ASC
+        ''', params={"visit": int(visit)})
 
     amin, amax = np.min(tmp.agc_exposure_id), np.max(tmp.agc_exposure_id)
 
     if np.isnan(amin + amax):
         return 0, 0, None
 
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT
-                pfs_visit.pfs_visit_id, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
-                guide_ra, guide_dec, guide_delta_ra, guide_delta_dec
-            FROM pfs_visit
-            JOIN agc_exposure ON agc_exposure.pfs_visit_id = pfs_visit.pfs_visit_id
-            JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-            WHERE
-                 agc_exposure.agc_exposure_id BETWEEN {amin} AND {amax}
-            ''', opdb)
+    tmp = opdb.query_dataframe('''
+        SELECT
+            pfs_visit.pfs_visit_id, agc_exposure.agc_exposure_id, agc_exposure.taken_at,
+            guide_ra, guide_dec, guide_delta_ra, guide_delta_dec
+        FROM pfs_visit
+        JOIN agc_exposure ON agc_exposure.pfs_visit_id = pfs_visit.pfs_visit_id
+        JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+        WHERE
+             agc_exposure.agc_exposure_id BETWEEN :amin AND :amax
+        ''', params={"amin": int(amin), "amax": int(amax)})
 
     if len(tmp) == 0:
         return 0, 0, tmp
@@ -821,18 +816,20 @@ def getDitherRaDec(opdb, visit):
     """Return the dither_ra/dec for a visit
 
     Will be in headers in the great bye-and-bye
+
+    opdb: the opdb (`pfs.utils.database.opdb.OpDB`)
+    visit: desired visit
     """
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT
-                dither_ra, dither_dec, status_sequence_id
-            FROM tel_status
-            JOIN sps_exposure ON sps_exposure.pfs_visit_id = tel_status.pfs_visit_id
-            WHERE
-                tel_status.pfs_visit_id = {visit} AND
-                tel_status.created_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
-            ORDER BY status_sequence_id ASC
-            ''', opdb)
+    tmp = opdb.query_dataframe('''
+        SELECT
+            dither_ra, dither_dec, status_sequence_id
+        FROM tel_status
+        JOIN sps_exposure ON sps_exposure.pfs_visit_id = tel_status.pfs_visit_id
+        WHERE
+            tel_status.pfs_visit_id = :visit AND
+            tel_status.created_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+        ORDER BY status_sequence_id ASC
+        ''', params={"visit": int(visit)})
 
     if len(tmp) == 0:
         return np.nan, np.nan, tmp
@@ -845,30 +842,29 @@ def getDitherRaDec(opdb, visit):
 
 def getGuideError(opdb, visit):
     """Return the AG's guide error estimate for a visit
-    opdb: connection to the opdb
+    opdb: the opdb (`pfs.utils.database.opdb.OpDB`)
     visit: desired visit
 
     Returns:  delta(altitude), delta(azimuth), delta(insrot) all in arcseconds
     """
 
-    with opdb:
-        tmp = pd_read_sql(f'''
-           SELECT
-               agc_exposure.pfs_visit_id,
-               -- avg(agc_exposure.altitude) AS altitude,
-               -- avg(agc_exposure.azimuth) AS azimuth,
-               -- avg(agc_exposure.insrot) AS insrot,
-               min(guide_delta_insrot) as guide_delta_insrot,
-               min(guide_delta_az) as guide_delta_azimuth,
-               min(guide_delta_el) as guide_delta_altitude
-           FROM agc_exposure
-           JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
-           JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
-           WHERE
-               agc_exposure.pfs_visit_id = {visit} AND
-               agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
-           GROUP BY agc_exposure.pfs_visit_id -- agc_exposure.agc_exposure_id
-           ''', opdb)
+    tmp = opdb.query_dataframe('''
+       SELECT
+           agc_exposure.pfs_visit_id,
+           -- avg(agc_exposure.altitude) AS altitude,
+           -- avg(agc_exposure.azimuth) AS azimuth,
+           -- avg(agc_exposure.insrot) AS insrot,
+           min(guide_delta_insrot) as guide_delta_insrot,
+           min(guide_delta_az) as guide_delta_azimuth,
+           min(guide_delta_el) as guide_delta_altitude
+       FROM agc_exposure
+       JOIN agc_guide_offset ON agc_guide_offset.agc_exposure_id = agc_exposure.agc_exposure_id
+       JOIN sps_exposure ON sps_exposure.pfs_visit_id = agc_exposure.pfs_visit_id
+       WHERE
+           agc_exposure.pfs_visit_id = :visit AND
+           agc_exposure.taken_at BETWEEN sps_exposure.time_exp_start AND sps_exposure.time_exp_end
+       GROUP BY agc_exposure.pfs_visit_id -- agc_exposure.agc_exposure_id
+       ''', params={"visit": int(visit)})
 
     tmp.reset_index(drop=True)
 
@@ -881,7 +877,7 @@ def showGuiderOffsets(opdb, visits, showGuidePath=True, showMeanToEndOffset=Fals
 
     N.b. The guider's guide_delta_ra is multiplied by cos(dec) in all of these plots
 
-    opdb:                 a connection to the opdb postgres database
+    opdb:                 the opdb (`pfs.utils.database.opdb.OpDB`)
     showGuidePath:        plot dAlpha : dDelta
     showMeanToEndOffset:  plot the difference between the average offset in a visit and the last value
 
