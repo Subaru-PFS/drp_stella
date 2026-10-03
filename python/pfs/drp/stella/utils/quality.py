@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from lsst.daf.butler import DatasetNotFoundError
 
-from .sysUtils import pd_read_sql
 from .stability import addTraceLambdaToArclines
 
 
@@ -548,45 +547,59 @@ def showImageQuality(dataIds, showWhisker=False, showFWHM=False, showFWHMAgainst
 # Look at cobra convergence
 #
 def getCobraDesignForVisit(opdb, pfs_visit_id):
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT DISTINCT
-                cobra_target.pfs_visit_id,
-                cobra_target.cobra_id,
-                pfi_nominal_x_mm,
-                pfi_nominal_y_mm,
-                center_x_mm as cobra_center_x_mm,
-                center_y_mm as cobra_center_y_mm,
-                motor_theta_length_mm,
-                motor_phi_length_mm
-            FROM cobra_target
-            JOIN cobra_geometry on cobra_geometry.cobra_id = cobra_target.cobra_id
-            WHERE
-              cobra_target.pfs_visit_id = {pfs_visit_id} OR
-              cobra_target.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
-                                           pfs_visit_id = {pfs_visit_id})
-            ''', opdb)
+    """Return the cobra targets and geometry for a visit
+
+    opdb: `pfs.utils.database.opdb.OpDB`
+       The opdb
+    pfs_visit_id: `int`
+       Desired visit; also matches rows stored under its visit0
+    """
+    tmp = opdb.query_dataframe('''
+        SELECT DISTINCT
+            cobra_target.pfs_visit_id,
+            cobra_target.cobra_id,
+            pfi_nominal_x_mm,
+            pfi_nominal_y_mm,
+            center_x_mm as cobra_center_x_mm,
+            center_y_mm as cobra_center_y_mm,
+            motor_theta_length_mm,
+            motor_phi_length_mm
+        FROM cobra_target
+        JOIN cobra_geometry on cobra_geometry.cobra_id = cobra_target.cobra_id
+        WHERE
+          cobra_target.pfs_visit_id = :pfs_visit_id OR
+          cobra_target.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                       pfs_visit_id = :pfs_visit_id)
+        ''', params={"pfs_visit_id": int(pfs_visit_id)})
     return tmp
 
 
 def getConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT DISTINCT
-                mcs_exposure.mcs_frame_id, mcs_data.spot_id, cobra_match.cobra_id, cobra_match.iteration,
-                pfi_center_x_mm, pfi_center_y_mm, pfi_target_x_mm, pfi_target_y_mm
-            FROM mcs_exposure
-            JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
-            JOIN cobra_match ON cobra_match.spot_id = mcs_data.spot_id AND
-                                cobra_match.mcs_frame_id = mcs_exposure.mcs_frame_id
-            JOIN cobra_target ON cobra_target.pfs_visit_id = cobra_match.pfs_visit_id AND
-                                 cobra_target.cobra_id = cobra_match.cobra_id AND
-                                 cobra_target.iteration = cobra_match.iteration
-            WHERE
-              mcs_exposure.pfs_visit_id = {pfs_visit_id} OR
-              mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
-                                           pfs_visit_id = {pfs_visit_id})
-            ''', opdb)
+    """Return the measured cobra positions for each convergence iteration of a visit
+
+    opdb: `pfs.utils.database.opdb.OpDB`
+       The opdb
+    pfs_visit_id: `int`
+       Desired visit; also matches rows stored under its visit0
+    calculateMean: `bool`
+       Add the mean pfi_center_[xy]_mm for each cobra (default: True)
+    """
+    tmp = opdb.query_dataframe('''
+        SELECT DISTINCT
+            mcs_exposure.mcs_frame_id, mcs_data.spot_id, cobra_match.cobra_id, cobra_match.iteration,
+            pfi_center_x_mm, pfi_center_y_mm, pfi_target_x_mm, pfi_target_y_mm
+        FROM mcs_exposure
+        JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
+        JOIN cobra_match ON cobra_match.spot_id = mcs_data.spot_id AND
+                            cobra_match.mcs_frame_id = mcs_exposure.mcs_frame_id
+        JOIN cobra_target ON cobra_target.pfs_visit_id = cobra_match.pfs_visit_id AND
+                             cobra_target.cobra_id = cobra_match.cobra_id AND
+                             cobra_target.iteration = cobra_match.iteration
+        WHERE
+          mcs_exposure.pfs_visit_id = :pfs_visit_id OR
+          mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                       pfs_visit_id = :pfs_visit_id)
+        ''', params={"pfs_visit_id": int(pfs_visit_id)})
 
     if calculateMean:
         grouped = tmp.groupby("cobra_id")
@@ -599,25 +612,33 @@ def getConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
 
 
 def getFiducialConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
-    with opdb:
-        tmp = pd_read_sql(f'''
-            SELECT DISTINCT
-                mcs_exposure.mcs_frame_id,
-                mcs_data.spot_id, fiducial_fiber_match.fiducial_fiber_id, fiducial_fiber_match.iteration,
-                mcs_exposure.taken_at,
-                mcs_center_x_pix, mcs_center_y_pix, mcs_exposure.altitude, mcs_exposure.insrot
-                --
-                -- replace previous line with this one when mm centres are available
-                --   pfi_center_x_mm, pfi_center_y_mm
-            FROM mcs_exposure
-            JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
-            JOIN fiducial_fiber_match ON fiducial_fiber_match.spot_id = mcs_data.spot_id AND
-                                fiducial_fiber_match.mcs_frame_id = mcs_exposure.mcs_frame_id
-            WHERE
-                mcs_exposure.pfs_visit_id = {pfs_visit_id} OR
-                mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
-                                             pfs_visit_id = {pfs_visit_id})
-            ''', opdb)
+    """Return the measured fiducial fiber positions for each convergence iteration of a visit
+
+    opdb: `pfs.utils.database.opdb.OpDB`
+       The opdb
+    pfs_visit_id: `int`
+       Desired visit; also matches rows stored under its visit0
+    calculateMean: `bool`
+       Add the mean pfi_center_[xy]_mm for each fiducial fiber (default: True)
+    """
+    tmp = opdb.query_dataframe('''
+        SELECT DISTINCT
+            mcs_exposure.mcs_frame_id,
+            mcs_data.spot_id, fiducial_fiber_match.fiducial_fiber_id, fiducial_fiber_match.iteration,
+            mcs_exposure.taken_at,
+            mcs_center_x_pix, mcs_center_y_pix, mcs_exposure.altitude, mcs_exposure.insrot
+            --
+            -- replace previous line with this one when mm centres are available
+            --   pfi_center_x_mm, pfi_center_y_mm
+        FROM mcs_exposure
+        JOIN mcs_data ON mcs_data.mcs_frame_id = mcs_exposure.mcs_frame_id
+        JOIN fiducial_fiber_match ON fiducial_fiber_match.spot_id = mcs_data.spot_id AND
+                            fiducial_fiber_match.mcs_frame_id = mcs_exposure.mcs_frame_id
+        WHERE
+            mcs_exposure.pfs_visit_id = :pfs_visit_id OR
+            mcs_exposure.pfs_visit_id = (SELECT visit0 FROM pfs_config_sps WHERE
+                                         pfs_visit_id = :pfs_visit_id)
+        ''', params={"pfs_visit_id": int(pfs_visit_id)})
 
     if "pfi_center_x_mm" in tmp:
         print("No need to calculate pfi_center_x_mm in getFiducialConvergenceForVisit")
@@ -625,14 +646,13 @@ def getFiducialConvergenceForVisit(opdb, pfs_visit_id, calculateMean=True):
         raise RuntimeError(f"No mcs_frame_ids are associated with pfs_visit_id {pfs_visit_id}")
     else:
         from pfs.utils.coordinates.transform import makePfiTransform
-        with opdb:
-            tmp2 = pd_read_sql(f'''
-                SELECT -- DISTINCT
-                    *
-                FROM mcs_pfi_transformation
-                WHERE
-                   mcs_frame_id IN ({", ".join([str(frame_id) for frame_id in tmp.mcs_frame_id.unique()])})
-                ''', opdb)
+        tmp2 = opdb.query_dataframe('''
+            SELECT -- DISTINCT
+                *
+            FROM mcs_pfi_transformation
+            WHERE
+               mcs_frame_id = ANY(:mcs_frame_ids)
+            ''', params={"mcs_frame_ids": [int(frame_id) for frame_id in tmp.mcs_frame_id.unique()]})
 
         tmp["pfi_center_x_mm"] = np.empty(len(tmp))
         tmp["pfi_center_y_mm"] = np.empty(len(tmp))
