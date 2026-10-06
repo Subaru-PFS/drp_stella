@@ -148,8 +148,14 @@ namespace {
 PYBIND11_MODULE(oversampledPsf, mod) {
     pybind11::module::import("pfs.drp.stella.SpectralPsf");
 
-    py::classh<GaussianOversampledPsf, OversampledPsf, lsst::afw::detection::Psf>
-        cls(mod, "GaussianOversampledPsf");
+    // Registered with only the direct C++ base (OversampledPsf):
+    // lsst::afw::detection::Psf is an indirect (virtual) grandparent base
+    // reached through OversampledPsf, and declaring it as a simultaneous
+    // pybind11 base here corrupts process-wide polymorphic Psf downcasting.
+    // NevenPsf.cc used to hit this same bug (binding both SpectralPsf and
+    // OversampledPsf -- two indirect routes to Psf -- simultaneously); it
+    // was removed rather than fixed. See PIPE2D-1823.
+    py::classh<GaussianOversampledPsf, OversampledPsf> cls(mod, "GaussianOversampledPsf");
     cls.def(py::init<float, int, lsst::geom::Extent2I>(), "sigma"_a, "oversampleFactor"_a, "targetSize"_a);
     cls.def("getSigma", &GaussianOversampledPsf::getSigma);
 }
