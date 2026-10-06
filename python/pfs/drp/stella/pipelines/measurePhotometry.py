@@ -12,10 +12,7 @@ from pfs.datamodel import FiberStatus, PfsConfig, TargetType
 
 from ..DetectorMapContinued import DetectorMap
 from ..fiberProfileSet import FiberProfileSet
-from ..FiberTraceSetContinued import FiberTraceSet
-from ..lsf import ExtractionLsf, GaussianLsf, LsfDict
-from ..measurePsf import MeasurePsfTask
-from ..NevenPsfContinued import NevenPsf
+from ..lsf import GaussianLsf, LsfDict
 from ..photometerLines import PhotometerLinesTask
 from ..readLineList import ReadLineListTask
 
@@ -65,12 +62,6 @@ class MeasurePhotometryConnections(
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    psf = OutputConnection(
-        name="psf",
-        doc="2D point-spread function",
-        storageClass="NevenPsf",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
     lsf = OutputConnection(
         name="pfsArmLsf",
         doc="1D line-spread function",
@@ -86,8 +77,6 @@ class MeasurePhotometryConnections(
         if not config.doMeasureLines:
             self.outputs.remove("photometry")
             self.outputs.remove("apCorr")
-        if not config.doMeasurePsf:
-            self.outputs.remove("psf")
 
 
 class MeasurePhotometryConfig(PipelineTaskConfig, pipelineConnections=MeasurePhotometryConnections):
@@ -101,8 +90,6 @@ class MeasurePhotometryConfig(PipelineTaskConfig, pipelineConnections=MeasurePho
     doMeasureLines = Field(dtype=bool, default=True, doc="Measure emission lines (sky, arc)?")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line lists for photometry")
     photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
-    doMeasurePsf = Field(dtype=bool, default=False, doc="Measure PSF?")
-    measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
     gaussianLsfWidth = DictField(
         keytype=str,
         itemtype=float,
@@ -112,7 +99,7 @@ class MeasurePhotometryConfig(PipelineTaskConfig, pipelineConnections=MeasurePho
 
 
 class MeasurePhotometryTask(PipelineTask):
-    """Measure the PSF, LSF and line fluxes"""
+    """Measure the LSF and line fluxes"""
 
     ConfigClass = MeasurePhotometryConfig
     _DefaultName = "measurePhotometry"
@@ -122,7 +109,6 @@ class MeasurePhotometryTask(PipelineTask):
         self.debugInfo = lsstDebug.Info(__name__)
         self.makeSubtask("readLineList")
         self.makeSubtask("photometerLines")
-        self.makeSubtask("measurePsf")
 
     def runQuantum(
         self,
@@ -154,8 +140,6 @@ class MeasurePhotometryTask(PipelineTask):
         if self.config.doMeasureLines:
             butler.put(outputs.photometry, outputRefs.photometry)
             butler.put(outputs.apCorr, outputRefs.apCorr)
-        if self.config.doMeasurePsf:
-            butler.put(outputs.psf, outputRefs.psf)
         butler.put(outputs.lsf, outputRefs.lsf)
 
     def run(
@@ -167,7 +151,7 @@ class MeasurePhotometryTask(PipelineTask):
         arm: str,
         spectrograph: int,
     ) -> Struct:
-        """Measure the PSF, LSF and line fluxes
+        """Measure the LSF and line fluxes
 
         Parameters
         ----------
@@ -194,8 +178,6 @@ class MeasurePhotometryTask(PipelineTask):
             Measured lines.
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Aperture correction.
-        psf : `pfs.drp.stella.SpectralPsf`
-            Two-dimensional point-spread function.
         lsf : `pfs.drp.stella.Lsf`
             One-dimensional line-spread function.
         """
@@ -205,14 +187,8 @@ class MeasurePhotometryTask(PipelineTask):
         self.checkFibers(pfsConfig, detectorMap, fiberProfiles, spectrograph)
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
-        if self.config.doMeasurePsf:
-            psf = self.measurePsf.runSingle(exposure, detectorMap)
-            lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
-        else:
-            psf = None
-            lsf = self.defaultLsf(arm, fiberProfiles.fiberId, detectorMap)
+        lsf = self.defaultLsf(arm, fiberProfiles.fiberId, detectorMap)
 
-        # Update photometry using best detectorMap, PSF
         apCorr = None
         if self.config.doMeasureLines:
             refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
@@ -225,7 +201,6 @@ class MeasurePhotometryTask(PipelineTask):
             refLines=refLines,
             photometry=lines,
             apCorr=apCorr,
-            psf=psf,
             lsf=lsf,
         )
 
@@ -271,25 +246,6 @@ class MeasurePhotometryTask(PipelineTask):
             raise RuntimeError(f"detectorMap does not include fibers: {list(sorted(missingDetMap))}")
         if need - haveProfiles:
             raise RuntimeError(f"fiberProfiles does not include fibers: {list(sorted(missingProfiles))}")
-
-    def calculateLsf(self, psf: NevenPsf, fiberTraceSet: FiberTraceSet, length: int) -> LsfDict:
-        """Calculate the LSF for this exposure
-
-        Parameters
-        ----------
-        psf : `pfs.drp.stella.SpectralPsf`
-            Point-spread function for spectral data.
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
-            Traces for each fiber.
-        length : `int`
-            Array length.
-
-        Returns
-        -------
-        lsf : `dict` (`int`: `pfs.drp.stella.ExtractionLsf`)
-            Line-spread functions, indexed by fiber identifier.
-        """
-        return LsfDict({ft.fiberId: ExtractionLsf(psf, ft, length) for ft in fiberTraceSet})
 
     def defaultLsf(self, arm: str, fiberId: int, detectorMap: DetectorMap):
         """Generate a default LSF for this exposure
