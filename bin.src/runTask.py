@@ -34,6 +34,19 @@ def main():
         default=None,
     )
     parser.add_argument(
+        "--output",
+        action="append",
+        default=[],
+        dest="outputs",
+        metavar="name:filename",
+        help=(
+            "Write an attribute of the task's result to a file, as name:filename "
+            "(e.g., detectorMap:detectorMap.fits). May be used multiple times. Most LSST/PFS data "
+            "products are written via their own writeFits(); a few types that need special handling "
+            "(e.g. a matplotlib Figure, or an afw Psf) are listed in pfs.drp.stella.harness.OUTPUT_WRITERS."
+        ),
+    )
+    parser.add_argument(
         "--log-level",
         action="append",
         default=[],
@@ -70,6 +83,7 @@ def main():
         configFile=args.config,
         logLevels=args.logLevels,
         extraFile=args.extra,
+        outputSpecs=args.outputs,
     )
 
 
