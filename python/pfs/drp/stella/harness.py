@@ -12,14 +12,24 @@ import argparse
 import importlib
 import logging
 import re
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+
+from matplotlib.figure import Figure
+
+from lsst.afw.detection import Psf
+from lsst.afw.image import ExposureF
+from lsst.geom import Box2I, Extent2I, Point2I
 
 __all__ = (
     "TYPE_REGISTRY",
+    "OUTPUT_WRITERS",
     "resolveClass",
     "readData",
     "parseDataSpec",
     "readDataSpecs",
+    "writeResult",
+    "parseOutputSpec",
+    "writeOutputs",
     "configureLogging",
     "loadConfig",
     "applyExtraData",
@@ -37,9 +47,37 @@ TYPE_REGISTRY: Dict[str, Union[str, Callable[[str], Any]]] = {
     "ArcLineSet": "pfs.drp.stella.ArcLineSet",
     "FiberProfileSet": "pfs.drp.stella.FiberProfileSet",
     "FiberTraceSet": "pfs.drp.stella.FiberTraceSet",
+    "Exposure": "lsst.afw.image.ExposureF",
 }
 
 _DATA_SPEC_RE = re.compile(r"^(?P<name>\w+):(?P<type>\w+)=(?P<value>.+)$")
+_OUTPUT_SPEC_RE = re.compile(r"^(?P<name>\w+):(?P<filename>.+)$")
+
+
+def _writeFigure(obj: Any, filename: str) -> None:
+    """Write a `matplotlib.figure.Figure` to a file"""
+    obj.savefig(filename)
+
+
+def _writePsf(obj: Any, filename: str) -> None:
+    """Write an `lsst.afw.detection.Psf` to a file
+
+    `Psf` has no ``writeFits`` of its own (it's normally persisted only as a
+    component of an `~lsst.afw.image.Exposure`), so we wrap it in a minimal
+    dummy exposure purely to carry it.
+    """
+    dummy = ExposureF(Box2I(Point2I(0, 0), Extent2I(16, 16)))
+    dummy.setPsf(obj)
+    dummy.writeFits(filename)
+
+
+#: Special-cased (type, writer) pairs, checked via `isinstance` (so
+#: subclasses match too) before falling back to calling ``obj.writeFits()``.
+#: Add new entries here for types that can't just be ``writeFits``-ed.
+OUTPUT_WRITERS: List[Tuple[type, Callable[[Any, str], None]]] = [
+    (Figure, _writeFigure),
+    (Psf, _writePsf),
+]
 
 
 def resolveClass(dottedPath: str) -> type:
@@ -130,6 +168,85 @@ def readDataSpecs(specs: Iterable[str]) -> Dict[str, Any]:
     return data
 
 
+def writeResult(obj: Any, filename: str) -> None:
+    """Write an object to a file, how exactly depending on its type
+
+    Checks `OUTPUT_WRITERS` first (for types needing special handling, e.g.
+    `~matplotlib.figure.Figure` or `~lsst.afw.detection.Psf`), then falls
+    back to calling ``obj.writeFits(filename)``, which works for most
+    LSST/PFS data products (`~lsst.afw.image.Exposure`,
+    `~lsst.afw.table.SourceCatalog`, `~pfs.drp.stella.DetectorMap`, etc.).
+
+    Parameters
+    ----------
+    obj : object
+        The object to write.
+    filename : `str`
+        Path to write it to.
+
+    Raises
+    ------
+    TypeError
+        If ``obj``'s type isn't in `OUTPUT_WRITERS` and it has no
+        ``writeFits`` method.
+    """
+    for cls, writer in OUTPUT_WRITERS:
+        if isinstance(obj, cls):
+            writer(obj, filename)
+            return
+    if hasattr(obj, "writeFits"):
+        obj.writeFits(filename)
+        return
+    raise TypeError(
+        f"Don't know how to write an object of type {type(obj).__name__!r} to a file; "
+        "add an entry to OUTPUT_WRITERS in pfs.drp.stella.harness"
+    )
+
+
+def parseOutputSpec(spec: str) -> Tuple[str, str]:
+    """Parse a ``name:filename`` command-line output specification
+
+    Parameters
+    ----------
+    spec : `str`
+        Specification of the form ``name:filename``.
+
+    Returns
+    -------
+    name : `str`
+        Name of the attribute of the task's result to write.
+    filename : `str`
+        Path to write it to.
+    """
+    match = _OUTPUT_SPEC_RE.match(spec)
+    if not match:
+        raise argparse.ArgumentTypeError(f"Invalid output specification {spec!r}; expected name:filename")
+    return match["name"], match["filename"]
+
+
+def writeOutputs(result: Any, outputSpecs: Iterable[str]) -> None:
+    """Write named attributes of a task's result to files
+
+    Parameters
+    ----------
+    result : object
+        The task's result (typically an `lsst.pipe.base.Struct`); each
+        output is read off it by attribute name.
+    outputSpecs : iterable of `str`
+        Output specifications of the form ``name:filename``.
+
+    Raises
+    ------
+    AttributeError
+        If ``result`` has no attribute of the requested name.
+    """
+    for spec in outputSpecs:
+        name, filename = parseOutputSpec(spec)
+        if not hasattr(result, name):
+            raise AttributeError(f"Task result has no attribute {name!r} to write")
+        writeResult(getattr(result, name), filename)
+
+
 def configureLogging(levels: Iterable[str]) -> logging.Logger:
     """Configure the root logger and any named child loggers
 
@@ -146,7 +263,8 @@ def configureLogging(levels: Iterable[str]) -> logging.Logger:
         The root logger, with a `~logging.StreamHandler` attached.
     """
     logger = logging.getLogger()
-    logger.addHandler(logging.StreamHandler())
+    if not any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
+        logger.addHandler(logging.StreamHandler())
     for level in levels:
         if "=" in level:
             name, levelName = level.split("=", 1)
@@ -212,6 +330,7 @@ def runTask(
     configFile: Optional[str] = None,
     logLevels: Iterable[str] = (),
     extraFile: Optional[str] = None,
+    outputSpecs: Iterable[str] = (),
 ) -> Any:
     """Configure and run a task on local data
 
@@ -230,6 +349,10 @@ def runTask(
     extraFile : `str`, optional
         Path to a python file that may add or modify entries in the data
         passed to the task's ``run`` method; see `applyExtraData`.
+    outputSpecs : iterable of `str`, optional
+        Output specifications of the form ``name:filename``, naming
+        attributes of the task's result to write to files; see
+        `writeOutputs`.
 
     Returns
     -------
@@ -242,4 +365,6 @@ def runTask(
     data = readDataSpecs(dataSpecs)
     applyExtraData(extraFile, data)
     task = taskClass(config=config, log=logger)
-    return task.run(**data)
+    result = task.run(**data)
+    writeOutputs(result, outputSpecs)
+    return result
