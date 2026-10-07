@@ -154,9 +154,41 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
         """
-        checkPsf(exposure, fwhm=self.config.fwhm)
         if len(referenceLines) == 0:
             return ArcLineSet.empty()
+        catalog = self.measureCatalog(exposure, referenceLines, detectorMap, pfsConfig, seed)
+        lines = self.translate(catalog)
+        self.log.info("Measured %d line centroids", len(lines))
+        return lines
+
+    def measureCatalog(self, exposure, referenceLines, detectorMap, pfsConfig=None, seed=0):
+        """Centroid lines on an arc, returning the measured catalog directly
+
+        As `centroidLines`, but returns the measured catalog instead of
+        converting it to a `pfs.drp.stella.ArcLineSet`. Useful for callers
+        (e.g., PSF fitting) that want the catalog in a form consumable by
+        other LSST stack measurement/fitting code.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Arc exposure on which to centroid lines.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Approximate mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
+        seed : `int`
+            Seed for random number generator.
+
+        Returns
+        -------
+        catalog : `lsst.afw.table.SourceCatalog`
+            Catalog of arc lines with measured centroids, shapes and fluxes.
+        """
+        checkPsf(exposure, fwhm=self.config.fwhm)
 
         traces = None
         if self.config.doSubtractTraces:
@@ -176,9 +208,7 @@ class CentroidLinesTask(Task):
             if traces is not None:
                 exposure.image.array += traces
 
-        lines = self.translate(catalog)
-        self.log.info("Measured %d line centroids", len(lines))
-        return lines
+        return catalog
 
     def convolveImage(self, exposure):
         """Convolve image by Gaussian kernel
