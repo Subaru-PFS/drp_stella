@@ -1,0 +1,20 @@
+description: >
+  Fit an LSST-style imaging PSF from a series of sparse-fiber exposures (each
+  with a different subset of fibers lit, e.g. every 4th fiber), treating the
+  isolated fiber images as ordinary imaging data, and produce QA diagnostics
+  (fit-quality and spatial-variation figures, and a per-visit subtracted
+  residual image).
+
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  fitImagePsf:
+    class: pfs.drp.stella.pipelines.FitImagePsfTask
+  fitImagePsfQa:
+    class: pfs.drp.stella.pipelines.FitImagePsfQaTask
+
+subsets:
+  fit:
+    # Just the PSF fit, without the (purely diagnostic) QA task tacked on the end.
+    - isr
+    - fitImagePsf
