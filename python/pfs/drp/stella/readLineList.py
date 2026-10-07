@@ -106,7 +106,7 @@ class ReadLineListTask(Task):
     _DefaultName = "readLineList"
     _isSpeciesPattern = re.compile(r'^[A-Z][A-Za-z]*[IVX]+')
 
-    def run(self, detectorMap=None, metadata=None, arm: str | None = None):
+    def run(self, detectorMap=None, metadata=None, exclusionRadius=None, arm: str | None = None):
         """Read a linelist
 
         This serves as a wrapper around the common operation of looking up the
@@ -120,6 +120,12 @@ class ReadLineListTask(Task):
         metadata : `lsst.daf.base.PropertyList`, optional
             FITS header, containing the lamp indicators. This is required in
             order to restrict the linelist by the list of active lamps.
+        exclusionRadius : `float`, optional
+            Exclusion radius (nm) to apply instead of ``config.exclusionRadius``
+            for this call only. Useful for callers that need a one-off override
+            (e.g. disabling exclusion for a bootstrap pass) without modifying
+            ``self.config``, which may be frozen (e.g. when run as a subtask
+            under ``pipetask``).
         arm : `str`, optional
             Spectrograph arm (``b``, ``r``, ``n``, ``m``). Only required if a
             selected ``lightSourceMap`` entry contains an ``{arm}`` placeholder.
@@ -182,7 +188,8 @@ class ReadLineListTask(Task):
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         self.filterDuplicates(lines)
-        lines.applyExclusionZone(self.config.exclusionRadius)
+        radius = self.config.exclusionRadius if exclusionRadius is None else exclusionRadius
+        lines.applyExclusionZone(radius)
         return lines
 
     def filterDuplicates(self, lines: ReferenceLineSet) -> None:
