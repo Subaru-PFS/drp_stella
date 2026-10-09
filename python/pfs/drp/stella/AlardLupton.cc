@@ -92,7 +92,16 @@ void declareAlardLuptonResult(py::module & mod) {
     cls.def_readonly("kernelHalfWidth", &AlardLuptonResult::kernelHalfWidth);
     cls.def_readonly("commonKernelSum", &AlardLuptonResult::commonKernelSum);
     cls.def_readonly("commonKernelSumScatter", &AlardLuptonResult::commonKernelSumScatter);
-    cls.def("getSolutionAt", &AlardLuptonResult::getSolutionAt, "x"_a, "y"_a);
+    // getSolutionAt returns a pointer to an element of the `solutions` vector owned by this
+    // AlardLuptonResult, not a standalone heap object: without reference_internal (reference +
+    // keep_alive<0, 1>), pybind11's default policy for a returned pointer takes ownership of it
+    // and eventually calls `delete` on it, which is undefined behaviour for a std::vector element
+    // and corrupts the heap (manifesting later as a seemingly-unrelated crash, e.g. in
+    // ~AlardLuptonResult() the next time one is destroyed).
+    cls.def(
+        "getSolutionAt", &AlardLuptonResult::getSolutionAt, "x"_a, "y"_a,
+        py::return_value_policy::reference_internal
+    );
     cls.def("getChi2", &AlardLuptonResult::getChi2);
     cls.def_property_readonly("chi2", &AlardLuptonResult::getChi2);
     cls.def("getNumFit", &AlardLuptonResult::getNumFit);
