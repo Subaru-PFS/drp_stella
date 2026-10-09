@@ -23,6 +23,7 @@ from .lsf import *
 from .buildFiberProfiles import *
 from .psfMatch import *
 from .AlardLuptonContinued import *
+from .psfBias import *
 from .fiberProfile import *
 from .fiberProfileSet import *
 from .fitPolynomial import *
