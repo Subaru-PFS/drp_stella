@@ -24,6 +24,7 @@ def calculatePeakToCentroidBias(
     footprintHeight: int = 11,
     footprintWidth: float = 3.0,
     centroidControl: Optional[SdssCentroidControl] = None,
+    allowSubPixels: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Calculate the peak-to-centroid bias of a PSF at nominated positions
 
@@ -65,6 +66,12 @@ def calculatePeakToCentroidBias(
         Configuration for the centroid algorithm. Defaults to
         ``SdssCentroidControl()`` with ``binmax=1``, matching
         `pfs.drp.stella.centroidLines.CentroidLinesConfig`'s default.
+    allowSubPixels : `bool`
+        If ``True``, the input ``x`` and ``y`` positions are allowed to
+        have sub-pixel values. If ``False``, they are rounded to the nearest
+        integer, to avoid following the artificial sub-pixel variation in the
+        PSF's realized image (which can be magnified by the kernel convolution)
+        rather than the intended bias.
 
     Returns
     -------
@@ -144,7 +151,7 @@ def calculatePeakToCentroidBias(
     xBias = np.full(len(x), np.nan)
     yBias = np.full(len(y), np.nan)
     for index, (xPos, yPos) in enumerate(zip(x, y)):
-        xPos, yPos = float(xPos), float(yPos)
+        xPos, yPos = (float(xPos), float(yPos)) if allowSubPixels else (int(xPos), int(yPos))
         model = psf.computeImage(Point2D(xPos, yPos))
 
         solution = solutions[index]
