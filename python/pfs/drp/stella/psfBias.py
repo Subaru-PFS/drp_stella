@@ -1,8 +1,9 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import scipy.signal
 
+import lsst.afw.math as afwMath
 from lsst.afw.detection import Psf
 from lsst.afw.image import ExposureF, ImageD, MaskedImageF, PARENT
 from lsst.afw.table import SourceCatalog, SourceTable
@@ -20,7 +21,7 @@ def calculatePeakToCentroidBias(
     psf: Psf,
     x: np.ndarray,
     y: np.ndarray,
-    kernel: Optional[AlardLuptonResult] = None,
+    kernel: Optional[Union[AlardLuptonResult, afwMath.Kernel]] = None,
     footprintHeight: int = 11,
     footprintWidth: float = 3.0,
     centroidControl: Optional[SdssCentroidControl] = None,
@@ -45,12 +46,19 @@ def calculatePeakToCentroidBias(
         Point-spread function to evaluate.
     x, y : `numpy.ndarray`
         Nominated positions (pixels) at which to calculate the bias.
-    kernel : `pfs.drp.stella.AlardLupton.AlardLuptonResult`, optional
-        PSF-matching convolution kernel (e.g. from `fitAlardLuptonKernel`)
-        to apply to the realized PSF image before measuring the bias, for
-        characterizing the bias as it would appear after convolution (e.g.
-        in difference imaging) rather than for the bare PSF. Only the
-        kernel itself is applied: ``solution.background`` (a differential
+    kernel : `pfs.drp.stella.AlardLupton.AlardLuptonResult` or \
+            `lsst.afw.math.Kernel`, optional
+        PSF-matching convolution kernel to apply to the realized PSF image
+        before measuring the bias, for characterizing the bias as it would
+        appear after convolution (e.g. in difference imaging) rather than
+        for the bare PSF. Two kinds are accepted: an `AlardLuptonResult`
+        (e.g. from `fitAlardLuptonKernel`), which is piecewise-constant
+        over its own fitted regions and looked up by position; or a
+        spatially varying `lsst.afw.math.Kernel` (e.g. `PsfMatchTask.run`'s
+        ``psfMatchingKernel``), which is instead realized directly at each
+        nominated position -- a simpler alternative that needs no region
+        lookup. Either way, only the kernel itself is applied: for an
+        `AlardLuptonResult`, ``solution.background`` (a differential
         sky/bias offset between two real images) is not meaningful for a
         synthetic PSF realization, so it is ignored. The kernel need not be
         flux-normalized: a uniform flux rescaling cannot shift a centroid or
@@ -119,11 +127,17 @@ def calculatePeakToCentroidBias(
     centroidAlgorithm = SdssCentroidAlgorithm(centroidControl, "centroid", schema)
     schema.getAliasMap().set("slot_Centroid", "centroid")
 
+    isAlardLupton = isinstance(kernel, AlardLuptonResult)
+    isSpatialKernel = isinstance(kernel, afwMath.Kernel)
+    if kernel is not None and not (isAlardLupton or isSpatialKernel):
+        raise TypeError(f"kernel must be an AlardLuptonResult or lsst.afw.math.Kernel; got {type(kernel)}")
+
     # Validate (and look up) the kernel solution for every position up front, before allocating the
     # (potentially large) working image below: an invalid position should fail fast and cleanly,
-    # rather than only after attempting to size that image from it.
+    # rather than only after attempting to size that image from it. A spatially varying
+    # lsst.afw.math.Kernel needs no such lookup: it is realized directly at each position below.
     solutions = [None] * len(x)
-    if kernel is not None:
+    if isAlardLupton:
         for index, (xPos, yPos) in enumerate(zip(x, y)):
             xPeak, yPeak = int(round(float(xPos))), int(round(float(yPos)))
             solution = kernel.getSolutionAt(xPeak, yPeak)
@@ -154,10 +168,17 @@ def calculatePeakToCentroidBias(
         xPos, yPos = (float(xPos), float(yPos)) if allowSubPixels else (int(xPos), int(yPos))
         model = psf.computeImage(Point2D(xPos, yPos))
 
-        solution = solutions[index]
-        if solution is not None:
+        kernelArray = None
+        if isAlardLupton:
+            kernelArray = solutions[index].kernel
+        elif isSpatialKernel:
+            kernelImage = ImageD(kernel.getDimensions())
+            kernel.computeImage(kernelImage, False, xPos, yPos)
+            kernelArray = kernelImage.array
+
+        if kernelArray is not None:
             convolved = ImageD(model.getBBox())
-            convolved.array[:] = scipy.signal.convolve2d(model.array, solution.kernel, mode="same")
+            convolved.array[:] = scipy.signal.convolve2d(model.array, kernelArray, mode="same")
             model = convolved
 
         # A position close to the working image's edge may have its PSF realization extend past
