@@ -67,19 +67,19 @@ class PsfMatchConfig(pexConfig.Config):
 
     xStampSize = pexConfig.Field(
         dtype=int,
-        default=128,
+        default=64,
         check=lambda xx: xx > 0,
         doc="Width of each tiling stamp (pixels)",
     )
     yStampSize = pexConfig.Field(
         dtype=int,
-        default=128,
+        default=64,
         check=lambda yy: yy > 0,
         doc="Height of each tiling stamp (pixels)",
     )
     minPeakSignalToNoise = pexConfig.Field(
         dtype=float,
-        default=25.0,
+        default=5.0,
         check=lambda snr: snr >= 0,
         doc="Minimum peak signal-to-noise for a stamp to be used",
     )
@@ -101,6 +101,20 @@ class PsfMatchConfig(pexConfig.Config):
         default=["BAD", "SAT", "CR", "INTRP", "NO_DATA", "EDGE"],
         doc="Mask planes that disqualify a stamp",
     )
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.dfKernel.kernelSize = 9
+        self.dfKernel.scaleByFwhm = False
+        self.dfKernel.constantVarianceWeighting = False
+        self.dfKernel.useRegularization = True
+        self.dfKernel.usePcaForSpatialKernel = True
+        self.dfKernel.numPrincipalComponents = 10
+        self.dfKernel.spatialKernelOrder = 3
+        self.dfKernel.spatialBgOrder = 3
+        self.dfKernel.fitForBackground = True
+        self.dfKernel.sizeCellX = self.xStampSize
+        self.dfKernel.sizeCellY = self.yStampSize
 
 
 class PsfMatchTask(BasePsfMatchTask):
