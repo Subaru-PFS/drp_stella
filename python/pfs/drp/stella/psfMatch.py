@@ -690,7 +690,6 @@ def plotFirstMoments(
         raise ValueError(f"axes must have shape (3,); got {axes.shape}")
 
     extent = (bbox.getMinX(), bbox.getMaxX(), bbox.getMinY(), bbox.getMaxY())
-    moments.kernelSum *= 1e10
     panels = (
         ("zeroth moment", moments.kernelSum),
         ("first moment (x)", moments.x),
