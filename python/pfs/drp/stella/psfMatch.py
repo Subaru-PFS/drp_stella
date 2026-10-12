@@ -552,8 +552,8 @@ def plotSpatialKernel(
 
 def calculateFirstMoments(
     kernel: afwMath.Kernel,
-    xx: np.ndarray,
-    yy: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
 ) -> pipeBase.Struct:
     """Calculate the zeroth and first moments of a spatially varying kernel
 
@@ -571,47 +571,47 @@ def calculateFirstMoments(
     kernel : `lsst.afw.math.Kernel`
         Spatially varying kernel to realize (e.g., ``psfMatchingKernel``
         from `PsfMatchTask.run`).
-    xx, yy : `numpy.ndarray`
+    x, y : `numpy.ndarray`
         Arrays (of the same shape) of x,y positions at which to realize
         ``kernel``.
 
     Returns
     -------
-    zeroth : `numpy.ndarray`
+    kernelSum : `numpy.ndarray`
         Zeroth moment (pre-normalization sum of the kernel image) at
-        each position. Same shape as ``xx``.
-    firstX : `numpy.ndarray`
+        each position. Same shape as ``x`` input.
+    x : `numpy.ndarray`
         First moment in x: the flux-weighted centroid of the kernel
         image at each position, in pixels relative to the kernel's
-        geometric center. Same shape as ``xx``.
-    firstY : `numpy.ndarray`
-        First moment in y, as ``firstX`` but in the y direction.
+        geometric center. Same shape as ``x`` input.
+    y : `numpy.ndarray`
+        First moment in y, as ``x`` but in the y direction.
     """
-    xx = np.asarray(xx, dtype=float)
-    yy = np.asarray(yy, dtype=float)
-    if xx.shape != yy.shape:
-        raise ValueError(f"xx and yy must have the same shape; got {xx.shape} and {yy.shape}")
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if x.shape != y.shape:
+        raise ValueError(f"x and y must have the same shape; got {x.shape} and {y.shape}")
 
     width, height = kernel.getDimensions()
     centerX = (width - 1) / 2.0
     centerY = (height - 1) / 2.0
     pixelX, pixelY = np.meshgrid(np.arange(width) - centerX, np.arange(height) - centerY)
 
-    zeroth = np.zeros(xx.shape, dtype=float)
-    firstX = np.zeros(xx.shape, dtype=float)
-    firstY = np.zeros(xx.shape, dtype=float)
+    zeroth = np.zeros(x.shape, dtype=float)
+    xMoment = np.zeros(x.shape, dtype=float)
+    yMoment = np.zeros(x.shape, dtype=float)
 
     image = afwImage.ImageD(kernel.getDimensions())
-    for index in np.ndindex(xx.shape):
-        kernelSum = kernel.computeImage(image, False, float(xx[index]), float(yy[index]))
+    for index in np.ndindex(x.shape):
+        kernelSum = kernel.computeImage(image, False, float(x[index]), float(y[index]))
         if kernelSum == 0:
-            raise ValueError(f"Cannot calculate moments at ({xx[index]}, {yy[index]}): kernel sum is 0")
+            raise ValueError(f"Cannot calculate moments at ({x[index]}, {y[index]}): kernel sum is 0")
         array = image.array
         zeroth[index] = kernelSum
-        firstX[index] = np.sum(array * pixelX) / kernelSum
-        firstY[index] = np.sum(array * pixelY) / kernelSum
+        xMoment[index] = np.sum(array * pixelX) / kernelSum
+        yMoment[index] = np.sum(array * pixelY) / kernelSum
 
-    return pipeBase.Struct(zeroth=zeroth, firstX=firstX, firstY=firstY)
+    return pipeBase.Struct(kernelSum=zeroth, x=xMoment, y=yMoment)
 
 
 def plotFirstMoments(
@@ -622,7 +622,7 @@ def plotFirstMoments(
     *,
     margin: float = 0.1,
     cmap: str = "viridis",
-    figsize: Optional[Tuple[float, float]] = None,
+    figsize: Optional[Tuple[float, float]] = (12, 4),
     fig: Optional["matplotlib.figure.Figure"] = None,
     axes: Optional[np.ndarray] = None,
 ) -> Tuple["matplotlib.figure.Figure", np.ndarray]:
@@ -682,21 +682,27 @@ def plotFirstMoments(
     if (fig is None) != (axes is None):
         raise ValueError("fig and axes must be provided together")
     if fig is None:
-        fig, axes = plt.subplots(1, 3, figsize=figsize, squeeze=False)
+        fig, axes = plt.subplots(
+            1, 3, figsize=figsize, sharex=True, sharey=True, squeeze=False, layout="constrained"
+        )
         axes = axes[0]
     elif axes.shape != (3,):
         raise ValueError(f"axes must have shape (3,); got {axes.shape}")
 
     extent = (bbox.getMinX(), bbox.getMaxX(), bbox.getMinY(), bbox.getMaxY())
+    moments.kernelSum *= 1e10
     panels = (
-        ("zeroth moment", moments.zeroth),
-        ("first moment (x)", moments.firstX),
-        ("first moment (y)", moments.firstY),
+        ("zeroth moment", moments.kernelSum),
+        ("first moment (x)", moments.x),
+        ("first moment (y)", moments.y),
     )
     for axis, (title, data) in zip(axes, panels):
         mappable = axis.imshow(data, origin="lower", cmap=cmap, extent=extent, aspect="auto")
         axis.set_title(title)
-        fig.colorbar(mappable, ax=axis, shrink=0.8)
+        axis.set_aspect("equal")
+        axis.set_xlabel("x position (pixels)")
+        axis.set_ylabel("y position (pixels)")
+        fig.colorbar(mappable, ax=axis, shrink=0.8, label=title)
 
     fig.suptitle("PSF-matching kernel moments")
 
