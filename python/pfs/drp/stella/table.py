@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import field, make_dataclass
 from typing import ClassVar, Dict, Iterable, Iterator, List, Protocol, Type, TypeVar, Union, overload
 
 import numpy as np
@@ -67,7 +67,12 @@ class Table:
         Sets up the properties based on the schema.
         """
         cls._schema = cls.DamdClass.getSchemaDict()
-        cls.RowClass = dataclass(type(cls.__name__ + "Row", (object,), dict(__annotations__=cls._schema)))
+        # Build the row dataclass with a default (the schema's ``Column.default``) for every field, so
+        # that adding a column to the schema doesn't force every ``RowClass(...)`` call site to supply it.
+        cls.RowClass = make_dataclass(
+            cls.__name__ + "Row",
+            [(col.name, col.dtype, field(default=col.default)) for col in cls._schema.values()],
+        )
         for name in cls._schema:
 
             def getter(self, name: str = name) -> np.ndarray:
