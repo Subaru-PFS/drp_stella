@@ -21,6 +21,8 @@ __all__ = (
     "PsfMatchTask",
     "peakSignalToNoise",
     "plotSpatialKernel",
+    "calculateFirstMoments",
+    "plotFirstMoments",
     "plotPsfMatchResult",
 )
 
@@ -536,6 +538,159 @@ def plotSpatialKernel(
     minSum = min(min(sumRow) for sumRow in sums)
     maxSum = max(max(sumRow) for sumRow in sums)
     fig.suptitle(f"PSF-matching kernel (pre-normalization sum: {minSum:.3f}-{maxSum:.3f})")
+
+    return fig, axes
+
+
+def calculateFirstMoments(
+    kernel: afwMath.Kernel,
+    xx: np.ndarray,
+    yy: np.ndarray,
+) -> pipeBase.Struct:
+    """Calculate the zeroth and first moments of a spatially varying kernel
+
+    The kernel is realized at each of the given ``(xx, yy)`` positions,
+    and its zeroth moment (the pre-normalization kernel sum, i.e. the
+    fitted flux ratio) and first moments in x and y (the flux-weighted
+    centroid of the realized kernel image, measured relative to its
+    geometric center) are calculated. The first moments are useful for
+    diagnosing how far a PSF-matching kernel has shifted off-center, as
+    a function of position in the image (see `PsfMatchTask`'s
+    docstring).
+
+    Parameters
+    ----------
+    kernel : `lsst.afw.math.Kernel`
+        Spatially varying kernel to realize (e.g., ``psfMatchingKernel``
+        from `PsfMatchTask.run`).
+    xx, yy : `numpy.ndarray`
+        Arrays (of the same shape) of x,y positions at which to realize
+        ``kernel``.
+
+    Returns
+    -------
+    zeroth : `numpy.ndarray`
+        Zeroth moment (pre-normalization sum of the kernel image) at
+        each position. Same shape as ``xx``.
+    firstX : `numpy.ndarray`
+        First moment in x: the flux-weighted centroid of the kernel
+        image at each position, in pixels relative to the kernel's
+        geometric center. Same shape as ``xx``.
+    firstY : `numpy.ndarray`
+        First moment in y, as ``firstX`` but in the y direction.
+    """
+    xx = np.asarray(xx, dtype=float)
+    yy = np.asarray(yy, dtype=float)
+    if xx.shape != yy.shape:
+        raise ValueError(f"xx and yy must have the same shape; got {xx.shape} and {yy.shape}")
+
+    width, height = kernel.getDimensions()
+    centerX = (width - 1) / 2.0
+    centerY = (height - 1) / 2.0
+    pixelX, pixelY = np.meshgrid(np.arange(width) - centerX, np.arange(height) - centerY)
+
+    zeroth = np.zeros(xx.shape, dtype=float)
+    firstX = np.zeros(xx.shape, dtype=float)
+    firstY = np.zeros(xx.shape, dtype=float)
+
+    image = afwImage.ImageD(kernel.getDimensions())
+    for index in np.ndindex(xx.shape):
+        kernelSum = kernel.computeImage(image, False, float(xx[index]), float(yy[index]))
+        if kernelSum == 0:
+            raise ValueError(f"Cannot calculate moments at ({xx[index]}, {yy[index]}): kernel sum is 0")
+        array = image.array
+        zeroth[index] = kernelSum
+        firstX[index] = np.sum(array * pixelX) / kernelSum
+        firstY[index] = np.sum(array * pixelY) / kernelSum
+
+    return pipeBase.Struct(zeroth=zeroth, firstX=firstX, firstY=firstY)
+
+
+def plotFirstMoments(
+    kernel: afwMath.Kernel,
+    bbox: geom.Box2I,
+    numX: int = 9,
+    numY: int = 9,
+    *,
+    margin: float = 0.1,
+    cmap: str = "viridis",
+    figsize: Optional[Tuple[float, float]] = None,
+    fig: Optional["matplotlib.figure.Figure"] = None,
+    axes: Optional[np.ndarray] = None,
+) -> Tuple["matplotlib.figure.Figure", np.ndarray]:
+    """Plot the spatial variation of a kernel's zeroth and first moments
+
+    Realizes the kernel on a ``numY`` x ``numX`` grid of positions
+    spanning ``bbox``, calculates the zeroth and first moments at each
+    position (see `calculateFirstMoments`), and plots their spatial
+    variation as three `matplotlib.pyplot.imshow` panels. This is a more
+    compact alternative to `plotSpatialKernel` for visualizing how far a
+    PSF-matching kernel has shifted off-center, and by how much its flux
+    varies, as a function of position in the image.
+
+    Parameters
+    ----------
+    kernel : `lsst.afw.math.Kernel`
+        Spatially varying kernel to plot (e.g., ``psfMatchingKernel``
+        from `PsfMatchTask.run`).
+    bbox : `lsst.geom.Box2I`
+        Bounding box of the region the kernel was fit over; used to lay
+        out the grid of positions at which to realize ``kernel``.
+    numX : `int`
+        Number of realizations in x (and hence columns of the grid).
+    numY : `int`
+        Number of realizations in y (and hence rows of the grid).
+    margin : `float`
+        Fraction of ``bbox``'s width/height by which to inset the grid
+        from its edges, avoiding positions where the spatial polynomial
+        is typically least well constrained.
+    cmap : `str` or `matplotlib.colors.Colormap`
+        Colormap to use for each panel.
+    figsize : `tuple` of `float`, optional
+        Figure size, passed to ``matplotlib.pyplot.subplots``.
+    fig : `matplotlib.figure.Figure`, optional
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`, optional
+        Existing figure and row of 3 axes to plot into, instead of
+        creating new ones. If either is provided, both must be.
+
+    Returns
+    -------
+    fig : `matplotlib.figure.Figure`
+        Figure containing the plot.
+    axes : `numpy.ndarray` of `matplotlib.axes.Axes`
+        Row of 3 axes, for the zeroth moment, first moment in x and
+        first moment in y, respectively.
+    """
+    import matplotlib.pyplot as plt
+
+    marginX = margin * bbox.getWidth()
+    marginY = margin * bbox.getHeight()
+    xPositions = np.linspace(bbox.getMinX() + marginX, bbox.getMaxX() - marginX, numX)
+    yPositions = np.linspace(bbox.getMinY() + marginY, bbox.getMaxY() - marginY, numY)
+    xx, yy = np.meshgrid(xPositions, yPositions)
+
+    moments = calculateFirstMoments(kernel, xx, yy)
+
+    if (fig is None) != (axes is None):
+        raise ValueError("fig and axes must be provided together")
+    if fig is None:
+        fig, axes = plt.subplots(1, 3, figsize=figsize, squeeze=False)
+        axes = axes[0]
+    elif axes.shape != (3,):
+        raise ValueError(f"axes must have shape (3,); got {axes.shape}")
+
+    extent = (bbox.getMinX(), bbox.getMaxX(), bbox.getMinY(), bbox.getMaxY())
+    panels = (
+        ("zeroth moment", moments.zeroth),
+        ("first moment (x)", moments.firstX),
+        ("first moment (y)", moments.firstY),
+    )
+    for axis, (title, data) in zip(axes, panels):
+        mappable = axis.imshow(data, origin="lower", cmap=cmap, extent=extent, aspect="auto")
+        axis.set_title(title)
+        fig.colorbar(mappable, ax=axis, shrink=0.8)
+
+    fig.suptitle("PSF-matching kernel moments")
 
     return fig, axes
 
