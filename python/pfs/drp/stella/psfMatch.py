@@ -57,6 +57,14 @@ class PsfMatchConfig(pexConfig.Config):
         typemap=dict(DF=PsfMatchConfigDF),
         default="DF",
     )
+
+    @property
+    def dfKernel(self) -> PsfMatchConfigDF:
+        """Return the kernel configuration if ``kernel.name == "DF"``, else raise"""
+        if self.kernel.name != "DF":
+            raise RuntimeError(f"kernel.name is {self.kernel.name}, not DF")
+        return self.kernel["DF"]
+
     xStampSize = pexConfig.Field(
         dtype=int,
         default=128,
