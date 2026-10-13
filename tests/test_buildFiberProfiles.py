@@ -4,6 +4,7 @@ matplotlib.use("Agg")  # noqa E402: disable showing plots
 import matplotlib.pyplot as plt  # noqa E402: import after code
 
 import itertools  # noqa E402: import after code
+import unittest.mock  # noqa E402: import after code
 
 import numpy as np  # noqa E402: import after code
 
@@ -16,6 +17,8 @@ from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig  # noqa 
 from pfs.drp.stella.synthetic import makeSyntheticDetectorMap, makeSyntheticPfsConfig  # noqa E402
 from pfs.drp.stella.synthetic import addNoiseToImage  # noqa E402
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask  # noqa E402: import after code
+from pfs.drp.stella.fiberProfile import FiberProfile  # noqa E402: import after code
+from pfs.drp.stella.utils.psf import fwhmToSigma  # noqa E402: import after code
 from pfs.drp.stella.images import getIndices  # noqa E402: import after code
 from pfs.drp.stella.tests.utils import runTests, methodParameters  # noqa E402: import after code
 
@@ -547,6 +550,30 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple([exposure], self.identity, [detMap])
         self.assertFiberProfiles(results.profiles, exposure.maskedImage, detMap, spectrumChi2=1.2)
+
+    def testExtractionSigma(self):
+        """Test that the extraction Gaussian has the width of the traces
+
+        The first Gaussian is set by ``extractFwhm``; the rest, one per fiber
+        per iteration, should match the width measured from the profiles.
+        """
+        sigmaList = []
+        makeGaussian = FiberProfile.makeGaussian
+
+        def recordSigma(sigma, *args, **kwargs):
+            sigmaList.append(sigma)
+            return makeGaussian(sigma, *args, **kwargs)
+
+        exposure = self.makeContinuumExposure()
+        detMap = makeSyntheticDetectorMap(self.synth)
+        with unittest.mock.patch.object(FiberProfile, "makeGaussian", side_effect=recordSigma):
+            self.task.runMultiple([exposure], self.identity, [detMap])
+
+        self.assertEqual(len(sigmaList), 1 + self.config.extractIter*self.synth.numFibers)
+        self.assertFloatsAlmostEqual(sigmaList[0], fwhmToSigma(self.config.extractFwhm))
+        self.assertFloatsAlmostEqual(
+            np.array(sigmaList[1:]), fwhmToSigma(self.synth.fwhm), rtol=0.05
+        )
 
     @methodParameters(separation=(19.876, 12.345,))
     def testTwo(self, separation):

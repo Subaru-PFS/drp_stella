@@ -293,7 +293,7 @@ class BuildFiberProfilesTask(Task):
             fluxProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
             width = np.array([profiles[ff].calculateStatistics().width for ff in profiles])
             select = np.isfinite(width) & (width > 0)
-            sigma = np.median(np.sqrt(width[select]))
+            sigma = np.median(width[select])  # width is already a sigma
             for ff in profiles:
                 fluxProfiles[ff] = FiberProfile.makeGaussian(
                     sigma, height, self.config.profileRadius, self.config.profileOversample
