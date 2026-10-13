@@ -5,6 +5,9 @@ import importlib.util
 # and opdb access, so they are imported only when one of their names is asked
 # for (e.g. ``from pfs.drp.stella.utils import addPfsCursor`` in a notebook),
 # never by the pipeline.
+# ``import *`` exports nothing, as before: listing the lazy names would rot.
+__all__ = []
+
 _LAZY_MODULES = ("asinhNorm", "display", "fiberProfiles", "guiders", "math", "plotting", "sunss", "sysUtils")
 
 
