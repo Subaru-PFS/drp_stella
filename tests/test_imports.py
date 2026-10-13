@@ -23,6 +23,13 @@ class ImportTestCase(lsst.utils.tests.TestCase):
     process; the notebook tools bring matplotlib and opdb access with them.
     """
 
+    def loadedModules(self, statement):
+        """Return the modules loaded by running ``statement`` in a fresh interpreter."""
+        code = f"import json, sys; {statement}; print(json.dumps(sorted(sys.modules)))"
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return set(json.loads(result.stdout.splitlines()[-1]))
+
     def testNotebookModulesExist(self):
         """A misspelt or removed name would make the check below vacuous."""
         for name in NOTEBOOK_MODULES:
@@ -32,11 +39,25 @@ class ImportTestCase(lsst.utils.tests.TestCase):
         """Run in a fresh interpreter, because other tests in this process
         import some of these modules directly.
         """
-        code = "import json, sys, pfs.drp.stella; print(json.dumps(sorted(sys.modules)))"
-        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        loaded = set(json.loads(result.stdout.splitlines()[-1]))
+        loaded = self.loadedModules("import pfs.drp.stella")
         self.assertEqual([name for name in NOTEBOOK_MODULES if name in loaded], [])
+
+    def testSubmoduleImportIsLazy(self):
+        """Importing a pipeline submodule by name doesn't load the notebook
+        modules that the package searches for other names.
+        """
+        loaded = self.loadedModules("from pfs.drp.stella.utils import debugging")
+        self.assertIn("pfs.drp.stella.utils.debugging", loaded)
+        self.assertEqual([name for name in NOTEBOOK_MODULES if name in loaded], [])
+
+    def testNotebookNameImport(self):
+        """Names from the notebook modules can still be imported from the package."""
+        from pfs.drp.stella.utils import addPfsCursor, robustRms
+        from pfs.drp.stella.utils.display import addPfsCursor as expected
+        self.assertIs(addPfsCursor, expected)
+        self.assertTrue(callable(robustRms))
+        with self.assertRaises(ImportError):
+            from pfs.drp.stella.utils import noSuchName  # noqa: F401
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
