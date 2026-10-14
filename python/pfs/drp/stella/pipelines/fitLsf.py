@@ -195,7 +195,7 @@ class FitLsfTask(PipelineTask):
         arm = inputRefs.pfsArm[0].dataId.arm.name
         spectrograph = inputRefs.pfsArm[0].dataId.spectrograph.num
         data = readDatasetRefs(butler, inputRefs, "pfsArm", "detectorMap", "metadata")
-        visits = [ref.dataId["visit"] for ref in inputRefs.pfsArm]
+        visits = [pfsArm.identity.visit for pfsArm in data.pfsArm]   # readDatasetRefs consumes inputRefs
         outputs = self.run(arm, spectrograph, visits, data.pfsArm, data.detectorMap, data.metadata)
         butler.put(outputs, outputRefs)
 
