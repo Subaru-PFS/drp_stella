@@ -1,0 +1,8 @@
+description: |
+  Fit a model of the line-spread function to the pfsArms of arc exposures
+  (made with reduceExposure.yaml): one model per detector, from all the arc
+  visits in the quantum (one lamp per visit is fine).
+
+tasks:
+  fitLsf:
+    class: pfs.drp.stella.pipelines.FitLsfTask
