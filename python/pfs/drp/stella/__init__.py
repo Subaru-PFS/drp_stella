@@ -18,6 +18,7 @@ from .SplinedDetectorMapContinued import *
 from .spline import *
 from .SpectralPsf import *
 from .SpectralPsfContinued import *
+from .NevenPsfContinued import *
 from .lsf import *
 from .buildFiberProfiles import *
 from .psfMatch import *
