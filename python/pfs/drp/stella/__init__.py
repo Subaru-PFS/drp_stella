@@ -27,6 +27,11 @@ from .fitPolynomial import *
 from .slitOffsets import *
 from .referenceLine import *
 from .arcLine import *
+from .lsfLine import *
+from .lsfProfile import *
+from .smoothSurface import *
+from .lsfModel import *
+from .fitLsfLines import *
 from .centroidImage import *
 from .DistortionContinued import *
 from .PolynomialDistortionContinued import *
