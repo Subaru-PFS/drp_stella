@@ -108,9 +108,10 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     satDropFrac = Field(dtype=float, default=0.05,
                         doc="Don't use a line in any fibre if it is saturated in more than this fraction "
                             "of them")
-    minLineSN = Field(dtype=float, default=50.0,
-                      doc="Don't use a line in any fibre if its median S/N (flux/fluxErr) over the fibres is "
-                          "below this (a per-line cut, so lines aren't selected by fibre throughput)")
+    minLineSN = DictField(keytype=str, itemtype=float, default=dict(b=25.0, default=50.0),
+                          doc="Don't use a line in any fibre if its median S/N (flux/fluxErr) over the "
+                              "fibres is below this (a per-line cut, so lines aren't selected by fibre "
+                              "throughput); per arm, or 'default'. Lower for b, where the lamps are faint")
     # --- broad lines: intrinsically broader than the LSF (e.g. self-absorbed in the lamp)
     doFindBroad = Field(dtype=bool, default=True,
                         doc="Find and exclude lines broader than their neighbours "
@@ -260,12 +261,13 @@ class FitLsfTask(PipelineTask):
         for ff in allFree:
             signalToNoise[self.lineKey(ff)].append(ff.amplitude/ff.amplitudeErr)
         medianSN = {key: float(np.nanmedian(sn)) for key, sn in signalToNoise.items()}
-        dropLowSN = {key for key, sn in medianSN.items() if not sn >= self.config.minLineSN}
+        minLineSN = self.config.minLineSN.get(arm, self.config.minLineSN["default"])
+        dropLowSN = {key for key, sn in medianSN.items() if not sn >= minLineSN}
         if dropLowSN:
             lowSN = ", ".join(f"{key[0]} {key[1]:.3f} ({medianSN[key]:.0f})"
                               for key in sorted(dropLowSN, key=lambda kk: kk[1]))
             self.log.info("%d of %d lines have median S/N < %g: not used (%s)", len(dropLowSN), len(medianSN),
-                          self.config.minLineSN, lowSN)
+                          minLineSN, lowSN)
         broad = set()
         status = {self.lineKey(ff): ff.status for ff in allFree}
         if self.config.excludeCatalogueBroad:
