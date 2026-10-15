@@ -1296,6 +1296,35 @@ def cleanRun(
                 butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
 
 
+def parseDataIds(idList: Optional[Iterable[Iterable[str]]]) -> Optional[List[Dict[str, Union[int, str]]]]:
+    """Parse ``--id KEY=VALUE [KEY=VALUE ...]`` command-line arguments into
+    dataId dictionaries
+
+    Intended for use with an ``argparse`` option declared as::
+
+        parser.add_argument("--id", nargs="*", action="append", help="KEY=VALUE pairs of dataId")
+
+    which may be given multiple times to specify multiple dataIds, each with
+    one or more ``KEY=VALUE`` pairs.
+
+    Parameters
+    ----------
+    idList : iterable of iterable of `str`, or `None`
+        Raw value of the parsed ``--id`` argument (one list of
+        ``"KEY=VALUE"`` strings per occurrence of ``--id``), or `None`/empty
+        if the option wasn't given.
+
+    Returns
+    -------
+    dataIds : `list` of `dict` [`str`: `int` or `str`], or `None`
+        One dict per ``--id`` occurrence, mapping key to value as given on
+        the command line. `None` if ``idList`` was not provided.
+    """
+    if not idList:
+        return None
+    return [{key: value for key, value in (item.split("=", 1) for item in ident)} for ident in idList]
+
+
 def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
     """Get a `DataCoordinate` from a dictionary
 
