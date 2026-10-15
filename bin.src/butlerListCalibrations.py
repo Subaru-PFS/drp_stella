@@ -3,7 +3,7 @@
 from argparse import ArgumentParser
 from astropy.time import Time
 from lsst.daf.butler import Timespan
-from pfs.drp.stella.gen3 import findAssociations, timespanFromDayObs
+from pfs.drp.stella.gen3 import findAssociations, parseDataIds, timespanFromDayObs
 
 
 def timeToString(time: Time | None) -> str:
@@ -23,9 +23,8 @@ def main():
     parser.add_argument("--time-end", help="Timespan end to limit query")
     args = parser.parse_args()
 
-    dataId = None
-    if args.id:
-        dataId = {key: value for key, value in [item.split("=") for item in args.id]}
+    dataIds = parseDataIds([args.id] if args.id else None)
+    dataId = dataIds[0] if dataIds else None
 
     timespan = None
     if args.day_obs:
