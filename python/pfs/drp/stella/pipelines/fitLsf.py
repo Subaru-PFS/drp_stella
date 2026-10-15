@@ -19,7 +19,7 @@ from ..lsfLine import LsfLineFlag, LsfLineSet
 from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline
 from ..readLineList import ReadLineListTask
 from ..referenceLine import ReferenceLineStatus
-from ..smoothSurface import DetectorCoords, fitSmoothSurface
+from ..smoothSurface import DetectorCoords, fitSmoothSurface, maxGap, supportedDegree
 
 __all__ = ("FitLsfConfig", "FitLsfTask")
 
@@ -108,10 +108,11 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     satDropFrac = Field(dtype=float, default=0.05,
                         doc="Don't use a line in any fibre if it is saturated in more than this fraction "
                             "of them")
-    minLineSN = DictField(keytype=str, itemtype=float, default=dict(b=25.0, default=50.0),
+    minLineSN = DictField(keytype=str, itemtype=float, default=dict(b=25.0, n=25.0, default=50.0),
                           doc="Don't use a line in any fibre if its median S/N (flux/fluxErr) over the "
                               "fibres is below this (a per-line cut, so lines aren't selected by fibre "
-                              "throughput); per arm, or 'default'. Lower for b, where the lamps are faint")
+                              "throughput); per arm, or 'default'. Lower for b and n, where the lamps are "
+                              "faint")
     # --- broad lines: intrinsically broader than the LSF (e.g. self-absorbed in the lamp)
     doFindBroad = Field(dtype=bool, default=True,
                         doc="Find and exclude lines broader than their neighbours "
@@ -142,6 +143,11 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                             "fibre in the centroid (a wavelength zero-point error)")
     nIter = Field(dtype=int, default=3, doc="Clip-and-refit iterations of the smooth fits")
     nSigma = Field(dtype=float, default=4.0, doc="Clipping threshold (robust sigma) of the smooth fits")
+    doCoverageGuard = Field(dtype=bool, default=True,
+                            doc="Lower a smooth fit's degree in x or y where the lines leave gaps longer "
+                                "than coverageFactor x (detector size)/(degree + 1)? (A polynomial wanders, "
+                                "unconstrained, across a gap that is long compared to its scale)")
+    coverageFactor = Field(dtype=float, default=1.0, doc="Tolerance of the coverage guard; larger is laxer")
     # --- model
     traceStep = Field(dtype=int, default=32,
                       doc="Spacing (rows) of the spline knots of each fibre's x(row) and wavelength(row) "
@@ -506,6 +512,17 @@ class FitLsfTask(PipelineTask):
             if name not in self.config.degrees:
                 continue
             degree = tuple(int(dd) for dd in self.config.degrees[name].split(","))
+            if self.config.doCoverageGuard:
+                value = np.asarray(value, dtype=float)
+                good = np.isfinite(value) & np.isfinite(np.asarray(error, dtype=float))
+                supported = tuple(supportedDegree(pos[good], dom, dd, self.config.coverageFactor)
+                                  for pos, dom, dd in zip((u, v), domain, degree))
+                if supported != degree:
+                    gaps = [maxGap(pos[good], dom) for pos, dom in zip((u, v), domain)]
+                    self.log.warning("Lowering the degree of the smooth fit of %s from %s to %s: the lines "
+                                     "leave gaps of %.0f, %.0f pixels in x, y", name, degree, supported,
+                                     *gaps)
+                    degree = supported
             factors = self.config.groupBy.get(name, self.config.groupBy.get("default", ""))
             groups = {ff: labels[ff] for ff in factors.split(",") if ff}
             surface, used, residual = fitSmoothSurface(
