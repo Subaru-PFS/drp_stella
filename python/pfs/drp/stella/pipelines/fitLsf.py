@@ -108,6 +108,9 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     satDropFrac = Field(dtype=float, default=0.05,
                         doc="Don't use a line in any fibre if it is saturated in more than this fraction "
                             "of them")
+    minLineSN = Field(dtype=float, default=50.0,
+                      doc="Don't use a line in any fibre if its median S/N (flux/fluxErr) over the fibres is "
+                          "below this (a per-line cut, so lines aren't selected by fibre throughput)")
     # --- broad lines: intrinsically broader than the LSF (e.g. self-absorbed in the lamp)
     doFindBroad = Field(dtype=bool, default=True,
                         doc="Find and exclude lines broader than their neighbours "
@@ -245,7 +248,7 @@ class FitLsfTask(PipelineTask):
         allFree = [ff for ffs in free.fits.values() for ff in ffs]
         self.log.info("Free fits: %d lines in %d spectra", len(allFree), len(free.fits))
 
-        # Lines to drop everywhere: saturated in too many fibres; excluded status; broad
+        # Lines to drop everywhere: saturated in too many fibres; excluded status; faint; broad
         nFit = Counter(self.lineKey(ff) for ff in allFree)
         nSat = Counter((lamps, round(lam, 3)) for keys in free.saturated.values() for lamps, lam in keys)
         dropSat = {key for key, nn in nSat.items() if nn > self.config.satDropFrac*(nn + nFit.get(key, 0))}
@@ -253,13 +256,23 @@ class FitLsfTask(PipelineTask):
         for name in self.config.excludeStatus:
             excludeMask |= int(getattr(ReferenceLineStatus, name))
         dropStatus = {self.lineKey(ff) for ff in allFree if ff.status & excludeMask}
+        signalToNoise = defaultdict(list)
+        for ff in allFree:
+            signalToNoise[self.lineKey(ff)].append(ff.amplitude/ff.amplitudeErr)
+        medianSN = {key: float(np.nanmedian(sn)) for key, sn in signalToNoise.items()}
+        dropLowSN = {key for key, sn in medianSN.items() if not sn >= self.config.minLineSN}
+        if dropLowSN:
+            lowSN = ", ".join(f"{key[0]} {key[1]:.3f} ({medianSN[key]:.0f})"
+                              for key in sorted(dropLowSN, key=lambda kk: kk[1]))
+            self.log.info("%d of %d lines have median S/N < %g: not used (%s)", len(dropLowSN), len(medianSN),
+                          self.config.minLineSN, lowSN)
         broad = set()
         status = {self.lineKey(ff): ff.status for ff in allFree}
         if self.config.excludeCatalogueBroad:
             broad |= {key for key, st in status.items() if st & int(ReferenceLineStatus.BROAD)}
         if self.config.doFindBroad:
             excess, measuredBroad = findBroadLines(
-                [ff for ff in allFree if self.lineKey(ff) not in dropSat | dropStatus],
+                [ff for ff in allFree if self.lineKey(ff) not in dropSat | dropStatus | dropLowSN],
                 window=self.config.broadWindow, broadFrac=self.config.broadFrac,
                 nSigma=self.config.broadNSigma,
             )
@@ -268,7 +281,7 @@ class FitLsfTask(PipelineTask):
         for key in sorted(dropSat, key=lambda kk: kk[1]):
             self.log.info("Line %s %.3f is saturated in %d fibres (fit in %d): not used",
                           key[0], key[1], nSat[key], nFit.get(key, 0))
-        dropped = dropSat | dropStatus | broad
+        dropped = dropSat | dropStatus | dropLowSN | broad
 
         def isUsed(ff):
             return self.lineKey(ff) not in dropped
@@ -281,15 +294,18 @@ class FitLsfTask(PipelineTask):
                       zeroPoint, zeroPointErr, used.sum(), scatter)
         fits = free.fits
         if self.config.doPinCentroids:
-            fixCentres = {key: pinnedCentres(ffs, zeroPoint) for key, ffs in free.fits.items()}
+            # Only the lines that will be used are refit; the others keep their free fits (in lsfLines)
+            fixCentres = {key: pinnedCentres([ff for ff in ffs if isUsed(ff)], zeroPoint)
+                          for key, ffs in free.fits.items()}
             pinned = self.fitLines(exposures, fixCentres)
-            fits = pinned.fits
             freeChi2 = {(key, round(ff.catWavelength, 4)): ff.chi2
                         for key, ffs in free.fits.items() for ff in ffs}
-            dchi2 = [ff.chi2 - freeChi2[(key, round(ff.catWavelength, 4))] for key, ffs in fits.items()
+            dchi2 = [ff.chi2 - freeChi2[(key, round(ff.catWavelength, 4))] for key, ffs in pinned.fits.items()
                      for ff in ffs if (key, round(ff.catWavelength, 4)) in freeChi2]
             self.log.info("Pinned fits: %d lines; median chi^2 change %+.3f",
-                          sum(len(ff) for ff in fits.values()), np.median(dchi2) if dchi2 else np.nan)
+                          sum(len(ff) for ff in pinned.fits.values()), np.median(dchi2) if dchi2 else np.nan)
+            fits = {key: pinned.fits.get(key, []) + [ff for ff in ffs if not isUsed(ff)]
+                    for key, ffs in free.fits.items()}
 
         # Smooth fits over the detector
         detMap = exposures[0].detMap
@@ -315,6 +331,8 @@ class FitLsfTask(PipelineTask):
                 flag |= LsfLineFlag.SATURATED_ELSEWHERE
             if key in dropStatus:
                 flag |= LsfLineFlag.EXCLUDED_STATUS
+            if key in dropLowSN:
+                flag |= LsfLineFlag.LOW_SN
             if key in broad:
                 flag |= LsfLineFlag.BROAD
             if ff.pinned:
