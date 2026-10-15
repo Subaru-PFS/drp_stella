@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
 from argparse import ArgumentParser
-from pfs.drp.stella.gen3 import parseDataIds, pullButlerCache, pullButlerCalibCache
+from pfs.drp.stella.gen3 import butlerTransfer, butlerTransferCalib, parseDataIds
 
 
 def main():
     parser = ArgumentParser(
         description=(
-            "Pull datasets from a remote butler repo into a local cache repo, "
+            "Pull datasets from a remote butler repo into a local repo, "
             "for offline pipetask development. See connectRemoteButler.sh for setting up "
             "access to the remote repo."
         )
     )
     parser.add_argument("source", help="URI/config of the source (remote-view) repo")
-    parser.add_argument("target", help="Path to the local cache repo")
+    parser.add_argument("target", help="Path to the target (local) repo")
     parser.add_argument("collections", nargs="+", help="Collections to search in the source repo")
     parser.add_argument(
         "--dataset-type",
@@ -44,13 +44,26 @@ def main():
         action="store_true",
         help="Clobber datasets that already exist in the target repo (--calib only)",
     )
+    parser.add_argument(
+        "--resolve-calib",
+        action="store_true",
+        help=(
+            "Resolve and pull just the calibration dataset of each --dataset-type that is valid "
+            "(per its CALIBRATION collection certification timespan) for each --id, instead of "
+            "pulling every match -- the same per-exposure calib lookup pipetask itself performs, "
+            "without needing a pipeline or quantum graph. Requires --id and --dataset-type; "
+            "not supported with --where or --calib."
+        ),
+    )
     args = parser.parse_args()
     dataIds = parseDataIds(args.id)
 
     if args.calib:
         if dataIds:
             parser.error("--id is not supported with --calib")
-        pullButlerCalibCache(
+        if args.resolve_calib:
+            parser.error("--resolve-calib is not supported with --calib")
+        butlerTransferCalib(
             args.source,
             args.target,
             args.collections,
@@ -59,7 +72,12 @@ def main():
             clobber=args.clobber,
         )
     else:
-        num = pullButlerCache(
+        if args.resolve_calib:
+            if not dataIds:
+                parser.error("--resolve-calib requires --id")
+            if args.where:
+                parser.error("--resolve-calib is not supported with --where")
+        num = butlerTransfer(
             args.source,
             args.target,
             args.collections,
@@ -67,6 +85,7 @@ def main():
             dataIds=dataIds,
             where=args.where,
             transfer=args.transfer,
+            resolveCalib=args.resolve_calib,
         )
         print(f"Number of datasets pulled: {num}")
 

@@ -1054,7 +1054,7 @@ def transferButlerFiles(
     return targets
 
 
-def pullButlerCache(
+def butlerTransfer(
     sourceRepo: str,
     targetRepo: str,
     collections: CollectionArgType,
@@ -1062,16 +1062,17 @@ def pullButlerCache(
     dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
     where: str = "",
     transfer: str = "copy",
+    resolveCalib: bool = False,
 ) -> int:
-    """Pull datasets from a remote butler repo into a local cache repo
+    """Pull datasets from a remote butler repo into a local repo
 
     This transfers both the registry records and the dataset files for
     ordinary (non-calibration) datasets, so that ``pipetask`` can
     subsequently run against ``targetRepo`` alone, without needing any
-    further access to ``sourceRepo``. Already-cached datasets are not
+    further access to ``sourceRepo``. Already-present datasets are not
     re-transferred.
 
-    For ``CALIBRATION`` collections, use `pullButlerCalibCache` instead, so
+    For ``CALIBRATION`` collections, use `butlerTransferCalib` instead, so
     that certification timespans are preserved.
 
     Parameters
@@ -1080,52 +1081,116 @@ def pullButlerCache(
         URI to the location of the source (remote) repo, or URI to a config
         file describing it.
     targetRepo : `str`
-        URI to the location of the target (local cache) repo.
+        URI to the location of the target repo.
     collections : collection expression
         Data collections to search in the source repo.
     datasetTypes : iterable of `str`, optional
         Names of the dataset types to pull. If empty, all dataset types are
-        considered.
+        considered. Required (and may not be empty) if ``resolveCalib`` is
+        `True`.
     dataIds : iterable of `dict` [`str`: `int` or `str`], optional
         Data identifiers to select the datasets to pull. If not provided,
         all datasets of the given ``datasetTypes`` (subject to ``where``)
-        are considered.
+        are considered. Required if ``resolveCalib`` is `True`.
     where : `str`, optional
-        SQL WHERE clause to restrict the datasets pulled.
+        SQL WHERE clause to restrict the datasets pulled. Not supported
+        together with ``resolveCalib``.
     transfer : `str`, optional
         Transfer mode to use for the file artifacts (e.g., "auto", "copy",
         "link", "symlink", "hardlink").
+    resolveCalib : `bool`, optional
+        Instead of querying ``collections`` directly, resolve the single
+        calibration dataset of each of ``datasetTypes`` that is valid (per
+        its ``CALIBRATION`` collection certification timespan) for each of
+        ``dataIds`` -- the same per-exposure calibration lookup ``pipetask``
+        itself performs, without needing a pipeline or quantum graph. Each
+        dataId must include a temporal dimension (``exposure`` or
+        ``visit``).
 
     Returns
     -------
     num : `int`
         Number of datasets transferred.
     """
-    log = getLogger("pfs.pullButlerCache")
+    log = getLogger("pfs.butlerTransfer")
     source = Butler.from_config(sourceRepo, writeable=False)
-    types = list(datasetTypes) or [dt.name for dt in source.registry.queryDatasetTypes(...)]
-    coords = [getDataCoordinate(ident, source.dimensions) for ident in dataIds] if dataIds else [None]
+    types = list(datasetTypes)
     refs: set[DatasetRef] = set()
-    for datasetType in types:
-        for coord in coords:
-            try:
-                refs.update(
-                    source.query_datasets(
-                        datasetType,
-                        collections=collections,
-                        data_id=coord,
-                        where=where,
-                        limit=None,
-                    )
+    if resolveCalib:
+        if where:
+            raise ValueError("'where' is not supported together with resolveCalib=True")
+        if not types:
+            raise ValueError("'datasetTypes' must be provided when resolveCalib=True")
+        if not dataIds:
+            raise ValueError("'dataIds' must be provided when resolveCalib=True")
+        for ident in dataIds:
+            coord = getDataCoordinate(ident, source.dimensions)
+            timespan = _timespanFromDataId(source, coord)
+            for datasetType in types:
+                datasetTypeObj = source.get_dataset_type(datasetType)
+                constraint = coord.subset(coord.dimensions & datasetTypeObj.dimensions)
+                ref = source.find_dataset(
+                    datasetTypeObj, constraint, collections=collections, timespan=timespan
                 )
-            except EmptyQueryResultError:
-                log.debug("No %s datasets found for dataId=%s.", datasetType, coord)
-                continue
+                if ref is None:
+                    log.warning("No valid %s found for dataId=%s at %s.", datasetType, ident, timespan)
+                    continue
+                refs.add(ref)
+    else:
+        if not types:
+            types = [dt.name for dt in source.registry.queryDatasetTypes(...)]
+        coords = [getDataCoordinate(ident, source.dimensions) for ident in dataIds] if dataIds else [None]
+        for datasetType in types:
+            for coord in coords:
+                try:
+                    refs.update(
+                        source.query_datasets(
+                            datasetType,
+                            collections=collections,
+                            data_id=coord,
+                            where=where,
+                            limit=None,
+                        )
+                    )
+                except EmptyQueryResultError:
+                    log.debug("No %s datasets found for dataId=%s.", datasetType, coord)
+                    continue
     if not refs:
         log.warning("No datasets found to pull.")
         return 0
     target = Butler.from_config(targetRepo, writeable=True)
     return _transferRefs(log, source, target, refs, transfer)
+
+
+def _timespanFromDataId(source: Butler, coord: DataCoordinate) -> Timespan:
+    """Derive the observation timespan of a dataId
+
+    Parameters
+    ----------
+    source : `Butler`
+        Butler to query for dimension records.
+    coord : `DataCoordinate`
+        Data coordinate, including a temporal dimension (``exposure`` or
+        ``visit``).
+
+    Returns
+    -------
+    timespan : `Timespan`
+        Observation timespan.
+
+    Raises
+    ------
+    ValueError
+        If neither an ``exposure`` nor a ``visit`` dimension is present (or
+        resolvable) in ``coord``.
+    """
+    for dimension in ("exposure", "visit"):
+        if dimension not in coord.dimensions.names:
+            continue
+        records = list(source.registry.queryDimensionRecords(dimension, dataId=coord))
+        if records:
+            return records[0].timespan
+    raise ValueError(f"Unable to determine a timespan from dataId={coord}; need 'exposure' or 'visit'")
 
 
 def _transferRefs(
@@ -1199,16 +1264,16 @@ def extractOverallInputRefs(qgraph: QuantumGraph) -> set[DatasetRef]:
     return refs
 
 
-def pullButlerCacheForGraph(
+def butlerTransferForGraph(
     sourceRepo: str,
     targetRepo: str,
     graphPath: str,
     transfer: str = "copy",
 ) -> int:
     """Pull exactly the overall input datasets of a quantum graph from a
-    remote butler repo into a local cache repo
+    remote butler repo into a local repo
 
-    This is the precise counterpart to `pullButlerCache`: instead of
+    This is the precise counterpart to `butlerTransfer`: instead of
     guessing at collections/dataset types/data IDs, build the quantum graph
     for the pipeline and data selection you want to run, e.g.::
 
@@ -1219,7 +1284,7 @@ def pullButlerCacheForGraph(
     with this function, and finally execute the pipeline locally by reusing
     the same graph (so dataset UUIDs line up with what was just pulled)::
 
-        pipetask run -b <local-cache-root> -g <graphPath>
+        pipetask run -b <local-repo> -g <graphPath>
 
     Parameters
     ----------
@@ -1227,7 +1292,7 @@ def pullButlerCacheForGraph(
         URI to the location of the source (remote-view) repo, or URI to a
         config file describing it.
     targetRepo : `str`
-        URI to the location of the target (local cache) repo.
+        URI to the location of the target repo.
     graphPath : `str`
         Path to a quantum graph file (as produced by ``pipetask qgraph``),
         built against ``sourceRepo``.
@@ -1239,7 +1304,7 @@ def pullButlerCacheForGraph(
     num : `int`
         Number of datasets transferred.
     """
-    log = getLogger("pfs.pullButlerCacheForGraph")
+    log = getLogger("pfs.butlerTransferForGraph")
     qgraph = QuantumGraph.loadUri(graphPath)
     refs = extractOverallInputRefs(qgraph)
     if not refs:
@@ -1250,7 +1315,7 @@ def pullButlerCacheForGraph(
     return _transferRefs(log, source, target, refs, transfer)
 
 
-def pullButlerCalibCache(
+def butlerTransferCalib(
     sourceRepo: str,
     targetRepo: str,
     collections: CollectionArgType,
@@ -1259,7 +1324,7 @@ def pullButlerCalibCache(
     clobber: bool = False,
 ) -> None:
     """Pull calibration datasets from a remote butler repo into a local
-    cache repo, preserving their certification timespans
+    repo, preserving their certification timespans
 
     This uses ``butler export-calibs`` (via the source repo) followed by
     `butlerImport` (into the target repo), which is the established pattern
@@ -1272,7 +1337,7 @@ def pullButlerCalibCache(
         URI to the location of the source (remote) repo, or URI to a config
         file describing it.
     targetRepo : `str`
-        URI to the location of the target (local cache) repo.
+        URI to the location of the target repo.
     collections : collection expression
         ``CALIBRATION`` (or ``CHAINED`` of such) collections to pull from.
     datasetTypes : iterable of `str`, optional
@@ -1285,7 +1350,7 @@ def pullButlerCalibCache(
     """
     from lsst.daf.butler.script.exportCalibs import exportCalibs
 
-    log = getLogger("pfs.pullButlerCalibCache")
+    log = getLogger("pfs.butlerTransferCalib")
     with tempfile.TemporaryDirectory() as directory:
         log.info("Exporting calibs from %s to %s...", sourceRepo, directory)
         exportCalibs(sourceRepo, directory, collections, tuple(datasetTypes), transfer)
