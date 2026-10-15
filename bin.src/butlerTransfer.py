@@ -14,7 +14,11 @@ def main():
     )
     parser.add_argument("source", help="URI/config of the source (remote-view) repo")
     parser.add_argument("target", help="Path to the target (local) repo")
-    parser.add_argument("collections", nargs="+", help="Collections to search in the source repo")
+    parser.add_argument(
+        "collections",
+        nargs="+",
+        help="Collections to search in the source repo (comma-separated lists are also accepted)",
+    )
     parser.add_argument(
         "--dataset-type",
         dest="datasetTypes",
@@ -57,6 +61,7 @@ def main():
     )
     args = parser.parse_args()
     dataIds = parseDataIds(args.id)
+    collections = [cc for item in args.collections for cc in item.split(",")]
 
     if args.calib:
         if dataIds:
@@ -66,7 +71,7 @@ def main():
         butlerTransferCalib(
             args.source,
             args.target,
-            args.collections,
+            collections,
             datasetTypes=args.datasetTypes,
             transfer=args.transfer,
             clobber=args.clobber,
@@ -80,7 +85,7 @@ def main():
         num = butlerTransfer(
             args.source,
             args.target,
-            args.collections,
+            collections,
             datasetTypes=args.datasetTypes,
             dataIds=dataIds,
             where=args.where,
