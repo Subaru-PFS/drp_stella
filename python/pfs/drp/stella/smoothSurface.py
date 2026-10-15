@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ("DetectorCoords", "SmoothSurface", "fitSmoothSurface")
+__all__ = ("DetectorCoords", "SmoothSurface", "fitSmoothSurface", "maxGap", "supportedDegree")
 
 
 class DetectorCoords:
@@ -187,6 +187,58 @@ class SmoothSurface:
             if label is not None:
                 value = value + self.getOffset(factor, label)
         return value
+
+
+def maxGap(values, domain):
+    """Largest interval of ``domain`` with no ``values`` in it (including the intervals at the ends)
+
+    Parameters
+    ----------
+    values : array-like
+        Positions (non-finite values are ignored).
+    domain : (`float`, `float`)
+        Range of interest.
+
+    Returns
+    -------
+    gap : `float`
+        Length of the largest empty interval.
+    """
+    values = np.asarray(values, dtype=float)
+    values = np.sort(values[np.isfinite(values) & (values >= domain[0]) & (values <= domain[1])])
+    return float(np.max(np.diff(np.concatenate([[domain[0]], values, [domain[1]]]))))
+
+
+def supportedDegree(values, domain, degree, factor=1.0):
+    """The highest Chebyshev degree, up to ``degree``, that the coverage of ``domain`` supports
+
+    A degree-``d`` polynomial can have features on scales of ``span/(d + 1)``
+    (``span`` the length of ``domain``); where there are no data over a longer
+    interval it is unconstrained, and it can wander there. The degree is
+    therefore reduced until the largest empty interval (`maxGap`, including the
+    ends of the domain) is at most ``factor*span/(d + 1)``.
+
+    Parameters
+    ----------
+    values : array-like
+        Positions of the data.
+    domain : (`float`, `float`)
+        Range over which the polynomial will be evaluated.
+    degree : `int`
+        Requested degree.
+    factor : `float`
+        Tolerance: larger values allow larger gaps.
+
+    Returns
+    -------
+    degree : `int`
+        The supported degree (at least 0).
+    """
+    span = domain[1] - domain[0]
+    gap = maxGap(values, domain)
+    while degree > 0 and gap > factor*span/(degree + 1):
+        degree -= 1
+    return degree
 
 
 def fitSmoothSurface(u, v, value, error, degree, *, domain=None, name="", errFloor=0.0, nIter=3, nSigma=4.0,
