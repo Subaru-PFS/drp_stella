@@ -10,7 +10,7 @@ import numpy as np
 import lsst.utils.tests
 
 from pfs.drp.stella.lsfProfile import diskProfile, diskSigma
-from pfs.drp.stella.smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface
+from pfs.drp.stella.smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface, supportedDegree
 from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline
 from pfs.drp.stella.fitLsfLines import fitDiskLine
 from pfs.drp.stella.lsfLine import LsfLineSet, LsfLineFlag
@@ -269,6 +269,16 @@ class SmoothSurfaceTestCase(lsst.utils.tests.TestCase):
         self.assertLess(np.std(model - truth), 0.002)
         self.assertFloatsAlmostEqual(residual, value - model, atol=1.0e-10)
         self.assertFloatsAlmostEqual(surface.chi2/surface.ndof, 1.0, atol=0.15)
+
+    def testSupportedDegree(self):
+        """The coverage guard lowers the degree where there are large gaps"""
+        domain = (0.0, 4000.0)
+        even = np.linspace(100, 3900, 40)
+        self.assertEqual(supportedDegree(even, domain, 4), 4)
+        clustered = np.concatenate([np.linspace(3000, 3900, 30), [800, 1400, 1900]])   # a gap of 1100
+        self.assertEqual(supportedDegree(clustered, domain, 4), 2)            # 4000/(2 + 1) > 1100 > 4000/4
+        self.assertEqual(supportedDegree(clustered, domain, 4, factor=1.5), 4)
+        self.assertEqual(supportedDegree([3000.0], domain, 3), 0)
 
     def testCoords(self):
         """DetectorCoords: identity for a monolithic detector; affine on the right CCD"""
