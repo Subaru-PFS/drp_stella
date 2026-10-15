@@ -2,7 +2,9 @@
 
 import functools
 import heapq
+import logging
 import os
+import tempfile
 from collections import defaultdict
 from collections.abc import Sequence
 from glob import glob
@@ -31,6 +33,7 @@ from lsst.daf.butler.registry._registry import CollectionArgType
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
 from lsst.pipe.base import QuantumContext
+from lsst.pipe.base import QuantumGraph
 from lsst.pipe.base.connections import InputQuantizedConnection
 from lsst.resources import ResourcePath
 from lsst.obs.pfs.formatters import DetectorMapFormatter
@@ -1051,6 +1054,245 @@ def transferButlerFiles(
     return targets
 
 
+def pullButlerCache(
+    sourceRepo: str,
+    targetRepo: str,
+    collections: CollectionArgType,
+    datasetTypes: Iterable[str] = (),
+    dataIds: Optional[Iterable[Dict[str, Union[int, str]]]] = None,
+    where: str = "",
+    transfer: str = "copy",
+) -> int:
+    """Pull datasets from a remote butler repo into a local cache repo
+
+    This transfers both the registry records and the dataset files for
+    ordinary (non-calibration) datasets, so that ``pipetask`` can
+    subsequently run against ``targetRepo`` alone, without needing any
+    further access to ``sourceRepo``. Already-cached datasets are not
+    re-transferred.
+
+    For ``CALIBRATION`` collections, use `pullButlerCalibCache` instead, so
+    that certification timespans are preserved.
+
+    Parameters
+    ----------
+    sourceRepo : `str`
+        URI to the location of the source (remote) repo, or URI to a config
+        file describing it.
+    targetRepo : `str`
+        URI to the location of the target (local cache) repo.
+    collections : collection expression
+        Data collections to search in the source repo.
+    datasetTypes : iterable of `str`, optional
+        Names of the dataset types to pull. If empty, all dataset types are
+        considered.
+    dataIds : iterable of `dict` [`str`: `int` or `str`], optional
+        Data identifiers to select the datasets to pull. If not provided,
+        all datasets of the given ``datasetTypes`` (subject to ``where``)
+        are considered.
+    where : `str`, optional
+        SQL WHERE clause to restrict the datasets pulled.
+    transfer : `str`, optional
+        Transfer mode to use for the file artifacts (e.g., "auto", "copy",
+        "link", "symlink", "hardlink").
+
+    Returns
+    -------
+    num : `int`
+        Number of datasets transferred.
+    """
+    log = getLogger("pfs.pullButlerCache")
+    source = Butler.from_config(sourceRepo, writeable=False)
+    types = list(datasetTypes) or [dt.name for dt in source.registry.queryDatasetTypes(...)]
+    coords = [getDataCoordinate(ident, source.dimensions) for ident in dataIds] if dataIds else [None]
+    refs: set[DatasetRef] = set()
+    for datasetType in types:
+        for coord in coords:
+            try:
+                refs.update(
+                    source.query_datasets(
+                        datasetType,
+                        collections=collections,
+                        data_id=coord,
+                        where=where,
+                        limit=None,
+                    )
+                )
+            except EmptyQueryResultError:
+                log.debug("No %s datasets found for dataId=%s.", datasetType, coord)
+                continue
+    if not refs:
+        log.warning("No datasets found to pull.")
+        return 0
+    target = Butler.from_config(targetRepo, writeable=True)
+    return _transferRefs(log, source, target, refs, transfer)
+
+
+def _transferRefs(
+    log: logging.Logger,
+    source: Butler,
+    target: Butler,
+    refs: Iterable[DatasetRef],
+    transfer: str,
+) -> int:
+    """Transfer a set of resolved dataset references from one butler to
+    another
+
+    Parameters
+    ----------
+    log : `logging.Logger`
+        Logger to use for progress messages.
+    source : `Butler`
+        Read-only butler to pull datasets from.
+    target : `Butler`
+        Writeable butler to pull datasets into.
+    refs : iterable of `DatasetRef`
+        Dataset references to transfer. Already-present datasets (by UUID)
+        are skipped automatically.
+    transfer : `str`
+        Transfer mode to use for the file artifacts.
+
+    Returns
+    -------
+    num : `int`
+        Number of datasets transferred.
+    """
+    refs = set(refs)
+    log.info("Pulling %d datasets...", len(refs))
+    imported = target.transfer_from(
+        source, refs, transfer=transfer, register_dataset_types=True, transfer_dimensions=True
+    )
+    log.info("Pulled %d datasets.", len(imported))
+    return len(imported)
+
+
+def extractOverallInputRefs(qgraph: QuantumGraph) -> set[DatasetRef]:
+    """Extract the overall input dataset references of a quantum graph
+
+    These are the datasets that the graph consumes but does not produce
+    itself (raw data, calibrations, reference catalogs, init-inputs, etc.):
+    the ones that must already exist for ``pipetask run`` to execute the
+    graph. Intermediate products (produced by one quantum and consumed by
+    another within the same graph) are deliberately excluded, since those
+    will be created locally during execution.
+
+    Parameters
+    ----------
+    qgraph : `lsst.pipe.base.QuantumGraph`
+        Quantum graph to inspect.
+
+    Returns
+    -------
+    refs : `set` of `DatasetRef`
+        The overall input dataset references.
+    """
+    overallTypes = {name for name, _ in qgraph.pipeline_graph.iter_overall_inputs()}
+    refs: set[DatasetRef] = set()
+    for node in qgraph:
+        for datasetType, typeRefs in node.quantum.inputs.items():
+            if datasetType.name in overallTypes:
+                refs.update(typeRefs)
+    for taskDef in qgraph.iterTaskGraph():
+        for ref in qgraph.get_init_input_refs(taskDef.label):
+            if ref.datasetType.name in overallTypes:
+                refs.add(ref)
+    return refs
+
+
+def pullButlerCacheForGraph(
+    sourceRepo: str,
+    targetRepo: str,
+    graphPath: str,
+    transfer: str = "copy",
+) -> int:
+    """Pull exactly the overall input datasets of a quantum graph from a
+    remote butler repo into a local cache repo
+
+    This is the precise counterpart to `pullButlerCache`: instead of
+    guessing at collections/dataset types/data IDs, build the quantum graph
+    for the pipeline and data selection you want to run, e.g.::
+
+        pipetask qgraph -b <remote-view-config> -i <collections> -o <run> \\
+            -p <pipeline> -d "<query>" -q <graphPath>
+
+    against the remote-view config, then pull exactly the inputs it needs
+    with this function, and finally execute the pipeline locally by reusing
+    the same graph (so dataset UUIDs line up with what was just pulled)::
+
+        pipetask run -b <local-cache-root> -g <graphPath>
+
+    Parameters
+    ----------
+    sourceRepo : `str`
+        URI to the location of the source (remote-view) repo, or URI to a
+        config file describing it.
+    targetRepo : `str`
+        URI to the location of the target (local cache) repo.
+    graphPath : `str`
+        Path to a quantum graph file (as produced by ``pipetask qgraph``),
+        built against ``sourceRepo``.
+    transfer : `str`, optional
+        Transfer mode to use for the file artifacts.
+
+    Returns
+    -------
+    num : `int`
+        Number of datasets transferred.
+    """
+    log = getLogger("pfs.pullButlerCacheForGraph")
+    qgraph = QuantumGraph.loadUri(graphPath)
+    refs = extractOverallInputRefs(qgraph)
+    if not refs:
+        log.warning("No overall input datasets found in graph.")
+        return 0
+    source = Butler.from_config(sourceRepo, writeable=False)
+    target = Butler.from_config(targetRepo, writeable=True)
+    return _transferRefs(log, source, target, refs, transfer)
+
+
+def pullButlerCalibCache(
+    sourceRepo: str,
+    targetRepo: str,
+    collections: CollectionArgType,
+    datasetTypes: Iterable[str] = (),
+    transfer: str = "copy",
+    clobber: bool = False,
+) -> None:
+    """Pull calibration datasets from a remote butler repo into a local
+    cache repo, preserving their certification timespans
+
+    This uses ``butler export-calibs`` (via the source repo) followed by
+    `butlerImport` (into the target repo), which is the established pattern
+    for moving ``CALIBRATION`` collection datasets between repos while
+    keeping their certifications intact.
+
+    Parameters
+    ----------
+    sourceRepo : `str`
+        URI to the location of the source (remote) repo, or URI to a config
+        file describing it.
+    targetRepo : `str`
+        URI to the location of the target (local cache) repo.
+    collections : collection expression
+        ``CALIBRATION`` (or ``CHAINED`` of such) collections to pull from.
+    datasetTypes : iterable of `str`, optional
+        Names of the calibration dataset types to pull. If empty, all
+        calibration dataset types are considered.
+    transfer : `str`, optional
+        Transfer mode to use for the file artifacts.
+    clobber : `bool`, optional
+        Clobber datasets that already exist (by UUID) in the target repo?
+    """
+    from lsst.daf.butler.script.exportCalibs import exportCalibs
+
+    log = getLogger("pfs.pullButlerCalibCache")
+    with tempfile.TemporaryDirectory() as directory:
+        log.info("Exporting calibs from %s to %s...", sourceRepo, directory)
+        exportCalibs(sourceRepo, directory, collections, tuple(datasetTypes), transfer)
+        log.info("Importing calibs into %s...", targetRepo)
+        butlerImport(targetRepo, directory, transfer=transfer, clobber=clobber)
+
+
 def calculateObjectGroups(
     pfsConfigList: list[PfsConfig],
     catId: int,
@@ -1343,6 +1585,35 @@ def cleanRun(
                     log.info("  %s", ref.dataId)
             else:
                 butler.pruneDatasets(refs, disassociate=True, unstore=True, purge=True)
+
+
+def parseDataIds(idList: Optional[Iterable[Iterable[str]]]) -> Optional[List[Dict[str, Union[int, str]]]]:
+    """Parse ``--id KEY=VALUE [KEY=VALUE ...]`` command-line arguments into
+    dataId dictionaries
+
+    Intended for use with an ``argparse`` option declared as::
+
+        parser.add_argument("--id", nargs="*", action="append", help="KEY=VALUE pairs of dataId")
+
+    which may be given multiple times to specify multiple dataIds, each with
+    one or more ``KEY=VALUE`` pairs.
+
+    Parameters
+    ----------
+    idList : iterable of iterable of `str`, or `None`
+        Raw value of the parsed ``--id`` argument (one list of
+        ``"KEY=VALUE"`` strings per occurrence of ``--id``), or `None`/empty
+        if the option wasn't given.
+
+    Returns
+    -------
+    dataIds : `list` of `dict` [`str`: `int` or `str`], or `None`
+        One dict per ``--id`` occurrence, mapping key to value as given on
+        the command line. `None` if ``idList`` was not provided.
+    """
+    if not idList:
+        return None
+    return [{key: value for key, value in (item.split("=", 1) for item in ident)} for ident in idList]
 
 
 def getDataCoordinate(dataId: dict[str, Any], universe: DimensionUniverse) -> DataCoordinate:
