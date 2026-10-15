@@ -36,6 +36,8 @@ class LsfLineFlag(IntFlag):
     """Rejected (sigma-clipped) by the smooth fit of lam6"""
     REJECTED_LORENTZ = 0x1000
     """Rejected (sigma-clipped) by the smooth fit of the Lorentzian's FWHM"""
+    LOW_SN = 0x2000
+    """The line's median S/N over the fibres is too low: not used"""
 
     @classmethod
     def rejected(cls, name):
@@ -45,7 +47,7 @@ class LsfLineFlag(IntFlag):
     @classmethod
     def notUsed(cls):
         """Flags of lines that didn't enter the smooth fits"""
-        return cls.SATURATED | cls.SATURATED_ELSEWHERE | cls.EXCLUDED_STATUS | cls.BROAD
+        return cls.SATURATED | cls.SATURATED_ELSEWHERE | cls.EXCLUDED_STATUS | cls.BROAD | cls.LOW_SN
 
 
 class LsfLineSet(Table):
