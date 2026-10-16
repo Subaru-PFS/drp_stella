@@ -24,11 +24,11 @@ namespace {
 /// @param bbox : Bounding box of the exposure
 /// @returns PSF image
 std::shared_ptr<lsst::afw::detection::Psf::Image> getPsfImage(
-    pfs::drp::stella::SpectralPsf const& psf,
+    lsst::afw::detection::Psf const& psf,
     lsst::geom::Point2D const& point,
     lsst::geom::Box2I const& bbox
 ) {
-    std::shared_ptr<pfs::drp::stella::SpectralPsf::Image> psfImage;
+    std::shared_ptr<lsst::afw::detection::Psf::Image> psfImage;
     try {
         psfImage = psf.computeImage(point);
     } catch (lsst::pex::exceptions::Exception const&) {
@@ -48,7 +48,8 @@ lsst::afw::table::BaseCatalog photometer(
     lsst::afw::image::MaskedImage<float> const& image,
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& wavelength,
-    pfs::drp::stella::SpectralPsf const& psf,
+    lsst::afw::detection::Psf const& psf,
+    std::shared_ptr<DetectorMap> const& detectorMap,
     lsst::afw::image::MaskPixel badBitMask,
     ndarray::Array<double, 2, 1> const& positions_
 ) {
@@ -56,7 +57,7 @@ lsst::afw::table::BaseCatalog photometer(
     std::size_t const num = fiberId.size();
 
     ndarray::Array<double, 2, 1> const& positions = positions_.isEmpty() ?
-        psf.getDetectorMap()->findPoint(fiberId, wavelength) : positions_;
+        detectorMap->findPoint(fiberId, wavelength) : positions_;
     utils::checkSize(positions.getShape(), ndarray::makeVector<ndarray::Size>(num, 2),
                      "fiberId vs positions");
 

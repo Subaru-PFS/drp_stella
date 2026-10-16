@@ -94,9 +94,9 @@ struct KernelSolution {
 
     /// Unweighted second moment (shape) of the kernel, about its first moment
     ///
-    /// This is a simple (unweighted, non-adaptive) moment calculation, analogous to
-    /// pfs::drp::stella::OversampledPsf::doComputeShape. Because the delta-function kernel can take
-    /// negative values (unlike a physical PSF), the result is not guaranteed to be positive-definite.
+    /// This is a simple (unweighted, non-adaptive) moment calculation. Because the delta-function
+    /// kernel can take negative values (unlike a physical PSF), the result is not guaranteed to be
+    /// positive-definite.
     /// Returns NaN components if the fit failed or the kernel sum is zero.
     lsst::afw::geom::ellipses::Quadrupole getSecondMoment() const;
 
