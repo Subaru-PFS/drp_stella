@@ -6,8 +6,6 @@ scripts.BasicSConscript.pybind11(
      'FiberTrace',
      'FiberTraceSet',
      'spline',
-     'SpectralPsf',
-     'tests/oversampledPsf',
      'symmetricTridiagonal',
      'fitLine',
      'traces',

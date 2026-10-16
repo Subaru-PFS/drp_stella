@@ -16,8 +16,6 @@ from .FiberTraceSetContinued import *
 from .DetectorMapContinued import *
 from .SplinedDetectorMapContinued import *
 from .spline import *
-from .SpectralPsf import *
-from .SpectralPsfContinued import *
 from .lsf import *
 from .buildFiberProfiles import *
 from .psfMatch import *

@@ -2,9 +2,6 @@ import math
 
 from lsst.afw.detection import GaussianPsf
 
-from pfs.drp.stella.SpectralPsf import SpectralPsf
-from pfs.drp.stella.SpectralPsfContinued import ImagingSpectralPsf
-
 __all__ = ("checkPsf", "fwhmToSigma", "sigmaToFwhm")
 
 
@@ -18,8 +15,8 @@ def sigmaToFwhm(sigma):
     return sigma*(2*math.sqrt(2*math.log(2)))
 
 
-def checkPsf(exposure, detectorMap=None, fwhm=1.5, kernelSize=4.0):
-    """Ensure that the exposure has a `SpectralPsf`
+def checkPsf(exposure, fwhm=1.5, kernelSize=4.0):
+    """Ensure that the exposure has a Psf
 
     Creates the PSF in the exposure if it doesn't have one.
 
@@ -27,8 +24,6 @@ def checkPsf(exposure, detectorMap=None, fwhm=1.5, kernelSize=4.0):
     ----------
     exposure : `lsst.afw.image.Exposure`
         Exposure of interest.
-    detectorMap : `pfs.drp.stella.DetectorMap`
-        Mapping of fiberId,wavelength to x,y.
     fwhm : `float`
         Full-width at half-maximum for PSF to create, if required.
     kernelSize : `float`
@@ -36,7 +31,7 @@ def checkPsf(exposure, detectorMap=None, fwhm=1.5, kernelSize=4.0):
 
     Returns
     -------
-    psf : `pfs.drp.stella.SpectralPsf`
+    psf : `lsst.afw.detection.Psf`
         Point-spread function.
     """
     psf = exposure.getPsf()
@@ -44,7 +39,5 @@ def checkPsf(exposure, detectorMap=None, fwhm=1.5, kernelSize=4.0):
         sigma = fwhmToSigma(fwhm)
         size = 2*int(sigma*kernelSize + 0.5) + 1
         psf = GaussianPsf(size, size, sigma)
-    if detectorMap is not None and not isinstance(psf, SpectralPsf):
-        psf = ImagingSpectralPsf(psf, detectorMap)
-    exposure.setPsf(psf)
+        exposure.setPsf(psf)
     return psf

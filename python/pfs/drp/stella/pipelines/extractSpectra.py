@@ -227,7 +227,9 @@ class ExtractSpectraTask(PipelineTask):
         if self.config.doSubtractSky2d:
             if sky2d is None or psf is None or apCorr is None:
                 raise RuntimeError("Can't do 2d sky subtraction without sky2d, psf and apCorr")
-            skyImage = self.subtractSky(exposure, psf, fiberTraces, detectorMap, pfsConfig, sky2d, apCorr)
+            skyImage = self.subtractSky2d.subtractSky(
+                exposure, psf, fiberTraces, detectorMap, pfsConfig, sky2d, apCorr
+            )
 
         original = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
 
