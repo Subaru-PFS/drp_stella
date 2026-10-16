@@ -1,6 +1,7 @@
 from typing import Optional
 
 import lsstDebug
+from lsst.afw.detection import Psf
 from lsst.afw.image import ExposureF
 from lsst.pex.config import ConfigurableField, Field
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
@@ -17,7 +18,6 @@ from ..extractSpectraTask import ExtractSpectraTask as ExtractionTask
 from ..fiberProfileSet import FiberProfileSet
 from ..fitContinuum import FitContinuumTask
 from ..focalPlaneFunction import FocalPlaneFunction
-from ..NevenPsfContinued import NevenPsf
 from ..readLineList import ReadLineListTask
 from ..repair import PfsRepairTask, maskLines
 from ..subtractSky2d import SkyModel, SubtractSky2dTask
@@ -169,7 +169,7 @@ class ExtractSpectraTask(PipelineTask):
         detectorMap: DetectorMap,
         fiberProfiles: FiberProfileSet,
         sky2d: Optional[SkyModel] = None,
-        psf: Optional[NevenPsf] = None,
+        psf: Optional[Psf] = None,
         apCorr: Optional[FocalPlaneFunction] = None,
     ) -> Struct:
         """Extract spectra from an exposure, optionally subtracting sky or
@@ -189,7 +189,7 @@ class ExtractSpectraTask(PipelineTask):
             Profile of fibers.
         sky2d : `SkyModel`, optional
             Model of sky line fluxes.
-        psf : `NevenPsf`, optional
+        psf : `lsst.afw.detection.Psf`, optional
             Two-dimensional point-spread function, used for 2d sky subtraction.
         apCorr : `FocalPlaneFunction`, optional
             Aperture corrections, used for 2d sky subtraction.
