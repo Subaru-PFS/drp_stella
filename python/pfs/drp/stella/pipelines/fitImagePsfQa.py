@@ -308,7 +308,8 @@ class FitImagePsfQaTask(PipelineTask):
                 residual.mask[stampBBox].array[:] |= detectedBit
                 measAlg.subtractPsf(psf, residual, xc, yc)
                 numSubtracted += 1
-            except Exception:
+            except Exception as exc:
+                self.log.debug("candidate at (%s,%s) could not be subtracted: %s", xc, yc, exc)
                 numSkipped += 1
         self.log.info(
             "Visit %d: subtracted %d candidates, skipped %d", exposure.visitInfo.id, numSubtracted, numSkipped
@@ -503,7 +504,8 @@ class FitImagePsfQaTask(PipelineTask):
                     centers.append(np.median(sortedFlux[sel]))
                     medians.append(np.median(sortedChi2[sel]))
             ax.plot(centers, medians, color="k", linewidth=2, label="running median")
-        ax.set_xscale("log")
+        if fluxValid.sum() > 0:
+            ax.set_xscale("log")
         if valid.sum() > 0:
             ax.set_ylim(0, np.nanpercentile(candChi2[valid], 99))
         ax.set_xlabel("line flux (instrumental)")
