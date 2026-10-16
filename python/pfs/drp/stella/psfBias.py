@@ -118,6 +118,7 @@ def calculatePeakToCentroidBias(
         raise ValueError(f"x and y must have the same length; got {len(x)} and {len(y)}")
     if len(x) == 0:
         return np.array([]), np.array([])
+    good = np.isfinite(x) & np.isfinite(y)
 
     if centroidControl is None:
         centroidControl = SdssCentroidControl()
@@ -155,7 +156,7 @@ def calculatePeakToCentroidBias(
 
     workingBBox = Box2I(
         Point2I(0, 0),
-        Extent2I(int(np.ceil(np.max(x))) + margin + 1, int(np.ceil(np.max(y))) + margin + 1),
+        Extent2I(int(np.ceil(np.max(x[good]))) + margin + 1, int(np.ceil(np.max(y[good]))) + margin + 1),
     )
     working = MaskedImageF(workingBBox)
     working.variance.array[:] = 1.0  # arbitrary, finite: feeds only SdssCentroid's (unused) error estimate
@@ -164,7 +165,9 @@ def calculatePeakToCentroidBias(
 
     xBias = np.full(len(x), np.nan)
     yBias = np.full(len(y), np.nan)
-    for index, (xPos, yPos) in enumerate(zip(x, y)):
+    for index, (xPos, yPos, gg) in enumerate(zip(x, y, good)):
+        if not gg:
+            continue
         xPos, yPos = (float(xPos), float(yPos)) if allowSubPixels else (int(xPos), int(yPos))
         model = psf.computeImage(Point2D(xPos, yPos))
 
