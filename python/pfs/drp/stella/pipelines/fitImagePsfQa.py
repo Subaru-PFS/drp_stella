@@ -106,8 +106,11 @@ class FitImagePsfQaConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfQaC
     computeExclusionRadius = Field(
         dtype=bool,
         default=True,
-        doc="Automatically set readLineList.exclusionRadius from makePsfCandidates.kernelSize and the "
-        "detectorMap's dispersion, matching FitImagePsfTask's own behaviour.",
+        doc="Automatically use (for this Task's own calls to readLineList.run only, without modifying "
+        "readLineList.config, which may be frozen under pipetask) the greater of the configured "
+        "readLineList.exclusionRadius and a value computed from makePsfCandidates.kernelSize and the "
+        "detectorMap's dispersion, matching FitImagePsfTask's own behaviour. Set False to use "
+        "readLineList.exclusionRadius as configured, with no automatic minimum.",
     )
     goodPixelMaskPlanes = ListField(
         dtype=str,
@@ -208,13 +211,14 @@ class FitImagePsfQaTask(PipelineTask):
         detectorMaps = list(detectorMaps)
         rng = np.random.RandomState(self.config.rngSeed)
 
+        exclusionRadius = None  # None means: leave readLineList.config.exclusionRadius as configured
         if self.config.computeExclusionRadius:
             detMap0 = detectorMaps[0]
             midFiber = detMap0.fiberId[len(detMap0.fiberId) // 2]
             dispersion = detMap0.getDispersionAtCenter(midFiber)
-            exclusionRadius = self.config.makePsfCandidates.kernelSize * dispersion
-            self.log.info("Setting readLineList.exclusionRadius = %.3f nm", exclusionRadius)
-            self.readLineList.config.exclusionRadius = exclusionRadius
+            minExclusionRadius = self.config.makePsfCandidates.kernelSize * dispersion
+            exclusionRadius = max(self.readLineList.config.exclusionRadius, minExclusionRadius)
+            self.log.info("Using readLineList.exclusionRadius = %.3f nm", exclusionRadius)
 
         allCandidates: List = []
         goodStarCat = SourceCatalog(self.centroidLines.schema)
@@ -222,7 +226,9 @@ class FitImagePsfQaTask(PipelineTask):
         residuals = []
 
         for exposure, pfsConfig, detectorMap in zip(exposures, pfsConfigs, detectorMaps):
-            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            refLines = self.readLineList.run(
+                detectorMap, exposure.getMetadata(), exclusionRadius=exclusionRadius
+            )
             visitCandidates: List = []
             if len(refLines) > 0:
                 catalog = self.centroidLines.measureCatalog(

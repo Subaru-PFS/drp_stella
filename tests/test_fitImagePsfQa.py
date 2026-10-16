@@ -31,7 +31,7 @@ class FakeReadLineList:
         self.lines = lines
         self.config = types.SimpleNamespace(exclusionRadius=0.0)
 
-    def run(self, detectorMap=None, metadata=None):
+    def run(self, detectorMap=None, metadata=None, exclusionRadius=None):
         return self.lines
 
 

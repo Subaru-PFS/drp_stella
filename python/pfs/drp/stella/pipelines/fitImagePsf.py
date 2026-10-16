@@ -236,10 +236,12 @@ class FitImagePsfConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfConne
     computeExclusionRadius = Field(
         dtype=bool,
         default=True,
-        doc="Automatically set readLineList.exclusionRadius from makePsfCandidates.kernelSize and the "
-        "detectorMap's own dispersion (nm/pixel), so a line only gets used if no other reference line "
-        "falls within one stamp height of it. Overrides any readLineList.exclusionRadius configured "
-        "directly; set False to use the configured value as-is.",
+        doc="Automatically use (for this Task's own calls to readLineList.run only, without modifying "
+        "readLineList.config, which may be frozen under pipetask) the greater of the configured "
+        "readLineList.exclusionRadius and a value computed from makePsfCandidates.kernelSize and the "
+        "detectorMap's own dispersion (nm/pixel), so a line only gets used as a PSF candidate if no "
+        "other reference line falls within one stamp height of it. Set False to use "
+        "readLineList.exclusionRadius as configured, with no automatic minimum.",
     )
     psfDeterminer = measAlg.psfDeterminerRegistry.makeField("PSF determination algorithm", default="piff")
     badLineStatus = Field(
@@ -415,17 +417,18 @@ class FitImagePsfTask(PipelineTask):
             The per-visit adjusted detectorMap for each input exposure (same
             order, one per element of ``exposures``).
         """
+        exclusionRadius = None  # None means: leave readLineList.config.exclusionRadius as configured
         if self.config.computeExclusionRadius:
             midFiber = detectorMap.fiberId[len(detectorMap.fiberId) // 2]
             dispersion = detectorMap.getDispersionAtCenter(midFiber)  # nm/pixel
-            exclusionRadius = self.config.makePsfCandidates.kernelSize * dispersion
+            minExclusionRadius = self.config.makePsfCandidates.kernelSize * dispersion
+            exclusionRadius = max(self.readLineList.config.exclusionRadius, minExclusionRadius)
             self.log.info(
-                "Setting readLineList.exclusionRadius = %.3f nm (dispersion=%.4f nm/pixel, kernelSize=%d)",
+                "Using readLineList.exclusionRadius = %.3f nm (dispersion=%.4f nm/pixel, kernelSize=%d)",
                 exclusionRadius,
                 dispersion,
                 self.config.makePsfCandidates.kernelSize,
             )
-            self.readLineList.config.exclusionRadius = exclusionRadius
 
         allCandidates = []
         goodStarCat = SourceCatalog(self.centroidLines.schema)
@@ -438,7 +441,9 @@ class FitImagePsfTask(PipelineTask):
             visitDetectorMap = self.adjustDetectorMapForVisit(exposure, pfsConfig, detectorMap, arm)
             adjustedDetectorMaps.append(visitDetectorMap)
 
-            refLines = self.readLineList.run(visitDetectorMap, exposure.getMetadata())
+            refLines = self.readLineList.run(
+                visitDetectorMap, exposure.getMetadata(), exclusionRadius=exclusionRadius
+            )
             if len(refLines) == 0:
                 self.log.warn("No reference lines for visit %d; skipping", exposure.visitInfo.id)
                 continue
@@ -533,16 +538,11 @@ class FitImagePsfTask(PipelineTask):
             detectorMap adjusted to this exposure.
         """
         # Use the full (unfiltered) line list for this bootstrap pass, to maximise the training set
-        # for the geometric fit; temporarily override our own (possibly nonzero) exclusion radius.
-        exclusionRadius = self.readLineList.config.exclusionRadius
-        self.readLineList.config.exclusionRadius = 0.0
-        try:
-            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
-            arcLines = self.centroidLines.run(
-                exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id
-            )
-        finally:
-            self.readLineList.config.exclusionRadius = exclusionRadius
+        # for the geometric fit; override our own (possibly nonzero) exclusion radius for this call only.
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), exclusionRadius=0.0)
+        arcLines = self.centroidLines.run(
+            exposure, refLines, detectorMap, pfsConfig, seed=exposure.visitInfo.id
+        )
 
         adjusted = self.adjustDetectorMap.run(
             detectorMap, arcLines, arm, exposure.visitInfo, seed=exposure.visitInfo.id
