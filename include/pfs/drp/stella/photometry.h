@@ -5,8 +5,9 @@
 
 #include "lsst/afw/table/fwd.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/afw/detection/Psf.h"
 
-#include "pfs/drp/stella/SpectralPsf.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs {
 namespace drp {
@@ -30,16 +31,19 @@ namespace stella {
  * @param fiberId : Fiber identifiers of traces for which to measure lines.
  * @param wavelength : Wavelength (nm) of lines to measure.
  * @param psf : Point-spread function.
+ * @param detectorMap : Mapping between fiberId,wavelength and x,y, used to
+ *     compute positions when not supplied directly via ``positions``.
  * @param badBitMask : Bit mask for pixels to ignore.
  * @param positions : Positions at which to measure; if empty, use fiberId and
- *     wavelength from PSF detectorMap.
+ *     wavelength and ``detectorMap``.
  * @returns Catalog of flux measurements.
  */
 lsst::afw::table::BaseCatalog photometer(
     lsst::afw::image::MaskedImage<float> const& image,
     ndarray::Array<int, 1, 1> const& fiberId,
     ndarray::Array<double, 1, 1> const& wavelength,
-    pfs::drp::stella::SpectralPsf const& psf,
+    lsst::afw::detection::Psf const& psf,
+    std::shared_ptr<DetectorMap> const& detectorMap,
     lsst::afw::image::MaskPixel badBitMask=0x0,
     ndarray::Array<double, 2, 1> const& positions=ndarray::Array<double, 2, 1>()
 );

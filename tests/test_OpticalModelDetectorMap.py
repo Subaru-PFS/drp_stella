@@ -5,15 +5,13 @@ import numpy as np
 
 import lsst.utils.tests
 import lsst.afw.image.testUtils
-from lsst.afw.detection import GaussianPsf
-from lsst.afw.image import ExposureF
 from lsst.geom import Point2D, Box2D
 from lsst.pex.exceptions import DomainError
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DetectorMap, PolynomialDistortion
-from pfs.drp.stella import ReferenceLineStatus, ImagingSpectralPsf
+from pfs.drp.stella import ReferenceLineStatus
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
@@ -281,24 +279,6 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
         detMap = self.makeOpticalModelDetectorMap(False)
         copy = pickle.loads(pickle.dumps(detMap))
         self.assertOpticalModelDetectorMapsEqual(detMap, copy)
-
-    def testPersistable(self):
-        """Test behaviour as a Persistable
-
-        This involves sticking it in a Psf, which gets stuck in an Exposure
-        """
-        size = 21
-        sigma = 3
-        detMap = self.makeOpticalModelDetectorMap(False)
-        imagePsf = GaussianPsf(size, size, sigma)
-        psf = ImagingSpectralPsf(imagePsf, detMap)
-        exposure = ExposureF(size, size)
-        exposure.setPsf(psf)
-        with lsst.utils.tests.getTempFilePath(".fits") as filename:
-            exposure.writeFits(filename)
-            copy = ExposureF(filename).getPsf().getDetectorMap()
-            copy.metadata.set("METADATA", self.metadata)  # Persistence doesn't preserve the metadata
-            self.assertOpticalModelDetectorMapsEqual(detMap, copy)
 
     @methodParameters(arm=("r", "m"))
     def testFit(self, arm):
