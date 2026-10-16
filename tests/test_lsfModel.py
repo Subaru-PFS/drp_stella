@@ -82,6 +82,20 @@ class LsfProfileTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual((values - core)[far], 0.5*lorentz/np.pi/(pix[far] - 0.3)**2, rtol=0.1)
         self.assertFloatsAlmostEqual(diskProfile(pix, 0.3, 1.7, 0.6, [0.2, 0.5], lorentz=0.0), core, atol=0.0)
 
+    def testHalo(self):
+        """A halo keeps the area and first moment, and adds light in the wings"""
+        pix = np.arange(-40, 41, dtype=float)
+        core = diskProfile(pix, 0.3, 1.7, 0.6, [0.2, 0.5])
+        values = diskProfile(pix, 0.3, 1.7, 0.6, [0.2, 0.5], haloFrac=0.03, haloWidth=2.2)
+        self.assertFloatsAlmostEqual(values.sum(), 1.0, atol=1.0e-8)
+        mean, var, _ = moments(pix, values)
+        self.assertFloatsAlmostEqual(mean, 0.3, atol=5.0e-5)   # quadrature over the disk
+        meanCore, varCore, _ = moments(pix, core)
+        # variance adds linearly
+        self.assertFloatsAlmostEqual(var - varCore, 0.03*(2.2**2 - 0.6**2), rtol=0.02)
+        far = np.abs(pix - 0.3) > 5
+        self.assertTrue(np.all(values[far] >= core[far]))
+
 
 class LsfModelTestCase(lsst.utils.tests.TestCase):
     """Tests for pfs.drp.stella.lsfModel"""
@@ -190,6 +204,20 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertGreater(kernel.values[0], core.values[0])
         self.assertGreater(model.computeFwhm(20, 1000.0), self.model.computeFwhm(20, 1000.0))
 
+    def testModelHalo(self):
+        """A model with a halo puts more light in the kernel's wings, keeping its first moment"""
+        model = makeModel()
+        model.surfaces["haloFrac"] = constantSurface("haloFrac", 0.03)
+        model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.2)
+        params = model.getParameters(20, 1000.0)
+        self.assertFloatsAlmostEqual(params["haloFrac"], 0.03, atol=1.0e-12)
+        kernel = model.computeKernel(20, 1000.3, halfWidth=10)
+        core = self.model.computeKernel(20, 1000.3, halfWidth=10)
+        self.assertFloatsAlmostEqual(np.sum(kernel.pixels*kernel.values), 1000.3, atol=1.0e-4)
+        self.assertGreater(kernel.values[2], core.values[2])
+        copy = pickle.loads(pickle.dumps(model))
+        self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values, model.computeKernel(20, 1000.3).values)
+
     def testPickle(self):
         """The model can be pickled"""
         copy = pickle.loads(pickle.dumps(self.model))
@@ -247,6 +275,25 @@ class FitLsfLinesTestCase(lsst.utils.tests.TestCase):
         self.assertLess(abs(fit.lorentz - lorentz), 5*fit.lorentzErr)
         self.assertLess(fit.lorentzErr, 0.03)
         self.assertLess(abs(fit.pixel - center), 5*fit.pixelErr)
+
+    def testFitHalo(self):
+        """We recover the halo of a simulated line"""
+        rng = np.random.default_rng(97531)
+        length = 200
+        pix = np.arange(length, dtype=float)
+        wavelength = 700 + 0.07*pix
+        radius, rms, S, K, haloFrac, haloWidth = 1.8, 0.65, 0.3, 0.8, 0.04, 2.3
+        center, flux = 100.3, 1.0e6
+        model = 50.0 + flux*diskProfile(pix, center, radius, rms, [S, K], haloFrac=haloFrac,
+                                        haloWidth=haloWidth)
+        variance = model + 10.0**2
+        data = model + rng.normal(size=length)*np.sqrt(variance)
+        fit = fitDiskLine(wavelength, data, variance, 700 + 0.07*100.0, blurOrder=4, fitHalo=True,
+                          halfWindow=16)
+        self.assertTrue(fit.success)
+        self.assertLess(abs(fit.haloFrac - haloFrac), 5*fit.haloFracErr)
+        self.assertLess(abs(fit.haloWidth - haloWidth), 5*fit.haloWidthErr)
+        self.assertLess(fit.chi2/fit.ndof, 2.0)
 
 
 class SmoothSurfaceTestCase(lsst.utils.tests.TestCase):

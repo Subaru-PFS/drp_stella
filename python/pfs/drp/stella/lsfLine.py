@@ -38,6 +38,10 @@ class LsfLineFlag(IntFlag):
     """Rejected (sigma-clipped) by the smooth fit of the Lorentzian's FWHM"""
     LOW_SN = 0x2000
     """The line's median S/N over the fibres is too low: not used"""
+    REJECTED_HALOFRAC = 0x4000
+    """Rejected (sigma-clipped) by the smooth fit of the halo's fraction"""
+    REJECTED_HALOWIDTH = 0x8000
+    """Rejected (sigma-clipped) by the smooth fit of the halo's width"""
 
     @classmethod
     def rejected(cls, name):

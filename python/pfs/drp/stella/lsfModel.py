@@ -353,7 +353,7 @@ class FiberSpline:
 
 
 CUMULANT_NAMES = ("S", "K", "lam5", "lam6")          # the blur's standardised cumulants, in order
-SHAPE_NAMES = ("radius", "rms") + CUMULANT_NAMES + ("lorentz",)   # profile parameters
+SHAPE_NAMES = ("radius", "rms") + CUMULANT_NAMES + ("lorentz", "haloFrac", "haloWidth")   # profile parameters
 
 
 @dataclass
@@ -362,9 +362,10 @@ class ArmLsfModel(LsfModel):
 
     The LSF is the extracted, pixel-integrated image of the fibre face, a disk
     of radius ``radius``, convolved with a blur of rms ``rms`` whose shape is
-    an Edgeworth series in the standardised cumulants ``S, K, ...``, and
-    optionally convolved with a Lorentzian of FWHM ``lorentz`` (pixels; see
-    `pfs.drp.stella.lsfProfile.diskProfile`). Each parameter is a smooth
+    an Edgeworth series in the standardised cumulants ``S, K, ...``,
+    optionally with a halo (a fraction ``haloFrac`` of the light blurred by a
+    Gaussian of rms ``haloWidth``) and convolved with a Lorentzian of FWHM
+    ``lorentz`` (pixels; see `pfs.drp.stella.lsfProfile.diskProfile`). Each parameter is a smooth
     function (`SmoothSurface`) of position on the detector, in the frame given
     by ``coords`` (which allows for the offset between the two CCDs of a b, r or
     m detector). The kernel's first moment is at the requested centre: the
@@ -391,7 +392,8 @@ class ArmLsfModel(LsfModel):
         Number of rows (pixels) in each spectrum.
     surfaces : `dict` [`str`, `SmoothSurface`]
         The fitted parameters: ``radius``, ``rms``, the blur's cumulants
-        ``S, K, ...``, ``lorentz`` (if fit), and ``centroid``.
+        ``S, K, ...``, ``lorentz``, ``haloFrac`` and ``haloWidth`` (if fit), and
+        ``centroid``.
     coords : `DetectorCoords`
         Detector pixels to the frame of the surfaces.
     xCenter : `FiberSpline`
@@ -484,9 +486,10 @@ class ArmLsfModel(LsfModel):
         -------
         params : `dict` [`str`, `numpy.ndarray`]
             ``x``, ``y`` (detector position, pixels), the profile parameters
-            (``radius``, ``rms``, the cumulants, and ``lorentz`` if fit), and
-            ``sigma``, the rms width of the profile before pixel integration
-            and without any Lorentzian (pixels).
+            (``radius``, ``rms``, the cumulants, and ``lorentz``, ``haloFrac``
+            and ``haloWidth`` if fit), and ``sigma``, the rms width of the
+            profile's core before pixel integration (pixels; no halo or
+            Lorentzian).
         """
         self._checkFiberId(fiberId)
         x, y = self.getDetectorPosition(fiberId, center)
@@ -496,6 +499,9 @@ class ArmLsfModel(LsfModel):
             params[name] = self.surfaces[name](u, v)
         if "lorentz" in self.surfaces:
             params["lorentz"] = np.clip(self.surfaces["lorentz"](u, v), 0.0, None)
+        if "haloFrac" in self.surfaces:
+            params["haloFrac"] = np.clip(self.surfaces["haloFrac"](u, v), 0.0, 1.0)
+            params["haloWidth"] = np.clip(self.surfaces["haloWidth"](u, v), 1.0e-3, None)
         params["sigma"] = diskSigma(params["radius"], params["rms"])
         return params
 
@@ -524,7 +530,8 @@ class ArmLsfModel(LsfModel):
         params = self.getParameters(int(fiberId), float(center))
         cumulants = [float(params[nn]) for nn in self.cumulantNames]
         return diskProfile(pixels, float(center), float(params["radius"]), float(params["rms"]),
-                           cumulants, self.extraction, float(params.get("lorentz", 0.0)))
+                           cumulants, self.extraction, float(params.get("lorentz", 0.0)),
+                           float(params.get("haloFrac", 0.0)), float(params.get("haloWidth", np.nan)))
 
     def computeKernel(self, fiberId, center, halfWidth=None, normalize=True):
         halfWidth = self.defaultHalfWidth if halfWidth is None else halfWidth
@@ -576,7 +583,8 @@ class ArmLsfModel(LsfModel):
         edges = np.arange(-halfWidth, halfWidth + step/2, step)
         # pixel integration over a tiny "pixel" of width `step` approximates the density
         density = diskProfile(edges[:-1]/step + 0.5, 0.0, float(params["radius"])/step,
-                              float(params["rms"])/step, cumulants, self.extraction)
+                              float(params["rms"])/step, cumulants, self.extraction, 0.0,
+                              float(params.get("haloFrac", 0.0)), float(params.get("haloWidth", np.nan))/step)
         centers = 0.5*(edges[:-1] + edges[1:])
         lorentz = float(params.get("lorentz", 0.0))
         if lorentz > 0:                # convolve with the Lorentzian's mass in each cell

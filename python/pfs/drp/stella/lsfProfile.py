@@ -18,8 +18,10 @@ truncated consistently by order::
 with ``He`` the probabilists' Hermite polynomials. The Edgeworth terms have
 zero mean, so the profile's first moment is its centre ``mu``.
 
-The profile may optionally be convolved with a Lorentzian of FWHM ``lorentz``
-(pixels): an extended, symmetric wing.
+The profile may optionally have a halo: a fraction ``haloFrac`` of the light
+in the disk blurred by a broad Gaussian of rms ``haloWidth`` (pixels), and be
+convolved with a Lorentzian of FWHM ``lorentz`` (pixels); both are extended,
+symmetric wings.
 """
 import numpy as np
 from numpy.polynomial.hermite_e import hermeval
@@ -151,7 +153,8 @@ def _diskWeights(radius, rms, extraction):
         return weight/np.sum(weight)        # NaN if an optimiser probes extreme radius/rms: step rejected
 
 
-def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lorentz=0.0):
+def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lorentz=0.0, haloFrac=0.0,
+                haloWidth=np.nan):
     """Unit-area, pixel-integrated, extracted disk (x) Edgeworth profile
 
     The fibre image is a uniform disk of radius ``radius`` (pixels) convolved
@@ -161,7 +164,12 @@ def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lore
     trace; see `_diskWeights`) and integrated over each pixel: the flux in
     pixel ``p`` is ``F(p + 1/2) - F(p - 1/2)``, with ``F`` the CDF, a weighted
     sum of Edgeworth CDFs over Gauss-Chebyshev nodes on the disk. The
-    optimal-extraction weights assume a Gaussian rms.
+    optimal-extraction weights assume a Gaussian blur.
+
+    If ``haloFrac > 0`` a fraction ``haloFrac`` of the light is instead in a
+    halo: the disk blurred by a Gaussian of rms ``haloWidth`` (pixels), with the
+    same extraction weights (an extended wing, e.g. light scattered within the
+    camera that the scattered-light correction leaves behind).
 
     If ``lorentz > 0`` the profile is further convolved with a Lorentzian of
     that FWHM (pixels), numerically, on a ``_LORENTZ_STEP``-pixel grid, with
@@ -186,6 +194,10 @@ def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lore
         ``"optimal"`` or ``"boxcar"``.
     lorentz : `float`
         FWHM (pixels) of a Lorentzian to convolve with; 0 for none.
+    haloFrac : `float`
+        Fraction of the light in the halo; 0 for none.
+    haloWidth : `float`
+        RMS (pixels) of the halo's Gaussian blur.
 
     Returns
     -------
@@ -206,6 +218,9 @@ def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lore
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         z = (edges[:, None] - radius*_GC_U[None, :])/rms
         cdf = edgeworthCdf(z, cumulants) @ weight
+        if haloFrac > 0:
+            zHalo = (edges[:, None] - radius*_GC_U[None, :])/haloWidth
+            cdf = (1.0 - haloFrac)*cdf + haloFrac*(scipy.special.ndtr(zHalo) @ weight)
     if lorentz > 0:
         cell = np.diff(cdf)                                          # mass in each fine cell
         offset = _LORENTZ_STEP*np.arange(-nHalf, nHalf + 1)

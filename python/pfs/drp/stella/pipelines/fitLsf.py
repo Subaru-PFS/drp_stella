@@ -1,10 +1,11 @@
 from collections import Counter, defaultdict
+from dataclasses import asdict
 from typing import Dict, List
 
 import numpy as np
 
 from lsst.daf.base import PropertyList
-from lsst.pex.config import ConfigurableField, DictField, Field, ListField
+from lsst.pex.config import ConfigField, ConfigurableField, DictField, Field, ListField
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections, Struct
 from lsst.pipe.base import QuantumContext
 from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
@@ -19,6 +20,7 @@ from ..lsfLine import LsfLineFlag, LsfLineSet
 from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline
 from ..readLineList import ReadLineListTask
 from ..referenceLine import ReferenceLineStatus
+from ..scatteredLight import ScatteredLightConfig
 from ..smoothSurface import DetectorCoords, fitSmoothSurface, maxGap, supportedDegree
 
 __all__ = ("FitLsfConfig", "FitLsfTask")
@@ -96,6 +98,17 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     fitLorentz = Field(dtype=bool, default=False,
                        doc="Also convolve the profile with a Lorentzian of free FWHM (an extended wing)? "
                            "Off by default: the wing may be residual scattered light (ScatteredLightTask)")
+    fitHalo = Field(dtype=bool, default=True,
+                    doc="Add a halo to the profile: a fraction haloFrac of the light in the disk blurred by "
+                        "a broad Gaussian of rms haloWidth (the light within a few pixels that the "
+                        "scattered-light correction leaves behind; so the model depends on scatteredLight)")
+    haloMinSN = Field(dtype=float, default=300.0,
+                      doc="The halo is measured from lines with at least this median S/N, and then held "
+                          "fixed (at its smooth fit) in the second fits of all the lines")
+    scatteredLight = ConfigField(dtype=ScatteredLightConfig,
+                                 doc="The scattered-light correction applied to the input pfsArms (by "
+                                     "reduceExposure, and to the fiberProfiles by buildFiberProfiles), which "
+                                     "the profile's wings depend on: recorded in the model, not applied")
     halfWindow = Field(dtype=int, default=12, doc="Fit pixels within this distance of each line")
     coreHalf = Field(dtype=float, default=1.5,
                      doc="Masked pixels within this distance of a line's centre count against maxBadCore")
@@ -134,7 +147,7 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     # --- smooth fits over the detector
     degrees = DictField(keytype=str, itemtype=str,
                         default=dict(centroid="2,3", radius="2,3", rms="3,4", S="2,3", K="2,2",
-                                     lam5="1,1", lam6="1,1", lorentz="2,3"),
+                                     lam5="1,1", lam6="1,1", lorentz="2,3", haloFrac="1,2", haloWidth="1,2"),
                         doc="Chebyshev degree 'dx,dy' of each parameter's smooth fit over the detector")
     groupBy = DictField(keytype=str, itemtype=str, default=dict(centroid="visit,fiberId", default="visit"),
                         doc="Factors with constant offsets in each parameter's smooth fit ('default' for "
@@ -299,12 +312,53 @@ class FitLsfTask(PipelineTask):
         )
         self.log.info("Centroid zero point %+.5f +/- %.5f pixels (clipped mean of %d lines; scatter %.4f)",
                       zeroPoint, zeroPointErr, used.sum(), scatter)
+        detMap = exposures[0].detMap
+        coords = DetectorCoords.fromDetectorMap(detMap)
+        self.log.info("Detector coordinates: %s", coords)
+
+        # The halo: measured from the bright lines, then held fixed at its smooth fit
+        haloSurfaces = {}
+        haloRejected = {}
+        fixHalos = None
+        if self.config.fitHalo:
+            bright = {self.lineKey(ff) for ff in allFree if isUsed(ff)
+                      and medianSN[self.lineKey(ff)] >= self.config.haloMinSN}
+            haloRows = [(key[0], ff) for key, ffs in free.fits.items() for ff in ffs
+                        if isUsed(ff) and self.lineKey(ff) in bright]
+            self.log.info("Fitting the halo to %d bright lines (%d catalogue lines with median S/N >= %g)",
+                          len(haloRows), len(bright), self.config.haloMinSN)
+            haloSurfaces, rejected = self.fitSurfaces(haloRows, coords, detMap,
+                                                      names=("haloFrac", "haloWidth"))
+            haloRejected = {(visit, ff.fiberId, round(ff.catWavelength, 4)): rejected[jj]
+                            for jj, (visit, ff) in enumerate(haloRows) if jj in rejected}
+            fixHalos = {}
+            for key, ffs in free.fits.items():
+                ffs = [ff for ff in ffs if isUsed(ff)]
+                if not ffs:
+                    continue
+                u, v = coords(np.array([ff.x for ff in ffs]), np.array([ff.y for ff in ffs]))
+                frac = np.clip(haloSurfaces["haloFrac"](u, v), 0.0, 1.0)
+                width = np.clip(haloSurfaces["haloWidth"](u, v), 1.0e-3, None)
+                fixHalos[key] = {round(float(ff.catWavelength), 4): (float(fr), float(wi))
+                                 for ff, fr, wi in zip(ffs, frac, width)}
+
         fits = free.fits
-        if self.config.doPinCentroids:
+        if self.config.doPinCentroids or self.config.fitHalo:
             # Only the lines that will be used are refit; the others keep their free fits (in lsfLines)
-            fixCentres = {key: pinnedCentres([ff for ff in ffs if isUsed(ff)], zeroPoint)
-                          for key, ffs in free.fits.items()}
-            pinned = self.fitLines(exposures, fixCentres)
+            fixCentres = None
+            if self.config.doPinCentroids:
+                fixCentres = {key: pinnedCentres([ff for ff in ffs if isUsed(ff)], zeroPoint)
+                              for key, ffs in free.fits.items()}
+            pinned = self.fitLines(exposures, fixCentres, fixHalos)
+            if self.config.fitHalo:     # lsfLines reports each line's measured (free) halo
+                freeFits = {(key, round(ff.catWavelength, 4)): ff
+                            for key, ffs in free.fits.items() for ff in ffs}
+                for key, ffs in pinned.fits.items():
+                    for ff in ffs:
+                        ffFree = freeFits.get((key, round(ff.catWavelength, 4)))
+                        if ffFree is not None:
+                            ff.haloFrac, ff.haloFracErr = ffFree.haloFrac, ffFree.haloFracErr
+                            ff.haloWidth, ff.haloWidthErr = ffFree.haloWidth, ffFree.haloWidthErr
             freeChi2 = {(key, round(ff.catWavelength, 4)): ff.chi2
                         for key, ffs in free.fits.items() for ff in ffs}
             dchi2 = [ff.chi2 - freeChi2[(key, round(ff.catWavelength, 4))] for key, ffs in pinned.fits.items()
@@ -315,17 +369,20 @@ class FitLsfTask(PipelineTask):
                     for key, ffs in free.fits.items()}
 
         # Smooth fits over the detector
-        detMap = exposures[0].detMap
-        coords = DetectorCoords.fromDetectorMap(detMap)
-        self.log.info("Detector coordinates: %s", coords)
         rows = []
         for (visit, fiberId), ffs in fits.items():
             rows += [(visit, ff) for ff in ffs]
         usedRows = [ii for ii, (_, ff) in enumerate(rows) if isUsed(ff)]
-        surfaces, rejected = self.fitSurfaces([rows[ii] for ii in usedRows], coords, detMap)
+        surfaces, rejected = self.fitSurfaces(
+            [rows[ii] for ii in usedRows], coords, detMap,
+            names=[nn for nn in self.config.degrees if nn not in haloSurfaces],
+        )
+        surfaces.update(haloSurfaces)
         rejectedFlags = defaultdict(int)
         for jj, flags in rejected.items():
             rejectedFlags[usedRows[jj]] = flags
+        for ii, (visit, ff) in enumerate(rows):
+            rejectedFlags[ii] |= haloRejected.get((visit, ff.fiberId, round(ff.catWavelength, 4)), 0)
 
         lsfModel = self.makeModel(arm, spectrograph, exposures, surfaces, coords, zeroPoint)
         lsfModel.metadata.update(zeroPointErr=zeroPointErr, zeroPointScatter=scatter)
@@ -390,7 +447,7 @@ class FitLsfTask(PipelineTask):
         """Key identifying a catalogue line: (lamps, wavelength)"""
         return (fit.element, round(fit.catWavelength, 3))
 
-    def fitLines(self, exposures, fixCentres=None):
+    def fitLines(self, exposures, fixCentres=None, fixHalos=None):
         """Fit the lines in every fibre of every exposure
 
         Parameters
@@ -401,6 +458,12 @@ class FitLsfTask(PipelineTask):
         fixCentres : `dict` [(`int`, `int`), `dict`], optional
             ``(visit, fiberId) -> fixCentres`` (see `fitLsfLines.measureLsf`):
             hold the lines' centres fixed.
+        fixHalos : `dict` [(`int`, `int`), `dict`], optional
+            ``(visit, fiberId) -> fixHalos`` (see `fitLsfLines.measureLsf`):
+            hold the lines' halos fixed.
+
+        Only the lines in ``fixCentres`` or ``fixHalos`` are fit, if either is
+        given.
 
         Returns
         -------
@@ -420,7 +483,8 @@ class FitLsfTask(PipelineTask):
             for index in range(0, len(pfsArm), config.fiberStep):
                 fiberId = int(pfsArm.fiberId[index])
                 key = (exp.visit, fiberId)
-                if fixCentres is not None and not fixCentres.get(key):
+                refit = fixCentres is not None or fixHalos is not None
+                if refit and not (fixCentres or fixHalos).get(key):
                     continue
                 flux = pfsArm.flux[index].astype(float)
                 flux[pfsArm.mask[index] != 0] = np.nan
@@ -434,8 +498,10 @@ class FitLsfTask(PipelineTask):
                     maxBadCore=config.maxBadCore,
                     fitCompanions=config.fitCompanions,
                     fitLorentz=config.fitLorentz,
+                    fitHalo=config.fitHalo,
                     companionFrac=config.companionFrac,
                     fixCentres=None if fixCentres is None else fixCentres[key],
+                    fixHalos=None if fixHalos is None else fixHalos[key],
                     centroidHalf=config.centroidHalf,
                     keepPixels=False,
                     isolation=config.isolation,
@@ -446,7 +512,7 @@ class FitLsfTask(PipelineTask):
                     norm=pfsArm.norm[index].astype(float),
                     minThroughput=config.minThroughput,
                     edge=config.edge,
-                    excludeMask=excludeMask if fixCentres is None else 0,
+                    excludeMask=0 if refit else excludeMask,
                 )
                 keys.append(key)
                 tasks.append((pfsArm.wavelength[index].astype(float), flux,
@@ -466,7 +532,7 @@ class FitLsfTask(PipelineTask):
             saturated[key] = [(lamps, lam) for lam in sat]
         return Struct(fits=fits, saturated=saturated)
 
-    def fitSurfaces(self, rows, coords, detMap):
+    def fitSurfaces(self, rows, coords, detMap, names=None):
         """Fit each parameter as a smooth function over the detector
 
         Parameters
@@ -477,6 +543,8 @@ class FitLsfTask(PipelineTask):
             Detector pixels to the frame of the fits.
         detMap : `DetectorMap`
             Mapping of fiberId,wavelength to x,y (for the detector's extent).
+        names : iterable of `str`, optional
+            Only fit these parameters.
 
         Returns
         -------
@@ -504,11 +572,14 @@ class FitLsfTask(PipelineTask):
             params[name] = ([ff.cumulants[jj] for ff in fits], [ff.cumulantsErr[jj] for ff in fits])
         if self.config.fitLorentz:
             params["lorentz"] = ([ff.lorentz for ff in fits], [ff.lorentzErr for ff in fits])
+        if self.config.fitHalo:
+            params["haloFrac"] = ([ff.haloFrac for ff in fits], [ff.haloFracErr for ff in fits])
+            params["haloWidth"] = ([ff.haloWidth for ff in fits], [ff.haloWidthErr for ff in fits])
 
         surfaces = {}
         rejected = defaultdict(int)
         for name, (value, error) in params.items():
-            if name not in self.config.degrees:
+            if name not in self.config.degrees or (names is not None and name not in names):
                 continue
             degree = tuple(int(dd) for dd in self.config.degrees[name].split(","))
             if self.config.doCoverageGuard:
@@ -565,7 +636,8 @@ class FitLsfTask(PipelineTask):
         xCenter = FiberSpline.fromFunction(fiberId, length, self.config.traceStep, detMap.getXCenter)
         wavelength = FiberSpline.fromFunction(fiberId, length, self.config.traceStep, detMap.findWavelength)
         metadata: Dict = dict(visits=[exp.visit for exp in exposures], lamps=[exp.lamps for exp in exposures],
-                              config=self.config.toDict())
+                              config=self.config.toDict(),
+                              scatteredLight=asdict(self.config.scatteredLight.getModel(arm, spectrograph)))
         return ArmLsfModel(arm, spectrograph, fiberId, length, surfaces, coords, xCenter, wavelength,
                            extraction=self.config.extraction, centroidZeroPoint=zeroPoint, metadata=metadata)
 
@@ -618,6 +690,9 @@ class FitLsfTask(PipelineTask):
                 cumulants[name + "Err"] = ff.cumulantsErr[jj]
             if self.config.fitLorentz:
                 cumulants.update(lorentz=ff.lorentz, lorentzErr=ff.lorentzErr)
+            if self.config.fitHalo:
+                cumulants.update(haloFrac=ff.haloFrac, haloFracErr=ff.haloFracErr, haloWidth=ff.haloWidth,
+                                 haloWidthErr=ff.haloWidthErr)
             add(visit, ff.fiberId, ff.catWavelength, flags[ii], x=ff.x, y=ff.y, pixel=ff.pixel,
                 pixelErr=ff.pixelErr, refPixel=ff.catPixel, dispersion=ff.dispersion,
                 dataCentroid=ff.dataCentroid, modelCentroid=ff.modelCentroid, radius=ff.radius,
