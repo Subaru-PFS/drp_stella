@@ -4,6 +4,7 @@ from functools import partial
 from typing import Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
+from scipy.optimize import curve_fit
 
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
@@ -52,6 +53,11 @@ class BuildFiberProfilesConfig(Config):
     profileTol = Field(dtype=float, default=1.0e-4, doc="Tolerance for matrix inversion when fitting profile")
     extractFwhm = Field(dtype=float, default=1.5, doc="FWHM for spectral extraction")
     extractIter = Field(dtype=int, default=3, doc="Number of iterations for spectral extraction loop")
+    sigmaFitRadius = Field(
+        dtype=float,
+        default=4.0,
+        doc="Radius (pixels) about the profile centre for the Gaussian fit that sets the extraction sigma",
+    )
     minFracMask = Field(dtype=float, default=0.1, doc="Minimum pixel fraction of profile to accumulate mask")
     doScatteredLight = Field(dtype=bool, default=True, doc="Correct for scattered light?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light removal")
@@ -291,9 +297,7 @@ class BuildFiberProfilesTask(Task):
             # These are Gaussian approximations to the profiles we've measured, to remove any nastiness in the
             # measured profiles that might slow down convergence.
             fluxProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
-            width = np.array([profiles[ff].calculateStatistics().width for ff in profiles])
-            select = np.isfinite(width) & (width > 0)
-            sigma = np.median(width[select])  # width is already a sigma
+            sigma = self.measureSigma(profiles)
             for ff in profiles:
                 fluxProfiles[ff] = FiberProfile.makeGaussian(
                     sigma, height, self.config.profileRadius, self.config.profileOversample
@@ -348,6 +352,49 @@ class BuildFiberProfilesTask(Task):
                     pp.plot()
 
         return Struct(profiles=profiles, centers=centersList, norm=normList)
+
+    def measureSigma(self, profiles: FiberProfileSet) -> float:
+        """Measure the Gaussian sigma of the profile cores
+
+        The second moment of a profile is dominated by its wings and by any
+        residual background at large radius, so instead we fit a Gaussian plus
+        a constant to the core of each fiber's swath-averaged profile, and take
+        the median over the fibers.
+
+        Parameters
+        ----------
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles.
+
+        Returns
+        -------
+        sigma : `float`
+            Median Gaussian sigma of the profile cores (pixels).
+        """
+        def gaussian(xx, amplitude, center, sigma, background):
+            return amplitude*np.exp(-0.5*((xx - center)/sigma)**2) + background
+
+        sigmaList = []
+        for ff in profiles:
+            prof = profiles[ff]
+            values = np.ma.filled(np.ma.mean(prof.profiles, axis=0), np.nan).astype(float)
+            select = (np.abs(prof.index) <= self.config.sigmaFitRadius) & np.isfinite(values)
+            if select.sum() < 5:
+                continue
+            xx = prof.index[select]
+            yy = values[select]
+            start = [yy.max() - yy.min(), 0.0, 1.0, yy.min()]
+            try:
+                params, _ = curve_fit(gaussian, xx, yy, p0=start, maxfev=1000)
+            except (RuntimeError, ValueError) as exc:
+                self.log.debug("Failed to fit profile width for fiber %d: %s", ff, exc)
+                continue
+            sigma = np.abs(params[2])
+            if np.isfinite(sigma) and 0 < sigma < self.config.sigmaFitRadius:
+                sigmaList.append(sigma)
+        if not sigmaList:
+            raise RuntimeError("Unable to measure the width of any fiber profile")
+        return float(np.median(sigmaList))
 
     def findTraces(
         self,
