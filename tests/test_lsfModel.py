@@ -32,11 +32,11 @@ def constantSurface(name, value):
     return SmoothSurface(name, (0, 0), ((0.0, 4096.0), (0.0, 4176.0)), np.array([value]), {}, {})
 
 
-def makeModel(radius=1.8, blur=0.65, S=0.1, K=0.5, length=4176, fiberId=(10, 20, 30)):
+def makeModel(radius=1.8, rms=0.65, S=0.1, K=0.5, length=4176, fiberId=(10, 20, 30)):
     """Make an `ArmLsfModel` with constant parameters"""
     fiberId = np.array(fiberId)
     surfaces = {name: constantSurface(name, value) for name, value in
-                dict(radius=radius, blur=blur, S=S, K=K, centroid=0.0).items()}
+                dict(radius=radius, rms=rms, S=S, K=K, centroid=0.0).items()}
     xCenter = FiberSpline.fromFunction(fiberId, length, 32, lambda ff, rows: 100.0*ff + 0.01*rows)
     wavelength = FiberSpline.fromFunction(fiberId, length, 32,
                                           lambda ff, rows: 600 + 0.05*rows + 1e-6*rows**2)
@@ -48,14 +48,14 @@ class LsfProfileTestCase(lsst.utils.tests.TestCase):
     def testMoments(self):
         """The profile has unit area, first moment mu, and the expected variance"""
         pix = np.arange(-30, 31, dtype=float)
-        radius, blur = 1.7, 0.6
+        radius, rms = 1.7, 0.6
         for mu in (0.0, 0.37, -0.81):
-            values = diskProfile(pix, mu, radius, blur, extraction="boxcar")
+            values = diskProfile(pix, mu, radius, rms, extraction="boxcar")
             self.assertFloatsAlmostEqual(values.sum(), 1.0, atol=1.0e-10)
             mean, var, _ = moments(pix, values)
             self.assertFloatsAlmostEqual(mean, mu, atol=3.0e-5)   # quadrature over the disk
-            # disk projected to a semicircle (r^2/4) + blur^2 + pixel integration (1/12)
-            self.assertFloatsAlmostEqual(var, diskSigma(radius, blur)**2 + 1/12, rtol=2.0e-3)
+            # disk projected to a semicircle (r^2/4) + rms^2 + pixel integration (1/12)
+            self.assertFloatsAlmostEqual(var, diskSigma(radius, rms)**2 + 1/12, rtol=2.0e-3)
 
     def testEdgeworth(self):
         """The Edgeworth terms keep the area and first moment, and S gives the skewness's sign"""
@@ -206,19 +206,19 @@ class FitLsfLinesTestCase(lsst.utils.tests.TestCase):
         length = 200
         pix = np.arange(length, dtype=float)
         wavelength = 700 + 0.07*pix
-        radius, blur, S, K = 1.8, 0.65, 0.3, 0.8
+        radius, rms, S, K = 1.8, 0.65, 0.3, 0.8
         # The lines are 0.3 pixels from their catalogue positions (an error in the wavelength solution)
         center, flux = 100.3, 1.0e5
         companion = 105.1                                  # catalogue position
-        model = (flux*diskProfile(pix, center, radius, blur, [S, K])
-                 + 0.1*flux*diskProfile(pix, companion + 0.3, radius, blur, [S, K]) + 50.0 + 0.1*pix)
+        model = (flux*diskProfile(pix, center, radius, rms, [S, K])
+                 + 0.1*flux*diskProfile(pix, companion + 0.3, radius, rms, [S, K]) + 50.0 + 0.1*pix)
         variance = model + 10.0**2
         data = model + rng.normal(size=length)*np.sqrt(variance)
         fit = fitDiskLine(wavelength, data, variance, 700 + 0.07*100.0, blurOrder=4,
                           companions=[700 + 0.07*companion])
         self.assertTrue(fit.success)
         for value, error, truth in [(fit.pixel, fit.pixelErr, center), (fit.radius, fit.radiusErr, radius),
-                                    (fit.blur, fit.blurErr, blur), (fit.cumulants[0], fit.cumulantsErr[0], S),
+                                    (fit.rms, fit.rmsErr, rms), (fit.cumulants[0], fit.cumulantsErr[0], S),
                                     (fit.cumulants[1], fit.cumulantsErr[1], K),
                                     (fit.amplitude, fit.amplitudeErr, flux)]:
             self.assertLess(abs(value - truth), 5*error)
@@ -237,9 +237,9 @@ class FitLsfLinesTestCase(lsst.utils.tests.TestCase):
         length = 200
         pix = np.arange(length, dtype=float)
         wavelength = 700 + 0.07*pix
-        radius, blur, S, K, lorentz = 1.8, 0.65, 0.3, 0.8, 0.15
+        radius, rms, S, K, lorentz = 1.8, 0.65, 0.3, 0.8, 0.15
         center, flux = 100.3, 3.0e5
-        model = flux*diskProfile(pix, center, radius, blur, [S, K], lorentz=lorentz) + 50.0
+        model = flux*diskProfile(pix, center, radius, rms, [S, K], lorentz=lorentz) + 50.0
         variance = model + 10.0**2
         data = model + rng.normal(size=length)*np.sqrt(variance)
         fit = fitDiskLine(wavelength, data, variance, 700 + 0.07*100.0, blurOrder=4, fitLorentz=True)
@@ -315,7 +315,7 @@ class LsfLineSetTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(copy.radius, lines.radius)
         self.assertFloatsEqual(copy.flag, lines.flag)
         self.assertEqual(list(copy.description), ["NeI"]*num)
-        self.assertEqual(LsfLineFlag.rejected("blur"), LsfLineFlag.REJECTED_BLUR)
+        self.assertEqual(LsfLineFlag.rejected("rms"), LsfLineFlag.REJECTED_RMS)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

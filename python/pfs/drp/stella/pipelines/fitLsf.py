@@ -108,11 +108,10 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     satDropFrac = Field(dtype=float, default=0.05,
                         doc="Don't use a line in any fibre if it is saturated in more than this fraction "
                             "of them")
-    minLineSN = DictField(keytype=str, itemtype=float, default=dict(b=25.0, n=25.0, default=50.0),
+    minLineSN = DictField(keytype=str, itemtype=float, default=dict(b=25.0, default=50.0),
                           doc="Don't use a line in any fibre if its median S/N (flux/fluxErr) over the "
                               "fibres is below this (a per-line cut, so lines aren't selected by fibre "
-                              "throughput); per arm, or 'default'. Lower for b and n, where the lamps are "
-                              "faint")
+                              "throughput); per arm, or 'default'. Lower for b, where the lamps are faint")
     # --- broad lines: intrinsically broader than the LSF (e.g. self-absorbed in the lamp)
     doFindBroad = Field(dtype=bool, default=True,
                         doc="Find and exclude lines broader than their neighbours "
@@ -134,7 +133,7 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     centroidNSigma = Field(dtype=float, default=3.0, doc="Clipping threshold for the centroid zero point")
     # --- smooth fits over the detector
     degrees = DictField(keytype=str, itemtype=str,
-                        default=dict(centroid="2,3", radius="2,3", blur="3,4", S="2,3", K="2,2",
+                        default=dict(centroid="2,3", radius="2,3", rms="3,4", S="2,3", K="2,2",
                                      lam5="1,1", lam6="1,1", lorentz="2,3"),
                         doc="Chebyshev degree 'dx,dy' of each parameter's smooth fit over the detector")
     groupBy = DictField(keytype=str, itemtype=str, default=dict(centroid="visit,fiberId", default="visit"),
@@ -499,7 +498,7 @@ class FitLsfTask(PipelineTask):
         params = dict(
             centroid=([ff.pixel - ff.catPixel for ff in fits], [ff.pixelErr for ff in fits]),
             radius=([ff.radius for ff in fits], [ff.radiusErr for ff in fits]),
-            blur=([ff.blur for ff in fits], [ff.blurErr for ff in fits]),
+            rms=([ff.rms for ff in fits], [ff.rmsErr for ff in fits]),
         )
         for jj, name in enumerate(CUMULANT_NAMES[:max(0, self.config.blurOrder - 2)]):
             params[name] = ([ff.cumulants[jj] for ff in fits], [ff.cumulantsErr[jj] for ff in fits])
@@ -622,7 +621,7 @@ class FitLsfTask(PipelineTask):
             add(visit, ff.fiberId, ff.catWavelength, flags[ii], x=ff.x, y=ff.y, pixel=ff.pixel,
                 pixelErr=ff.pixelErr, refPixel=ff.catPixel, dispersion=ff.dispersion,
                 dataCentroid=ff.dataCentroid, modelCentroid=ff.modelCentroid, radius=ff.radius,
-                radiusErr=ff.radiusErr, blur=ff.blur, blurErr=ff.blurErr, flux=ff.amplitude,
+                radiusErr=ff.radiusErr, rms=ff.rms, rmsErr=ff.rmsErr, flux=ff.amplitude,
                 fluxErr=ff.amplitudeErr, peak=ff.peak, chi2=ff.chi2, ndof=ff.ndof, nBadCore=ff.nBadCore,
                 **cumulants)
         for (visit, fiberId), keys in saturated.items():
