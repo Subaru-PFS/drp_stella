@@ -353,7 +353,7 @@ class FiberSpline:
 
 
 CUMULANT_NAMES = ("S", "K", "lam5", "lam6")          # the blur's standardised cumulants, in order
-SHAPE_NAMES = ("radius", "blur") + CUMULANT_NAMES + ("lorentz",)   # profile parameters
+SHAPE_NAMES = ("radius", "rms") + CUMULANT_NAMES + ("lorentz",)   # profile parameters
 
 
 @dataclass
@@ -361,7 +361,7 @@ class ArmLsfModel(LsfModel):
     """The LSF of one detector (arm, spectrograph), in pixels
 
     The LSF is the extracted, pixel-integrated image of the fibre face, a disk
-    of radius ``radius``, convolved with a blur of rms ``blur`` whose shape is
+    of radius ``radius``, convolved with a blur of rms ``rms`` whose shape is
     an Edgeworth series in the standardised cumulants ``S, K, ...``, and
     optionally convolved with a Lorentzian of FWHM ``lorentz`` (pixels; see
     `pfs.drp.stella.lsfProfile.diskProfile`). Each parameter is a smooth
@@ -390,7 +390,7 @@ class ArmLsfModel(LsfModel):
     length : `int`
         Number of rows (pixels) in each spectrum.
     surfaces : `dict` [`str`, `SmoothSurface`]
-        The fitted parameters: ``radius``, ``blur``, the blur's cumulants
+        The fitted parameters: ``radius``, ``rms``, the blur's cumulants
         ``S, K, ...``, ``lorentz`` (if fit), and ``centroid``.
     coords : `DetectorCoords`
         Detector pixels to the frame of the surfaces.
@@ -484,7 +484,7 @@ class ArmLsfModel(LsfModel):
         -------
         params : `dict` [`str`, `numpy.ndarray`]
             ``x``, ``y`` (detector position, pixels), the profile parameters
-            (``radius``, ``blur``, the cumulants, and ``lorentz`` if fit), and
+            (``radius``, ``rms``, the cumulants, and ``lorentz`` if fit), and
             ``sigma``, the rms width of the profile before pixel integration
             and without any Lorentzian (pixels).
         """
@@ -492,11 +492,11 @@ class ArmLsfModel(LsfModel):
         x, y = self.getDetectorPosition(fiberId, center)
         u, v = self.coords(x, y)
         params = dict(x=x, y=y)
-        for name in ("radius", "blur") + tuple(self.cumulantNames):
+        for name in ("radius", "rms") + tuple(self.cumulantNames):
             params[name] = self.surfaces[name](u, v)
         if "lorentz" in self.surfaces:
             params["lorentz"] = np.clip(self.surfaces["lorentz"](u, v), 0.0, None)
-        params["sigma"] = diskSigma(params["radius"], params["blur"])
+        params["sigma"] = diskSigma(params["radius"], params["rms"])
         return params
 
     def getCentroidCorrection(self, fiberId, row):
@@ -523,7 +523,7 @@ class ArmLsfModel(LsfModel):
         """The LSF profile at ``pixels`` for ``fiberId`` with first moment at row ``center``"""
         params = self.getParameters(int(fiberId), float(center))
         cumulants = [float(params[nn]) for nn in self.cumulantNames]
-        return diskProfile(pixels, float(center), float(params["radius"]), float(params["blur"]),
+        return diskProfile(pixels, float(center), float(params["radius"]), float(params["rms"]),
                            cumulants, self.extraction, float(params.get("lorentz", 0.0)))
 
     def computeKernel(self, fiberId, center, halfWidth=None, normalize=True):
@@ -576,7 +576,7 @@ class ArmLsfModel(LsfModel):
         edges = np.arange(-halfWidth, halfWidth + step/2, step)
         # pixel integration over a tiny "pixel" of width `step` approximates the density
         density = diskProfile(edges[:-1]/step + 0.5, 0.0, float(params["radius"])/step,
-                              float(params["blur"])/step, cumulants, self.extraction)
+                              float(params["rms"])/step, cumulants, self.extraction)
         centers = 0.5*(edges[:-1] + edges[1:])
         lorentz = float(params.get("lorentz", 0.0))
         if lorentz > 0:                # convolve with the Lorentzian's mass in each cell

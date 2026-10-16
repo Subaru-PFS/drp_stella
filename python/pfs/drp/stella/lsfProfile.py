@@ -1,8 +1,8 @@
 """Disk (x) Edgeworth line-spread function profiles
 
 The LSF of an extracted fibre spectrum is modelled as the image of the fibre
-face -- a uniform disk of radius ``radius`` (pixels) -- convolved with a blur
-kernel (optics, charge diffusion) of rms ``blur`` and integrated over each
+face -- a uniform disk of radius ``radius`` (pixels) -- convolved with a rms
+kernel (optics, charge diffusion) of rms ``rms`` and integrated over each
 pixel. The blur is a Gaussian modulated by an Edgeworth expansion in its
 standardised cumulants ``[S, K, c5, c6]`` (skewness, excess kurtosis, ...),
 truncated consistently by order::
@@ -103,7 +103,7 @@ def edgeworthCdf(z, cumulants=None):
     return cdf - phi*hermeval(z, c[1:])
 
 
-def _diskWeights(radius, blur, extraction):
+def _diskWeights(radius, rms, extraction):
     """Quadrature weights over the disk, along the dispersion, for `diskProfile`
 
     The disk is sampled at ``t = radius*_GC_U`` along the dispersion direction;
@@ -113,12 +113,12 @@ def _diskWeights(radius, blur, extraction):
 
     For an optimal extraction each row is the profile-weighted sum
     ``sum_x P(x) I(x, y)``, with ``P`` the fibre's spatial profile (the disk
-    projected along the trace, ``semicircle (x) G_blur``) and ``I`` the 2-D image
-    (``disk (x) G_blur``, isotropic). Moving the Gaussians onto ``P``, the
-    extracted profile is ``G_blur (x)_y h``, with
+    projected along the trace, ``semicircle (x) G_rms``) and ``I`` the 2-D image
+    (``disk (x) G_rms``, isotropic). Moving the Gaussians onto ``P``, the
+    extracted profile is ``G_rms (x)_y h``, with
 
         h(y') = integral_{-a}^{a} Q(x') dx',   a = sqrt(R**2 - y'**2),
-        Q = semicircle (x) G_{sqrt(2) blur},
+        Q = semicircle (x) G_{sqrt(2) rms},
 
     i.e. the disk's chord at ``y'`` weighted by the (blurred) spatial profile
     rather than by 1. ``h = sqrt(1 - u**2)*H(u)`` with ``H`` smooth, so the same
@@ -128,7 +128,7 @@ def _diskWeights(radius, blur, extraction):
     ----------
     radius : `float`
         Disk radius (pixels).
-    blur : `float`
+    rms : `float`
         Blur rms (pixels).
     extraction : `str`
         ``"optimal"`` or ``"boxcar"``.
@@ -143,25 +143,25 @@ def _diskWeights(radius, blur, extraction):
     if extraction != "optimal":
         raise ValueError(f"extraction must be 'optimal' or 'boxcar', not {extraction!r}")
     chord = radius*np.sqrt(1.0 - _GC_U**2)                          # half-chord a at each y' node
-    s2 = np.sqrt(2.0)*blur
+    s2 = np.sqrt(2.0)*rms
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         inside = (scipy.special.ndtr((chord[:, None] - radius*_GC_U[None, :])/s2)
                   - scipy.special.ndtr((-chord[:, None] - radius*_GC_U[None, :])/s2)) @ _GC_W
         weight = _GC_W*inside/np.sqrt(1.0 - _GC_U**2)
-        return weight/np.sum(weight)        # NaN if an optimiser probes extreme radius/blur: step rejected
+        return weight/np.sum(weight)        # NaN if an optimiser probes extreme radius/rms: step rejected
 
 
-def diskProfile(pix, mu, radius, blur, cumulants=None, extraction="optimal", lorentz=0.0):
+def diskProfile(pix, mu, radius, rms, cumulants=None, extraction="optimal", lorentz=0.0):
     """Unit-area, pixel-integrated, extracted disk (x) Edgeworth profile
 
     The fibre image is a uniform disk of radius ``radius`` (pixels) convolved
-    with an isotropic blur of rms ``blur`` (an Edgeworth expansion about a
+    with an isotropic blur of rms ``rms`` (an Edgeworth expansion about a
     Gaussian, with standardised ``cumulants``), extracted (``"optimal"``:
     weighted by the fibre's spatial profile; ``"boxcar"``: summed across the
     trace; see `_diskWeights`) and integrated over each pixel: the flux in
     pixel ``p`` is ``F(p + 1/2) - F(p - 1/2)``, with ``F`` the CDF, a weighted
     sum of Edgeworth CDFs over Gauss-Chebyshev nodes on the disk. The
-    optimal-extraction weights assume a Gaussian blur.
+    optimal-extraction weights assume a Gaussian rms.
 
     If ``lorentz > 0`` the profile is further convolved with a Lorentzian of
     that FWHM (pixels), numerically, on a ``_LORENTZ_STEP``-pixel grid, with
@@ -178,7 +178,7 @@ def diskProfile(pix, mu, radius, blur, cumulants=None, extraction="optimal", lor
         Centre (= first moment) of the profile (pixels).
     radius : `float`
         Disk radius (pixels).
-    blur : `float`
+    rms : `float`
         Blur rms (pixels).
     cumulants : array-like of `float`, optional
         The blur's standardised cumulants ``[S, K, ...]``.
@@ -196,7 +196,7 @@ def diskProfile(pix, mu, radius, blur, cumulants=None, extraction="optimal", lor
     if pix.size == 0:
         return np.zeros(0)
     edges = np.append(pix - 0.5, pix[-1] + 0.5) - mu
-    weight = _diskWeights(radius, blur, extraction)
+    weight = _diskWeights(radius, rms, extraction)
     if lorentz > 0:                    # the CDF on a fine grid: the pixels +/- the Lorentzian's extent
         nStep = int(round(1/_LORENTZ_STEP))
         nHalf = int(round(_LORENTZ_HALF/_LORENTZ_STEP))
@@ -204,7 +204,7 @@ def diskProfile(pix, mu, radius, blur, cumulants=None, extraction="optimal", lor
         nFine = (len(pixEdges) - 1)*nStep + 2*nHalf + 1
         edges = edges[0] - _LORENTZ_HALF + _LORENTZ_STEP*np.arange(nFine)
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        z = (edges[:, None] - radius*_GC_U[None, :])/blur
+        z = (edges[:, None] - radius*_GC_U[None, :])/rms
         cdf = edgeworthCdf(z, cumulants) @ weight
     if lorentz > 0:
         cell = np.diff(cdf)                                          # mass in each fine cell
@@ -216,7 +216,7 @@ def diskProfile(pix, mu, radius, blur, cumulants=None, extraction="optimal", lor
     return np.diff(cdf)
 
 
-def diskSigma(radius, blur):
+def diskSigma(radius, rms):
     """RMS width of a disk (x) blur profile, before pixel integration
 
     The disk projected along the dispersion is a semicircle, of variance
@@ -224,12 +224,12 @@ def diskSigma(radius, blur):
 
     Parameters
     ----------
-    radius, blur : array-like
-        Disk radius and blur rms (pixels).
+    radius, rms : array-like
+        Disk radius and blur kernel rms (pixels).
 
     Returns
     -------
     sigma : `numpy.ndarray`
         RMS width (pixels).
     """
-    return np.sqrt(0.25*np.square(radius) + np.square(blur))
+    return np.sqrt(0.25*np.square(radius) + np.square(rms))

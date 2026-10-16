@@ -24,8 +24,8 @@ class LsfLineFlag(IntFlag):
     """Rejected (sigma-clipped) by the smooth fit of the centroid"""
     REJECTED_RADIUS = 0x40
     """Rejected (sigma-clipped) by the smooth fit of the disk radius"""
-    REJECTED_BLUR = 0x80
-    """Rejected (sigma-clipped) by the smooth fit of the blur"""
+    REJECTED_RMS = 0x80
+    """Rejected (sigma-clipped) by the smooth fit of the rms"""
     REJECTED_S = 0x100
     """Rejected (sigma-clipped) by the smooth fit of the skewness"""
     REJECTED_K = 0x200
