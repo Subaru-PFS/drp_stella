@@ -1116,6 +1116,7 @@ def butlerTransfer(
     source = Butler.from_config(sourceRepo, writeable=False)
     types = list(datasetTypes)
     refs: set[DatasetRef] = set()
+    calibAssociations: list[Tuple[str, DatasetRef, Timespan]] = []
     if resolveCalib:
         if where:
             raise ValueError("'where' is not supported together with resolveCalib=True")
@@ -1136,6 +1137,16 @@ def butlerTransfer(
                     log.warning("No valid %s found for dataId=%s at %s.", datasetType, ident, timespan)
                     continue
                 refs.add(ref)
+                association = _findCalibAssociation(source, datasetTypeObj, collections, ref, timespan)
+                if association is None:
+                    log.warning(
+                        "Unable to determine the certifying CALIBRATION collection for %s; "
+                        "it will be transferred but not re-certified locally.",
+                        ref,
+                    )
+                    continue
+                calibCollection, calibTimespan = association
+                calibAssociations.append((calibCollection, ref, calibTimespan))
     else:
         if not types:
             types = [dt.name for dt in source.registry.queryDatasetTypes(...)]
@@ -1159,7 +1170,11 @@ def butlerTransfer(
         log.warning("No datasets found to pull.")
         return 0
     target = Butler.from_config(targetRepo, writeable=True)
-    return _transferRefs(log, source, target, refs, transfer)
+    mirrorCollectionChains(source, target, collections)
+    num = _transferRefs(log, source, target, refs, transfer)
+    for calibCollection, ref, calibTimespan in calibAssociations:
+        _certifyIfNeeded(log, target, calibCollection, ref, calibTimespan)
+    return num
 
 
 def _timespanFromDataId(source: Butler, coord: DataCoordinate) -> Timespan:
@@ -1229,6 +1244,129 @@ def _transferRefs(
     )
     log.info("Pulled %d datasets.", len(imported))
     return len(imported)
+
+
+def mirrorCollectionChains(source: Butler, target: Butler, collections: CollectionArgType) -> None:
+    """Recursively mirror collection structure from one butler to another
+
+    For each name in ``collections``, registers the same named collection on
+    ``target`` with the same type as on ``source``. For any that are
+    ``CHAINED``, also registers the same ordered list of child collections,
+    recursing into any of those children that are themselves ``CHAINED`` --
+    regardless of whether those children currently contain any datasets on
+    ``target``. This is pure registry metadata (no file copying), so it's
+    safe and cheap to call unconditionally; already-registered collections
+    (with a matching type) are left alone.
+
+    This does not transfer any dataset content or ``CALIBRATION``
+    certifications -- just the collection names and ``CHAINED`` structure
+    needed for ``target`` to be searched the same way as ``source``.
+
+    Parameters
+    ----------
+    source : `Butler`
+        Butler to mirror collection structure from.
+    target : `Butler`
+        Butler to mirror collection structure into.
+    collections : collection expression
+        Names of collections whose structure (and full descendant tree, for
+        any that are ``CHAINED``) should be mirrored. Must be exact names,
+        not glob expressions.
+    """
+    if isinstance(collections, str):
+        collections = [collections]
+    seen: set[str] = set()
+
+    def visit(name: str) -> None:
+        if name in seen:
+            return
+        seen.add(name)
+        info = source.collections.get_info(name)
+        if info.type is CollectionType.CHAINED:
+            for child in info.children:
+                visit(child)
+            target.collections.register(name, CollectionType.CHAINED, doc=info.doc)
+            target.registry.setCollectionChain(name, list(info.children))
+        else:
+            target.collections.register(name, info.type, doc=info.doc)
+
+    for name in collections:
+        visit(name)
+
+
+def _findCalibAssociation(
+    source: Butler,
+    datasetType: DatasetType,
+    collections: CollectionArgType,
+    ref: DatasetRef,
+    timespan: Timespan,
+) -> Optional[Tuple[str, Timespan]]:
+    """Determine the real certifying CALIBRATION collection and validity
+    timespan for a dataset resolved via a point-in-time calibration lookup
+
+    Parameters
+    ----------
+    source : `Butler`
+        Butler to query for dataset associations.
+    datasetType : `DatasetType`
+        Dataset type of ``ref``.
+    collections : collection expression
+        Collections ``ref`` was resolved from (searched, possibly
+        ``CHAINED``).
+    ref : `DatasetRef`
+        The resolved dataset reference.
+    timespan : `Timespan`
+        The point-in-time timespan ``ref`` was resolved for.
+
+    Returns
+    -------
+    result : `tuple` of (`str`, `Timespan`), or `None`
+        The real certifying collection name and its full validity timespan,
+        or `None` if no matching ``CALIBRATION`` association was found (e.g.
+        ``collections`` did not actually contain a ``CALIBRATION``
+        collection for this dataset).
+    """
+    for association in source.registry.queryDatasetAssociations(
+        datasetType, collections=collections, collectionTypes={CollectionType.CALIBRATION}
+    ):
+        if (
+            association.ref.id == ref.id
+            and association.timespan is not None
+            and association.timespan.contains(timespan)
+        ):
+            return association.collection, association.timespan
+    return None
+
+
+def _certifyIfNeeded(
+    log: logging.Logger, target: Butler, collection: str, ref: DatasetRef, timespan: Timespan
+) -> None:
+    """Certify a dataset reference into a CALIBRATION collection, unless it
+    is already certified there with the same timespan
+
+    Parameters
+    ----------
+    log : `logging.Logger`
+        Logger to use for progress messages.
+    target : `Butler`
+        Writeable butler to certify into.
+    collection : `str`
+        ``CALIBRATION`` collection to certify ``ref`` into. Must already be
+        registered (e.g. via `mirrorCollectionChains`).
+    ref : `DatasetRef`
+        Dataset reference to certify. Must already exist in ``target``'s
+        datastore/registry (e.g. via `_transferRefs`).
+    timespan : `Timespan`
+        Validity timespan to certify with.
+    """
+    for association in target.registry.queryDatasetAssociations(
+        ref.datasetType, collections=collection, collectionTypes={CollectionType.CALIBRATION}
+    ):
+        if association.ref.id == ref.id and association.timespan == timespan:
+            log.debug("%s already certified in %s with timespan=%s.", ref, collection, timespan)
+            return
+    log.info("Certifying %s in %s with timespan=%s.", ref, collection, timespan)
+    target.registry.certify(collection, [ref], timespan)
 
 
 def extractOverallInputRefs(qgraph: QuantumGraph) -> set[DatasetRef]:
