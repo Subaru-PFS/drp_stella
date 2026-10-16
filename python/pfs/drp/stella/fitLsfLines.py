@@ -2,9 +2,9 @@
 
 Each selected arc line is fit, in pixel space, with the disk (x) Edgeworth
 profile of `pfs.drp.stella.lsfProfile.diskProfile`: the fibre face, a disk of
-radius ``radius``, blurred by a kernel of rms ``blur`` with standardised
+radius ``radius``, blurred by a kernel of rms ``rms`` with standardised
 cumulants ``S, K, ...`` (up to ``blurOrder``). The fit is a variable
-projection: for fixed ``(mu, radius, blur, cumulants)`` the model is linear in
+projection: for fixed ``(mu, radius, rms, cumulants)`` the model is linear in
 the line's amplitude, the amplitudes of catalogue companions within the window
 (same profile, at their catalogue offsets) and a B-spline continuum, which are
 solved by weighted least squares, while the nonlinear parameters are optimised
@@ -76,11 +76,11 @@ class DiskLineFit:
         Fitted centre (= first moment) of the line (pixels).
     radius, radiusErr : `float`
         Disk radius and its 1-sigma error (pixels).
-    blur, blurErr : `float`
+    rms, rmsErr : `float`
         Blur rms and its 1-sigma error (pixels).
     cumulants, cumulantsErr : `numpy.ndarray`
         The blur's standardised cumulants ``[S, K, ...]`` (empty for a Gaussian
-        blur) and their errors.
+        rms) and their errors.
     amplitude, amplitudeErr : `float`
         Line flux (the profile has unit area) and its 1-sigma error.
     pix : `numpy.ndarray`
@@ -130,8 +130,8 @@ class DiskLineFit:
     pixel: float
     radius: float
     radiusErr: float
-    blur: float
-    blurErr: float
+    rms: float
+    rmsErr: float
     cumulants: np.ndarray
     cumulantsErr: np.ndarray
     amplitude: float
@@ -166,15 +166,15 @@ class DiskLineFit:
     @property
     def sigma(self):
         """RMS width of the profile before pixel integration, without any Lorentzian (pixels)"""
-        return float(diskSigma(self.radius, self.blur))
+        return float(diskSigma(self.radius, self.rms))
 
     def profile(self, dx):
         """The unit-area, pixel-integrated LSF at contiguous pixel offsets ``dx`` from the centre"""
-        return diskProfile(np.asarray(dx, dtype=float), 0.0, self.radius, self.blur, self.cumulants,
+        return diskProfile(np.asarray(dx, dtype=float), 0.0, self.radius, self.rms, self.cumulants,
                            self.extraction, self.lorentz)
 
 
-def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blurOrder=4, halfWindow=12,
+def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blurOrder=4, halfWindow=12,
                 continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0, companions=None, extraction="optimal",
                 fixCentre=None, fitLorentz=False):
     """Fit one arc line near ``lam0`` (nm) with the disk (x) Edgeworth profile
@@ -187,10 +187,10 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
         Variance of ``flux``; `None` for equal weights.
     lam0 : `float`
         Catalogue wavelength (nm) of the line.
-    radius0, blur0 : `float`
-        Starting disk radius and blur rms (pixels).
+    radius0, rms0 : `float`
+        Starting disk radius and blur kernel rms (pixels).
     blurOrder : `int`
-        Edgeworth order of the blur: ``2`` is a Gaussian; ``4`` adds skewness
+        Edgeworth order of the rms: ``2`` is a Gaussian; ``4`` adds skewness
         and excess kurtosis (``3..6`` supported).
     halfWindow : `float`
         The fit uses pixels within ``halfWindow`` of the catalogue position.
@@ -224,7 +224,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
     if blurOrder != 2 and not 3 <= blurOrder <= MAX_BLUR_ORDER:
         raise ValueError(f"blurOrder must be 2 or in 3..{MAX_BLUR_ORDER}, not {blurOrder}")
     nCum = max(0, blurOrder - 2)
-    nTheta = 3 + nCum + int(fitLorentz)          # [mu, log radius, log blur, cumulants..., (lorentz)]
+    nTheta = 3 + nCum + int(fitLorentz)          # [mu, log radius, log rms, cumulants..., (lorentz)]
     iLor = 3 + nCum
 
     wavelength = np.asarray(wavelength, dtype=float)
@@ -247,7 +247,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
 
     def failed():
         nan = np.full(nCum, np.nan)
-        fit = DiskLineFit(lam0, p0, radius0, np.nan, blur0, np.nan, nan, nan,
+        fit = DiskLineFit(lam0, p0, radius0, np.nan, rms0, np.nan, nan, nan,
                           np.nan, np.nan, pix, None, None, np.asarray(data, dtype=float), np.inf, 0, False,
                           extraction=extraction, nBadCore=nBadCore, catWavelength=lam0, catPixel=p0)
         return fit
@@ -289,12 +289,12 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
     def residual(x):
         return solveLinear(full(x))[1]
 
-    # radius, blur in 0.05..10 pix; |cumulant| <= 10
+    # radius, rms in 0.05..10 pix; |cumulant| <= 10
     lower = np.array([p0 - halfWindow, np.log(0.05), np.log(0.05)] + [-10.0]*nCum
                      + [0.0]*int(fitLorentz))[free]
     upper = np.array([p0 + halfWindow, np.log(10.0), np.log(10.0)] + [10.0]*nCum
                      + [5.0]*int(fitLorentz))[free]
-    x0 = np.array([p0, np.log(radius0), np.log(blur0)] + [0.0]*nCum + [0.05]*int(fitLorentz))[free]
+    x0 = np.array([p0, np.log(radius0), np.log(rms0)] + [0.0]*nCum + [0.05]*int(fitLorentz))[free]
     x0 = np.clip(x0, lower + 1e-9, upper - 1e-9)        # strictly inside the bounds (for least_squares)
     xScale = np.array([1.0, 0.3, 0.3] + [0.3]*nCum + [0.05]*int(fitLorentz))[free]
     try:
@@ -323,7 +323,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
         amplitudeErr = np.nan
 
     mu = float(theta[0])
-    radius, blur = float(np.exp(theta[1])), float(np.exp(theta[2]))
+    radius, rms = float(np.exp(theta[1])), float(np.exp(theta[2]))
     amplitude = float(coef[0])
     success = bool(res.success and np.isfinite(amplitude) and amplitude > 0 and nBadCore <= maxBadCore)
     return DiskLineFit(
@@ -331,8 +331,8 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, blur0=0.6, blu
         pixel=mu,
         radius=radius,
         radiusErr=radius*float(thetaErr[1]),
-        blur=blur,
-        blurErr=blur*float(thetaErr[2]),
+        rms=rms,
+        rmsErr=rms*float(thetaErr[2]),
         cumulants=np.asarray(theta[3:3 + nCum], dtype=float),
         cumulantsErr=np.asarray(thetaErr[3:3 + nCum], dtype=float),
         amplitude=amplitude,

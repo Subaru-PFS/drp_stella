@@ -424,7 +424,7 @@ class ReduceExposureTask(PipelineTask):
             pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
 
         if not self.isIIS(pfsConfig):
-            if self.config.doApplyFiberNorms:
+            if self.config.doApplyFiberNorms and boxcarWidth < 0:
                 if fiberNorms is None:
                     raise RuntimeError("fiberNorms required but not provided")
                 missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
