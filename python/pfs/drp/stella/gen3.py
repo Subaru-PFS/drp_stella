@@ -1262,6 +1262,12 @@ def mirrorCollectionChains(source: Butler, target: Butler, collections: Collecti
     certifications -- just the collection names and ``CHAINED`` structure
     needed for ``target`` to be searched the same way as ``source``.
 
+    Fetches the full descendant tree of ``collections`` from ``source`` in a
+    single bulk query (``Butler.collections.query_info`` with
+    ``flatten_chains=True``, which uses a recursive CTE under the hood)
+    rather than walking it one collection at a time, since each individual
+    lookup is a separate round trip to the (likely remote) source registry.
+
     Parameters
     ----------
     source : `Butler`
@@ -1275,13 +1281,20 @@ def mirrorCollectionChains(source: Butler, target: Butler, collections: Collecti
     """
     if isinstance(collections, str):
         collections = [collections]
+    collections = list(collections)
+    infos = {
+        info.name: info
+        for info in source.collections.query_info(
+            collections, flatten_chains=True, include_chains=True, include_doc=True
+        )
+    }
     seen: set[str] = set()
 
     def visit(name: str) -> None:
         if name in seen:
             return
         seen.add(name)
-        info = source.collections.get_info(name)
+        info = infos[name]
         if info.type is CollectionType.CHAINED:
             for child in info.children:
                 visit(child)
