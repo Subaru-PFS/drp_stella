@@ -32,11 +32,11 @@ class FakeReadLineList:
 
     def __init__(self, lines):
         self.lines = lines
-        # FitImagePsfTask.run()/adjustDetectorMapForVisit() read and temporarily override
-        # config.exclusionRadius; a plain mutable namespace is enough to support that here.
+        # FitImagePsfTask.run() reads config.exclusionRadius (to compute a sufficient value); a plain
+        # mutable namespace is enough to support that here.
         self.config = types.SimpleNamespace(exclusionRadius=0.0)
 
-    def run(self, detectorMap=None, metadata=None):
+    def run(self, detectorMap=None, metadata=None, exclusionRadius=None):
         return self.lines
 
 
