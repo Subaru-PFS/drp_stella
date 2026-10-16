@@ -125,6 +125,10 @@ class DiskLineFit:
     lorentz, lorentzErr : `float`
         FWHM (pixels) of the Lorentzian convolved with the profile, and its
         error; 0 and NaN if not fit.
+    haloFrac, haloFracErr : `float`
+        Fraction of the light in the halo, and its error; 0 and NaN if not fit.
+    haloWidth, haloWidthErr : `float`
+        RMS (pixels) of the halo's Gaussian blur, and its error; NaN if not fit.
     """
     wavelength: float
     pixel: float
@@ -162,6 +166,10 @@ class DiskLineFit:
     modelCentroid: float = np.nan
     lorentz: float = 0.0
     lorentzErr: float = np.nan
+    haloFrac: float = 0.0
+    haloFracErr: float = np.nan
+    haloWidth: float = np.nan
+    haloWidthErr: float = np.nan
 
     @property
     def sigma(self):
@@ -171,12 +179,12 @@ class DiskLineFit:
     def profile(self, dx):
         """The unit-area, pixel-integrated LSF at contiguous pixel offsets ``dx`` from the centre"""
         return diskProfile(np.asarray(dx, dtype=float), 0.0, self.radius, self.rms, self.cumulants,
-                           self.extraction, self.lorentz)
+                           self.extraction, self.lorentz, self.haloFrac, self.haloWidth)
 
 
 def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blurOrder=4, halfWindow=12,
                 continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0, companions=None, extraction="optimal",
-                fixCentre=None, fitLorentz=False):
+                fixCentre=None, fitLorentz=False, fitHalo=False, fixHalo=None):
     """Fit one arc line near ``lam0`` (nm) with the disk (x) Edgeworth profile
 
     Parameters
@@ -212,6 +220,12 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     fixCentre : `float`, optional
         Hold the line's centre fixed at this position (pixels); its error is
         then reported as 0.
+    fitHalo : `bool`
+        Add a halo: a fraction ``haloFrac`` (0..0.3) of the light in the disk
+        blurred by a broad Gaussian of rms ``haloWidth`` (1.5..20 x ``rms``)?
+    fixHalo : (`float`, `float`), optional
+        Include a halo with this ``(haloFrac, haloWidth)``, held fixed
+        (``fitHalo`` is then ignored).
     fitLorentz : `bool`
         Also convolve the profile with a Lorentzian of free FWHM (``lorentz``,
         pixels; 0..5)?
@@ -224,8 +238,12 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     if blurOrder != 2 and not 3 <= blurOrder <= MAX_BLUR_ORDER:
         raise ValueError(f"blurOrder must be 2 or in 3..{MAX_BLUR_ORDER}, not {blurOrder}")
     nCum = max(0, blurOrder - 2)
-    nTheta = 3 + nCum + int(fitLorentz)          # [mu, log radius, log rms, cumulants..., (lorentz)]
+    if fixHalo is not None:
+        fitHalo = False
+    # theta = [mu, log radius, log rms, cumulants..., (lorentz), (haloFrac, log(haloWidth/rms))]
+    nTheta = 3 + nCum + int(fitLorentz) + 2*int(fitHalo)
     iLor = 3 + nCum
+    iHalo = iLor + int(fitLorentz)
 
     wavelength = np.asarray(wavelength, dtype=float)
     flux = np.asarray(flux, dtype=float)
@@ -268,8 +286,18 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     contBasis = continuumBasis(np.where(np.isfinite(lam), lam, -np.inf), lamLo, lamHi, knot).toarray()
 
     def column(theta, dp=0.0):
-        return diskProfile(pix, theta[0] + dp, np.exp(theta[1]), np.exp(theta[2]), theta[3:3 + nCum],
-                           extraction, theta[iLor] if fitLorentz else 0.0)
+        rms = np.exp(theta[2])
+        return diskProfile(pix, theta[0] + dp, np.exp(theta[1]), rms, theta[3:3 + nCum],
+                           extraction, theta[iLor] if fitLorentz else 0.0,
+                           *halo(theta))
+
+    def halo(theta):
+        """(haloFrac, haloWidth) for parameters ``theta``"""
+        if fixHalo is not None:
+            return float(fixHalo[0]), float(fixHalo[1])
+        if fitHalo:
+            return theta[iHalo], np.exp(theta[2])*np.exp(theta[iHalo + 1])
+        return 0.0, np.nan
 
     def solveLinear(theta):
         cols = [column(theta)] + [column(theta, dp) for dp in compOffset]
@@ -291,12 +319,14 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
 
     # radius, rms in 0.05..10 pix; |cumulant| <= 10
     lower = np.array([p0 - halfWindow, np.log(0.05), np.log(0.05)] + [-10.0]*nCum
-                     + [0.0]*int(fitLorentz))[free]
+                     + [0.0]*int(fitLorentz) + [0.0, np.log(1.5)]*int(fitHalo))[free]
     upper = np.array([p0 + halfWindow, np.log(10.0), np.log(10.0)] + [10.0]*nCum
-                     + [5.0]*int(fitLorentz))[free]
-    x0 = np.array([p0, np.log(radius0), np.log(rms0)] + [0.0]*nCum + [0.05]*int(fitLorentz))[free]
+                     + [5.0]*int(fitLorentz) + [0.3, np.log(20.0)]*int(fitHalo))[free]
+    x0 = np.array([p0, np.log(radius0), np.log(rms0)] + [0.0]*nCum + [0.05]*int(fitLorentz)
+                  + [0.03, np.log(3.5)]*int(fitHalo))[free]
     x0 = np.clip(x0, lower + 1e-9, upper - 1e-9)        # strictly inside the bounds (for least_squares)
-    xScale = np.array([1.0, 0.3, 0.3] + [0.3]*nCum + [0.05]*int(fitLorentz))[free]
+    xScale = np.array([1.0, 0.3, 0.3] + [0.3]*nCum + [0.05]*int(fitLorentz)
+                      + [0.01, 0.3]*int(fitHalo))[free]
     try:
         res = scipy.optimize.least_squares(residual, x0, method="trf", x_scale=xScale, bounds=(lower, upper),
                                            max_nfev=2000)
@@ -356,6 +386,11 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
         pinned=fixed,
         lorentz=float(theta[iLor]) if fitLorentz else 0.0,
         lorentzErr=float(thetaErr[iLor]) if fitLorentz else np.nan,
+        haloFrac=float(halo(theta)[0]),
+        haloFracErr=float(thetaErr[iHalo]) if fitHalo else np.nan,
+        haloWidth=float(halo(theta)[1]),
+        haloWidthErr=(rms*float(np.exp(theta[iHalo + 1]))*float(np.hypot(thetaErr[iHalo + 1], thetaErr[2]))
+                      if fitHalo else np.nan),
     )
 
 
@@ -487,7 +522,7 @@ def findCompanions(lines, wavelength, lam0, *, halfWidth, minFrac=0.002):
 def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blurOrder=4,
                extraction="optimal", halfWindow=12, continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0,
                fitCompanions=True, companionFrac=0.002, fixCentres=None, centroidHalf=4.0, keepPixels=True,
-               fitLorentz=False, **selectKwargs):
+               fitLorentz=False, fitHalo=False, fixHalos=None, **selectKwargs):
     """Select and fit LSF lines in one fibre's spectrum
 
     Parameters
@@ -502,8 +537,11 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
         Stamped onto each fit (the lamp).
     fiberId : `int`
         Stamped onto each fit.
-    blurOrder, extraction, halfWindow, continuumKnotSpacing, coreHalf, maxBadCore, fitLorentz
+    blurOrder, extraction, halfWindow, continuumKnotSpacing, coreHalf, maxBadCore, fitLorentz, fitHalo
         See `fitDiskLine`.
+    fixHalos : `dict` [`float`, (`float`, `float`)], optional
+        ``round(catalogue wavelength, 4) -> (haloFrac, haloWidth)``: fit only
+        these lines, each with this halo held fixed.
     fitCompanions : `bool`
         Fit catalogue lines falling in each line's window simultaneously (see
         `findCompanions`)?
@@ -546,11 +584,17 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
             if round(float(lam0), 4) not in fixCentres:
                 continue
             fixCentre, fixErr = fixCentres[round(float(lam0), 4)]
+        fixHalo = None
+        if fixHalos is not None:
+            if round(float(lam0), 4) not in fixHalos:
+                continue
+            fixHalo = fixHalos[round(float(lam0), 4)]
         comps = (findCompanions(lines, wavelength, lam0, halfWidth=halfWindow + 4, minFrac=companionFrac)
                  if fitCompanions else None)
         fit = fitDiskLine(wavelength, flux, variance, lam0, blurOrder=blurOrder, halfWindow=halfWindow,
                           continuumKnotSpacing=continuumKnotSpacing, coreHalf=coreHalf, maxBadCore=maxBadCore,
-                          companions=comps, extraction=extraction, fixCentre=fixCentre, fitLorentz=fitLorentz)
+                          companions=comps, extraction=extraction, fixCentre=fixCentre, fitLorentz=fitLorentz,
+                          fitHalo=fitHalo, fixHalo=fixHalo)
         if fixErr is not None:
             fit.pixelErr = float(fixErr)
         if fit.success:
