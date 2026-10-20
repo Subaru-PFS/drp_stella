@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from lsst.pex.config import ConfigurableField, Field, ListField
-from lsst.pipe.base import Struct
+from lsst.pipe.base import NoWorkFound, Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
 from lsst.pipe.base.connectionTypes import Output as OutputConnection
@@ -20,6 +20,7 @@ from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask, FitConstantPerFiberTask
 from .fitFocalPlane import FitFocalPlanePolynomialTask
 from .math import calculateMedian
+from .PfiCorrection import removePfiCorrection
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
 from .selectFibers import SelectFibersTask
@@ -94,6 +95,16 @@ class MeasureSkyNormsConnections(
 
 class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNormsConnections):
     """Configuration for MeasureSkyNormsTask"""
+    doRemovePfiCorrection = Field(
+        dtype=bool,
+        default=True,
+        doc="Remove the PFI correction (including any sky norms) applied by reduceExposure before measuring?",
+    )
+    requireSky = Field(
+        dtype=bool,
+        default=True,
+        doc="Require an exposure of the sky (science, no lamps) to measure skyNorms?",
+    )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(
@@ -155,6 +166,13 @@ class MeasureSkyNormsTask(PipelineTask):
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection
     ) -> None:
+        if self.config.requireSky:
+            dataId = inputRefs.pfsArm[0].dataId
+            visit = dataId.records["visit"]
+            if visit.observation_type != "science" or visit.lamps:
+                raise NoWorkFound(f"Not an exposure of the sky: {dataId} "
+                                  f"({visit.observation_type}, lamps={visit.lamps})")
+
         pfsArmList = defaultdict(list)
         for inputRef in inputRefs.pfsArm:
             pfsArm = butler.get(inputRef)
@@ -184,6 +202,14 @@ class MeasureSkyNormsTask(PipelineTask):
         focalPlane : `FocalPlanePolynomial`
             Focal plane fit to sky normalizations.
         """
+        if self.config.doRemovePfiCorrection:
+            for pfsArms in pfsArmList.values():
+                for pfsArm in pfsArms:
+                    removed = removePfiCorrection(pfsArm)
+                    if np.any(removed):
+                        self.log.debug("Removed PFI correction from %d fibers in %s", removed.sum(),
+                                       pfsArm.identity)
+
         results = {ss: self.runSpectrograph(pfsArmList[ss], pfsConfig) for ss in pfsArmList}
         allSkyNorms = ConstantPerFiber.concatenate(*(results[ss].skyNorms for ss in results))
 
