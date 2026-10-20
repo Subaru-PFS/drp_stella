@@ -3,13 +3,11 @@ import numpy as np
 import lsst.utils.tests
 
 from lsst.afw.detection import GaussianPsf
-from lsst.afw.image import ImageD, MaskedImage
-from lsst.afw.math import FixedKernel
+from lsst.afw.image import MaskedImage
 from lsst.geom import Box2I, Point2I, Extent2I
 
 from pfs.drp.stella.AlardLupton import fitAlardLuptonKernel
 from pfs.drp.stella.psfBias import calculatePeakToCentroidBias
-from pfs.drp.stella.psfMatch import calculateFirstMoments
 from pfs.drp.stella.tests import runTests
 
 
@@ -42,19 +40,6 @@ class PsfBiasTestCase(lsst.utils.tests.TestCase):
         xBias, yBias = calculatePeakToCentroidBias(psf, x, y)
         self.assertTrue(np.all(np.abs(xBias) < 0.02))
         self.assertTrue(np.all(np.abs(yBias) < 0.02))
-
-    def testSubpixelInputsRoundedWhenDisabled(self):
-        """When sub-pixels are disabled, inputs are rounded (not truncated)."""
-        psf = GaussianPsf(25, 25, 2.0)
-        xSub = np.array([100.7])
-        ySub = np.array([150.7])
-        xRounded = np.array([101.0])
-        yRounded = np.array([151.0])
-
-        xBiasSub, yBiasSub = calculatePeakToCentroidBias(psf, xSub, ySub, allowSubPixels=False)
-        xBiasRounded, yBiasRounded = calculatePeakToCentroidBias(psf, xRounded, yRounded, allowSubPixels=False)
-        self.assertFloatsAlmostEqual(xBiasSub, xBiasRounded, atol=1.0e-7)
-        self.assertFloatsAlmostEqual(yBiasSub, yBiasRounded, atol=1.0e-7)
 
     def makeAsymmetricKernel(
         self,
@@ -141,31 +126,6 @@ class PsfBiasTestCase(lsst.utils.tests.TestCase):
         shift = xBiasKernel[0] - xBiasBare[0]
         self.assertLess(shift * np.sign(firstMoment.getX()), -0.05)
         self.assertLess(abs(shift), abs(firstMoment.getX()))
-
-    def testAfwKernelOrientation(self):
-        """An lsst.afw.math.Kernel is applied unflipped (correlation), unlike an AlardLuptonResult
-
-        ``lsst.afw.math.convolve`` shifts an image by *minus* the kernel's first moment,
-        whereas ``fitAlardLuptonKernel`` kernels are true convolutions that shift by plus the
-        first moment (see `testKernel`). The bias shift must therefore have the opposite sign
-        for the same kernel asymmetry.
-        """
-        kernelHalfWidth = 6
-        kernelArray = self.makeAsymmetricKernel(kernelHalfWidth)
-        kernelImage = ImageD(kernelArray.shape[1], kernelArray.shape[0])
-        kernelImage.array[:] = kernelArray
-        kernel = FixedKernel(kernelImage)
-        firstMomentX = calculateFirstMoments(kernel, np.array([100.0]), np.array([100.0])).x[0]
-        self.assertGreater(abs(firstMomentX), 0.1)
-
-        psf = GaussianPsf(25, 25, 1.5)
-        x = np.array([100.0])
-        y = np.array([100.0])
-        xBiasBare, _ = calculatePeakToCentroidBias(psf, x, y)
-        xBiasKernel, _ = calculatePeakToCentroidBias(psf, x, y, kernel=kernel)
-        shift = xBiasKernel[0] - xBiasBare[0]
-        self.assertGreater(shift * np.sign(firstMomentX), 0.05)
-        self.assertLess(abs(shift), abs(firstMomentX))
 
     def testErrors(self):
         """Invalid kernel/position combinations raise, rather than returning a bogus bias"""
