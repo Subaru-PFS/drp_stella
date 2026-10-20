@@ -349,3 +349,28 @@ class PfiCorrectionTask(Task):
         pfsArm.notes.pfiCorrection[:] = result.correction
 
         return result
+
+
+def removePfiCorrection(pfsArm: PfsArm) -> np.ndarray:
+    """Remove the PFI correction applied by `PfiCorrectionTask.run`
+
+    The correction (including any sky norms) that was applied is recorded in
+    ``pfsArm.notes.pfiCorrection``;  a NaN means that no correction was
+    applied to that fiber.  After removal, the note is set to NaN so that
+    calling this function again is harmless.
+
+    Parameters
+    ----------
+    pfsArm : `pfs.datamodel.drp.PfsArm`
+        Arm data to be uncorrected;  modified in place.
+
+    Returns
+    -------
+    removed : `numpy.ndarray` of `bool`, shape ``(numFibers,)``
+        Was a correction removed from each fiber?
+    """
+    correction = pfsArm.notes.pfiCorrection
+    removed = np.isfinite(correction)
+    pfsArm.norm[removed] /= (1.0 + correction[removed])[:, None]
+    correction[removed] = np.nan
+    return removed
