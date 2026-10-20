@@ -5,7 +5,7 @@ import scipy.signal
 
 import lsst.afw.math as afwMath
 from lsst.afw.detection import Psf
-from lsst.afw.image import ExposureF, ImageD, ImageF, MaskedImageF, PARENT
+from lsst.afw.image import ExposureF, ImageD, MaskedImageF, PARENT
 from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.geom import Box2I, Extent2I, Point2D, Point2I
 from lsst.meas.base import SdssCentroidAlgorithm, SdssCentroidControl
@@ -15,43 +15,6 @@ from .images import calculateCentroid
 from .makeFootprint import makeFootprint
 
 __all__ = ("calculatePeakToCentroidBias",)
-
-
-def convolveWithKernel(image: Union[ImageF, ImageD], kernel: afwMath.Kernel) -> ImageF:
-    """Convolve an image with a (possibly spatially varying) kernel, as `PsfMatchTask` does
-
-    This uses `lsst.afw.math.convolve`, so the kernel's orientation and its
-    evaluation at each pixel's position (in the image's parent coordinate
-    system) are exactly those used when applying the PSF-matching kernel to
-    an exposure. The kernel is applied without normalization.
-
-    `lsst.afw.math.convolve` leaves the pixels within the kernel's reach of
-    the image edge undefined, so the image is zero-padded by the kernel's
-    size before convolving, and the result is cropped back to the original
-    bounding box.
-
-    Parameters
-    ----------
-    image : `lsst.afw.image.Image`
-        Image to convolve (of any pixel type).
-    kernel : `lsst.afw.math.Kernel`
-        Kernel with which to convolve.
-
-    Returns
-    -------
-    convolved : `lsst.afw.image.ImageF`
-        Convolved image, with the same bounding box as ``image``.
-    """
-    paddedBBox = Box2I(image.getBBox())
-    paddedBBox.grow(max(kernel.getWidth(), kernel.getHeight()))
-    padded = ImageF(paddedBBox)
-    padded.array[:] = 0.0
-    padded[image.getBBox(), PARENT].array[:] = image.array
-    convolved = ImageF(padded.getBBox())
-    control = afwMath.ConvolutionControl()
-    control.setDoNormalize(False)
-    afwMath.convolve(convolved, padded, kernel, control)
-    return convolved[image.getBBox(), PARENT].clone()
 
 
 def calculatePeakToCentroidBias(
@@ -205,19 +168,21 @@ def calculatePeakToCentroidBias(
     for index, (xPos, yPos, gg) in enumerate(zip(x, y, good)):
         if not gg:
             continue
-        xPos, yPos = (
-            (float(xPos), float(yPos))
-            if allowSubPixels
-            else (int(round(float(xPos))), int(round(float(yPos))))
-        )
+        xPos, yPos = (float(xPos), float(yPos)) if allowSubPixels else (int(xPos), int(yPos))
         model = psf.computeImage(Point2D(xPos, yPos))
 
+        kernelArray = None
         if isAlardLupton:
-            convolved = ImageD(model.getBBox())
-            convolved.array[:] = scipy.signal.convolve2d(model.array, solutions[index].kernel, mode="same")
-            model = convolved
+            kernelArray = solutions[index].kernel
         elif isSpatialKernel:
-            model = convolveWithKernel(model, kernel)
+            kernelImage = ImageD(kernel.getDimensions())
+            kernel.computeImage(kernelImage, False, xPos, yPos)
+            kernelArray = kernelImage.array
+
+        if kernelArray is not None:
+            convolved = ImageD(model.getBBox())
+            convolved.array[:] = scipy.signal.convolve2d(model.array, kernelArray, mode="same")
+            model = convolved
 
         # A position close to the working image's edge may have its PSF realization extend past
         # it; crop to the overlap so both measurements below see consistent (if incomplete) data.
