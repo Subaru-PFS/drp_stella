@@ -4,6 +4,7 @@ matplotlib.use("Agg")  # noqa E402: disable showing plots
 import matplotlib.pyplot as plt  # noqa E402: import after code
 
 import itertools  # noqa E402: import after code
+import unittest.mock  # noqa E402: import after code
 
 import numpy as np  # noqa E402: import after code
 
@@ -16,6 +17,8 @@ from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig  # noqa 
 from pfs.drp.stella.synthetic import makeSyntheticDetectorMap, makeSyntheticPfsConfig  # noqa E402
 from pfs.drp.stella.synthetic import addNoiseToImage  # noqa E402
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask  # noqa E402: import after code
+from pfs.drp.stella.fiberProfile import FiberProfile  # noqa E402: import after code
+from pfs.drp.stella.utils.psf import fwhmToSigma  # noqa E402: import after code
 from pfs.drp.stella.images import getIndices  # noqa E402: import after code
 from pfs.drp.stella.tests.utils import runTests, methodParameters  # noqa E402: import after code
 
@@ -547,6 +550,38 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
         detMap = makeSyntheticDetectorMap(self.synth)
         results = self.task.runMultiple([exposure], self.identity, [detMap])
         self.assertFiberProfiles(results.profiles, exposure.maskedImage, detMap, spectrumChi2=1.2)
+
+    @methodParameters(background=(0.0, 300.0))
+    def testExtractionSigma(self, background):
+        """Test that the extraction Gaussian has the width of the traces
+
+        The first Gaussian is set by ``extractFwhm``; the rest, one per fiber
+        per iteration, should match the width of the traces, even with a
+        background that inflates the second moment of the profiles.
+        """
+        sigmaList = []
+        makeGaussian = FiberProfile.makeGaussian
+
+        def recordSigma(sigma, *args, **kwargs):
+            sigmaList.append(sigma)
+            return makeGaussian(sigma, *args, **kwargs)
+
+        exposure = self.makeContinuumExposure()
+        exposure.image.array += background  # About 1% of the trace peak
+        detMap = makeSyntheticDetectorMap(self.synth)
+        with unittest.mock.patch.object(FiberProfile, "makeGaussian", side_effect=recordSigma):
+            results = self.task.runMultiple([exposure], self.identity, [detMap])
+
+        sigma = fwhmToSigma(self.synth.fwhm)
+        self.assertEqual(len(sigmaList), 1 + self.config.extractIter*self.synth.numFibers)
+        self.assertFloatsAlmostEqual(sigmaList[0], fwhmToSigma(self.config.extractFwhm))
+        self.assertFloatsAlmostEqual(np.array(sigmaList[1:]), sigma, rtol=0.05)
+
+        if background > 0:
+            # Negative control: the second moment of the same profiles, which
+            # set the sigma before PIPE2D-1926, is inflated by the background.
+            width = [results.profiles[ff].calculateStatistics().width for ff in results.profiles]
+            self.assertGreater(np.nanmedian(width), 1.2*sigma)
 
     @methodParameters(separation=(19.876, 12.345,))
     def testTwo(self, separation):
