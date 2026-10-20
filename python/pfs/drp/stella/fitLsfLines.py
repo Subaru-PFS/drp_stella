@@ -184,7 +184,7 @@ class DiskLineFit:
 
 def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blurOrder=4, halfWindow=12,
                 continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0, companions=None, extraction="optimal",
-                fixCentre=None, fitLorentz=False, fitHalo=False, fixHalo=None):
+                fixCentre=None, fitLorentz=False, fitHalo=False, fixHalo=None, fixShape=None):
     """Fit one arc line near ``lam0`` (nm) with the disk (x) Edgeworth profile
 
     Parameters
@@ -226,6 +226,10 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     fixHalo : (`float`, `float`), optional
         Include a halo with this ``(haloFrac, haloWidth)``, held fixed
         (``fitHalo`` is then ignored).
+    fixShape : (`float`, array-like of `float`), optional
+        Hold the blur kernel fixed at this ``(rms, cumulants)`` (``cumulants``
+        of length ``blurOrder - 2``); the disk radius (and the centre, unless
+        ``fixCentre``) is still fit. Their errors are then reported as 0.
     fitLorentz : `bool`
         Also convolve the profile with a Lorentzian of free FWHM (``lorentz``,
         pixels; 0..5)?
@@ -308,11 +312,21 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
         coef, *_ = np.linalg.lstsq(Aw, dataUse*weight, rcond=None)
         return coef, Aw @ coef - dataUse*weight, design, Aw
 
-    fixed = fixCentre is not None
-    free = slice(1, None) if fixed else slice(None)       # the optimised part of theta
+    # Parameters held fixed: their values in theta; the others (``free``) are optimised
+    fixedValues = np.full(nTheta, np.nan)
+    if fixCentre is not None:
+        fixedValues[0] = float(fixCentre)
+    if fixShape is not None:
+        fixedRms, fixedCumulants = fixShape
+        fixedValues[2] = np.log(float(fixedRms))
+        fixedValues[3:3 + nCum] = np.asarray(fixedCumulants, dtype=float)[:nCum]
+    isFixed = np.isfinite(fixedValues)
+    free = np.flatnonzero(~isFixed)
 
     def full(x):
-        return np.concatenate([[float(fixCentre)], x]) if fixed else x
+        theta = fixedValues.copy()
+        theta[free] = x
+        return theta
 
     def residual(x):
         return solveLinear(full(x))[1]
@@ -345,8 +359,9 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
         thetaErr = np.sqrt(np.clip(np.diag(np.linalg.inv(res.jac.T @ res.jac)), 0.0, np.inf))
     except Exception:
         thetaErr = np.full(res.x.size, np.nan)
-    if fixed:
-        thetaErr = np.concatenate([[0.0], thetaErr])
+    errors = np.zeros(nTheta)
+    errors[free] = thetaErr
+    thetaErr = errors
     try:                                              # amplitude error with the shape held fixed
         amplitudeErr = float(np.sqrt(np.linalg.inv(Aw[use].T @ Aw[use])[0, 0]))
     except Exception:
@@ -383,7 +398,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
         peak=float(coef[0]*np.max(design[:, 0])),
         companionWavelength=compLam,
         companionAmp=np.asarray(coef[1:1 + nComp], dtype=float),
-        pinned=fixed,
+        pinned=fixCentre is not None,
         lorentz=float(theta[iLor]) if fitLorentz else 0.0,
         lorentzErr=float(thetaErr[iLor]) if fitLorentz else np.nan,
         haloFrac=float(halo(theta)[0]),
@@ -522,7 +537,7 @@ def findCompanions(lines, wavelength, lam0, *, halfWidth, minFrac=0.002):
 def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blurOrder=4,
                extraction="optimal", halfWindow=12, continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0,
                fitCompanions=True, companionFrac=0.002, fixCentres=None, centroidHalf=4.0, keepPixels=True,
-               fitLorentz=False, fitHalo=False, fixHalos=None, **selectKwargs):
+               fitLorentz=False, fitHalo=False, fixHalos=None, fixShapes=None, **selectKwargs):
     """Select and fit LSF lines in one fibre's spectrum
 
     Parameters
@@ -542,6 +557,9 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
     fixHalos : `dict` [`float`, (`float`, `float`)], optional
         ``round(catalogue wavelength, 4) -> (haloFrac, haloWidth)``: fit only
         these lines, each with this halo held fixed.
+    fixShapes : `dict` [`float`, (`float`, array-like)], optional
+        ``round(catalogue wavelength, 4) -> (rms, cumulants)``: fit only these
+        lines, each with this blur kernel held fixed (see `fitDiskLine`).
     fitCompanions : `bool`
         Fit catalogue lines falling in each line's window simultaneously (see
         `findCompanions`)?
@@ -589,12 +607,17 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
             if round(float(lam0), 4) not in fixHalos:
                 continue
             fixHalo = fixHalos[round(float(lam0), 4)]
+        fixShape = None
+        if fixShapes is not None:
+            if round(float(lam0), 4) not in fixShapes:
+                continue
+            fixShape = fixShapes[round(float(lam0), 4)]
         comps = (findCompanions(lines, wavelength, lam0, halfWidth=halfWindow + 4, minFrac=companionFrac)
                  if fitCompanions else None)
         fit = fitDiskLine(wavelength, flux, variance, lam0, blurOrder=blurOrder, halfWindow=halfWindow,
                           continuumKnotSpacing=continuumKnotSpacing, coreHalf=coreHalf, maxBadCore=maxBadCore,
                           companions=comps, extraction=extraction, fixCentre=fixCentre, fitLorentz=fitLorentz,
-                          fitHalo=fitHalo, fixHalo=fixHalo)
+                          fitHalo=fitHalo, fixHalo=fixHalo, fixShape=fixShape)
         if fixErr is not None:
             fit.pixelErr = float(fixErr)
         if fit.success:

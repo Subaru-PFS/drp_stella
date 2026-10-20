@@ -204,6 +204,21 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertGreater(kernel.values[0], core.values[0])
         self.assertGreater(model.computeFwhm(20, 1000.0), self.model.computeFwhm(20, 1000.0))
 
+    def testEngineeringFibres(self):
+        """Engineering fibres get the science fibres' radius times iisRadiusScale; nothing else changes"""
+        model = makeModel()
+        model.engineeringFiberId = np.array([20])
+        model.iisRadiusScale = constantSurface("iisRadiusScale", 0.5)
+        eng = model.getParameters(20, 1000.0)
+        sci = model.getParameters(10, 1000.0)
+        self.assertFloatsAlmostEqual(eng["radius"], 0.5*sci["radius"], rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(eng["rms"], sci["rms"], rtol=1.0e-12)
+        both = model.getParameters([10, 20], [1000.0, 1000.0])
+        self.assertFloatsAlmostEqual(both["radius"], [sci["radius"], eng["radius"]], rtol=1.0e-12)
+        self.assertLess(model.computeFwhm(20, 1000.0), model.computeFwhm(10, 1000.0))
+        copy = pickle.loads(pickle.dumps(model))
+        self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values, model.computeKernel(20, 1000.3).values)
+
     def testModelHalo(self):
         """A model with a halo puts more light in the kernel's wings, keeping its first moment"""
         model = makeModel()
@@ -294,6 +309,38 @@ class FitLsfLinesTestCase(lsst.utils.tests.TestCase):
         self.assertLess(abs(fit.haloFrac - haloFrac), 5*fit.haloFracErr)
         self.assertLess(abs(fit.haloWidth - haloWidth), 5*fit.haloWidthErr)
         self.assertLess(fit.chi2/fit.ndof, 2.0)
+
+    def testFixShape(self):
+        """With the blur kernel held fixed, the radius of a narrower disk is recovered"""
+        rng = np.random.default_rng(8642)
+        length = 200
+        pix = np.arange(length, dtype=float)
+        wavelength = 700 + 0.07*pix
+        radius, rms, S, K = 0.95, 0.65, 0.3, 0.8                # a small (IIS-like) fibre image
+        center, flux = 100.3, 3.0e5
+        model = 50.0 + flux*diskProfile(pix, center, radius, rms, [S, K])
+        variance = model + 10.0**2
+        data = model + rng.normal(size=length)*np.sqrt(variance)
+        fit = fitDiskLine(wavelength, data, variance, 700 + 0.07*100.0, blurOrder=4, fixShape=(rms, [S, K]))
+        self.assertTrue(fit.success)
+        self.assertEqual(fit.rms, rms)
+        self.assertFloatsAlmostEqual(fit.cumulants, [S, K], atol=1.0e-12)
+        self.assertEqual(fit.rmsErr, 0.0)
+        self.assertLess(abs(fit.radius - radius), 5*fit.radiusErr)
+        self.assertLess(abs(fit.pixel - center), 5*fit.pixelErr)
+
+    def testFixCentre(self):
+        """A fixed centre is reported with zero error, and the other parameters are still fit"""
+        rng = np.random.default_rng(1357)
+        pix = np.arange(200, dtype=float)
+        wavelength = 700 + 0.07*pix
+        model = 50.0 + 1.0e5*diskProfile(pix, 100.3, 1.8, 0.65, [0.3, 0.8])
+        data = model + rng.normal(size=200)*np.sqrt(model + 100.0)
+        fit = fitDiskLine(wavelength, data, model + 100.0, 707.0, blurOrder=4, fixCentre=100.3)
+        self.assertTrue(fit.success and fit.pinned)
+        self.assertEqual(fit.pixel, 100.3)
+        self.assertEqual(fit.pixelErr, 0.0)
+        self.assertLess(abs(fit.radius - 1.8), 5*fit.radiusErr)
 
 
 class SmoothSurfaceTestCase(lsst.utils.tests.TestCase):
