@@ -408,6 +408,14 @@ class ArmLsfModel(LsfModel):
         moments (removed when pinning the fits).
     metadata : `dict`
         Provenance: visits, lamps, configuration.
+    engineeringFiberId : array-like of `int`
+        The engineering (IIS) fibres. Their cores are smaller than the science
+        (PFI) fibres', so their disk radius is the surface's times
+        ``iisRadiusScale``; everything else is shared.
+    iisRadiusScale : `SmoothSurface`, optional
+        Ratio of the engineering fibres' disk radius to the science fibres',
+        as a function of position (fit from IIS arcs, with the PFI blur kernel
+        held fixed).
     """
     arm: str
     spectrograph: int
@@ -420,6 +428,8 @@ class ArmLsfModel(LsfModel):
     extraction: str = "optimal"
     centroidZeroPoint: float = 0.0
     metadata: dict = field(default_factory=dict)
+    engineeringFiberId: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=int))
+    iisRadiusScale: SmoothSurface = None
 
     units = "pixel"
 
@@ -497,6 +507,11 @@ class ArmLsfModel(LsfModel):
         params = dict(x=x, y=y)
         for name in ("radius", "rms") + tuple(self.cumulantNames):
             params[name] = self.surfaces[name](u, v)
+        engineering = getattr(self, "engineeringFiberId", np.zeros(0, dtype=int))   # older models lack it
+        scale = getattr(self, "iisRadiusScale", None)
+        if scale is not None and len(engineering) > 0:
+            isEngineering = np.isin(np.broadcast_to(np.asarray(fiberId, dtype=int), np.shape(x)), engineering)
+            params["radius"] = np.where(isEngineering, params["radius"]*scale(u, v), params["radius"])
         if "lorentz" in self.surfaces:
             params["lorentz"] = np.clip(self.surfaces["lorentz"](u, v), 0.0, None)
         if "haloFrac" in self.surfaces:
@@ -599,5 +614,8 @@ class ArmLsfModel(LsfModel):
         return float(xHi - xLo)
 
     def __repr__(self):
-        return (f"ArmLsfModel({self.arm}{self.spectrograph}: {len(self.fiberId)} fibres, blur order"
-                f" {self.blurOrder}, {self.extraction} extraction; {', '.join(self.parameterNames)})")
+        engineering = len(getattr(self, "engineeringFiberId", []))
+        return (f"ArmLsfModel({self.arm}{self.spectrograph}: {len(self.fiberId)} fibres"
+                + (f" ({engineering} engineering)" if engineering else "")
+                + f", blur order {self.blurOrder}, {self.extraction} extraction;"
+                + f" {', '.join(self.parameterNames)})")

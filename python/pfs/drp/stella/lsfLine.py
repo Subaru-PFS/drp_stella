@@ -42,6 +42,10 @@ class LsfLineFlag(IntFlag):
     """Rejected (sigma-clipped) by the smooth fit of the halo's fraction"""
     REJECTED_HALOWIDTH = 0x8000
     """Rejected (sigma-clipped) by the smooth fit of the halo's width"""
+    IIS = 0x10000
+    """An engineering (IIS) fibre's line, fit with the science fibres' blur kernel held fixed"""
+    REJECTED_IIS = 0x20000
+    """Rejected (sigma-clipped) by the smooth fit of the IIS radius scale"""
 
     @classmethod
     def rejected(cls, name):
@@ -51,7 +55,8 @@ class LsfLineFlag(IntFlag):
     @classmethod
     def notUsed(cls):
         """Flags of lines that didn't enter the smooth fits"""
-        return cls.SATURATED | cls.SATURATED_ELSEWHERE | cls.EXCLUDED_STATUS | cls.BROAD | cls.LOW_SN
+        return (cls.SATURATED | cls.SATURATED_ELSEWHERE | cls.EXCLUDED_STATUS | cls.BROAD | cls.LOW_SN
+                | cls.IIS)
 
 
 class LsfLineSet(Table):
