@@ -262,7 +262,7 @@ class FitImagePsfConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfConne
     )
     neighborMaskHalfWidth = Field(
         dtype=float,
-        default=2.0,
+        default=3.0,
         doc="Half-width (pixels, cross-dispersion) of the local box masked around a neighboring fiber's "
         "arc line, to guard against light leaking through fibers that are supposed to be "
         "unilluminated/blocked. Should be less than half the fiber pitch.",
@@ -275,7 +275,7 @@ class FitImagePsfConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfConne
     )
     neighborPeakThreshold = Field(
         dtype=float,
-        default=5.0,
+        default=3.0,
         doc="Signal-to-noise threshold for a neighboring fiber's arc line to be considered a real, "
         "leaked peak (and so be masked). If a neighboring fiber shows no significant peak at a "
         "reference line's position, it is taken to be genuinely dark there, and nothing is masked.",
@@ -283,26 +283,24 @@ class FitImagePsfConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfConne
 
     def setDefaults(self):
         super().setDefaults()
-        # samplingSize=0.7 (see below) needs modelSize/samplingSize=25/0.7=35 pixels of stamp to
+        # samplingSize=0.7 (see below) needs modelSize/samplingSize pixels of stamp to
         # validate; keep kernelSize in lock-step with it (see below).
-        self.makePsfCandidates.kernelSize = 35
+        self.makePsfCandidates.kernelSize = 17
         # The psfDeterminer must request candidate stamps at exactly this size, or it will silently
         # re-extract a fresh, unmasked copy from the original exposure instead of reusing the one we
         # mask in maskNeighboringFibers() (PsfCandidate only caches/reuses a stamp at one fixed size).
-        for name in self.psfDeterminer.registry:
-            determinerConfig = self.psfDeterminer[name]
-            determinerConfig.stampSize = self.makePsfCandidates.kernelSize
-            # Default of 300 silently down-samples away most of our candidates; our informed
-            # selection means we usually have far more good, isolated lines available than that.
-            determinerConfig.maxCandidates = 1000
-            # Several neighboring-fiber bands are typically masked within one stamp (see
-            # neighborMaskHalfWidth), so the usual 0.5 minimum would reject most/all candidates.
-            if hasattr(determinerConfig, "minimumUnmaskedFraction"):
-                determinerConfig.minimumUnmaskedFraction = 0.3
-            # Our fiber PSF core is undersampled (FWHM only ~3 pixels); the stack's generic default
-            # of no oversampling (1.0) isn't fine enough to resolve it well.
-            if hasattr(determinerConfig, "samplingSize"):
-                determinerConfig.samplingSize = 0.7
+        determinerConfig = self.psfDeterminer["piff"]
+        determinerConfig.modelSize = 11
+        determinerConfig.stampSize = self.makePsfCandidates.kernelSize
+        # Default of 300 silently down-samples away most of our candidates; our informed
+        # selection means we usually have far more good, isolated lines available than that.
+        determinerConfig.maxCandidates = 1000
+        # Several neighboring-fiber bands are typically masked within one stamp (see
+        # neighborMaskHalfWidth), so the usual 0.5 minimum would reject most/all candidates.
+        determinerConfig.minimumUnmaskedFraction = 0.3
+        # Our fiber PSF core is undersampled (FWHM only ~3 pixels); the stack's generic default
+        # of no oversampling (1.0) isn't fine enough to resolve it well.
+        determinerConfig.samplingSize = 0.7
 
 
 class FitImagePsfTask(PipelineTask):
