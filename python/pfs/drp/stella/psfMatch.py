@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 __all__ = (
     "PsfMatchConfig",
+    "PsfMatchResult",
     "PsfMatchTask",
     "peakSignalToNoise",
     "plotSpatialKernel",
@@ -47,6 +48,25 @@ def peakSignalToNoise(maskedImage: afwImage.MaskedImage) -> float:
     if not good.any():
         return -np.inf
     return float(np.max(image[good] / np.sqrt(variance[good])))
+
+
+class PsfMatchResult(pipeBase.Struct):
+    """Results of `PsfMatchTask.run`
+
+    This is a `lsst.pipe.base.Struct` that supports pickling. The
+    ``spatialSolution`` and ``kernelCellSet`` elements are internals of the
+    fit that cannot be persisted, so they are set to `None` when unpickled.
+    """
+
+    _transient = ("spatialSolution", "kernelCellSet")
+
+    def __reduce__(self):
+        # Struct is a SimpleNamespace, whose __reduce__ ignores __getstate__
+        state = self.__dict__.copy()
+        for name in self._transient:
+            if name in state:
+                state[name] = None
+        return (type(self), (), state)
 
 
 class PsfMatchConfig(pexConfig.Config):
@@ -166,7 +186,7 @@ class PsfMatchTask(BasePsfMatchTask):
         target: afwImage.Exposure,
         *,
         seed: Optional[int] = None,
-    ) -> pipeBase.Struct:
+    ) -> PsfMatchResult:
         """Match the PSF of ``source`` to ``target``
 
         ``source`` and ``target`` must already share a pixel grid: this
@@ -185,6 +205,11 @@ class PsfMatchTask(BasePsfMatchTask):
 
         Returns
         -------
+        result : `PsfMatchResult`
+            Results of the PSF matching, which supports pickling (but see
+            below regarding ``spatialSolution`` and ``kernelCellSet``),
+            with the following elements:
+
         matchedExposure : `lsst.afw.image.Exposure`
             ``source``, convolved by the psf-matching kernel with the
             fitted background added, so as to resemble ``target``.
@@ -194,9 +219,11 @@ class PsfMatchTask(BasePsfMatchTask):
             Spatially varying background difference between ``source`` (as
             matched) and ``target``.
         spatialSolution : `lsst.ip.diffim.SpatialKernelSolution`
-            Kernel solution produced by the fit.
+            Kernel solution produced by the fit. Not pickled: `None` when
+            unpickled.
         kernelCellSet : `lsst.afw.math.SpatialCellSet`
-            Cell set of candidates used in the fit.
+            Cell set of candidates used in the fit. Not pickled: `None`
+            when unpickled.
         basisList : `list` of `lsst.afw.math.Kernel`
             Kernel basis functions used in the fit.
         metadata : `lsst.daf.base.PropertySet`
@@ -250,7 +277,7 @@ class PsfMatchTask(BasePsfMatchTask):
             matchedExposure.setPsf(target.getPsf())
 
         self.log.info("PSF matching complete")
-        return pipeBase.Struct(
+        return PsfMatchResult(
             matchedExposure=matchedExposure,
             psfMatchingKernel=spatialKernel,
             backgroundModel=spatialBackground,
