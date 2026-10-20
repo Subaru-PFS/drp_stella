@@ -1,3 +1,5 @@
+import pickle
+
 import numpy as np
 
 import lsst.utils.tests
@@ -126,6 +128,36 @@ class PsfMatchTestCase(lsst.utils.tests.TestCase):
         residual = result.matchedExposure.image.array - self.targetExposure.image.array
         chi2 = np.sum((residual[select] / np.sqrt(self.targetExposure.variance.array[select])) ** 2)
         self.assertLess(chi2 / select.sum(), 2.0)
+
+    def testPickle(self):
+        """Test that the result can be pickled"""
+        result = self.task.run(self.sourceExposure, self.targetExposure, seed=1)
+        copy = pickle.loads(pickle.dumps(result))
+
+        self.assertImagesEqual(copy.matchedExposure.image, result.matchedExposure.image)
+        self.assertIsNone(copy.spatialSolution)
+        self.assertIsNone(copy.kernelCellSet)
+        self.assertEqual(copy.selection.numUsed, result.selection.numUsed)
+
+        kernel = result.psfMatchingKernel
+        kernelCopy = copy.psfMatchingKernel
+        self.assertEqual(type(kernelCopy), type(kernel))
+        self.assertFloatsEqual(
+            np.array(kernelCopy.getSpatialParameters()), np.array(kernel.getSpatialParameters())
+        )
+        for xx, yy in ((100.0, 200.0), (500.0, 1000.0)):
+            image = afwImage.ImageD(kernel.getDimensions())
+            imageCopy = afwImage.ImageD(kernelCopy.getDimensions())
+            kernel.computeImage(image, False, xx, yy)
+            kernelCopy.computeImage(imageCopy, False, xx, yy)
+            self.assertImagesEqual(imageCopy, image)
+
+        self.assertEqual(len(copy.basisList), len(result.basisList))
+        for basis, basisCopy in zip(result.basisList, copy.basisList):
+            self.assertEqual(type(basisCopy), type(basis))
+
+        for xx, yy in ((100.0, 200.0), (500.0, 1000.0)):
+            self.assertEqual(copy.backgroundModel(xx, yy), result.backgroundModel(xx, yy))
 
 
 class BuildCellSetTestCase(lsst.utils.tests.TestCase):
