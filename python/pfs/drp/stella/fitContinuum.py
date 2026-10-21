@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import warnings
 import numpy as np
 
 import lsstDebug
@@ -11,6 +10,7 @@ from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
 from .referenceLine import ReferenceLineSet
+from .utils.math import nanMedianRows
 
 from typing import Tuple
 
@@ -346,9 +346,7 @@ def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> T
     xWide[select] = xMasked
     yWide[select] = yMasked
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings(action='ignore', message='All-NaN slice encountered')
-        xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
-        yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
+    xBinned = nanMedianRows(xWide.reshape((numBins, -1)))
+    yBinned = nanMedianRows(yWide.reshape((numBins, -1)))
 
     return xBinned, yBinned
