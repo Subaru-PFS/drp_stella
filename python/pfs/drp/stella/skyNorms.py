@@ -103,7 +103,7 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     requireSky = Field(
         dtype=bool,
         default=True,
-        doc="Require an exposure of the sky (science, no lamps) to measure skyNorms?",
+        doc="Require an exposure of the sky (science, no lamps, W_LGTSRC = pfi) to measure skyNorms?",
     )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
@@ -178,6 +178,14 @@ class MeasureSkyNormsTask(PipelineTask):
             pfsArm = butler.get(inputRef)
             spectrograph = inputRef.dataId["spectrograph"]
             pfsArmList[spectrograph].append(pfsArm)
+
+        if self.config.requireSky:
+            # The light source isn't in the visit record.  N.b. the IIS lamp keywords (W_IIS*) aren't reliable
+            lightSource = next(iter(pfsArmList.values()))[0].metadata.get("W_LGTSRC")
+            if lightSource is not None and lightSource.strip().lower() != "pfi":
+                raise NoWorkFound(f"Not an exposure of the sky: {inputRefs.pfsArm[0].dataId} "
+                                  f"(the light source is {lightSource}, not the PFI)")
+
         pfsConfig = butler.get(inputRefs.pfsConfig)
         outputs = self.run(pfsArmList, pfsConfig)
         butler.put(outputs.skyNorms, outputRefs.skyNorms)
