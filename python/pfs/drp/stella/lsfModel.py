@@ -416,6 +416,8 @@ class ArmLsfModel(LsfModel):
         Ratio of the engineering fibres' disk radius to the science fibres',
         as a function of position (fit from IIS arcs, with the PFI blur kernel
         held fixed).
+    iisHaloScale : `SmoothSurface`, optional
+        Ratio of the engineering fibres' halo fraction to the science fibres'.
     """
     arm: str
     spectrograph: int
@@ -430,6 +432,7 @@ class ArmLsfModel(LsfModel):
     metadata: dict = field(default_factory=dict)
     engineeringFiberId: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=int))
     iisRadiusScale: SmoothSurface = None
+    iisHaloScale: SmoothSurface = None
 
     units = "pixel"
 
@@ -507,16 +510,23 @@ class ArmLsfModel(LsfModel):
         params = dict(x=x, y=y)
         for name in ("radius", "rms") + tuple(self.cumulantNames):
             params[name] = self.surfaces[name](u, v)
-        engineering = getattr(self, "engineeringFiberId", np.zeros(0, dtype=int))   # older models lack it
-        scale = getattr(self, "iisRadiusScale", None)
-        if scale is not None and len(engineering) > 0:
-            isEngineering = np.isin(np.broadcast_to(np.asarray(fiberId, dtype=int), np.shape(x)), engineering)
-            params["radius"] = np.where(isEngineering, params["radius"]*scale(u, v), params["radius"])
         if "lorentz" in self.surfaces:
             params["lorentz"] = np.clip(self.surfaces["lorentz"](u, v), 0.0, None)
         if "haloFrac" in self.surfaces:
             params["haloFrac"] = np.clip(self.surfaces["haloFrac"](u, v), 0.0, 1.0)
             params["haloWidth"] = np.clip(self.surfaces["haloWidth"](u, v), 1.0e-3, None)
+        # The engineering (IIS) fibres: their own disk radius and halo fraction (older models lack these)
+        engineering = getattr(self, "engineeringFiberId", np.zeros(0, dtype=int))
+        radiusScale = getattr(self, "iisRadiusScale", None)
+        haloScale = getattr(self, "iisHaloScale", None)
+        if len(engineering) > 0 and (radiusScale is not None or haloScale is not None):
+            isEngineering = np.isin(np.broadcast_to(np.asarray(fiberId, dtype=int), np.shape(x)), engineering)
+            if radiusScale is not None:
+                params["radius"] = np.where(isEngineering, params["radius"]*radiusScale(u, v),
+                                            params["radius"])
+            if haloScale is not None and "haloFrac" in params:
+                scaled = np.clip(params["haloFrac"]*haloScale(u, v), 0.0, 1.0)
+                params["haloFrac"] = np.where(isEngineering, scaled, params["haloFrac"])
         params["sigma"] = diskSigma(params["radius"], params["rms"])
         return params
 
