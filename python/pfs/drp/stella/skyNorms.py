@@ -87,7 +87,7 @@ class MeasureSkyNormsConnections(
 
     skyNorms = OutputConnection(
         name="skyNorms",
-        doc="Sky normalizations",
+        doc="Sky normalizations: each fiber's (data/sky model) - 1 (see MeasureSkyNormsTask)",
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "visit"),
     )
@@ -141,6 +141,24 @@ class MeasureSkyNormsTask(PipelineTask):
 
     This task operates on the entire exposure at once, so that we can also
     remove a fit over the focal plane.
+
+    The sky normalizations measure the relative throughput of each fiber
+    from the sky emission.  For each spectrograph we model the sky spectrum
+    from the sky fibers (using all of the spectrograph's arms), subtract the
+    continuum from the data and the model (so the measurement is dominated
+    by the sky lines), and fit a scale factor to each fiber's spectra.  The
+    output (``skyNorms``, a `ConstantPerFiber`) is that factor minus unity,
+    with a polynomial over the focal plane fitted and subtracted if
+    ``doFitFocalPlane``;  ``rms`` is the robust rms of the residuals of the
+    fit.
+
+    By default (``doRemovePfiCorrection``) the normalizations are raw:
+    relative only to the fiberNorms applied by ``reduceExposure``.  Any
+    later correction, as recorded in the ``pfsArm``'s
+    ``notes.pfiCorrection``, is first removed (see `removePfiCorrection`).
+    With ``requireSky``, exposures that aren't of the sky (not ``science``,
+    lamps on, or a light source other than the PFI) are ignored, so the
+    task can be run as part of ``reduceExposure.yaml``.
     """
     _DefaultName = "measureSkyNorms"
     ConfigClass = MeasureSkyNormsConfig
