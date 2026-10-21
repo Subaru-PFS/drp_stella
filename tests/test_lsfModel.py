@@ -218,6 +218,12 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertLess(model.computeFwhm(20, 1000.0), model.computeFwhm(10, 1000.0))
         copy = pickle.loads(pickle.dumps(model))
         self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values, model.computeKernel(20, 1000.3).values)
+        # ... and their halo fraction times iisHaloScale
+        model.surfaces["haloFrac"] = constantSurface("haloFrac", 0.02)
+        model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.5)
+        model.iisHaloScale = constantSurface("iisHaloScale", 1.5)
+        self.assertFloatsAlmostEqual(model.getParameters(20, 1000.0)["haloFrac"], 0.03, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["haloFrac"], 0.02, rtol=1.0e-12)
 
     def testModelHalo(self):
         """A model with a halo puts more light in the kernel's wings, keeping its first moment"""
