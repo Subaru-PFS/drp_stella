@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 
+import lsst.pipe.base
 import lsst.utils.tests
 
 from pfs.datamodel.identity import Identity
@@ -97,6 +98,30 @@ class RemovePfiCorrectionTestCase(lsst.utils.tests.TestCase):
         config = MeasureSkyNormsTask.ConfigClass()
         self.assertTrue(config.doRemovePfiCorrection)
         self.assertTrue(config.requireSky)
+
+    def testDeviations(self):
+        """skyNorms are deviations from unity, whether or not the focal plane fit is removed"""
+        x, y = self.pfsConfig.pfiCenter.T
+        deviation = self.rng.normal(0, 0.01, size=self.numFibers)
+        ratio = 1.0 + 0.02*x/200 + deviation   # data/sky:  a gradient over the focal plane, plus noise
+        fiberId = self.fiberId
+
+        class Task(MeasureSkyNormsTask):
+            def runSpectrograph(self, pfsArmList, pfsConfig):
+                return lsst.pipe.base.Struct(skyNorms=ConstantPerFiber(fiberId, ratio.copy(),
+                                                                       np.full(len(fiberId), 0.01)))
+
+        for doFitFocalPlane in (False, True):
+            config = Task.ConfigClass()
+            config.doFitFocalPlane = doFitFocalPlane
+            result = Task(config=config).run({1: [self.pfsArm]}, self.pfsConfig)
+            values = result.skyNorms.value
+            if doFitFocalPlane:
+                self.assertLess(np.abs(np.median(values)), 0.003)   # the gradient (and unity) are removed
+                self.assertLess(np.std(values - deviation), 0.003)
+            else:
+                self.assertFloatsAlmostEqual(values, ratio - 1, rtol=0, atol=1e-12)
+                self.assertIsNone(result.focalPlane)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

@@ -204,11 +204,13 @@ class MeasureSkyNormsTask(PipelineTask):
         Returns
         -------
         skyNorms : `ConstantPerFiber`
-            Normalizations of sky data, after removing focal plane fit.
+            Deviations of the sky normalizations from unity (i.e. data/sky - 1), after removing the focal
+            plane fit if ``doFitFocalPlane``.  This is what `PfiCorrectionTask` expects (it multiplies the
+            norm by ``1 + correction``), whether or not the focal plane fit is removed.
         perSpectrograph : `dict` mapping `int` to `Struct`
             Results for each spectrograph, indexed by spectrograph number.
-        focalPlane : `FocalPlanePolynomial`
-            Focal plane fit to sky normalizations.
+        focalPlane : `FocalPlanePolynomial` or `None`
+            Focal plane fit to sky normalizations (`None` unless ``doFitFocalPlane``).
         """
         if self.config.doRemovePfiCorrection:
             for pfsArms in pfsArmList.values():
@@ -223,9 +225,12 @@ class MeasureSkyNormsTask(PipelineTask):
 
         focalPlane = None
         if self.config.doFitFocalPlane:
+            # The focal plane fit includes a constant term, so the corrected values are deviations from unity
             corrected = self.correctFocalPlane(allSkyNorms, pfsConfig)
             allSkyNorms = corrected.skyNorms
             focalPlane = corrected.fit
+        else:
+            allSkyNorms = ConstantPerFiber(allSkyNorms.fiberId, allSkyNorms.value - 1.0, allSkyNorms.rms)
 
         return Struct(skyNorms=allSkyNorms, perSpectrograph=results, focalPlane=focalPlane)
 
