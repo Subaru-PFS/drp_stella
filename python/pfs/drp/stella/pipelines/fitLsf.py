@@ -21,7 +21,7 @@ from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline
 from ..readLineList import ReadLineListTask
 from ..referenceLine import ReferenceLineStatus
 from ..scatteredLight import ScatteredLightConfig
-from ..smoothSurface import DetectorCoords, fitSmoothSurface, maxGap, supportedDegree
+from ..smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface, maxGap, supportedDegree
 
 __all__ = ("FitLsfConfig", "FitLsfTask")
 
@@ -108,9 +108,16 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     doIisRadius = Field(dtype=bool, default=True,
                         doc="Measure the engineering (IIS) fibres' disk radius from any IIS arcs (lamps "
                             "'*_eng') among the inputs, with the science fibres' blur kernel held fixed?")
-    iisRadiusScaleDegree = Field(dtype=str, default="0,1",
-                                 doc="Chebyshev degree 'dx,dy' of the IIS/PFI disk-radius ratio over the "
-                                     "detector ('0,0': a constant)")
+    iisRadiusRatio = Field(dtype=float, default=0.52, optional=True,
+                           doc="Ratio of the engineering (IIS) fibres' disk radius to the science (PFI) "
+                               "fibres': a property of the fibres (their core diameters), so the same for "
+                               "every detector. The default is the mean of the ratios measured on the 16 "
+                               "detectors (0.47-0.55: the scatter is systematic). None: use each detector's "
+                               "measured ratio (iisRadiusScaleDegree)")
+    iisRadiusScaleDegree = Field(dtype=str, default="0,0",
+                                 doc="Chebyshev degree 'dx,dy' of the measured IIS/PFI disk-radius ratio "
+                                     "over the detector ('0,0': a constant, the median); used if "
+                                     "iisRadiusRatio is None")
     doIisHalo = Field(dtype=bool, default=True,
                       doc="Measure the engineering (IIS) fibres' halo fraction relative to the science "
                           "fibres' (from the IIS lines with median S/N >= haloMinSN, with the PFI core held "
@@ -660,7 +667,14 @@ class FitLsfTask(PipelineTask):
         the PFI surfaces. Each usable IIS line is refit with that kernel held
         fixed at its position; only its centre, amplitude, continuum,
         companions and disk radius are free. The ratio of that radius to the
-        PFI radius surface there is fit as a smooth surface.
+        PFI radius surface there is fit as a smooth surface (equal weights; a
+        constant is the median).
+
+        The ratio is a property of the fibres, so if ``iisRadiusRatio`` is set
+        that global value is used instead (the measured ratio is kept in the
+        summary as a diagnostic): the lines are refit with the radius held at
+        ``iisRadiusRatio`` times the PFI radius, and the halo scale (from the
+        bright lines) is measured with the radius held there too.
 
         Parameters
         ----------
@@ -708,6 +722,12 @@ class FitLsfTask(PipelineTask):
         dropped |= {self.lineKey(ff) for ff in allFree if ff.status & excludeMask}
         dropped |= {key for key, sn in signalToNoise.items() if not np.nanmedian(sn) >= minLineSN}
 
+        ratioFixed = config.iisRadiusRatio
+
+        def radiusAt(ffs):
+            """The PFI disk radius at each fit's position"""
+            return surfaces["radius"](*coords(np.array([ff.x for ff in ffs]), np.array([ff.y for ff in ffs])))
+
         def kernelAt(ffs):
             """The PFI kernel ((rms, cumulants), (haloFrac, haloWidth) or None) at each fit's position"""
             u, v = coords(np.array([ff.x for ff in ffs]), np.array([ff.y for ff in ffs]))
@@ -724,15 +744,27 @@ class FitLsfTask(PipelineTask):
         uc, vc = coords(xc.ravel(), yc.ravel())
         domain = ((uc.min(), uc.max()), (vc.min(), vc.max()))
 
-        def scaleSurface(u, v, ratio, ratioErr, degreeStr, name):
-            """Fit a ratio as a smooth surface (with the coverage guard)"""
+        def scaleSurface(u, v, ratio, degreeStr, name):
+            """Fit a ratio as a smooth surface (with the coverage guard), robustly
+
+            The lines get equal weights (their formal errors are dominated by
+            systematics, and a few lines with small errors would otherwise
+            dominate), and a constant is the median of the lines not clipped.
+            """
             degree = tuple(int(dd) for dd in degreeStr.split(","))
             if config.doCoverageGuard:
                 degree = tuple(supportedDegree(pos, dom, dd, config.coverageFactor)
                                for pos, dom, dd in zip((u, v), domain, degree))
-            surface, used, _ = fitSmoothSurface(u, v, ratio, ratioErr, degree, domain=domain, name=name,
-                                                nIter=config.nIter, nSigma=config.nSigma)
+            surface, used, _ = fitSmoothSurface(u, v, ratio, np.ones_like(ratio), degree, domain=domain,
+                                                name=name, nIter=config.nIter, nSigma=config.nSigma)
+            if degree == (0, 0) and used.any():
+                surface.coeffs = np.array([np.median(ratio[used])])
             return surface, used, degree
+
+        def constantSurface(value, name):
+            """A constant `SmoothSurface`"""
+            return SmoothSurface(name=name, degree=(0, 0), domain=domain, coeffs=np.array([float(value)]),
+                                 offsets={}, reference={})
 
         # The IIS halo: from the bright lines, with the PFI core (rms, cumulants) held fixed and the halo free
         haloScale = None
@@ -745,7 +777,10 @@ class FitLsfTask(PipelineTask):
                 ffs = [ff for ff in ffs if self.lineKey(ff) in bright]
                 if ffs:
                     rms, cumulants, _ = kernelAt(ffs)
-                    fixShapes[key] = {round(float(ff.catWavelength), 4): (float(rms[jj]), cumulants[:, jj])
+                    radius = ratioFixed*radiusAt(ffs) if ratioFixed is not None else None
+                    fixShapes[key] = {round(float(ff.catWavelength), 4):
+                                      (float(rms[jj]), cumulants[:, jj])
+                                      + (() if radius is None else (float(radius[jj]),))
                                       for jj, ff in enumerate(ffs)}
             haloFits = [ff for ffs in self.fitLines(iisExposures, fixShapes=fixShapes).fits.values()
                         for ff in ffs]
@@ -753,9 +788,8 @@ class FitLsfTask(PipelineTask):
                 u, v = coords(np.array([ff.x for ff in haloFits]), np.array([ff.y for ff in haloFits]))
                 pfiHalo = np.clip(surfaces["haloFrac"](u, v), 1.0e-4, None)
                 haloRatio = np.array([ff.haloFrac for ff in haloFits])/pfiHalo
-                haloRatioErr = np.array([ff.haloFracErr for ff in haloFits])/pfiHalo
-                haloScale, used, degree = scaleSurface(u, v, haloRatio, haloRatioErr,
-                                                       config.iisHaloScaleDegree, "iisHaloScale")
+                haloScale, used, degree = scaleSurface(u, v, haloRatio, config.iisHaloScaleDegree,
+                                                       "iisHaloScale")
                 haloSummary = dict(median=float(np.median(haloRatio[used])), nLines=int(used.sum()),
                                    nCatalogueLines=len(bright), degree=list(degree), rms=haloScale.rms)
                 self.log.info("IIS halo scale: median %.3f over %d lines (%d catalogue lines; degree %s, "
@@ -785,11 +819,8 @@ class FitLsfTask(PipelineTask):
         rows = [(key[0], ff) for key, ffs in fixed.fits.items() for ff in ffs]
         fits = [ff for _, ff in rows]
         u, v = coords(np.array([ff.x for ff in fits]), np.array([ff.y for ff in fits]))
-        pfiRadius = surfaces["radius"](u, v)
-        ratio = np.array([ff.radius for ff in fits])/pfiRadius
-        ratioErr = np.array([ff.radiusErr for ff in fits])/pfiRadius
-        scale, used, degree = scaleSurface(u, v, ratio, ratioErr, config.iisRadiusScaleDegree,
-                                           "iisRadiusScale")
+        ratio = np.array([ff.radius for ff in fits])/radiusAt(fits)
+        scale, used, degree = scaleSurface(u, v, ratio, config.iisRadiusScaleDegree, "iisRadiusScale")
 
         # Diagnostics: is only the radius different (chi^2 of the fixed-kernel vs free fits)? Does the ratio
         # depend on brightness (the IIS images are narrower, so brighter per pixel)?
@@ -805,16 +836,30 @@ class FitLsfTask(PipelineTask):
         pointScale = float(np.median(ratio[good])) if good.any() else np.nan
         summary = dict(median=pointScale, nLines=int(good.sum()), degree=list(degree), rms=scale.rms,
                        medianChi2PerDofChange=float(np.nanmedian(dchi2)) if dchi2.size else np.nan,
-                       slopePerDexOfPeak=float(slope))
+                       slopePerDexOfPeak=float(slope),
+                       used=ratioFixed if ratioFixed is not None else "measured")
         self.log.info("IIS radius scale: median %.4f over %d lines (%d catalogue lines; degree %s, "
                       "rms %.4f); fixed-kernel minus free chi^2/dof median %+.2f; slope %+.4f per dex of "
                       "peak",
                       pointScale, good.sum(), len({self.lineKey(ff) for ff in fits}), degree, scale.rms,
                       summary["medianChi2PerDofChange"], slope)
-        flags = []
-        for jj, ff in enumerate(fits):
-            flag = LsfLineFlag.IIS | (0 if used[jj] else LsfLineFlag.REJECTED_IIS)
-            flags.append(int(flag))
+        flags = [int(LsfLineFlag.IIS | (0 if uu else LsfLineFlag.REJECTED_IIS)) for uu in used]
+        if ratioFixed is not None:
+            # The radius is held at the global ratio: refit with everything but the centre, amplitude,
+            # continuum and companions fixed (these are the IIS lines in lsfLines); the measured ratio above
+            # is a diagnostic
+            self.log.info("Using the IIS/PFI radius ratio %.3f (iisRadiusRatio), not the measured %.4f",
+                          ratioFixed, pointScale)
+            for key, shapes in fixShapes.items():
+                ffs = [ff for ff in free.fits[key] if round(float(ff.catWavelength), 4) in shapes]
+                radius = ratioFixed*radiusAt(ffs)
+                for ff, rr in zip(ffs, radius):
+                    lam = round(float(ff.catWavelength), 4)
+                    shapes[lam] = tuple(shapes[lam][:2]) + (float(rr),)
+            final = self.fitLines(iisExposures, fixHalos=fixHalos if fixHalos else None, fixShapes=fixShapes)
+            rows = [(key[0], ff) for key, ffs in final.fits.items() for ff in ffs]
+            flags = [int(LsfLineFlag.IIS)]*len(rows)
+            scale = constantSurface(ratioFixed, "iisRadiusScale")
         fiberId = np.array(sorted({int(ff) for exp in iisExposures for ff in exp.pfsArm.fiberId}), dtype=int)
         return Struct(scale=scale, haloScale=haloScale, fiberId=fiberId, rows=rows, flags=flags,
                       saturated=free.saturated, summary=summary, haloSummary=haloSummary)
