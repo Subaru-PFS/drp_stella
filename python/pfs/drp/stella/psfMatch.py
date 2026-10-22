@@ -13,6 +13,10 @@ from lsst.ip.diffim.psfMatch import PsfMatchConfigDF
 from lsst.ip.diffim.psfMatch import PsfMatchTask as BasePsfMatchTask
 from lsst.utils.timer import timeMethod
 
+from .DetectorMap import DetectorMap
+from .referenceLine import ReferenceLineSet, ReferenceLineStatus
+from .repair import maskLines
+
 if TYPE_CHECKING:
     import matplotlib
 
@@ -28,23 +32,34 @@ __all__ = (
 )
 
 
-def peakSignalToNoise(maskedImage: afwImage.MaskedImage) -> float:
+# Variance assigned to pixels excluded from the kernel fit, giving them
+# effectively zero weight. This is finite (rather than ``inf``) so that
+# convolving the variance doesn't produce ``inf*0 = NaN``.
+EXCLUDED_VARIANCE = 1.0e30
+
+
+def peakSignalToNoise(maskedImage: afwImage.MaskedImage, ignore: Optional[np.ndarray] = None) -> float:
     """Return the peak (per-pixel) signal-to-noise ratio of a masked image
 
     Parameters
     ----------
     maskedImage : `lsst.afw.image.MaskedImage`
         Image for which to calculate the peak signal-to-noise.
+    ignore : `numpy.ndarray` of `bool`, optional
+        Pixels to ignore (same shape as ``maskedImage``).
 
     Returns
     -------
     peakSnr : `float`
         Maximum value of ``image/sqrt(variance)`` over all finite,
-        positive-variance pixels. ``-inf`` if there are no such pixels.
+        positive-variance pixels (other than those in ``ignore``).
+        ``-inf`` if there are no such pixels.
     """
     image = maskedImage.image.array
     variance = maskedImage.variance.array
     good = np.isfinite(image) & np.isfinite(variance) & (variance > 0)
+    if ignore is not None:
+        good &= ~ignore
     if not good.any():
         return -np.inf
     return float(np.max(image[good] / np.sqrt(variance[good])))
@@ -121,6 +136,25 @@ class PsfMatchConfig(pexConfig.Config):
         default=["BAD", "SAT", "CR", "INTRP", "NO_DATA", "EDGE"],
         doc="Mask planes that disqualify a stamp",
     )
+    lineMaskStatus = pexConfig.ListField(
+        dtype=str,
+        default=["BAD"],
+        doc="ReferenceLineStatus flags for lines to exclude from the kernel fit (only when a line list "
+        "is provided); a line is excluded if any of these flags is set",
+    )
+    lineMaskRadius = pexConfig.Field(
+        dtype=int,
+        default=5,
+        check=lambda radius: radius >= 0,
+        doc="Radius (pixels) around excluded lines to exclude from the kernel fit; this is grown by "
+        "half the kernel size to account for the convolution",
+    )
+    lineMaskPlane = pexConfig.Field(
+        dtype=str,
+        default="PSFMATCH_EXCLUDED",
+        doc="Mask plane for pixels excluded from the kernel fit; must be in kernel.active.badMaskPlanes "
+        "and not in badMaskPlanes",
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -135,6 +169,27 @@ class PsfMatchConfig(pexConfig.Config):
         self.dfKernel.fitForBackground = True
         self.dfKernel.sizeCellX = self.xStampSize
         self.dfKernel.sizeCellY = self.yStampSize
+        self.dfKernel.badMaskPlanes = list(self.dfKernel.badMaskPlanes) + [self.lineMaskPlane]
+
+    def validate(self):
+        super().validate()
+        if self.lineMaskPlane not in self.kernel.active.badMaskPlanes:
+            raise pexConfig.FieldValidationError(
+                PsfMatchConfig.lineMaskPlane,
+                self,
+                f"lineMaskPlane ({self.lineMaskPlane}) must be in kernel.active.badMaskPlanes",
+            )
+        if self.lineMaskPlane in self.badMaskPlanes:
+            raise pexConfig.FieldValidationError(
+                PsfMatchConfig.lineMaskPlane,
+                self,
+                f"lineMaskPlane ({self.lineMaskPlane}) must not be in badMaskPlanes",
+            )
+        for name in self.lineMaskStatus:
+            if name not in ReferenceLineStatus.__members__:
+                raise pexConfig.FieldValidationError(
+                    PsfMatchConfig.lineMaskStatus, self, f"Unrecognized ReferenceLineStatus: {name}"
+                )
 
 
 class PsfMatchTask(BasePsfMatchTask):
@@ -162,6 +217,14 @@ class PsfMatchTask(BasePsfMatchTask):
     must be set large enough to span the largest expected relative shift
     between ``source`` and ``target``.
 
+    If a line list (and detectorMap) is provided to ``run``, the pixels
+    around lines with any of the ``config.lineMaskStatus`` flags set are
+    excluded from the kernel fit. This is useful for sky exposures, where
+    the strengths of lines may vary. The exclusion is achieved by setting a
+    very large variance (giving zero weight in the fit) and the
+    ``config.lineMaskPlane`` mask plane (excluding them from candidate
+    assessment) on copies of the stamps; the inputs are not modified.
+
     Notes
     -----
     For additional debug logging from the inherited kernel solver, set:
@@ -178,6 +241,8 @@ class PsfMatchTask(BasePsfMatchTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.kConfig = self.config.kernel.active
+        # The kernel solver's candidate statistics require that all of its badMaskPlanes exist.
+        afwImage.Mask.addMaskPlane(self.config.lineMaskPlane)
 
     @timeMethod
     def run(
@@ -186,6 +251,8 @@ class PsfMatchTask(BasePsfMatchTask):
         target: afwImage.Exposure,
         *,
         seed: Optional[int] = None,
+        refLines: Optional[ReferenceLineSet] = None,
+        detectorMap: Optional[DetectorMap] = None,
     ) -> PsfMatchResult:
         """Match the PSF of ``source`` to ``target``
 
@@ -202,6 +269,14 @@ class PsfMatchTask(BasePsfMatchTask):
             Seed for the random subsampling of stamps down to
             ``config.maxStamps``. If not provided, we use ``source``'s
             ``visitInfo.id`` if available, else ``config.seed``.
+        refLines : `ReferenceLineSet`, optional
+            Line list. If provided, lines with any of the
+            ``config.lineMaskStatus`` flags set are excluded from the
+            kernel fit. Requires ``detectorMap``.
+        detectorMap : `DetectorMap`, optional
+            Mapping of fiberId,wavelength to x,y, used to locate
+            ``refLines`` (which are assumed to be at the same position in
+            both ``source`` and ``target``).
 
         Returns
         -------
@@ -230,8 +305,12 @@ class PsfMatchTask(BasePsfMatchTask):
             Metadata accumulated while fitting.
         selection : `lsst.pipe.base.Struct`
             Stamp-selection diagnostics: ``numTiles``, ``numRejectedMask``,
-            ``numRejectedSnr``, ``numCandidates``, ``numUsed``.
+            ``numRejectedSnr``, ``numCandidates``, ``numUsed``, and (if
+            ``refLines`` was provided; otherwise `None`)
+            ``numLinesExcluded`` and ``excludedFraction`` (fraction of
+            pixels excluded).
         """
+
         self.log.info(
             "Building kernel candidates from %s source and %s target exposures",
             source.getDimensions(),
@@ -246,7 +325,20 @@ class PsfMatchTask(BasePsfMatchTask):
                 seed = self.config.seed
                 self.log.debug("Using fallback seed=%d from config.seed", seed)
 
-        buildResult = self._buildCellSet(source.maskedImage, target.maskedImage, seed=seed)
+        exclusion = None
+        if refLines is not None:
+            if detectorMap is None:
+                raise ValueError("detectorMap is required when refLines is provided")
+            bbox = source.getBBox()
+            bbox.clip(target.getBBox())
+            exclusion = self._makeLineExclusion(bbox, refLines, detectorMap)
+
+        buildResult = self._buildCellSet(
+            source.maskedImage,
+            target.maskedImage,
+            seed=seed,
+            exclude=exclusion.exclude if exclusion is not None else None,
+        )
         self.log.info(
             "Built %d kernel candidates from %d tiles (%d rejected: mask, %d rejected: S/N)",
             buildResult.numUsed,
@@ -291,14 +383,66 @@ class PsfMatchTask(BasePsfMatchTask):
                 numRejectedSnr=buildResult.numRejectedSnr,
                 numCandidates=buildResult.numCandidates,
                 numUsed=buildResult.numUsed,
+                numLinesExcluded=exclusion.numLines if exclusion is not None else None,
+                excludedFraction=exclusion.fraction if exclusion is not None else None,
             ),
         )
+
+    def _makeLineExclusion(
+        self, bbox: geom.Box2I, refLines: ReferenceLineSet, detectorMap: DetectorMap
+    ) -> pipeBase.Struct:
+        """Determine which pixels to exclude from the kernel fit
+
+        Pixels within ``config.lineMaskRadius`` of lines with any of the
+        ``config.lineMaskStatus`` flags set are excluded. The radius is
+        grown by half the kernel size, so that excluded pixels in the
+        ``source`` don't contribute (through the convolution) to pixels
+        that are used in the fit.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        refLines : `ReferenceLineSet`
+            Line list.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        exclude : `numpy.ndarray` of `bool`
+            Pixels to exclude, with shape matching ``bbox``.
+        numLines : `int`
+            Number of lines excluded.
+        fraction : `float`
+            Fraction of pixels excluded.
+        """
+        flags = 0
+        for name in self.config.lineMaskStatus:
+            flags |= ReferenceLineStatus[name]
+        select = (refLines.status & flags) != 0
+        numLines = int(select.sum())
+
+        mask = afwImage.Mask(bbox)
+        radius = self.config.lineMaskRadius + self.kConfig.kernelSize // 2
+        maskLines(mask, detectorMap, refLines[select], radius, maskPlane=self.config.lineMaskPlane)
+        exclude = (mask.array & mask.getPlaneBitMask(self.config.lineMaskPlane)) != 0
+        fraction = float(exclude.mean())
+        self.log.info(
+            "Excluding %d/%d lines (%s) from kernel fit: %.1f%% of pixels",
+            numLines,
+            len(refLines),
+            "|".join(self.config.lineMaskStatus),
+            100 * fraction,
+        )
+        return pipeBase.Struct(exclude=exclude, numLines=numLines, fraction=fraction)
 
     def _buildCellSet(
         self,
         source: afwImage.MaskedImage,
         target: afwImage.MaskedImage,
         seed: int = 0,
+        exclude: Optional[np.ndarray] = None,
     ) -> pipeBase.Struct:
         """Build a SpatialCellSet of tiled kernel candidates
 
@@ -319,6 +463,12 @@ class PsfMatchTask(BasePsfMatchTask):
             Image to which ``source`` is matched.
         seed : `int`
             Seed for random subsampling of stamps.
+        exclude : `numpy.ndarray` of `bool`, optional
+            Pixels to exclude from the kernel fit, over the overlap of
+            ``source`` and ``target``. If provided, the stamps are copies
+            in which the excluded pixels have the ``config.lineMaskPlane``
+            mask plane set and a very large variance, and these pixels
+            are ignored when measuring the peak signal-to-noise.
 
         Returns
         -------
@@ -350,6 +500,8 @@ class PsfMatchTask(BasePsfMatchTask):
         marginY = height - numCellsY * yStampSize
         x0 = bbox.getMinX() + marginX // 2
         y0 = bbox.getMinY() + marginY // 2
+        if exclude is not None and exclude.shape != (height, width):
+            raise ValueError(f"Shape of exclude ({exclude.shape}) doesn't match overlap region {bbox}")
         self.log.info(
             "Tiling %s overlap region into %d x %d = %d candidate stamps of %d x %d pixels",
             bbox,
@@ -361,6 +513,7 @@ class PsfMatchTask(BasePsfMatchTask):
         )
 
         badBitMask = source.mask.getPlaneBitMask(self.config.badMaskPlanes)
+        excludeBitMask = source.mask.getPlaneBitMask(self.config.lineMaskPlane)
         candidates = []
         numRejectedMask = 0
         numRejectedSnr = 0
@@ -379,7 +532,22 @@ class PsfMatchTask(BasePsfMatchTask):
                     numRejectedMask += 1
                     self.log.debug("Rejecting stamp at %s: bad mask plane set", tileBBox)
                     continue
-                snr = min(peakSignalToNoise(sourceStamp), peakSignalToNoise(targetStamp))
+                stampExclude = None
+                if exclude is not None:
+                    xStart = tileBBox.getMinX() - bbox.getMinX()
+                    yStart = tileBBox.getMinY() - bbox.getMinY()
+                    stampExclude = exclude[yStart:yStart + yStampSize, xStart:xStart + xStampSize]
+                    if stampExclude.any():
+                        # Copy, so we don't modify the inputs
+                        sourceStamp = afwImage.MaskedImageF(sourceStamp, deep=True)
+                        targetStamp = afwImage.MaskedImageF(targetStamp, deep=True)
+                        for stamp in (sourceStamp, targetStamp):
+                            stamp.mask.array[stampExclude] |= excludeBitMask
+                            stamp.variance.array[stampExclude] = EXCLUDED_VARIANCE
+                snr = min(
+                    peakSignalToNoise(sourceStamp, stampExclude),
+                    peakSignalToNoise(targetStamp, stampExclude),
+                )
                 if snr < self.config.minPeakSignalToNoise:
                     numRejectedSnr += 1
                     self.log.debug(
