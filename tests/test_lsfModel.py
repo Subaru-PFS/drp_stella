@@ -335,6 +335,14 @@ class FitLsfLinesTestCase(lsst.utils.tests.TestCase):
         self.assertLess(abs(fit.radius - radius), 5*fit.radiusErr)
         self.assertLess(abs(fit.pixel - center), 5*fit.pixelErr)
 
+        # Claude: with the radius held fixed too, only the centre, amplitude and continuum are free
+        fit = fitDiskLine(wavelength, data, variance, 700 + 0.07*100.0, blurOrder=4, fixShape=(rms, [S, K]),
+                          fixRadius=radius)
+        self.assertTrue(fit.success)
+        self.assertFloatsAlmostEqual(fit.radius, radius, rtol=1.0e-12)
+        self.assertEqual(fit.radiusErr, 0.0)
+        self.assertLess(abs(fit.pixel - center), 5*fit.pixelErr)
+
     def testFixCentre(self):
         """A fixed centre is reported with zero error, and the other parameters are still fit"""
         rng = np.random.default_rng(1357)
