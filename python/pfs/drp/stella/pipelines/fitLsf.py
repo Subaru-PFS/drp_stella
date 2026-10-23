@@ -154,7 +154,7 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                                "from the PFI kernel convolved with their (smaller) disk: on b they are wider "
                                "(by ~0.35 px rms), with stronger wings; on n slightly narrower")
     iisExtraBlur = DictField(keytype=str, itemtype=str,
-                             default=dict(b="0.04285,0.07637", r="0.03732,0.07198", m="0.00615,-0.02752",
+                             default=dict(b="0.04285,0.07637", r="0.03732,0.07198", m="-0.00067,-0.02713",
                                           n="-0.02936,-0.03583"),
                              doc="Per-arm extra blur of the engineering fibres, 'variance,kappa4' "
                                  "(pixels^2, may be negative; pixels^4), measured from all the spectrographs "
