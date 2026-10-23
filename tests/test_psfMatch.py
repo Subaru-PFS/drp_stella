@@ -13,7 +13,7 @@ from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticArc, addNoiseToImage
 from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.tests.utils import runTests
-from pfs.datamodel import TargetType
+from pfs.datamodel import FiberStatus, TargetType
 
 display = None
 
@@ -356,13 +356,14 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
 
 
 class FiberExclusionTestCase(lsst.utils.tests.TestCase):
-    """Test PsfMatchTask.run with config.excludeNonSkyFibers
+    """Test PsfMatchTask.run with pfsConfigs, excluding unselected fibers
 
-    Mimics a pair of exposures in which the spectra of the objects differ:
-    ``source`` and ``target`` contain the same spectrum (continuum and
-    lines) in each fiber, except that the non-sky fibers are brighter in
-    ``target``. Unless these are excluded, the fitted kernel sum is biased
-    high.
+    Mimics a pair of exposures in which the spectra of bright objects
+    differ: ``source`` and ``target`` contain the same spectrum (continuum
+    and lines) in each fiber, except that the ``FLUXSTD`` fibers (which are
+    not selected by default) are brighter in ``target``. Unless these are
+    excluded, the fitted kernel sum is biased high. The ``SKY`` and
+    ``SCIENCE`` fibers (which are selected by default) are unchanged.
     """
 
     def setUp(self):
@@ -377,8 +378,12 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         self.detectorMap = makeSyntheticDetectorMap(synth)
 
         self.pfsConfig = makeSyntheticPfsConfig(synth, 123, 456)
-        self.isSky = np.arange(synth.numFibers) % 3 != 1
-        self.pfsConfig.targetType[:] = np.where(self.isSky, TargetType.SKY, TargetType.SCIENCE)
+        index = np.arange(synth.numFibers)
+        self.isBright = index % 3 == 1
+        self.pfsConfig.targetType[:] = np.where(
+            self.isBright, TargetType.FLUXSTD, np.where(index % 3 == 0, TargetType.SKY, TargetType.SCIENCE)
+        )
+        self.pfsConfig.fiberStatus[:] = FiberStatus.GOOD
 
         numLines = 12
         lines = np.linspace(0, synth.height - 1, numLines + 2)[1:-1]
@@ -396,12 +401,12 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
                 synth.fwhm,
             )
 
-        skyImage = makeTrueImage(self.isSky)
-        objectImage = makeTrueImage(~self.isSky)
-        trueSource = skyImage.clone()
-        trueSource += objectImage
-        trueTarget = skyImage.clone()
-        trueTarget.scaledPlus(1.5, objectImage)
+        faintImage = makeTrueImage(~self.isBright)
+        brightImage = makeTrueImage(self.isBright)
+        trueSource = faintImage.clone()
+        trueSource += brightImage
+        trueTarget = faintImage.clone()
+        trueTarget.scaledPlus(1.5, brightImage)
 
         rng = np.random.RandomState(12345)
         sourceImage, sourceBorder = convolveAndAddNoise(trueSource, 0.6, synth, rng)
@@ -417,9 +422,9 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         self.config.xStampSize = 48
         self.config.yStampSize = 48
         self.config.minPeakSignalToNoise = 5.0
-        self.config.excludeNonSkyFibers = True
         self.config.fiberMaskRadius = 4
         self.task = PsfMatchTask(config=self.config)
+        self.radius = self.config.fiberMaskRadius + self.config.kernel["DF"].kernelSize // 2
 
     def tearDown(self):
         del self.sourceExposure
@@ -428,19 +433,17 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         del self.pfsConfig
         del self.task
 
-    def calculateExpected(self, fiberId, radius):
+    def calculateExpected(self, fiberId):
         """Calculate the expected excluded pixels
 
         This is an independent implementation of the exclusion: integer
-        pixels within ``radius`` (in x) of the trace center, rounded to the
-        nearest pixel, in each row.
+        pixels within ``self.radius`` (in x) of the trace center, rounded
+        to the nearest pixel, in each row.
 
         Parameters
         ----------
         fiberId : iterable of `int`
             Fibers to exclude.
-        radius : `int`
-            Exclusion radius (pixels), including any growth.
 
         Returns
         -------
@@ -451,43 +454,93 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         for ff in fiberId:
             for yy in range(self.synth.height):
                 center = int(np.floor(self.detectorMap.getXCenter(ff, float(yy)) + 0.5))
-                for xx in range(center - radius, center + radius + 1):
+                for xx in range(center - self.radius, center + self.radius + 1):
                     if 0 <= xx < self.synth.width:
                         expected[yy, xx] = True
         return expected
 
-    def testMakeFiberExclusion(self):
-        """Excluded pixels follow the traces of the non-sky fibers"""
+    def assertExclusion(self, pfsConfigList, excludeFiberId):
+        """Assert that _makeFiberExclusion excludes the expected fibers
+
+        Parameters
+        ----------
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations to provide to ``_makeFiberExclusion``.
+        excludeFiberId : iterable of `int`
+            Fibers expected to be excluded.
+        """
         bbox = self.sourceExposure.getBBox()
-        result = self.task._makeFiberExclusion(bbox, self.detectorMap, self.pfsConfig)
-        nonSky = self.pfsConfig.fiberId[~self.isSky]
-        self.assertEqual(result.numFibers, len(nonSky))
-        radius = self.config.fiberMaskRadius + self.config.kernel["DF"].kernelSize // 2
-        expected = self.calculateExpected(nonSky, radius)
+        result = self.task._makeFiberExclusion(bbox, self.detectorMap, pfsConfigList)
+        self.assertEqual(result.numFibers, len(set(excludeFiberId)))
+        expected = self.calculateExpected(excludeFiberId)
         self.assertTrue(np.array_equal(result.exclude, expected))
         self.assertFloatsAlmostEqual(result.fraction, expected.mean(), atol=1.0e-12)
 
-        # The sky fibers' traces aren't excluded
-        for ff in self.pfsConfig.fiberId[self.isSky]:
+        # The traces of the fibers that are used aren't excluded
+        for ff in set(self.detectorMap.fiberId) - set(excludeFiberId):
             center = np.floor(self.detectorMap.getXCenter(ff) + 0.5).astype(int)
             self.assertFalse(np.any(result.exclude[np.arange(self.synth.height), center]))
 
+    def testDefaults(self):
+        """By default, SCIENCE and SKY fibers with GOOD status are selected"""
+        config = PsfMatchTask.ConfigClass()
+        self.assertEqual(list(config.selectFibers.targetType), ["SCIENCE", "SKY"])
+        self.assertEqual(list(config.selectFibers.fiberStatus), ["GOOD"])
+
+    def testMakeFiberExclusion(self):
+        """Excluded pixels follow the traces of the unselected fibers"""
+        bright = self.pfsConfig.fiberId[self.isBright]
+        self.assertExclusion([self.pfsConfig], bright)
+
+        # Selecting only SKY fibers also excludes the SCIENCE fibers
+        self.config.selectFibers.targetType = ["SKY"]
+        self.task = PsfMatchTask(config=self.config)
+        notSky = self.pfsConfig.fiberId[self.pfsConfig.targetType != TargetType.SKY]
+        self.assertExclusion([self.pfsConfig], notSky)
+
+    def testBothPfsConfigs(self):
+        """Fibers must be selected in both pfsConfigs"""
+        bright = self.pfsConfig.fiberId[self.isBright]
+        isScience = self.pfsConfig.targetType == TargetType.SCIENCE
+        isSky = self.pfsConfig.targetType == TargetType.SKY
+        broken = self.pfsConfig.fiberId[isScience][0]
+        unassigned = self.pfsConfig.fiberId[isSky][0]
+
+        fiberStatus = self.pfsConfig.fiberStatus.copy()
+        fiberStatus[self.pfsConfig.fiberId == broken] = FiberStatus.BROKENFIBER
+        sourcePfsConfig = self.pfsConfig.copy(fiberStatus=fiberStatus)
+
+        targetType = self.pfsConfig.targetType.copy()
+        targetType[self.pfsConfig.fiberId == unassigned] = TargetType.UNASSIGNED
+        targetPfsConfig = self.pfsConfig.copy(targetType=targetType)
+
+        self.assertExclusion([sourcePfsConfig], np.append(bright, broken))
+        self.assertExclusion([targetPfsConfig], np.append(bright, unassigned))
+        self.assertExclusion([sourcePfsConfig, targetPfsConfig], np.append(bright, [broken, unassigned]))
+
+        result = self.task.run(
+            self.sourceExposure,
+            self.targetExposure,
+            seed=1,
+            detectorMap=self.detectorMap,
+            sourcePfsConfig=sourcePfsConfig,
+            targetPfsConfig=targetPfsConfig,
+        )
+        self.assertEqual(result.selection.numFibersExcluded, len(bright) + 2)
+
     def testMissingFibers(self):
-        """Fibers in the detectorMap but not in the pfsConfig are excluded"""
-        bbox = self.sourceExposure.getBBox()
+        """Fibers in the detectorMap but not in a pfsConfig are excluded"""
+        isSelected = ~self.isBright
+        self.assertTrue(np.all(isSelected[[0, 2]]))
         missing = self.pfsConfig.fiberId[[0, 2]]
-        self.assertTrue(np.all(self.isSky[[0, 2]]))
-        pfsConfig = self.pfsConfig.select(fiberId=self.pfsConfig.fiberId[2:])
-        pfsConfig = pfsConfig.select(fiberId=pfsConfig.fiberId[pfsConfig.fiberId != missing[1]])
-        result = self.task._makeFiberExclusion(bbox, self.detectorMap, pfsConfig)
-        nonSky = self.pfsConfig.fiberId[~self.isSky]
-        self.assertEqual(result.numFibers, len(nonSky) + 2)
-        radius = self.config.fiberMaskRadius + self.config.kernel["DF"].kernelSize // 2
-        expected = self.calculateExpected(np.concatenate((nonSky, missing)), radius)
-        self.assertTrue(np.array_equal(result.exclude, expected))
+        keep = ~np.isin(self.pfsConfig.fiberId, missing)
+        pfsConfig = self.pfsConfig.select(fiberId=self.pfsConfig.fiberId[keep])
+        bright = self.pfsConfig.fiberId[self.isBright]
+        self.assertExclusion([pfsConfig], np.concatenate((bright, missing)))
+        self.assertExclusion([self.pfsConfig, pfsConfig], np.concatenate((bright, missing)))
 
     def testExclusion(self):
-        """Excluding the non-sky fibers gives an unbiased kernel"""
+        """Excluding the bright fibers gives an unbiased kernel"""
         sourceCopy = self.sourceExposure.maskedImage.clone()
         targetCopy = self.targetExposure.maskedImage.clone()
 
@@ -496,9 +549,10 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
             self.targetExposure,
             seed=1,
             detectorMap=self.detectorMap,
-            pfsConfig=self.pfsConfig,
+            sourcePfsConfig=self.pfsConfig,
+            targetPfsConfig=self.pfsConfig,
         )
-        self.assertEqual(result.selection.numFibersExcluded, np.sum(~self.isSky))
+        self.assertEqual(result.selection.numFibersExcluded, np.sum(self.isBright))
         self.assertIsNone(result.selection.numLinesExcluded)
         self.assertGreater(result.selection.excludedFraction, 0.0)
         self.assertLess(result.selection.excludedFraction, 0.6)
@@ -512,7 +566,6 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
 
         # Without the exclusion, the brighter objects bias the kernel sum high. We disable clipping of
         # candidates, since otherwise many candidates are rejected (because they can't be fit well).
-        self.config.excludeNonSkyFibers = False
         self.config.kernel["DF"].singleKernelClipping = False
         self.config.kernel["DF"].kernelSumClipping = False
         self.config.kernel["DF"].spatialKernelClipping = False
@@ -522,12 +575,12 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         self.assertIsNone(biased.selection.excludedFraction)
         self.assertGreater(np.mean(calculateKernelSums(biased.psfMatchingKernel, self.synth)), 1.05)
 
-    def testMissingInputs(self):
-        """excludeNonSkyFibers requires detectorMap and pfsConfig"""
+    def testMissingDetectorMap(self):
+        """Providing a pfsConfig without a detectorMap raises"""
         with self.assertRaises(ValueError):
-            self.task.run(self.sourceExposure, self.targetExposure, detectorMap=self.detectorMap)
+            self.task.run(self.sourceExposure, self.targetExposure, sourcePfsConfig=self.pfsConfig)
         with self.assertRaises(ValueError):
-            self.task.run(self.sourceExposure, self.targetExposure, pfsConfig=self.pfsConfig)
+            self.task.run(self.sourceExposure, self.targetExposure, targetPfsConfig=self.pfsConfig)
 
 
 class BuildCellSetTestCase(lsst.utils.tests.TestCase):

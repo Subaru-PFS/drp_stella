@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Iterable, Optional, Tuple
 
 import numpy as np
 
@@ -12,11 +12,12 @@ from lsst.ip.diffim.makeKernelBasisList import makeKernelBasisList
 from lsst.ip.diffim.psfMatch import PsfMatchConfigDF
 from lsst.ip.diffim.psfMatch import PsfMatchTask as BasePsfMatchTask
 from lsst.utils.timer import timeMethod
-from pfs.datamodel import PfsConfig, TargetType
+from pfs.datamodel import PfsConfig
 
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .repair import maskLines
+from .selectFibers import SelectFibersTask
 
 if TYPE_CHECKING:
     import matplotlib
@@ -150,11 +151,10 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Radius (pixels) around excluded lines to exclude from the kernel fit; this is grown by "
         "half the kernel size to account for the convolution",
     )
-    excludeNonSkyFibers = pexConfig.Field(
-        dtype=bool,
-        default=False,
-        doc="Exclude from the kernel fit all pixels (lines and continuum) on fibers that are not "
-        "TargetType.SKY (or are not in the pfsConfig)? Requires a pfsConfig and detectorMap",
+    selectFibers = pexConfig.ConfigurableField(
+        target=SelectFibersTask,
+        doc="Select fibers to use in the kernel fit (only when a pfsConfig is provided); all pixels (lines "
+        "and continuum) on other fibers are excluded",
     )
     fiberMaskRadius = pexConfig.Field(
         dtype=int,
@@ -184,6 +184,7 @@ class PsfMatchConfig(pexConfig.Config):
         self.dfKernel.sizeCellX = self.xStampSize
         self.dfKernel.sizeCellY = self.yStampSize
         self.dfKernel.badMaskPlanes = list(self.dfKernel.badMaskPlanes) + [self.lineMaskPlane]
+        self.selectFibers.targetType = ["SCIENCE", "SKY"]
 
     def validate(self):
         super().validate()
@@ -238,10 +239,12 @@ class PsfMatchTask(BasePsfMatchTask):
     very large variance (giving zero weight in the fit) and the
     ``config.lineMaskPlane`` mask plane (excluding them from candidate
     assessment) on copies of the stamps; the inputs are not modified.
-    Similarly, if ``config.excludeNonSkyFibers`` is set, the pixels on
-    fibers that are not ``TargetType.SKY`` (according to the ``pfsConfig``
-    provided to ``run``) are excluded, since the spectra of objects can
-    differ between exposures.
+    Similarly, if a ``pfsConfig`` is provided to ``run`` for either (or
+    both) of ``source`` and ``target``, the pixels on fibers that are not
+    selected by the ``selectFibers`` subtask in each are excluded, since
+    the spectra of (bright) objects can differ between exposures. By
+    default, ``SCIENCE`` and ``SKY`` fibers are selected, since many science
+    targets are faint and so essentially sky.
 
     Notes
     -----
@@ -259,6 +262,7 @@ class PsfMatchTask(BasePsfMatchTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.kConfig = self.config.kernel.active
+        self.makeSubtask("selectFibers")
         # The kernel solver's candidate statistics require that all of its badMaskPlanes exist.
         afwImage.Mask.addMaskPlane(self.config.lineMaskPlane)
 
@@ -271,7 +275,8 @@ class PsfMatchTask(BasePsfMatchTask):
         seed: Optional[int] = None,
         refLines: Optional[ReferenceLineSet] = None,
         detectorMap: Optional[DetectorMap] = None,
-        pfsConfig: Optional[PfsConfig] = None,
+        sourcePfsConfig: Optional[PfsConfig] = None,
+        targetPfsConfig: Optional[PfsConfig] = None,
     ) -> PsfMatchResult:
         """Match the PSF of ``source`` to ``target``
 
@@ -296,9 +301,12 @@ class PsfMatchTask(BasePsfMatchTask):
             Mapping of fiberId,wavelength to x,y, used to locate
             ``refLines`` and fiber traces (which are assumed to be at the
             same position in both ``source`` and ``target``).
-        pfsConfig : `pfs.datamodel.PfsConfig`, optional
-            Top-end configuration, providing the ``targetType`` of each
-            fiber. Required if ``config.excludeNonSkyFibers`` is set.
+        sourcePfsConfig, targetPfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configurations for ``source`` and ``target``. If
+            either is provided, only fibers selected by the
+            ``selectFibers`` subtask in each of those provided (and present
+            in them) are used in the kernel fit; pixels on all other fibers
+            in the ``detectorMap`` are excluded. Requires ``detectorMap``.
 
         Returns
         -------
@@ -329,9 +337,9 @@ class PsfMatchTask(BasePsfMatchTask):
             Stamp-selection diagnostics: ``numTiles``, ``numRejectedMask``,
             ``numRejectedSnr``, ``numCandidates``, ``numUsed``,
             ``numLinesExcluded`` (`None` unless ``refLines`` was
-            provided), ``numFibersExcluded`` (`None` unless
-            ``config.excludeNonSkyFibers``) and ``excludedFraction``
-            (fraction of pixels excluded; `None` if neither applies).
+            provided), ``numFibersExcluded`` (`None` unless a pfsConfig
+            was provided) and ``excludedFraction`` (fraction of pixels
+            excluded; `None` if neither applies).
         """
 
         self.log.info(
@@ -360,10 +368,13 @@ class PsfMatchTask(BasePsfMatchTask):
             lineExclusion = self._makeLineExclusion(bbox, refLines, detectorMap)
             exclude = lineExclusion.exclude
             numLinesExcluded = lineExclusion.numLines
-        if self.config.excludeNonSkyFibers:
-            if detectorMap is None or pfsConfig is None:
-                raise ValueError("detectorMap and pfsConfig are required when excludeNonSkyFibers is set")
-            fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfig)
+        pfsConfigList = [
+            pfsConfig for pfsConfig in (sourcePfsConfig, targetPfsConfig) if pfsConfig is not None
+        ]
+        if pfsConfigList:
+            if detectorMap is None:
+                raise ValueError("detectorMap is required when a pfsConfig is provided")
+            fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfigList)
             exclude = fiberExclusion.exclude if exclude is None else exclude | fiberExclusion.exclude
             numFibersExcluded = fiberExclusion.numFibers
         if exclude is not None:
@@ -471,17 +482,18 @@ class PsfMatchTask(BasePsfMatchTask):
         return pipeBase.Struct(exclude=exclude, numLines=numLines, fraction=fraction)
 
     def _makeFiberExclusion(
-        self, bbox: geom.Box2I, detectorMap: DetectorMap, pfsConfig: PfsConfig
+        self, bbox: geom.Box2I, detectorMap: DetectorMap, pfsConfigList: Iterable[PfsConfig]
     ) -> pipeBase.Struct:
-        """Determine which pixels on non-sky fibers to exclude from the fit
+        """Determine which pixels on unselected fibers to exclude from the fit
 
         All pixels (lines and continuum) within ``config.fiberMaskRadius``
-        (in the spatial dimension) of the trace of each fiber that is not
-        ``TargetType.SKY`` are excluded. Fibers in the ``detectorMap`` that
-        are not in the ``pfsConfig`` are also excluded, since we can't be
-        sure what they are. The radius is grown by half the kernel size, so
-        that excluded pixels in the ``source`` don't contribute (through the
-        convolution) to pixels that are used in the fit.
+        (in the spatial dimension) of the trace of each fiber in the
+        ``detectorMap`` that is not selected (by the ``selectFibers``
+        subtask) in every one of the ``pfsConfigList`` are excluded. This
+        includes fibers missing from any of the ``pfsConfigList``, since we
+        can't be sure what they are. The radius is grown by half the kernel
+        size, so that excluded pixels in the ``source`` don't contribute
+        (through the convolution) to pixels that are used in the fit.
 
         Parameters
         ----------
@@ -489,8 +501,8 @@ class PsfMatchTask(BasePsfMatchTask):
             Bounding box of the region of interest.
         detectorMap : `DetectorMap`
             Mapping of fiberId,wavelength to x,y.
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration.
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations.
 
         Returns
         -------
@@ -501,8 +513,10 @@ class PsfMatchTask(BasePsfMatchTask):
         fraction : `float`
             Fraction of pixels excluded.
         """
-        skyFiberId = pfsConfig.fiberId[pfsConfig.targetType == TargetType.SKY]
-        excludeFiberId = detectorMap.fiberId[~np.isin(detectorMap.fiberId, skyFiberId)]
+        select = np.ones(len(detectorMap), dtype=bool)
+        for pfsConfig in pfsConfigList:
+            select &= np.isin(detectorMap.fiberId, self.selectFibers.run(pfsConfig).fiberId)
+        excludeFiberId = detectorMap.fiberId[~select]
         numFibers = len(excludeFiberId)
 
         width, height = bbox.getDimensions()
@@ -521,7 +535,7 @@ class PsfMatchTask(BasePsfMatchTask):
 
         fraction = float(exclude.mean())
         self.log.info(
-            "Excluding %d/%d non-sky fibers from kernel fit: %.1f%% of pixels",
+            "Excluding %d/%d unselected fibers from kernel fit: %.1f%% of pixels",
             numFibers,
             len(detectorMap),
             100 * fraction,
