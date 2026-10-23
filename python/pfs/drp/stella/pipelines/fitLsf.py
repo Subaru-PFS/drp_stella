@@ -102,7 +102,7 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                       doc="Hold the science (PFI) fibres' disk radius at this value (pixels; the image of "
                           "the fibre core) rather than fitting it, so that defocus goes into the blur kernel "
                           "(rms, cumulants), which the IIS fibres share. None: fit it")
-    doPfiRadiusModel = Field(dtype=bool, default=False,
+    doPfiRadiusModel = Field(dtype=bool, default=True,
                              doc="Hold the science (PFI) fibres' disk radius at the optical model's image of "
                                  "the fibre core (pfiRadiusModel), rather than fitting it? Overrides "
                                  "pfiRadius")
@@ -153,21 +153,24 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                                "and a fourth cumulant, convolved with the PFI kernel)? Their images differ "
                                "from the PFI kernel convolved with their (smaller) disk: on b they are wider "
                                "(by ~0.35 px rms), with stronger wings; on n slightly narrower")
-    iisExtraBlur = DictField(keytype=str, itemtype=str, default={},
+    iisExtraBlur = DictField(keytype=str, itemtype=str,
+                             default=dict(b="0.04285,0.07637", r="0.03732,0.07198", m="0.00615,-0.02752",
+                                          n="-0.02936,-0.03583"),
                              doc="Per-arm extra blur of the engineering fibres, 'variance,kappa4' "
                                  "(pixels^2, may be negative; pixels^4), measured from all the spectrographs "
                                  "of an arm (the per-line values: metadata iisExtraBlur). Arms not "
-                                 "listed use each detector's own measurement (if doIisExtraBlur)")
+                                 "listed use each detector's own measurement (if doIisExtraBlur). The "
+                                 "defaults are the medians over spectrographs 1-4 of the 2026-08/09 IIS arcs")
     iisHaloScaleDegree = Field(dtype=str, default="0,0",
                                doc="Chebyshev degree 'dx,dy' of the IIS/PFI halo-fraction ratio ('0,0': a "
                                    "constant)")
-    iisHaloScale = DictField(keytype=str, itemtype=float, default={},
+    iisHaloScale = DictField(keytype=str, itemtype=float, default=dict(b=2.0),
                              doc="Per-arm ratio of the engineering (IIS) fibres' halo fraction to the "
-                                 "science (PFI) fibres' (multiplying the PFI haloFrac surface). The halo "
-                                 "varies only slowly, and a single detector has too few bright IIS lines (on "
-                                 "b, 1-3) to measure it, so it is measured from all the spectrographs of an "
-                                 "arm (the per-line ratios are in the metadata: iisHaloScale.ratios). "
-                                 "Arms not listed use each detector's own measurement")
+                                 "science (PFI) fibres' (multiplying the PFI haloFrac surface). A single "
+                                 "detector has too few bright IIS lines to measure it, so it is set per arm: "
+                                 "b=2 minimises the IIS lines' chi^2 and flux errors on b1-4 (r, m and n are "
+                                 "best with the PFI halo). Arms not listed use the PFI halo (or, if "
+                                 "doIisHalo, each detector's own measurement)")
     scatteredLight = ConfigField(dtype=ScatteredLightConfig,
                                  doc="The scattered-light correction applied to the input pfsArms (by "
                                      "reduceExposure, and to the fiberProfiles by buildFiberProfiles), which "
@@ -910,7 +913,7 @@ class FitLsfTask(PipelineTask):
                               haloSummary["median"], used.sum(), len(bright), degree, haloScale.rms)
             else:
                 self.log.warning("Only %d bright IIS lines: not measuring the IIS halo scale", len(haloFits))
-        if config.doIisHalo and "haloFrac" in surfaces and arm in config.iisHaloScale:
+        if "haloFrac" in surfaces and arm in config.iisHaloScale:
             value = config.iisHaloScale[arm]
             self.log.info("Using the IIS halo scale %.3f for arm %s (iisHaloScale), not the measured %s",
                           value, arm, "%.3f" % haloSummary["median"] if haloSummary else "(none)")
