@@ -592,7 +592,8 @@ std::pair<int, ndarray::Array<double, 1, 1>> LayeredDetectorMap::getTracePositio
     for (int xx = xStart; xx <= xStop; ++xx) {
         lsst::geom::Point2D const point = fromDetectorFrame(lsst::geom::Point2D(xx, row));
         double const dx = point.getX() - model.getX();
-        if (std::isfinite(point.getX()) && std::abs(dx) <= halfWidth) {
+        // Use the 2*halfWidth + 1 pixels nearest the center (a symmetric window)
+        if (std::isfinite(point.getX()) && std::abs(dx) <= halfWidth + 0.5) {
             if (xMin == -1) {
                 xMin = xx;
             }

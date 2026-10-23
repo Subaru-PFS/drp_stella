@@ -145,6 +145,25 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
             disp.mtv(makeSyntheticFlat(self.synthConfig))
             detMap.display(disp)
 
+    def testTracePosition(self):
+        """Test that getTracePosition provides a symmetric window
+
+        The window should be the ``2*halfWidth + 1`` pixels nearest the center,
+        whatever the sub-pixel position of the trace. We test both the
+        LayeredDetectorMap and the base class implementation (used by the
+        SplinedDetectorMap).
+        """
+        halfWidth = 3
+        for detMap in (self.base, self.makeLayeredDetectorMap(True)):
+            for fiberId in detMap.fiberId[::5]:
+                for row in range(100, detMap.bbox.getHeight() - 100, 37):
+                    xMin, dx = detMap.getTracePosition(fiberId, row, halfWidth)
+                    self.assertEqual(dx.size, 2*halfWidth + 1, f"{type(detMap)} {fiberId} {row}")
+                    self.assertLessEqual(np.max(np.abs(dx)), halfWidth + 0.5 + 1.0e-6)
+                    self.assertFloatsAlmostEqual(np.diff(dx), 1.0, atol=1.0e-3)
+                    xCenter = detMap.getXCenter(fiberId, row)
+                    self.assertFloatsAlmostEqual(xMin - xCenter, dx[0], atol=1.0e-3)
+
     def testSlitOffsets(self):
         """Test different value for one of the slit offsets"""
         self.synthConfig.slope = 0.0  # Straighten the traces to avoid coupling x,y offsets
