@@ -542,7 +542,8 @@ def findCompanions(lines, wavelength, lam0, *, halfWidth, minFrac=0.002):
 def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blurOrder=4,
                extraction="optimal", halfWindow=12, continuumKnotSpacing=None, coreHalf=1.5, maxBadCore=0,
                fitCompanions=True, companionFrac=0.002, fixCentres=None, centroidHalf=4.0, keepPixels=True,
-               fitLorentz=False, fitHalo=False, fixHalos=None, fixShapes=None, **selectKwargs):
+               fitLorentz=False, fitHalo=False, fixHalos=None, fixShapes=None, fixRadius=None,
+               **selectKwargs):
     """Select and fit LSF lines in one fibre's spectrum
 
     Parameters
@@ -566,6 +567,10 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
         ``round(catalogue wavelength, 4) -> (rms, cumulants)`` or ``(rms,
         cumulants, radius)``: fit only these lines, each with this blur kernel
         (and disk radius) held fixed (see `fitDiskLine`).
+    fixRadius : `float` or `dict` [`float`, `float`], optional
+        Hold every line's disk radius at this value (pixels), or at
+        ``fixRadius[round(catalogue wavelength, 4)]``, unless ``fixShapes``
+        gives one.
     fitCompanions : `bool`
         Fit catalogue lines falling in each line's window simultaneously (see
         `findCompanions`)?
@@ -613,19 +618,21 @@ def measureLsf(wavelength, flux, variance, lines, *, element="", fiberId=-1, blu
             if round(float(lam0), 4) not in fixHalos:
                 continue
             fixHalo = fixHalos[round(float(lam0), 4)]
-        fixShape = fixRadius = None
+        fixShape, lineRadius = None, fixRadius
+        if isinstance(fixRadius, dict):
+            lineRadius = fixRadius.get(round(float(lam0), 4))
         if fixShapes is not None:
             if round(float(lam0), 4) not in fixShapes:
                 continue
             fixShape = fixShapes[round(float(lam0), 4)]
             if len(fixShape) > 2:
-                fixShape, fixRadius = fixShape[:2], fixShape[2]
+                fixShape, lineRadius = fixShape[:2], fixShape[2]
         comps = (findCompanions(lines, wavelength, lam0, halfWidth=halfWindow + 4, minFrac=companionFrac)
                  if fitCompanions else None)
         fit = fitDiskLine(wavelength, flux, variance, lam0, blurOrder=blurOrder, halfWindow=halfWindow,
                           continuumKnotSpacing=continuumKnotSpacing, coreHalf=coreHalf, maxBadCore=maxBadCore,
                           companions=comps, extraction=extraction, fixCentre=fixCentre, fitLorentz=fitLorentz,
-                          fitHalo=fitHalo, fixHalo=fixHalo, fixShape=fixShape, fixRadius=fixRadius)
+                          fitHalo=fitHalo, fixHalo=fixHalo, fixShape=fixShape, fixRadius=lineRadius)
         if fixErr is not None:
             fit.pixelErr = float(fixErr)
         if fit.success:

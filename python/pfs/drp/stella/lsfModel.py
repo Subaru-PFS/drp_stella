@@ -353,6 +353,47 @@ class FiberSpline:
 
 
 CUMULANT_NAMES = ("S", "K", "lam5", "lam6")          # the blur's standardised cumulants, in order
+
+
+def addBlur(rms, cumulants, extraVariance, extraKappa4=0.0):
+    """Convolve a blur kernel with a further symmetric kernel
+
+    Cumulants add under convolution, so the variances add and so do the
+    fourth cumulants; the odd cumulants are unchanged (the extra kernel is
+    symmetric), but all the standardised cumulants change with the rms.
+    The extra variance may be negative (a narrower kernel), as long as the
+    result's is positive.
+
+    Parameters
+    ----------
+    rms : `float` or `numpy.ndarray`
+        The kernel's rms (pixels).
+    cumulants : sequence of `float` or `numpy.ndarray`
+        The kernel's standardised cumulants ``[S, K, lam5, lam6]`` (any
+        leading subset).
+    extraVariance : `float`
+        The extra kernel's variance (pixels^2; may be negative).
+    extraKappa4 : `float`
+        The extra kernel's fourth cumulant (pixels^4; not standardised).
+
+    Returns
+    -------
+    rms : `float` or `numpy.ndarray`
+        The convolved kernel's rms.
+    cumulants : `list`
+        The convolved kernel's standardised cumulants.
+    """
+    rms = np.asarray(rms, dtype=float)
+    newRms = np.sqrt(np.maximum(rms**2 + extraVariance, 1.0e-6))
+    newCumulants = []
+    for order, value in enumerate(cumulants, start=3):
+        kappa = np.asarray(value, dtype=float)*rms**order
+        if order == 4:
+            kappa = kappa + extraKappa4
+        newCumulants.append(kappa/newRms**order)
+    return newRms, newCumulants
+
+
 SHAPE_NAMES = ("radius", "rms") + CUMULANT_NAMES + ("lorentz", "haloFrac", "haloWidth")   # profile parameters
 
 
@@ -418,6 +459,10 @@ class ArmLsfModel(LsfModel):
         held fixed).
     iisHaloScale : `SmoothSurface`, optional
         Ratio of the engineering fibres' halo fraction to the science fibres'.
+    iisExtraBlur : (`float`, `float`), optional
+        The engineering fibres' blur kernel is the science fibres' convolved
+        with a further symmetric kernel of this variance (pixels^2; may be
+        negative) and fourth cumulant (pixels^4); see `addBlur`.
     """
     arm: str
     spectrograph: int
@@ -433,6 +478,7 @@ class ArmLsfModel(LsfModel):
     engineeringFiberId: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=int))
     iisRadiusScale: SmoothSurface = None
     iisHaloScale: SmoothSurface = None
+    iisExtraBlur: tuple = None
 
     units = "pixel"
 
@@ -519,7 +565,8 @@ class ArmLsfModel(LsfModel):
         engineering = getattr(self, "engineeringFiberId", np.zeros(0, dtype=int))
         radiusScale = getattr(self, "iisRadiusScale", None)
         haloScale = getattr(self, "iisHaloScale", None)
-        if len(engineering) > 0 and (radiusScale is not None or haloScale is not None):
+        extraBlur = getattr(self, "iisExtraBlur", None)
+        if len(engineering) > 0 and any(xx is not None for xx in (radiusScale, haloScale, extraBlur)):
             isEngineering = np.isin(np.broadcast_to(np.asarray(fiberId, dtype=int), np.shape(x)), engineering)
             if radiusScale is not None:
                 params["radius"] = np.where(isEngineering, params["radius"]*radiusScale(u, v),
@@ -527,6 +574,12 @@ class ArmLsfModel(LsfModel):
             if haloScale is not None and "haloFrac" in params:
                 scaled = np.clip(params["haloFrac"]*haloScale(u, v), 0.0, 1.0)
                 params["haloFrac"] = np.where(isEngineering, scaled, params["haloFrac"])
+            if extraBlur is not None:
+                names = [nn for nn in CUMULANT_NAMES if nn in params]
+                rms, cumulants = addBlur(params["rms"], [params[nn] for nn in names], *extraBlur)
+                params["rms"] = np.where(isEngineering, rms, params["rms"])
+                for nn, cc in zip(names, cumulants):
+                    params[nn] = np.where(isEngineering, cc, params[nn])
         params["sigma"] = diskSigma(params["radius"], params["rms"])
         return params
 
