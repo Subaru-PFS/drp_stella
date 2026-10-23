@@ -16,6 +16,7 @@ from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig  # noqa 
 from pfs.drp.stella.synthetic import makeSyntheticDetectorMap, makeSyntheticPfsConfig  # noqa E402
 from pfs.drp.stella.synthetic import addNoiseToImage  # noqa E402
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask  # noqa E402: import after code
+from pfs.drp.stella.fiberProfileSet import FiberProfileSet  # noqa E402: import after code
 from pfs.drp.stella.images import getIndices  # noqa E402: import after code
 from pfs.drp.stella.tests.utils import runTests, methodParameters  # noqa E402: import after code
 
@@ -622,6 +623,57 @@ class BuildFiberProfilesMultipleTestCase(lsst.utils.tests.TestCase):
                                  spectrumChi2=1.5)
         self.assertFiberProfiles(results.profiles, exp4.maskedImage, detMap, scale4*self.flux,
                                  spectrumChi2=1.5)
+
+    def testOverlapWarning(self):
+        """Test that we warn when illuminated fibers have overlapping profiles"""
+        self.synth.separation = 12.345  # Less than 2*(profileRadius + 1)
+        exposure = self.makeContinuumExposure()
+        detMap = makeSyntheticDetectorMap(self.synth)
+        with self.assertLogs(self.task.log.name, level="WARNING") as logs:
+            self.task.runMultiple([exposure], self.identity, [detMap])
+        self.assertTrue(any("poorly constrained" in msg for msg in logs.output))
+
+
+class FitSwathProfilesTestCase(lsst.utils.tests.TestCase):
+    def testIntegerCenters(self):
+        """Test fitting profiles when trace centers are exact integers
+
+        A pixel then lies exactly on the last node of the oversampled profile,
+        which used to index beyond the end of that fiber's profile.
+        """
+        width, height = 64, 128
+        radius = 3
+        oversample = 10
+        sigma = 1.5
+        flux = 1.0e4
+        xCenter = np.array([20.0, 40.0])
+        fiberId = np.array([1, 2])
+
+        xx = np.arange(width, dtype=float)
+        image = lsst.afw.image.MaskedImageF(width, height)
+        image.image.array[:] = sum(
+            flux*np.exp(-0.5*((xx - cc)/sigma)**2)/sigma/np.sqrt(2*np.pi) for cc in xCenter
+        )[np.newaxis, :]
+        image.mask.array[:] = 0
+        image.variance.array[:] = 1.0
+
+        centers = np.repeat(xCenter[:, np.newaxis], height, axis=1)
+        norm = np.full_like(centers, flux, dtype=np.float32)
+        identity = CalibIdentity("2020-01-01", 5, "x", 12345)
+        profiles = FiberProfileSet.fromImages(
+            identity, [image], fiberId, [centers], [norm], radius, oversample, swathSize=height
+        )
+        profileCenter = (radius + 1)*oversample
+        for ff in fiberId:
+            prof = profiles[ff]
+            self.assertTrue(np.all(np.isfinite(prof.profiles[:, profileCenter])))
+            # The pixel-centered nodes are well sampled, and should match a Gaussian
+            onPixel = np.arange(0, prof.index.size, oversample)
+            expect = np.exp(-0.5*(prof.index[onPixel]/sigma)**2)/sigma/np.sqrt(2*np.pi)
+            expect /= expect.sum()
+            for swath in prof.profiles:
+                self.assertFloatsAlmostEqual(swath.data[onPixel]/swath.data[onPixel].sum(), expect,
+                                             atol=1.0e-4)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

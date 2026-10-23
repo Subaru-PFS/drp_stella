@@ -258,6 +258,7 @@ class BuildFiberProfilesTask(Task):
         if fibers is None:
             raise RuntimeError("No fibers")
         fiberId = np.array(list(sorted(fibers)), dtype=int)
+        self.checkOverlap(fiberId, centersList, normList)
 
         self.log.info("Starting initial profile extraction (sigma=%f)...",
                       fwhmToSigma(self.config.extractFwhm))
@@ -348,6 +349,45 @@ class BuildFiberProfilesTask(Task):
                     pp.plot()
 
         return Struct(profiles=profiles, centers=centersList, norm=normList)
+
+    def checkOverlap(
+        self, fiberId: np.ndarray, centersList: List[np.ndarray], normList: List[np.ndarray]
+    ) -> None:
+        """Warn if the profiles of simultaneously illuminated fibers overlap
+
+        When illuminated fibers are closer than the full width of the profile,
+        the wings of neighbouring profiles occupy the same pixels. Because the
+        separation between fibers and the ratio of their fluxes barely change
+        over a swath, the fit constrains only the sum of the overlapping wings,
+        not each individually. The fit is then poorly conditioned, and the
+        solution depends on where the iterative solver stops.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(Nfibers,)``
+            Fiber identifiers.
+        centersList : list of `numpy.ndarray` of `float`
+            Center of each fiber (shape ``(Nfibers, Nrows)``) for each image.
+        normList : list of `numpy.ndarray` of `float`
+            Flux of each fiber (shape ``(Nfibers, Nrows)``) for each image.
+        """
+        width = 2*(self.config.profileRadius + 1)
+        minSeparation = np.inf
+        for centers, norm in zip(centersList, normList):
+            illuminated = np.nanmedian(norm, axis=1) >= self.config.findThreshold
+            if illuminated.sum() < 2:
+                continue
+            middle = centers.shape[1]//2
+            xCenter = np.sort(centers[illuminated, middle])
+            minSeparation = min(minSeparation, np.min(np.diff(xCenter)))
+        if minSeparation < width:
+            self.log.warning(
+                "Illuminated fibers are separated by as little as %.1f pixels, less than the full width of "
+                "the profile (2*(profileRadius + 1) = %d pixels); the profiles will be poorly constrained. "
+                "Illuminate fewer fibers per exposure, or reduce profileRadius.",
+                minSeparation,
+                width,
+            )
 
     def findTraces(
         self,

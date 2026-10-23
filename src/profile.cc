@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "ndarray.h"
 
 #include "lsst/log/Log.h"
@@ -511,13 +513,17 @@ class SwathProfileBuilder {
         double center
     ) const {
         double const actual = (xx - center)*_oversample;
-        std::ptrdiff_t const truncated = std::ptrdiff_t(std::floor(actual));
+        // The pixel may lie exactly on the last node of the profile (or, through roundoff, marginally
+        // outside the profile), in which case we need to use the last interval rather than run off the
+        // end; and similarly for the first node.
+        std::ptrdiff_t const truncated = std::clamp<std::ptrdiff_t>(
+            std::floor(actual), -std::ptrdiff_t(_profileCenter), _profileSize - _profileCenter - 2
+        );
         std::ptrdiff_t const position = truncated + _profileCenter;
         assert(position >= 0 && std::size_t(position) < _profileSize - 1);
         std::size_t index = getProfileIndex(fiberIndex, position);
         double const diff = actual - truncated;
-        double const frac = 1 - diff;
-        assert(frac >= 0 && frac <= 1.0);
+        double const frac = std::clamp(1 - diff, 0.0, 1.0);
         return std::make_pair(index, frac);
     }
 
