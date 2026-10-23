@@ -11,7 +11,7 @@ import lsst.utils.tests
 
 from pfs.drp.stella.lsfProfile import diskProfile, diskSigma
 from pfs.drp.stella.smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface, supportedDegree
-from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline
+from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline, addBlur
 from pfs.drp.stella.fitLsfLines import fitDiskLine
 from pfs.drp.stella.lsfLine import LsfLineSet, LsfLineFlag
 
@@ -224,6 +224,30 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model.iisHaloScale = constantSurface("iisHaloScale", 1.5)
         self.assertFloatsAlmostEqual(model.getParameters(20, 1000.0)["haloFrac"], 0.03, rtol=1.0e-12)
         self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["haloFrac"], 0.02, rtol=1.0e-12)
+        # Claude: ... and their blur kernel convolved with iisExtraBlur
+        model.iisExtraBlur = (0.09, 0.002)
+        eng, sci = model.getParameters(20, 1000.0), model.getParameters(10, 1000.0)
+        rms, (S, K) = addBlur(sci["rms"], [sci["S"], sci["K"]], 0.09, 0.002)
+        self.assertFloatsAlmostEqual(eng["rms"], rms, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(eng["K"], K, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(eng["S"], S, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["rms"], sci["rms"], rtol=1.0e-12)
+
+    def testAddBlur(self):
+        """Claude: cumulants add under convolution"""
+        # A top hat of width w (variance w^2/12, kappa4 -w^4/120) convolved with a Gaussian of rms g
+        w, g = 2.0, 0.5
+        rms, (S, K) = addBlur(w/np.sqrt(12), [0.0, -1.2], g**2)
+        self.assertFloatsAlmostEqual(rms, np.sqrt(w**2/12 + g**2), rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(K, (-w**4/120)/(w**2/12 + g**2)**2, rtol=1.0e-12)
+        self.assertEqual(S, 0.0)
+        # ... and a Gaussian convolved with the top hat (as the extra kernel)
+        rms, (S, K) = addBlur(g, [0.0, 0.0], w**2/12, -w**4/120)
+        self.assertFloatsAlmostEqual(K, (-w**4/120)/(w**2/12 + g**2)**2, rtol=1.0e-12)
+        # The skewness scales with the rms
+        rms, (S, K) = addBlur(1.0, [0.5, 0.0], 1.0)
+        self.assertFloatsAlmostEqual(addBlur(1.0, [0.0], -0.36)[0], 0.8, rtol=1.0e-12)   # narrower
+        self.assertFloatsAlmostEqual(S, 0.5/2**1.5, rtol=1.0e-12)
 
     def testModelHalo(self):
         """A model with a halo puts more light in the kernel's wings, keeping its first moment"""

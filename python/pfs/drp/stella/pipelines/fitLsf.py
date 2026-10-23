@@ -17,7 +17,7 @@ from ..DetectorMapContinued import DetectorMap
 from ..fitLsfLines import centroidZeroPoint, findBroadLines, measureLsfMany, pinnedCentres
 from ..gen3 import readDatasetRefs
 from ..lsfLine import LsfLineFlag, LsfLineSet
-from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline
+from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline, addBlur
 from ..readLineList import ReadLineListTask
 from ..referenceLine import ReferenceLineStatus
 from ..scatteredLight import ScatteredLightConfig
@@ -98,6 +98,28 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     fitLorentz = Field(dtype=bool, default=False,
                        doc="Also convolve the profile with a Lorentzian of free FWHM (an extended wing)? "
                            "Off by default: the wing may be residual scattered light (ScatteredLightTask)")
+    pfiRadius = Field(dtype=float, default=None, optional=True,
+                      doc="Hold the science (PFI) fibres' disk radius at this value (pixels; the image of "
+                          "the fibre core) rather than fitting it, so that defocus goes into the blur kernel "
+                          "(rms, cumulants), which the IIS fibres share. None: fit it")
+    doPfiRadiusModel = Field(dtype=bool, default=False,
+                             doc="Hold the science (PFI) fibres' disk radius at the optical model's image of "
+                                 "the fibre core (pfiRadiusModel), rather than fitting it? Overrides "
+                                 "pfiRadius")
+    pfiRadiusModel = DictField(
+        keytype=str, itemtype=str,
+        default=dict(b="27.985,0.418,0.226,0.191,0.016,0.230",
+                     r="27.990,0.440,0.308,0.248,0.022,0.224",
+                     m="27.990,0.440,0.308,0.248,0.022,0.224",
+                     n="28.170,0.598,0.317,0.250,0.028,0.212"),
+        doc="Per-arm model of the radius of the image of a science fibre's core on the detector (microns): "
+            "coefficients c00,c01,c02,c10,c11,c12 of R = sum_ij c_ij u^(2i) v^j with u = x/30mm along the "
+            "slit and v = y/30mm in dispersion (increasing with wavelength), measured from the detector "
+            "centre. From Jim Gunn's ray traces (fiberspots.csv) at nominal focus, which fit to 0.06% rms; "
+            "the m arm uses the r camera")
+    pfiRadiusModelScale = Field(dtype=float, default=1.0,
+                                doc="Multiply pfiRadiusModel by this factor (e.g. for a different focus)")
+    pixelSize = Field(dtype=float, default=15.0, doc="Detector pixel size (microns), for pfiRadiusModel")
     fitHalo = Field(dtype=bool, default=True,
                     doc="Add a halo to the profile: a fraction haloFrac of the light in the disk blurred by "
                         "a broad Gaussian of rms haloWidth (the light within a few pixels that the "
@@ -108,23 +130,44 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
     doIisRadius = Field(dtype=bool, default=True,
                         doc="Measure the engineering (IIS) fibres' disk radius from any IIS arcs (lamps "
                             "'*_eng') among the inputs, with the science fibres' blur kernel held fixed?")
-    iisRadiusRatio = Field(dtype=float, default=0.52, optional=True,
+    iisRadiusRatio = Field(dtype=float, default=0.51, optional=True,
                            doc="Ratio of the engineering (IIS) fibres' disk radius to the science (PFI) "
-                               "fibres': a property of the fibres (their core diameters), so the same for "
-                               "every detector. The default is the mean of the ratios measured on the 16 "
-                               "detectors (0.47-0.55: the scatter is systematic). None: use each detector's "
-                               "measured ratio (iisRadiusScaleDegree)")
+                               "fibres': a property of the fibres, so the same for every detector. The "
+                               "default is the ratio of the cores' diameters (65um, FBP065162.5190; "
+                               "127.5um). None: use each detector's measured ratio (iisRadiusScaleDegree)")
     iisRadiusScaleDegree = Field(dtype=str, default="0,0",
                                  doc="Chebyshev degree 'dx,dy' of the measured IIS/PFI disk-radius ratio "
                                      "over the detector ('0,0': a constant, the median); used if "
                                      "iisRadiusRatio is None")
-    doIisHalo = Field(dtype=bool, default=True,
+    doIisHalo = Field(dtype=bool, default=False,
                       doc="Measure the engineering (IIS) fibres' halo fraction relative to the science "
                           "fibres' (from the IIS lines with median S/N >= haloMinSN, with the PFI core held "
-                          "fixed)?")
+                          "fixed)? If not (or iisHaloScale), their halo is the PFI fibres'. Off: the few "
+                          "bright IIS lines are saturated, or broadened by the extra IIS blur")
+    iisSatDropFrac = Field(dtype=float, default=0.0,
+                           doc="Don't use an IIS line if it is saturated in more than this fraction of the "
+                               "engineering fibres: their images are narrow, so the fibres in which a line "
+                               "isn't flagged as saturated are close to full scale")
+    doIisExtraBlur = Field(dtype=bool, default=True,
+                           doc="Measure the extra blur of the engineering (IIS) fibres' images (a variance "
+                               "and a fourth cumulant, convolved with the PFI kernel)? Their images differ "
+                               "from the PFI kernel convolved with their (smaller) disk: on b they are wider "
+                               "(by ~0.35 px rms), with stronger wings; on n slightly narrower")
+    iisExtraBlur = DictField(keytype=str, itemtype=str, default={},
+                             doc="Per-arm extra blur of the engineering fibres, 'variance,kappa4' "
+                                 "(pixels^2, may be negative; pixels^4), measured from all the spectrographs "
+                                 "of an arm (the per-line values: metadata iisExtraBlur). Arms not "
+                                 "listed use each detector's own measurement (if doIisExtraBlur)")
     iisHaloScaleDegree = Field(dtype=str, default="0,0",
                                doc="Chebyshev degree 'dx,dy' of the IIS/PFI halo-fraction ratio ('0,0': a "
                                    "constant)")
+    iisHaloScale = DictField(keytype=str, itemtype=float, default={},
+                             doc="Per-arm ratio of the engineering (IIS) fibres' halo fraction to the "
+                                 "science (PFI) fibres' (multiplying the PFI haloFrac surface). The halo "
+                                 "varies only slowly, and a single detector has too few bright IIS lines (on "
+                                 "b, 1-3) to measure it, so it is measured from all the spectrographs of an "
+                                 "arm (the per-line ratios are in the metadata: iisHaloScale.ratios). "
+                                 "Arms not listed use each detector's own measurement")
     scatteredLight = ConfigField(dtype=ScatteredLightConfig,
                                  doc="The scattered-light correction applied to the input pfsArms (by "
                                      "reduceExposure, and to the fiberProfiles by buildFiberProfiles), which "
@@ -293,7 +336,7 @@ class FitLsfTask(PipelineTask):
                           [(exp.visit, exp.lamps) for exp in iisExposures])
 
         # Free fits
-        free = self.fitLines(exposures)
+        free = self.fitLines(exposures, fixRadius=self.pfiRadiusFixed(arm))
         allFree = [ff for ffs in free.fits.values() for ff in ffs]
         self.log.info("Free fits: %d lines in %d spectra", len(allFree), len(free.fits))
 
@@ -379,7 +422,7 @@ class FitLsfTask(PipelineTask):
             if self.config.doPinCentroids:
                 fixCentres = {key: pinnedCentres([ff for ff in ffs if isUsed(ff)], zeroPoint)
                               for key, ffs in free.fits.items()}
-            pinned = self.fitLines(exposures, fixCentres, fixHalos)
+            pinned = self.fitLines(exposures, fixCentres, fixHalos, fixRadius=self.pfiRadiusFixed(arm))
             if self.config.fitHalo:     # lsfLines reports each line's measured (free) halo
                 freeFits = {(key, round(ff.catWavelength, 4)): ff
                             for key, ffs in free.fits.items() for ff in ffs}
@@ -425,9 +468,11 @@ class FitLsfTask(PipelineTask):
             lsfModel.engineeringFiberId = iis.fiberId
             lsfModel.iisRadiusScale = iis.scale
             lsfModel.iisHaloScale = iis.haloScale
+            lsfModel.iisExtraBlur = iis.extraBlur
             lsfModel.metadata.update(iisVisits=[exp.visit for exp in iisExposures],
                                      iisLamps=[exp.lamps for exp in iisExposures],
-                                     iisRadiusScale=iis.summary, iisHaloScale=iis.haloSummary)
+                                     iisRadiusScale=iis.summary, iisHaloScale=iis.haloSummary,
+                                     iisExtraBlur=iis.blurSummary)
 
         flags = {}
         for ii, (visit, ff) in enumerate(rows):
@@ -495,7 +540,47 @@ class FitLsfTask(PipelineTask):
         """Key identifying a catalogue line: (lamps, wavelength)"""
         return (fit.element, round(fit.catWavelength, 3))
 
-    def fitLines(self, exposures, fixCentres=None, fixHalos=None, fixShapes=None):
+    def pfiRadiusFixed(self, arm):
+        """How to hold the PFI disk radius: `None` (fit it), a value, or ``"model"``"""
+        if self.config.doPfiRadiusModel:
+            if arm not in self.config.pfiRadiusModel:
+                raise RuntimeError(f"No pfiRadiusModel for arm {arm}")
+            return "model"
+        return self.config.pfiRadius
+
+    def modelRadius(self, exp, fiberId):
+        """The optical model's image radius (pixels) of each catalogue line in a fibre
+
+        Parameters
+        ----------
+        exp : `Struct`
+            Exposure (see `run`): ``pfsArm``, ``detMap``, ``lines``.
+        fiberId : `int`
+            Fibre.
+
+        Returns
+        -------
+        radius : `dict` [`float`, `float`]
+            ``round(catalogue wavelength, 4) -> radius`` (pixels).
+        """
+        config = self.config
+        coeffs = np.array([float(cc) for cc in config.pfiRadiusModel[exp.pfsArm.identity.arm].split(",")])
+        coeffs = coeffs.reshape(2, 3)
+        wavelength = exp.lines.data.wavelength.to_numpy().astype(float)
+        point = np.asarray(exp.detMap.findPoint(fiberId, wavelength))
+        bbox = exp.detMap.getBBox()
+        x0, y0 = 0.5*(bbox.getMinX() + bbox.getMaxX()), 0.5*(bbox.getMinY() + bbox.getMaxY())
+        good = np.isfinite(point).all(axis=1)
+        sign = 1.0
+        if good.sum() > 1:      # v increases with wavelength
+            sign = np.sign(np.polyfit(wavelength[good], point[good, 1], 1)[0]) or 1.0
+        u = (point[:, 0] - x0)*config.pixelSize/30.0e3
+        v = sign*(point[:, 1] - y0)*config.pixelSize/30.0e3
+        radius = sum(coeffs[ii, jj]*u**(2*ii)*v**jj for ii in range(2) for jj in range(3))
+        radius *= config.pfiRadiusModelScale/config.pixelSize
+        return {round(float(ww), 4): float(rr) for ww, rr, gg in zip(wavelength, radius, good) if gg}
+
+    def fitLines(self, exposures, fixCentres=None, fixHalos=None, fixShapes=None, fixRadius=None):
         """Fit the lines in every fibre of every exposure
 
         Parameters
@@ -512,6 +597,11 @@ class FitLsfTask(PipelineTask):
         fixShapes : `dict` [(`int`, `int`), `dict`], optional
             ``(visit, fiberId) -> fixShapes`` (see `fitLsfLines.measureLsf`):
             hold the lines' blur kernels fixed.
+        fixRadius : `float`, optional
+            Hold every line's disk radius at this value (pixels), or (``"model"``)
+            at `modelRadius`, or (a `dict`) at ``fixRadius[(visit, fiberId)]``
+            (``round(catalogue wavelength, 4) -> radius``), fitting only those
+            lines.
 
         Only the lines in ``fixCentres``, ``fixHalos`` or ``fixShapes`` are
         fit, if any is given.
@@ -535,6 +625,8 @@ class FitLsfTask(PipelineTask):
                 fiberId = int(pfsArm.fiberId[index])
                 key = (exp.visit, fiberId)
                 given = [dd for dd in (fixCentres, fixHalos, fixShapes) if dd is not None]
+                if isinstance(fixRadius, dict):
+                    given.append(fixRadius)
                 refit = bool(given)
                 if refit and not all(dd.get(key) for dd in given):
                     continue
@@ -555,6 +647,8 @@ class FitLsfTask(PipelineTask):
                     fixCentres=None if fixCentres is None else fixCentres[key],
                     fixHalos=None if fixHalos is None else fixHalos[key],
                     fixShapes=None if fixShapes is None else fixShapes[key],
+                    fixRadius=(self.modelRadius(exp, fiberId) if isinstance(fixRadius, str) else
+                               fixRadius[key] if isinstance(fixRadius, dict) else fixRadius),
                     centroidHalf=config.centroidHalf,
                     keepPixels=False,
                     isolation=config.isolation,
@@ -633,6 +727,15 @@ class FitLsfTask(PipelineTask):
         rejected = defaultdict(int)
         for name, (value, error) in params.items():
             if name not in self.config.degrees or (names is not None and name not in names):
+                continue
+            if name == "radius" and self.config.doPfiRadiusModel:
+                # The radii are the model's: fit them (equal weights) as a surface, for the model to evaluate
+                error = np.ones_like(np.asarray(value, dtype=float))
+            elif name == "radius" and self.config.pfiRadius is not None:
+                surfaces[name] = SmoothSurface(name=name, degree=(0, 0), domain=domain,
+                                               coeffs=np.array([self.config.pfiRadius]), offsets={},
+                                               reference={}, nUsed=len(fits))
+                self.log.info("Radius held at %.3f (pfiRadius)", self.config.pfiRadius)
                 continue
             degree = tuple(int(dd) for dd in self.config.degrees[name].split(","))
             if self.config.doCoverageGuard:
@@ -718,11 +821,12 @@ class FitLsfTask(PipelineTask):
         for ff in allFree:
             signalToNoise[self.lineKey(ff)].append(ff.amplitude/ff.amplitudeErr)
         minLineSN = config.minLineSN.get(arm, config.minLineSN["default"])
-        dropped = {key for key, nn in nSat.items() if nn > config.satDropFrac*(nn + nFit.get(key, 0))}
+        dropped = {key for key, nn in nSat.items() if nn > config.iisSatDropFrac*(nn + nFit.get(key, 0))}
         dropped |= {self.lineKey(ff) for ff in allFree if ff.status & excludeMask}
         dropped |= {key for key, sn in signalToNoise.items() if not np.nanmedian(sn) >= minLineSN}
 
         ratioFixed = config.iisRadiusRatio
+        extraBlur, blurSummary = None, {}
 
         def radiusAt(ffs):
             """The PFI disk radius at each fit's position"""
@@ -755,8 +859,14 @@ class FitLsfTask(PipelineTask):
             if config.doCoverageGuard:
                 degree = tuple(supportedDegree(pos, dom, dd, config.coverageFactor)
                                for pos, dom, dd in zip((u, v), domain, degree))
-            surface, used, _ = fitSmoothSurface(u, v, ratio, np.ones_like(ratio), degree, domain=domain,
-                                                name=name, nIter=config.nIter, nSigma=config.nSigma)
+            try:
+                surface, used, _ = fitSmoothSurface(u, v, ratio, np.ones_like(ratio), degree, domain=domain,
+                                                    name=name, nIter=config.nIter, nSigma=config.nSigma)
+            except RuntimeError as exc:     # too few lines survive the clipping: use the median
+                self.log.warning("Fitting %s as a constant (the median): %s", name, exc)
+                degree = (0, 0)
+                surface = constantSurface(np.median(ratio), name)
+                used = np.ones_like(ratio, dtype=bool)
             if degree == (0, 0) and used.any():
                 surface.coeffs = np.array([np.median(ratio[used])])
             return surface, used, degree
@@ -791,12 +901,21 @@ class FitLsfTask(PipelineTask):
                 haloScale, used, degree = scaleSurface(u, v, haloRatio, config.iisHaloScaleDegree,
                                                        "iisHaloScale")
                 haloSummary = dict(median=float(np.median(haloRatio[used])), nLines=int(used.sum()),
-                                   nCatalogueLines=len(bright), degree=list(degree), rms=haloScale.rms)
+                                   nCatalogueLines=len(bright), degree=list(degree), rms=haloScale.rms,
+                                   ratios=[float(rr) for rr in haloRatio],
+                                   lines=[[ff.element, round(float(ff.catWavelength), 4)] for ff in haloFits],
+                                   fiberId=[int(ff.fiberId) for ff in haloFits])
                 self.log.info("IIS halo scale: median %.3f over %d lines (%d catalogue lines; degree %s, "
                               "rms %.3f)",
                               haloSummary["median"], used.sum(), len(bright), degree, haloScale.rms)
             else:
                 self.log.warning("Only %d bright IIS lines: not measuring the IIS halo scale", len(haloFits))
+        if config.doIisHalo and "haloFrac" in surfaces and arm in config.iisHaloScale:
+            value = config.iisHaloScale[arm]
+            self.log.info("Using the IIS halo scale %.3f for arm %s (iisHaloScale), not the measured %s",
+                          value, arm, "%.3f" % haloSummary["median"] if haloSummary else "(none)")
+            haloScale = constantSurface(value, "iisHaloScale")
+            haloSummary["used"] = value
 
         # The IIS radius: every usable line, with the PFI kernel held fixed (its halo scaled by haloScale)
         fixShapes, fixHalos = {}, {}
@@ -850,19 +969,59 @@ class FitLsfTask(PipelineTask):
             # is a diagnostic
             self.log.info("Using the IIS/PFI radius ratio %.3f (iisRadiusRatio), not the measured %.4f",
                           ratioFixed, pointScale)
+            radii = {}
             for key, shapes in fixShapes.items():
                 ffs = [ff for ff in free.fits[key] if round(float(ff.catWavelength), 4) in shapes]
-                radius = ratioFixed*radiusAt(ffs)
-                for ff, rr in zip(ffs, radius):
-                    lam = round(float(ff.catWavelength), 4)
-                    shapes[lam] = tuple(shapes[lam][:2]) + (float(rr),)
+                radii[key] = {round(float(ff.catWavelength), 4): float(rr)
+                              for ff, rr in zip(ffs, ratioFixed*radiusAt(ffs))}
+
+            # The extra blur: the IIS lines with their radius (and halo) held, and the kernel free
+            if config.doIisExtraBlur:
+                blurFits = [ff for ffs in self.fitLines(iisExposures, fixHalos=fixHalos if fixHalos else None,
+                                                        fixRadius=radii).fits.values() for ff in ffs]
+                if len(blurFits) > 5:
+                    rmsPfi, cumPfi, _ = kernelAt(blurFits)
+                    rmsIis = np.array([ff.rms for ff in blurFits])
+                    extraVariance = rmsIis**2 - rmsPfi**2
+                    kappa4 = np.zeros_like(rmsIis)
+                    if config.blurOrder >= 4:
+                        kurtosis = np.array([ff.cumulants[1] for ff in blurFits])
+                        kappa4 = kurtosis*rmsIis**4 - cumPfi[1]*rmsPfi**4
+                    good = np.isfinite(extraVariance) & np.isfinite(kappa4)
+                    extraBlur = (float(np.median(extraVariance[good])), float(np.median(kappa4[good])))
+                    mad = 1.4826*np.median(np.abs(extraVariance[good] - np.median(extraVariance[good])))
+                    blurSummary = dict(variance=extraBlur[0], kappa4=extraBlur[1], nLines=int(good.sum()),
+                                       extraVarianceScatter=float(mad),
+                                       extraVariance=[float(vv) for vv in extraVariance],
+                                       kappa4s=[float(kk) for kk in kappa4],
+                                       lines=[[ff.element, round(float(ff.catWavelength), 4)]
+                                              for ff in blurFits],
+                                       fiberId=[int(ff.fiberId) for ff in blurFits])
+                    self.log.info("IIS extra blur: variance %+.4f +- %.4f, kappa4 %+.4f over %d lines",
+                                  extraBlur[0], mad, extraBlur[1],
+                                  good.sum())
+                else:
+                    self.log.warning("Only %d IIS lines: not measuring the IIS extra blur", len(blurFits))
+            if arm in config.iisExtraBlur:
+                extraBlur = tuple(float(vv) for vv in config.iisExtraBlur[arm].split(","))
+                self.log.info("Using the IIS extra blur variance %+.4f, kappa4 %+.4f for arm %s "
+                              "(iisExtraBlur)",
+                              *extraBlur, arm)
+                blurSummary["used"] = list(extraBlur)
+
+            for key, shapes in fixShapes.items():
+                for lam, (rms, cumulants) in list(shapes.items()):
+                    if extraBlur is not None:
+                        rms, cumulants = addBlur(rms, cumulants, *extraBlur)
+                    shapes[lam] = (float(rms), np.asarray(cumulants, dtype=float), radii[key][lam])
             final = self.fitLines(iisExposures, fixHalos=fixHalos if fixHalos else None, fixShapes=fixShapes)
             rows = [(key[0], ff) for key, ffs in final.fits.items() for ff in ffs]
             flags = [int(LsfLineFlag.IIS)]*len(rows)
             scale = constantSurface(ratioFixed, "iisRadiusScale")
         fiberId = np.array(sorted({int(ff) for exp in iisExposures for ff in exp.pfsArm.fiberId}), dtype=int)
         return Struct(scale=scale, haloScale=haloScale, fiberId=fiberId, rows=rows, flags=flags,
-                      saturated=free.saturated, summary=summary, haloSummary=haloSummary)
+                      saturated=free.saturated, summary=summary, haloSummary=haloSummary, extraBlur=extraBlur,
+                      blurSummary=blurSummary)
 
     def makeModel(self, arm, spectrograph, exposures, surfaces, coords, zeroPoint, extraExposures=()):
         """Construct the LSF model
