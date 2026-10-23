@@ -23,8 +23,9 @@ def main():
         "--dataset-type",
         dest="datasetTypes",
         action="append",
+        nargs="+",
         default=[],
-        help="Dataset type to pull (may be repeated; default: all)",
+        help="Dataset type(s) to pull (may be repeated; default: all)",
     )
     parser.add_argument(
         "--id",
@@ -62,6 +63,7 @@ def main():
     args = parser.parse_args()
     dataIds = parseDataIds(args.id)
     collections = [cc for item in args.collections for cc in item.split(",")]
+    datasetTypes = [dt for group in args.datasetTypes for dt in group]
 
     if args.calib:
         if dataIds:
@@ -72,7 +74,7 @@ def main():
             args.source,
             args.target,
             collections,
-            datasetTypes=args.datasetTypes,
+            datasetTypes=datasetTypes,
             transfer=args.transfer,
             clobber=args.clobber,
         )
@@ -86,7 +88,7 @@ def main():
             args.source,
             args.target,
             collections,
-            datasetTypes=args.datasetTypes,
+            datasetTypes=datasetTypes,
             dataIds=dataIds,
             where=args.where,
             transfer=args.transfer,
