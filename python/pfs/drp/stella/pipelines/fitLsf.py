@@ -110,13 +110,13 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
         keytype=str, itemtype=str,
         default=dict(b="27.985,0.418,0.226,0.191,0.016,0.230",
                      r="27.990,0.440,0.308,0.248,0.022,0.224",
-                     m="27.990,0.440,0.308,0.248,0.022,0.224",
+                     m="27.810,0.271,0.305,0.238,0.012,0.225",
                      n="28.170,0.598,0.317,0.250,0.028,0.212"),
         doc="Per-arm model of the radius of the image of a science fibre's core on the detector (microns): "
             "coefficients c00,c01,c02,c10,c11,c12 of R = sum_ij c_ij u^(2i) v^j with u = x/30mm along the "
             "slit and v = y/30mm in dispersion (increasing with wavelength), measured from the detector "
-            "centre. From Jim Gunn's ray traces (fiberspots.csv) at nominal focus, which fit to 0.06% rms; "
-            "the m arm uses the r camera")
+            "centre. From Jim Gunn's ray traces ({blue,red,nir,rmr}fiberspots.csv) at nominal focus, which "
+            "fit to 0.07% rms (m is the r camera, but its focal plane is tilted with respect to r's)")
     pfiRadiusModelScale = Field(dtype=float, default=1.0,
                                 doc="Multiply pfiRadiusModel by this factor (e.g. for a different focus)")
     pixelSize = Field(dtype=float, default=15.0, doc="Detector pixel size (microns), for pfiRadiusModel")
