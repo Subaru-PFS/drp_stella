@@ -11,8 +11,9 @@ import lsst.pex.config as pexConfig
 from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, EXCLUDED_VARIANCE
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticArc, addNoiseToImage
-from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap
+from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.tests.utils import runTests
+from pfs.datamodel import FiberStatus, TargetType
 
 display = None
 
@@ -62,6 +63,27 @@ def makeExposure(image, borderMask, gain, readnoise):
     variance.array[:] = np.where(image.array > 0, image.array, 0.0) / gain + readnoise**2 / gain**2
     maskedImage = afwImage.makeMaskedImage(image, mask, variance)
     return afwImage.makeExposure(maskedImage)
+
+
+def calculateKernelSums(kernel, synth):
+    """Return the kernel sum evaluated over a grid of positions
+
+    Parameters
+    ----------
+    kernel : `lsst.afw.math.Kernel`
+        Spatially varying kernel.
+    synth : `pfs.drp.stella.synthetic.SyntheticConfig`
+        Synthetic spectrograph configuration, providing the image size.
+
+    Returns
+    -------
+    sums : `numpy.ndarray` of `float`
+        Kernel sums.
+    """
+    image = afwImage.ImageD(kernel.getDimensions())
+    xPositions = np.linspace(48, synth.width - 48, 4)
+    yPositions = np.linspace(48, synth.height - 48, 4)
+    return np.array([kernel.computeImage(image, False, xx, yy) for xx in xPositions for yy in yPositions])
 
 
 def convolveAndAddNoise(trueImage, sigma, synth, rng):
@@ -274,21 +296,8 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
         del self.task
 
     def getKernelSums(self, kernel):
-        """Return the kernel sum evaluated over a grid of positions
-
-        Parameters
-        ----------
-        kernel : `lsst.afw.math.Kernel`
-            Spatially varying kernel.
-
-        Returns
-        -------
-        sums : `numpy.ndarray` of `float`
-            Kernel sums.
-        """
-        image = afwImage.ImageD(kernel.getDimensions())
-        positions = np.linspace(48, self.synth.width - 48, 4)
-        return np.array([kernel.computeImage(image, False, xx, yy) for xx in positions for yy in positions])
+        """Return the kernel sum evaluated over a grid of positions"""
+        return calculateKernelSums(kernel, self.synth)
 
     def testExclusion(self):
         """Excluding the variable lines gives an unbiased kernel"""
@@ -344,6 +353,234 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
         """Providing refLines without a detectorMap raises"""
         with self.assertRaises(ValueError):
             self.task.run(self.sourceExposure, self.targetExposure, refLines=self.refLines)
+
+
+class FiberExclusionTestCase(lsst.utils.tests.TestCase):
+    """Test PsfMatchTask.run with pfsConfigs, excluding unselected fibers
+
+    Mimics a pair of exposures in which the spectra of bright objects
+    differ: ``source`` and ``target`` contain the same spectrum (continuum
+    and lines) in each fiber, except that the ``FLUXSTD`` fibers (which are
+    not selected by default) are brighter in ``target``. Unless these are
+    excluded, the fitted kernel sum is biased high. The ``SKY`` and
+    ``SCIENCE`` fibers (which are selected by default) are unchanged.
+    """
+
+    def setUp(self):
+        synth = SyntheticConfig()
+        synth.width = 256
+        synth.height = 256
+        synth.separation = 20.0
+        synth.fwhm = 3.0
+        synth.gain = 1.5
+        synth.readnoise = 3.0
+        self.synth = synth
+        self.detectorMap = makeSyntheticDetectorMap(synth)
+
+        self.pfsConfig = makeSyntheticPfsConfig(synth, 123, 456)
+        index = np.arange(synth.numFibers)
+        self.isBright = index % 3 == 1
+        self.pfsConfig.targetType[:] = np.where(
+            self.isBright, TargetType.FLUXSTD, np.where(index % 3 == 0, TargetType.SKY, TargetType.SCIENCE)
+        )
+        self.pfsConfig.fiberStatus[:] = FiberStatus.GOOD
+
+        numLines = 12
+        lines = np.linspace(0, synth.height - 1, numLines + 2)[1:-1]
+        rows = np.arange(synth.height, dtype=float)
+        sigma = 3.5 / (2 * np.sqrt(2 * np.log(2)))
+        profiles = np.exp(-0.5 * ((rows[np.newaxis, :] - lines[:, np.newaxis]) / sigma) ** 2)
+        spectrum = 1000.0 + profiles.sum(axis=0) * 3.0e5 / (sigma * np.sqrt(2 * np.pi))
+
+        def makeTrueImage(select):
+            return makeSpectrumImage(
+                spectrum.astype(np.float32),
+                synth.dims,
+                synth.traceCenters[select],
+                synth.traceOffset,
+                synth.fwhm,
+            )
+
+        faintImage = makeTrueImage(~self.isBright)
+        brightImage = makeTrueImage(self.isBright)
+        trueSource = faintImage.clone()
+        trueSource += brightImage
+        trueTarget = faintImage.clone()
+        trueTarget.scaledPlus(1.5, brightImage)
+
+        rng = np.random.RandomState(12345)
+        sourceImage, sourceBorder = convolveAndAddNoise(trueSource, 0.6, synth, rng)
+        targetImage, targetBorder = convolveAndAddNoise(trueTarget, 1.3, synth, rng)
+        borderMask = sourceBorder | targetBorder
+        self.sourceExposure = makeExposure(sourceImage, borderMask, synth.gain, synth.readnoise)
+        self.targetExposure = makeExposure(targetImage, borderMask, synth.gain, synth.readnoise)
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.kernel["DF"].kernelSize = 15
+        self.config.kernel["DF"].sizeCellX = 128
+        self.config.kernel["DF"].sizeCellY = 128
+        self.config.xStampSize = 48
+        self.config.yStampSize = 48
+        self.config.minPeakSignalToNoise = 5.0
+        self.config.fiberMaskRadius = 4
+        self.task = PsfMatchTask(config=self.config)
+        self.radius = self.config.fiberMaskRadius + self.config.kernel["DF"].kernelSize // 2
+
+    def tearDown(self):
+        del self.sourceExposure
+        del self.targetExposure
+        del self.detectorMap
+        del self.pfsConfig
+        del self.task
+
+    def calculateExpected(self, fiberId):
+        """Calculate the expected excluded pixels
+
+        This is an independent implementation of the exclusion: integer
+        pixels within ``self.radius`` (in x) of the trace center, rounded
+        to the nearest pixel, in each row.
+
+        Parameters
+        ----------
+        fiberId : iterable of `int`
+            Fibers to exclude.
+
+        Returns
+        -------
+        expected : `numpy.ndarray` of `bool`
+            Pixels expected to be excluded.
+        """
+        expected = np.zeros((self.synth.height, self.synth.width), dtype=bool)
+        for ff in fiberId:
+            for yy in range(self.synth.height):
+                center = int(np.floor(self.detectorMap.getXCenter(ff, float(yy)) + 0.5))
+                for xx in range(center - self.radius, center + self.radius + 1):
+                    if 0 <= xx < self.synth.width:
+                        expected[yy, xx] = True
+        return expected
+
+    def assertExclusion(self, pfsConfigList, excludeFiberId):
+        """Assert that _makeFiberExclusion excludes the expected fibers
+
+        Parameters
+        ----------
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations to provide to ``_makeFiberExclusion``.
+        excludeFiberId : iterable of `int`
+            Fibers expected to be excluded.
+        """
+        bbox = self.sourceExposure.getBBox()
+        result = self.task._makeFiberExclusion(bbox, self.detectorMap, pfsConfigList)
+        self.assertEqual(result.numFibers, len(set(excludeFiberId)))
+        expected = self.calculateExpected(excludeFiberId)
+        self.assertTrue(np.array_equal(result.exclude, expected))
+        self.assertFloatsAlmostEqual(result.fraction, expected.mean(), atol=1.0e-12)
+
+        # The traces of the fibers that are used aren't excluded
+        for ff in set(self.detectorMap.fiberId) - set(excludeFiberId):
+            center = np.floor(self.detectorMap.getXCenter(ff) + 0.5).astype(int)
+            self.assertFalse(np.any(result.exclude[np.arange(self.synth.height), center]))
+
+    def testDefaults(self):
+        """By default, SCIENCE and SKY fibers with GOOD status are selected"""
+        config = PsfMatchTask.ConfigClass()
+        self.assertEqual(list(config.selectFibers.targetType), ["SCIENCE", "SKY"])
+        self.assertEqual(list(config.selectFibers.fiberStatus), ["GOOD"])
+
+    def testMakeFiberExclusion(self):
+        """Excluded pixels follow the traces of the unselected fibers"""
+        bright = self.pfsConfig.fiberId[self.isBright]
+        self.assertExclusion([self.pfsConfig], bright)
+
+        # Selecting only SKY fibers also excludes the SCIENCE fibers
+        self.config.selectFibers.targetType = ["SKY"]
+        self.task = PsfMatchTask(config=self.config)
+        notSky = self.pfsConfig.fiberId[self.pfsConfig.targetType != TargetType.SKY]
+        self.assertExclusion([self.pfsConfig], notSky)
+
+    def testBothPfsConfigs(self):
+        """Fibers must be selected in both pfsConfigs"""
+        bright = self.pfsConfig.fiberId[self.isBright]
+        isScience = self.pfsConfig.targetType == TargetType.SCIENCE
+        isSky = self.pfsConfig.targetType == TargetType.SKY
+        broken = self.pfsConfig.fiberId[isScience][0]
+        unassigned = self.pfsConfig.fiberId[isSky][0]
+
+        fiberStatus = self.pfsConfig.fiberStatus.copy()
+        fiberStatus[self.pfsConfig.fiberId == broken] = FiberStatus.BROKENFIBER
+        sourcePfsConfig = self.pfsConfig.copy(fiberStatus=fiberStatus)
+
+        targetType = self.pfsConfig.targetType.copy()
+        targetType[self.pfsConfig.fiberId == unassigned] = TargetType.UNASSIGNED
+        targetPfsConfig = self.pfsConfig.copy(targetType=targetType)
+
+        self.assertExclusion([sourcePfsConfig], np.append(bright, broken))
+        self.assertExclusion([targetPfsConfig], np.append(bright, unassigned))
+        self.assertExclusion([sourcePfsConfig, targetPfsConfig], np.append(bright, [broken, unassigned]))
+
+        result = self.task.run(
+            self.sourceExposure,
+            self.targetExposure,
+            seed=1,
+            detectorMap=self.detectorMap,
+            sourcePfsConfig=sourcePfsConfig,
+            targetPfsConfig=targetPfsConfig,
+        )
+        self.assertEqual(result.selection.numFibersExcluded, len(bright) + 2)
+
+    def testMissingFibers(self):
+        """Fibers in the detectorMap but not in a pfsConfig are excluded"""
+        isSelected = ~self.isBright
+        self.assertTrue(np.all(isSelected[[0, 2]]))
+        missing = self.pfsConfig.fiberId[[0, 2]]
+        keep = ~np.isin(self.pfsConfig.fiberId, missing)
+        pfsConfig = self.pfsConfig.select(fiberId=self.pfsConfig.fiberId[keep])
+        bright = self.pfsConfig.fiberId[self.isBright]
+        self.assertExclusion([pfsConfig], np.concatenate((bright, missing)))
+        self.assertExclusion([self.pfsConfig, pfsConfig], np.concatenate((bright, missing)))
+
+    def testExclusion(self):
+        """Excluding the bright fibers gives an unbiased kernel"""
+        sourceCopy = self.sourceExposure.maskedImage.clone()
+        targetCopy = self.targetExposure.maskedImage.clone()
+
+        result = self.task.run(
+            self.sourceExposure,
+            self.targetExposure,
+            seed=1,
+            detectorMap=self.detectorMap,
+            sourcePfsConfig=self.pfsConfig,
+            targetPfsConfig=self.pfsConfig,
+        )
+        self.assertEqual(result.selection.numFibersExcluded, np.sum(self.isBright))
+        self.assertIsNone(result.selection.numLinesExcluded)
+        self.assertGreater(result.selection.excludedFraction, 0.0)
+        self.assertLess(result.selection.excludedFraction, 0.6)
+        self.assertGreater(result.selection.numUsed, 0)
+        sums = calculateKernelSums(result.psfMatchingKernel, self.synth)
+        self.assertFloatsAlmostEqual(sums, 1.0, atol=0.02)
+
+        # Inputs are not modified
+        self.assertMaskedImagesEqual(self.sourceExposure.maskedImage, sourceCopy)
+        self.assertMaskedImagesEqual(self.targetExposure.maskedImage, targetCopy)
+
+        # Without the exclusion, the brighter objects bias the kernel sum high. We disable clipping of
+        # candidates, since otherwise many candidates are rejected (because they can't be fit well).
+        self.config.kernel["DF"].singleKernelClipping = False
+        self.config.kernel["DF"].kernelSumClipping = False
+        self.config.kernel["DF"].spatialKernelClipping = False
+        task = PsfMatchTask(config=self.config)
+        biased = task.run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertIsNone(biased.selection.numFibersExcluded)
+        self.assertIsNone(biased.selection.excludedFraction)
+        self.assertGreater(np.mean(calculateKernelSums(biased.psfMatchingKernel, self.synth)), 1.05)
+
+    def testMissingDetectorMap(self):
+        """Providing a pfsConfig without a detectorMap raises"""
+        with self.assertRaises(ValueError):
+            self.task.run(self.sourceExposure, self.targetExposure, sourcePfsConfig=self.pfsConfig)
+        with self.assertRaises(ValueError):
+            self.task.run(self.sourceExposure, self.targetExposure, targetPfsConfig=self.pfsConfig)
 
 
 class BuildCellSetTestCase(lsst.utils.tests.TestCase):

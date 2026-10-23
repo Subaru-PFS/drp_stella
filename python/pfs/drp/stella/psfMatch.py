@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Iterable, Optional, Tuple
 
 import numpy as np
 
@@ -12,10 +12,12 @@ from lsst.ip.diffim.makeKernelBasisList import makeKernelBasisList
 from lsst.ip.diffim.psfMatch import PsfMatchConfigDF
 from lsst.ip.diffim.psfMatch import PsfMatchTask as BasePsfMatchTask
 from lsst.utils.timer import timeMethod
+from pfs.datamodel import PfsConfig
 
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .repair import maskLines
+from .selectFibers import SelectFibersTask
 
 if TYPE_CHECKING:
     import matplotlib
@@ -149,6 +151,18 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Radius (pixels) around excluded lines to exclude from the kernel fit; this is grown by "
         "half the kernel size to account for the convolution",
     )
+    selectFibers = pexConfig.ConfigurableField(
+        target=SelectFibersTask,
+        doc="Select fibers to use in the kernel fit (only when a pfsConfig is provided); all pixels (lines "
+        "and continuum) on other fibers are excluded",
+    )
+    fiberMaskRadius = pexConfig.Field(
+        dtype=int,
+        default=5,
+        check=lambda radius: radius >= 0,
+        doc="Half-width (pixels, in the spatial dimension) around the trace of excluded fibers to exclude "
+        "from the kernel fit; this is grown by half the kernel size to account for the convolution",
+    )
     lineMaskPlane = pexConfig.Field(
         dtype=str,
         default="PSFMATCH_EXCLUDED",
@@ -170,6 +184,7 @@ class PsfMatchConfig(pexConfig.Config):
         self.dfKernel.sizeCellX = self.xStampSize
         self.dfKernel.sizeCellY = self.yStampSize
         self.dfKernel.badMaskPlanes = list(self.dfKernel.badMaskPlanes) + [self.lineMaskPlane]
+        self.selectFibers.targetType = ["SCIENCE", "SKY"]
 
     def validate(self):
         super().validate()
@@ -224,6 +239,12 @@ class PsfMatchTask(BasePsfMatchTask):
     very large variance (giving zero weight in the fit) and the
     ``config.lineMaskPlane`` mask plane (excluding them from candidate
     assessment) on copies of the stamps; the inputs are not modified.
+    Similarly, if a ``pfsConfig`` is provided to ``run`` for either (or
+    both) of ``source`` and ``target``, the pixels on fibers that are not
+    selected by the ``selectFibers`` subtask in each are excluded, since
+    the spectra of (bright) objects can differ between exposures. By
+    default, ``SCIENCE`` and ``SKY`` fibers are selected, since many science
+    targets are faint and so essentially sky.
 
     Notes
     -----
@@ -241,6 +262,7 @@ class PsfMatchTask(BasePsfMatchTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.kConfig = self.config.kernel.active
+        self.makeSubtask("selectFibers")
         # The kernel solver's candidate statistics require that all of its badMaskPlanes exist.
         afwImage.Mask.addMaskPlane(self.config.lineMaskPlane)
 
@@ -253,6 +275,8 @@ class PsfMatchTask(BasePsfMatchTask):
         seed: Optional[int] = None,
         refLines: Optional[ReferenceLineSet] = None,
         detectorMap: Optional[DetectorMap] = None,
+        sourcePfsConfig: Optional[PfsConfig] = None,
+        targetPfsConfig: Optional[PfsConfig] = None,
     ) -> PsfMatchResult:
         """Match the PSF of ``source`` to ``target``
 
@@ -275,8 +299,14 @@ class PsfMatchTask(BasePsfMatchTask):
             kernel fit. Requires ``detectorMap``.
         detectorMap : `DetectorMap`, optional
             Mapping of fiberId,wavelength to x,y, used to locate
-            ``refLines`` (which are assumed to be at the same position in
-            both ``source`` and ``target``).
+            ``refLines`` and fiber traces (which are assumed to be at the
+            same position in both ``source`` and ``target``).
+        sourcePfsConfig, targetPfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configurations for ``source`` and ``target``. If
+            either is provided, only fibers selected by the
+            ``selectFibers`` subtask in each of those provided (and present
+            in them) are used in the kernel fit; pixels on all other fibers
+            in the ``detectorMap`` are excluded. Requires ``detectorMap``.
 
         Returns
         -------
@@ -305,10 +335,11 @@ class PsfMatchTask(BasePsfMatchTask):
             Metadata accumulated while fitting.
         selection : `lsst.pipe.base.Struct`
             Stamp-selection diagnostics: ``numTiles``, ``numRejectedMask``,
-            ``numRejectedSnr``, ``numCandidates``, ``numUsed``, and (if
-            ``refLines`` was provided; otherwise `None`)
-            ``numLinesExcluded`` and ``excludedFraction`` (fraction of
-            pixels excluded).
+            ``numRejectedSnr``, ``numCandidates``, ``numUsed``,
+            ``numLinesExcluded`` (`None` unless ``refLines`` was
+            provided), ``numFibersExcluded`` (`None` unless a pfsConfig
+            was provided) and ``excludedFraction`` (fraction of pixels
+            excluded; `None` if neither applies).
         """
 
         self.log.info(
@@ -325,20 +356,32 @@ class PsfMatchTask(BasePsfMatchTask):
                 seed = self.config.seed
                 self.log.debug("Using fallback seed=%d from config.seed", seed)
 
-        exclusion = None
+        bbox = source.getBBox()
+        bbox.clip(target.getBBox())
+        exclude = None
+        numLinesExcluded = None
+        numFibersExcluded = None
+        excludedFraction = None
         if refLines is not None:
             if detectorMap is None:
                 raise ValueError("detectorMap is required when refLines is provided")
-            bbox = source.getBBox()
-            bbox.clip(target.getBBox())
-            exclusion = self._makeLineExclusion(bbox, refLines, detectorMap)
+            lineExclusion = self._makeLineExclusion(bbox, refLines, detectorMap)
+            exclude = lineExclusion.exclude
+            numLinesExcluded = lineExclusion.numLines
+        pfsConfigList = [
+            pfsConfig for pfsConfig in (sourcePfsConfig, targetPfsConfig) if pfsConfig is not None
+        ]
+        if pfsConfigList:
+            if detectorMap is None:
+                raise ValueError("detectorMap is required when a pfsConfig is provided")
+            fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfigList)
+            exclude = fiberExclusion.exclude if exclude is None else exclude | fiberExclusion.exclude
+            numFibersExcluded = fiberExclusion.numFibers
+        if exclude is not None:
+            excludedFraction = float(exclude.mean())
+            self.log.info("Excluding %.1f%% of pixels from kernel fit", 100 * excludedFraction)
 
-        buildResult = self._buildCellSet(
-            source.maskedImage,
-            target.maskedImage,
-            seed=seed,
-            exclude=exclusion.exclude if exclusion is not None else None,
-        )
+        buildResult = self._buildCellSet(source.maskedImage, target.maskedImage, seed=seed, exclude=exclude)
         self.log.info(
             "Built %d kernel candidates from %d tiles (%d rejected: mask, %d rejected: S/N)",
             buildResult.numUsed,
@@ -383,8 +426,9 @@ class PsfMatchTask(BasePsfMatchTask):
                 numRejectedSnr=buildResult.numRejectedSnr,
                 numCandidates=buildResult.numCandidates,
                 numUsed=buildResult.numUsed,
-                numLinesExcluded=exclusion.numLines if exclusion is not None else None,
-                excludedFraction=exclusion.fraction if exclusion is not None else None,
+                numLinesExcluded=numLinesExcluded,
+                numFibersExcluded=numFibersExcluded,
+                excludedFraction=excludedFraction,
             ),
         )
 
@@ -436,6 +480,67 @@ class PsfMatchTask(BasePsfMatchTask):
             100 * fraction,
         )
         return pipeBase.Struct(exclude=exclude, numLines=numLines, fraction=fraction)
+
+    def _makeFiberExclusion(
+        self, bbox: geom.Box2I, detectorMap: DetectorMap, pfsConfigList: Iterable[PfsConfig]
+    ) -> pipeBase.Struct:
+        """Determine which pixels on unselected fibers to exclude from the fit
+
+        All pixels (lines and continuum) within ``config.fiberMaskRadius``
+        (in the spatial dimension) of the trace of each fiber in the
+        ``detectorMap`` that is not selected (by the ``selectFibers``
+        subtask) in every one of the ``pfsConfigList`` are excluded. This
+        includes fibers missing from any of the ``pfsConfigList``, since we
+        can't be sure what they are. The radius is grown by half the kernel
+        size, so that excluded pixels in the ``source`` don't contribute
+        (through the convolution) to pixels that are used in the fit.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations.
+
+        Returns
+        -------
+        exclude : `numpy.ndarray` of `bool`
+            Pixels to exclude, with shape matching ``bbox``.
+        numFibers : `int`
+            Number of fibers excluded.
+        fraction : `float`
+            Fraction of pixels excluded.
+        """
+        select = np.ones(len(detectorMap), dtype=bool)
+        for pfsConfig in pfsConfigList:
+            select &= np.isin(detectorMap.fiberId, self.selectFibers.run(pfsConfig).fiberId)
+        excludeFiberId = detectorMap.fiberId[~select]
+        numFibers = len(excludeFiberId)
+
+        width, height = bbox.getDimensions()
+        exclude = np.zeros((height, width), dtype=bool)
+        radius = self.config.fiberMaskRadius + self.kConfig.kernelSize // 2
+        rows = np.arange(height)
+        offsets = np.arange(-radius, radius + 1)
+        for fiberId in excludeFiberId:
+            xCenter = detectorMap.getXCenter(fiberId, (rows + bbox.getMinY()).astype(float))
+            good = np.isfinite(xCenter)
+            columns = np.floor(xCenter[good] + 0.5).astype(int) - bbox.getMinX()
+            columns = columns[:, np.newaxis] + offsets[np.newaxis, :]
+            fiberRows = np.broadcast_to(rows[good][:, np.newaxis], columns.shape)
+            inside = (columns >= 0) & (columns < width)
+            exclude[fiberRows[inside], columns[inside]] = True
+
+        fraction = float(exclude.mean())
+        self.log.info(
+            "Excluding %d/%d unselected fibers from kernel fit: %.1f%% of pixels",
+            numFibers,
+            len(detectorMap),
+            100 * fraction,
+        )
+        return pipeBase.Struct(exclude=exclude, numFibers=numFibers, fraction=fraction)
 
     def _buildCellSet(
         self,
