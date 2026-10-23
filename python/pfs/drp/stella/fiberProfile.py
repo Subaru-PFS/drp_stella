@@ -396,7 +396,8 @@ class FiberProfile:
         rows = np.arange(dimensions.getY(), dtype=float)
         xCenter = centerFunc(rows)
         with np.errstate(invalid="ignore"):
-            xMin = (xCenter - self.radius).astype(np.int32)
+            # Symmetric window of the 2*radius + 1 pixels nearest the center
+            xMin = np.floor(xCenter + 0.5).astype(np.int32) - self.radius
         xPixel = xMin[:, None] + np.arange(2*self.radius + 1)
         xRel = xPixel - xCenter[:, None]
         good = (xPixel >= 0) & (xPixel < dimensions.getX())
