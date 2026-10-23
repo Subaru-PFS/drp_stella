@@ -6,6 +6,7 @@ import lsst.afw.image.testUtils
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
+from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -63,6 +64,46 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
         for new, old in zip(newSpectra, spectra):
             self.assertFloatsAlmostEqual(new.norm, old.normFlux, rtol=1.0e-6)
             self.assertFloatsAlmostEqual(new.normFlux, 1.0, atol=1.0e-6)
+
+    def testIncompleteSampling(self):
+        """Test profile normalisation when the oversampled profile is not
+        completely sampled
+
+        When the trace moves by less than a pixel over a swath, many of the
+        oversampled profile nodes are not constrained and are masked. The
+        normalisation must account for these gaps, else the profile is inflated
+        and the extracted ``flux/norm`` is biased low by the fraction of nodes
+        that are masked.
+        """
+        flux = 1.0e5
+        oversample = 10
+
+        synthConfig = SyntheticConfig()
+        synthConfig.height = 1024
+        synthConfig.width = 128
+        synthConfig.fwhm = 3.21
+        synthConfig.separation = 15
+        synthConfig.slope = 0.0005  # Trace moves by 0.15 pixels over a swath
+
+        detMap = makeSyntheticDetectorMap(synthConfig)
+        image = makeSyntheticFlat(synthConfig, flux=flux, addNoise=False, rng=self.rng)
+        image = lsst.afw.image.makeMaskedImage(image)
+        image.mask.array[:] = 0x0
+        image.variance.array[:] = synthConfig.readnoise**2
+
+        fiberId = detMap.fiberId
+        centers = np.array([detMap.getXCenter(ff) for ff in fiberId])
+        norm = np.full_like(centers, flux, dtype=np.float32)
+        identity = CalibIdentity("2020-01-01", 5, "x", 12345)
+        fiberProfiles = FiberProfileSet.fromImages(
+            identity, [image], fiberId, [centers], [norm], radius=7, oversample=oversample, swathSize=300
+        )
+        masked = np.mean([np.ma.getmaskarray(fiberProfiles[ff].profiles).mean() for ff in fiberId])
+        self.assertGreater(masked, 0.5)  # Otherwise we're not testing incomplete sampling
+
+        spectra = fiberProfiles.makeFiberTracesFromDetectorMap(detMap).extractSpectra(image)
+        for ss in spectra:
+            self.assertFloatsAlmostEqual(ss.normFlux/flux, 1.0, atol=1.0e-2)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
