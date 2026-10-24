@@ -95,10 +95,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     ndarray::Array<MaskT, 1, 1> maskBadResult = ndarray::allocate(num);  // mask value if trace is bad
     ndarray::Array<double, 1, 1> vector = ndarray::allocate(num);  // least-squares: model dot data
 
-    // This is a version of the least-squares matrix used for calculating the covariances.
-    // We use a simple diagnonal matrix because we don't care about anything further than that.
-    // The matrix is calculated using inverse variance weights, so we can get the covariance.
-    ndarray::Array<double, 1, 1> diagonalWeighted = ndarray::allocate(num);  // diagonal of weighted LS
+    // Variance of the flux for each trace. We use only the diagonal of the
+    // least-squares problem, neglecting covariances between traces.
+    ndarray::Array<double, 1, 1> variances = ndarray::allocate(num);
 
     auto const& dataImage = *image.getImage();
     auto const& dataMask = *image.getMask();
@@ -147,24 +146,29 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         // Construct least-squares matrix and vector
         math::SymmetricSparseSquareMatrix matrix{num};  // least-squares matrix: model dot model
         vector.deep() = 0.0;
-        diagonalWeighted.deep() = 0.0;
+        variances.deep() = 0.0;
 
         for (std::size_t ii = 0; ii < num; ++ii) {
             if (!useTrace[ii]) {
                 matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
-                diagonalWeighted[ii] = 1.0;
+                variances[ii] = 1.0;
                 continue;
             }
 
-            // Here we calculate two versions of the matrix diagonal: one
-            // without weighting and another with weighting by the inverse
-            // variance. This allows us to use the un-weighted matrix for
-            // solving for the fluxes without a bias (same reason we don't
-            // weight by the variance when doing PSF photometry) and the inverse
-            // of the weighted matrix diagonal to get an estimate of the
-            // variance.
+            // We solve for the fluxes without weighting by the inverse
+            // variance, since the variance depends on the data through the
+            // Poisson noise, and weighting would bias the fluxes (same reason
+            // we don't weight by the variance when doing PSF photometry).
+            // The variance of this un-weighted estimator (neglecting
+            // covariances between traces) is:
+            //     sum(model^2*sigma^2)/sum(model^2)^2
+            // Note that this is not the inverse of the inverse-variance
+            // weighted matrix diagonal, 1/sum(model^2/sigma^2): that is the
+            // variance of the weighted estimator, and underestimates the
+            // variance of the un-weighted estimator when sigma varies over
+            // the trace.
             double model2 = 0.0;  // model^2
-            double model2Weighted = 0.0;  // model^2/sigma^2
+            double model2Variance = 0.0;  // model^2*sigma^2
             double modelData = 0.0;  // model dot data
             double sumModel = 0.0;  // sum of model values
             auto const& iTrace = _traces[ii]->getTrace();
@@ -201,16 +205,16 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 }
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
-                model2Weighted += m2/varianceValue;
+                model2Variance += m2*varianceValue;
                 modelData += modelValue*imageValue;
                 sumModel += modelValue;
             }
             maskBadResult[ii] |= maskCore;
 
-            if (sumModel == 0.0 || numTracePixels == 0 || model2 == 0.0 || model2Weighted == 0.0) {
+            if (sumModel == 0.0 || numTracePixels == 0 || model2 == 0.0 || model2Variance == 0.0) {
                 useTrace[ii] = false;
                 matrix.add(ii, ii, 1.0);  // to avoid making the matrix singular
-                diagonalWeighted[ii] = 1.0;
+                variances[ii] = 1.0;
                 continue;
             } else if (sumModel < minFracImage) {
                 if (maskCore == 0) {
@@ -222,7 +226,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             }
 
             matrix.add(ii, ii, model2);
-            diagonalWeighted[ii] = model2Weighted;
+            variances[ii] = model2Variance/std::pow(model2, 2);
             vector[ii] = modelData;
 
             if (ii >= num - 1) {
@@ -285,7 +289,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         ndarray::Array<double, 1, 1> solution = matrix.solve(vector);
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto value = solution[ii];
-            auto variance = 1.0/diagonalWeighted[ii];
+            auto variance = variances[ii];
             MaskT maskValue = maskResult[ii];
             if (!useTrace[ii]) {
                 maskValue = maskBadResult[ii];
