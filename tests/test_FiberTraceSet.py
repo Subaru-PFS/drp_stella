@@ -310,6 +310,58 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
             self.assertTrue(np.all(ss.variance > 0))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
 
+    def testExtractionVariance(self):
+        """Test that the extracted variance matches the scatter in the flux
+
+        The flux is measured without weighting by the inverse variance. When
+        the variance varies over the trace (e.g., a bright source dominated by
+        Poisson noise), the variance of that estimator is larger than the
+        inverse of the inverse-variance weighted matrix diagonal.
+        """
+        rng = np.random.default_rng(12345)
+        width, height = 64, 1000
+        sigma = 1.3
+        radius = 5
+        flux = 1.0e5  # bright, so the variance varies strongly over the trace
+        readNoise = 4.0
+        numRealizations = 50
+        centers = [15.3, 31.6, 47.1]
+        dims = lsst.geom.Extent2I(width, height)
+
+        traces = drpStella.FiberTraceSet(len(centers))
+        for ii, cc in enumerate(centers):
+            profile = drpStella.FiberProfile.makeGaussian(sigma, height, radius, 10)
+            traces.add(profile.makeFiberTrace(dims, lambda rows, cc=cc: np.full_like(rows, cc), ii + 1))
+
+        spectra = drpStella.SpectrumSet(len(traces), height)
+        for ss, tt in zip(spectra, traces):
+            ss.fiberId = tt.fiberId
+            ss.flux[:] = flux
+            ss.mask.array[:] = 0
+            ss.variance[:] = 0.0
+            ss.norm[:] = 1.0
+        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), dims)
+        model = spectra.makeImage(bbox, traces).array.astype(float)
+        variance = model + readNoise**2
+
+        fluxes = []
+        variances = []
+        for _ in range(numRealizations):
+            image = lsst.afw.image.MaskedImageF(bbox)
+            image.image.array[:] = model + rng.normal(size=model.shape)*np.sqrt(variance)
+            image.variance.array[:] = variance
+            image.mask.array[:] = 0
+            extracted = traces.extractSpectra(image, 0)
+            fluxes.append([ss.flux for ss in extracted])
+            variances.append([ss.variance for ss in extracted])
+        fluxes = np.array(fluxes)
+        variances = np.array(variances)
+
+        empirical = np.var(fluxes, axis=0, ddof=1).mean()
+        reported = variances.mean()
+        # Expect agreement to within the statistical uncertainty: ~sqrt(2/(numRealizations*height*3)) < 1%
+        self.assertFloatsAlmostEqual(empirical/reported, 1.0, atol=0.03)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
