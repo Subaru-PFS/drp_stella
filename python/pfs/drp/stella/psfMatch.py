@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Iterable, Optional, Tuple
 
 import numpy as np
+import scipy.ndimage
 
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
@@ -27,6 +28,7 @@ __all__ = (
     "PsfMatchResult",
     "PsfMatchTask",
     "peakSignalToNoise",
+    "subtractRunningMedian",
     "plotSpatialKernel",
     "calculateFirstMoments",
     "plotFirstMoments",
@@ -65,6 +67,33 @@ def peakSignalToNoise(maskedImage: afwImage.MaskedImage, ignore: Optional[np.nda
     if not good.any():
         return -np.inf
     return float(np.max(image[good] / np.sqrt(variance[good])))
+
+
+def subtractRunningMedian(maskedImage: afwImage.MaskedImage, numRows: int) -> afwImage.MaskedImage:
+    """Return a copy of an image with a running median along columns removed
+
+    This removes the continuum of near-vertical spectral traces, leaving the
+    lines. Non-finite pixels are treated as zero when calculating the median,
+    and are left unchanged.
+
+    Parameters
+    ----------
+    maskedImage : `lsst.afw.image.MaskedImage`
+        Image from which to remove the running median; not modified.
+    numRows : `int`
+        Number of rows over which to calculate the running median.
+
+    Returns
+    -------
+    filtered : `lsst.afw.image.MaskedImage`
+        Copy of ``maskedImage`` with the running median subtracted.
+    """
+    filtered = maskedImage.clone()
+    array = filtered.image.array
+    finite = np.isfinite(array)
+    median = scipy.ndimage.median_filter(np.where(finite, array, 0.0), size=(numRows, 1), mode="nearest")
+    array[finite] -= median[finite]
+    return filtered
 
 
 class PsfMatchResult(pipeBase.Struct):
@@ -135,8 +164,24 @@ class PsfMatchConfig(pexConfig.Config):
     )
     badMaskPlanes = pexConfig.ListField(
         dtype=str,
-        default=["BAD", "SAT", "CR", "INTRP", "NO_DATA", "EDGE"],
+        default=["SAT", "NO_DATA", "EDGE"],
         doc="Mask planes that disqualify a stamp",
+    )
+    excludeMaskPlanes = pexConfig.ListField(
+        dtype=str,
+        default=["BAD", "CR", "INTRP"],
+        doc="Mask planes for pixels to exclude from the kernel fit (grown by half the kernel size to "
+        "account for the convolution), without disqualifying the stamp",
+    )
+    continuumFilterRows = pexConfig.Field(
+        dtype=int,
+        optional=True,
+        default=None,
+        check=lambda rows: rows is None or rows > 0,
+        doc="If set, fit the kernel to images from which a running median of this many rows has been "
+        "subtracted in each column, so that the kernel is determined by the lines rather than the "
+        "continuum (which may vary differently, e.g., for sky). The kernel is applied to the original "
+        "image. None: no continuum subtraction",
     )
     lineMaskStatus = pexConfig.ListField(
         dtype=str,
@@ -200,6 +245,19 @@ class PsfMatchConfig(pexConfig.Config):
                 self,
                 f"lineMaskPlane ({self.lineMaskPlane}) must not be in badMaskPlanes",
             )
+        if self.lineMaskPlane in self.excludeMaskPlanes:
+            raise pexConfig.FieldValidationError(
+                PsfMatchConfig.lineMaskPlane,
+                self,
+                f"lineMaskPlane ({self.lineMaskPlane}) must not be in excludeMaskPlanes",
+            )
+        both = set(self.excludeMaskPlanes) & set(self.badMaskPlanes)
+        if both:
+            raise pexConfig.FieldValidationError(
+                PsfMatchConfig.excludeMaskPlanes,
+                self,
+                f"Mask planes {sorted(both)} are in both excludeMaskPlanes and badMaskPlanes",
+            )
         for name in self.lineMaskStatus:
             if name not in ReferenceLineStatus.__members__:
                 raise pexConfig.FieldValidationError(
@@ -244,7 +302,19 @@ class PsfMatchTask(BasePsfMatchTask):
     selected by the ``selectFibers`` subtask in each are excluded, since
     the spectra of (bright) objects can differ between exposures. By
     default, ``SCIENCE`` and ``SKY`` fibers are selected, since many science
-    targets are faint and so essentially sky.
+    targets are faint and so essentially sky. Pixels with any of the
+    ``config.excludeMaskPlanes`` mask planes set (e.g., cosmic rays) are
+    excluded in the same way, rather than disqualifying the entire stamp
+    (which is what happens for ``config.badMaskPlanes``).
+
+    The continuum and the lines may vary differently between exposures
+    (e.g., for sky), in which case no kernel can match both, and the fitted
+    background can't follow the structure of the continuum between and on
+    the fibers. Setting ``config.continuumFilterRows`` fits the kernel to
+    images from which the continuum has been removed with a running median
+    along each column, so that the kernel is determined by the lines. The
+    kernel is then applied to the original ``source``, so the continuum
+    difference remains in the matched exposure, to be dealt with separately.
 
     Notes
     -----
@@ -377,11 +447,24 @@ class PsfMatchTask(BasePsfMatchTask):
             fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfigList)
             exclude = fiberExclusion.exclude if exclude is None else exclude | fiberExclusion.exclude
             numFibersExcluded = fiberExclusion.numFibers
+        maskExclusion = self._makeMaskExclusion(bbox, source.maskedImage, target.maskedImage)
+        if maskExclusion is not None:
+            exclude = maskExclusion if exclude is None else exclude | maskExclusion
         if exclude is not None:
             excludedFraction = float(exclude.mean())
             self.log.info("Excluding %.1f%% of pixels from kernel fit", 100 * excludedFraction)
 
-        buildResult = self._buildCellSet(source.maskedImage, target.maskedImage, seed=seed, exclude=exclude)
+        sourceFit = source.maskedImage
+        targetFit = target.maskedImage
+        if self.config.continuumFilterRows is not None:
+            self.log.info(
+                "Fitting kernel to images with %d-row running median subtracted",
+                self.config.continuumFilterRows,
+            )
+            sourceFit = subtractRunningMedian(sourceFit, self.config.continuumFilterRows)
+            targetFit = subtractRunningMedian(targetFit, self.config.continuumFilterRows)
+
+        buildResult = self._buildCellSet(sourceFit, targetFit, seed=seed, exclude=exclude)
         self.log.info(
             "Built %d kernel candidates from %d tiles (%d rejected: mask, %d rejected: S/N)",
             buildResult.numUsed,
@@ -431,6 +514,44 @@ class PsfMatchTask(BasePsfMatchTask):
                 excludedFraction=excludedFraction,
             ),
         )
+
+    def _makeMaskExclusion(
+        self, bbox: geom.Box2I, source: afwImage.MaskedImage, target: afwImage.MaskedImage
+    ) -> Optional[np.ndarray]:
+        """Determine which masked pixels to exclude from the kernel fit
+
+        Pixels with any of the ``config.excludeMaskPlanes`` mask planes set
+        in either ``source`` or ``target`` are excluded. The excluded region
+        is grown by half the kernel size, so that excluded pixels in the
+        ``source`` don't contribute (through the convolution) to pixels that
+        are used in the fit.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        source, target : `lsst.afw.image.MaskedImage`
+            Images whose masks are to be checked.
+
+        Returns
+        -------
+        exclude : `numpy.ndarray` of `bool`, or `None`
+            Pixels to exclude, with shape matching ``bbox``; or `None` if
+            there are no such pixels.
+        """
+        planes = [plane for plane in self.config.excludeMaskPlanes if plane in source.mask.getMaskPlaneDict()]
+        if not planes:
+            return None
+        bitmask = source.mask.getPlaneBitMask(planes)
+        flagged = ((source.mask[bbox].array | target.mask[bbox].array) & bitmask) != 0
+        if not flagged.any():
+            return None
+        radius = self.kConfig.kernelSize // 2
+        exclude = scipy.ndimage.binary_dilation(flagged, structure=np.ones((2 * radius + 1, 2 * radius + 1)))
+        self.log.info(
+            "Excluding %.1f%% of pixels from kernel fit due to mask planes %s", 100 * exclude.mean(), planes
+        )
+        return exclude
 
     def _makeLineExclusion(
         self, bbox: geom.Box2I, refLines: ReferenceLineSet, detectorMap: DetectorMap
