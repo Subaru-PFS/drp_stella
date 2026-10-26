@@ -173,15 +173,19 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Mask planes for pixels to exclude from the kernel fit (grown by half the kernel size to "
         "account for the convolution), without disqualifying the stamp",
     )
+    doContinuumFilter = pexConfig.Field(
+        dtype=bool,
+        default=True,
+        doc="Fit the kernel to images from which a running median (of continuumFilterRows rows) has been "
+        "subtracted in each column, so that the kernel is determined by the lines rather than the "
+        "continuum (which may vary differently, e.g., for sky)? The kernel is applied to the original "
+        "image",
+    )
     continuumFilterRows = pexConfig.Field(
         dtype=int,
-        optional=True,
-        default=None,
-        check=lambda rows: rows is None or rows > 0,
-        doc="If set, fit the kernel to images from which a running median of this many rows has been "
-        "subtracted in each column, so that the kernel is determined by the lines rather than the "
-        "continuum (which may vary differently, e.g., for sky). The kernel is applied to the original "
-        "image. None: no continuum subtraction",
+        default=41,
+        check=lambda rows: rows > 0,
+        doc="Number of rows for the running median used when doContinuumFilter",
     )
     lineMaskStatus = pexConfig.ListField(
         dtype=str,
@@ -310,11 +314,12 @@ class PsfMatchTask(BasePsfMatchTask):
     The continuum and the lines may vary differently between exposures
     (e.g., for sky), in which case no kernel can match both, and the fitted
     background can't follow the structure of the continuum between and on
-    the fibers. Setting ``config.continuumFilterRows`` fits the kernel to
-    images from which the continuum has been removed with a running median
-    along each column, so that the kernel is determined by the lines. The
-    kernel is then applied to the original ``source``, so the continuum
-    difference remains in the matched exposure, to be dealt with separately.
+    the fibers. With ``config.doContinuumFilter`` (the default), the kernel
+    is fit to images from which the continuum has been removed with a
+    running median along each column, so that the kernel is determined by
+    the lines. The kernel is then applied to the original ``source``, so the
+    continuum difference remains in the matched exposure, to be dealt with
+    separately.
 
     Notes
     -----
@@ -456,7 +461,7 @@ class PsfMatchTask(BasePsfMatchTask):
 
         sourceFit = source.maskedImage
         targetFit = target.maskedImage
-        if self.config.continuumFilterRows is not None:
+        if self.config.doContinuumFilter:
             self.log.info(
                 "Fitting kernel to images with %d-row running median subtracted",
                 self.config.continuumFilterRows,

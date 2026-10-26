@@ -167,6 +167,9 @@ class PsfMatchTestCase(lsst.utils.tests.TestCase):
         self.config.xStampSize = 48
         self.config.yStampSize = 48
         self.config.minPeakSignalToNoise = 5.0
+        # The synthetic lines are too dense for the running median to find the continuum, and there's no
+        # continuum to remove anyway
+        self.config.doContinuumFilter = False
         self.task = PsfMatchTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
@@ -321,6 +324,9 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
         self.config.xStampSize = 48
         self.config.yStampSize = 48
         self.config.minPeakSignalToNoise = 5.0
+        # The synthetic lines are too dense for the running median to find the continuum, and there's no
+        # continuum to remove anyway
+        self.config.doContinuumFilter = False
         self.config.lineMaskRadius = 4
         self.task = PsfMatchTask(config=self.config)
 
@@ -392,7 +398,7 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
 
 
 class ContinuumTestCase(lsst.utils.tests.TestCase):
-    """Test PsfMatchTask with config.continuumFilterRows
+    """Test PsfMatchTask with config.doContinuumFilter
 
     Mimics a pair of sky exposures in which the lines are the same, but the
     continuum is brighter in ``target``. Unless the continuum is removed
@@ -440,6 +446,7 @@ class ContinuumTestCase(lsst.utils.tests.TestCase):
         self.config.xStampSize = 48
         self.config.yStampSize = 48
         self.config.minPeakSignalToNoise = 5.0
+        self.config.doContinuumFilter = False  # Enabled for specific tests
         # The continuum difference can't be fit well, so we disable clipping of candidates, which
         # otherwise rejects them all when not filtering
         self.config.kernel["DF"].singleKernelClipping = False
@@ -478,7 +485,7 @@ class ContinuumTestCase(lsst.utils.tests.TestCase):
 
         sourceCopy = self.sourceExposure.maskedImage.clone()
         targetCopy = self.targetExposure.maskedImage.clone()
-        self.config.continuumFilterRows = 41
+        self.config.doContinuumFilter = True
         result = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
         sums = calculateKernelSums(result.psfMatchingKernel, self.synth)
         # The running median is biased slightly by the wings of the lines, which are broader in the target
@@ -557,6 +564,9 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         self.config.xStampSize = 48
         self.config.yStampSize = 48
         self.config.minPeakSignalToNoise = 5.0
+        # The synthetic lines are too dense for the running median to find the continuum, and there's no
+        # continuum to remove anyway
+        self.config.doContinuumFilter = False
         self.config.fiberMaskRadius = 4
         self.task = PsfMatchTask(config=self.config)
         self.radius = self.config.fiberMaskRadius + self.config.kernel["DF"].kernelSize // 2
@@ -917,6 +927,7 @@ class ConfigTestCase(lsst.utils.tests.TestCase):
         config = PsfMatchTask.ConfigClass()
         config.validate()
         self.assertIn(config.lineMaskPlane, config.kernel.active.badMaskPlanes)
+        self.assertTrue(config.doContinuumFilter)
 
     def testBadLineMaskPlane(self):
         config = PsfMatchTask.ConfigClass()
