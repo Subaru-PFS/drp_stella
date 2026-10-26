@@ -8,7 +8,7 @@ import lsst.afw.math as afwMath
 import lsst.geom as geom
 import lsst.pex.config as pexConfig
 
-from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, EXCLUDED_VARIANCE
+from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, subtractRunningMedian, EXCLUDED_VARIANCE
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticArc, addNoiseToImage
 from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap, makeSyntheticPfsConfig
@@ -188,6 +188,42 @@ class PsfMatchTestCase(lsst.utils.tests.TestCase):
         chi2 = np.sum((residual[select] / np.sqrt(self.targetExposure.variance.array[select])) ** 2)
         self.assertLess(chi2 / select.sum(), 2.0)
 
+    def testExcludeMaskPlanes(self):
+        """Pixels with excludeMaskPlanes set are excluded, not their stamps"""
+        baseline = self.task.run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertIsNone(baseline.selection.excludedFraction)
+
+        bbox = self.sourceExposure.getBBox()
+        mask = self.sourceExposure.mask
+        crBit = mask.getPlaneBitMask("CR")
+        rng = np.random.RandomState(98765)
+        xCr = rng.randint(20, bbox.getWidth() - 20, size=20)
+        yCr = rng.randint(20, bbox.getHeight() - 20, size=20)
+        mask.array[yCr, xCr] |= crBit
+        self.sourceExposure.image.array[yCr, xCr] += 1.0e5  # Make them obvious
+
+        exclusion = self.task._makeMaskExclusion(
+            bbox, self.sourceExposure.maskedImage, self.targetExposure.maskedImage
+        )
+        radius = self.config.kernel["DF"].kernelSize // 2
+        expected = np.zeros((bbox.getHeight(), bbox.getWidth()), dtype=bool)
+        for xx, yy in zip(xCr, yCr):
+            expected[yy - radius : yy + radius + 1, xx - radius : xx + radius + 1] = True
+        self.assertTrue(np.array_equal(exclusion, expected))
+
+        result = self.task.run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertEqual(result.selection.numRejectedMask, baseline.selection.numRejectedMask)
+        self.assertFloatsAlmostEqual(result.selection.excludedFraction, expected.mean(), atol=1.0e-12)
+        sums = calculateKernelSums(result.psfMatchingKernel, self.synth)
+        baselineSums = calculateKernelSums(baseline.psfMatchingKernel, self.synth)
+        self.assertFloatsAlmostEqual(sums, baselineSums, rtol=0.01)
+
+        # With CR in badMaskPlanes instead, the stamps are rejected
+        self.config.excludeMaskPlanes.remove("CR")
+        self.config.badMaskPlanes.append("CR")
+        rejected = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertGreater(rejected.selection.numRejectedMask, baseline.selection.numRejectedMask)
+
     def testPickle(self):
         """Test that the result can be pickled"""
         result = self.task.run(self.sourceExposure, self.targetExposure, seed=1)
@@ -353,6 +389,105 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
         """Providing refLines without a detectorMap raises"""
         with self.assertRaises(ValueError):
             self.task.run(self.sourceExposure, self.targetExposure, refLines=self.refLines)
+
+
+class ContinuumTestCase(lsst.utils.tests.TestCase):
+    """Test PsfMatchTask with config.continuumFilterRows
+
+    Mimics a pair of sky exposures in which the lines are the same, but the
+    continuum is brighter in ``target``. Unless the continuum is removed
+    before fitting, the fitted kernel sum is biased high.
+    """
+
+    def setUp(self):
+        synth = SyntheticConfig()
+        synth.width = 256
+        synth.height = 256
+        synth.separation = 20.0
+        synth.fwhm = 3.0
+        synth.gain = 1.5
+        synth.readnoise = 3.0
+        self.synth = synth
+
+        numLines = 6
+        lines = np.linspace(0, synth.height - 1, numLines + 2)[1:-1]
+        rows = np.arange(synth.height, dtype=float)
+        sigma = 3.5 / (2 * np.sqrt(2 * np.log(2)))
+        profiles = np.exp(-0.5 * ((rows[np.newaxis, :] - lines[:, np.newaxis]) / sigma) ** 2)
+        lineSpectrum = profiles.sum(axis=0) * 3.0e5 / (sigma * np.sqrt(2 * np.pi))
+        continuum = 2.0e4 * (1.0 + 0.5 * rows / synth.height)  # A gentle slope
+
+        def makeTrueImage(spectrum):
+            return makeSpectrumImage(
+                spectrum.astype(np.float32), synth.dims, synth.traceCenters, synth.traceOffset, synth.fwhm
+            )
+
+        rng = np.random.RandomState(12345)
+        sourceImage, sourceBorder = convolveAndAddNoise(
+            makeTrueImage(lineSpectrum + continuum), 0.6, synth, rng
+        )
+        targetImage, targetBorder = convolveAndAddNoise(
+            makeTrueImage(lineSpectrum + 1.5 * continuum), 1.3, synth, rng
+        )
+        borderMask = sourceBorder | targetBorder
+        self.sourceExposure = makeExposure(sourceImage, borderMask, synth.gain, synth.readnoise)
+        self.targetExposure = makeExposure(targetImage, borderMask, synth.gain, synth.readnoise)
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.kernel["DF"].kernelSize = 15
+        self.config.kernel["DF"].sizeCellX = 128
+        self.config.kernel["DF"].sizeCellY = 128
+        self.config.xStampSize = 48
+        self.config.yStampSize = 48
+        self.config.minPeakSignalToNoise = 5.0
+        # The continuum difference can't be fit well, so we disable clipping of candidates, which
+        # otherwise rejects them all when not filtering
+        self.config.kernel["DF"].singleKernelClipping = False
+        self.config.kernel["DF"].kernelSumClipping = False
+        self.config.kernel["DF"].spatialKernelClipping = False
+
+    def tearDown(self):
+        del self.sourceExposure
+        del self.targetExposure
+
+    def testSubtractRunningMedian(self):
+        """subtractRunningMedian removes the continuum, leaving the lines"""
+        image = afwImage.MaskedImageF(self.synth.width, self.synth.height)
+        image.image.array[:] = 100.0 + np.arange(self.synth.width)[np.newaxis, :]  # Varies by column
+        image.image.array[100:103, 50] += 1000.0  # A narrow "line"
+        image.image.array[200, 60] = np.nan
+        image.mask.array[:] = 0
+        image.variance.array[:] = 1.0
+        copy = image.clone()
+
+        filtered = subtractRunningMedian(image, 21)
+        self.assertMaskedImagesEqual(image, copy)  # Input not modified
+        array = filtered.image.array
+        self.assertTrue(np.isnan(array[200, 60]))
+        array[200, 60] = 0.0
+        expected = np.zeros_like(array)
+        expected[100:103, 50] = 1000.0
+        self.assertFloatsAlmostEqual(array, expected, atol=1.0e-3)
+        self.assertImagesEqual(filtered.variance, image.variance)
+        self.assertMasksEqual(filtered.mask, image.mask)
+
+    def testContinuumFilter(self):
+        """Fitting to continuum-subtracted images gives a nearly unbiased kernel"""
+        biased = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertGreater(np.mean(calculateKernelSums(biased.psfMatchingKernel, self.synth)), 1.2)
+
+        sourceCopy = self.sourceExposure.maskedImage.clone()
+        targetCopy = self.targetExposure.maskedImage.clone()
+        self.config.continuumFilterRows = 41
+        result = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
+        sums = calculateKernelSums(result.psfMatchingKernel, self.synth)
+        # The running median is biased slightly by the wings of the lines, which are broader in the target
+        # than in the source, so we get a few percent bias.
+        self.assertFloatsAlmostEqual(sums, 1.0, atol=0.05)
+
+        # Inputs are not modified
+        self.assertMaskedImagesEqual(self.sourceExposure.maskedImage, sourceCopy)
+        self.assertMaskedImagesEqual(self.targetExposure.maskedImage, targetCopy)
 
 
 class FiberExclusionTestCase(lsst.utils.tests.TestCase):
@@ -797,6 +932,17 @@ class ConfigTestCase(lsst.utils.tests.TestCase):
     def testBadLineMaskStatus(self):
         config = PsfMatchTask.ConfigClass()
         config.lineMaskStatus = ["NOT_A_FLAG"]
+        with self.assertRaises(pexConfig.FieldValidationError):
+            config.validate()
+
+    def testBadExcludeMaskPlanes(self):
+        config = PsfMatchTask.ConfigClass()
+        config.badMaskPlanes.append("CR")
+        with self.assertRaises(pexConfig.FieldValidationError):
+            config.validate()
+
+        config = PsfMatchTask.ConfigClass()
+        config.excludeMaskPlanes.append(config.lineMaskPlane)
         with self.assertRaises(pexConfig.FieldValidationError):
             config.validate()
 
