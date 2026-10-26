@@ -61,7 +61,7 @@ class ReadLineListConfig(Config):
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
-                                        'sky': 'skyLines-ragnar.txt',
+                                        'sky': 'skyLines-ragnar-{arm}.txt',
                                         # IIS lamps (engineering fibres)
                                         'Ar_eng': 'Ar_IIS.txt',
                                         'H_eng': 'H_IIS.txt',
