@@ -53,7 +53,6 @@ class ReadLineListConfig(Config):
                                     "substituted with the ``arm`` supplied to ``ReadLineListTask.run`` "
                                     "(e.g. ``'skyLines-ragnar-{arm}.txt'``); this requires that ``arm`` "
                                     "be provided to ``run``."),
-),
                                default={'Ar': 'Ar.txt',
                                         'Ne': 'Ne.txt',
                                         'Kr': 'Kr.txt',
