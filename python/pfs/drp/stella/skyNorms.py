@@ -226,7 +226,9 @@ class MeasureSkyNormsTask(PipelineTask):
 
         skyModels = [self.measureSky(pfsArm, pfsConfig) for pfsArm in pfsArmList]
         skyData = [sm(pfsArm.wavelength, pfsConfig) for sm, pfsArm in zip(skyModels, pfsArmList)]
-        refLines = [self.readLineList.run(metadata=pfsArm.metadata) for pfsArm in pfsArmList]
+        refLines = [
+            self.readLineList.run(metadata=pfsArm.metadata, arm=pfsArm.identity.arm) for pfsArm in pfsArmList
+        ]
 
         result = self.measureNormalizations(pfsArmList, skyData, refLines)
 
