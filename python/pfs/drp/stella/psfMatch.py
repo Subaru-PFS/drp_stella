@@ -195,7 +195,7 @@ class PsfMatchConfig(pexConfig.Config):
     )
     lineMaskRadius = pexConfig.Field(
         dtype=int,
-        default=5,
+        default=3,
         check=lambda radius: radius >= 0,
         doc="Radius (pixels) around excluded lines to exclude from the kernel fit; this is grown by "
         "half the kernel size to account for the convolution",
