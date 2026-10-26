@@ -498,14 +498,14 @@ class ContinuumTestCase(lsst.utils.tests.TestCase):
 
 
 class FiberExclusionTestCase(lsst.utils.tests.TestCase):
-    """Test PsfMatchTask.run with pfsConfigs, excluding unselected fibers
+    """Test PsfMatchTask.run with pfsConfigs, excluding masked fibers
 
     Mimics a pair of exposures in which the spectra of bright objects
     differ: ``source`` and ``target`` contain the same spectrum (continuum
     and lines) in each fiber, except that the ``FLUXSTD`` fibers (which are
-    not selected by default) are brighter in ``target``. Unless these are
+    masked by default) are brighter in ``target``. Unless these are
     excluded, the fitted kernel sum is biased high. The ``SKY`` and
-    ``SCIENCE`` fibers (which are selected by default) are unchanged.
+    ``SCIENCE`` fibers (which are not masked by default) are unchanged.
     """
 
     def setUp(self):
@@ -627,41 +627,48 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
             self.assertFalse(np.any(result.exclude[np.arange(self.synth.height), center]))
 
     def testDefaults(self):
-        """By default, SCIENCE and SKY fibers with GOOD status are selected"""
+        """By default, FLUXSTD fibers are masked, whatever their status"""
         config = PsfMatchTask.ConfigClass()
-        self.assertEqual(list(config.selectFibers.targetType), ["SCIENCE", "SKY"])
-        self.assertEqual(list(config.selectFibers.fiberStatus), ["GOOD"])
+        self.assertEqual(list(config.maskFibers.targetType), ["FLUXSTD"])
+        self.assertEqual(list(config.maskFibers.fiberStatus), [])
 
     def testMakeFiberExclusion(self):
-        """Excluded pixels follow the traces of the unselected fibers"""
+        """Excluded pixels follow the traces of the masked fibers"""
         bright = self.pfsConfig.fiberId[self.isBright]
         self.assertExclusion([self.pfsConfig], bright)
 
-        # Selecting only SKY fibers also excludes the SCIENCE fibers
-        self.config.selectFibers.targetType = ["SKY"]
+        # Masking SCIENCE fibers as well
+        self.config.maskFibers.targetType = ["FLUXSTD", "SCIENCE"]
         self.task = PsfMatchTask(config=self.config)
         notSky = self.pfsConfig.fiberId[self.pfsConfig.targetType != TargetType.SKY]
         self.assertExclusion([self.pfsConfig], notSky)
 
     def testBothPfsConfigs(self):
-        """Fibers must be selected in both pfsConfigs"""
+        """Fibers masked in either pfsConfig are excluded"""
         bright = self.pfsConfig.fiberId[self.isBright]
         isScience = self.pfsConfig.targetType == TargetType.SCIENCE
         isSky = self.pfsConfig.targetType == TargetType.SKY
-        broken = self.pfsConfig.fiberId[isScience][0]
-        unassigned = self.pfsConfig.fiberId[isSky][0]
+        sourceStar = self.pfsConfig.fiberId[isScience][0]
+        targetStar = self.pfsConfig.fiberId[isSky][0]
+        broken = self.pfsConfig.fiberId[isScience][1]
 
+        # A FLUXSTD in the source, and a broken fiber (which isn't masked)
+        targetType = self.pfsConfig.targetType.copy()
+        targetType[self.pfsConfig.fiberId == sourceStar] = TargetType.FLUXSTD
         fiberStatus = self.pfsConfig.fiberStatus.copy()
         fiberStatus[self.pfsConfig.fiberId == broken] = FiberStatus.BROKENFIBER
-        sourcePfsConfig = self.pfsConfig.copy(fiberStatus=fiberStatus)
+        sourcePfsConfig = self.pfsConfig.copy(targetType=targetType, fiberStatus=fiberStatus)
 
+        # A FLUXSTD in the target, which isn't GOOD (but is masked anyway)
         targetType = self.pfsConfig.targetType.copy()
-        targetType[self.pfsConfig.fiberId == unassigned] = TargetType.UNASSIGNED
-        targetPfsConfig = self.pfsConfig.copy(targetType=targetType)
+        targetType[self.pfsConfig.fiberId == targetStar] = TargetType.FLUXSTD
+        fiberStatus = self.pfsConfig.fiberStatus.copy()
+        fiberStatus[self.pfsConfig.fiberId == targetStar] = FiberStatus.NOTCONVERGED
+        targetPfsConfig = self.pfsConfig.copy(targetType=targetType, fiberStatus=fiberStatus)
 
-        self.assertExclusion([sourcePfsConfig], np.append(bright, broken))
-        self.assertExclusion([targetPfsConfig], np.append(bright, unassigned))
-        self.assertExclusion([sourcePfsConfig, targetPfsConfig], np.append(bright, [broken, unassigned]))
+        self.assertExclusion([sourcePfsConfig], np.append(bright, sourceStar))
+        self.assertExclusion([targetPfsConfig], np.append(bright, targetStar))
+        self.assertExclusion([sourcePfsConfig, targetPfsConfig], np.append(bright, [sourceStar, targetStar]))
 
         result = self.task.run(
             self.sourceExposure,
@@ -674,15 +681,15 @@ class FiberExclusionTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(result.selection.numFibersExcluded, len(bright) + 2)
 
     def testMissingFibers(self):
-        """Fibers in the detectorMap but not in a pfsConfig are excluded"""
-        isSelected = ~self.isBright
-        self.assertTrue(np.all(isSelected[[0, 2]]))
-        missing = self.pfsConfig.fiberId[[0, 2]]
+        """Fibers in the detectorMap but not in a pfsConfig aren't excluded"""
+        missing = self.pfsConfig.fiberId[[0, 1]]
+        self.assertTrue(self.isBright[1])  # So we're dropping a FLUXSTD
         keep = ~np.isin(self.pfsConfig.fiberId, missing)
         pfsConfig = self.pfsConfig.select(fiberId=self.pfsConfig.fiberId[keep])
         bright = self.pfsConfig.fiberId[self.isBright]
-        self.assertExclusion([pfsConfig], np.concatenate((bright, missing)))
-        self.assertExclusion([self.pfsConfig, pfsConfig], np.concatenate((bright, missing)))
+        self.assertExclusion([pfsConfig], bright[bright != missing[1]])
+        # The other pfsConfig still identifies it as FLUXSTD
+        self.assertExclusion([self.pfsConfig, pfsConfig], bright)
 
     def testExclusion(self):
         """Excluding the bright fibers gives an unbiased kernel"""
