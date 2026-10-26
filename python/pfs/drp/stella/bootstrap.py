@@ -231,7 +231,7 @@ class BootstrapTask(PipelineTask):
 
         traces = self.traceFibers(quartzExposure, quartzConfig, detectorMap, identity)
         lineResults = self.findArcLines(arcExposure, traces)
-        refLines = self.readLineList.run(metadata=arcExposure.getMetadata())
+        refLines = self.readLineList.run(metadata=arcExposure.getMetadata(), arm=identity.arm)
 
         self.visualize(
             lineResults.exposure,
