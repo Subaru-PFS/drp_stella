@@ -212,6 +212,50 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Half-width (pixels, in the spatial dimension) around the trace of excluded fibers to exclude "
         "from the kernel fit; this is grown by half the kernel size to account for the convolution",
     )
+    doLineScale = pexConfig.Field(
+        dtype=bool,
+        default=True,
+        doc="Before fitting the kernel (only when a line list is provided), scale each line in the source "
+        "image by its flux ratio (target/source, relative to the median over all lines), so that the kernel "
+        "sum isn't affected by changes in the relative strengths of lines between exposures (e.g., for "
+        "sky)? The kernel is applied to the original image. This is intended for use with "
+        "doContinuumFilter, as any continuum around the lines is also scaled",
+    )
+    lineRatioHalfHeight = pexConfig.Field(
+        dtype=int,
+        default=6,
+        check=lambda size: size >= 0,
+        doc="Half-height (pixels, in the dispersion dimension) of the box around each line on each fiber "
+        "over which to sum the flux when measuring line flux ratios; this should be large enough that the "
+        "sum is insensitive to the PSF",
+    )
+    lineRatioHalfWidth = pexConfig.Field(
+        dtype=int,
+        default=3,
+        check=lambda size: size >= 0,
+        doc="Half-width (pixels, in the spatial dimension) of the box around each line on each fiber over "
+        "which to sum the flux when measuring line flux ratios",
+    )
+    lineRatioMinSignalToNoise = pexConfig.Field(
+        dtype=float,
+        default=20.0,
+        check=lambda snr: snr >= 0,
+        doc="Minimum signal-to-noise ratio of a line's summed flux (in both source and target) for its flux "
+        "ratio to be used",
+    )
+    lineRatioRejection = pexConfig.Field(
+        dtype=float,
+        default=5.0,
+        check=lambda rej: rej > 0,
+        doc="Rejection threshold (in robust standard deviations from the median) for line flux ratios",
+    )
+    lineScaleHalfHeight = pexConfig.Field(
+        dtype=int,
+        default=8,
+        check=lambda size: size >= 0,
+        doc="Half-height (pixels, in the dispersion dimension) of the region around each line that is scaled "
+        "by its flux ratio; pixels farther from any line with a good flux ratio are not scaled",
+    )
     lineMaskPlane = pexConfig.Field(
         dtype=str,
         default="PSFMATCH_EXCLUDED",
@@ -332,6 +376,16 @@ class PsfMatchTask(BasePsfMatchTask):
     continuum difference remains in the matched exposure, to be dealt with
     separately.
 
+    Similarly, the relative strengths of the lines may vary between
+    exposures (e.g., for sky, where different bands vary differently). If a
+    line list is provided and ``config.doLineScale`` is set (the default),
+    the flux ratio (target/source) of each line that isn't excluded is
+    measured by summing over all fibers, and the lines in (a copy of) the
+    ``source`` used for the fit are scaled by their ratio relative to the
+    median. The kernel then accounts for the median ratio and the PSF
+    change, and its sum isn't driven by the line-to-line variations, which
+    remain in the matched exposure.
+
     Notes
     -----
     For additional debug logging from the inherited kernel solver, set:
@@ -382,7 +436,9 @@ class PsfMatchTask(BasePsfMatchTask):
         refLines : `ReferenceLineSet`, optional
             Line list. If provided, lines with any of the
             ``config.lineMaskStatus`` flags set are excluded from the
-            kernel fit. Requires ``detectorMap``.
+            kernel fit, and (if ``config.doLineScale``) the other lines are
+            scaled by their flux ratios before fitting. Requires
+            ``detectorMap``.
         detectorMap : `DetectorMap`, optional
             Mapping of fiberId,wavelength to x,y, used to locate
             ``refLines`` and fiber traces (which are assumed to be at the
@@ -425,6 +481,10 @@ class PsfMatchTask(BasePsfMatchTask):
             provided), ``numFibersExcluded`` (`None` unless a pfsConfig
             was provided) and ``excludedFraction`` (fraction of pixels
             excluded; `None` if neither applies).
+        lineRatios : `lsst.pipe.base.Struct` or `None`
+            Line flux ratios measured for ``config.doLineScale`` (see
+            ``_measureLineRatios``), or `None` if no line list was provided
+            or ``config.doLineScale`` is not set.
         """
 
         self.log.info(
@@ -479,6 +539,13 @@ class PsfMatchTask(BasePsfMatchTask):
             sourceFit = subtractRunningMedian(sourceFit, self.config.continuumFilterRows)
             targetFit = subtractRunningMedian(targetFit, self.config.continuumFilterRows)
 
+        lineRatios = None
+        if refLines is not None and self.config.doLineScale:
+            goodLines = refLines[~self._selectExcludedLines(refLines)]
+            lineRatios = self._measureLineRatios(bbox, sourceFit, targetFit, goodLines, detectorMap, exclude)
+            if np.any(lineRatios.good):
+                sourceFit = self._scaleLines(bbox, sourceFit, lineRatios, detectorMap)
+
         buildResult = self._buildCellSet(sourceFit, targetFit, seed=seed, exclude=exclude)
         self.log.info(
             "Built %d kernel candidates from %d tiles (%d rejected: mask, %d rejected: S/N)",
@@ -528,6 +595,7 @@ class PsfMatchTask(BasePsfMatchTask):
                 numFibersExcluded=numFibersExcluded,
                 excludedFraction=excludedFraction,
             ),
+            lineRatios=lineRatios,
         )
 
     def _makeMaskExclusion(
@@ -568,6 +636,25 @@ class PsfMatchTask(BasePsfMatchTask):
         )
         return exclude
 
+    def _selectExcludedLines(self, refLines: ReferenceLineSet) -> np.ndarray:
+        """Select lines to exclude from the kernel fit
+
+        Parameters
+        ----------
+        refLines : `ReferenceLineSet`
+            Line list.
+
+        Returns
+        -------
+        select : `numpy.ndarray` of `bool`
+            Whether each line has any of the ``config.lineMaskStatus``
+            flags set.
+        """
+        flags = 0
+        for name in self.config.lineMaskStatus:
+            flags |= ReferenceLineStatus[name]
+        return (refLines.status & flags) != 0
+
     def _makeLineExclusion(
         self, bbox: geom.Box2I, refLines: ReferenceLineSet, detectorMap: DetectorMap
     ) -> pipeBase.Struct:
@@ -597,10 +684,7 @@ class PsfMatchTask(BasePsfMatchTask):
         fraction : `float`
             Fraction of pixels excluded.
         """
-        flags = 0
-        for name in self.config.lineMaskStatus:
-            flags |= ReferenceLineStatus[name]
-        select = (refLines.status & flags) != 0
+        select = self._selectExcludedLines(refLines)
         numLines = int(select.sum())
 
         mask = afwImage.Mask(bbox)
@@ -676,6 +760,208 @@ class PsfMatchTask(BasePsfMatchTask):
             100 * fraction,
         )
         return pipeBase.Struct(exclude=exclude, numFibers=numFibers, fraction=fraction)
+
+    def _measureLineRatios(
+        self,
+        bbox: geom.Box2I,
+        source: afwImage.MaskedImage,
+        target: afwImage.MaskedImage,
+        refLines: ReferenceLineSet,
+        detectorMap: DetectorMap,
+        exclude: Optional[np.ndarray] = None,
+    ) -> pipeBase.Struct:
+        """Measure the flux ratio (target/source) of each line
+
+        The flux of each line is summed over a box (with half-dimensions
+        ``config.lineRatioHalfWidth`` and ``config.lineRatioHalfHeight``)
+        around the line on each fiber in the ``detectorMap``, and over all
+        fibers, ignoring pixels that are excluded, non-finite, or have any
+        of the ``config.badMaskPlanes`` mask planes set. Boxes that extend
+        beyond ``bbox`` are not used. Summing over all fibers assumes that
+        the flux ratio of each line is common to all fibers (as for sky).
+
+        Ratios are rejected if either sum has a signal-to-noise ratio below
+        ``config.lineRatioMinSignalToNoise``, or if the ratio is more than
+        ``config.lineRatioRejection`` robust standard deviations from the
+        median.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        source, target : `lsst.afw.image.MaskedImage`
+            Images in which to measure the line fluxes.
+        refLines : `ReferenceLineSet`
+            Lines to measure.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        exclude : `numpy.ndarray` of `bool`, optional
+            Pixels to ignore, with shape matching ``bbox``.
+
+        Returns
+        -------
+        wavelength : `numpy.ndarray` of `float`
+            Wavelength of each line (nm).
+        ratio : `numpy.ndarray` of `float`
+            Flux ratio (target/source) of each line.
+        signalToNoise : `numpy.ndarray` of `float`
+            Signal-to-noise ratio of each line's summed flux (the lesser of
+            ``source`` and ``target``).
+        good : `numpy.ndarray` of `bool`
+            Whether each line's ratio is good.
+        median : `float`
+            Median ratio of the good lines (NaN if there are none).
+        relative : `numpy.ndarray` of `float`
+            Ratio relative to ``median`` for the good lines; NaN for others.
+        """
+        width, height = bbox.getDimensions()
+        badBitMask = source.mask.getPlaneBitMask(self.config.badMaskPlanes)
+        arrays = (source.image[bbox].array, target.image[bbox].array)
+        bad = ((source.mask[bbox].array | target.mask[bbox].array) & badBitMask) != 0
+        bad |= ~np.isfinite(arrays[0]) | ~np.isfinite(arrays[1])
+        if exclude is not None:
+            bad |= exclude
+        arrays += (source.variance[bbox].array, target.variance[bbox].array)
+        arrays = [np.where(bad, 0.0, array) for array in arrays]
+
+        halfWidth = self.config.lineRatioHalfWidth
+        halfHeight = self.config.lineRatioHalfHeight
+        rowOffsets = np.arange(-halfHeight, halfHeight + 1)
+        colOffsets = np.arange(-halfWidth, halfWidth + 1)
+        wavelength = refLines.wavelength
+        sums = np.zeros((len(arrays), len(refLines)))
+        for fiberId in detectorMap.fiberId:
+            points = detectorMap.findPoint(fiberId, wavelength)
+            with np.errstate(invalid="ignore"):
+                xCenter = np.floor(points[:, 0] + 0.5) - bbox.getMinX()
+                yCenter = np.floor(points[:, 1] + 0.5) - bbox.getMinY()
+                use = (
+                    np.isfinite(xCenter)
+                    & np.isfinite(yCenter)
+                    & (xCenter >= halfWidth)
+                    & (xCenter < width - halfWidth)
+                    & (yCenter >= halfHeight)
+                    & (yCenter < height - halfHeight)
+                )
+            if not np.any(use):
+                continue
+            rows = yCenter[use].astype(int)[:, np.newaxis, np.newaxis] + rowOffsets[np.newaxis, :, np.newaxis]
+            cols = xCenter[use].astype(int)[:, np.newaxis, np.newaxis] + colOffsets[np.newaxis, np.newaxis, :]
+            for ii, array in enumerate(arrays):
+                sums[ii, use] += array[rows, cols].sum(axis=(1, 2))
+
+        sourceFlux, targetFlux, sourceVariance, targetVariance = sums
+        with np.errstate(invalid="ignore", divide="ignore"):
+            ratio = targetFlux / sourceFlux
+            signalToNoise = np.minimum(
+                sourceFlux / np.sqrt(sourceVariance), targetFlux / np.sqrt(targetVariance)
+            )
+            good = np.isfinite(ratio) & (signalToNoise >= self.config.lineRatioMinSignalToNoise)
+        median = np.nan
+        if np.any(good):
+            median = np.median(ratio[good])
+            lq, uq = np.percentile(ratio[good], [25.0, 75.0])
+            sigma = 0.741 * (uq - lq)
+            if sigma > 0:
+                good &= np.abs(ratio - median) <= self.config.lineRatioRejection * sigma
+            median = np.median(ratio[good])
+        relative = np.where(good, ratio / median, np.nan)
+
+        if np.any(good):
+            self.log.info(
+                "Measured flux ratios for %d/%d lines: median %.3f, relative range %.3f..%.3f",
+                good.sum(),
+                len(refLines),
+                median,
+                np.min(relative[good]),
+                np.max(relative[good]),
+            )
+        else:
+            self.log.warning("No good line flux ratios from %d lines; not scaling lines", len(refLines))
+        return pipeBase.Struct(
+            wavelength=wavelength,
+            ratio=ratio,
+            signalToNoise=signalToNoise,
+            good=good,
+            median=median,
+            relative=relative,
+        )
+
+    def _scaleLines(
+        self,
+        bbox: geom.Box2I,
+        maskedImage: afwImage.MaskedImage,
+        lineRatios: pipeBase.Struct,
+        detectorMap: DetectorMap,
+    ) -> afwImage.MaskedImage:
+        """Return a copy of an image with the lines scaled by their ratios
+
+        Each pixel within ``bbox`` is associated with the nearest fiber
+        (in the spatial dimension) and, on that fiber, the nearest line
+        with a good flux ratio (in the dispersion dimension). If that line
+        is within ``config.lineScaleHalfHeight`` rows, the pixel (and its
+        variance) is scaled by the line's relative flux ratio; otherwise,
+        the pixel is not modified.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image to scale; not modified.
+        lineRatios : `lsst.pipe.base.Struct`
+            Line flux ratios, from ``_measureLineRatios``.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        scaled : `lsst.afw.image.MaskedImage`
+            Copy of ``maskedImage`` with the lines scaled.
+        """
+        width, height = bbox.getDimensions()
+        rows = np.arange(height, dtype=float) + bbox.getMinY()
+        wavelength = lineRatios.wavelength[lineRatios.good]
+        relative = lineRatios.relative[lineRatios.good]
+
+        # Scale as a function of row for each fiber
+        numFibers = len(detectorMap)
+        xCenter = np.full((numFibers, height), np.nan)
+        fiberScale = np.ones((numFibers, height))
+        for ii, fiberId in enumerate(detectorMap.fiberId):
+            xCenter[ii] = detectorMap.getXCenter(fiberId, rows)
+            lineRows = detectorMap.findPoint(fiberId, wavelength)[:, 1]
+            select = np.isfinite(lineRows)
+            if not np.any(select):
+                continue
+            distance = np.abs(rows[np.newaxis, :] - lineRows[select][:, np.newaxis])
+            nearest = np.argmin(distance, axis=0)
+            nearestDistance = distance[nearest, np.arange(height)]
+            fiberScale[ii] = np.where(
+                nearestDistance <= self.config.lineScaleHalfHeight, relative[select][nearest], 1.0
+            )
+
+        # Assign each pixel to the nearest fiber
+        scale = np.ones((height, width))
+        columns = np.arange(width, dtype=float) + bbox.getMinX()
+        for yy in range(height):
+            finite = np.isfinite(xCenter[:, yy])
+            if not np.any(finite):
+                continue
+            order = np.argsort(xCenter[finite, yy])
+            xFiber = xCenter[finite, yy][order]
+            midpoints = 0.5 * (xFiber[:-1] + xFiber[1:])
+            scale[yy] = fiberScale[finite, yy][order][np.searchsorted(midpoints, columns)]
+
+        scaled = maskedImage.clone()
+        scaled.image[bbox].array *= scale
+        scaled.variance[bbox].array *= scale**2
+        self.log.info(
+            "Scaled %d lines by their relative flux ratios before fitting: %.1f%% of pixels modified",
+            len(wavelength),
+            100 * np.mean(scale != 1.0),
+        )
+        return scaled
 
     def _buildCellSet(
         self,

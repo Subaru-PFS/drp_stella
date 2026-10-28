@@ -7,6 +7,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.geom as geom
 import lsst.pex.config as pexConfig
+import lsst.pipe.base as pipeBase
 
 from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, subtractRunningMedian, EXCLUDED_VARIANCE
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
@@ -395,6 +396,210 @@ class LineExclusionTestCase(lsst.utils.tests.TestCase):
         """Providing refLines without a detectorMap raises"""
         with self.assertRaises(ValueError):
             self.task.run(self.sourceExposure, self.targetExposure, refLines=self.refLines)
+
+
+class LineScaleTestCase(lsst.utils.tests.TestCase):
+    """Test PsfMatchTask.run with config.doLineScale
+
+    Mimics a pair of sky exposures in which the relative strengths of the
+    lines differ: each line in ``target`` has its own flux ratio relative
+    to ``source`` (common to all fibers), ramping along the dispersion
+    direction with some line-to-line scatter. Without scaling the lines,
+    the fitted kernel sum follows the ramp; with scaling, it is constant at
+    the median ratio.
+    """
+
+    def setUp(self):
+        synth = SyntheticConfig()
+        synth.width = 256
+        synth.height = 256
+        synth.separation = 20.0
+        synth.fwhm = 3.0
+        synth.gain = 1.5
+        synth.readnoise = 3.0
+        self.synth = synth
+        self.detectorMap = makeSyntheticDetectorMap(synth)
+
+        numLines = 12
+        flux = 3.0e5
+        lineFwhm = 3.5
+        lines = np.linspace(0, synth.height - 1, numLines + 2)[1:-1]
+        self.factors = 0.7 * np.linspace(0.85, 1.15, numLines) * (1 + 0.05 * (-1) ** np.arange(numLines))
+
+        rows = np.arange(synth.height, dtype=float)
+        sigma = lineFwhm / (2 * np.sqrt(2 * np.log(2)))
+        profiles = np.exp(-0.5 * ((rows[np.newaxis, :] - lines[:, np.newaxis]) / sigma) ** 2)
+        profiles *= flux / (sigma * np.sqrt(2 * np.pi))
+        sourceSpectrum = profiles.sum(axis=0)
+        targetSpectrum = (profiles * self.factors[:, np.newaxis]).sum(axis=0)
+
+        def makeTrueImage(spectrum):
+            return makeSpectrumImage(
+                spectrum.astype(np.float32), synth.dims, synth.traceCenters, synth.traceOffset, synth.fwhm
+            )
+
+        rng = np.random.RandomState(12345)
+        sourceImage, sourceBorder = convolveAndAddNoise(makeTrueImage(sourceSpectrum), 0.6, synth, rng)
+        targetImage, targetBorder = convolveAndAddNoise(makeTrueImage(targetSpectrum), 1.3, synth, rng)
+        borderMask = sourceBorder | targetBorder
+        self.sourceExposure = makeExposure(sourceImage, borderMask, synth.gain, synth.readnoise)
+        self.targetExposure = makeExposure(targetImage, borderMask, synth.gain, synth.readnoise)
+
+        fiberId = self.detectorMap.fiberId[len(self.detectorMap) // 2]
+        wavelength = self.detectorMap.findWavelength(fiberId, lines)
+        self.refLines = ReferenceLineSet.fromColumns(
+            description=["Fake"] * numLines,
+            wavelength=wavelength,
+            intensity=np.full(numLines, flux),
+            status=np.full(numLines, ReferenceLineStatus.GOOD, dtype=np.int32),
+            transition=["UNKNOWN"] * numLines,
+            source=np.zeros(numLines, dtype=np.int32),
+            intensityErr=np.full(numLines, np.nan),
+        )
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.kernel["DF"].kernelSize = 15
+        self.config.kernel["DF"].sizeCellX = 128
+        self.config.kernel["DF"].sizeCellY = 128
+        self.config.xStampSize = 48
+        self.config.yStampSize = 48
+        self.config.minPeakSignalToNoise = 5.0
+        # The synthetic lines are too dense for the running median to find the continuum, and there's no
+        # continuum to remove anyway
+        self.config.doContinuumFilter = False
+        # The synthetic PSF change is large, so we need a wide box to capture all the flux
+        self.config.lineRatioHalfWidth = 8
+        # Without scaling, the line ratios can't be fit well, so we disable clipping of candidates, which
+        # would otherwise reject them all
+        self.config.kernel["DF"].singleKernelClipping = False
+        self.config.kernel["DF"].kernelSumClipping = False
+        self.config.kernel["DF"].spatialKernelClipping = False
+
+    def tearDown(self):
+        del self.sourceExposure
+        del self.targetExposure
+        del self.detectorMap
+        del self.refLines
+
+    def runTask(self, config):
+        """Run PsfMatchTask with the line list"""
+        return PsfMatchTask(config=config).run(
+            self.sourceExposure,
+            self.targetExposure,
+            seed=1,
+            refLines=self.refLines,
+            detectorMap=self.detectorMap,
+        )
+
+    def testLineRatios(self):
+        """The measured line ratios match the input"""
+        sourceCopy = self.sourceExposure.maskedImage.clone()
+        targetCopy = self.targetExposure.maskedImage.clone()
+        result = self.runTask(self.config)
+
+        ratios = result.lineRatios
+        self.assertIsNotNone(ratios)
+        self.assertFloatsEqual(ratios.wavelength, self.refLines.wavelength)
+        self.assertTrue(np.all(ratios.good))
+        self.assertTrue(np.all(ratios.signalToNoise > self.config.lineRatioMinSignalToNoise))
+        self.assertFloatsAlmostEqual(ratios.ratio, self.factors, rtol=0.01)
+        median = np.median(self.factors)
+        self.assertFloatsAlmostEqual(ratios.median, median, rtol=0.01)
+        self.assertFloatsAlmostEqual(ratios.relative, self.factors / median, rtol=0.01)
+
+        # Inputs are not modified
+        self.assertMaskedImagesEqual(self.sourceExposure.maskedImage, sourceCopy)
+        self.assertMaskedImagesEqual(self.targetExposure.maskedImage, targetCopy)
+
+    def testKernelSum(self):
+        """Scaling the lines gives a constant kernel sum, equal to the median ratio"""
+        median = np.median(self.factors)
+        result = self.runTask(self.config)
+        sums = calculateKernelSums(result.psfMatchingKernel, self.synth)
+        self.assertFloatsAlmostEqual(sums, median, rtol=0.01)
+        self.assertLess(np.ptp(sums), 0.01)
+
+        self.config.doLineScale = False
+        unscaled = self.runTask(self.config)
+        self.assertIsNone(unscaled.lineRatios)
+        sums = calculateKernelSums(unscaled.psfMatchingKernel, self.synth)
+        self.assertGreater(np.ptp(sums), 0.1)
+
+    def testNoLines(self):
+        """Without a line list, no ratios are measured"""
+        result = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertIsNone(result.lineRatios)
+
+    def testRejection(self):
+        """Lines with low signal-to-noise or outlying ratios are rejected"""
+        self.config.lineRatioMinSignalToNoise = 0.0
+        task = PsfMatchTask(config=self.config)
+        bbox = self.sourceExposure.getBBox()
+        source = self.sourceExposure.maskedImage
+        target = self.targetExposure.maskedImage.clone()
+
+        # Make one line an outlier, by scaling the target around it
+        fiberId = self.detectorMap.fiberId[len(self.detectorMap) // 2]
+        outlier = 5
+        row = int(self.detectorMap.findPoint(fiberId, self.refLines.wavelength[outlier]).getY() + 0.5)
+        target.image.array[row - 8:row + 9] *= 3.0
+
+        ratios = task._measureLineRatios(bbox, source, target, self.refLines, self.detectorMap)
+        expected = np.ones(len(self.refLines), dtype=bool)
+        expected[outlier] = False
+        self.assertTrue(np.array_equal(ratios.good, expected))
+        self.assertTrue(np.isnan(ratios.relative[outlier]))
+
+        # A high signal-to-noise threshold rejects all lines
+        config = PsfMatchTask.ConfigClass()
+        config.lineRatioMinSignalToNoise = 1.0e10
+        ratios = PsfMatchTask(config=config)._measureLineRatios(
+            bbox, source, target, self.refLines, self.detectorMap
+        )
+        self.assertFalse(np.any(ratios.good))
+        self.assertTrue(np.isnan(ratios.median))
+
+    def testScaleLines(self):
+        """Pixels near lines with good ratios are scaled; others are not"""
+        task = PsfMatchTask(config=self.config)
+        bbox = self.sourceExposure.getBBox()
+        image = self.sourceExposure.maskedImage
+        copy = image.clone()
+        numLines = len(self.refLines)
+        good = np.arange(numLines) != 3
+        relative = np.where(good, 1.0 + 0.1 * np.arange(numLines), np.nan)
+        lineRatios = pipeBase.Struct(wavelength=self.refLines.wavelength, good=good, relative=relative)
+
+        scaled = task._scaleLines(bbox, image, lineRatios, self.detectorMap)
+        self.assertMaskedImagesEqual(image, copy)  # Input not modified
+        self.assertMasksEqual(scaled.mask, image.mask)
+
+        # Expected scale for each row (traces are nearly vertical, so lines are at the same row in all fibers)
+        fiberId = self.detectorMap.fiberId[len(self.detectorMap) // 2]
+        lineRows = np.array([
+            self.detectorMap.findPoint(fiberId, wl).getY() for wl in self.refLines.wavelength[good]
+        ])
+        rows = np.arange(bbox.getHeight(), dtype=float)
+        distance = np.abs(rows[np.newaxis, :] - lineRows[:, np.newaxis])
+        nearest = np.argmin(distance, axis=0)
+        within = distance[nearest, np.arange(len(rows))] <= self.config.lineScaleHalfHeight
+        expected = np.where(within, relative[good][nearest], 1.0)
+
+        # Check a column on the central trace, away from the boundaries between scaled regions
+        column = int(self.detectorMap.getXCenter(fiberId, bbox.getHeight() / 2) + 0.5)
+        unambiguous = np.abs(np.abs(rows[np.newaxis, :] - lineRows[:, np.newaxis]).min(axis=0)
+                             - self.config.lineScaleHalfHeight) > 2
+        unambiguous &= np.isfinite(image.image.array[:, column])
+        self.assertFloatsAlmostEqual(
+            scaled.image.array[unambiguous, column],
+            image.image.array[unambiguous, column] * expected[unambiguous],
+            rtol=1.0e-6,
+        )
+        self.assertFloatsAlmostEqual(
+            scaled.variance.array[unambiguous, column],
+            image.variance.array[unambiguous, column] * expected[unambiguous] ** 2,
+            rtol=1.0e-6,
+        )
 
 
 class ContinuumTestCase(lsst.utils.tests.TestCase):
@@ -935,6 +1140,7 @@ class ConfigTestCase(lsst.utils.tests.TestCase):
         config.validate()
         self.assertIn(config.lineMaskPlane, config.kernel.active.badMaskPlanes)
         self.assertTrue(config.doContinuumFilter)
+        self.assertTrue(config.doLineScale)
 
     def testBadLineMaskPlane(self):
         config = PsfMatchTask.ConfigClass()
