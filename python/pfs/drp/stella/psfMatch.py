@@ -225,9 +225,17 @@ class PsfMatchConfig(pexConfig.Config):
         self.dfKernel.scaleByFwhm = False
         self.dfKernel.constantVarianceWeighting = False
         self.dfKernel.useRegularization = True
-        self.dfKernel.usePcaForSpatialKernel = True
+        # The fibers form a regular comb in x, which leaves the kernel's x structure degenerate: kernel
+        # weight can move by one fiber pitch without changing the model. Only breaks in the comb
+        # (missing or dark fibers, and the ends of the slit) constrain that, but most stamps contain no
+        # break. With PCA, each stamp's kernel is solved independently, so the stamps without a break
+        # contribute arbitrary values along the degenerate direction to the PCA basis, which biases the
+        # kernel's x first moment and its x shape. Without PCA, the stamps' normal equations are
+        # combined directly in the spatial fit, so the stamps with breaks constrain the degenerate
+        # direction everywhere, while all stamps constrain everything else.
+        self.dfKernel.usePcaForSpatialKernel = False
         self.dfKernel.numPrincipalComponents = 10
-        self.dfKernel.spatialKernelOrder = 3
+        self.dfKernel.spatialKernelOrder = 1
         self.dfKernel.spatialBgOrder = 3
         self.dfKernel.fitForBackground = True
         self.dfKernel.sizeCellX = self.xStampSize
