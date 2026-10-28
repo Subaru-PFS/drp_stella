@@ -290,10 +290,11 @@ class PsfMatchTask(BasePsfMatchTask):
     a subset of the remaining stamps to bound the number used (and hence the
     runtime) while keeping the retained stamps spread across the image.
 
-    We use the delta-function kernel basis with regularization and PCA
-    spatial fitting (`lsst.ip.diffim.psfMatch.PsfMatchConfigDF`); the actual
-    kernel solve is inherited unchanged from the base class's ``_solve``
-    method.
+    We use the delta-function kernel basis with regularization
+    (`lsst.ip.diffim.psfMatch.PsfMatchConfigDF`), and fit the spatial model
+    without PCA (see the comment in `PsfMatchConfig.setDefaults`); the
+    actual kernel solve is inherited unchanged from the base class's
+    ``_solve`` method.
 
     We do not warp ``source`` onto ``target`` before matching: the two
     exposures are assumed to already share a pixel grid, and any relative
