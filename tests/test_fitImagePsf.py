@@ -8,7 +8,7 @@ from lsst.afw.image import VisitInfo
 
 from pfs.datamodel import FiberStatus
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus, ReferenceLineSource
-from pfs.drp.stella.pipelines.fitImagePsf import FitImagePsfTask, FitImagePsfConfig
+from pfs.drp.stella.fitImagePsf import FitImagePsfTask, FitImagePsfConfig
 from pfs.drp.stella.synthetic import (
     SyntheticConfig,
     makeSyntheticDetectorMap,
