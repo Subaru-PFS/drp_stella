@@ -10,8 +10,7 @@ from pfs.datamodel import CalibIdentity
 from pfs.drp.stella import PolynomialDistortion
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
-from pfs.drp.stella.pipelines.psfMatchCalibs import PsfMatchCalibsTask, addOpticsDistortion
-from pfs.drp.stella.pipelines.psfMatchCalibs import convolveFiberProfile
+from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsTask, addOpticsDistortion, convolveFiberProfile
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.tests.utils import runTests
 

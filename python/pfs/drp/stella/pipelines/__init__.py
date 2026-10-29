@@ -9,4 +9,3 @@ from .flat import *
 from .isr import *
 from .measureCentroids import *
 from .measurePhotometry import *
-from .psfMatchCalibs import *
