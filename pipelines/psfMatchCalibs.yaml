@@ -17,6 +17,6 @@ tasks:
     config:
       grouping: separate
   psfMatchCalibs:
-    class: pfs.drp.stella.pipelines.PsfMatchCalibsTask
+    class: pfs.drp.stella.psfMatchCalibs.PsfMatchCalibsTask
     config:
       referenceVisit: parameters.referenceVisit

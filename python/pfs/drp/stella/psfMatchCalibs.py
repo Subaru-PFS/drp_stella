@@ -21,23 +21,23 @@ from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConn
 
 from pfs.datamodel import CalibIdentity
 
-from ..adjustDetectorMap import AdjustDetectorMapTask
-from ..arcLine import ArcLineSet
-from ..calibs import setCalibHeader
-from ..centroidLines import CentroidLinesTask
-from ..centroidTraces import CentroidTracesTask
-from ..datamodel import PfsConfig
-from ..DetectorMapContinued import DetectorMap
-from ..fiberProfile import FiberProfile
-from ..fiberProfileSet import FiberProfileSet
-from ..OpticalModel import OpticsModel
-from ..OpticalModelDetectorMapContinued import OpticalModelDetectorMap
-from ..PolynomialDistortionContinued import PolynomialDistortion
-from ..psfBias import calculatePeakToCentroidBias
-from ..psfMatch import PsfMatchTask, calculateFirstMoments
-from ..readLineList import ReadLineListTask
-from ..utils.math import robustRms
-from .lookups import lookupCalibForVisit
+from .adjustDetectorMap import AdjustDetectorMapTask
+from .arcLine import ArcLineSet
+from .calibs import setCalibHeader
+from .centroidLines import CentroidLinesTask
+from .centroidTraces import CentroidTracesTask
+from .datamodel import PfsConfig
+from .DetectorMapContinued import DetectorMap
+from .fiberProfile import FiberProfile
+from .fiberProfileSet import FiberProfileSet
+from .OpticalModel import OpticsModel
+from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
+from .pipelines.lookups import lookupCalibForVisit
+from .PolynomialDistortionContinued import PolynomialDistortion
+from .psfBias import calculatePeakToCentroidBias
+from .psfMatch import PsfMatchTask, calculateFirstMoments
+from .readLineList import ReadLineListTask
+from .utils.math import robustRms
 
 __all__ = (
     "PsfMatchCalibsTask",
@@ -314,6 +314,16 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         default=None,
         doc="Visit of the reference exposure (the other exposure is the target); required",
     )
+    lineMode = ChoiceField(
+        dtype=str,
+        default="auto",
+        allowed={
+            "auto": "Use the line list if the target has no lamps active (i.e., sky)",
+            "arc": "Don't use the line list",
+            "sky": "Use the line list",
+        },
+        doc="Whether to use the line list when measuring the PSF-matching kernel",
+    )
     doAdjustReference = Field(
         dtype=bool,
         default=True,
@@ -327,16 +337,6 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         target=AdjustDetectorMapTask, doc="Adjust the detectorMap to the reference exposure"
     )
     psfMatch = ConfigurableField(target=PsfMatchTask, doc="Measure PSF-matching kernel")
-    lineMode = ChoiceField(
-        dtype=str,
-        default="auto",
-        allowed={
-            "auto": "Use the line list if the target has no lamps active (i.e., sky)",
-            "arc": "Don't use the line list",
-            "sky": "Use the line list",
-        },
-        doc="Whether to use the line list when measuring the PSF-matching kernel",
-    )
     numFibers = Field(dtype=int, default=40, doc="Number of fibers in grid for measuring peak shifts")
     numRows = Field(dtype=int, default=40, doc="Number of rows in grid for measuring peak shifts")
     gridMargin = Field(dtype=int, default=20, doc="Margin from top and bottom of detector for grid (pixels)")
@@ -371,16 +371,19 @@ class PsfMatchCalibsTask(PipelineTask):
     fiberProfiles) to the target exposure. The detectorMap is first adjusted
     to the reference exposure (a low-order distortion), so that any drift
     between the input detectorMap and the reference is not inherited by the
-    output. The first moment of the kernel
-    provides the change in centroid positions, and the PSF model convolved
-    with the kernel provides the change in the peak-to-centroid bias. The
-    resulting change in peak positions is fit with a polynomial distortion
-    that is added to the optics model of the detectorMap (which is referenced
-    to peak positions). The fiberProfiles are convolved with the kernel, and
-    shifted to be relative to the new (peak) trace positions.
+    output. The first moment of the kernel provides the change in centroid
+    positions, and the PSF model convolved with the kernel provides the change
+    in the peak-to-centroid bias. The resulting change in peak positions is
+    fit with a polynomial distortion that is added to the optics model of the
+    detectorMap (which is referenced to peak positions). The fiberProfiles are
+    convolved with the kernel, and shifted to be relative to the new (peak)
+    trace positions.
 
-    The outputs are written as new datasetTypes, which can be certified using
-    ``certifyDetectorMaps.py`` and ``certifyFiberProfiles.py``.
+    In a pipeline, the data query should select two visits: the reference
+    (identified by ``config.referenceVisit``) and the target. The calibs are
+    those valid for the reference visit. The outputs are written as new
+    datasetTypes, which can be certified using ``certifyDetectorMaps.py`` and
+    ``certifyFiberProfiles.py``.
     """
 
     ConfigClass = PsfMatchCalibsConfig
@@ -446,12 +449,10 @@ class PsfMatchCalibsTask(PipelineTask):
         }
 
         dataId = targetRef.dataId
-        arm = dataId["arm"]
-        spectrograph = dataId["spectrograph"]
         identity = CalibIdentity(
             obsDate=dataId.timespan.begin.to_datetime().date().isoformat(),
-            spectrograph=spectrograph,
-            arm=arm,
+            spectrograph=dataId["spectrograph"],
+            arm=dataId["arm"],
             visit0=targetVisit,
         )
 
