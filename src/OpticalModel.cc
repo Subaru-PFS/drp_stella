@@ -47,6 +47,23 @@ double calculateWavelengthDispersion(DetectorMap const& detMap) {
 }
 
 
+// Return a copy of the slit offsets, negated if the corresponding scale is negative
+//
+// The slit offsets are applied in the preslit frame (pixels), and converted to
+// the slit frame by dividing by the scale (fiberPitch or wavelengthDispersion).
+// If we change the sign of the scale (to make it positive), we need to negate
+// the offsets in order to preserve the positions.
+ndarray::Array<double, 1, 1> copyOffsets(ndarray::Array<double, 1, 1> const& offsets, double scale) {
+    ndarray::Array<double, 1, 1> result = ndarray::copy(offsets);
+    if (scale < 0) {
+        for (auto & value : result) {
+            value = -value;
+        }
+    }
+    return result;
+}
+
+
 }  // anonymous namespace
 
 
@@ -87,8 +104,8 @@ SlitModel::SlitModel(
         utils::arrayMin(source.getFiberId()),
         std::abs(calculateWavelengthDispersion(source)),
         utils::arrayMin(source.getWavelength(source.getFiberId()[source.getFiberId().size()/2])),
-        source.getSpatialOffsets(),
-        source.getSpectralOffsets(),
+        copyOffsets(source.getSpatialOffsets(), calculateFiberPitch(source)),
+        copyOffsets(source.getSpectralOffsets(), calculateWavelengthDispersion(source)),
         distortions
     )
 {}
@@ -142,14 +159,15 @@ SlitModel SlitModel::withoutDistortion() const {
     // Before PIPE2D-1823, the fiberPitch could be negative, and this leads to worse distortion fits
     // because the normalized range is outside the expected bounds. But if there's no distortion,
     // we can fix it without causing any further problems, and get better fits in the future.
+    // Changing the sign of the scales requires changing the sign of the slit offsets too.
     return SlitModel(
         ndarray::copy(getFiberId()),
         std::abs(getFiberPitch()),
         getFiberMin(),
         std::abs(getWavelengthDispersion()),
         getWavelengthMin(),
-        ndarray::copy(getSpatialOffsets()),
-        ndarray::copy(getSpectralOffsets()),
+        copyOffsets(getSpatialOffsets(), getFiberPitch()),
+        copyOffsets(getSpectralOffsets(), getWavelengthDispersion()),
         DistortionList()
     );
 }
