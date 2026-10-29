@@ -265,6 +265,7 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         doc="PSF model for the reference exposure",
         storageClass="Psf",
         dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
