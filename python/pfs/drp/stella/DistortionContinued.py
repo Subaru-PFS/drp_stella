@@ -43,9 +43,6 @@ class Distortion:  # noqa: F811 (redefinition)
         """
         assert SubClass not in cls._subclasses
         cls._subclasses[SubClass.__name__] = SubClass
-        for method in ("readFits", "fromBytes", "fromFits", "writeFits", "toBytes", "toFits",
-                       "__reduce__"):
-            setattr(SubClass, "method", getattr(cls, method))
 
     @classmethod
     def fromDatamodel(cls, distortion: pfs.datamodel.PfsDistortion) -> "Distortion":
@@ -81,8 +78,9 @@ class Distortion:  # noqa: F811 (redefinition)
         self : subclass of ``pfs::drp::stella::Distortion``
             Instantiated subclass, read from the file.
         """
-        detMap = pfs.datamodel.PfsDistortion._readImpl(fits, None)
-        return cls.fromDatamodel(detMap)
+        name = fits[0].header["HIERARCH pfs_distortion_class"]
+        distortion = pfs.datamodel.PfsDistortion.getDistortion(name).readFits(fits, 0)
+        return cls.fromDatamodel(distortion)
 
     def toFits(self):
         """Generate a FITS file
@@ -92,7 +90,12 @@ class Distortion:  # noqa: F811 (redefinition)
         fits : `astropy.io.fits.HDUList`
             FITS file.
         """
-        return self.toDatamodel()._writeImpl()
+        distortion = self.toDatamodel()
+        header = astropy.io.fits.Header()
+        header["HIERARCH pfs_distortion_class"] = distortion.getName()
+        fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(header=header)])
+        distortion.writeFits(fits, 0)
+        return fits
 
     @classmethod
     def readFits(cls, pathName: str) -> "Distortion":
@@ -139,7 +142,7 @@ class Distortion:  # noqa: F811 (redefinition)
             hdus.writeto(fd)
 
     @classmethod
-    def fromBytes(cls, string: str) -> "Distortion":
+    def fromBytes(cls, string: bytes) -> "Distortion":
         """Construct from bytes
 
         Parameters
@@ -152,7 +155,7 @@ class Distortion:  # noqa: F811 (redefinition)
         self : cls
             Constructed object.
         """
-        with astropy.io.fits.open(io.BytesIO(string.encode())) as fd:
+        with astropy.io.fits.open(io.BytesIO(string)) as fd:
             return cls.fromFits(fd)
 
     def toBytes(self):
