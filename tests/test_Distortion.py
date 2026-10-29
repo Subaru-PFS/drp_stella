@@ -11,7 +11,7 @@ import pickle
 import numpy as np
 
 import lsst.utils.tests
-from lsst.geom import Box2D, Box2I, Extent2I, Point2I
+from lsst.geom import Box2D, Box2I, Extent2I, Point2D, Point2I
 
 from pfs.drp.stella import Distortion, MosaicPolynomialDistortion, PolynomialDistortion
 from pfs.drp.stella.tests.utils import runTests
@@ -67,12 +67,24 @@ class DistortionTestCase(lsst.utils.tests.TestCase):
             self.assertDistortionsEqual(Distortion.readFits(filename), distortion)
             self.assertDistortionsEqual(type(distortion).readFits(filename), distortion)
 
+    def setNonPixelRange(self):
+        """Use a range that isn't aligned with pixel boundaries"""
+        self.range = Box2D(Point2D(-1.3, -200.7), Point2D(1.3, 200.7))
+        self.xx = self.rng.uniform(self.range.getMinX(), self.range.getMaxX(), len(self.xx))
+        self.yy = self.rng.uniform(self.range.getMinY(), self.range.getMaxY(), len(self.yy))
+
     def testPolynomialDistortion(self):
         """Test persistence of PolynomialDistortion"""
         self.checkPersistence(self.makePolynomialDistortion())
 
     def testMosaicPolynomialDistortion(self):
         """Test persistence of MosaicPolynomialDistortion"""
+        self.checkPersistence(self.makeMosaicPolynomialDistortion())
+
+    def testNonPixelRange(self):
+        """Test persistence with a range not aligned with pixel boundaries"""
+        self.setNonPixelRange()
+        self.checkPersistence(self.makePolynomialDistortion())
         self.checkPersistence(self.makeMosaicPolynomialDistortion())
 
 

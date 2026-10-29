@@ -1,5 +1,5 @@
 from lsst.utils import continueClass
-from lsst.geom import Box2D
+from lsst.geom import Box2D, Point2D
 
 import pfs.datamodel.pfsDetectorMap
 
@@ -27,7 +27,12 @@ class MosaicPolynomialDistortion:  # noqa: F811 (redefinition)
         """
         if not isinstance(distortion, pfs.datamodel.MosaicPolynomialDistortion):
             raise RuntimeError(f"Wrong type: {distortion}")
-        return cls(distortion.order, Box2D(distortion.box.toLsst()), distortion.coefficients)
+        box = distortion.box
+        return cls(
+            distortion.order,
+            Box2D(Point2D(box.xMin, box.yMin), Point2D(box.xMax, box.yMax)),
+            distortion.coefficients,
+        )
 
     def toDatamodel(self):
         """Convert to the pfs.datamodel representation
