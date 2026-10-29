@@ -9,9 +9,9 @@ tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
   fitImagePsf:
-    class: pfs.drp.stella.pipelines.FitImagePsfTask
+    class: pfs.drp.stella.fitImagePsf.FitImagePsfTask
   fitImagePsfQa:
-    class: pfs.drp.stella.pipelines.FitImagePsfQaTask
+    class: pfs.drp.stella.fitImagePsf.FitImagePsfQaTask
 
 subsets:
   fit:
