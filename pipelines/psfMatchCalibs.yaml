@@ -1,0 +1,22 @@
+description: |
+  Adjust detectorMap and fiberProfiles for a change in focus, using a PSF-matching kernel
+
+  The data query should select two visits (arcs or sky): the reference (with
+  the same focus as the imagePsf, detectorMap_calib and fiberProfiles) and the
+  target. Set the reference visit with "-c parameters:referenceVisit=<visit>".
+  The outputs (detectorMap_psfMatch, fiberProfiles_psfMatch) can be certified
+  with certifyDetectorMaps.py and certifyFiberProfiles.py (with --datasetType).
+instrument: lsst.obs.pfs.PrimeFocusSpectrograph
+parameters:
+  referenceVisit: None
+tasks:
+  isr:
+    class: lsst.obs.pfs.isrTask.PfsIsrTask
+  cosmicray:
+    class: pfs.drp.stella.cosmicray.CosmicRayTask
+    config:
+      grouping: separate
+  psfMatchCalibs:
+    class: pfs.drp.stella.pipelines.PsfMatchCalibsTask
+    config:
+      referenceVisit: parameters.referenceVisit
