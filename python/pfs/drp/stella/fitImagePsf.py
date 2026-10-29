@@ -213,6 +213,7 @@ class FitImagePsfConnections(PipelineTaskConnections, dimensions=("instrument", 
         doc="PSF fit from isolated fiber images, treating the data as ordinary imaging data",
         storageClass="Psf",
         dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
     )
     adjustedDetectorMaps = OutputConnection(
         name="detectorMap_imagePsf",
@@ -642,6 +643,7 @@ class FitImagePsfQaConnections(PipelineTaskConnections, dimensions=("instrument"
         doc="Fitted PSF to assess",
         storageClass="Psf",
         dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
     )
     qualityPlot = OutputConnection(
         name="imagePsfQualityPlot",
