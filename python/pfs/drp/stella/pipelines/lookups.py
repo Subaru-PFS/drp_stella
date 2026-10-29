@@ -1,7 +1,7 @@
 from typing import List
 from lsst.daf.butler import DataCoordinate, DatasetRef, DatasetType, Registry
 
-__all__ = ("lookupDetectorMap", "lookupFiberNorms")
+__all__ = ("lookupDetectorMap", "lookupFiberNorms", "lookupCalibForVisit")
 
 
 def lookupDetectorMap(
@@ -90,3 +90,43 @@ def lookupFiberNorms(
         if ref is not None:
             refList.append(ref)
     return refList
+
+
+def lookupCalibForVisit(
+    datasetType: str | DatasetType,
+    registry: Registry,
+    dataId: DataCoordinate,
+    collections: List[str],
+    *,
+    visit: int,
+) -> List[DatasetRef]:
+    """Look up a calib that is valid for a particular visit
+
+    This is a lookup function for a PrerequisiteConnection, for use when the
+    quantum has no temporal dimensions but the calib should be the one valid
+    for a specific visit (e.g., one set in the config). Bind the ``visit``
+    with `functools.partial`.
+
+    Parameters
+    ----------
+    datasetType : `str` or `lsst.daf.butler.DatasetType`
+        The dataset type to look up.
+    registry : `lsst.daf.butler.Registry`
+        The butler registry.
+    dataId : `lsst.daf.butler.DataCoordinate`
+        The data identifier.
+    collections : `list` of `str`
+        The collections to search.
+    visit : `int`
+        Visit for which the calib should be valid.
+
+    Returns
+    -------
+    refs : `list` of `lsst.daf.butler.DatasetRef`
+        The references to the calib.
+    """
+    records = list(registry.queryDimensionRecords("visit", instrument=dataId["instrument"], visit=visit))
+    if len(records) != 1:
+        raise RuntimeError(f"Unable to find unique visit record for visit {visit}: {records}")
+    ref = registry.findDataset(datasetType, dataId, collections=collections, timespan=records[0].timespan)
+    return [ref] if ref is not None else []
