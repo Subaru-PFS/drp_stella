@@ -69,9 +69,12 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     auto box = image.getBBox(lsst::afw::image::PARENT);
     box.clip(_trace.getBBox(lsst::afw::image::PARENT));
 
-    if (flux.size() < std::size_t(box.getMaxY())) {
+    if (box.isEmpty()) {
+        return;
+    }
+    if (flux.size() <= std::size_t(box.getMaxY())) {
         std::ostringstream str;
-        str << "Size of flux array (" << flux.size() << ") too small for box (" << box.getMaxY() << ")";
+        str << "Size of flux array (" << flux.size() << ") too small for box (" << box.getMaxY() + 1 << ")";
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, str.str());
     }
 
@@ -82,7 +85,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
         std::ptrdiff_t const xStart = box.getMinX() - _trace.getX0();
         auto profileIter = _trace.getImage()->row_begin(row) + xStart;
         auto maskIter = _trace.getMask()->row_begin(row) + xStart;
-        auto imageIter = image.row_begin(row) + xStart;
+        auto imageIter = image.row_begin(y - image.getY0()) + box.getMinX() - image.getX0();
 
         float const specValue = *spec;
         for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
