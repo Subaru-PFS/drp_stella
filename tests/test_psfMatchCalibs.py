@@ -8,11 +8,13 @@ from lsst.geom import Box2D, Point2I
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella import PolynomialDistortion
+from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineSource, ReferenceLineStatus
+from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsTask, addOpticsDistortion, convolveFiberProfile
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
-from pfs.drp.stella.tests.utils import runTests
+from pfs.drp.stella.tests.utils import methodParameters, runTests
 
 display = None
 
@@ -89,6 +91,38 @@ def makeVaryingKernel(size: int, bbox) -> afwMath.Kernel:
     offsetFunc = afwMath.PolynomialFunction2D([0.1, 0.1 / width, 0.1 / height])
     centerFunc = afwMath.PolynomialFunction2D([0.9, -0.1 / width, -0.1 / height])
     return afwMath.LinearCombinationKernel(basisList, [centerFunc, offsetFunc])
+
+
+def makeAsymmetricKernel(size: int, offset: int, weight: list[float]) -> afwMath.Kernel:
+    """Make a kernel that is asymmetric in x
+
+    The kernel is a combination of a central delta function and a delta
+    function offset in x, so the peak and the centroid of an image convolved
+    with it move by different amounts.
+
+    Parameters
+    ----------
+    size : `int`
+        Width and height of kernel (odd).
+    offset : `int`
+        Offset in x of the second delta function from the kernel center.
+    weight : `list` of `float`
+        Coefficients of the polynomial (``a + b*x + c*y``, or just ``a``) for
+        the weight of the offset delta function.
+
+    Returns
+    -------
+    kernel : `lsst.afw.math.LinearCombinationKernel`
+        Asymmetric kernel.
+    """
+    center = size // 2
+    basisList = [
+        afwMath.DeltaFunctionKernel(size, size, Point2I(center, center)),
+        afwMath.DeltaFunctionKernel(size, size, Point2I(center + offset, center)),
+    ]
+    centerWeight = [1.0 - weight[0]] + [-coeff for coeff in weight[1:]]
+    funcList = [afwMath.PolynomialFunction2D(centerWeight), afwMath.PolynomialFunction2D(weight)]
+    return afwMath.LinearCombinationKernel(basisList, funcList)
 
 
 class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
@@ -232,6 +266,102 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(
                 newProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
             )
+
+    def measureArcLines(self, fiberProfiles, detectorMap):
+        """Centroid lines on an arc constructed from the fiber profiles
+
+        Each line is the fiber trace multiplied by a Gaussian in the spectral
+        direction with the same width as the PSF, so for a Gaussian profile it
+        is the realised PSF.
+
+        Parameters
+        ----------
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of fibers.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        dx, dy : `numpy.ndarray` of `float`
+            Measured line positions minus positions from the detectorMap.
+        """
+        sigma = self.psf.getSigma()
+        rows = np.arange(self.synthConfig.height, dtype=float)
+        lineRows = np.arange(50, self.synthConfig.height - 50, 40, dtype=float)
+        spectrum = np.zeros_like(rows)
+        for yy in lineRows:
+            spectrum += 1.0e5 * np.exp(-0.5 * ((rows - yy) / sigma) ** 2)
+        middle = self.detectorMap.fiberId[self.detectorMap.getNumFibers() // 2]
+        referenceLines = ReferenceLineSet.fromRows(
+            [
+                ReferenceLine(
+                    description="Fake",
+                    wavelength=self.detectorMap.getWavelength(middle, yy),
+                    intensity=1.0e5,
+                    status=ReferenceLineStatus.GOOD,
+                    transition="UNKNOWN",
+                    source=ReferenceLineSource.NONE,
+                )
+                for yy in lineRows
+            ]
+        )
+
+        image = afwImage.ImageF(self.synthConfig.dims)
+        for fiberTrace in fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap):
+            bbox = fiberTrace.trace.getBBox()
+            image[bbox].array += (
+                fiberTrace.trace.image.array * spectrum[bbox.getMinY() : bbox.getMaxY() + 1, np.newaxis]
+            )
+        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(image))
+        exposure.mask.set(0)
+        exposure.variance.set(1.0)
+
+        config = CentroidLinesTask.ConfigClass()
+        config.doSubtractTraces = False
+        lines = CentroidLinesTask(config=config).run(exposure, referenceLines, detectorMap)
+        self.assertEqual(len(lines), detectorMap.getNumFibers() * len(lineRows))
+        self.assertFalse(np.any(lines.flag))
+        points = detectorMap.findPoint(lines.fiberId, lines.wavelength.astype(float))
+        return lines.x - points[:, 0], lines.y - points[:, 1]
+
+    @methodParameters(
+        weight=([0.3], [0.1, 0.3 / 512, 0.0]),
+        offset=(2, 3),
+    )
+    def testProfilePeakZeroPoint(self, weight, offset):
+        """Test that the adjusted fiber profiles are referenced to the peak
+
+        The zero-point of the fiber profiles (and the detectorMap) is the peak
+        of the trace (as measured by ``SdssCentroid``), not its centroid. With
+        an asymmetric kernel the two move by different amounts, so we
+        construct an arc from the adjusted profiles and detectorMap, and check
+        that the lines are measured at the positions in the detectorMap.
+
+        We test a constant kernel and one that varies across the detector.
+        """
+        profile = FiberProfile.makeGaussian(self.psf.getSigma(), self.synthConfig.height, 8, 10)
+        profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
+
+        # Reference: Gaussian profile, so the peak and centroid coincide
+        dx, dy = self.measureArcLines(profiles, self.detectorMap)
+        self.assertFloatsAlmostEqual(dx, 0.0, atol=5.0e-3)
+        self.assertFloatsAlmostEqual(dy, 0.0, atol=5.0e-3)
+
+        kernel = makeAsymmetricKernel(9, offset, weight)
+        newDetectorMap, shifts = self.adjustDetectorMap(kernel)
+        newProfiles = self.task.adjustFiberProfiles(
+            profiles, kernel, self.detectorMap, newDetectorMap, self.identity, afwImage.VisitInfo()
+        )
+
+        # The test can distinguish the peak from the centroid
+        self.assertTrue(np.all(shifts.dx - shifts.dxCentroid > 0.15))
+
+        # The residual scatter is due to the pixel phase, which the polynomial distortion cannot follow.
+        dx, dy = self.measureArcLines(newProfiles, newDetectorMap)
+        self.assertFloatsAlmostEqual(np.mean(dx), 0.0, atol=2.0e-3)
+        self.assertFloatsAlmostEqual(dx, 0.0, atol=5.0e-2)
+        self.assertFloatsAlmostEqual(dy, 0.0, atol=5.0e-3)
 
     def testConfigDefaults(self):
         """Test the default configuration"""
