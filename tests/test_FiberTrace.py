@@ -246,6 +246,56 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         image[self.bbox, lsst.afw.image.PARENT].set(0.0)
         self.assertFloatsEqual(image.array, 0.0)
 
+    def testConstructImageBBox(self):
+        """Test construction of image when the image and trace bboxes differ
+
+        The trace should be placed according to its position in the parent
+        frame, regardless of the origin of the image.
+        """
+        spectrum = drpStella.Spectrum(self.fullDims.getY(), self.fiberId)
+        spectrum.flux[self.xy0.getY():self.xy0.getY() + self.height] = 1.0
+        expected = lsst.afw.image.ImageF(lsst.geom.Box2I(lsst.geom.Point2I(0, 0), self.fullDims))
+        expected[self.bbox, lsst.afw.image.PARENT].array[:] = self.subimage.image.array
+
+        # Image containing the trace, and images with a different origin that partially overlap
+        offset = lsst.geom.Extent2I(self.width//2, self.height//2)
+        for bbox in (
+            expected.getBBox(),
+            lsst.geom.Box2I(self.xy0 + offset, self.fullDims),
+            lsst.geom.Box2I(self.xy0 - offset, lsst.geom.Extent2I(self.width, self.height)),
+        ):
+            with self.subTest(bbox=bbox):
+                overlap = lsst.geom.Box2I(bbox)
+                overlap.clip(expected.getBBox())
+
+                image = self.fiberTrace.constructImage(spectrum, bbox)
+                self.assertEqual(image.getBBox(), bbox)
+                self.assertFloatsAlmostEqual(
+                    image[overlap, lsst.afw.image.PARENT].array,
+                    expected[overlap, lsst.afw.image.PARENT].array,
+                    atol=1.0e-7,
+                )
+
+                image = lsst.afw.image.ImageF(bbox)
+                image.set(0.0)
+                self.fiberTrace.constructImage(image, spectrum.flux)
+                self.assertFloatsAlmostEqual(
+                    image[overlap, lsst.afw.image.PARENT].array,
+                    expected[overlap, lsst.afw.image.PARENT].array,
+                    atol=1.0e-7,
+                )
+
+        # Image that doesn't overlap the trace
+        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(self.xy0.getX(), self.height))
+        image = self.fiberTrace.constructImage(spectrum, bbox)
+        self.assertFloatsEqual(image.array, 0.0)
+
+        # Flux array too short
+        image = lsst.afw.image.ImageF(self.bbox)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            self.fiberTrace.constructImage(image, spectrum.flux[:self.xy0.getY() + self.height - 1])
+        self.fiberTrace.constructImage(image, spectrum.flux[:self.xy0.getY() + self.height])
+
     def testApplyToMask(self):
         """Test application of trace mask to image"""
         self.fiberTrace.applyToMask(self.image.mask)
