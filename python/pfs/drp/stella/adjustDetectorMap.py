@@ -26,7 +26,7 @@ class AdjustDetectorMapConfig(FitDetectorMapConfig):
     """Configuration for AdjustDetectorMapTask"""
     def setDefaults(self):
         self.exclusionRadius = 4.0
-        self.order = 2
+        self.order = 0  # System is very stable when we don't accidentally change the focus
 
 
 class AdjustDetectorMapTask(FitDetectorMapTask):
