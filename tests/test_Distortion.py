@@ -1,8 +1,9 @@
-"""Tests of persistence of Distortion subclasses
+"""Tests of Distortion subclasses
 
 Distortions can be persisted on their own (FITS file, bytes, pickle), in
 addition to being persisted as part of a detectorMap. These tests check that
-the standalone persistence round-trips for each registered subclass.
+the standalone persistence round-trips for each registered subclass, and that
+the analytic distortions can be fit.
 """
 
 import os
@@ -86,6 +87,133 @@ class DistortionTestCase(lsst.utils.tests.TestCase):
         self.setNonPixelRange()
         self.checkPersistence(self.makePolynomialDistortion())
         self.checkPersistence(self.makeMosaicPolynomialDistortion())
+
+    def fitDistortion(
+        self,
+        truth: Distortion,
+        numLines: int = 1000,
+        numTraces: int = 0,
+        traceErr: float = 0.01,
+        forced: np.ndarray | None = None,
+        params: np.ndarray | None = None,
+    ) -> Distortion:
+        """Fit a distortion to noiseless measurements generated from truth
+
+        Parameters
+        ----------
+        truth : `Distortion`
+            Distortion used to generate the measurements.
+        numLines : `int`
+            Number of line measurements (both x and y).
+        numTraces : `int`
+            Number of trace measurements (x only).
+        traceErr : `float`
+            Error in x for trace measurements.
+        forced : `numpy.ndarray` of `bool`, optional
+            Which parameters are forced.
+        params : `numpy.ndarray` of `float`, optional
+            Values of forced parameters.
+
+        Returns
+        -------
+        distortion : `Distortion`
+            Fit distortion.
+        """
+        num = numLines + numTraces
+        xx = self.rng.uniform(self.range.getMinX(), self.range.getMaxX(), num)
+        yy = self.rng.uniform(self.range.getMinY(), self.range.getMaxY(), num)
+        isLine = np.zeros(num, dtype=bool)
+        isLine[:numLines] = True
+        meas = truth(xx, yy)
+        xMeas = meas[:, 0].copy()
+        yMeas = meas[:, 1].copy()
+        yMeas[~isLine] = 1.0e6  # Traces have no y measurement: this should be ignored
+        xErr = np.where(isLine, 0.01, traceErr)
+        yErr = np.full(num, 0.01, dtype=float)
+        return type(truth).fit(
+            self.order, self.range, xx, yy, xMeas, yMeas, xErr, yErr, isLine, forced=forced, params=params
+        )
+
+    def assertFitMatches(self, fit: Distortion, truth: Distortion):
+        """Assert that a fit distortion matches the truth"""
+        self.assertIs(type(fit), type(truth))
+        self.assertFloatsAlmostEqual(fit(self.xx, self.yy), truth(self.xx, self.yy), atol=1.0e-7)
+
+    def testFitPolynomialDistortion(self):
+        """Test fitting PolynomialDistortion"""
+        truth = self.makePolynomialDistortion()
+        self.assertFitMatches(self.fitDistortion(truth), truth)
+
+    def testFitMosaicPolynomialDistortion(self):
+        """Test fitting MosaicPolynomialDistortion"""
+        truth = self.makeMosaicPolynomialDistortion()
+        self.assertFitMatches(self.fitDistortion(truth), truth)
+
+    def testFitWithDominantTraces(self):
+        """Test fitting when traces dominate the x measurements
+
+        Traces provide only x measurements. When they carry far more weight
+        than the lines, the y fit should be unaffected. This failed when x and
+        y were fit together, because the eigenvalue threshold for the matrix
+        solution was set by the x measurements.
+        """
+        for truth in (self.makePolynomialDistortion(), self.makeMosaicPolynomialDistortion()):
+            with self.subTest(distortion=type(truth).__name__):
+                fit = self.fitDistortion(truth, numTraces=10000, traceErr=1.0e-6)
+                self.assertFitMatches(fit, truth)
+
+    def testFitForcedPolynomialDistortion(self):
+        """Test fitting PolynomialDistortion with forced parameters
+
+        Parameters are ordered as x coefficients then y coefficients.
+        """
+        truth = self.makePolynomialDistortion()
+        numCoeff = PolynomialDistortion.getNumDistortionForOrder(self.order)
+        forced = np.zeros(2*numCoeff, dtype=bool)
+        forced[[1, numCoeff + 2]] = True
+        params = np.concatenate((truth.getXCoefficients(), truth.getYCoefficients()))
+
+        # Forcing to the true values should recover the truth
+        fit = self.fitDistortion(truth, forced=forced, params=params)
+        self.assertFitMatches(fit, truth)
+
+        # Forcing to different values should be respected
+        params[forced] += 1.0
+        fit = self.fitDistortion(truth, forced=forced, params=params)
+        self.assertEqual(fit.getXCoefficients()[1], params[1])
+        self.assertEqual(fit.getYCoefficients()[2], params[numCoeff + 2])
+
+    def testFitForcedMosaicPolynomialDistortion(self):
+        """Test fitting MosaicPolynomialDistortion with forced parameters
+
+        Parameters are ordered as x coefficients, y coefficients, then the
+        affine terms X, XX, XY, Y, YX, YY.
+        """
+        truth = self.makeMosaicPolynomialDistortion()
+        numCoeff = MosaicPolynomialDistortion.getNumDistortionForOrder(self.order)
+        affine = truth.getAffine()
+        translation = affine.getTranslation()
+        matrix = affine.getLinear().getMatrix()
+        affineParams = [
+            translation.getX(), matrix[0, 0], matrix[0, 1], translation.getY(), matrix[1, 0], matrix[1, 1]
+        ]
+        params = np.concatenate((truth.getXCoefficients(), truth.getYCoefficients(), affineParams))
+        forced = np.zeros_like(params, dtype=bool)
+        forcedIndices = [0, numCoeff + 1, 2*numCoeff + 2, 2*numCoeff + 3]  # x, y, affine XY and Y
+        forced[forcedIndices] = True
+
+        # Forcing to the true values should recover the truth
+        fit = self.fitDistortion(truth, forced=forced, params=params)
+        self.assertFitMatches(fit, truth)
+
+        # Forcing to different values should be respected
+        params[forced] += 1.0
+        fit = self.fitDistortion(truth, forced=forced, params=params)
+        self.assertEqual(fit.getXCoefficients()[0], params[0])
+        self.assertEqual(fit.getYCoefficients()[1], params[numCoeff + 1])
+        fitAffine = fit.getAffine()
+        self.assertEqual(fitAffine.getLinear().getMatrix()[0, 1], params[2*numCoeff + 2])
+        self.assertEqual(fitAffine.getTranslation().getY(), params[2*numCoeff + 3])
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

@@ -1,6 +1,8 @@
 #ifndef PFS_DRP_STELLA_UTILS_MATH_H
 #define PFS_DRP_STELLA_UTILS_MATH_H
 
+#include <vector>
+#include <type_traits>
 #include <ndarray_fwd.h>
 #include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/utils/checkSize.h"
@@ -114,6 +116,29 @@ ndarray::Array<T, 1, 1> arraySelect(
         if (!*sel) continue;
         out[ii] = *arr;
         ++ii;
+    }
+    return out;
+}
+
+
+/// Return elements of an array at particular indices
+///
+/// This is like numpy's "take".
+///
+/// @param array : Array from which to take elements
+/// @param indices : Indices of elements to take
+/// @return 1D array with the elements at the indices
+template <typename T, int C>
+ndarray::Array<std::remove_const_t<T>, 1, 1> arrayTake(
+    ndarray::Array<T, 1, C> const& array,
+    std::vector<std::size_t> const& indices
+) {
+    ndarray::Array<std::remove_const_t<T>, 1, 1> out = ndarray::allocate(indices.size());
+    for (std::size_t ii = 0; ii < indices.size(); ++ii) {
+        if (indices[ii] >= array.size()) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Index out of range");
+        }
+        out[ii] = array[indices[ii]];
     }
     return out;
 }
