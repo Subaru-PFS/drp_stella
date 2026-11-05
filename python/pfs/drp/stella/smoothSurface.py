@@ -176,6 +176,35 @@ class SmoothSurface:
         offsets = [table.get(str(ll), (0.0, 0.0))[0] for ll in np.ravel(label)]
         return np.array(offsets).reshape(np.shape(label))
 
+    def recentre(self, factor, weights):
+        """Make the offsets of ``factor`` average zero, moving their mean into the surface
+
+        Claude: the surface (with no offsets) is then the average group's
+        rather than the reference group's, which is what an unlabelled point
+        (e.g. an engineering fibre, in no MTP sub-bundle) should get; the
+        labelled points' values are unchanged.
+
+        Parameters
+        ----------
+        factor : `str`
+            Grouping factor, e.g. ``mtp``.
+        weights : `dict` [`str`, `float`]
+            Weight of each group in the mean (e.g. its number of fibres);
+            groups with no offset (the reference) count as zero offset.
+        """
+        table = self.offsets.get(factor)
+        if not table or not weights:
+            return
+        total = sum(weights.values())
+        if total <= 0:
+            return
+        mean = sum(ww*table.get(str(ll), (0.0, 0.0))[0] for ll, ww in weights.items())/total
+        for ll in set(table) | {str(ll) for ll in weights}:
+            value, err = table.get(ll, (0.0, 0.0))
+            table[ll] = (value - mean, err)
+        self.coeffs = np.array(self.coeffs, dtype=float)
+        self.coeffs[0] += mean      # chebvander2d's first column is T0(u) T0(v) = 1
+
     def evaluate(self, u, v, **labels):
         """Surface plus the offsets of the given groups
 

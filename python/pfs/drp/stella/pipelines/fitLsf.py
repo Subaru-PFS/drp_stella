@@ -108,17 +108,24 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                                  "pfiRadius")
     pfiRadiusModel = DictField(
         keytype=str, itemtype=str,
-        default=dict(b="27.985,0.418,0.226,0.191,0.016,0.230",
-                     r="27.990,0.440,0.308,0.248,0.022,0.224",
-                     m="27.810,0.271,0.305,0.238,0.012,0.225",
-                     n="28.170,0.598,0.317,0.250,0.028,0.212"),
+        default=dict(b="28.307,0.776,0.376,0.128,0.012,0.236",
+                     r="28.385,0.859,0.491,0.154,0.015,0.234",
+                     m="28.027,0.538,0.481,0.149,0.007,0.235",
+                     n="28.742,1.180,0.508,0.157,0.018,0.222"),
         doc="Per-arm model of the radius of the image of a science fibre's core on the detector (microns): "
             "coefficients c00,c01,c02,c10,c11,c12 of R = sum_ij c_ij u^(2i) v^j with u = x/30mm along the "
             "slit and v = y/30mm in dispersion (increasing with wavelength), measured from the detector "
             "centre. From Jim Gunn's ray traces ({blue,red,nir,rmr}fiberspots.csv) at nominal focus, which "
-            "fit to 0.07% rms (m is the r camera, but its focal plane is tilted with respect to r's)")
-    pfiRadiusModelScale = Field(dtype=float, default=1.0,
-                                doc="Multiply pfiRadiusModel by this factor (e.g. for a different focus)")
+            "fit to 0.07% rms (m is the r camera, but its focal plane is tilted with respect to r's). The "
+            "defaults are the corrected half-width in the dispersion direction (R_y), which fits the arcs "
+            "better than the mean radius (a+b)/2")
+    pfiRadiusModelScale = Field(dtype=float, default=None, optional=True,
+                                doc="Multiply pfiRadiusModel by this factor: the ratio of the fibres' core "
+                                    "diameter to the traces' (128.4um; the cables' cores are 127-129um at "
+                                    "the slit). None: measure it (the median ratio of the free fits' radii "
+                                    "to the model; the per-fibre medians are in the metadata, "
+                                    "pfiRadiusScale). The arcs prefer 0.975-0.993 to the 1.005 of 129um "
+                                    "cores, even allowing for per-sub-bundle blur")
     pixelSize = Field(dtype=float, default=15.0, doc="Detector pixel size (microns), for pfiRadiusModel")
     fitHalo = Field(dtype=bool, default=True,
                     doc="Add a halo to the profile: a fraction haloFrac of the light in the disk blurred by "
@@ -154,13 +161,14 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                                "from the PFI kernel convolved with their (smaller) disk: on b they are wider "
                                "(by ~0.35 px rms), with stronger wings; on n slightly narrower")
     iisExtraBlur = DictField(keytype=str, itemtype=str,
-                             default=dict(b="0.04285,0.07637", r="0.03732,0.07198", m="-0.00067,-0.02713",
-                                          n="-0.02936,-0.03583"),
+                             default=dict(b="0.01960,0.02619", r="0.04320,0.08292", m="0.00781,-0.02242",
+                                          n="-0.03411,-0.04302"),
                              doc="Per-arm extra blur of the engineering fibres, 'variance,kappa4' "
                                  "(pixels^2, may be negative; pixels^4), measured from all the spectrographs "
                                  "of an arm (the per-line values: metadata iisExtraBlur). Arms not "
                                  "listed use each detector's own measurement (if doIisExtraBlur). The "
-                                 "defaults are the medians over spectrographs 1-4 of the 2026-08/09 IIS arcs")
+                                 "defaults are the medians over spectrographs 1-4 of the 2026-08/09 IIS "
+                                 "arcs, with the R_y radius model and visit,mtp rms grouping")
     iisHaloScaleDegree = Field(dtype=str, default="0,0",
                                doc="Chebyshev degree 'dx,dy' of the IIS/PFI halo-fraction ratio ('0,0': a "
                                    "constant)")
@@ -215,10 +223,13 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                         default=dict(centroid="2,3", radius="2,3", rms="3,4", S="2,3", K="2,2",
                                      lam5="1,1", lam6="1,1", lorentz="2,3", haloFrac="1,2", haloWidth="1,2"),
                         doc="Chebyshev degree 'dx,dy' of each parameter's smooth fit over the detector")
-    groupBy = DictField(keytype=str, itemtype=str, default=dict(centroid="visit,fiberId", default="visit"),
+    groupBy = DictField(keytype=str, itemtype=str, default=dict(centroid="visit,fiberId", rms="visit,mtp",
+                                                                default="visit"),
                         doc="Factors with constant offsets in each parameter's smooth fit ('default' for "
                             "parameters not listed; '' for none): per visit (focus, brightness), and per "
-                            "fibre in the centroid (a wavelength zero-point error)")
+                            "fibre in the centroid (a wavelength zero-point error); 'mtp' (sub-bundle, e.g. "
+                            "U3-1) or 'connector' (MTP connector, e.g. U3) for fibre-to-fibre blur from "
+                            "focal-ratio degradation")
     nIter = Field(dtype=int, default=3, doc="Clip-and-refit iterations of the smooth fits")
     nSigma = Field(dtype=float, default=4.0, doc="Clipping threshold (robust sigma) of the smooth fits")
     doCoverageGuard = Field(dtype=bool, default=True,
@@ -320,6 +331,7 @@ class FitLsfTask(PipelineTask):
         lsfLines : `LsfLineSet`
             Per-line fits.
         """
+        self.radiusScale = self.config.pfiRadiusModelScale   # None until measured, if it's to be measured
         exposures = []
         for visit, pfsArm, detMap, metadata in zip(visits, pfsArmList, detectorMapList, metadataList):
             lines = self.readLineList.run(detectorMap=detMap, metadata=metadata)
@@ -381,6 +393,10 @@ class FitLsfTask(PipelineTask):
 
         def isUsed(ff):
             return self.lineKey(ff) not in dropped
+
+        radiusSummary = {}
+        if self.config.doPfiRadiusModel and self.radiusScale is None:
+            self.radiusScale, radiusSummary = self.measureRadiusScale(exposures, free.fits, isUsed)
 
         # Centroid zero point, and pinned fits
         zeroPoint, zeroPointErr, scatter, used = centroidZeroPoint(
@@ -467,6 +483,8 @@ class FitLsfTask(PipelineTask):
         lsfModel = self.makeModel(arm, spectrograph, exposures, surfaces, coords, zeroPoint,
                                   extraExposures=iisExposures)
         lsfModel.metadata.update(zeroPointErr=zeroPointErr, zeroPointScatter=scatter)
+        if self.config.doPfiRadiusModel:
+            lsfModel.metadata.update(pfiRadiusScale=dict(scale=self.radiusScale, **radiusSummary))
         if iis is not None:
             lsfModel.engineeringFiberId = iis.fiberId
             lsfModel.iisRadiusScale = iis.scale
@@ -548,10 +566,52 @@ class FitLsfTask(PipelineTask):
         if self.config.doPfiRadiusModel:
             if arm not in self.config.pfiRadiusModel:
                 raise RuntimeError(f"No pfiRadiusModel for arm {arm}")
-            return "model"
+            return "model" if getattr(self, "radiusScale", 1.0) is not None else None   # None: to be measured
         return self.config.pfiRadius
 
-    def modelRadius(self, exp, fiberId):
+    def measureRadiusScale(self, exposures, fits, isUsed):
+        """Measure the ratio of the PFI disk radius to pfiRadiusModel
+
+        Parameters
+        ----------
+        exposures : `list` of `Struct`
+            Exposures (see `run`).
+        fits : `dict` [(`int`, `int`), `list` of `DiskLineFit`]
+            Free fits (with the radius free) for each ``(visit, fiberId)``.
+        isUsed : callable
+            Is a fit's line to be used?
+
+        Returns
+        -------
+        scale : `float`
+            Median ratio of the fitted radii to the model's.
+        summary : `dict`
+            ``nLines``, ``scatter`` (1.4826 MAD), and ``fiberId`` and
+            ``perFiber`` (each fibre's median ratio).
+        """
+        byVisit = {exp.visit: exp for exp in exposures}
+        ratios = defaultdict(list)
+        for (visit, fiberId), ffs in fits.items():
+            model = self.modelRadius(byVisit[visit], fiberId, scale=1.0)
+            for ff in ffs:
+                rr = model.get(round(float(ff.catWavelength), 4))
+                if isUsed(ff) and rr and np.isfinite(ff.radius):
+                    ratios[fiberId].append(ff.radius/rr)
+        allRatios = np.concatenate([np.array(rr) for rr in ratios.values()]) if ratios else np.zeros(0)
+        if len(allRatios) == 0:
+            self.log.warning("No lines to measure the radius scale: using 1")
+            return 1.0, {}
+        scale = float(np.median(allRatios))
+        scatter = float(1.4826*np.median(np.abs(allRatios - scale)))
+        fiberId = sorted(ratios)
+        perFiber = [float(np.median(ratios[ff])) for ff in fiberId]
+        self.log.info("PFI radius / pfiRadiusModel: %.4f (scatter %.4f over %d lines; fibre medians "
+                      "%.4f-%.4f)", scale, scatter, len(allRatios), np.percentile(perFiber, 5),
+                      np.percentile(perFiber, 95))
+        return scale, dict(nLines=int(len(allRatios)), scatter=scatter,
+                           fiberId=[int(ff) for ff in fiberId], perFiber=perFiber)
+
+    def modelRadius(self, exp, fiberId, scale=None):
         """The optical model's image radius (pixels) of each catalogue line in a fibre
 
         Parameters
@@ -560,6 +620,9 @@ class FitLsfTask(PipelineTask):
             Exposure (see `run`): ``pfsArm``, ``detMap``, ``lines``.
         fiberId : `int`
             Fibre.
+        scale : `float`, optional
+            Multiply the model by this (default: the measured or configured
+            ``pfiRadiusModelScale``).
 
         Returns
         -------
@@ -580,7 +643,9 @@ class FitLsfTask(PipelineTask):
         u = (point[:, 0] - x0)*config.pixelSize/30.0e3
         v = sign*(point[:, 1] - y0)*config.pixelSize/30.0e3
         radius = sum(coeffs[ii, jj]*u**(2*ii)*v**jj for ii in range(2) for jj in range(3))
-        radius *= config.pfiRadiusModelScale/config.pixelSize
+        if scale is None:
+            scale = self.radiusScale if getattr(self, "radiusScale", None) is not None else 1.0
+        radius *= scale/config.pixelSize
         return {round(float(ww), 4): float(rr) for ww, rr, gg in zip(wavelength, radius, good) if gg}
 
     def fitLines(self, exposures, fixCentres=None, fixHalos=None, fixShapes=None, fixRadius=None):
@@ -711,8 +776,11 @@ class FitLsfTask(PipelineTask):
 
         fits = [ff for _, ff in rows]
         u, v = coords(np.array([ff.x for ff in fits]), np.array([ff.y for ff in fits]))
+        mtp = self.mtpGroups([ff.fiberId for ff in fits])
         labels = dict(visit=np.array([str(visit) for visit, _ in rows]),
-                      fiberId=np.array([str(ff.fiberId) for ff in fits]))
+                      fiberId=np.array([str(ff.fiberId) for ff in fits]),
+                      mtp=np.array([mtp[ff.fiberId] for ff in fits]),
+                      connector=np.array([mtp[ff.fiberId].split("-")[0] for ff in fits]))
         params = dict(
             centroid=([ff.pixel - ff.catPixel for ff in fits], [ff.pixelErr for ff in fits]),
             radius=([ff.radius for ff in fits], [ff.radiusErr for ff in fits]),
@@ -758,6 +826,16 @@ class FitLsfTask(PipelineTask):
                 u, v, value, error, degree, domain=domain, name=name, nIter=self.config.nIter,
                 nSigma=self.config.nSigma, groups=groups,
             )
+            for factor in ("mtp", "connector"):
+                # Claude: fibre-group offsets average zero over the fibres, so the surface is the average
+                # fibre's, as used for the engineering fibres (which are in no group)
+                if factor in groups:
+                    perFiber = dict(zip(labels["fiberId"], labels[factor]))
+                    counts = defaultdict(float)
+                    for label in perFiber.values():
+                        if label:
+                            counts[label] += 1
+                    surface.recentre(factor, counts)
             surfaces[name] = surface
             for jj in np.flatnonzero(~used):
                 rejected[int(jj)] |= LsfLineFlag.rejected(name)
@@ -1061,8 +1139,41 @@ class FitLsfTask(PipelineTask):
         metadata: Dict = dict(visits=[exp.visit for exp in exposures], lamps=[exp.lamps for exp in exposures],
                               config=self.config.toDict(),
                               scatteredLight=asdict(self.config.scatteredLight.getModel(arm, spectrograph)))
+        fiberGroups = {}
+        mtp = self.mtpGroups(fiberId)
+        if any("mtp" in surface.offsets for surface in surfaces.values()):
+            fiberGroups["mtp"] = mtp
+        if any("connector" in surface.offsets for surface in surfaces.values()):
+            fiberGroups["connector"] = {ff: label.split("-")[0] for ff, label in mtp.items()}
         return ArmLsfModel(arm, spectrograph, fiberId, length, surfaces, coords, xCenter, wavelength,
-                           extraction=self.config.extraction, centroidZeroPoint=zeroPoint, metadata=metadata)
+                           extraction=self.config.extraction, centroidZeroPoint=zeroPoint, metadata=metadata,
+                           fiberGroups=fiberGroups)
+
+    @staticmethod
+    def mtpGroups(fiberIds):
+        """Each fibre's MTP sub-bundle (e.g. ``U3-1``), from the grand fibre map
+
+        Fibres in a sub-bundle share their connectors, so their focal-ratio
+        degradation (mostly from misalignment) is similar.
+
+        Parameters
+        ----------
+        fiberIds : iterable of `int`
+            Fibres.
+
+        Returns
+        -------
+        groups : `dict` [`int`, `str`]
+            Sub-bundle of each fibre (``""`` if unknown, e.g. engineering).
+        """
+        from pfs.utils.fiberids import FiberIds
+        gfm = FiberIds()
+        mtp = dict(zip((int(ff) for ff in gfm.fiberId), (str(mm) for mm in gfm.mtp_C)))
+        groups = {}
+        for ff in fiberIds:
+            label = mtp.get(int(ff), "-")
+            groups[int(ff)] = "-".join(label.split("-")[:2]) if label not in ("-", "nan", "None") else ""
+        return groups
 
     def makeLineSet(self, exposures, rows, flags, saturated):
         """Construct the table of per-line fits
