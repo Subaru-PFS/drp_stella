@@ -1359,7 +1359,7 @@ class FitDetectorMapTask(Task):
         fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, lines.slope, isLine)
 
         return calculateFitStatistics(
-            fit, lines, select, distortion.getNumParameters(), soften, True, distortion=distortion
+            fit, lines, select, distortion.getNumParameters(), soften, distortion=distortion
         )
 
     def fitModelImpl(
