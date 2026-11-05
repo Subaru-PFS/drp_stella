@@ -14,11 +14,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import scipy.interpolate
+import scipy.ndimage
 
 from .lsfProfile import diskProfile, diskSigma
 from .smoothSurface import DetectorCoords, SmoothSurface  # noqa: F401 (docs)
 
-__all__ = ("LsfKernel", "LsfKernelArray", "LsfModel", "ArmLsfModel", "FiberSpline")
+__all__ = ("LsfKernel", "LsfKernelArray", "LsfModel", "ArmLsfModel", "FiberSpline", "gaussianEquivalentSigma")
 
 
 @dataclass
@@ -163,6 +164,8 @@ class LsfModel(ABC):
     """
     units = None
     defaultHalfWidth = 12.0
+    defaultNodeSpacing = 64.0   # spacing (native units) of the nodes for computeGaussianSigma
+    defaultSampling = 1/15      # sampling (native units) of the profiles for computeGaussianSigma (odd 1/n)
 
     def __init__(self, fiberId, length):
         self.fiberId = np.asarray(fiberId, dtype=int)
@@ -276,6 +279,171 @@ class LsfModel(ABC):
             kernel = self.computeKernel(int(ff), float(cc), halfWidth=halfWidth)
             values[i, kernel.start - ss:kernel.stop - ss] = kernel.values
         return LsfKernelArray(fiberId, center, start, values)
+
+    def _sampleProfiles(self, fiberId, center, step, halfWidth, integrated=True):
+        """The LSF densities on a fine grid about their first moments
+
+        Parameters
+        ----------
+        fiberId, center : `numpy.ndarray`
+            Fibre identifiers and positions (native units), 1-D, same length.
+        step : `float`
+            Sampling of the grid (native units).
+        halfWidth : `float`
+            The grid covers ``+/- halfWidth`` (native units).
+        integrated : `bool`
+            Include the sampling of the spectrum (e.g. the pixel integration)?
+
+        Returns
+        -------
+        profiles : `numpy.ndarray`, shape ``(len(center), M)``
+            Densities (per native unit) at offsets
+            ``(arange(M) - (M - 1)/2)*step`` from the first moment.
+        """
+        raise NotImplementedError("Subclasses must implement")
+
+    def computeGaussianSigma(self, fiberId, center, method="fit", intrinsicWidth=0.0, *, integrated=True,
+                             halfWidth=None, nodeSpacing=None, returnAmplitude=False):
+        """The rms of the Gaussian equivalent to the LSF
+
+        Claude: the LSF isn't Gaussian (it's flat-topped: the disk is wider
+        than the blur), so its "Gaussian equivalent" depends on what it's used
+        for. A Gaussian ``G`` used in place of the LSF ``L`` to convolve a
+        spectrum ``T`` makes an error ``int |T(k)|^2 |L(k) - G(k)|^2 dk``, so
+        the right ``G`` depends on the spectrum's power spectrum. The limits:
+
+        - ``"fit"``: unresolved features (a white spectrum): the least-squares
+          fit of a Gaussian, with a free amplitude and constant weights, to
+          the LSF (which, by Parseval, minimises the error); this is also the
+          maximum-likelihood fit of a Gaussian to a faint, background-limited
+          line.
+        - ``"moment"``: features much wider than the LSF: only
+          ``L(k) ~ 1 - mu_2 k^2/2`` matters, so the Gaussian with the LSF's
+          second moment (within ``+/- halfWidth``, halo included).
+
+        With ``method="fit"`` and ``intrinsicWidth > 0``, the Gaussian is fit
+        to the LSF convolved with a Gaussian of rms ``intrinsicWidth`` (a
+        feature of that width), and ``intrinsicWidth`` is then removed in
+        quadrature; this goes from the first limit to the second as
+        ``intrinsicWidth`` increases.
+
+        Parameters
+        ----------
+        fiberId : `int` or array-like of `int`
+            Fibre identifier(s).
+        center : `float` or array-like of `float`
+            Position(s) (native units); broadcast against ``fiberId``.
+        method : `str`
+            ``"fit"`` or ``"moment"``.
+        intrinsicWidth : `float`
+            RMS (native units) of the features (``method="fit"`` only).
+        integrated : `bool`
+            The LSF as sampled in the spectrum (pixel-integrated: the Gaussian
+            to sample at pixel centres, as `pfs.drp.stella.GaussianLsf`
+            does), or before integration?
+        halfWidth : `float`, optional
+            The LSF is used out to ``+/- halfWidth`` (native units); defaults
+            to ``defaultHalfWidth``.
+        nodeSpacing : `float`, optional
+            The result is computed at nodes this far apart (native units)
+            along each fibre and interpolated (linearly); 0 to compute it at
+            every position. Defaults to ``defaultNodeSpacing``.
+        returnAmplitude : `bool`
+            Also return the fitted Gaussian's area (the LSF has unit area): the
+            factor by which a flux measured by fitting the Gaussian is biased
+            (1 for ``"moment"``).
+
+        Returns
+        -------
+        sigma : `numpy.ndarray`
+            RMS of the equivalent Gaussian (native units).
+        amplitude : `numpy.ndarray`
+            Area of the fitted Gaussian; only if ``returnAmplitude``.
+        """
+        if method not in ("fit", "moment"):
+            raise ValueError(f"Unknown method {method!r}: use 'fit' or 'moment'")
+        halfWidth = self.defaultHalfWidth if halfWidth is None else halfWidth
+        nodeSpacing = self.defaultNodeSpacing if nodeSpacing is None else nodeSpacing
+        self._checkFiberId(fiberId)
+        fiberId, center = np.broadcast_arrays(np.asarray(fiberId, dtype=int), np.asarray(center, dtype=float))
+        shape = center.shape
+        fiberId, center = fiberId.ravel(), center.ravel()
+
+        # The nodes at which to compute it
+        nodeFiber, nodeCenter, which = [], [], []
+        for ff in np.unique(fiberId):
+            select = np.flatnonzero(fiberId == ff)
+            cc = center[select]
+            if nodeSpacing > 0:
+                lo = np.floor(np.nanmin(cc)/nodeSpacing)
+                hi = np.ceil(np.nanmax(cc)/nodeSpacing)
+                nodes = np.arange(lo, hi + 1)*nodeSpacing
+            else:
+                nodes = cc
+            nodeFiber.append(np.full(len(nodes), ff))
+            nodeCenter.append(nodes)
+            which.append((select, len(nodes)))
+        nodeFiber = np.concatenate(nodeFiber)
+        nodeCenter = np.concatenate(nodeCenter)
+
+        step = self.defaultSampling
+        nodeSigma = np.empty(nodeCenter.size)
+        nodeAmplitude = np.empty(nodeCenter.size)
+        batch = 1000         # limits the memory used by the profiles
+        for start in range(0, nodeCenter.size, batch):
+            nodes = slice(start, start + batch)
+            profiles = self._sampleProfiles(nodeFiber[nodes], nodeCenter[nodes], step, halfWidth, integrated)
+            nodeSigma[nodes], nodeAmplitude[nodes] = gaussianEquivalentSigma(profiles, step, method,
+                                                                             intrinsicWidth)
+
+        sigma = np.empty(center.size)
+        amplitude = np.empty(center.size)
+        start = 0
+        for select, num in which:
+            nodes = slice(start, start + num)
+            if nodeSpacing > 0:
+                sigma[select] = np.interp(center[select], nodeCenter[nodes], nodeSigma[nodes])
+                amplitude[select] = np.interp(center[select], nodeCenter[nodes], nodeAmplitude[nodes])
+            else:
+                sigma[select] = nodeSigma[nodes]
+                amplitude[select] = nodeAmplitude[nodes]
+            start += num
+        sigma = sigma.reshape(shape)
+        amplitude = amplitude.reshape(shape)
+        return (sigma, amplitude) if returnAmplitude else sigma
+
+    def computeGaussianSigmaAtWavelength(self, fiberId, wavelength, method="fit", intrinsicWidth=0.0, *,
+                                         wavelengthArray=None, **kwargs):
+        """The rms (nm) of the Gaussian equivalent to the LSF at wavelength(s)
+
+        As `computeGaussianSigma`, but with positions and ``intrinsicWidth``
+        (and the result) in nm.
+
+        Parameters
+        ----------
+        fiberId : `int` or array-like of `int`
+            Fibre identifier(s).
+        wavelength : `float` or array-like of `float`
+            Wavelength(s) (nm); broadcast against ``fiberId``.
+        method : `str`
+            ``"fit"`` or ``"moment"``; see `computeGaussianSigma`.
+        intrinsicWidth : `float`
+            RMS (nm) of the features (``method="fit"`` only; converted to
+            pixels with the median dispersion of the positions requested).
+        wavelengthArray : `numpy.ndarray`, optional
+            Wavelength of each pixel of the fibre's spectrum (a single
+            ``fiberId`` only); defaults to the model's own.
+        **kwargs
+            As for `computeGaussianSigma`.
+
+        Returns
+        -------
+        sigma : `numpy.ndarray`
+            RMS of the equivalent Gaussian (nm).
+        amplitude : `numpy.ndarray`
+            Area of the fitted Gaussian; only if ``returnAmplitude``.
+        """
+        raise NotImplementedError("Subclasses must implement")
 
     def _window(self, center, halfWidth):
         """The pixels of a kernel and its window
@@ -397,6 +565,75 @@ def addBlur(rms, cumulants, extraVariance, extraKappa4=0.0):
 SHAPE_NAMES = ("radius", "rms") + CUMULANT_NAMES + ("lorentz", "haloFrac", "haloWidth")   # profile parameters
 
 
+def gaussianEquivalentSigma(profiles, step, method="fit", intrinsicWidth=0.0):
+    """Claude: the rms of the Gaussian equivalent to sampled profiles
+
+    See `LsfModel.computeGaussianSigma` for the methods.
+
+    Parameters
+    ----------
+    profiles : `numpy.ndarray`, shape ``(N, M)``
+        Profiles, sampled at offsets ``(arange(M) - (M - 1)/2)*step`` from
+        their first moments (any normalisation).
+    step : `float`
+        Sampling of the profiles.
+    method : `str`
+        ``"fit"`` (least squares, free amplitude, constant weights) or
+        ``"moment"`` (second moment).
+    intrinsicWidth : `float`
+        For ``"fit"``, convolve the profiles with a Gaussian of this rms before
+        fitting, and remove it in quadrature afterwards.
+
+    Returns
+    -------
+    sigma : `numpy.ndarray`, shape ``(N,)``
+        RMS of the equivalent Gaussian (units of ``step``).
+    amplitude : `numpy.ndarray`, shape ``(N,)``
+        Area of the fitted Gaussian relative to the profile's (1 for
+        ``"moment"``).
+    """
+    profiles = np.atleast_2d(np.asarray(profiles, dtype=float))
+    num, size = profiles.shape
+    offsets = (np.arange(size) - 0.5*(size - 1))*step
+    area = profiles.sum(axis=1)*step
+    if method == "moment":
+        mean = (profiles*offsets).sum(axis=1)*step/area
+        variance = (profiles*(offsets - mean[:, None])**2).sum(axis=1)*step/area
+        return np.sqrt(variance), np.ones(num)
+    if method != "fit":
+        raise ValueError(f"Unknown method {method!r}: use 'fit' or 'moment'")
+    profiles = profiles/area[:, None]
+    if intrinsicWidth > 0:
+        pad = int(np.ceil(5*intrinsicWidth/step))
+        profiles = np.pad(profiles, ((0, 0), (pad, pad)))
+        offsets = (np.arange(size + 2*pad) - 0.5*(size + 2*pad - 1))*step
+        profiles = scipy.ndimage.gaussian_filter1d(profiles, intrinsicWidth/step, axis=1, mode="constant")
+
+    def score(width):
+        """Matched-filter statistics of unit-area Gaussians of rms ``width`` (shape ``(K,)`` or ``(N,)``)"""
+        width = np.asarray(width, dtype=float)
+        gauss = np.exp(-0.5*(offsets/width[..., None])**2)/(np.sqrt(2*np.pi)*width[..., None])
+        norm2 = (gauss**2).sum(axis=-1)*step
+        return gauss, norm2
+
+    # Minimising |p - A g|^2 over A is maximising (p.g)^2/|g|^2: scan a grid of widths, then refine
+    widths = np.geomspace(0.05, 20.0, 600)*max(np.sqrt(np.median(
+        (profiles*offsets**2).sum(axis=1)*step)), step)
+    gauss, norm2 = score(widths)
+    stat = (profiles @ gauss.T*step)**2/norm2
+    best = np.clip(np.argmax(stat, axis=1), 1, len(widths) - 2)
+    rows = np.arange(num)
+    lnW = np.log(widths)
+    y0, y1, y2 = stat[rows, best - 1], stat[rows, best], stat[rows, best + 1]
+    denom = y0 - 2*y1 + y2
+    shift = np.where(denom < 0, 0.5*(y0 - y2)/np.where(denom < 0, denom, -1.0), 0.0)
+    width = np.exp(lnW[best] + np.clip(shift, -1, 1)*(lnW[1] - lnW[0]))
+    gauss, norm2 = score(width)
+    amplitude = (profiles*gauss).sum(axis=1)*step/norm2
+    sigma = np.sqrt(np.clip(width**2 - intrinsicWidth**2, 0.0, None))
+    return sigma, amplitude
+
+
 @dataclass
 class ArmLsfModel(LsfModel):
     """The LSF of one detector (arm, spectrograph), in pixels
@@ -463,6 +700,11 @@ class ArmLsfModel(LsfModel):
         The engineering fibres' blur kernel is the science fibres' convolved
         with a further symmetric kernel of this variance (pixels^2; may be
         negative) and fourth cumulant (pixels^4); see `addBlur`.
+    fiberGroups : `dict` [`str`, `dict` [`int`, `str`]]
+        Per-fibre grouping factors whose offsets are part of the model, e.g.
+        ``{"mtp": {fiberId: "U3-1"}}`` (the fibres' MTP sub-bundle, whose
+        focal-ratio degradation blurs their images): each surface's offset
+        for a fibre's group is added to the surface.
     """
     arm: str
     spectrograph: int
@@ -479,6 +721,7 @@ class ArmLsfModel(LsfModel):
     iisRadiusScale: SmoothSurface = None
     iisHaloScale: SmoothSurface = None
     iisExtraBlur: tuple = None
+    fiberGroups: dict = field(default_factory=dict)
 
     units = "pixel"
 
@@ -554,8 +797,17 @@ class ArmLsfModel(LsfModel):
         x, y = self.getDetectorPosition(fiberId, center)
         u, v = self.coords(x, y)
         params = dict(x=x, y=y)
+        groups = getattr(self, "fiberGroups", {})      # older models lack these
+        if groups:
+            fibers = np.broadcast_to(np.asarray(fiberId, dtype=int), np.shape(x))
+            groupLabels = {}
+            for factor, table in groups.items():
+                labels = [table.get(int(ff), "") for ff in fibers.ravel()]
+                groupLabels[factor] = np.array(labels, dtype=str).reshape(fibers.shape)
         for name in ("radius", "rms") + tuple(self.cumulantNames):
             params[name] = self.surfaces[name](u, v)
+            for factor, labels in (groupLabels.items() if groups else ()):
+                params[name] = params[name] + self.surfaces[name].getOffset(factor, labels)
         if "lorentz" in self.surfaces:
             params["lorentz"] = np.clip(self.surfaces["lorentz"](u, v), 0.0, None)
         if "haloFrac" in self.surfaces:
@@ -636,6 +888,56 @@ class ArmLsfModel(LsfModel):
         kernel.wavelength = wavelengthArray[kernel.slice]
         return kernel
 
+    def _sampleProfiles(self, fiberId, center, step, halfWidth, integrated=True):
+        fiberId = np.asarray(fiberId, dtype=int)
+        center = np.asarray(center, dtype=float)
+        half = int(np.round(halfWidth/step))
+        offsets = np.arange(-half, half + 1)*step
+        params = self.getParameters(fiberId, center)
+        names = self.cumulantNames
+        box = np.ones(max(1, int(np.round(1/step))))
+        box /= box.size
+        profiles = np.empty((center.size, offsets.size))
+        for ii in range(center.size):
+            # pixel integration over a tiny "pixel" of width `step` approximates the density
+            density = diskProfile(offsets/step, 0.0, float(params["radius"][ii])/step,
+                                  float(params["rms"][ii])/step, [float(params[nn][ii]) for nn in names],
+                                  self.extraction, 0.0, float(params["haloFrac"][ii]) if "haloFrac" in params
+                                  else 0.0, float(params["haloWidth"][ii])/step if "haloWidth" in params
+                                  else np.nan)/step
+            lorentz = float(params["lorentz"][ii]) if "lorentz" in params else 0.0
+            if lorentz > 0:                # convolve with the Lorentzian's mass in each cell
+                cellEdges = np.append(offsets - step/2, offsets[-1] + step/2)
+                density = np.convolve(density, np.diff(np.arctan(cellEdges/(0.5*lorentz)))/np.pi, mode="same")
+            if integrated:                 # the flux in a pixel centred at each offset
+                density = np.convolve(density, box, mode="same")
+            profiles[ii] = density
+        return profiles
+
+    def computeGaussianSigmaAtWavelength(self, fiberId, wavelength, method="fit", intrinsicWidth=0.0, *,
+                                         wavelengthArray=None, **kwargs):
+        fiberId, wavelength = np.broadcast_arrays(np.asarray(fiberId, dtype=int),
+                                                  np.asarray(wavelength, dtype=float))
+        rows = np.arange(self.length, dtype=float)
+        center = np.empty(wavelength.shape)
+        dispersion = np.empty(wavelength.shape)
+        for ff in np.unique(fiberId):
+            select = fiberId == ff
+            lam = (self.wavelength(int(ff), rows) if wavelengthArray is None
+                   else np.asarray(wavelengthArray, dtype=float))
+            good = np.isfinite(lam)
+            if lam[good][-1] < lam[good][0]:
+                raise ValueError("wavelengthArray must increase with row")
+            center[select] = np.interp(wavelength[select], lam[good], rows[good], left=np.nan, right=np.nan)
+            dispersion[select] = np.interp(center[select], rows[good], np.gradient(lam[good], rows[good]))
+        if not np.all(np.isfinite(center)):
+            raise ValueError("Some wavelengths are outside the spectra")
+        intrinsicPixels = intrinsicWidth/np.median(dispersion) if intrinsicWidth > 0 else 0.0
+        result = self.computeGaussianSigma(fiberId, center, method, intrinsicPixels, **kwargs)
+        if kwargs.get("returnAmplitude", False):
+            return result[0]*dispersion, result[1]
+        return result*dispersion
+
     def computeFwhm(self, fiberId, center, step=0.01, halfWidth=None):
         """FWHM (pixels) of the LSF before pixel integration
 
@@ -656,19 +958,9 @@ class ArmLsfModel(LsfModel):
             Full width at half maximum (pixels).
         """
         halfWidth = self.defaultHalfWidth if halfWidth is None else halfWidth
-        params = self.getParameters(int(fiberId), float(center))
-        cumulants = [float(params[nn]) for nn in self.cumulantNames]
-        edges = np.arange(-halfWidth, halfWidth + step/2, step)
-        # pixel integration over a tiny "pixel" of width `step` approximates the density
-        density = diskProfile(edges[:-1]/step + 0.5, 0.0, float(params["radius"])/step,
-                              float(params["rms"])/step, cumulants, self.extraction, 0.0,
-                              float(params.get("haloFrac", 0.0)), float(params.get("haloWidth", np.nan))/step)
-        centers = 0.5*(edges[:-1] + edges[1:])
-        lorentz = float(params.get("lorentz", 0.0))
-        if lorentz > 0:                # convolve with the Lorentzian's mass in each cell
-            cellEdges = np.append(centers - step/2, centers[-1] + step/2)
-            kernel = np.diff(np.arctan(cellEdges/(0.5*lorentz)))/np.pi
-            density = np.convolve(density, kernel, mode="same")
+        density = self._sampleProfiles(np.array([fiberId]), np.array([center]), step, halfWidth,
+                                       integrated=False)[0]
+        centers = (np.arange(density.size) - 0.5*(density.size - 1))*step
         above = np.flatnonzero(density >= 0.5*density.max())
         lo, hi = above[0], above[-1]
         half = 0.5*density.max()
