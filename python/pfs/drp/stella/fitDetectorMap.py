@@ -1250,15 +1250,20 @@ class FitDetectorMapTask(Task):
                       getDescriptionCounts(lines.description, used))
         fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
         soften = (self.config.soften, self.config.soften)
+        # Apply the same outlier rejection to the reserved lines as was applied to the lines used in the
+        # fit, so the statistics are comparable. The reserved lines weren't used in the fit, so there are
+        # no parameters to subtract from the degrees of freedom.
+        with np.errstate(invalid="ignore"):
+            reservedKeep = reserved & self.rejectOutliers(result, xErr, yErr)
         reservedStats = calculateFitStatistics(
-            fit, lines, reserved, result.distortion.getNumParameters(), soften, distortion=result.distortion
+            fit, lines, reservedKeep, 0, soften, distortion=result.distortion
         )
         self.log.info("Fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%.1f%%) (%s)",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d/%d lines (%.1f%%) (%s)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                      reserved.sum(), reserved.sum()/numGood*100,
-                      getDescriptionCounts(lines.description, reserved))
+                      reservedKeep.sum(), reserved.sum(), reserved.sum()/numGood*100,
+                      getDescriptionCounts(lines.description, reservedKeep))
         self.log.debug("    Final fit model: %s", result.distortion)
 
         if False:
