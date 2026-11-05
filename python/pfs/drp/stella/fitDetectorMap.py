@@ -939,7 +939,7 @@ class FitDetectorMapTask(Task):
             "Slit offsets measurement: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
             "from %d/%d lines (%s)",
             result.chi2, result.dof, result.xRms, result.yRms, result.xSoften, result.ySoften,
-            use.sum(), select.sum(), getDescriptionCounts(lines.description, select)
+            use.sum(), select.sum(), getDescriptionCounts(lines.description, use)
         )
 
         self.log.debug("Median slit offset changes: %f,%f", np.median(spatial), np.median(spectral))
