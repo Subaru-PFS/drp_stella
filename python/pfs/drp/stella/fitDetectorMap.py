@@ -308,6 +308,14 @@ class FitDetectorMapConfig(Config):
     spatialOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spatial offsets to force")
     spectralOffsets = DictField(keytype=int, itemtype=float, default={}, doc="Spectral offsets to force")
     chipGap = Field(dtype=float, default=1.040/0.015, doc="Chip gap (pixels) for brm arms")
+    mosaicIterations = Field(
+        dtype=int,
+        default=2,
+        doc=(
+            "Number of fitting iterations to correct for the right CCD affine transform being applied "
+            "at the distorted position (only for MosaicPolynomialDistortion)"
+        ),
+    )
 
 
 class FitDetectorMapTask(Task):
@@ -1352,9 +1360,26 @@ class FitDetectorMapTask(Task):
                             np.hypot(lines.yErr[select].astype(float), ySoften)/weights[select])
 
         isLine = lines.description != "Trace"
-        distortion = self.fitModelImpl(
-            Box2D(bbox), xBase, yBase, xx, yy, xErr, yErr, slope, isLine[select], DistortionClass
-        )
+
+        # The correction for applying the right CCD affine transform at the
+        # distorted position depends on the solution, so we iterate.
+        correction = np.zeros((xx.size, 2), dtype=float)
+        for _ in range(max(self.config.mosaicIterations, 1)):
+            distortion = self.fitModelImpl(
+                Box2D(bbox),
+                xBase,
+                yBase,
+                xx - correction[:, 0],
+                yy - correction[:, 1],
+                xErr,
+                yErr,
+                slope,
+                isLine[select],
+                DistortionClass,
+            )
+            if not isinstance(distortion, MosaicPolynomialDistortion):
+                break
+            correction = self.calculateMosaicCorrection(distortion, xBase, yBase)
         fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, lines.slope, isLine)
 
         return calculateFitStatistics(
@@ -1451,6 +1476,7 @@ class FitDetectorMapTask(Task):
             Fitted position for each line (pixels).
         """
         fit = distortion(xBase, yBase)
+        fit += self.calculateMosaicCorrection(distortion, xBase, yBase)
 
         if not np.all(isLine):
             # If dy from the distortion model is positive, the observed position of
@@ -1465,6 +1491,53 @@ class FitDetectorMapTask(Task):
             yModel[isTrace] = 0.0
 
         return fit
+
+    def calculateMosaicCorrection(
+        self, distortion: Distortion, xBase: np.ndarray, yBase: np.ndarray
+    ) -> np.ndarray:
+        """Calculate the correction for the right CCD of a mosaic distortion
+
+        The `MosaicPolynomialDistortion` applies its affine transform for the
+        right CCD at the base position, but the `OpticalModelDetectorMap`
+        applies it (through the `DetectorModel`) at the distorted position.
+        The difference is the linear part of the affine transform applied to
+        the (normalized) polynomial distortion. This correction is to be added
+        to the `MosaicPolynomialDistortion` evaluation to get the position
+        produced by the `OpticalModelDetectorMap`.
+
+        Parameters
+        ----------
+        distortion : `Distortion`
+            Distortion model. The correction is zero unless this is a
+            `MosaicPolynomialDistortion`.
+        xBase, yBase : `numpy.ndarray` of `float`
+            Base position for each line (pixels).
+
+        Returns
+        -------
+        correction : `numpy.ndarray` of `float`, shape ``(N, 2)``
+            Correction to the distortion for each line (pixels).
+        """
+        correction = np.zeros((len(xBase), 2), dtype=float)
+        if not isinstance(distortion, MosaicPolynomialDistortion):
+            return correction
+        onRightCcd = distortion.getOnRightCcd(np.asarray(xBase, dtype=float))
+        if not np.any(onRightCcd):
+            return correction
+        poly = PolynomialDistortion(
+            distortion.getOrder(),
+            distortion.getRange(),
+            distortion.getXCoefficients(),
+            distortion.getYCoefficients(),
+        )
+        polyDistortion = poly(
+            np.asarray(xBase[onRightCcd], dtype=float), np.asarray(yBase[onRightCcd], dtype=float)
+        )
+        fitRange = distortion.getRange()
+        scale = np.array([2.0/fitRange.getWidth(), 2.0/fitRange.getHeight()])
+        linear = distortion.getAffine().getLinear().getMatrix()
+        correction[onRightCcd] = (polyDistortion*scale) @ linear.T
+        return correction
 
     def measureQuality(self, lines: ArcLineSet, detectorMap: DetectorMap, selection, numParameters) -> Struct:
         """Measure and log fit quality information
