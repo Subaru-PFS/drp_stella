@@ -1644,9 +1644,14 @@ class FitDetectorMapTask(Task):
         yResid = np.abs(fitStats.yResid/np.hypot(yErr, ySoften))
         keep = (xResid < self.config.rejection) & ((yResid < self.config.rejection) | fitStats.isTrace)
         minKeepFrac = 1.0 - self.config.maxRejectionFrac
-        if keep.sum() < minKeepFrac*fitStats.selection.sum():
-            xResidLimit = np.percentile(xResid[fitStats.selection], minKeepFrac*100)
-            yResidLimit = np.percentile(yResid[fitStats.selection], minKeepFrac*100)
+        selection = fitStats.selection
+        if (keep & selection).sum() < minKeepFrac*selection.sum():
+            xResidLimit = np.percentile(xResid[selection], minKeepFrac*100)
+            # Traces have no spectral residual, so they don't contribute to the spectral limit
+            ySelection = selection & ~fitStats.isTrace & np.isfinite(yResid)
+            yResidLimit = (
+                np.percentile(yResid[ySelection], minKeepFrac*100) if np.any(ySelection) else np.inf
+            )
             keep = (xResid < xResidLimit) & ((yResid < yResidLimit) | fitStats.isTrace)
             self.log.debug(
                 "Standard rejection limit (%f) too severe; using %f, %f",
