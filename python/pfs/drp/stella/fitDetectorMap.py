@@ -10,7 +10,7 @@ import lsstDebug
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field, ListField, DictField
 from lsst.pipe.base import Task, Struct
-from lsst.geom import Box2D, Box2I, Extent2I
+from lsst.geom import Box2D, Box2I, Extent2I, Point2D, Extent2D, AffineTransform, LinearTransform
 from lsst.afw.image import VisitInfo
 from lsst.daf.base import PropertyList
 
@@ -517,7 +517,27 @@ class FitDetectorMapTask(Task):
         """
         slit = base.slitModel.copy()
         if isinstance(distortion, MosaicPolynomialDistortion):
-            rightCcd = distortion.getAffine()
+            # The MosaicPolynomialDistortion evaluates its affine transform
+            # on positions normalized by the distortion range (the base
+            # bbox, which includes the chip gap), but the DetectorModel
+            # normalizes by the detector bbox. Re-express the affine
+            # transform in the DetectorModel's normalization.
+            fitRange = distortion.getRange()
+            fitOffset = Point2D(fitRange.getCenterX(), fitRange.getCenterY())
+            fitScale = Extent2D(2.0/fitRange.getWidth(), 2.0/fitRange.getHeight())
+            detOffset = Point2D(0.5*(bbox.getMinX() + bbox.getMaxX()), 0.5*(bbox.getMinY() + bbox.getMaxY()))
+            detScale = Extent2D(2.0/(bbox.getMaxX() - bbox.getMinX()), 2.0/(bbox.getMaxY() - bbox.getMinY()))
+            # Transform from DetectorModel normalization to fit normalization
+            renormalize = AffineTransform(
+                LinearTransform.makeScaling(
+                    fitScale.getX()/detScale.getX(), fitScale.getY()/detScale.getY()
+                ),
+                Extent2D(
+                    fitScale.getX()*(detOffset.getX() - fitOffset.getX()),
+                    fitScale.getY()*(detOffset.getY() - fitOffset.getY()),
+                ),
+            )
+            rightCcd = distortion.getAffine()*renormalize
             distortion = PolynomialDistortion(
                 distortion.getOrder(),
                 distortion.getRange(),
