@@ -199,7 +199,6 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         # Measurement minus model: our fitted distortions get added to the model
         dx = positions.xiMeas - positions.xiModel
         dy = positions.etaMeas - positions.etaModel
-        slope = np.zeros(len(lines), dtype=float)  # We'll be removing the use of the slope in the fit soon
 
         return ArcLineResidualsSet.fromColumns(
             fiberId=lines.fiberId,
@@ -208,7 +207,6 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             y=dy,
             xOrig=positions.xiMeas,
             yOrig=positions.etaMeas,
-            slope=slope,
             xBase=positions.xiModel,
             yBase=positions.etaModel,
             xErr=lines.xErr,
@@ -267,7 +265,6 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
         yMeas: np.ndarray,
         xErr: np.ndarray,
         yErr: np.ndarray,
-        slope : np.ndarray,
         isLine: np.ndarray,
         DistortionClass: Type[Distortion],
     ) -> Distortion:
@@ -286,11 +283,9 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             Measured position for each line (pixels).
         xErr, yErr : `numpy.ndarray` of `float`
             Error in measured position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``useForWavelength`` is `False`.
         isLine : `numpy.ndarray` of `bool`
-            Is this point a line? Otherwise, it's a trace.
+            Is this point a line? Otherwise, it's a trace, which has no
+            spectral measurement.
         DistortionClass : `type`
             Class to use for the distortion.
 
@@ -312,7 +307,6 @@ class AdjustDetectorMapTask(FitDetectorMapTask):
             xErr,
             yErr,
             isLine,
-            slope,
             threshold,
             forced,
             parameters,
