@@ -11,7 +11,7 @@ import lsst.utils.tests
 
 from pfs.drp.stella.lsfProfile import diskProfile, diskSigma
 from pfs.drp.stella.smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface, supportedDegree
-from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline, addBlur
+from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline, addBlur, gaussianEquivalentSigma
 from pfs.drp.stella.fitLsfLines import fitDiskLine
 from pfs.drp.stella.lsfLine import LsfLineSet, LsfLineFlag
 
@@ -190,6 +190,56 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(params["sigma"], diskSigma(1.8, 0.65), atol=1.0e-12)
         self.assertGreater(self.model.computeFwhm(20, 1000.0), 2*diskSigma(1.8, 0.65))
 
+    def testGaussianEquivalentSolver(self):
+        """Claude: the Gaussian equivalent of a Gaussian is itself, whatever the method"""
+        step = 0.02
+        offsets = np.arange(-600, 601)*step
+        for sigma in (0.7, 1.3):
+            gauss = 3.0*np.exp(-0.5*(offsets/sigma)**2)       # normalisation doesn't matter
+            for method, kwargs in (("fit", {}), ("fit", dict(intrinsicWidth=0.8)), ("moment", {})):
+                ss, amp = gaussianEquivalentSigma(gauss[None, :], step, method, **kwargs)
+                self.assertFloatsAlmostEqual(ss, sigma, rtol=2.0e-4)
+                self.assertFloatsAlmostEqual(amp, 1.0, rtol=1.0e-4)
+        # A semicircle (a disk's projection) of radius r: variance r^2/4; the fit is wider than the moment
+        radius = 2.0
+        semicircle = np.sqrt(np.clip(1 - (offsets/radius)**2, 0.0, None))
+        moment, _ = gaussianEquivalentSigma(semicircle[None, :], step, "moment")
+        fit, amp = gaussianEquivalentSigma(semicircle[None, :], step, "fit")
+        self.assertFloatsAlmostEqual(moment, radius/2, rtol=1.0e-3)
+        self.assertGreater(fit[0], moment[0])
+        self.assertGreater(amp[0], 1.0)
+        with self.assertRaises(ValueError):
+            gaussianEquivalentSigma(semicircle[None, :], step, "fwhm")
+
+    def testGaussianSigma(self):
+        """Claude: the model's Gaussian-equivalent rms, in pixels and nm"""
+        model = self.model
+        moment = model.computeGaussianSigma(20, 1000.0, "moment", integrated=False)
+        integrated = model.computeGaussianSigma(20, 1000.0, "moment")
+        self.assertFloatsAlmostEqual(integrated**2, moment**2 + 1/12, rtol=2.0e-3)
+        boxcar = makeModel()
+        boxcar.extraction = "boxcar"     # diskSigma is the boxcar-extracted disk's (r^2/4 + rms^2)
+        self.assertFloatsAlmostEqual(boxcar.computeGaussianSigma(20, 1000.0, "moment", integrated=False),
+                                     diskSigma(1.8, 0.65), rtol=2.0e-3)
+        fit, amp = model.computeGaussianSigma(20, 1000.0, returnAmplitude=True)
+        self.assertGreater(fit, integrated)          # the disk's broad shoulders
+        self.assertLess(abs(amp - 1.0), 0.05)
+        # A wide feature takes the fit to the moment
+        wide = model.computeGaussianSigma(20, 1000.0, intrinsicWidth=5.0)
+        self.assertFloatsAlmostEqual(wide, integrated, rtol=1.0e-2)
+        # Vectorised, with the nodes interpolated; the parameters are constant, so it matches the direct value
+        rows = np.array([[100.0, 1000.5, 3999.0], [10.0, 2000.0, 4100.0]])
+        many = model.computeGaussianSigma([[10], [30]], rows)
+        self.assertEqual(many.shape, rows.shape)
+        self.assertFloatsAlmostEqual(many, fit, rtol=1.0e-6)
+        self.assertFloatsAlmostEqual(model.computeGaussianSigma(20, 1000.0, nodeSpacing=0), fit, rtol=1.0e-6)
+        # In nm: times the dispersion, 0.05 + 2e-6*row nm/pixel
+        lam = 600 + 0.05*1000.0 + 1e-6*1000.0**2
+        sigmaNm = model.computeGaussianSigmaAtWavelength(20, lam)
+        self.assertFloatsAlmostEqual(sigmaNm, fit*(0.05 + 2e-6*1000.0), rtol=1.0e-4)
+        with self.assertRaises(KeyError):
+            model.computeGaussianSigma(999, 1000.0)
+
     def testLorentz(self):
         """A model with a Lorentzian has broader wings"""
         model = makeModel()
@@ -232,6 +282,26 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(eng["K"], K, rtol=1.0e-12)
         self.assertFloatsAlmostEqual(eng["S"], S, rtol=1.0e-12)
         self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["rms"], sci["rms"], rtol=1.0e-12)
+
+    def testFiberGroups(self):
+        """Claude: a fibre's group offset (e.g. its MTP sub-bundle) is added to the surface"""
+        model = makeModel()
+        rms = model.getParameters(10, 1000.0)["rms"]
+        model.surfaces["rms"].offsets["mtp"] = {"U3-1": (0.0, 0.0), "D1-3": (-0.02, 0.001)}
+        model.fiberGroups = {"mtp": {10: "D1-3", 20: "U3-1"}}
+        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
+        both = model.getParameters([10, 20], [1000.0, 1000.0])["rms"]
+        self.assertFloatsAlmostEqual(both, [rms - 0.02, model.getParameters(20, 1000.0)["rms"]], rtol=1.0e-12)
+        copy = pickle.loads(pickle.dumps(model))
+        self.assertFloatsAlmostEqual(copy.getParameters(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
+        # Re-centring keeps the grouped fibres' values, and gives an ungrouped fibre the mean offset
+        model.fiberGroups["mtp"][30] = ""
+        before = model.getParameters([10, 20], [1000.0, 1000.0])["rms"]
+        ungrouped = model.getParameters(30, 1000.0)["rms"]
+        model.surfaces["rms"].recentre("mtp", {"U3-1": 3.0, "D1-3": 1.0})
+        self.assertFloatsAlmostEqual(model.getParameters([10, 20], [1000.0, 1000.0])["rms"], before,
+                                     atol=1.0e-12)
+        self.assertFloatsAlmostEqual(model.getParameters(30, 1000.0)["rms"], ungrouped - 0.005, atol=1.0e-12)
 
     def testAddBlur(self):
         """Claude: cumulants add under convolution"""
