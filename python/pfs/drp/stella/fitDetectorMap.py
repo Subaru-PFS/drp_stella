@@ -1266,34 +1266,6 @@ class FitDetectorMapTask(Task):
                       reservedKeep.sum(), reserved.sum(), reserved.sum()/numGood*100,
                       getDescriptionCounts(lines.description, reservedKeep))
         self.log.debug("    Final fit model: %s", result.distortion)
-
-        if False:
-            soften = (result.xSoften, result.ySoften)
-            if not np.all(np.isfinite(soften)):
-                self.log.warn("Non-finite softening, probably a bad fit")
-            else:
-                result = self.fitModel(bbox, lines, used, weights, soften, DistortionClass=DistortionClass)
-                self.log.info(
-                    "Softened fit: "
-                    "chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                    result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
-                    result.xSoften, result.ySoften, used.sum(),
-                    getDescriptionCounts(lines.description, used),
-                )
-
-            reservedStats = calculateFitStatistics(
-                fit, lines, reserved, result.distortion.getNumParameters(), soften,
-                distortion=result.distortion
-            )
-            self.log.info(
-                "Softened fit quality from reserved lines: "
-                "chi2=%f xRMS=%f yRMS=%f (%f nm) xSoften=%f ySoften=%f from %d lines (%s)",
-                reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
-                reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
-                reserved.sum(), getDescriptionCounts(lines.description, reserved),
-            )
-            self.log.debug("    Softened fit model: %s", result.distortion)
-
         result.reserved = reserved
         if self.debugInfo.plot:
             self.plotModel(lines, used, result)
