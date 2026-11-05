@@ -15,7 +15,7 @@ class PolynomialDistortion(Distortion):
     ): ...
     @staticmethod
     def fit(
-        distortionOrder: int,
+        order: int,
         range: Box2D,
         x: np.ndarray,
         y: np.ndarray,
@@ -24,7 +24,6 @@ class PolynomialDistortion(Distortion):
         xErr: np.ndarray,
         yErr: np.ndarray,
         isLine: np.ndarray,
-        slope: np.ndarray,
         threshold: float = 1.0e-6,
         forced: Optional[np.ndarray] = None,
         params: Optional[np.ndarray] = None,

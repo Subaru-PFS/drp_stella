@@ -29,7 +29,6 @@ class MosaicPolynomialDistortion(Distortion):
         xErr: np.ndarray,
         yErr: np.ndarray,
         isLine: np.ndarray,
-        slope: np.ndarray,
         threshold: float = 1.0e-6,
         forced: Optional[np.ndarray] = None,
         params: Optional[np.ndarray] = None,

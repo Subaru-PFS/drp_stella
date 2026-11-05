@@ -756,7 +756,6 @@ class PsfMatchCalibsTask(PipelineTask):
         numPoints = len(dx)
         errors = np.ones(numPoints, dtype=float)
         isLine = np.ones(numPoints, dtype=bool)
-        slope = np.zeros(numPoints, dtype=float)
         bbox = Box2D(detectorMap.bbox)
         for ii in range(self.config.iterations + 1):
             distortion = PolynomialDistortion.fit(
@@ -769,7 +768,6 @@ class PsfMatchCalibsTask(PipelineTask):
                 errors[select],
                 errors[select],
                 isLine[select],
-                slope[select],
             )
             model = np.full((numPoints, 2), np.nan, dtype=float)
             model[good] = distortion(xDetector[good], yDetector[good])
