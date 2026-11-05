@@ -801,6 +801,8 @@ class FitDetectorMapTask(Task):
         offsetDetectorMap = detectorMap.clone()
         offsetDetectorMap.applySlitOffset(1.0, 0.0)
         xModelOffset = offsetDetectorMap.findPoint(lines.fiberId, lines.wavelength)
+        # Traces are modeled at their measured row, rather than at their (approximate) wavelength
+        xModelOffset[isTrace, 0] = offsetDetectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
         offsetDetectorMap = detectorMap.clone()
         offsetDetectorMap.applySlitOffset(0.0, 1.0)
         yModelOffset = offsetDetectorMap.findPoint(lines.fiberId, lines.wavelength)
@@ -817,7 +819,17 @@ class FitDetectorMapTask(Task):
 
         fit = np.full((len(lines), 2), np.nan, dtype=float)
 
-        use = select & np.isfinite(dx) & np.isfinite(dy) & np.isfinite(xErr) & np.isfinite(yErr)
+        def getUsable(subset: np.ndarray | slice) -> np.ndarray:
+            """Return which measurements are usable
+
+            Traces have no spectral position, so we only require the spatial
+            measurement for them.
+            """
+            spatialOk = np.isfinite(dx[subset]) & np.isfinite(xErr[subset])
+            spectralOk = np.isfinite(dy[subset]) & np.isfinite(yErr[subset])
+            return spatialOk & (spectralOk | isTrace[subset])
+
+        use = select & getUsable(slice(None))
 
         spatial = np.zeros(numFibers, dtype=float)
         spectral = np.zeros(numFibers, dtype=float)
@@ -842,8 +854,7 @@ class FitDetectorMapTask(Task):
 
             # If all measurements were rejected in previous fits, restore all measurements, just for this.
             if not np.any(use & thisFiber & notTrace):
-                use[thisFiber] = np.isfinite(dx[thisFiber]) & np.isfinite(dy[thisFiber])
-                use[thisFiber] &= np.isfinite(xErr[thisFiber]) & np.isfinite(yErr[thisFiber])
+                use[thisFiber] = getUsable(thisFiber)
 
             choose = use & thisFiber
             numChoose = choose.sum()
