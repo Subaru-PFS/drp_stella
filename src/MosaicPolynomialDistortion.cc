@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <numeric>
+#include <vector>
 #include <tuple>
 
 #include "ndarray.h"
@@ -154,145 +156,6 @@ lsst::geom::Point2D MosaicPolynomialDistortion::evaluate(lsst::geom::Point2D con
 }
 
 
-namespace {
-
-// Structure to aid in fitting a polynomial distortion
-//
-// We calculate the design matrix one point at a time and then solve.
-struct FitData {
-    using Array1D = ndarray::Array<double, 1, 1>;
-    using Array2D = ndarray::Array<double, 2, 1>;
-
-    // Ctor
-    //
-    // @param range : Box enclosing all x,y coordinates.
-    // @param order : Polynomial order.
-    // @param length : Number of points that will be added.
-    FitData(lsst::geom::Box2D const& range, int order, std::size_t numLines_, std::size_t numTraces_) :
-        xMiddle(range.getCenterX()),
-        poly(order, range),
-        numLines(numLines_),
-        numTraces(numTraces_),
-        length(2*numLines + numTraces),
-        measurements(ndarray::allocate(length)),
-        errors(ndarray::allocate(length)),
-        design(ndarray::allocate(length, 2*poly.getNParameters() + NUM_AFFINE)),
-        index(0) {
-        design.deep() = 0.0;
-    }
-
-    // Add a point to the design matrix
-    //
-    // @param xy : Point at which to evaluate the polynomial
-    // @param meas : Measured value
-    // @param err : Error in measured value
-    // @param isLine : True if this is a line measurement
-    // @param slope : Slope of the trace
-    void add(
-        lsst::geom::Point2D const& xy,
-        lsst::geom::Point2D const& meas,
-        lsst::geom::Point2D const& err,
-        bool isLine,
-        double slope
-    ) {
-        std::size_t const ii = index++;
-        assert(ii < length);
-
-        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
-        std::size_t const numPoly = poly.getNParameters();
-        assert (terms.size() == numPoly);
-
-        // x part of the design matrix
-        std::copy(terms.begin(), terms.end(), design[ii].begin());
-        measurements[ii] = meas.getX();
-        errors[ii] = err.getX();
-
-        lsst::geom::Point2D const xyNorm = poly.normalize(xy);
-
-        // Affine part of the design matrix
-        bool const onRightCcd = xy.getX() > xMiddle;
-        std::size_t const affineStart = 2*numPoly;
-        if (onRightCcd) {
-            design[ii][affineStart] = 1.0;
-            design[ii][affineStart + 1] = xyNorm.getX();
-            design[ii][affineStart + 2] = xyNorm.getY();
-        }
-
-        // y part of the design matrix
-        if (isLine) {
-            // For a line, the y part is independent of the x part.
-            std::size_t const jj = index++;
-            assert(jj < length);
-            std::copy(terms.begin(), terms.end(), design[jj].begin() + numPoly);
-            measurements[jj] = meas.getY();
-            errors[jj] = err.getY();
-
-            // Affine part of the design matrix
-            if (onRightCcd) {
-                design[jj][affineStart + 3] = 1.0;
-                design[jj][affineStart + 4] = xyNorm.getX();
-                design[jj][affineStart + 5] = xyNorm.getY();
-            }
-        } else {
-            // For a trace, the y part is linked to the x part by the slope.
-            auto lhs = design[ii][ndarray::view(numPoly, 2*numPoly)];
-            ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(utils::vectorToArray(terms));
-
-            // Affine part of the design matrix
-            if (onRightCcd) {
-                auto lhs = design[ii][ndarray::view(affineStart + 3, affineStart + 6)];
-                auto const rhs = design[ii][ndarray::view(affineStart, affineStart + 3)];                ndarray::asEigenArray(lhs) = -slope*ndarray::asEigenArray(rhs);
-            }
-        }
-    }
-
-    // Solve the least-squares problem
-    //
-    // @param threshold : Threshold for truncating eigenvalues (see lsst::afw::math::LeastSquares)
-    // @return Solutions in x and y.
-    std::tuple<Array1D, Array1D, Array1D> getSolution(
-        double threshold=1.0e-6,
-        ndarray::Array<bool, 1, 1> const& forced=ndarray::Array<bool, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& params=ndarray::Array<double, 1, 1>()
-    ) const {
-        assert(index == length);  // everything got added
-        auto solution = math::solveLeastSquaresDesign(
-            design, measurements, errors, threshold, forced, params
-        );
-
-        std::size_t const nPolyParams = poly.getNParameters();
-        std::size_t const affineStart = 2*nPolyParams;
-        ndarray::Array<double, 1, 1> affine = ndarray::allocate(NUM_AFFINE);
-        affine[lsst::geom::AffineTransform::Parameters::X] = solution[affineStart];
-        affine[lsst::geom::AffineTransform::Parameters::XX] = solution[affineStart + 1];
-        affine[lsst::geom::AffineTransform::Parameters::XY] = solution[affineStart + 2];
-        affine[lsst::geom::AffineTransform::Parameters::Y] = solution[affineStart + 3];
-        affine[lsst::geom::AffineTransform::Parameters::YX] = solution[affineStart + 4];
-        affine[lsst::geom::AffineTransform::Parameters::YY] = solution[affineStart + 5];
-
-        return std::make_tuple(
-            affine,
-            solution[ndarray::view(0, nPolyParams)],
-            solution[ndarray::view(nPolyParams, affineStart)]
-        );
-    }
-
-    float xMiddle;  // Middle x value: boundary between CCDs
-    MosaicPolynomialDistortion::Polynomial poly;  // Polynomial used for calculating design
-    std::size_t numLines;  // Number of lines
-    std::size_t numTraces;  // Number of traces
-    std::size_t length;  // Number of measurements
-    Array1D measurements;  // Measurements
-    Array1D errors;  // Errors in measurements
-    Array2D design;  // Design matrix
-    std::size_t index;  // Next index to add
-};
-
-
-}  // anonymous namespace
-
-
-
 template<>
 MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
     int distortionOrder,
@@ -304,37 +167,104 @@ MosaicPolynomialDistortion AnalyticDistortion<MosaicPolynomialDistortion>::fit(
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr,
     ndarray::Array<bool, 1, 1> const& isLine,
-    ndarray::Array<double, 1, 1> const& slope,
     double threshold,
     ndarray::Array<bool, 1, 1> const& forced,
     ndarray::Array<double, 1, 1> const& params
 ) {
     using Array1D = MosaicPolynomialDistortion::Array1D;
-    using Array2D = MosaicPolynomialDistortion::Array2D;
+    using Array2D = ndarray::Array<double, 2, 1>;
+    using Parameters = lsst::geom::AffineTransform::Parameters;
     std::size_t const length = xx.size();
     utils::checkSize(yy.size(), length, "y");
     utils::checkSize(xMeas.size(), length, "xMeas");
     utils::checkSize(yMeas.size(), length, "yMeas");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
+    utils::checkSize(isLine.size(), length, "isLine");
 
+    MosaicPolynomialDistortion::Polynomial const poly(distortionOrder, range);
+    std::size_t const numPoly = poly.getNParameters();
+    std::size_t const numAffine = NUM_AFFINE/2;  // Affine parameters per dimension
+    std::size_t const numParams = numPoly + numAffine;  // Parameters per dimension
+    if (!forced.isEmpty()) {
+        utils::checkSize(forced.size(), 2*numParams, "forced");
+    }
+    if (!params.isEmpty()) {
+        utils::checkSize(params.size(), 2*numParams, "params");
+    }
+    double const xMiddle = range.getCenterX();  // Boundary between CCDs
+
+    // The x and y dimensions are independent, so we fit them separately. This
+    // ensures that the eigenvalue threshold for each dimension is relative to
+    // that dimension only, which is important when the number of measurements
+    // in each dimension is very different (traces only provide x).
+    //
+    // For each dimension, the parameters are the polynomial coefficients
+    // followed by the affine terms (constant, x, y) for the right CCD.
     std::size_t const numLines = std::count(isLine.begin(), isLine.end(), true);
-    std::size_t const numTraces = length - numLines;
+    Array2D xDesign = ndarray::allocate(length, numParams);
+    Array2D yDesign = ndarray::allocate(numLines, numParams);
+    xDesign.deep() = 0.0;
+    yDesign.deep() = 0.0;
+    Array1D yMeasLines = ndarray::allocate(numLines);
+    Array1D yErrLines = ndarray::allocate(numLines);
+    for (std::size_t ii = 0, jj = 0; ii < length; ++ii) {
+        lsst::geom::Point2D const xy(xx[ii], yy[ii]);
+        auto const terms = poly.getDFuncDParameters(xy.getX(), xy.getY());
+        assert(terms.size() == numPoly);
+        bool const onRightCcd = xy.getX() > xMiddle;
+        lsst::geom::Point2D const xyNorm = poly.normalize(xy);
 
-    FitData fit(range, distortionOrder, numLines, numTraces);
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        fit.add(
-            lsst::geom::Point2D(xx[ii], yy[ii]),
-            lsst::geom::Point2D(xMeas[ii], yMeas[ii]),
-            lsst::geom::Point2D(xErr[ii], yErr[ii]),
-            isLine[ii],
-            slope[ii]
-        );
+        std::copy(terms.begin(), terms.end(), xDesign[ii].begin());
+        if (onRightCcd) {
+            xDesign[ii][numPoly] = 1.0;
+            xDesign[ii][numPoly + 1] = xyNorm.getX();
+            xDesign[ii][numPoly + 2] = xyNorm.getY();
+        }
+
+        if (isLine[ii]) {
+            std::copy(terms.begin(), terms.end(), yDesign[jj].begin());
+            if (onRightCcd) {
+                yDesign[jj][numPoly] = 1.0;
+                yDesign[jj][numPoly + 1] = xyNorm.getX();
+                yDesign[jj][numPoly + 2] = xyNorm.getY();
+            }
+            yMeasLines[jj] = yMeas[ii];
+            yErrLines[jj] = yErr[ii];
+            ++jj;
+        }
     }
 
-    auto const solution = fit.getSolution(threshold, forced, params);
+    // forced and params are ordered: x coefficients, y coefficients, then the
+    // affine terms X, XX, XY, Y, YX, YY.
+    std::vector<std::size_t> xIndices(numParams);
+    std::vector<std::size_t> yIndices(numParams);
+    std::iota(xIndices.begin(), xIndices.begin() + numPoly, 0);
+    std::iota(yIndices.begin(), yIndices.begin() + numPoly, numPoly);
+    std::iota(xIndices.begin() + numPoly, xIndices.end(), 2*numPoly);
+    std::iota(yIndices.begin() + numPoly, yIndices.end(), 2*numPoly + numAffine);
+
+    Array1D const xSolution = math::solveLeastSquaresDesign(
+        xDesign, xMeas, xErr, threshold,
+        detail::takeOptional(forced, xIndices), detail::takeOptional(params, xIndices)
+    );
+    Array1D const ySolution = math::solveLeastSquaresDesign(
+        yDesign, yMeasLines, yErrLines, threshold,
+        detail::takeOptional(forced, yIndices), detail::takeOptional(params, yIndices)
+    );
+
+    Array1D affine = ndarray::allocate(NUM_AFFINE);
+    affine[Parameters::X] = xSolution[numPoly];
+    affine[Parameters::XX] = xSolution[numPoly + 1];
+    affine[Parameters::XY] = xSolution[numPoly + 2];
+    affine[Parameters::Y] = ySolution[numPoly];
+    affine[Parameters::YX] = ySolution[numPoly + 1];
+    affine[Parameters::YY] = ySolution[numPoly + 2];
+
     return MosaicPolynomialDistortion(
-        distortionOrder, range, std::get<0>(solution), std::get<1>(solution), std::get<2>(solution)
+        distortionOrder, range, affine,
+        ndarray::copy(xSolution[ndarray::view(0, numPoly)]),
+        ndarray::copy(ySolution[ndarray::view(0, numPoly)])
     );
 }
 

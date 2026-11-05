@@ -58,15 +58,12 @@ class LineResiduals(PfsTableWithSeparateStrings):
         Original measured positions (pixels).
     xBase, yBase : `np.ndarray` of `float`
         Expected position from base detectorMap.
-    slope : `np.ndarray` of `float`
-        (Inverse) slope of trace, dx/dy (pixels/pixel).
     """
     schema = ArcLineSet.DamdClass.schema + [
         Column("xOrig", np.float64, "Original measured x position (pixels)", np.nan),
         Column("yOrig", np.float64, "Original measured y position (pixels)", np.nan),
         Column("xBase", np.float64, "Expected x position from base detectorMap (pixels)", np.nan),
         Column("yBase", np.float64, "Expected y position from base detectorMap (pixels)", np.nan),
-        Column("slope", np.float64, "Inverse slope of trace, dx/dy (pixels/pixel)", np.nan),
     ]
     fitsExtName = "RESID"
 
@@ -594,8 +591,6 @@ class FitDetectorMapTask(Task):
         self.log.debug("%d good lines after line status (%s)", good.sum(), getCounts())
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
-        if hasattr(lines, "slope"):
-            good &= np.isfinite(lines.slope) | ~isTrace
         self.log.debug("%d good lines after finite positions (%s)", good.sum(), getCounts())
         if self.config.minSignalToNoise > 0:
             good &= np.isfinite(lines.flux) & np.isfinite(lines.fluxErr)
@@ -1040,9 +1035,6 @@ class FitDetectorMapTask(Task):
         dx = xx - points[:, 0]
         dy = yy - points[:, 1]
 
-        slope = base.getSlope(lines.fiberId, lines.y, isTrace)  # inverse slope, dx/dy
-        slope[:] = 0.0
-
         if self.debugInfo.baseResiduals:
             import matplotlib.pyplot as plt
             import matplotlib.cm
@@ -1105,7 +1097,6 @@ class FitDetectorMapTask(Task):
             y=dy,
             xOrig=xx,
             yOrig=yy,
-            slope=slope,
             xBase=points[:, 0],
             yBase=points[:, 1],
             xErr=lines.xErr,
@@ -1270,7 +1261,7 @@ class FitDetectorMapTask(Task):
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       result.xSoften, result.ySoften, used.sum(), numGood - numReserved,
                       getDescriptionCounts(lines.description, used))
-        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
+        fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, isLine)
         soften = (self.config.soften, self.config.soften)
         # Apply the same outlier rejection to the reserved lines as was applied to the lines used in the
         # fit, so the statistics are comparable. The reserved lines weren't used in the fit, so there are
@@ -1352,7 +1343,6 @@ class FitDetectorMapTask(Task):
         yy = lines.y[select].astype(float)
         xBase = lines.xBase[select]
         yBase = lines.yBase[select]
-        slope = lines.slope[select]
         with np.errstate(invalid="ignore", divide="ignore"):
             xErr = np.hypot(lines.xErr[select].astype(float), xSoften)/weights[select]
             yErr = np.where(lines.description[select] == "Trace", np.inf,
@@ -1372,14 +1362,13 @@ class FitDetectorMapTask(Task):
                 yy - correction[:, 1],
                 xErr,
                 yErr,
-                slope,
                 isLine[select],
                 DistortionClass,
             )
             if not isinstance(distortion, MosaicPolynomialDistortion):
                 break
             correction = self.calculateMosaicCorrection(distortion, xBase, yBase)
-        fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, lines.slope, isLine)
+        fit = self.evaluateModel(distortion, lines.xBase, lines.yBase, isLine)
 
         return calculateFitStatistics(
             fit, lines, select, distortion.getNumParameters(), soften, distortion=distortion
@@ -1394,7 +1383,6 @@ class FitDetectorMapTask(Task):
         yMeas: np.ndarray,
         xErr: np.ndarray,
         yErr: np.ndarray,
-        slope: np.ndarray,
         isLine: np.ndarray,
         DistortionClass: Type[Distortion],
     ) -> Distortion:
@@ -1413,11 +1401,9 @@ class FitDetectorMapTask(Task):
             Measured position for each line (pixels).
         xErr, yErr : `numpy.ndarray` of `float`
             Error in measured position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``isLine`` is `False`.
         isLine : `numpy.ndarray` of `bool`
-            Is this point a line? Otherwise, it's a trace.
+            Is this point a line? Otherwise, it's a trace, which has no
+            spectral measurement.
         DistortionClass : subclass of `pfs.drp.stella.Distortion`
             Class to use for distortion.
 
@@ -1436,7 +1422,6 @@ class FitDetectorMapTask(Task):
             xErr,
             yErr,
             isLine,
-            slope,
             self.config.lsqThreshold,
             self.config.forced or None,
             self.config.parameters or None,
@@ -1447,15 +1432,9 @@ class FitDetectorMapTask(Task):
         distortion: Distortion,
         xBase: np.ndarray,
         yBase: np.ndarray,
-        slope: np.ndarray,
         isLine: np.ndarray,
     ) -> np.ndarray:
         """Evaluate the distortion model
-
-        When fitting distortions, the trace positions are calculated with a
-        guessed wavelength, so the model spectral distortion needs to be
-        converted into spatial distortion, which requires that the ``lines``
-        includes a ``slope`` field.
 
         Parameters
         ----------
@@ -1463,11 +1442,10 @@ class FitDetectorMapTask(Task):
             Distortion model to evaluate.
         xBase, yBase : `numpy.ndarray` of `float`
             Base position for each line (pixels).
-        slope : `numpy.ndarray` of `float`
-            (Inverse) slope of trace (dx/dy; pixels per pixel). Only set for
-            lines where ``isLine`` is `False`.
         isLine : `numpy.ndarray` of `bool`
-            Is this point a line? Otherwise, it's a trace.
+            Is this point a line? Otherwise, it's a trace, which has no
+            spectral measurement (its spectral residual is zero by
+            construction), so the spectral model is set to zero.
 
         Returns
         -------
@@ -1476,19 +1454,7 @@ class FitDetectorMapTask(Task):
         """
         fit = distortion(xBase, yBase)
         fit += self.calculateMosaicCorrection(distortion, xBase, yBase)
-
-        if not np.all(isLine):
-            # If dy from the distortion model is positive, the observed position of
-            # a line with the corresponding wavelength would be at larger y. That
-            # means that the wavelength we're using for the trace sample is smaller
-            # than what it should be. That means that the magnitude of the dx should
-            # be smaller. Hence we subtract the correction.
-            isTrace = ~isLine
-            xModel = fit[:, 0]
-            yModel = fit[:, 1]
-            xModel[isTrace] -= slope[isTrace]*yModel[isTrace]
-            yModel[isTrace] = 0.0
-
+        fit[~isLine, 1] = 0.0
         return fit
 
     def calculateMosaicCorrection(
