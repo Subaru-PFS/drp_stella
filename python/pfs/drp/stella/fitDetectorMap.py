@@ -1206,7 +1206,6 @@ class FitDetectorMapTask(Task):
         # Errors used in rejection
         xErr = np.hypot(lines.xErr, self.config.soften)
         yErr = np.hypot(lines.yErr, self.config.soften)
-        rejection = self.config.rejection
 
         used = good & ~reserved
         result = None
@@ -1228,18 +1227,29 @@ class FitDetectorMapTask(Task):
             with np.errstate(invalid="ignore"):
                 newUsed = used.copy()
                 if self.config.doSlitOffsets:
-                    # There may be fiber-specific offsets, so do rejection for individual fibers
+                    # There may be fiber-specific offsets, so remove those before applying the standard
+                    # rejection.
+                    xResid = result.xResid.copy()
+                    yResid = result.yResid.copy()
                     for fiberId in set(lines.fiberId[used]):
                         choose = used & (lines.fiberId == fiberId)
-                        yChoose = choose & isLine
                         if not np.any(choose):
                             continue
-                        dx = np.median(result.xResid[choose])
-                        newUsed[choose] &= np.abs((result.xResid[choose] - dx)/xErr[choose]) < rejection
-                        if not np.any(yChoose):
-                            continue
-                        dy = np.median(result.yResid[yChoose])
-                        newUsed[choose] &= np.abs((result.yResid[choose] - dy)/yErr[choose]) < rejection
+                        xResid[choose] -= np.median(result.xResid[choose])
+                        yChoose = choose & isLine
+                        if np.any(yChoose):
+                            yResid[choose] -= np.median(result.yResid[yChoose])
+                    xSelection = used & np.isfinite(xResid)
+                    ySelection = xSelection & isLine & np.isfinite(yResid)
+                    adjusted = Struct(
+                        xResid=xResid,
+                        yResid=yResid,
+                        isTrace=result.isTrace,
+                        selection=xSelection,
+                        xRobustRms=robustRms(xResid[xSelection]) if np.any(xSelection) else np.nan,
+                        yRobustRms=robustRms(yResid[ySelection]) if np.any(ySelection) else np.nan,
+                    )
+                    newUsed &= self.rejectOutliers(adjusted, xErr, yErr)
                 else:
                     keep = self.rejectOutliers(result, xErr, yErr)
                     if self.config.doRejectBadLines:
