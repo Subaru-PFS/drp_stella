@@ -295,6 +295,13 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
+    outputKernel = OutputConnection(
+        name="psfMatchKernel",
+        doc="PSF-matching kernel from the reference to the target",
+        storageClass="MatchingKernel",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,  # The quantum has no visit dimension; adjustQuantum selects the target visit
+    )
 
     def __init__(self, *, config=None):
         super().__init__(config=config)
@@ -304,6 +311,21 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
             lookup = partial(lookupCalibForVisit, visit=config.referenceVisit)
             self.detectorMap = dataclasses.replace(self.detectorMap, lookupFunction=lookup)
             self.fiberProfiles = dataclasses.replace(self.fiberProfiles, lookupFunction=lookup)
+
+    def adjustQuantum(self, inputs, outputs, label, dataId):
+        """Remove the reference visit from the kernel outputs
+
+        The kernel output has a ``visit`` dimension, which isn't one of the
+        quantum dimensions, so the quantum graph builder generates a kernel
+        output for each visit. We only want the kernel for the target visit
+        (i.e., not the reference visit).
+        """
+        connection, oldRefs = outputs["outputKernel"]
+        newRefs = [ref for ref in oldRefs if ref.dataId["visit"] != self.config.referenceVisit]
+        adjusted = {"outputKernel": (connection, newRefs)}
+        outputs.update(adjusted)
+        super().adjustQuantum(inputs, outputs, label, dataId)
+        return {}, adjusted
 
 
 class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalibsConnections):
@@ -470,6 +492,10 @@ class PsfMatchCalibsTask(PipelineTask):
         )
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         butler.put(outputs.fiberProfiles, outputRefs.outputFiberProfiles)
+        kernelRefs = [ref for ref in outputRefs.outputKernel if ref.dataId["visit"] == targetVisit]
+        if len(kernelRefs) != 1:
+            raise RuntimeError(f"Expected one kernel output for visit {targetVisit}, found {len(kernelRefs)}")
+        butler.put(outputs.kernel, kernelRefs[0])
 
     def run(
         self,
