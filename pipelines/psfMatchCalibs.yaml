@@ -16,6 +16,7 @@ tasks:
     class: pfs.drp.stella.cosmicray.CosmicRayTask
     config:
       grouping: separate
+      doWriteExposure: true
   psfMatchCalibs:
     class: pfs.drp.stella.psfMatchCalibs.PsfMatchCalibsTask
     config:
