@@ -67,18 +67,29 @@ def maskNeighboringFibers(
     threshold: float,
     log=None,
 ) -> None:
-    """Mask out neighboring fibers' arc lines that leak into a stamp
+    """Mask out neighboring fibers' arc lines that fall in a stamp
 
     Fibers that are supposed to be unilluminated (or blocked) are not
     always perfectly dark, and a faint, leaked arc line can land inside a
     neighboring fiber's PSF-candidate stamp (fiber pitch is typically only
-    a few times the stamp size). For each candidate, we check every
-    *other* fiber whose trace passes through the stamp, at every
-    reference line's expected position for that fiber; if there's a real
-    peak there (not just noise), we mask a small box around it. If there's
-    no significant peak, that fiber is taken to be genuinely dark there,
-    and nothing is masked -- so this only ever removes pixels that show
-    actual leaked signal, not whole trace columns.
+    a few times the stamp size). In a dense exposure (all fibers lit), the
+    neighboring fibers' lines are fully illuminated, and lie close to the
+    edges of the stamp. For each candidate, we check every *other* fiber
+    near the stamp, at every reference line's expected position for that
+    fiber; if the box around that position overlaps the stamp, and there's
+    a real peak there (not just noise), we mask the overlap. If there's no
+    significant peak, that fiber is taken to be genuinely dark there, and
+    nothing is masked -- so this only ever removes pixels that show actual
+    signal, not whole trace columns.
+
+    The test for a peak must not be fooled by the candidate's own wings,
+    which (for a bright line) are significant at the inner edge of a
+    neighbor's box. We therefore require that the column of the neighbor's
+    line (or the stamp edge, if the line is outside the stamp) is
+    significantly brighter than the column two pixels closer to the
+    candidate (summed over three rows around the line): the candidate's own
+    light declines away from the candidate, while a neighbor's light
+    increases towards the neighbor.
 
     This relies on the candidate's stamp already being cached at
     ``config.makePsfCandidates.kernelSize`` (matching
@@ -109,7 +120,9 @@ def maskNeighboringFibers(
         Half-height (pixels, dispersion direction) of the local box.
     threshold : `float`
         Signal-to-noise threshold for a neighboring fiber's arc line to be
-        considered a real, leaked peak.
+        considered a real peak: the significance of the excess in the
+        neighbor's column over the column two pixels closer to the
+        candidate.
     log : optional
         Logger (with a ``debug`` method) to report how many stamps/positions
         were affected. If not provided, nothing is logged.
@@ -131,7 +144,8 @@ def maskNeighboringFibers(
         xc, yc = cand.getXCenter(), cand.getYCenter()
 
         row0 = int(np.clip(round(yc), 0, exposureHeight - 1))
-        searchHalfWidth = 0.5 * width + 5.0  # margin for trace slope across the stamp
+        # Neighbors whose box can overlap the stamp, plus a margin for trace slope across the stamp
+        searchHalfWidth = 0.5 * width + halfWidth + 5.0
         nearby = np.flatnonzero(
             (np.abs(xCenter[:, row0] - xc) < searchHalfWidth) & (fiberId != targetFiberId)
         )
@@ -143,33 +157,45 @@ def maskNeighboringFibers(
         maskArray = stamp.mask.array
         badBit = stamp.mask.getPlaneBitMask("BAD")
         stampWasMasked = False
+        boxHalfWidth = int(np.ceil(halfWidth))
+        boxHalfHeight = int(np.ceil(halfHeight))
+        targetCol = xc - x0
 
         for ff in nearby:
             points = detectorMap.findPoint(int(fiberId[ff]), wavelength)
             px, py = points[:, 0], points[:, 1]
-            inStamp = (
-                np.isfinite(px)
-                & np.isfinite(py)
-                & (px >= x0 + halfWidth)
-                & (px < x0 + width - halfWidth)
-                & (py >= y0 + halfHeight)
-                & (py < y0 + height - halfHeight)
-            )
-            for lineX, lineY in zip(px[inStamp], py[inStamp]):
+            finite = np.isfinite(px) & np.isfinite(py)
+            # Box around each line, in stamp pixels, clipped to the stamp: the line itself needn't be
+            # within the stamp (e.g., a lit neighbor in a dense exposure is close to the stamp edge).
+            col = np.round(px[finite] - x0).astype(int)
+            row = np.round(py[finite] - y0).astype(int)
+            colLo = np.maximum(0, col - boxHalfWidth)
+            colHi = np.minimum(width, col + boxHalfWidth + 1)
+            rowLo = np.maximum(0, row - boxHalfHeight)
+            rowHi = np.minimum(height, row + boxHalfHeight + 1)
+            overlaps = (colLo < colHi) & (rowLo < rowHi)
+            for cc, rr, cLo, cHi, rLo, rHi in zip(
+                col[overlaps],
+                row[overlaps],
+                colLo[overlaps],
+                colHi[overlaps],
+                rowLo[overlaps],
+                rowHi[overlaps],
+            ):
                 numChecked += 1
-                col, row = int(round(lineX - x0)), int(round(lineY - y0))
-                colLo, colHi = col - int(np.ceil(halfWidth)), col + int(np.ceil(halfWidth)) + 1
-                rowLo, rowHi = row - int(np.ceil(halfHeight)), row + int(np.ceil(halfHeight)) + 1
-                colLo, colHi = max(0, colLo), min(width, colHi)
-                rowLo, rowHi = max(0, rowLo), min(height, rowHi)
-                window = imageArray[rowLo:rowHi, colLo:colHi]
-                varWindow = varianceArray[rowLo:rowHi, colLo:colHi]
+                # Compare the neighbor's column with the column two pixels closer to the candidate
+                peakCol = int(np.clip(cc, 0, width - 1))
+                innerCol = int(np.clip(peakCol - 2 * np.sign(cc - targetCol), 0, width - 1))
+                if innerCol == peakCol:
+                    continue
+                rows = slice(int(np.clip(rr - 1, 0, height - 1)), int(np.clip(rr + 1, 0, height - 1)) + 1)
+                excess = np.sum(imageArray[rows, peakCol]) - np.sum(imageArray[rows, innerCol])
+                noise = np.sqrt(np.sum(varianceArray[rows, peakCol]) + np.sum(varianceArray[rows, innerCol]))
                 with np.errstate(invalid="ignore", divide="ignore"):
-                    snr = window / np.sqrt(varWindow)
-                peak = np.nanmax(snr) if snr.size else np.nan
-                if not np.isfinite(peak) or peak < threshold:
+                    snr = excess / noise
+                if not np.isfinite(snr) or snr < threshold:
                     continue  # no significant peak here: this fiber is genuinely dark, nothing to mask
-                maskArray[rowLo:rowHi, colLo:colHi] |= badBit
+                maskArray[rLo:rHi, cLo:cHi] |= badBit
                 stampWasMasked = True
         if stampWasMasked:
             numMasked += 1
@@ -280,8 +306,19 @@ class FitImagePsfConfig(PipelineTaskConfig, pipelineConnections=FitImagePsfConne
         dtype=float,
         default=3.0,
         doc="Signal-to-noise threshold for a neighboring fiber's arc line to be considered a real, "
-        "leaked peak (and so be masked). If a neighboring fiber shows no significant peak at a "
+        "leaked peak (and so be masked): the significance of the excess in the neighbor's column over the "
+        "column two pixels closer to the candidate. If a neighboring fiber shows no significant peak at a "
         "reference line's position, it is taken to be genuinely dark there, and nothing is masked.",
+    )
+    denseCandidateRatio = Field(
+        dtype=float,
+        default=1.0,
+        optional=True,
+        doc="Maximum ratio of the number of PSF candidates from dense exposures (lit fibers closer "
+        "together than the PSF-candidate stamp) to the number from sparse exposures. The masking of "
+        "neighboring fibers' lines in dense stamps biases the fit, so dense exposures are best used to "
+        "constrain the PSF where the sparse exposures have no lines, without dominating it elsewhere. "
+        "Only applied if there are both dense and sparse exposures; None means no limit.",
     )
 
     def setDefaults(self):
@@ -326,6 +363,17 @@ class FitImagePsfTask(PipelineTask):
     arc lines are looked up via the ``detectorMap`` at the position of each
     lit fiber (per ``pfsConfig``), so this is an "informed" search rather than
     blind source detection.
+
+    Dense exposures (with all fibers lit, so that the neighboring fibers' lines
+    fall within each stamp) may also be included, to constrain the PSF where
+    the sparse exposures have no usable lines (e.g., an exposure of a lamp
+    with lines in a different part of the spectrum). An exposure is dense if
+    the median separation between adjacent lit fibers is less than the stamp
+    size. The neighbors' lines are masked in the dense stamps, which leaves
+    the PSF wings poorly constrained and biases the fit, so if there are both
+    dense and sparse exposures, the number of candidates from the dense
+    exposures is limited to ``config.denseCandidateRatio`` times the number
+    from the sparse exposures.
     """
 
     ConfigClass = FitImagePsfConfig
@@ -431,10 +479,8 @@ class FitImagePsfTask(PipelineTask):
                 self.config.makePsfCandidates.kernelSize,
             )
 
-        allCandidates = []
-        goodStarCat = SourceCatalog(self.centroidLines.schema)
+        groups = []  # Candidates from each exposure
         referenceExposure = None
-        numExposures = 0
         nextId = 1  # Each per-visit catalog gets its own ids starting from 1; renumber to be unique overall
         adjustedDetectorMaps = []
 
@@ -453,11 +499,16 @@ class FitImagePsfTask(PipelineTask):
             )
             good = selectGoodSources(catalog, self.badLineStatus)
             selected = catalog[good].copy(deep=True)
+            separation = self.measureLitFiberSeparation(pfsConfig, visitDetectorMap)
+            isDense = separation < self.config.makePsfCandidates.kernelSize
             self.log.info(
-                "Visit %d: %d/%d line measurements selected as PSF candidates",
+                "Visit %d: %d/%d line measurements selected as PSF candidates; %s exposure "
+                "(median separation of lit fibers: %.1f pixels)",
                 exposure.visitInfo.id,
                 len(selected),
                 len(catalog),
+                "dense" if isDense else "sparse",
+                separation,
             )
             if len(selected) == 0:
                 continue
@@ -482,9 +533,18 @@ class FitImagePsfTask(PipelineTask):
                 self.config.neighborPeakThreshold,
                 log=self.log,
             )
-            allCandidates.extend(candidates.psfCandidates)
-            goodStarCat.extend(candidates.goodStarCat, deep=True)
-            numExposures += 1
+            groups.append(
+                Struct(candidates=candidates.psfCandidates, catalog=candidates.goodStarCat, isDense=isDense)
+            )
+
+        if referenceExposure is not None:
+            self.limitDenseCandidates(groups, seed=referenceExposure.visitInfo.id)
+        allCandidates = []
+        goodStarCat = SourceCatalog(self.centroidLines.schema)
+        for group in groups:
+            allCandidates.extend(group.candidates)
+            goodStarCat.extend(group.catalog, deep=True)
+        numExposures = len(groups)
 
         if referenceExposure is None or not allCandidates:
             raise RuntimeError("No usable PSF candidates found in any input exposure")
@@ -510,6 +570,84 @@ class FitImagePsfTask(PipelineTask):
             usedCatalog=goodStarCat,
             allCandidates=allCandidates,
             adjustedDetectorMaps=adjustedDetectorMaps,
+        )
+
+    def measureLitFiberSeparation(self, pfsConfig: PfsConfig | None, detectorMap: DetectorMap) -> float:
+        """Measure the median separation between adjacent lit fibers
+
+        The lit fibers are those that would be centroided, i.e., those
+        selected by the ``centroidLines.selectFibers`` subtask (or all fibers
+        in the ``detectorMap``, if there is no ``pfsConfig``).
+
+        Parameters
+        ----------
+        pfsConfig : `pfs.datamodel.PfsConfig` or `None`
+            Top-end fiber configuration.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        separation : `float`
+            Median separation (pixels) between the traces of adjacent lit
+            fibers, at the middle row of the detector; infinite if there are
+            fewer than two lit fibers.
+        """
+        fiberId = detectorMap.fiberId
+        if pfsConfig is not None:
+            selected = self.centroidLines.selectFibers.run(pfsConfig).fiberId
+            fiberId = fiberId[np.isin(fiberId, selected)]
+        if len(fiberId) < 2:
+            return np.inf
+        row = np.full(len(fiberId), detectorMap.bbox.getCenterY(), dtype=float)
+        xCenter = np.sort(detectorMap.getXCenter(fiberId, row))
+        separation = np.diff(xCenter[np.isfinite(xCenter)])
+        return float(np.median(separation)) if len(separation) > 0 else np.inf
+
+    def limitDenseCandidates(self, groups: List[Struct], seed: int = 0) -> None:
+        """Limit the number of candidates from dense exposures
+
+        If there are candidates from both dense and sparse exposures, the
+        candidates from the dense exposures are randomly subsampled so that
+        there are at most ``config.denseCandidateRatio`` times as many as from
+        the sparse exposures.
+
+        Parameters
+        ----------
+        groups : `list` of `lsst.pipe.base.Struct`
+            Candidates from each exposure, with elements ``candidates``
+            (`list` of `lsst.meas.algorithms.PsfCandidate`), ``catalog``
+            (`lsst.afw.table.SourceCatalog`, aligned with ``candidates``) and
+            ``isDense`` (`bool`). Modified in-place.
+        seed : `int`, optional
+            Seed for the random number generator.
+        """
+        ratio = self.config.denseCandidateRatio
+        numSparse = sum(len(group.candidates) for group in groups if not group.isDense)
+        numDense = sum(len(group.candidates) for group in groups if group.isDense)
+        if ratio is None or numSparse == 0 or numDense == 0:
+            return
+        maxDense = int(round(ratio * numSparse))
+        if numDense <= maxDense:
+            return
+
+        rng = np.random.default_rng(seed)
+        keep = np.zeros(numDense, dtype=bool)
+        keep[rng.choice(numDense, size=maxDense, replace=False)] = True
+        start = 0
+        for group in groups:
+            if not group.isDense:
+                continue
+            select = keep[start : start + len(group.candidates)]
+            start += len(group.candidates)
+            group.candidates = [cand for cand, use in zip(group.candidates, select) if use]
+            group.catalog = group.catalog[select].copy(deep=True)
+        self.log.info(
+            "Using %d/%d candidates from dense exposures (%.2f times the %d from sparse exposures)",
+            maxDense,
+            numDense,
+            ratio,
+            numSparse,
         )
 
     def adjustDetectorMapForVisit(
