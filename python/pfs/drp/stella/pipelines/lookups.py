@@ -1,7 +1,7 @@
 from typing import List
 from lsst.daf.butler import DataCoordinate, DatasetRef, DatasetType, Registry
 
-__all__ = ("lookupDetectorMap", "lookupFiberNorms", "lookupCalibForVisit")
+__all__ = ("lookupDetectorMap", "lookupFiberNorms", "lookupCalibForVisit", "lookupDatasetsForArm")
 
 
 def lookupDetectorMap(
@@ -130,3 +130,43 @@ def lookupCalibForVisit(
         raise RuntimeError(f"Unable to find unique visit record for visit {visit}: {records}")
     ref = registry.findDataset(datasetType, dataId, collections=collections, timespan=records[0].timespan)
     return [ref] if ref is not None else []
+
+
+def lookupDatasetsForArm(
+    datasetType: str | DatasetType,
+    registry: Registry,
+    dataId: DataCoordinate,
+    collections: List[str],
+    *,
+    arm: str,
+) -> List[DatasetRef]:
+    """Look up datasets for the same spectrograph but a different arm
+
+    This is a lookup function for a PrerequisiteConnection, for use when the
+    quantum is for one arm but needs datasets produced for another arm (e.g.,
+    a PSF-matching kernel measured for ``r`` when processing ``b``). All
+    matching datasets (e.g., for every visit) are returned, so the task must
+    select the one it needs. Bind the ``arm`` with `functools.partial`.
+
+    Parameters
+    ----------
+    datasetType : `str` or `lsst.daf.butler.DatasetType`
+        The dataset type to look up.
+    registry : `lsst.daf.butler.Registry`
+        The butler registry.
+    dataId : `lsst.daf.butler.DataCoordinate`
+        The data identifier; must include ``instrument`` and ``spectrograph``.
+    collections : `list` of `str`
+        The collections to search.
+    arm : `str`
+        Arm for which to look up the datasets.
+
+    Returns
+    -------
+    refs : `list` of `lsst.daf.butler.DatasetRef`
+        The references to the datasets.
+    """
+    otherDataId = dict(instrument=dataId["instrument"], spectrograph=dataId["spectrograph"], arm=arm)
+    return list(
+        registry.queryDatasets(datasetType, collections=collections, dataId=otherDataId, findFirst=True)
+    )
