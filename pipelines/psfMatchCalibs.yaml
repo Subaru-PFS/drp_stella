@@ -6,6 +6,11 @@ description: |
   target. Set the reference visit with "-c parameters:referenceVisit=<visit>".
   The outputs (detectorMap_psfMatch, fiberProfiles_psfMatch) can be certified
   with certifyDetectorMaps.py and certifyFiberProfiles.py (with --datasetType).
+
+  The blue arm has too few lines in sky exposures to measure a good kernel. To
+  use the kernel measured for the red arm instead, first run for the red arm,
+  and then run for the blue arm with "-c psfMatchCalibs:kernelArm=r", including
+  the red-arm output collection in the inputs.
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 parameters:
   referenceVisit: None
