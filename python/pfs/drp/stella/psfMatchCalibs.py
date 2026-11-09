@@ -32,7 +32,7 @@ from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
 from .OpticalModel import OpticsModel
 from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
-from .pipelines.lookups import lookupCalibForVisit
+from .pipelines.lookups import lookupCalibForVisit, lookupDatasetsForArm
 from .PolynomialDistortionContinued import PolynomialDistortion
 from .psfBias import calculatePeakToCentroidBias
 from .psfMatch import PsfMatchTask, calculateFirstMoments
@@ -281,6 +281,14 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
+    otherArmKernel = PrerequisiteConnection(
+        name="psfMatchKernel",
+        doc="PSF-matching kernel measured for another arm (``config.kernelArm``), used instead of measuring "
+        "one",
+        storageClass="MatchingKernel",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,  # One per visit; runQuantum selects the target visit
+    )
     outputDetectorMap = OutputConnection(
         name="detectorMap_psfMatch",
         doc="Mapping from fiberId,wavelength to x,y, adjusted for the target",
@@ -311,6 +319,15 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
             lookup = partial(lookupCalibForVisit, visit=config.referenceVisit)
             self.detectorMap = dataclasses.replace(self.detectorMap, lookupFunction=lookup)
             self.fiberProfiles = dataclasses.replace(self.fiberProfiles, lookupFunction=lookup)
+        if config is not None:
+            if config.kernelArm is None:
+                self.prerequisiteInputs.remove("otherArmKernel")
+            else:
+                lookup = partial(lookupDatasetsForArm, arm=config.kernelArm)
+                self.otherArmKernel = dataclasses.replace(self.otherArmKernel, lookupFunction=lookup)
+                # The kernel is the input from the other arm, so there's no need to write it again (and a task
+                # can't both read and write the same dataset type).
+                self.outputs.remove("outputKernel")
 
     def adjustQuantum(self, inputs, outputs, label, dataId):
         """Remove the reference visit from the kernel outputs
@@ -320,6 +337,8 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         output for each visit. We only want the kernel for the target visit
         (i.e., not the reference visit).
         """
+        if "outputKernel" not in outputs:
+            return super().adjustQuantum(inputs, outputs, label, dataId)
         connection, oldRefs = outputs["outputKernel"]
         newRefs = [ref for ref in oldRefs if ref.dataId["visit"] != self.config.referenceVisit]
         adjusted = {"outputKernel": (connection, newRefs)}
@@ -346,6 +365,15 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
             "sky": "Use the line list",
         },
         doc="Whether to use the line list when measuring the PSF-matching kernel",
+    )
+    kernelArm = ChoiceField(
+        dtype=str,
+        optional=True,
+        default=None,
+        allowed={"b": "blue", "r": "red", "n": "near-infrared", "m": "medium-resolution red"},
+        doc="Arm whose PSF-matching kernel (measured by a previous run of this task, for the same "
+        "spectrograph, reference and target) to use instead of measuring one for this arm; e.g., 'r' when "
+        "processing 'b', which has few lines in sky exposures. If None, measure the kernel for this arm.",
     )
     doAdjustReference = Field(
         dtype=bool,
@@ -402,6 +430,15 @@ class PsfMatchCalibsTask(PipelineTask):
     convolved with the kernel, and shifted to be relative to the new (peak)
     trace positions.
 
+    The blue arm has too few lines in sky exposures to measure a good kernel.
+    Instead, ``config.kernelArm`` can specify another arm (e.g., ``r``) whose
+    kernel (from a previous run of this task, with the same reference and
+    target visits) is used in place of measuring one; it is combined with the
+    PSF model, detectorMap and fiberProfiles for this arm. The kernel is
+    evaluated at the same pixel position: the same fiber is only a few tens of
+    pixels from the same position in the other arm, and the kernel varies
+    slowly. The kernel is not written for this arm in that case.
+
     In a pipeline, the data query should select two visits: the reference
     (identified by ``config.referenceVisit``) and the target. The calibs are
     those valid for the reference visit. The outputs are written as new
@@ -453,7 +490,19 @@ class PsfMatchCalibsTask(PipelineTask):
         targetVisit = targetRef.dataId["visit"]
         pfsConfigRefs = {ref.dataId["visit"]: ref for ref in inputRefs.pfsConfigs}
 
-        if self.config.lineMode == "auto":
+        kernel = None
+        if self.config.kernelArm is not None:
+            kernelRefs = [ref for ref in inputRefs.otherArmKernel if ref.dataId["visit"] == targetVisit]
+            if len(kernelRefs) != 1:
+                raise RuntimeError(
+                    f"Expected one PSF-matching kernel for arm {self.config.kernelArm} and visit "
+                    f"{targetVisit}, found {len(kernelRefs)}"
+                )
+            kernel = butler.get(kernelRefs[0])
+
+        if kernel is not None:
+            useLineList = False  # We're not measuring the kernel
+        elif self.config.lineMode == "auto":
             useLineList = not targetRef.dataId.records["visit"].lamps
         elif self.config.lineMode == "sky":
             useLineList = True
@@ -489,9 +538,12 @@ class PsfMatchCalibsTask(PipelineTask):
             referencePfsConfig=pfsConfigs[referenceVisit],
             targetPfsConfig=pfsConfigs[targetVisit],
             useLineList=useLineList,
+            kernel=kernel,
         )
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         butler.put(outputs.fiberProfiles, outputRefs.outputFiberProfiles)
+        if self.config.kernelArm is not None:
+            return  # No kernel output
         kernelRefs = [ref for ref in outputRefs.outputKernel if ref.dataId["visit"] == targetVisit]
         if len(kernelRefs) != 1:
             raise RuntimeError(f"Expected one kernel output for visit {targetVisit}, found {len(kernelRefs)}")
@@ -508,6 +560,7 @@ class PsfMatchCalibsTask(PipelineTask):
         referencePfsConfig: Optional[PfsConfig] = None,
         targetPfsConfig: Optional[PfsConfig] = None,
         useLineList: bool = False,
+        kernel: Optional[afwMath.Kernel] = None,
     ) -> Struct:
         """Adjust the detectorMap and fiberProfiles for the target
 
@@ -534,6 +587,10 @@ class PsfMatchCalibsTask(PipelineTask):
         useLineList : `bool`, optional
             Use the line list (and fiber exclusion) when measuring the
             PSF-matching kernel? This is appropriate for sky exposures.
+        kernel : `lsst.afw.math.Kernel`, optional
+            PSF-matching kernel from the reference to the target, to use
+            instead of measuring one (e.g., measured for another arm). If
+            provided, ``useLineList`` and the ``targetPfsConfig`` are not used.
 
         Returns
         -------
@@ -545,8 +602,9 @@ class PsfMatchCalibsTask(PipelineTask):
             Profiles of fibers for the target.
         kernel : `lsst.afw.math.Kernel`
             PSF-matching kernel from the reference to the target.
-        psfMatch : `PsfMatchResult`
-            Results from PSF-matching.
+        psfMatch : `PsfMatchResult` or `None`
+            Results from PSF-matching, or `None` if the ``kernel`` was
+            provided.
         shifts : `lsst.pipe.base.Struct`
             Peak shifts measured on the grid (see `measurePeakShifts`).
         fit : `lsst.pipe.base.Struct`
@@ -558,7 +616,10 @@ class PsfMatchCalibsTask(PipelineTask):
                 reference, detectorMap, fiberProfiles, referencePfsConfig, identity.arm
             )
 
-        if useLineList:
+        if kernel is not None:
+            self.log.info("Using the provided PSF-matching kernel instead of measuring one")
+            psfMatch = None
+        elif useLineList:
             refLines = self.readLineList.run(referenceDetectorMap, target.getMetadata(), arm=identity.arm)
             psfMatch = self.psfMatch.run(
                 reference,
@@ -570,7 +631,8 @@ class PsfMatchCalibsTask(PipelineTask):
             )
         else:
             psfMatch = self.psfMatch.run(reference, target)
-        kernel = psfMatch.psfMatchingKernel
+        if psfMatch is not None:
+            kernel = psfMatch.psfMatchingKernel
 
         shifts = self.measurePeakShifts(kernel, psf, referenceDetectorMap)
         fit = self.fitDistortion(referenceDetectorMap, shifts)

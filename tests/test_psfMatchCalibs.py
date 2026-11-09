@@ -1,3 +1,5 @@
+import unittest.mock
+
 import numpy as np
 
 import lsst.utils.tests
@@ -12,7 +14,9 @@ from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineSource,
 from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
-from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsTask, addOpticsDistortion, convolveFiberProfile
+from pfs.drp.stella.pipelines.lookups import lookupDatasetsForArm
+from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsConnections, PsfMatchCalibsTask
+from pfs.drp.stella.psfMatchCalibs import addOpticsDistortion, convolveFiberProfile
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.tests.utils import methodParameters, runTests
 
@@ -363,12 +367,72 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(dx, 0.0, atol=5.0e-2)
         self.assertFloatsAlmostEqual(dy, 0.0, atol=5.0e-3)
 
+    def testRunWithKernel(self):
+        """Test run with a provided kernel (e.g., measured for another arm)
+
+        The kernel should be used without measuring one, so we don't need
+        realistic exposures.
+        """
+        self.task.config.doAdjustReference = False
+        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
+        profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
+        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
+        kernel = makeDeltaKernel(5, 1, 0)
+
+        def failPsfMatch(*args, **kwargs):
+            raise AssertionError("Should not measure the PSF-matching kernel")
+
+        self.task.psfMatch.run = failPsfMatch
+        result = self.task.run(
+            exposure, exposure, self.psf, self.detectorMap, profiles, self.identity, kernel=kernel
+        )
+        self.assertIsNone(result.psfMatch)
+        self.assertIs(result.kernel, kernel)
+        diff = self.calculatePositionChange(result.detectorMap, result.shifts)
+        self.assertFloatsAlmostEqual(diff[:, 0], -1.0, atol=2.0e-3)
+        self.assertFloatsAlmostEqual(diff[:, 1], 0.0, atol=2.0e-3)
+        self.assertEqual(set(result.fiberProfiles.fiberId), set(profiles.fiberId))
+
+    def testKernelArmConnections(self):
+        """Test the connections with and without kernelArm
+
+        By default, we measure and write the kernel, and don't read one.
+        With ``kernelArm``, we read the kernel for the other arm and don't
+        write one.
+        """
+        config = PsfMatchCalibsTask.ConfigClass()
+        config.referenceVisit = 1
+        connections = PsfMatchCalibsConnections(config=config)
+        self.assertNotIn("otherArmKernel", connections.prerequisiteInputs)
+        self.assertIn("outputKernel", connections.outputs)
+
+        config.kernelArm = "r"
+        connections = PsfMatchCalibsConnections(config=config)
+        self.assertIn("otherArmKernel", connections.prerequisiteInputs)
+        self.assertNotIn("outputKernel", connections.outputs)
+        self.assertIsNotNone(connections.otherArmKernel.lookupFunction)
+
+    def testLookupDatasetsForArm(self):
+        """Test that lookupDatasetsForArm searches the other arm"""
+        registry = unittest.mock.MagicMock()
+        registry.queryDatasets.return_value = ["ref1", "ref2"]
+        dataId = dict(instrument="PFS", arm="b", spectrograph=1)
+        refs = lookupDatasetsForArm("psfMatchKernel", registry, dataId, ["collection"], arm="r")
+        self.assertEqual(refs, ["ref1", "ref2"])
+        registry.queryDatasets.assert_called_once_with(
+            "psfMatchKernel",
+            collections=["collection"],
+            dataId=dict(instrument="PFS", spectrograph=1, arm="r"),
+            findFirst=True,
+        )
+
     def testConfigDefaults(self):
         """Test the default configuration"""
         config = PsfMatchCalibsTask.ConfigClass()
         self.assertTrue(config.doAdjustReference)
         self.assertFalse(config.adjustReference.doSlitOffsets)
         self.assertEqual(config.psfMatch.dfKernel.spatialKernelOrder, 3)
+        self.assertIsNone(config.kernelArm)
 
     def testConfigValidate(self):
         """Test that referenceVisit is required"""
