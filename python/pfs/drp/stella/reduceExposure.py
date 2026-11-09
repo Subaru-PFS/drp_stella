@@ -530,7 +530,7 @@ class ReduceExposureTask(PipelineTask):
         identity: Identity,
     ) -> Struct:
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
-        refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=arm)
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=identity.arm)
         seed = exposure.visitInfo.id if exposure.visitInfo is not None else 0
         lines = ArcLineSet.empty()
         if len(refLines) > 0:
