@@ -233,6 +233,23 @@ class DatasetRefList(Sequence):
         return self._byCoordinate.keys()
 
 
+def sortKey(dataId: DataCoordinate) -> Tuple:
+    """Key for sorting data coordinates into a reproducible order
+
+    Parameters
+    ----------
+    dataId : `DataCoordinate`
+        Data coordinate.
+
+    Returns
+    -------
+    key : `tuple`
+        The coordinate's dimension names and values, in the order of its
+        required dimensions.
+    """
+    return tuple(zip(dataId.dimensions.required, dataId.required_values))
+
+
 def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Iterator[Tuple[DatasetRef, ...]]:
     """Provide zip iteration over separate lists of `DatasetRef`
 
@@ -265,7 +282,9 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
     If ``allowMissing=True`` were provided, then ``(None), (exposure=2)``
     would also be included.
 
-    No particular order of iteration is specified.
+    The iteration is in order of the coordinates' values (sorted by
+    `sortKey`), so that tasks that combine the inputs (and so depend on the
+    order, through rounding) give reproducible results.
 
     Parameters
     ----------
@@ -284,7 +303,10 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
     if len(refLists) == 0:
         raise RuntimeError("No lists provided.")
     if len(refLists) == 1:
-        return iter(refLists[0])
+        # This is a generator, so this must yield (a "return" would end the iteration with nothing)
+        for ref in sorted(refLists[0], key=lambda ref: sortKey(ref.dataId)):
+            yield (ref,)
+        return
 
     # Identify the largest set of dimensions
     refDimensions = [refs.dimensions if refs is not None else None for refs in refLists]
@@ -314,7 +336,7 @@ def zipDatasetRefs(*refLists: DatasetRefList, allowMissing: bool = False) -> Ite
 
     # Iterate over the largest set of coordinates, providing for each an
     # appropriate reference from each list.
-    for dataId in allCoordinates:
+    for dataId in sorted(allCoordinates, key=sortKey):
         try:
             result = tuple(
                 refs.byExtendedCoordinate(dataId, allowMissing=allowMissing) if refs is not None else None
