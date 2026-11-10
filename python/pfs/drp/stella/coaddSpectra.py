@@ -28,6 +28,7 @@ from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
+from .combineSpectra import accumulateWeighted, coaddWeights
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -486,28 +487,15 @@ class CoaddSpectraTask(PipelineTask):
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
         covar = np.zeros((numCovar, length), dtype=archetype.covar.dtype)
-        sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        allValues = np.full((len(resampled), length), np.nan)
-
-        for ii, ss in enumerate(resampled):
-            weight = np.zeros_like(flux)
-            with np.errstate(invalid="ignore", divide="ignore"):
-                if resampledWeights[ii] is not None:
-                    pixelWeights = resampledWeights[ii]
-                else:
-                    pixelWeights = 1.0/ss.covar[0]
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                good &= np.isfinite(pixelWeights) & (pixelWeights > 0)
-                ww = pixelWeights[good]
-                weight[good] = ww
-                flux[good] += ss.flux[good]*ww
-                sky[good] += ss.sky[good]*ww
-                mask[good] |= ss.mask[good]
-                covar[:, good] += ss.covar[:, good]*ww**2
-                sumWeights += weight
-
-                allValues[ii][good] = ss.flux[good]/np.sqrt(ss.covar[0][good])
+        weights = coaddWeights(resampled, self.config.mask, resampledWeights)
+        sumWeights = weights.sumWeights
+        accumulateWeighted([ss.flux for ss in resampled], weights.weights, weights.selects, flux)
+        accumulateWeighted([ss.sky for ss in resampled], weights.weights, weights.selects, sky)
+        accumulateWeighted([ss.covar for ss in resampled], [ww**2 for ww in weights.weights], weights.selects,
+                           covar)
+        for ss, select in zip(resampled, weights.selects):
+            mask[select] |= ss.mask[select]
 
         good = sumWeights > 0
         ww = sumWeights[good]
