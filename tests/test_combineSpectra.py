@@ -183,9 +183,9 @@ ARMS = dict(b=(380.0, 650.0, 4096), r=(630.0, 970.0, 4096), n=(940.0, 1260.0, 40
 PLANES = ("NO_DATA", "SUSPECT", "BAD", "CR", "SAT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS")
 
 
-def makeFlags():
+def makeFlags(planes=PLANES):
     flags = MaskHelper()
-    for name in PLANES:
+    for name in planes:
         flags.add(name)
     return flags
 
@@ -286,7 +286,10 @@ class CombineSpectraTestCase(lsst.utils.tests.TestCase):
 
     def testCoadd(self):
         """The CoaddSpectraTask.combine flux combination is unchanged"""
-        singles = [makeSingle(self.rng, visit, arm, self.flags) for visit in (1, 2, 3) for arm in ARMS]
+        # visit 2's mask planes have different bits, so each spectrum's own flags must be used
+        flagsByVisit = {1: self.flags, 2: makeFlags(PLANES[::-1]), 3: self.flags}
+        singles = [makeSingle(self.rng, visit, arm, flagsByVisit[visit])
+                   for visit in (1, 2, 3) for arm in ARMS]
         lsfList = [{7: GaussianLsf(len(ss.wavelength), 1.5)} for ss in singles]
         for order in (1, 3):
             config = CoaddSpectraConfig()
