@@ -1,9 +1,15 @@
 """Tools for transferring datasets out of butler repos"""
 
+import contextlib
 import logging
 import os
+import shutil
+import sys
 import tempfile
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+import threading
+import time
+from collections import deque
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from lsst.daf.butler import (
     Butler,
@@ -291,8 +297,10 @@ def _transferRefs(
     refs = {ref for ref, isKnown in known.items() if not isKnown}
     if numPresent > 0:
         log.info("Skipping %d datasets already present in the target.", numPresent)
-    if not clobber and refs:
-        existing = _findExistingFiles(source, target, refs)
+    targetFiles = _getTargetFiles(source, target, refs) if refs else {}
+    if not clobber and targetFiles:
+        existing = {ref: [uri for uri, _ in files if uri.exists()] for ref, files in targetFiles.items()}
+        existing = {ref: uris for ref, uris in existing.items() if uris}
         if existing:
             for ref, uris in existing.items():
                 log.warning(
@@ -310,23 +318,27 @@ def _transferRefs(
         log.info("No datasets to pull.")
         return 0
     log.info("Pulling %d datasets...", len(refs))
-    imported = target.transfer_from(
-        source, refs, transfer=transfer, register_dataset_types=True, transfer_dimensions=True
-    )
+    files = [(uri.ospath, size) for ref in refs for uri, size in targetFiles.get(ref, [])]
+    monitor = _TransferMonitor(log, files) if files and "link" not in transfer else contextlib.nullcontext()
+    with monitor:
+        imported = target.transfer_from(
+            source, refs, transfer=transfer, register_dataset_types=True, transfer_dimensions=True
+        )
     log.info("Pulled %d datasets.", len(imported))
     return len(imported)
 
 
-def _findExistingFiles(
+def _getTargetFiles(
     source: Butler, target: Butler, refs: Iterable[DatasetRef]
-) -> dict[DatasetRef, list[ResourcePath]]:
-    """Find datasets whose files would clobber existing files in the target
+) -> dict[DatasetRef, list[tuple[ResourcePath, int]]]:
+    """Determine where the files of datasets will be written in the target
 
-    `Butler.transfer_from` skips datasets that are already registered in the
-    target datastore, but for unregistered datasets it overwrites any file
-    already present at the target location (e.g., left over from an
-    interrupted transfer, or put there by some other means). This identifies
-    those datasets so they can be skipped.
+    This mirrors the calculation of target locations in
+    `FileDatastore.transfer_from`, so that we can check for existing files
+    before the transfer (`Butler.transfer_from` skips datasets that are
+    already registered in the target datastore, but for unregistered datasets
+    it overwrites any file already present at the target location, e.g., left
+    over from an interrupted transfer), and monitor progress during it.
 
     Parameters
     ----------
@@ -340,31 +352,311 @@ def _findExistingFiles(
 
     Returns
     -------
-    existing : `dict` [`DatasetRef`, `list` [`ResourcePath`]]
-        Datasets whose target file(s) already exist, along with the URIs of
-        those files.
+    targetFiles : `dict` [`DatasetRef`, `list` [`tuple`]]
+        For each dataset, a list of the target URI and expected size (bytes;
+        negative if unknown) of each of its files. Files that are not copied
+        into the target datastore (absolute URIs) are not included.
+
+    Notes
+    -----
+    There is no public API for this, so this relies on daf_butler internals
+    (``Butler._datastore``, ``Butler._file_transfer_source``,
+    ``retrieve_file_transfer_records`` and ``FileDatastore.locationFactory``)
+    and on replicating the location calculation in
+    ``FileDatastore.transfer_from``. Changes to daf_butler may break it: the
+    likely symptom is an exception (e.g., `AttributeError`), but if the
+    location calculation changes, the computed paths could be wrong, so that
+    existing files are not detected (and are overwritten) and progress is
+    not reported.
     """
     from lsst.daf.butler.datastores.file_datastore.transfer import retrieve_file_transfer_records
 
-    datastore = target._datastore
     unknown = {ref.id: ref for ref in refs}
     if not unknown:
         return {}
-    # Handle chained datastores by checking each constituent file datastore.
+    # For a chained datastore, use the first file datastore.
+    datastore = target._datastore
     datastores = [
         ds for ds in getattr(datastore, "datastores", [datastore]) if hasattr(ds, "locationFactory")
     ]
+    if not datastores:
+        return {}
+    locationFactory = datastores[0].locationFactory
     records = retrieve_file_transfer_records(source._file_transfer_source, unknown.values(), {})
-    existing: dict[DatasetRef, list[ResourcePath]] = {}
+    targetFiles: dict[DatasetRef, list[tuple[ResourcePath, int]]] = {}
     for datasetId, transferRecords in records.items():
         for record in transferRecords:
-            for ds in datastores:
-                location = record.file_info.file_location(ds.locationFactory)
-                if location.pathInStore.isabs():
-                    continue  # Not copied into the datastore
-                if location.uri.exists():
-                    existing.setdefault(unknown[datasetId], []).append(location.uri)
-    return existing
+            location = record.file_info.file_location(locationFactory)
+            if location.pathInStore.isabs():
+                continue  # Not copied into the datastore
+            targetFiles.setdefault(unknown[datasetId], []).append((location.uri, record.file_info.file_size))
+    return targetFiles
+
+
+def _formatBytes(num: float) -> str:
+    """Format a number of bytes for humans
+
+    Parameters
+    ----------
+    num : `float`
+        Number of bytes.
+
+    Returns
+    -------
+    text : `str`
+        Formatted number of bytes, with units.
+    """
+    for unit in ("B", "kB", "MB", "GB"):
+        if abs(num) < 1000:
+            return f"{num:.1f} {unit}" if unit != "B" else f"{num:.0f} {unit}"
+        num /= 1000
+    return f"{num:.1f} TB"
+
+
+def _formatDuration(seconds: float) -> str:
+    """Format a duration for humans
+
+    Parameters
+    ----------
+    seconds : `float`
+        Duration, in seconds.
+
+    Returns
+    -------
+    text : `str`
+        Formatted duration.
+    """
+    seconds = int(round(seconds))
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    if hours > 0:
+        return f"{hours}h{minutes:02d}m{seconds:02d}s"
+    if minutes > 0:
+        return f"{minutes}m{seconds:02d}s"
+    return f"{seconds}s"
+
+
+class _TransferMonitor:
+    """Monitor and report the progress of a file transfer
+
+    A background thread periodically scans the target directories and
+    reports the number of bytes that have arrived, the transfer speed and an
+    estimate of the time remaining. This is used as a context manager around
+    the transfer.
+
+    If ``stream`` is a terminal, the report is a single status line that is
+    updated in place (and cleared whenever a log message is emitted, so the
+    two don't collide); otherwise, the report is logged.
+
+    Files are copied into a temporary file in the target directory and then
+    renamed (see ``lsst.resources.FileResourcePath.transfer_from``), so the
+    bytes transferred include those in any new file that has appeared in the
+    target directories, not just the target files. Files that existed before
+    the transfer started (identified by their inode) are ignored.
+
+    Parameters
+    ----------
+    log : `logging.Logger`
+        Logger to use for progress messages.
+    files : iterable of `tuple` [`str`, `int`]
+        Target path and expected size (bytes; negative if unknown) of each
+        file to be transferred.
+    interval : `float`, optional
+        Interval between progress reports (seconds). Defaults to 1 second for
+        a status line, or 30 seconds for logging.
+    window : `float`, optional
+        Time window over which to measure the current speed (seconds).
+    stream : file-like, optional
+        Stream for the status line. Defaults to ``sys.stderr``.
+    """
+
+    def __init__(
+        self,
+        log: logging.Logger,
+        files: Iterable[tuple[str, int]],
+        interval: float | None = None,
+        window: float = 5.0,
+        stream: Any = None,
+    ):
+        self.log = log
+        self.stream = stream if stream is not None else sys.stderr
+        try:
+            self.isTerminal = self.stream.isatty()
+        except Exception:
+            self.isTerminal = False
+        self.interval = interval if interval is not None else (1.0 if self.isTerminal else 30.0)
+        self.window = window
+        sizes = dict(files)
+        self.targets = set(sizes.keys())
+        self.numFiles = len(sizes)
+        self.totalBytes = sum(sizes.values()) if all(size >= 0 for size in sizes.values()) else None
+        self.directories = {os.path.dirname(path) for path in self.targets}
+        self.preexisting = {path: inode for path, inode, _ in self._scan()}
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, name="transferMonitor", daemon=True)
+        self._startTime = 0.0
+        self._lock = threading.Lock()  # Protects the status line
+        self._lineShown = False  # Is the status line currently displayed?
+        self._filter = _ClearStatusFilter(self)
+        self._handlers: list[logging.Handler] = []
+
+    def _scan(self) -> Iterator[tuple[str, int, int]]:
+        """Scan the target directories
+
+        Yields
+        ------
+        path : `str`
+            Path of a file.
+        inode : `int`
+            Inode of the file.
+        size : `int`
+            Size of the file (bytes).
+        """
+        for directory in self.directories:
+            try:
+                with os.scandir(directory) as entries:
+                    for entry in entries:
+                        try:
+                            if not entry.is_file(follow_symlinks=False):
+                                continue
+                            yield entry.path, entry.inode(), entry.stat(follow_symlinks=False).st_size
+                        except FileNotFoundError:
+                            continue  # Temporary file was renamed or removed
+            except FileNotFoundError:
+                continue  # Directory not yet created
+
+    def _measure(self) -> tuple[int, int]:
+        """Measure the progress of the transfer
+
+        Returns
+        -------
+        numBytes : `int`
+            Number of bytes transferred.
+        numDone : `int`
+            Number of target files completed.
+        """
+        numBytes = 0
+        numDone = 0
+        for path, inode, size in self._scan():
+            if self.preexisting.get(path) == inode:
+                continue
+            numBytes += size
+            if path in self.targets:
+                numDone += 1
+        return numBytes, numDone
+
+    def _report(self, numBytes: int, numDone: int, elapsed: float, speed: float) -> None:
+        """Report progress
+
+        Parameters
+        ----------
+        numBytes : `int`
+            Number of bytes transferred.
+        numDone : `int`
+            Number of target files completed.
+        elapsed : `float`
+            Time since the start of the transfer (seconds).
+        speed : `float`
+            Current transfer speed (bytes/second).
+        """
+        if self.totalBytes:
+            fraction = min(numBytes / self.totalBytes, 1.0)
+            progress = f"{_formatBytes(numBytes)}/{_formatBytes(self.totalBytes)} ({100*fraction:.0f}%)"
+            average = numBytes / elapsed if elapsed > 0 else 0.0
+            remaining = self.totalBytes - numBytes
+            eta = f", ETA {_formatDuration(remaining/average)}" if average > 0 and remaining > 0 else ""
+        else:
+            progress = _formatBytes(numBytes)
+            eta = ""
+        text = f"Transferred {progress}, {numDone}/{self.numFiles} files, {_formatBytes(speed)}/s{eta}"
+        if not self.isTerminal:
+            self.log.info("%s", text)
+            return
+        # Truncate to avoid wrapping, which would defeat the carriage return
+        width = shutil.get_terminal_size().columns - 1
+        with self._lock:
+            self.stream.write("\r" + text[:width] + "\x1b[K")
+            self.stream.flush()
+            self._lineShown = True
+
+    def clearStatus(self) -> None:
+        """Clear the status line, if it is displayed"""
+        with self._lock:
+            if self._lineShown:
+                self.stream.write("\r\x1b[K")
+                self.stream.flush()
+                self._lineShown = False
+
+    def _run(self) -> None:
+        """Periodically report progress until stopped"""
+        samples: deque[tuple[float, int]] = deque([(self._startTime, 0)])  # (time, bytes)
+        while not self._stop.wait(self.interval):
+            try:
+                numBytes, numDone = self._measure()
+                now = time.monotonic()
+                # Measure the speed over the last 'window' seconds
+                while len(samples) > 1 and now - samples[1][0] >= self.window:
+                    samples.popleft()
+                startTime, startBytes = samples[0]
+                speed = (numBytes - startBytes) / (now - startTime) if now > startTime else 0.0
+                samples.append((now, numBytes))
+                self._report(numBytes, numDone, now - self._startTime, max(speed, 0.0))
+            except Exception as exc:  # Never let monitoring interfere with the transfer
+                self.log.debug("Unable to report transfer progress: %s", exc)
+
+    def __enter__(self) -> "_TransferMonitor":
+        if self.isTerminal:
+            # Clear the status line before any log message is emitted
+            loggers = [logging.getLogger()] + [
+                ll for ll in logging.Logger.manager.loggerDict.values() if isinstance(ll, logging.Logger)
+            ]
+            handlers = {hh for ll in loggers for hh in ll.handlers}
+            self._handlers = [hh for hh in handlers if self._filter not in hh.filters]
+            for handler in self._handlers:
+                handler.addFilter(self._filter)
+        self._startTime = time.monotonic()
+        self._thread.start()
+        return self
+
+    def __exit__(self, excType, excValue, traceback) -> None:
+        self._stop.set()
+        self._thread.join()
+        self.clearStatus()
+        for handler in self._handlers:
+            handler.removeFilter(self._filter)
+        self._handlers = []
+        if excType is None:
+            elapsed = time.monotonic() - self._startTime
+            numBytes, _ = self._measure()
+            speed = f" ({_formatBytes(numBytes/elapsed)}/s)" if elapsed > 0 else ""
+            self.log.info(
+                "Transferred %s in %d files in %s%s",
+                _formatBytes(numBytes),
+                self.numFiles,
+                _formatDuration(elapsed),
+                speed,
+            )
+
+
+class _ClearStatusFilter(logging.Filter):
+    """Logging filter that clears a transfer status line before each message
+
+    This doesn't filter anything; it's a hook that runs just before a
+    handler emits a log record.
+
+    Parameters
+    ----------
+    monitor : `_TransferMonitor`
+        Monitor whose status line should be cleared.
+    """
+
+    def __init__(self, monitor: _TransferMonitor):
+        super().__init__()
+        self.monitor = monitor
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        self.monitor.clearStatus()
+        return True
 
 
 def mirrorCollectionChains(source: Butler, target: Butler, collections: CollectionArgType) -> None:
