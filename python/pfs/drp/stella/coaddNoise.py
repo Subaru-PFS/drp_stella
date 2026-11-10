@@ -248,9 +248,8 @@ class CoaddNoiseTask(CoaddSpectraTask):
         observations = self.getObservations(data.keys(), pfsConfigList)
         wavelength = self.wavelength.run(any(ident.arm == "m" for ident in data))
 
-        lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([dd.pfsArm.flags for dd in data.values()])
-        combineArgs = (lsfList, flags, wavelength)
+        combineArgs = (None, flags, wavelength)  # No LSF: we don't use it
 
         def combine(number: int | None = None) -> Struct:
             """Combine the calibrated spectra, with noise added if ``number`` is not `None`"""
