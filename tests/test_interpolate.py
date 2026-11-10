@@ -298,6 +298,24 @@ class ResamplerTestCase(lsst.utils.tests.TestCase):
                 interpolateFlux(self.fromWavelength, flux, self.toWavelength, order=order),
             )
 
+    def testFloatPrecision(self):
+        """Claude: float32 values are resampled at double-precision positions
+
+        The source index used to be cast to the type of the values, which for
+        float32 rounds it by up to ~1e-4 pixels at indices of a few thousand.
+        """
+        numIn = 4096
+        fromWavelength = 600.0 + 0.0731*np.arange(numIn)
+        toWavelength = np.linspace(601.0, fromWavelength[-1] - 1.0, 3000)
+        flux = np.sin(np.arange(numIn)/2.0)  # Large gradient, so position errors matter
+        variance = np.ones(numIn)
+        mask = np.zeros(numIn, dtype=np.int32)
+        for order in (1, 3):
+            resampler = Resampler(fromWavelength, toWavelength, order=order)
+            expect = resampler.resampleFlux(flux)  # double precision
+            result = resampler(flux.astype(np.float32), mask, variance.astype(np.float32))
+            np.testing.assert_allclose(result.flux, expect, rtol=0, atol=1.0e-6)
+
     def testWindow(self):
         """resampleWindow is resampleFlux of a row that is zero outside the window"""
         numIn = len(self.fromWavelength)
