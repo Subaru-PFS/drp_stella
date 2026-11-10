@@ -4,7 +4,7 @@ import numpy as np
 import scipy.signal
 
 import lsst.afw.math as afwMath
-from lsst.afw.detection import GaussianPsf, Psf
+from lsst.afw.detection import Psf
 from lsst.afw.image import ExposureF, ImageD, MaskedImageF, PARENT
 from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.geom import Box2I, Extent2I, Point2D, Point2I
@@ -12,7 +12,7 @@ from lsst.meas.base import SdssCentroidAlgorithm, SdssCentroidControl
 
 from .images import calculateCentroid
 from .makeFootprint import makeFootprint
-from .utils.psf import fwhmToSigma
+from .utils.psf import CENTROID_FWHM, makeGaussianPsf
 
 __all__ = ("calculatePeakToCentroidBias",)
 
@@ -84,10 +84,10 @@ def calculatePeakToCentroidBias(
         PSF to attach to the working exposure, which ``SdssCentroid`` uses
         as its smoothing (matched-filter) kernel. This should be the PSF
         used when measuring the real lines, which is not necessarily
-        ``psf``: `pfs.drp.stella.centroidLines.CentroidLinesTask` measures
-        exposures without a PSF, and so attaches a Gaussian PSF with a FWHM
-        of `CentroidLinesConfig.fwhm`. Defaults to that Gaussian (FWHM of
-        1.5 pixels).
+        ``psf``: `pfs.drp.stella.centroidLines.CentroidLinesTask` always
+        measures with a Gaussian PSF with a FWHM of
+        `CentroidLinesConfig.fwhm`. Defaults to that Gaussian (FWHM of
+        `pfs.drp.stella.utils.psf.CENTROID_FWHM`).
     peakSearch : `int`
         Half-size (pixels) of the box, centered on each nominated position,
         within which to find the peak pixel of the realized (and possibly
@@ -154,10 +154,8 @@ def calculatePeakToCentroidBias(
         margin += max(kernel.getWidth(), kernel.getHeight()) // 2
 
     if centroidPsf is None:
-        # Matches CentroidLinesTask, via pfs.drp.stella.utils.psf.checkPsf
-        sigma = fwhmToSigma(1.5)
-        size = 2 * int(4.0 * sigma + 0.5) + 1
-        centroidPsf = GaussianPsf(size, size, sigma)
+        # Matches CentroidLinesTask's default
+        centroidPsf = makeGaussianPsf(CENTROID_FWHM, 4.0)
 
     workingBBox = Box2I(
         Point2I(0, 0),

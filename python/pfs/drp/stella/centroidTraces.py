@@ -12,7 +12,7 @@ from pfs.drp.stella.images import convolveImage
 from .DetectorMapContinued import DetectorMap
 from .arcLine import ArcLineSet
 from .referenceLine import ReferenceLineSource, ReferenceLineStatus
-from .utils.psf import fwhmToSigma
+from .utils.psf import CENTROID_FWHM, fwhmToSigma
 
 import lsstDebug
 
@@ -21,7 +21,12 @@ __all__ = ("CentroidTracesConfig", "CentroidTracesTask", "tracesToLines")
 
 class CentroidTracesConfig(Config):
     """Configuration for CentroidLinesTask"""
-    fwhmCol = Field(dtype=float, default=2.0, doc="FWHM (pixels) for smoothing columns")
+    fwhmCol = Field(
+        dtype=float,
+        default=CENTROID_FWHM,
+        doc="FWHM (pixels) for smoothing columns, for both peak-finding and centroiding; should match "
+        "CentroidLinesConfig.fwhm for consistency between line and trace centroids",
+    )
     fwhmRow = Field(dtype=float, default=5.0, doc="FWHM (pixels) for smoothing rows")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")

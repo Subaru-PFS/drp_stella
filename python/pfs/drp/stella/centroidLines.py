@@ -14,7 +14,7 @@ from .arcLine import ArcLineSet
 from .centroidImage import findPeak
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
-from .utils.psf import checkPsf
+from .utils.psf import CENTROID_FWHM, makeGaussianPsf
 from .makeFootprint import makeFootprint
 from .selectFibers import SelectFibersTask
 from .traces import medianFilterColumns
@@ -51,7 +51,12 @@ class CentroidLinesConfig(Config):
     footprintHeight = Field(dtype=int, default=11, doc="Height of footprint (pixels)")
     footprintWidth = Field(dtype=float, default=3, doc="Width of footprint (pixels)")
     photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
-    fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
+    fwhm = Field(
+        dtype=float,
+        default=CENTROID_FWHM,
+        doc="FWHM (pixels) of Gaussian PSF used as the centroiding kernel; should match "
+        "CentroidTracesConfig.fwhmCol for consistency between line and trace centroids",
+    )
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     threshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for lines")
     selectFibers = ConfigurableField(target=SelectFibersTask, doc="Select fibers to centroid")
@@ -188,7 +193,12 @@ class CentroidLinesTask(Task):
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog of arc lines with measured centroids, shapes and fluxes.
         """
-        checkPsf(exposure, fwhm=self.config.fwhm)
+        # SdssCentroid uses the exposure's PSF as its smoothing (matched-filter) kernel. We always use a
+        # Gaussian with the configured FWHM (rather than any PSF that happens to be attached, e.g., by
+        # cosmic-ray repair), so that the line centroids are consistent with the trace centroids (see
+        # CentroidTracesConfig.fwhmCol). The original PSF is restored afterwards.
+        originalPsf = exposure.getPsf()
+        exposure.setPsf(makeGaussianPsf(self.config.fwhm, self.config.kernelSize))
 
         traces = None
         if self.config.doSubtractTraces:
@@ -207,6 +217,7 @@ class CentroidLinesTask(Task):
         finally:
             if traces is not None:
                 exposure.image.array += traces
+            exposure.setPsf(originalPsf)
 
         return catalog
 
