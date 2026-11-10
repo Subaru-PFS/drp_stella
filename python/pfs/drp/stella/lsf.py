@@ -15,7 +15,7 @@ from lsst.afw.math import FixedKernel
 from lsst.afw.geom.ellipses import Quadrupole, BaseCore
 
 __all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf",
-           "CoaddLsf", "LsfDict")
+           "NoLsfsError", "convolveInBlocks", "CoaddLsf", "LsfDict")
 
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
@@ -404,6 +404,31 @@ class Lsf(ABC):
             Kernel with a model of the LSF at the nominated position.
         """
         raise NotImplementedError("Subclasses must implement this method")
+
+    def computeWindow(self, center: float) -> tuple[int, NDArray[FloatingPoint]]:
+        """Return the part of ``computeArray`` where the LSF is non-zero
+
+        This is the LSF at a sub-pixel position (like ``computeArray``), but
+        only over the pixels that the kernel covers, which is what's needed to
+        propagate the LSF through further operations (e.g., resampling).
+        Subclasses may override this to avoid computing the full array.
+
+        Parameters
+        ----------
+        center : `float`, pixels
+            Position at which to insert the LSF.
+
+        Returns
+        -------
+        start : `int`
+            Index of ``values[0]`` in the full array.
+        values : `numpy.ndarray`, floating-point
+            Values of ``computeArray(center)[start:start + len(values)]``.
+        """
+        kernel = self.computeKernel(center)
+        start = max(0, int(np.floor(center)) + kernel.min)
+        stop = min(self.length, int(np.ceil(center)) + kernel.max + 1)
+        return start, self.computeArray(center)[start:stop]
 
     def computePeak(self, point: Point2D | None = None) -> float:
         """Return the value of the peak pixel in the LSF image
@@ -927,6 +952,55 @@ class NoLsfsError(RuntimeError):
     pass
 
 
+def convolveInBlocks(lsf: Lsf, array: NDArray[FloatingPoint], sampling: int = 100) -> NDArray[FloatingPoint]:
+    """Convolve an array by an LSF that varies along it
+
+    The array is convolved in blocks of ``sampling`` pixels, each with the
+    kernel at the block's center. Blocks where the LSF isn't defined
+    (`NoLsfsError`) are set to zero.
+
+    Parameters
+    ----------
+    lsf : `Lsf`
+        Line-spread function.
+    array : `numpy.ndarray`, floating-point, shape ``(M,)``
+        Array to convolve.
+    sampling : `int`
+        Sampling length for convolution, pixels.
+
+    Returns
+    -------
+    convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        Convolved array.
+    """
+    length = len(array)
+    convolved = np.zeros_like(array)
+    for start in range(0, length, sampling):
+        stop = min(start + sampling, length)  # exclusive
+        center = 0.5*(start + stop)
+        try:
+            kernel = lsf.computeKernel(center)
+        except NoLsfsError:
+            convolved[start:stop] = 0.0
+            continue
+
+        # We're going to convolve a section of the array from start to stop,
+        # with a buffer on either side to allow for boundary effects.
+
+        # Range of pixels on the full array that we will convolve
+        beginFull = max(0, start + kernel.min)
+        endFull = min(length, stop + kernel.max + 1)
+
+        # Range of pixels on the convolved subarray
+        beginSub = start - beginFull
+        endSub = beginSub + stop - start
+
+        conv = kernel.convolve(array[beginFull:endFull])
+        convolved[start:stop] = conv[beginSub:endSub]
+
+    return convolved
+
+
 class CoaddLsf(Lsf):
     """Coadded line-spread functions
 
@@ -1042,32 +1116,7 @@ class CoaddLsf(Lsf):
         convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
             Convolved array.
         """
-        length = len(array)
-        convolved = np.zeros_like(array)
-        for start in range(0, length, sampling):
-            stop = min(start + sampling, length)  # exclusive
-            center = 0.5*(start + stop)
-            try:
-                kernel = self.computeKernel(center)
-            except NoLsfsError:
-                convolved[start:stop] = 0.0
-                continue
-
-            # We're going to convolve a section of the array from start to stop,
-            # with a buffer on either side to allow for boundary effects.
-
-            # Range of pixels on the full array that we will convolve
-            beginFull = max(0, start + kernel.min)
-            endFull = min(length, stop + kernel.max + 1)
-
-            # Range of pixels on the convolved subarray
-            beginSub = start - beginFull
-            endSub = beginSub + stop - start
-
-            conv = kernel.convolve(array[beginFull:endFull])
-            convolved[start:stop] = conv[beginSub:endSub]
-
-        return convolved
+        return convolveInBlocks(self, array, sampling)
 
     def warp(
         self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]

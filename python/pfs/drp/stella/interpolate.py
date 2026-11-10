@@ -8,8 +8,8 @@ from .math import interpolateFlux as interpolateFluxImpl
 from .math import interpolateCovariance as interpolateCovarianceImpl
 from .spline import SplineD
 
-__all__ = ["calculateDispersion", "Resampler", "interpolate", "interpolateFlux", "interpolateVariance",
-           "interpolateMask"]
+__all__ = ["calculateDispersion", "Resampler", "resampleWindow", "interpolate", "interpolateFlux",
+           "interpolateVariance", "interpolateMask"]
 
 
 def calculateDispersion(wavelength):
@@ -175,24 +175,57 @@ class Resampler:
             Resampled values at target pixels ``outStart:outStart + len(result)``:
             every target pixel that the window can affect.
         """
-        numIn = len(self.fromWavelength)
-        halfSize = self.halfSize
-        stop = start + len(values)
-        # The target pixels that the window affects have source indices within halfSize of it. Their
-        # interpolation windows reach at most 2*halfSize from it, so pad that far (plus one)
-        pad = 2*halfSize + 1
-        lo = max(0, start - pad)
-        hi = min(numIn, stop + pad)
-        row = np.zeros(hi - lo, dtype=np.float64)
-        row[start - lo:stop - lo] = values
-        with np.errstate(invalid="ignore"):
-            select = (self.indices >= start - halfSize) & (self.indices <= stop - 1 + halfSize)
-        if not np.any(select):
-            return 0, np.zeros(0, dtype=np.float64)
-        outIndex = np.flatnonzero(select)
-        outStart, outStop = outIndex[0], outIndex[-1] + 1
-        indices = self.indices[outStart:outStop] - lo
-        return int(outStart), interpolateFluxImpl(row, indices, self.fill, self.order)
+        return resampleWindow(values, start, self.indices, len(self.fromWavelength), self.order, self.fill)
+
+
+def resampleWindow(
+    values: np.ndarray, start: int, indices: np.ndarray, numIn: int, order: int, fill: float = 0.0
+) -> tuple[int, np.ndarray]:
+    """Resample a row that is zero except for a short window
+
+    This is the operation of `Resampler.resampleWindow`, for target pixels
+    whose source indices are provided directly.
+
+    Parameters
+    ----------
+    values : `np.ndarray` of `float`
+        Values of the window.
+    start : `int`
+        Source pixel of ``values[0]``.
+    indices : `np.ndarray` of `float`
+        Source indices of a contiguous run of target pixels (NaN where the
+        target is outside the source). Monotonic increasing.
+    numIn : `int`
+        Length of the source row (interpolation windows are clipped to it).
+    order : `int`
+        Interpolation order (as for `Resampler`).
+    fill : `float`, optional
+        Fill value.
+
+    Returns
+    -------
+    outStart : `int`
+        Index into ``indices`` of the target pixel of ``result[0]``.
+    result : `np.ndarray` of `float`
+        Resampled values at the target pixels ``outStart:outStart + len(result)``
+        of ``indices``: every one of them that the window can affect.
+    """
+    halfSize = max(order, 1)
+    stop = start + len(values)
+    # The target pixels that the window affects have source indices within halfSize of it. Their
+    # interpolation windows reach at most 2*halfSize from it, so pad that far (plus one)
+    pad = 2*halfSize + 1
+    lo = max(0, start - pad)
+    hi = min(numIn, stop + pad)
+    row = np.zeros(hi - lo, dtype=np.float64)
+    row[start - lo:stop - lo] = values
+    with np.errstate(invalid="ignore"):
+        select = (indices >= start - halfSize) & (indices <= stop - 1 + halfSize)
+    if not np.any(select):
+        return 0, np.zeros(0, dtype=np.float64)
+    outIndex = np.flatnonzero(select)
+    outStart, outStop = outIndex[0], outIndex[-1] + 1
+    return int(outStart), interpolateFluxImpl(row, indices[outStart:outStop] - lo, fill, order)
 
 
 def interpolate(
