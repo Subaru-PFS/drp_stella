@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import pfs.datamodel
 
-from ..interpolate import interpolate, interpolateFlux, interpolateMask
+from ..interpolate import Resampler, interpolateFlux, interpolateMask
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -219,21 +219,18 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         mask[isBad] |= self.flags.get("NO_DATA")
 
         badMask = self.flags.get(*bad) if bad else 0
-        kwargs = dict(fill=0.0, order=order)
+        resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
 
-        result = interpolate(
-            self.wavelength,
+        result = resampler(
             np.where(badFlux, 0.0, self.flux),
             mask,
             np.where(badVariance, 0.0, self.variance),
-            wavelength,
             minWeight=minWeight,
             badMask=badMask,
             fillMask=self.flags.get("NO_DATA"),
             numCovar=numCovar,
-            **kwargs,
         )
-        sky = interpolateFlux(self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, **kwargs)
+        sky = resampler.resampleFlux(np.where(badSky, 0.0, self.sky))
 
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(

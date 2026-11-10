@@ -8,7 +8,8 @@ from .math import interpolateFlux as interpolateFluxImpl
 from .math import interpolateCovariance as interpolateCovarianceImpl
 from .spline import SplineD
 
-__all__ = ["calculateDispersion", "interpolate", "interpolateFlux", "interpolateVariance", "interpolateMask"]
+__all__ = ["calculateDispersion", "Resampler", "interpolate", "interpolateFlux", "interpolateVariance",
+           "interpolateMask"]
 
 
 def calculateDispersion(wavelength):
@@ -58,6 +59,140 @@ def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> 
     result = np.full_like(toWavelength, np.nan, dtype=np.float64)
     result[good] = spline(toWavelength[good].astype(np.float64))
     return result
+
+
+class Resampler:
+    """Resample rows from one wavelength sampling to another
+
+    This is the resampling used for spectra (`interpolate`, `interpolateFlux`),
+    with the source indices of the target wavelengths computed once. The same
+    operation can then be applied to several rows sampled like the spectrum:
+    its flux, variance and sky, or a line-spread function kernel.
+
+    Parameters
+    ----------
+    fromWavelength : `np.ndarray` of `float`
+        Source wavelength array.
+    toWavelength : `np.ndarray` of `float`
+        Target wavelength array.
+    order : `int`, optional
+        Interpolation order to use. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
+    fill : `float`, optional
+        Fill value, for target wavelengths outside the source range.
+    """
+
+    def __init__(self, fromWavelength: np.ndarray, toWavelength: np.ndarray, *, order: int = 3,
+                 fill: float = 0.0):
+        self.fromWavelength = fromWavelength
+        self.toWavelength = toWavelength
+        self.order = order
+        self.fill = fill
+        self.indices = interpolateIndices(fromWavelength, toWavelength)
+
+    @property
+    def halfSize(self) -> int:
+        """Half-width of the interpolation kernel (source pixels)"""
+        return max(self.order, 1)
+
+    def __call__(
+        self,
+        flux: np.ndarray,
+        mask: np.ndarray,
+        variance: np.ndarray,
+        *,
+        minWeight: float = 0.1,
+        badMask: int = 0,
+        fillMask: int = 0,
+        numCovar: int = 1,
+    ) -> Struct:
+        """Resample a spectrum: flux, mask and covariance
+
+        Parameters and results are as for `interpolate`.
+        """
+        resultMask = interpolateMask(self.fromWavelength, mask, self.toWavelength, fillMask)
+        length = len(self.toWavelength)
+        resultFlux = np.empty(length, dtype=flux.dtype)
+        interpMask = np.empty(length, dtype=bool)
+        resultCovariance = np.empty((numCovar, length), dtype=variance.dtype)
+        interpolateImpl(
+            resultFlux,
+            interpMask,
+            resultCovariance,
+            flux,
+            (mask & badMask) != 0,
+            variance,
+            self.indices,
+            self.fill,
+            self.order,
+            minWeight,
+        )
+        resultMask[interpMask] |= fillMask
+        return Struct(
+            wavelength=self.toWavelength,
+            flux=resultFlux,
+            mask=resultMask,
+            covariance=resultCovariance,
+            variance=resultCovariance[0],
+        )
+
+    def resampleFlux(self, values: np.ndarray) -> np.ndarray:
+        """Resample a flux-like row, with no mask (as `interpolateFlux`)
+
+        Parameters
+        ----------
+        values : `np.ndarray` of `float`
+            Values at the source wavelengths.
+
+        Returns
+        -------
+        result : `np.ndarray` of `float`
+            Values at the target wavelengths.
+        """
+        return interpolateFluxImpl(values, self.indices, self.fill, self.order)
+
+    def resampleWindow(self, values: np.ndarray, start: int) -> tuple[int, np.ndarray]:
+        """Resample a row that is zero except for a short window
+
+        This gives the same values as `resampleFlux` on the full row (with
+        ``values`` at source pixels ``start:start + len(values)`` and zeros
+        elsewhere), but only does the work near the window. It is used to
+        resample a line-spread function kernel.
+
+        Parameters
+        ----------
+        values : `np.ndarray` of `float`
+            Values of the window.
+        start : `int`
+            Source pixel of ``values[0]``.
+
+        Returns
+        -------
+        outStart : `int`
+            Target pixel of ``result[0]``.
+        result : `np.ndarray` of `float`
+            Resampled values at target pixels ``outStart:outStart + len(result)``:
+            every target pixel that the window can affect.
+        """
+        numIn = len(self.fromWavelength)
+        halfSize = self.halfSize
+        stop = start + len(values)
+        # The target pixels that the window affects have source indices within halfSize of it. Their
+        # interpolation windows reach at most 2*halfSize from it, so pad that far (plus one)
+        pad = 2*halfSize + 1
+        lo = max(0, start - pad)
+        hi = min(numIn, stop + pad)
+        row = np.zeros(hi - lo, dtype=np.float64)
+        row[start - lo:stop - lo] = values
+        with np.errstate(invalid="ignore"):
+            select = (self.indices >= start - halfSize) & (self.indices <= stop - 1 + halfSize)
+        if not np.any(select):
+            return 0, np.zeros(0, dtype=np.float64)
+        outIndex = np.flatnonzero(select)
+        outStart, outStop = outIndex[0], outIndex[-1] + 1
+        indices = self.indices[outStart:outStop] - lo
+        return int(outStart), interpolateFluxImpl(row, indices, self.fill, self.order)
 
 
 def interpolate(
@@ -122,32 +257,9 @@ def interpolate(
         - covariance: `numpy.ndarray` of `float`, shape ``(numCovar, N)``
             Target covariance array.
     """
-    resultMask = interpolateMask(fromWavelength, fromMask, toWavelength, fillMask)
-    length = len(toWavelength)
-    indices = interpolateIndices(fromWavelength, toWavelength)
-    resultFlux = np.empty(length, dtype=fromFlux.dtype)
-    interpMask = np.empty(length, dtype=bool)
-    resultCovariance = np.empty((numCovar, length), dtype=fromVariance.dtype)
-    interpolateImpl(
-        resultFlux,
-        interpMask,
-        resultCovariance,
-        fromFlux,
-        (fromMask & badMask) != 0,
-        fromVariance,
-        indices,
-        fill,
-        order,
-        minWeight,
-    )
-    resultMask[interpMask] |= fillMask
-    return Struct(
-        wavelength=toWavelength,
-        flux=resultFlux,
-        mask=resultMask,
-        covariance=resultCovariance,
-        variance=resultCovariance[0],
-    )
+    resampler = Resampler(fromWavelength, toWavelength, order=order, fill=fill)
+    return resampler(fromFlux, fromMask, fromVariance, minWeight=minWeight, badMask=badMask,
+                     fillMask=fillMask, numCovar=numCovar)
 
 
 def interpolateFlux(
@@ -183,8 +295,7 @@ def interpolateFlux(
     toFlux : `numpy.ndarray` of `float`
         Target flux-(like) array.
     """
-    indices = interpolateIndices(fromWavelength, toWavelength)
-    return interpolateFluxImpl(fromFlux, indices, fill, order)
+    return Resampler(fromWavelength, toWavelength, order=order, fill=fill).resampleFlux(fromFlux)
 
 
 def interpolateCovariance(

@@ -3,7 +3,7 @@ import pfs.datamodel
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import interpolate, interpolateFlux
+from ..interpolate import Resampler
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -169,11 +169,11 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         covar = np.zeros((numSpectra, numCovar, numSamples), dtype=self.covar.dtype)
 
         badMask = self.flags.get(*bad) if bad else 0
-        kwargs = dict(fill=0.0, order=order)
 
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength, **kwargs)
+            resampler = Resampler(self.wavelength[jj], wavelength, order=order, fill=0.0)
+            norm[ii] = resampler.resampleFlux(self.norm[jj])
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badFlux = ~np.isfinite(self.flux[jj])
             badVar = badNorm | ~np.isfinite(self.variance[jj])
@@ -182,25 +182,20 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             mm = self.mask[jj].copy()
             mm[bad] |= self.flags["NO_DATA"]
 
-            result = interpolate(
-                self.wavelength[jj],
+            result = resampler(
                 np.where(badFlux, 0.0, self.flux[jj]).astype(np.float32),
                 mm,
-                np.where(badVar, 0.0, np.where(badVar, 0.0, self.covar[jj][0])).astype(np.float32),
-                wavelength,
+                np.where(badVar, 0.0, self.covar[jj][0]).astype(np.float32),
                 minWeight=minWeight,
                 badMask=badMask,
                 fillMask=self.flags.get("NO_DATA"),
                 numCovar=numCovar,
-                **kwargs,
             )
             flux[ii] = result.flux
             mask[ii] = result.mask
             covar[ii] = result.covariance
 
-            sky[ii] = interpolateFlux(
-                self.wavelength[jj], np.where(badSky, 0.0, self.sky[jj]), wavelength, **kwargs
-            )
+            sky[ii] = resampler.resampleFlux(np.where(badSky, 0.0, self.sky[jj]))
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
                           flux, mask, sky, norm, covar, self.flags, self.metadata)
