@@ -6,9 +6,8 @@ spectrum, is the combined LSF.
 
 - Where a single input contributes, the combination is the input resampled, so
   the merged/coadded flux must match the LSF. It does so exactly when resampled
-  in double precision; the spectra's resampling (`Resampler.__call__`) rounds
-  the source indices to the flux type (float32), a (pre-existing) error of
-  up to ~1e-4 pixels, so the flux itself matches to ``FLOAT_TOL``.
+  in double precision; the spectra are resampled in float32, so the flux itself
+  matches to ``FLOAT_TOL``.
 - Where several inputs overlap, the LSF describes the combination with smooth
   weights. The flux combination currently uses per-pixel weights (which
   oscillate with the phase of the resampling, as the resampled variance does),
@@ -38,7 +37,7 @@ ARMS = dict(
 SINGLE = (450.0, 800.0, 1100.0)  # Line wavelengths covered by a single arm
 OVERLAP = (640.0, 955.0)  # Line wavelengths in the overlaps between arms
 HALF = 40  # Half-size of the region compared around each line (output pixels)
-FLOAT_TOL = 2.0e-4  # Tolerance (relative to peak) for spectra resampled with float32 indices
+FLOAT_TOL = 1.0e-6  # Tolerance (relative to peak) for spectra resampled in float32
 
 
 def makeFlags():
