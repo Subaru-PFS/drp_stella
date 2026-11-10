@@ -47,7 +47,10 @@ def main():
     parser.add_argument(
         "--clobber",
         action="store_true",
-        help="Clobber datasets that already exist in the target repo (--calib only)",
+        help=(
+            "Clobber files/datasets that already exist in the target repo "
+            "(default: datasets whose files already exist locally are not transferred)"
+        ),
     )
     parser.add_argument(
         "--resolve-calib",
@@ -93,6 +96,7 @@ def main():
             where=args.where,
             transfer=args.transfer,
             resolveCalib=args.resolve_calib,
+            clobber=args.clobber,
         )
         print(f"Number of datasets pulled: {num}")
 

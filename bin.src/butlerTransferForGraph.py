@@ -21,9 +21,19 @@ def main():
         default="copy",
         help="Transfer mode to use for file artifacts (e.g., 'auto', 'copy', 'link', 'symlink', 'hardlink')",
     )
+    parser.add_argument(
+        "--clobber",
+        action="store_true",
+        help=(
+            "Clobber files that already exist in the target repo "
+            "(default: datasets whose files already exist locally are not transferred)"
+        ),
+    )
     args = parser.parse_args()
 
-    num = butlerTransferForGraph(args.source, args.target, args.graph, transfer=args.transfer)
+    num = butlerTransferForGraph(
+        args.source, args.target, args.graph, transfer=args.transfer, clobber=args.clobber
+    )
     print(f"Number of datasets pulled: {num}")
 
 

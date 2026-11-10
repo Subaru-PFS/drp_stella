@@ -89,6 +89,7 @@ def butlerTransfer(
     where: str = "",
     transfer: str = "copy",
     resolveCalib: bool = False,
+    clobber: bool = False,
 ) -> int:
     """Pull datasets from a remote butler repo into a local repo
 
@@ -132,6 +133,10 @@ def butlerTransfer(
         itself performs, without needing a pipeline or quantum graph. Each
         dataId must include a temporal dimension (``exposure`` or
         ``visit``).
+    clobber : `bool`, optional
+        Overwrite files that already exist in the target repo's datastore but
+        are not registered there? If `False`, such datasets are not
+        transferred (and a warning is issued).
 
     Returns
     -------
@@ -206,8 +211,12 @@ def butlerTransfer(
         return 0
     target = Butler.from_config(targetRepo, writeable=True)
     mirrorCollectionChains(source, target, collections)
-    num = _transferRefs(log, source, target, refs, transfer)
+    num = _transferRefs(log, source, target, refs, transfer, clobber)
     for calibCollection, ref, calibTimespan in calibAssociations:
+        if target.get_dataset(ref.id) is None:
+            # Skipped by _transferRefs (e.g., unregistered file already in the target)
+            log.warning("Not certifying %s in %s because it is not in the target.", ref, calibCollection)
+            continue
         _certifyIfNeeded(log, target, calibCollection, ref, calibTimespan)
     return num
 
@@ -249,6 +258,7 @@ def _transferRefs(
     target: Butler,
     refs: Iterable[DatasetRef],
     transfer: str,
+    clobber: bool = False,
 ) -> int:
     """Transfer a set of resolved dataset references from one butler to
     another
@@ -262,23 +272,99 @@ def _transferRefs(
     target : `Butler`
         Writeable butler to pull datasets into.
     refs : iterable of `DatasetRef`
-        Dataset references to transfer. Already-present datasets (by UUID)
-        are skipped automatically.
+        Dataset references to transfer. Datasets already present in the
+        target datastore (by UUID) are skipped.
     transfer : `str`
         Transfer mode to use for the file artifacts.
+    clobber : `bool`, optional
+        Overwrite files that already exist in the target datastore (but are
+        not registered there)? If `False`, such datasets are skipped.
 
     Returns
     -------
     num : `int`
-        Number of datasets transferred.
+        Number of datasets actually transferred (excluding those skipped
+        because they already exist in the target).
     """
-    refs = set(refs)
+    known = target._datastore.knows_these(set(refs))
+    numPresent = sum(known.values())
+    refs = {ref for ref, isKnown in known.items() if not isKnown}
+    if numPresent > 0:
+        log.info("Skipping %d datasets already present in the target.", numPresent)
+    if not clobber and refs:
+        existing = _findExistingFiles(source, target, refs)
+        if existing:
+            for ref, uris in existing.items():
+                log.warning(
+                    "Not transferring %s because file(s) already exist in the target: %s",
+                    ref,
+                    ", ".join(str(uri) for uri in uris),
+                )
+            log.warning(
+                "Skipping %d datasets with unregistered files already in the target; "
+                "use clobber to overwrite.",
+                len(existing),
+            )
+            refs -= existing.keys()
+    if not refs:
+        log.info("No datasets to pull.")
+        return 0
     log.info("Pulling %d datasets...", len(refs))
     imported = target.transfer_from(
         source, refs, transfer=transfer, register_dataset_types=True, transfer_dimensions=True
     )
     log.info("Pulled %d datasets.", len(imported))
     return len(imported)
+
+
+def _findExistingFiles(
+    source: Butler, target: Butler, refs: Iterable[DatasetRef]
+) -> dict[DatasetRef, list[ResourcePath]]:
+    """Find datasets whose files would clobber existing files in the target
+
+    `Butler.transfer_from` skips datasets that are already registered in the
+    target datastore, but for unregistered datasets it overwrites any file
+    already present at the target location (e.g., left over from an
+    interrupted transfer, or put there by some other means). This identifies
+    those datasets so they can be skipped.
+
+    Parameters
+    ----------
+    source : `Butler`
+        Butler from which datasets will be transferred.
+    target : `Butler`
+        Butler into which datasets will be transferred.
+    refs : iterable of `DatasetRef`
+        Datasets to be transferred, none of which are already registered in
+        the target datastore.
+
+    Returns
+    -------
+    existing : `dict` [`DatasetRef`, `list` [`ResourcePath`]]
+        Datasets whose target file(s) already exist, along with the URIs of
+        those files.
+    """
+    from lsst.daf.butler.datastores.file_datastore.transfer import retrieve_file_transfer_records
+
+    datastore = target._datastore
+    unknown = {ref.id: ref for ref in refs}
+    if not unknown:
+        return {}
+    # Handle chained datastores by checking each constituent file datastore.
+    datastores = [
+        ds for ds in getattr(datastore, "datastores", [datastore]) if hasattr(ds, "locationFactory")
+    ]
+    records = retrieve_file_transfer_records(source._file_transfer_source, unknown.values(), {})
+    existing: dict[DatasetRef, list[ResourcePath]] = {}
+    for datasetId, transferRecords in records.items():
+        for record in transferRecords:
+            for ds in datastores:
+                location = record.file_info.file_location(ds.locationFactory)
+                if location.pathInStore.isabs():
+                    continue  # Not copied into the datastore
+                if location.uri.exists():
+                    existing.setdefault(unknown[datasetId], []).append(location.uri)
+    return existing
 
 
 def mirrorCollectionChains(source: Butler, target: Butler, collections: CollectionArgType) -> None:
@@ -461,6 +547,7 @@ def butlerTransferForGraph(
     targetRepo: str,
     graphPath: str,
     transfer: str = "copy",
+    clobber: bool = False,
 ) -> int:
     """Pull exactly the overall input datasets of a quantum graph from a
     remote butler repo into a local repo
@@ -490,6 +577,10 @@ def butlerTransferForGraph(
         built against ``sourceRepo``.
     transfer : `str`, optional
         Transfer mode to use for the file artifacts.
+    clobber : `bool`, optional
+        Overwrite files that already exist in the target repo's datastore but
+        are not registered there? If `False`, such datasets are not
+        transferred (and a warning is issued).
 
     Returns
     -------
@@ -504,7 +595,7 @@ def butlerTransferForGraph(
         return 0
     source = Butler.from_config(sourceRepo, writeable=False)
     target = Butler.from_config(targetRepo, writeable=True)
-    return _transferRefs(log, source, target, refs, transfer)
+    return _transferRefs(log, source, target, refs, transfer, clobber)
 
 
 def butlerTransferCalib(
