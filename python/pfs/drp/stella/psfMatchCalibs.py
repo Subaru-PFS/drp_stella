@@ -38,6 +38,7 @@ from .psfBias import calculatePeakToCentroidBias
 from .psfMatch import PsfMatchTask, calculateFirstMoments
 from .readLineList import ReadLineListTask
 from .utils.math import robustRms
+from .utils.psf import makeGaussianPsf
 
 __all__ = (
     "PsfMatchCalibsTask",
@@ -754,7 +755,19 @@ class PsfMatchCalibsTask(PipelineTask):
         xx = xx[select]
         yy = row.copy()
 
-        shifts = calculatePeakShifts(kernel, psf, xx, yy)
+        # Measure the peak as CentroidLinesTask does, for consistency with the line measurements
+        centroidConfig = self.config.centroidLines
+        shifts = calculatePeakShifts(
+            kernel,
+            psf,
+            xx,
+            yy,
+            footprintHeight=centroidConfig.footprintHeight,
+            footprintWidth=centroidConfig.footprintWidth,
+            centroidControl=centroidConfig.centroider.makeControl(),
+            centroidPsf=makeGaussianPsf(centroidConfig.fwhm, centroidConfig.kernelSize),
+            peakSearch=centroidConfig.peakSearch,
+        )
         shifts.fiberId = fiberId
         shifts.row = row
         shifts.xx = xx
