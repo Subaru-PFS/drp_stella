@@ -195,6 +195,8 @@ def combineSpectraSets(
         Covariance matrix for combined spectrum.
     mask : `numpy.ndarray` of `int`
         Mask for combined spectrum.
+    weights : `lsst.pipe.base.Struct`
+        The weights used (from `mergeWeights`).
     """
     archetype = spectra[0]
     weights = mergeWeights(spectra, flags, badMasks, suspectMasks)
@@ -223,6 +225,7 @@ def combineSpectraSets(
             covar=covar*norm[:, np.newaxis, :]**2,
             mask=weights.mask,
             covar2=covar2,
+            weights=weights,
         )
 
 
