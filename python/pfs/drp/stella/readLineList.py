@@ -76,6 +76,12 @@ class ReadLineListConfig(Config):
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity; <= 0 means no filtering")
+    flagNoIntensity = Field(
+        dtype=bool,
+        default=True,
+        doc="Flag lines with non-positive or NaN intensity as NOT_VISIBLE? Line lists with measured "
+            "intensities use zero for lines that weren't detected.",
+    )
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
 
     def validate(self):
@@ -185,6 +191,7 @@ class ReadLineListTask(Task):
 
         if lampElements:
             lines = self.filterByLampElements(lines, lampElements)
+        self.flagNoIntensity(lines)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         self.filterDuplicates(lines)
@@ -245,6 +252,23 @@ class ReadLineListTask(Task):
         self.log.info("Filtered line lists %s by %s, keeping species %s.",
                       sorted({ll.description for ll in lines}), lampElements, speciesKept)
         return ReferenceLineSet.fromRows(keep)
+
+    def flagNoIntensity(self, lines: ReferenceLineSet) -> None:
+        """Flag lines with non-positive or NaN intensity as ``NOT_VISIBLE``
+
+        This is performed in-place, and only if ``config.flagNoIntensity``.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        """
+        if not self.config.flagNoIntensity:
+            return
+        with np.errstate(invalid="ignore"):
+            noIntensity = ~(lines.intensity > 0)  # catches NaN
+        lines.status[noIntensity] |= ReferenceLineStatus.NOT_VISIBLE
+        self.log.debug("Flagged %d/%d lines with no intensity as NOT_VISIBLE", noIntensity.sum(), len(lines))
 
     def filterByIntensity(self, lines):
         """Filter the line list by intensity level
