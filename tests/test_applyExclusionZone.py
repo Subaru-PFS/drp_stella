@@ -65,7 +65,7 @@ class MaskNearbyTestCase(lsst.utils.tests.TestCase):
         config = ReadLineListTask.ConfigClass()
         config.lightSources = ["sky"]
         task = ReadLineListTask(config=config)
-        self.lines = task.run()
+        self.lines = task.run(arm="r")
 
     def assertMask(self, wavelength, mask, exclusionRadius):
         """Assert that the mask is as expected
