@@ -288,8 +288,23 @@ class FitDetectorMapConfig(Config):
     qaNumFibers = Field(dtype=int, default=5, doc="Number of fibers to use for QA")
     exclusionRadius = Field(dtype=float, default=0,
                             doc="Exclusion radius to apply to reference lines (pixels)")
-    doRejectBadLines = Field(dtype=bool, default=False,
-                             doc="Reject reference lines for all fibers that have a bad mean residual?")
+    doRejectBadLines = Field(
+        dtype=bool,
+        default=True,
+        doc="Reject reference lines (for all fibers) whose median spectral residual departs from that of the "
+            "other lines? This catches bad line list entries (e.g., misidentifications and blends).",
+    )
+    badLineMinNum = Field(
+        dtype=int,
+        default=10,
+        doc="Minimum number of measurements of a reference line for it to be tested as bad",
+    )
+    badLineMinThreshold = Field(
+        dtype=float,
+        default=0.05,
+        doc="Minimum threshold (pixels) for the departure of a reference line's median spectral residual "
+            "from the consensus of all lines, for the line to be rejected as bad",
+    )
     forced = ListField(
         dtype=bool,
         default=[],
@@ -1217,36 +1232,28 @@ class FitDetectorMapTask(Task):
             if self.debugInfo.residuals:
                 self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
-                newUsed = used.copy()
-                if self.config.doSlitOffsets:
-                    # There may be fiber-specific offsets, so remove those before applying the standard
-                    # rejection.
-                    xResid = result.xResid.copy()
-                    yResid = result.yResid.copy()
-                    for fiberId in set(lines.fiberId[used]):
-                        choose = used & (lines.fiberId == fiberId)
-                        if not np.any(choose):
-                            continue
-                        xResid[choose] -= np.median(result.xResid[choose])
-                        yChoose = choose & isLine
-                        if np.any(yChoose):
-                            yResid[choose] -= np.median(result.yResid[yChoose])
-                    xSelection = used & np.isfinite(xResid)
-                    ySelection = xSelection & isLine & np.isfinite(yResid)
-                    adjusted = Struct(
-                        xResid=xResid,
-                        yResid=yResid,
-                        isTrace=result.isTrace,
-                        selection=xSelection,
-                        xRobustRms=robustRms(xResid[xSelection]) if np.any(xSelection) else np.nan,
-                        yRobustRms=robustRms(yResid[ySelection]) if np.any(ySelection) else np.nan,
-                    )
-                    newUsed &= self.rejectOutliers(adjusted, xErr, yErr)
-                else:
-                    keep = self.rejectOutliers(result, xErr, yErr)
-                    if self.config.doRejectBadLines:
-                        keep &= self.rejectBadLines(result, lines)
-                    newUsed &= keep
+                stats = self.getRejectionStatistics(result, lines, used, isLine)
+                if self.config.doRejectBadLines:
+                    # A bad line with high signal-to-noise can drag the fit, causing the outlier rejection to
+                    # reject the good lines instead. So we reject bad lines and refit before rejecting
+                    # outliers. Bad lines may only become apparent in later iterations (once the outliers
+                    # have been rejected), so we test for them in every iteration. But the drag is worst in
+                    # the first iteration, so we only refit there; in later iterations, the bad lines are
+                    # simply excluded from the next fit, which saves refitting.
+                    keepLines = self.rejectBadLines(stats, lines)
+                    rejectedBad = np.any(used & ~keepLines)
+                    used &= keepLines
+                    reserved &= keepLines
+                    if rejectedBad and ii == 0:
+                        result = self.fitModel(bbox, lines, used, weights, DistortionClass=DistortionClass)
+                        self.log.debug(
+                            "Fit iteration %d after rejecting bad lines: chi2=%f dof=%d xRMS=%f yRMS=%f "
+                            "(%f nm) from %d/%d lines",
+                            ii, result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
+                            used.sum(), numGood - numReserved
+                        )
+                        stats = self.getRejectionStatistics(result, lines, used, isLine)
+                newUsed = used & self.rejectOutliers(stats, xErr, yErr)
 
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
@@ -1599,6 +1606,55 @@ class FitDetectorMapTask(Task):
 
         return results
 
+    def getRejectionStatistics(
+        self, result: Struct, lines: ArcLineSet, used: np.ndarray, isLine: np.ndarray
+    ) -> Struct:
+        """Get the fit statistics to use for rejection
+
+        If we're fitting slit offsets, there may be fiber-specific offsets, so
+        we remove those before applying rejection.
+
+        Parameters
+        ----------
+        result : `lsst.pipe.base.Struct`
+            Fit statistics; the output of ``calculateFitStatistics``.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Arc line measurements.
+        used : `np.ndarray` of `bool`
+            Array indicating which lines were used in the fit.
+        isLine : `np.ndarray` of `bool`
+            Array indicating which measurements are of lines (as opposed to
+            traces).
+
+        Returns
+        -------
+        stats : `lsst.pipe.base.Struct`
+            Fit statistics to use for rejection, with ``xResid``, ``yResid``,
+            ``isTrace``, ``selection``, ``xRobustRms`` and ``yRobustRms``.
+        """
+        if not self.config.doSlitOffsets:
+            return result
+        xResid = result.xResid.copy()
+        yResid = result.yResid.copy()
+        for fiberId in set(lines.fiberId[used]):
+            choose = used & (lines.fiberId == fiberId)
+            if not np.any(choose):
+                continue
+            xResid[choose] -= np.median(result.xResid[choose])
+            yChoose = choose & isLine
+            if np.any(yChoose):
+                yResid[choose] -= np.median(result.yResid[yChoose])
+        xSelection = used & np.isfinite(xResid)
+        ySelection = xSelection & isLine & np.isfinite(yResid)
+        return Struct(
+            xResid=xResid,
+            yResid=yResid,
+            isTrace=result.isTrace,
+            selection=xSelection,
+            xRobustRms=robustRms(xResid[xSelection]) if np.any(xSelection) else np.nan,
+            yRobustRms=robustRms(yResid[ySelection]) if np.any(ySelection) else np.nan,
+        )
+
     def rejectOutliers(self, fitStats: Struct, xErr: np.ndarray, yErr: np.ndarray) -> np.ndarray:
         """Reject outliers from distortion fit
 
@@ -1640,16 +1696,23 @@ class FitDetectorMapTask(Task):
     def rejectBadLines(self, fitStats: Struct, lines: ArcLineSet) -> np.ndarray:
         """Reject bad lines from distortion fit
 
-        If a particular reference line has a mean spectral residual across all
-        fibers exceeding the spectral RMS, it is rejected for all fibers. This
-        can help rejecting bad entries in the line list that haven't been
-        manually flagged.
+        A reference line whose median spectral residual departs from the
+        consensus (median) of the other lines by more than the threshold is
+        rejected for all fibers. This rejects bad entries in the line list that
+        haven't been manually flagged (e.g., misidentifications and blends).
+
+        The comparison is with the other lines rather than the fit, since a bad
+        line with high signal-to-noise can drag the fit. The threshold is
+        ``rejection`` times the (MAD-based) scatter of the per-line medians, but
+        no less than ``badLineMinThreshold``. Only lines with at least
+        ``badLineMinNum`` measurements are tested; the remainder are left to the
+        standard outlier rejection.
 
         Parameters
         ----------
         fitStats : `lsst.pipe.base.Struct`
-            Fit statistics; the output of ``calculateFitStatistics``.
-        lines : `lsst.pipe.tasks.ArcLineSet`
+            Fit statistics; the output of ``getRejectionStatistics``.
+        lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
 
         Returns
@@ -1657,18 +1720,34 @@ class FitDetectorMapTask(Task):
         keep : `np.ndarray` of `bool`
             Array indicating which points should be kept.
         """
-        select = fitStats.selection & (lines.description != "Trace")
-        lineMeanResid = {}
-        for wl in np.unique(lines.wavelength[select]):
-            line = select & (lines.wavelength == wl)
-            lineMeanResid[wl] = np.mean(fitStats.yResid[line])
+        keep = np.ones(len(lines), dtype=bool)
+        isLine = ~fitStats.isTrace
+        select = fitStats.selection & isLine & np.isfinite(fitStats.yResid)
+        wavelength = lines.wavelength[select]
+        yResid = fitStats.yResid[select]
 
-        lineMeanResidWl = np.array(list(lineMeanResid.keys()))
-        lineMeanResidValues = np.array(list(lineMeanResid.values()))
-        badLines = lineMeanResidWl[np.abs(lineMeanResidValues) > self.config.rejection*fitStats.yRobustRms]
-        self.log.debug("Rejecting lines at wavelengths: %s", badLines)
+        # Median residual for each line with enough measurements
+        order = np.argsort(wavelength, kind="stable")
+        unique, start, counts = np.unique(wavelength[order], return_index=True, return_counts=True)
+        enough = counts >= self.config.badLineMinNum
+        if enough.sum() < self.config.minNumWavelengths:
+            return keep
+        sortedResid = yResid[order]
+        unique = unique[enough]
+        medians = np.array(
+            [np.median(sortedResid[ss:ss + nn]) for ss, nn in zip(start[enough], counts[enough])]
+        )
 
-        return np.isin(lines.wavelength, badLines, invert=True)
+        consensus = np.median(medians)
+        scatter = 1.4826*np.median(np.abs(medians - consensus))
+        threshold = max(self.config.rejection*scatter, self.config.badLineMinThreshold)
+        badLines = unique[np.abs(medians - consensus) > threshold]
+        self.log.debug(
+            "Rejecting %d/%d lines with median residual departing from %f by more than %f pixels: %s",
+            len(badLines), len(unique), consensus, threshold, badLines
+        )
+        keep[isLine & np.isin(lines.wavelength, badLines)] = False
+        return keep
 
     def lineQa(self, lines, detectorMap):
         """Check the quality of the model fit by looking at the lines
