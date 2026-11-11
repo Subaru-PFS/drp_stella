@@ -71,7 +71,7 @@ class DiskLineFit:
     Parameters
     ----------
     wavelength : `float`
-        Wavelength (nm) of the fitted centre, from the spectrum's wavelength array.
+        Vacuum wavelength (nm) of the fitted centre, from the spectrum's wavelength array.
     pixel : `float`
         Fitted centre (= first moment) of the line (pixels).
     radius, radiusErr : `float`
@@ -104,7 +104,7 @@ class DiskLineFit:
         1-sigma error in ``pixel`` (for a fit with its centre held fixed, the
         error of the fit that determined it).
     catWavelength, catPixel : `float`
-        Catalogue wavelength (nm) and its position in the spectrum (pixels).
+        Catalogue vacuum wavelength (nm) and its position in the spectrum (pixels).
     peak : `float`
         Peak flux of the line's model.
     companionWavelength, companionAmp : `numpy.ndarray`
@@ -194,7 +194,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     variance : `numpy.ndarray`, optional
         Variance of ``flux``; `None` for equal weights.
     lam0 : `float`
-        Catalogue wavelength (nm) of the line.
+        Catalogue vacuum wavelength (nm) of the line.
     radius0, rms0 : `float`
         Starting disk radius and blur kernel rms (pixels).
     blurOrder : `int`
@@ -211,7 +211,7 @@ def fitDiskLine(wavelength, flux, variance, lam0, *, radius0=1.5, rms0=0.6, blur
     maxBadCore : `int`
         ... and more than ``maxBadCore`` of them fail the fit.
     companions : array-like of `float`, optional
-        Catalogue wavelengths (nm) of nearby lines to fit at the same time:
+        Catalogue vacuum wavelengths (nm) of nearby lines to fit at the same time:
         each has the same profile, at a fixed offset from the main line (from
         the wavelength solution), with its own free amplitude. Companions
         centred more than a few pixels outside the window are ignored.
@@ -428,9 +428,9 @@ def selectLsfLines(lines, wavelength, *, lamMin=None, lamMax=None, isolation=12.
     lines : `pfs.drp.stella.ReferenceLineSet`
         Catalogue lines for the lamp.
     wavelength : `numpy.ndarray`
-        The fibre's wavelength array (nm), to map lines to pixels.
+        The fibre's vacuum wavelength array (nm), to map lines to pixels.
     lamMin, lamMax : `float`, optional
-        Wavelength range (nm); `None` uses the spectrum's coverage.
+        Vacuum wavelength range (nm); `None` uses the spectrum's coverage.
     isolation : `float`
         A line is rejected if another catalogue line within this many pixels
         has intensity above ``blendFrac`` times its own.
@@ -462,7 +462,7 @@ def selectLsfLines(lines, wavelength, *, lamMin=None, lamMax=None, isolation=12.
     Returns
     -------
     chosen : `list` of `float`
-        Catalogue wavelengths (nm) of the selected lines, sorted.
+        Catalogue vacuum wavelengths (nm) of the selected lines, sorted.
     """
     wavelength = np.asarray(wavelength, dtype=float)
     good = np.isfinite(wavelength)
@@ -511,9 +511,9 @@ def findCompanions(lines, wavelength, lam0, *, halfWidth, minFrac=0.002):
     lines : `pfs.drp.stella.ReferenceLineSet`
         Catalogue for the lamp.
     wavelength : `numpy.ndarray`
-        The spectrum's wavelength array (nm).
+        The spectrum's vacuum wavelength array (nm).
     lam0 : `float`
-        Catalogue wavelength (nm) of the line being fit.
+        Catalogue vacuum wavelength (nm) of the line being fit.
     halfWidth : `float`
         Companions within this many pixels of ``lam0`` are returned.
     minFrac : `float`
@@ -523,7 +523,7 @@ def findCompanions(lines, wavelength, lam0, *, halfWidth, minFrac=0.002):
     Returns
     -------
     companions : `list` of `float`
-        Catalogue wavelengths (nm), excluding ``lam0`` itself.
+        Catalogue vacuum wavelengths (nm), excluding ``lam0`` itself.
     """
     wavelength = np.asarray(wavelength, dtype=float)
     good = np.isfinite(wavelength)

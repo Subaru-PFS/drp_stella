@@ -64,7 +64,7 @@ class LsfLineSet(Table):
 
     One row per arc line per fibre per exposure; see
     `pfs.datamodel.drp.LsfLineMeasurements` for the columns and `LsfLineFlag`
-    for the ``flag`` bits. ``wavelength`` is the reference (catalogue)
+    for the ``flag`` bits. ``wavelength`` is the reference (catalogue) vacuum
     wavelength, and ``refPixel`` its position in the spectrum according to the
     exposure's wavelength solution; ``pixel - refPixel`` is the measured offset
     of the line from the detectorMap.
