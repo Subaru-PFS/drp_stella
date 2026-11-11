@@ -10,7 +10,7 @@ from lsst.pex.exceptions import DomainError
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
-from pfs.drp.stella import DetectorMap, PolynomialDistortion
+from pfs.drp.stella import DetectorMap, PolynomialDistortion, BSpline2D, BSplineDistortion
 from pfs.drp.stella import ReferenceLineStatus
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
@@ -92,7 +92,23 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
             optics = OpticsModel(base, [opticsDistortion])
 
             rightCcd = makeAffineTransform(rng.uniform(size=6))
-            detector = DetectorModel(base.bbox, rightCcd)  # distortions aren't supported yet
+            bbox = base.bbox
+            xCenter = bbox.getCenterX()
+            order = 3
+
+            def makeKnots(low, high, num):
+                return np.concatenate([[low]*order, np.linspace(low, high, num), [high]*order])
+
+            yKnots = makeKnots(bbox.getMinY(), bbox.getMaxY(), 5)
+            xSplines = []
+            for low, high in ((bbox.getMinX(), xCenter), (xCenter, bbox.getMaxX())):
+                xKnots = makeKnots(low, high, 4)
+                coeff = rng.normal(0.0, 0.01, size=(len(xKnots) - order - 1, len(yKnots) - order - 1))
+                xSplines.append(BSpline2D(order, xKnots, yKnots, coeff))
+            detectorDistortion = BSplineDistortion(
+                np.array([xCenter]), xSplines, [BSpline2D(order), BSpline2D(order)]
+            )
+            detector = DetectorModel(base.bbox, rightCcd, [detectorDistortion])
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
@@ -123,8 +139,17 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
         """Assert that the distortions are the same"""
         self.assertEqual(len(lhs), len(rhs))
         for ll, rr in zip(lhs, rhs):
+            self.assertEqual(type(ll), type(rr))
+            if isinstance(ll, BSplineDistortion):
+                self.assertFloatsEqual(ll.getXBoundaries(), rr.getXBoundaries())
+                for lSpline, rSpline in zip(ll.getXSplines() + ll.getYSplines(),
+                                            rr.getXSplines() + rr.getYSplines()):
+                    self.assertEqual(lSpline.isEmpty(), rSpline.isEmpty())
+                    self.assertFloatsEqual(lSpline.getXKnots(), rSpline.getXKnots())
+                    self.assertFloatsEqual(lSpline.getYKnots(), rSpline.getYKnots())
+                    self.assertFloatsEqual(lSpline.getCoefficients(), rSpline.getCoefficients())
+                continue
             self.assertTrue(isinstance(ll, PolynomialDistortion))
-            self.assertTrue(isinstance(rr, PolynomialDistortion))
             self.assertFloatsEqual(ll.getXCoefficients(), rr.getXCoefficients())
             self.assertFloatsEqual(ll.getYCoefficients(), rr.getYCoefficients())
 
@@ -156,7 +181,7 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
             getAffineParameters(lhs.detectorModel.getRightCcd()),
             getAffineParameters(rhs.detectorModel.getRightCcd()),
         )
-        # Use of distortions isn't supported yet
+        self.assertDistortionsEqual(lhs.detectorModel.getDistortions(), rhs.detectorModel.getDistortions())
 
         # Metadata
         for name in lhs.metadata.names():

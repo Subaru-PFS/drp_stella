@@ -428,11 +428,10 @@ DetectorModel::DetectorModel(
     _yOffset(0.5*(getBBox().getMinY() + getBBox().getMaxY())),
     _yScale(2.0/(getBBox().getMaxY() - getBBox().getMinY()))
 {
-    if (!_distortions.empty()) {
-        throw LSST_EXCEPT(
-            lsst::pex::exceptions::LogicError,
-            "Distortions are not supported"
-        );
+    for (auto const& dd : _distortions) {
+        if (!dd) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Null distortion");
+        }
     }
 }
 
@@ -457,6 +456,24 @@ DetectorModel DetectorModel::copy() const {
 
 
 lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& detector) const {
+    lsst::geom::Point2D const pixels = applyRightCcd(detector);
+    if (_distortions.empty() || !std::isfinite(pixels.getX()) || !std::isfinite(pixels.getY())) {
+        return pixels;
+    }
+    return pixels + calculateDistortion(pixels);
+}
+
+
+lsst::geom::Extent2D DetectorModel::calculateDistortion(lsst::geom::Point2D const& pixels) const {
+    lsst::geom::Extent2D distortion{0.0, 0.0};
+    for (auto const& dd : _distortions) {
+        distortion += lsst::geom::Extent2D((*dd)(pixels));
+    }
+    return distortion;
+}
+
+
+lsst::geom::Point2D DetectorModel::applyRightCcd(lsst::geom::Point2D const& detector) const {
     if (!_isDivided || detector.getX() < _xCenter) {
         return detector;
     }
@@ -479,14 +496,44 @@ lsst::geom::Point2D DetectorModel::detectorToPixels(lsst::geom::Point2D const& d
 
 
 lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& pixels) const {
-    if (!_isDivided) {
-        return pixels;
-    }
     lsst::geom::Point2D const nanPoint = lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     if (!std::isfinite(pixels.getX()) || !std::isfinite(pixels.getY())) {
         // No idea where we are
         return nanPoint;
     }
+    if (_distortions.empty()) {
+        return invertRightCcd(pixels);
+    }
+
+    // Remove the distortions: find the undistorted position for which
+    //     undistorted + distortion(undistorted) == pixels
+    // The distortions are small and smooth, so fixed-point iteration converges quickly.
+    lsst::geom::Point2D undistorted = pixels - calculateDistortion(pixels);
+    std::size_t iter = 0;
+    while (true) {
+        lsst::geom::Extent2D const distortion = calculateDistortion(undistorted);
+        if (!std::isfinite(distortion.getX()) || !std::isfinite(distortion.getY())) {
+            return nanPoint;
+        }
+        lsst::geom::Point2D const next = pixels - distortion;
+        double const change = (next - undistorted).computeSquaredNorm();
+        undistorted = next;
+        if (change <= std::pow(INVERSE_PRECISION, 2)) {
+            break;
+        }
+        if (++iter > INVERSE_MAX_ITER) {
+            return nanPoint;
+        }
+    }
+    return invertRightCcd(undistorted);
+}
+
+
+lsst::geom::Point2D DetectorModel::invertRightCcd(lsst::geom::Point2D const& pixels) const {
+    if (!_isDivided) {
+        return pixels;
+    }
+    lsst::geom::Point2D const nanPoint = lsst::geom::Point2D(NOT_A_NUMBER, NOT_A_NUMBER);
     if (pixels.getX() < _xCenter) {
         return pixels;
     }
@@ -497,7 +544,7 @@ lsst::geom::Point2D DetectorModel::pixelsToDetector(lsst::geom::Point2D const& p
     lsst::geom::Extent2D delta;
     std::size_t iter = 0;
     do {
-        lsst::geom::Point2D newPixels = detectorToPixels(detector);
+        lsst::geom::Point2D newPixels = applyRightCcd(detector);
         if (!std::isfinite(newPixels.getX()) || !std::isfinite(newPixels.getY())) {
             // Is there something I can do here?
             return nanPoint;
