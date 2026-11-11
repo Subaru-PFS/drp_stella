@@ -273,6 +273,26 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         assert len(expect) == 5
         self.assertLineList(lineList, expect)
 
+    def testFlagNoIntensity(self):
+        """Test that lines with non-positive or NaN intensity are NOT_VISIBLE"""
+        self.contents = [
+            Line(123.456, 1000, "NeI", 0),
+            Line(456.789, 0, "NeI", 0),
+            Line(567.890, -1, "ArI", 0),
+            Line(678.901, np.nan, "KrI", 0),
+            Line(789.012, 0, "ArI", ReferenceLineStatus.BLEND),
+        ]
+        noIntensity = np.array([False, True, True, True, True])
+        for flag in (True, False):
+            with self.subTest(flagNoIntensity=flag):
+                self.config.flagNoIntensity = flag
+                lines = self.makeLineList()
+                self.assertEqual(len(lines), len(self.contents))
+                notVisible = (lines.status & ReferenceLineStatus.NOT_VISIBLE) != 0
+                np.testing.assert_array_equal(notVisible, noIntensity if flag else False)
+                # Other status bits are preserved
+                self.assertTrue(lines.status[-1] & ReferenceLineStatus.BLEND)
+
     def testDetectorMap(self):
         """Test that we can get a wavelength-filtered lineList"""
         minWl = 400.0
