@@ -1362,10 +1362,11 @@ class FitDetectorMapTask(Task):
                 self.plotResiduals(lines, result.xResid, result.yResid, used, reserved, dispersion)
             with np.errstate(invalid="ignore"):
                 stats = self.getRejectionStatistics(result, lines, used, isLine)
-                if self.config.doRejectBadLines:
+                if self.config.doRejectBadLines and ii == 0:
                     # A bad line with high signal-to-noise can drag the fit, causing the outlier rejection to
                     # reject the good lines instead. So we reject bad lines and refit before rejecting
-                    # outliers.
+                    # outliers. The bad-line rejection is robust (relative to the consensus of the lines,
+                    # rather than the fit), so we only need to do this once, which saves refitting.
                     keepLines = self.rejectBadLines(stats, lines)
                     if np.any(used & ~keepLines):
                         used &= keepLines
