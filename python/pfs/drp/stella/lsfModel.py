@@ -43,7 +43,7 @@ class LsfKernel:
         truncation of the LSF's wings doesn't shift the kernel's first moment
         (to first order).
     wavelength : `numpy.ndarray`, optional
-        Wavelength (nm) of each pixel, if known.
+        Vacuum wavelength (nm) of each pixel, if known.
     norm : `float`
         Fraction of the LSF's flux within the (windowed) kernel before
         normalisation (< 1 from the truncated wings, and if clipped at the ends
@@ -55,6 +55,14 @@ class LsfKernel:
     values: np.ndarray
     wavelength: np.ndarray = None
     norm: float = 1.0
+
+    def __repr__(self):
+        where = f"center={self.center:.3f} pixels"
+        if self.wavelength is not None and len(self.wavelength) == len(self.values):
+            lam = np.interp(self.center, self.pixels, self.wavelength)
+            where += f" ({lam:.3f} nm, vacuum)"
+        return (f"LsfKernel(fiberId={self.fiberId}, {where}, pixels {self.start}:{self.stop}, "
+                f"norm={self.norm:.4f})")
 
     @property
     def stop(self):
@@ -214,7 +222,7 @@ class LsfModel(ABC):
         fiberId : `int`
             Fibre identifier.
         wavelength : `float`
-            Wavelength of the LSF's first moment (nm).
+            Vacuum wavelength (nm) of the LSF's first moment.
         halfWidth : `float`, optional
             The kernel covers pixels within ``halfWidth`` (pixels) of ``center``;
             defaults to ``defaultHalfWidth``.
@@ -414,7 +422,7 @@ class LsfModel(ABC):
 
     def computeGaussianSigmaAtWavelength(self, fiberId, wavelength, method="fit", intrinsicWidth=0.0, *,
                                          wavelengthArray=None, **kwargs):
-        """The rms (nm) of the Gaussian equivalent to the LSF at wavelength(s)
+        """The rms (nm) of the Gaussian equivalent to the LSF at vacuum wavelength(s)
 
         As `computeGaussianSigma`, but with positions and ``intrinsicWidth``
         (and the result) in nm.
@@ -424,7 +432,7 @@ class LsfModel(ABC):
         fiberId : `int` or array-like of `int`
             Fibre identifier(s).
         wavelength : `float` or array-like of `float`
-            Wavelength(s) (nm); broadcast against ``fiberId``.
+            Vacuum wavelength(s) (nm); broadcast against ``fiberId``.
         method : `str`
             ``"fit"`` or ``"moment"``; see `computeGaussianSigma`.
         intrinsicWidth : `float`
@@ -677,7 +685,7 @@ class ArmLsfModel(LsfModel):
     xCenter : `FiberSpline`
         Each fibre's trace position x (pixels) as a function of row.
     wavelength : `FiberSpline`
-        Each fibre's wavelength (nm) as a function of row, from the
+        Each fibre's vacuum wavelength (nm) as a function of row, from the
         detectorMap used in the fit.
     extraction : `str`
         ``"optimal"`` or ``"boxcar"``: the extraction that the profile models.
@@ -968,9 +976,20 @@ class ArmLsfModel(LsfModel):
         xHi = np.interp(half, density[hi:hi + 2][::-1], centers[hi:hi + 2][::-1])
         return float(xHi - xLo)
 
+    def _wavelengthRange(self):
+        """Summary of the vacuum wavelength range, for ``__repr__``"""
+        try:
+            middle = self.fiberId[len(self.fiberId)//2]
+            ends = self.wavelength(np.full(2, middle), np.array([0, self.length - 1]))
+            return f", {np.min(ends):.1f}-{np.max(ends):.1f} nm (vacuum)"
+        except Exception:
+            return ""
+
     def __repr__(self):
         engineering = len(getattr(self, "engineeringFiberId", []))
         return (f"ArmLsfModel({self.arm}{self.spectrograph}: {len(self.fiberId)} fibres"
                 + (f" ({engineering} engineering)" if engineering else "")
-                + f", blur order {self.blurOrder}, {self.extraction} extraction;"
+                + f", blur order {self.blurOrder}, {self.extraction} extraction"
+                + self._wavelengthRange()
+                + ";"
                 + f" {', '.join(self.parameterNames)})")
