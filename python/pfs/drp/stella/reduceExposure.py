@@ -182,7 +182,9 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     centroidAbsorption = ConfigurableField(target=CentroidAbsorptionTask, doc="Centroid absorption lines")
-    doCentroidAbsorption = Field(dtype=bool, default=False, doc="Centroid absorption lines for sky exposures?")
+    doCentroidAbsorption = Field(
+        dtype=bool, default=False, doc="Centroid absorption lines for sky exposures?"
+    )
     absorptionLineList = Field(dtype=str, default="solar.txt", doc="Line list for absorption lines")
     doCentroidSolar = Field(dtype=bool, default=False, doc="Centroid solar spectra for b?")
     centroidSolar = ConfigurableField(target=CentroidAbsorptionTask, doc="Centroid on solar spectra")
