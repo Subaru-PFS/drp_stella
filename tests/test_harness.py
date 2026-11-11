@@ -1,17 +1,29 @@
 import argparse
+import ast
+import glob
+import importlib
+import inspect
 import logging
 import os
 import shutil
 import tempfile
+
+import numpy as np
 
 import lsst.utils.tests
 from lsst.pex.config import Config, Field, FieldValidationError
 from lsst.pipe.base import Struct, Task
 
 from pfs.drp.stella import harness
+from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
+from pfs.drp.stella.DetectorMapContinued import DetectorMap
+from pfs.drp.stella.referenceLine import ReferenceLineSource, ReferenceLineStatus
+from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
+
+EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "examples", "runTask")
 
 
 class DummyConfig(Config):
@@ -190,6 +202,165 @@ class HarnessTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(argparse.ArgumentTypeError):
             harness.runTask(taskPath, ["aa:String=foo"], outputSpecs=(spec for spec in ["noColon"]))
         self.assertEqual(DummyTask.numRuns, 1)
+
+
+def parseTemplate(filename):
+    """Parse a runTask template
+
+    Parameters
+    ----------
+    filename : `str`
+        Path to the template.
+
+    Returns
+    -------
+    task : `str`
+        Fully-qualified dotted path to the task (``TASK``).
+    inputs : `dict` [`str`: `str`]
+        Names and types of the data read from files (``INPUTS``).
+    assigned : `set` of `str`
+        Names assigned in the ``data`` dict.
+    modules : `list` of (`str`, `list` of `str`)
+        Imported modules and the names imported from them.
+    """
+    with open(filename) as fd:
+        tree = ast.parse(fd.read(), filename)
+    declarations = {}
+    assigned = set()
+    modules = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in ("TASK", "INPUTS"):
+                    declarations[target.id] = ast.literal_eval(node.value)
+                if (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "data"
+                    and isinstance(target.slice, ast.Constant)
+                ):
+                    assigned.add(target.slice.value)
+        elif isinstance(node, ast.Import):
+            modules += [(alias.name, []) for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            modules.append((node.module, [alias.name for alias in node.names]))
+    return declarations["TASK"], declarations["INPUTS"], assigned, modules
+
+
+class TemplatesTestCase(lsst.utils.tests.TestCase):
+    """Tests that the runTask templates are up to date"""
+
+    def setUp(self):
+        self.templates = sorted(glob.glob(os.path.join(EXAMPLES_DIR, "*.py")))
+        self.assertGreater(len(self.templates), 0)
+
+    def testSignatures(self):
+        """Test that the templates supply valid arguments for the task's run"""
+        for filename in self.templates:
+            with self.subTest(template=os.path.basename(filename)):
+                task, inputs, assigned, _ = parseTemplate(filename)
+                signature = inspect.signature(harness.resolveClass(task).run)
+                parameters = {
+                    name: param
+                    for name, param in signature.parameters.items()
+                    if name != "self" and param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+                }
+                required = {name for name, param in parameters.items() if param.default is param.empty}
+                supplied = set(inputs) | assigned
+                self.assertLessEqual(required, supplied, "Template doesn't supply required arguments")
+                if not any(param.kind == param.VAR_KEYWORD for param in signature.parameters.values()):
+                    self.assertLessEqual(supplied, set(parameters), "Template supplies unknown arguments")
+
+    def testImports(self):
+        """Test that the task, imports and input types in the templates exist"""
+        for filename in self.templates:
+            with self.subTest(template=os.path.basename(filename)):
+                task, inputs, _, modules = parseTemplate(filename)
+                harness.resolveClass(task)
+                for moduleName, names in modules:
+                    module = importlib.import_module(moduleName)
+                    for name in names:
+                        self.assertTrue(hasattr(module, name), f"{moduleName} has no {name}")
+                for typeName in inputs.values():
+                    self.assertIn(typeName, harness.TYPE_REGISTRY)
+
+
+class FitDetectorMapTemplateTestCase(lsst.utils.tests.TestCase):
+    """Test running the FitDetectorMapTask template on synthetic data"""
+
+    def setUp(self):
+        self.tempDir = tempfile.mkdtemp()
+        rootLogger = logging.getLogger()
+        self.rootHandlers = list(rootLogger.handlers)
+        self.rootLevel = rootLogger.level
+
+    def tearDown(self):
+        shutil.rmtree(self.tempDir, ignore_errors=True)
+        rootLogger = logging.getLogger()
+        for handler in list(rootLogger.handlers):
+            if handler not in self.rootHandlers:
+                rootLogger.removeHandler(handler)
+        rootLogger.setLevel(self.rootLevel)
+
+    def testRun(self):
+        """Copy and edit the template, as a user would, and run it"""
+        template = os.path.join(EXAMPLES_DIR, "FitDetectorMapTask.py")
+        task, _, _, _ = parseTemplate(template)
+        with open(template) as fd:
+            contents = fd.read()
+        self.assertEqual(contents.count('ARM = "b"'), 1)
+        extra = os.path.join(self.tempDir, "extra.py")
+        with open(extra, "w") as fd:
+            fd.write(contents.replace('ARM = "b"', 'ARM = "r"'))
+
+        synthConfig = SyntheticConfig()
+        base = makeSyntheticDetectorMap(synthConfig, 650.0, 950.0)
+        baseFile = os.path.join(self.tempDir, "base.fits")
+        base.writeFits(baseFile)
+
+        rows = []
+        for ff in synthConfig.fiberId:
+            for yy in range(base.bbox.getMinY(), base.bbox.getMaxY(), 4):
+                rows.append(
+                    ArcLine(
+                        ff,
+                        base.getWavelength(ff, yy),
+                        base.getXCenter(ff, yy),
+                        float(yy),
+                        0.01,
+                        0.01,
+                        np.nan,
+                        np.nan,
+                        np.nan,
+                        1000.0,
+                        1.0,
+                        np.nan,
+                        False,
+                        ReferenceLineStatus.GOOD | ReferenceLineStatus.DETECTORMAP_USED,
+                        "Fake",
+                        None,
+                        ReferenceLineSource.NONE,
+                    )
+                )
+        linesFile = os.path.join(self.tempDir, "lines.fits")
+        ArcLineSet.fromRows(rows).writeFits(linesFile)
+
+        configFile = os.path.join(self.tempDir, "config.py")
+        with open(configFile, "w") as fd:
+            fd.write("config.order = 1\nconfig.doSlitOffsets = True\nconfig.exclusionRadius = 1.0\n")
+
+        outFile = os.path.join(self.tempDir, "detectorMap.fits")
+        result = harness.runTask(
+            task,
+            [f"lines:ArcLineSet={linesFile}", f"base:DetectorMap={baseFile}"],
+            configFile=configFile,
+            extraFile=extra,
+            outputSpecs=[f"detectorMap:{outFile}"],
+        )
+        detMap = DetectorMap.readFits(outFile)
+        self.assertEqual(detMap.bbox, base.bbox)
+        self.assertFloatsAlmostEqual(detMap.opticsModel.distortions[0].getCoefficients(), 0.0, atol=2.0e-7)
+        self.assertFloatsAlmostEqual(result.xRms, 0.0, atol=1.0e-3)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

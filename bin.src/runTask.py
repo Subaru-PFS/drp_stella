@@ -16,7 +16,13 @@ from pfs.drp.stella.harness import runTask
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run a Task on local files")
+    parser = argparse.ArgumentParser(
+        description="Run a Task on local files",
+        epilog=(
+            "See $DRP_STELLA_DIR/examples/runTask/README.md for details, including how to write --extra "
+            "files."
+        ),
+    )
     parser.add_argument("task", help="Fully-qualified dotted path to the Task to run")
     parser.add_argument(
         "data",
