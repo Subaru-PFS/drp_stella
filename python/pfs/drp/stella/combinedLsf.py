@@ -23,6 +23,13 @@ Each resampled input kernel is normalised to unit area before it's weighted;
 this is equivalent to assuming that the input's gain (e.g., the change of units
 from counts per input pixel to flux per output pixel) is constant across the
 kernel. Only its gradient across the few pixels of the kernel is neglected.
+
+The LSF is a property of the instrument, not of the data's coverage: the
+dichroic acts before the LSF is formed, so a line near the end of an arm has the
+full LSF of that arm; there's simply no data beyond the end. So each input's
+kernel extends beyond the end of the input (as if the detector continued), and
+output pixels that no input covers take the weights of the nearest covered
+pixel.
 """
 
 from dataclasses import dataclass
@@ -162,6 +169,20 @@ class IndexMap:
         else:
             result = self._spline(pixels)
         result[(pixels < self.minIndex) | (pixels > self.maxIndex)] = np.nan
+        return result
+
+    def extrapolate(self, pixels: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Evaluate, extrapolating linearly beyond the range
+
+        This is for the few pixels of a kernel that extend beyond the end of
+        the input; a cubic would be unreliable there.
+        """
+        pixels = np.asarray(pixels, dtype=np.float64)
+        result = np.empty(pixels.shape, dtype=np.float64)
+        inside = (pixels >= self.minIndex) & (pixels <= self.maxIndex)
+        result[inside] = self(pixels[inside])
+        for end, select in ((self.minIndex, pixels < self.minIndex), (self.maxIndex, pixels > self.maxIndex)):
+            result[select] = self(float(end)) + self.derivative(end)*(pixels[select] - end)
         return result
 
     def derivative(self, pixel: float) -> float:
@@ -313,26 +334,23 @@ class CombinedLsfInput:
         Returns
         -------
         start : `int`
-            Output pixel of ``values[0]``.
+            Output pixel of ``values[0]``. The LSF is complete: it may extend
+            beyond the output pixels covered by the input.
         values : `numpy.ndarray` of `float`
             Resampled LSF, normalised to unit sum.
 
         Or `None` if the result is empty.
         """
         inCenter = self.indexMap(center)
-        inStart, inValues = self.lsf.computeWindow(inCenter)
+        inStart, inValues = self.lsf.computeWindow(inCenter, clip=False)
         inStop = inStart + len(inValues)
         # Output pixels whose interpolation windows can reach the input window; pad generously
         halfSize = max(self.order, 1)
         scale = 1.0/max(abs(self.indexMap.derivative(center)), 1.0e-3)  # output pixels per input pixel
         lo = int(np.floor(center + (inStart - halfSize - 1 - inCenter)*scale)) - 2
         hi = int(np.ceil(center + (inStop + halfSize - inCenter)*scale)) + 3
-        lo = max(lo, self.indexMap.minIndex)
-        hi = min(hi, self.indexMap.maxIndex + 1)
-        if hi <= lo:
-            return None
-        indices = self.indexMap(np.arange(lo, hi, dtype=np.float64))
-        offset, values = resampleWindow(inValues, inStart, indices, self.lsf.length, self.order)
+        indices = self.indexMap.extrapolate(np.arange(lo, hi, dtype=np.float64))
+        offset, values = resampleWindow(inValues, inStart, indices, None, self.order)
         norm = np.sum(values)
         if values.size == 0 or not np.isfinite(norm) or norm <= 0:
             return None
@@ -360,20 +378,24 @@ class CombinedLsf(Lsf):
         """Return the inputs that cover an output position"""
         return [inp for inp in self.inputs if inp.indexMap.contains(center)]
 
-    def computeWindow(self, center: float) -> tuple[int, NDArray[np.float64]]:
+    def computeWindow(self, center: float, clip: bool = True) -> tuple[int, NDArray[np.float64]]:
         """Return the LSF for a line at a (sub-pixel) position
 
         Parameters
         ----------
         center : `float`, pixels
             Position of the line.
+        clip : `bool`, optional
+            Clip the window to the array? Either way, the values are those
+            of the full LSF (normalised before clipping).
 
         Returns
         -------
         start : `int`
-            Index of ``values[0]`` in the full array.
+            Index of ``values[0]`` in the full array (may be negative, and the
+            window may extend beyond the array, if ``clip`` is `False`).
         values : `numpy.ndarray` of `float`
-            LSF, normalised to unit sum.
+            LSF, normalised to unit sum (before any clipping).
 
         Raises
         ------
@@ -388,12 +410,19 @@ class CombinedLsf(Lsf):
         start = min(ww[0] for _, ww in used)
         stop = max(ww[0] + len(ww[1]) for _, ww in used)
         pixels = np.arange(start, stop, dtype=np.float64)
+        weights = np.array([inp.weight(pixels) for inp, _ in used])
+        denominator = np.sum(weights, axis=0)
+        covered = np.flatnonzero(denominator > 0)
+        if covered.size > 0 and covered.size < len(pixels):
+            # Pixels covered by no input (beyond the end of an arm) take the weights of the nearest covered
+            # pixel: there's no data there, but the LSF continues
+            index = np.arange(len(pixels))
+            nearest = covered[np.argmin(np.abs(index[:, np.newaxis] - covered[np.newaxis, :]), axis=1)]
+            weights = weights[:, nearest]
+            denominator = denominator[nearest]
         numerator = np.zeros(stop - start, dtype=np.float64)
-        denominator = np.zeros(stop - start, dtype=np.float64)
         unweighted = np.zeros(stop - start, dtype=np.float64)
-        for inp, (ss, values) in used:
-            weight = inp.weight(pixels)
-            denominator += weight
+        for weight, (_, (ss, values)) in zip(weights, used):
             select = slice(ss - start, ss - start + len(values))
             numerator[select] += weight[select]*values
             unweighted[select] += values
@@ -404,7 +433,12 @@ class CombinedLsf(Lsf):
             # No weight anywhere (e.g., all inputs fully masked): use equal weights
             result = unweighted
             norm = np.sum(result)
-        return start, result/norm
+        result /= norm
+        if clip:
+            lo = max(0, -start)
+            hi = min(len(result), self.length - start)
+            return start + lo, result[lo:max(lo, hi)]
+        return start, result
 
     def computeArray(self, center: float) -> NDArray[np.float64]:
         """Return an array with the LSF inserted at the nominated position
@@ -448,7 +482,7 @@ class CombinedLsf(Lsf):
             If there are no inputs covering ``center``.
         """
         pixel = int(np.floor(center + 0.5))
-        start, values = self.computeWindow(pixel)
+        start, values = self.computeWindow(pixel, clip=False)
         if not start <= pixel < start + len(values):
             raise NoLsfsError(f"LSF at {pixel} does not cover its center")
         return Kernel1D(values, pixel - start, normalize=False)  # Already normalised

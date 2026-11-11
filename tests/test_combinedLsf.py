@@ -22,7 +22,7 @@ import numpy as np
 import lsst.utils.tests
 from pfs.datamodel import Identity, MaskHelper, Observations, Target
 from pfs.drp.stella.coaddSpectra import CoaddSpectraConfig, CoaddSpectraTask
-from pfs.drp.stella.combinedLsf import CombinedLsf, IndexMap, SmoothWeight
+from pfs.drp.stella.combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from pfs.drp.stella.datamodel import PfsArm, PfsSingle
 from pfs.drp.stella.interpolate import Resampler, interpolateIndices
 from pfs.drp.stella.lsf import GaussianLsf
@@ -254,6 +254,53 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
             for wl in SINGLE + OVERLAP:
                 center = self.outPixel(wl)
                 np.testing.assert_array_equal(copy[ff].computeArray(center), lsfDict[ff].computeArray(center))
+
+    def testArmEnd(self):
+        """Claude: a line at the end of an arm has the full LSF, as if the detector continued
+
+        The dichroic acts before the LSF is formed, so the end of the data
+        doesn't truncate the LSF.
+        """
+        lo, hi, length, sigma, _ = ARMS["r"]
+        step = (hi - lo)/(length - 1)
+        extra = 100  # Pixels by which the extended arm continues beyond each end
+        inWavelength = armWavelength("r")
+        extended = np.linspace(lo - extra*step, hi + extra*step, length + 2*extra)
+        lsf = GaussianLsf(length, sigma)
+        extendedLsf = GaussianLsf(length + 2*extra, sigma)
+
+        # The input LSF itself
+        for center in (0.3, length - 1.3):
+            start, values = lsf.computeWindow(center, clip=False)
+            expectStart, expect = extendedLsf.computeWindow(center + extra)
+            self.assertEqual(start, expectStart - extra)
+            np.testing.assert_allclose(values, expect, rtol=0, atol=1.0e-15)
+            clipped = lsf.computeWindow(center)
+            self.assertGreaterEqual(clipped[0], 0)
+            self.assertLessEqual(clipped[0] + len(clipped[1]), length)
+
+        for order in (1, 3):
+            indexMap = IndexMap.fromWavelength(inWavelength, self.wavelength)
+            weight = SmoothWeight.constant(indexMap.minIndex, indexMap.maxIndex)
+            combined = CombinedLsf(len(self.wavelength), [CombinedLsfInput(lsf, indexMap, weight, order)])
+            resampler = Resampler(extended, self.wavelength, order=order)
+            middle = combined.computeShape1D(0.5*(indexMap.minIndex + indexMap.maxIndex))
+            for center in (indexMap.minIndex + 0.3, indexMap.maxIndex - 0.3):
+                # The arm extended, resampled: the LSF we want
+                wl = np.interp(center, np.arange(len(self.wavelength)), self.wavelength)
+                inCenter = np.interp(wl, extended, np.arange(len(extended)))
+                inStart, inValues = extendedLsf.computeWindow(inCenter)
+                outStart, expect = resampler.resampleWindow(inValues, inStart)
+                expect /= np.sum(expect)
+                start, values = combined.computeWindow(center, clip=False)
+                array = np.zeros(len(self.wavelength))
+                array[start:start + len(values)] = values
+                select = slice(outStart, outStart + len(expect))
+                np.testing.assert_allclose(array[select], expect, rtol=0, atol=1.0e-9)
+                self.assertFloatsAlmostEqual(np.sum(array), 1.0, atol=1.0e-12)
+                self.assertFloatsAlmostEqual(np.sum(combined.computeArray(center)), 1.0, atol=1.0e-12)
+                # Same width as in the middle of the arm (the dispersion is constant)
+                self.assertFloatsAlmostEqual(combined.computeShape1D(center), middle, rtol=0.03)
 
     def testIndexMap(self):
         """The Chebyshev approximation to the resampling indices is accurate"""
