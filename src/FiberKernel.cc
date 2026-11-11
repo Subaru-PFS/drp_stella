@@ -346,10 +346,9 @@ struct FiberModel {
         }
 
         int const thisStart = start - xMin;
-        int const thisStop = stop - xMin;  // exclusive
 
         double result = 0.0;
-        for (std::size_t xx = start, xThis = thisStart; xx < stop; ++xx, ++xThis) {
+        for (int xx = start, xThis = thisStart; xx < stop; ++xx, ++xThis) {
             if (!use[xThis] || !usePixels[xx]) {
                 continue;
             }
@@ -1714,7 +1713,7 @@ ndarray::Array<double, 1, 1> _fitFiberKernel(
             if (offset == 0) {
                 continue;
             }
-            kernelModels.emplace_back(std::move(sourceModel.applyOffset(offset, source.getWidth())));
+            kernelModels.emplace_back(sourceModel.applyOffset(offset, source.getWidth()));
         }
 
         // Model is:
