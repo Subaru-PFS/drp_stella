@@ -339,8 +339,14 @@ class FitDetectorMapConfig(Config):
     )
     detectorCorrectionIterations = Field(
         dtype=int,
-        default=2,
+        default=1,
         doc="Number of iterations of fitting the detector correction and refitting the detectorMap",
+    )
+    correctionSlitOffsetIterations = Field(
+        dtype=int,
+        default=1,
+        doc="Number of iterations for measuring slit offsets when refitting the detectorMap after applying "
+        "the detector correction (starting from the previous slit offsets)",
     )
 
 
@@ -448,7 +454,12 @@ class FitDetectorMapTask(Task):
                 detectorMap = self.makeDetectorMap(base, bbox, results.distortion, visitInfo, metadata)
                 numParameters = results.numParameters
                 if self.config.doSlitOffsets:
-                    for _ in range(self.config.slitOffsetIterations):
+                    numSlitOffsetIterations = (
+                        self.config.slitOffsetIterations
+                        if correctionIteration == 0
+                        else self.config.correctionSlitOffsetIterations
+                    )
+                    for _ in range(numSlitOffsetIterations):
                         offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
                     numParameters += offsets.numParameters
                 if not self.updateTraceWavelengths(lines, detectorMap):
@@ -461,6 +472,10 @@ class FitDetectorMapTask(Task):
                 break
             correction = addBSplineDistortions(correction, increment)
             base = self.setDetectorDistortions(base, [correction])
+            if self.config.doSlitOffsets:
+                # Start from the slit offsets we've measured, so that the outlier rejection in the next fit
+                # isn't dominated by the slit offsets, and the slit offsets need less refinement.
+                base.setSlitOffsets(detectorMap.getSpatialOffsets(), detectorMap.getSpectralOffsets())
 
         if correction is not None:
             numParameters += correction.getNumParameters()

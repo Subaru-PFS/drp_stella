@@ -49,10 +49,19 @@ class FitDetectorCorrectionConfig(Config):
         default=0.3,
         doc="Maximum absolute residual (pixels) for a measurement to be used",
     )
+    smoothing = Field(
+        dtype=float,
+        default=0.01,
+        doc="Weight of the penalty on the second differences of the spline coefficients (in x and y), "
+        "relative to the median number of measurements in a bin. This keeps poorly-constrained "
+        "coefficients smooth.",
+    )
     damp = Field(
         dtype=float,
-        default=0.1,
-        doc="Damping factor for the least-squares solution, to regularize poorly-constrained coefficients",
+        default=0.03,
+        doc="Weight of the penalty on the size of the spline coefficients, relative to the median number of "
+        "measurements in a bin. Together with the smoothing, this takes the correction smoothly to zero "
+        "where there are no measurements.",
     )
 
     def validate(self):
@@ -234,9 +243,15 @@ class FitDetectorCorrectionTask(Task):
 
         design = makeDesignMatrix(xKnots, yKnots, order, xMean, yMean)
         weighted = scipy.sparse.diags(weights) @ design
-        solution = scipy.sparse.linalg.lsqr(
-            weighted, mean * weights, damp=self.config.damp, atol=1.0e-10, btol=1.0e-10, iter_lim=20000
-        )
+
+        # Regularization: penalize second differences of the coefficients (smoothness) and the size of the
+        # coefficients (damping). The penalties are scaled by the typical weight of a bin, so that they
+        # dominate only where there are few or no measurements.
+        scale = np.median(num)
+        penalty = makePenaltyMatrix(numX, numY, self.config.smoothing * scale, self.config.damp * scale)
+        matrix = scipy.sparse.vstack([weighted, penalty]).tocsr()
+        rhs = np.concatenate([mean * weights, np.zeros(penalty.shape[0])])
+        solution = scipy.sparse.linalg.lsqr(matrix, rhs, atol=1.0e-10, btol=1.0e-10, iter_lim=20000)
         coeff = solution[0]
         self.log.debug(
             "Fit detector correction with %d coefficients to %d bins: lsqr istop=%d after %d iterations",
@@ -284,6 +299,49 @@ def makeDesignMatrix(
     values = (xValue[:, :, None] * yValue[:, None, :]).reshape(numPoints, -1)
     rows = np.repeat(np.arange(numPoints), width * width)
     return scipy.sparse.csr_matrix((values.ravel(), (rows, columns.ravel())), shape=(numPoints, numX * numY))
+
+
+def makePenaltyMatrix(numX: int, numY: int, smoothing: float, damp: float) -> scipy.sparse.csr_matrix:
+    """Make the regularization rows for a tensor-product B-spline fit
+
+    The penalty is ``smoothing * (|D_x c|^2 + |D_y c|^2) + damp * |c|^2``,
+    where ``D_x`` and ``D_y`` are the second-difference operators along each
+    axis of the coefficient grid, and ``c`` are the coefficients. In the
+    absence of measurements, this takes the coefficients smoothly to zero
+    over a scale of roughly ``(smoothing/damp)**0.25`` knots.
+
+    Parameters
+    ----------
+    numX, numY : `int`
+        Number of coefficients in x and y.
+    smoothing : `float`
+        Weight of the second-difference penalty.
+    damp : `float`
+        Weight of the coefficient-size penalty.
+
+    Returns
+    -------
+    penalty : `scipy.sparse.csr_matrix`
+        Rows to append to the (weighted) design matrix, with zero targets.
+        Coefficients are ordered with y varying fastest.
+    """
+
+    def secondDifference(num: int) -> scipy.sparse.csr_matrix:
+        """Second-difference operator for a vector of length ``num``"""
+        if num < 3:
+            return scipy.sparse.csr_matrix((0, num))
+        return scipy.sparse.diags([1.0, -2.0, 1.0], [0, 1, 2], shape=(num - 2, num))
+
+    blocks = []
+    if smoothing > 0:
+        root = np.sqrt(smoothing)
+        blocks.append(root * scipy.sparse.kron(secondDifference(numX), scipy.sparse.identity(numY)))
+        blocks.append(root * scipy.sparse.kron(scipy.sparse.identity(numX), secondDifference(numY)))
+    if damp > 0:
+        blocks.append(np.sqrt(damp) * scipy.sparse.identity(numX * numY))
+    if not blocks:
+        return scipy.sparse.csr_matrix((0, numX * numY))
+    return scipy.sparse.vstack(blocks).tocsr()
 
 
 def subtractGroupMedians(groups: np.ndarray, values: np.ndarray) -> np.ndarray:
