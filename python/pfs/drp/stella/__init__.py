@@ -31,6 +31,7 @@ from .centroidImage import *
 from .DistortionContinued import *
 from .PolynomialDistortionContinued import *
 from .MosaicPolynomialDistortionContinued import *
+from .BSplineDistortionContinued import *
 from .LayeredDetectorMapContinued import *
 from .OpticalModelDetectorMapContinued import *
 
