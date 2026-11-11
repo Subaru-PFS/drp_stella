@@ -305,6 +305,109 @@ class OpticalModelDetectorMapTestCase(lsst.utils.tests.TestCase):
         copy = pickle.loads(pickle.dumps(detMap))
         self.assertOpticalModelDetectorMapsEqual(detMap, copy)
 
+    @methodParameters(arm=("r", "n"))
+    def testFitDetectorCorrection(self, arm):
+        """Test FitDetectorMapTask with doDetectorCorrection
+
+        We plant a bump in the trace positions, which can't be fit by the
+        low-order distortion and slit offsets, and check that the detector
+        correction recovers it.
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm; affects behaviour of `FitDetectorMapTask` (``r``
+            uses a divided detector, ``n`` doesn't).
+        """
+        synthConfig = SyntheticConfig()
+        synthConfig.separation = 8.0  # Dense enough to constrain the correction
+        base = makeSyntheticDetectorMap(synthConfig, self.minWl, self.maxWl)
+        bbox = base.bbox
+        amplitude = 0.05
+        center = Point2D(0.25*bbox.getWidth(), 0.5*bbox.getHeight())
+        sigma = 60.0
+
+        def bump(xx, yy):
+            return amplitude*np.exp(-0.5*((xx - center.getX())**2 + (yy - center.getY())**2)/sigma**2)
+
+        rows = np.arange(bbox.getMinY(), bbox.getMaxY(), dtype=float)
+        lineRows = rows[::50]
+        fiberId = []
+        wavelength = []
+        xx = []
+        yy = []
+        description = []
+        rowIndex = rows.astype(int)
+        lineIndex = lineRows.astype(int)
+        for ff in synthConfig.fiberId:
+            xCenter = base.getXCenter(ff)[rowIndex]
+            fiberWavelength = base.getWavelength(ff)
+            fiberId.append(np.full(rows.size, ff))
+            wavelength.append(fiberWavelength[rowIndex])
+            xx.append(xCenter + bump(xCenter, rows))
+            yy.append(rows)
+            description.append(np.full(rows.size, "Trace"))
+            # Arc lines, to constrain the wavelengths
+            fiberId.append(np.full(lineRows.size, ff))
+            wavelength.append(fiberWavelength[lineIndex])
+            xx.append(base.getXCenter(ff)[lineIndex])
+            yy.append(lineRows)
+            description.append(np.full(lineRows.size, "Fake"))
+        fiberId = np.concatenate(fiberId)
+        num = fiberId.size
+        lines = ArcLineSet.fromColumns(
+            fiberId=fiberId,
+            wavelength=np.concatenate(wavelength),
+            x=np.concatenate(xx),
+            y=np.concatenate(yy),
+            xErr=np.full(num, 0.01),
+            yErr=np.full(num, 0.01),
+            xx=np.full(num, np.nan),
+            yy=np.full(num, np.nan),
+            xy=np.full(num, np.nan),
+            flux=np.full(num, 1000.0),
+            fluxErr=np.full(num, 1.0),
+            fluxNorm=np.full(num, np.nan),
+            flag=np.zeros(num, dtype=bool),
+            status=np.full(num, int(ReferenceLineStatus.GOOD)),
+            description=np.concatenate(description),
+            transition=np.full(num, "UNKNOWN"),
+            source=np.full(num, int(ReferenceLineSource.NONE)),
+        )
+        isTrace = lines.description == "Trace"
+        truth = lines.x[isTrace]
+
+        for doDetectorCorrection in (False, True):
+            with self.subTest(doDetectorCorrection=doDetectorCorrection):
+                config = FitDetectorMapTask.ConfigClass()
+                config.order = 1
+                config.doSlitOffsets = True
+                config.doDetectorCorrection = doDetectorCorrection
+                config.exclusionRadius = 1.0  # Lots of close lines, but no real fear of confusion
+                config.reserveFraction = 0.0
+                task = FitDetectorMapTask(name="fitDetectorMap", config=config)
+                dataId = dict(visit=12345, arm=arm, spectrograph=1)
+                detMap = task.run(dataId, bbox, lines.copy(), base.visitInfo, base=base).detectorMap
+                model = detMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace].astype(float))
+                residual = truth - model
+                distortions = detMap.detectorModel.getDistortions()
+                if doDetectorCorrection:
+                    self.assertEqual(len(distortions), 1)
+                    self.assertIsInstance(distortions[0], BSplineDistortion)
+                    self.assertTrue(all(ss.isEmpty() for ss in distortions[0].getYSplines()))
+                    self.assertLess(np.sqrt(np.mean(residual**2)), 2.0e-3)
+                    self.assertLess(np.max(np.abs(residual)), 0.01)
+                    # The correction survives persistence
+                    copy = pickle.loads(pickle.dumps(detMap))
+                    self.assertFloatsAlmostEqual(
+                        copy.getXCenter(lines.fiberId[isTrace], lines.y[isTrace].astype(float)),
+                        model,
+                        atol=1.0e-6,
+                    )
+                else:
+                    self.assertEqual(len(distortions), 0)
+                    self.assertGreater(np.nanmax(np.abs(residual)), 0.5*amplitude)
+
     @methodParameters(arm=("r", "m"))
     def testFit(self, arm):
         """Test FitDetectorMapTask
