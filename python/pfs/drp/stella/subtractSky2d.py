@@ -10,6 +10,7 @@ from lsst.geom import Box2D
 from lsst.afw.image import MaskedImageF, makeMaskedImage
 
 from pfs.datamodel.pfsConfig import PfsConfig
+from pfs.datamodel.utils import markVacuumWavelengths
 from pfs.drp.stella.referenceLine import ReferenceLineStatus
 
 from .fitFocalPlane import FitBlockedOversampledSplineTask
@@ -78,7 +79,7 @@ class SkyModel(SimpleNamespace):
             Name of file to which to write.
         """
         fits = astropy.io.fits.HDUList()
-        fits.append(astropy.io.fits.ImageHDU(self.wavelength, name="WAVELENGTH"))
+        fits.append(markVacuumWavelengths(astropy.io.fits.ImageHDU(self.wavelength, name="WAVELENGTH")))
         fits.append(astropy.io.fits.ImageHDU(self.flux, name="FLUX"))
         with open(filename, "wb") as fd:
             fits.writeto(fd)
