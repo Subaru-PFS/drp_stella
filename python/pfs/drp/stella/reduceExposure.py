@@ -45,7 +45,7 @@ from .lsf import LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .centroidAbsorption import CentroidAbsorptionTask
-from .centroidSolar import CentroidSolarTask, defaultLsf
+from .centroidSolar import defaultLsf
 from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
