@@ -179,7 +179,7 @@ class Resampler:
 
 
 def resampleWindow(
-    values: np.ndarray, start: int, indices: np.ndarray, numIn: int, order: int, fill: float = 0.0
+    values: np.ndarray, start: int, indices: np.ndarray, numIn: int | None, order: int, fill: float = 0.0
 ) -> tuple[int, np.ndarray]:
     """Resample a row that is zero except for a short window
 
@@ -195,8 +195,11 @@ def resampleWindow(
     indices : `np.ndarray` of `float`
         Source indices of a contiguous run of target pixels (NaN where the
         target is outside the source). Monotonic increasing.
-    numIn : `int`
+    numIn : `int` or `None`
         Length of the source row (interpolation windows are clipped to it).
+        If `None`, the source row is unbounded: ``start`` may be negative,
+        and target pixels beyond the ends of the source are resampled as if
+        the source continued (with the provided ``indices``).
     order : `int`
         Interpolation order (as for `Resampler`).
     fill : `float`, optional
@@ -215,8 +218,8 @@ def resampleWindow(
     # The target pixels that the window affects have source indices within halfSize of it. Their
     # interpolation windows reach at most 2*halfSize from it, so pad that far (plus one)
     pad = 2*halfSize + 1
-    lo = max(0, start - pad)
-    hi = min(numIn, stop + pad)
+    lo = start - pad if numIn is None else max(0, start - pad)
+    hi = stop + pad if numIn is None else min(numIn, stop + pad)
     row = np.zeros(hi - lo, dtype=np.float64)
     row[start - lo:stop - lo] = values
     with np.errstate(invalid="ignore"):

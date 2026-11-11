@@ -405,7 +405,7 @@ class Lsf(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def computeWindow(self, center: float) -> tuple[int, NDArray[FloatingPoint]]:
+    def computeWindow(self, center: float, clip: bool = True) -> tuple[int, NDArray[FloatingPoint]]:
         """Return the part of ``computeArray`` where the LSF is non-zero
 
         This is the LSF at a sub-pixel position (like ``computeArray``), but
@@ -417,18 +417,32 @@ class Lsf(ABC):
         ----------
         center : `float`, pixels
             Position at which to insert the LSF.
+        clip : `bool`, optional
+            Clip the window to the array? If `False`, a line near the end of
+            the array has its full LSF, extending beyond the array: the LSF is
+            a property of the instrument (e.g., the dichroic acts before the
+            LSF is formed), and the end of the array only means that there's
+            no data there. Beyond the array, we use the LSF of a line an
+            integer number of pixels inside it, preserving the sub-pixel phase.
 
         Returns
         -------
         start : `int`
-            Index of ``values[0]`` in the full array.
+            Index of ``values[0]`` in the full array (may be negative, and the
+            window may extend beyond the array, if ``clip`` is `False`).
         values : `numpy.ndarray`, floating-point
             Values of ``computeArray(center)[start:start + len(values)]``.
         """
         kernel = self.computeKernel(center)
-        start = max(0, int(np.floor(center)) + kernel.min)
-        stop = min(self.length, int(np.ceil(center)) + kernel.max + 1)
-        return start, self.computeArray(center)[start:stop]
+        start = int(np.floor(center)) + kernel.min
+        stop = int(np.ceil(center)) + kernel.max + 1
+        shift = 0  # Shift (pixels) that brings the window within the array
+        if not clip and stop - start <= self.length:
+            shift = -start if start < 0 else min(0, self.length - stop)
+        if shift == 0:
+            start = max(0, start)
+            stop = min(self.length, stop)
+        return start, self.computeArray(center + shift)[start + shift:stop + shift]
 
     def computePeak(self, point: Point2D | None = None) -> float:
         """Return the value of the peak pixel in the LSF image
