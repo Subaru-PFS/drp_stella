@@ -27,6 +27,15 @@ class AdjustDetectorMapConfig(FitDetectorMapConfig):
     def setDefaults(self):
         self.exclusionRadius = 4.0
         self.order = 0  # System is very stable when we don't accidentally change the focus
+        self.doDetectorCorrection = False  # The detector correction comes from the input detectorMap
+
+    def validate(self):
+        super().validate()
+        if self.doDetectorCorrection:
+            raise ValueError(
+                "doDetectorCorrection is not supported for AdjustDetectorMapTask: the detector correction "
+                "is carried over from the input detectorMap"
+            )
 
 
 class AdjustDetectorMapTask(FitDetectorMapTask):

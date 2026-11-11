@@ -22,3 +22,4 @@ tasks:
     class: pfs.drp.stella.pipelines.FitDetectorMapTask
     config:
       fitDetectorMap.doSlitOffsets: parameters.doSlitOffsets
+      fitDetectorMap.doDetectorCorrection: parameters.doSlitOffsets  # Needs plenty of traces
