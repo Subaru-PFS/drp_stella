@@ -1,9 +1,11 @@
 import logging
+from types import SimpleNamespace
 import lsst.log
 
 import numpy as np
 
 import lsst.utils.tests
+from lsst.pipe.base import Struct
 from lsst.geom import Box2D
 import lsst.afw.image
 from lsst.afw.display import Display
@@ -100,11 +102,12 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(detMap.getVisitInfo() is not None)
         self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
 
-    @methodParameters(flatFlux=(10, 200000, 1000),
-                      numLines=(50, 0, 50),
-                      traceTol=(0.05, 0.005, 0.07),
+    @methodParameters(flatFlux=(10, 200000, 1000, 1000),
+                      numLines=(50, 0, 50, 50),
+                      traceTol=(0.05, 0.005, 0.07, 0.07),
+                      badLine=(False, False, False, True),
                       )
-    def testAdjustment(self, flatFlux=1000, numLines=0, arcFlux=10000, traceTol=1.0e-2):
+    def testAdjustment(self, flatFlux=1000, numLines=0, arcFlux=10000, traceTol=1.0e-2, badLine=False):
         """Test adjustment of a detectorMap
 
         We construct a synthetic image with both trace and lines, and check that
@@ -118,6 +121,11 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             Number of lines per fiber.
         arcFlux : `float`
             Flux in each line.
+        traceTol : `float`
+            Tolerance for the trace centroids (pixels).
+        badLine : `bool`
+            Corrupt the measurements of one line, as for a misidentified line
+            with high signal-to-noise? It should be rejected as a bad line.
         """
         rng = np.random.RandomState(12345)
         pfsConfig = makeSyntheticPfsConfig(self.synthConfig, 1234567890, 12345)
@@ -162,6 +170,13 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
         else:
             lines = ArcLineSet.empty()
+        if badLine:
+            # Offset one line by several pixels and make it the most precise measurement, so that it
+            # would dominate the fit if it weren't rejected.
+            badWavelength = np.unique(lines.wavelength)[numLines//2]
+            isBad = lines.wavelength == badWavelength
+            lines.data.loc[isBad, "y"] += 3.0
+            lines.data.loc[isBad, "yErr"] = 0.1*np.nanmin(lines.yErr)
         traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
         for ff in np.unique(traces.fiberId):
             select = traces.fiberId == ff
@@ -177,6 +192,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
 
         config = AdjustDetectorMapTask.ConfigClass()
         config.order = 1
+        config.badLineMinNum = self.synthConfig.numFibers
         task = AdjustDetectorMapTask(log=logger, config=config)
 
         if display is not None:
@@ -203,6 +219,95 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             adjusted.detectorMap.display(disp, ctype="green", wavelengths=refLines.wavelength)
 
         self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
+        if badLine:
+            isBad = lines.wavelength == badWavelength
+            used = (lines.status & ReferenceLineStatus.DETECTORMAP_USED) != 0
+            self.assertFalse(np.any(used[isBad]))
+            self.assertTrue(np.any(used[~isBad & (lines.description != "Trace")]))
+
+
+class FakeLines(SimpleNamespace):
+    """Minimal stand-in for an `ArcLineSet`, as used by ``rejectBadLines``"""
+    def __len__(self):
+        return len(self.wavelength)
+
+
+class RejectBadLinesTestCase(lsst.utils.tests.TestCase):
+    """Test FitDetectorMapTask.rejectBadLines"""
+    def setUp(self):
+        self.rng = np.random.RandomState(12345)
+        self.numWavelengths = 20
+        self.numFibers = 50
+        self.wavelength = np.repeat(np.linspace(650, 950, self.numWavelengths), self.numFibers)
+        self.numLines = self.wavelength.size
+        self.yResid = self.rng.normal(0.0, 0.02, self.numLines)
+        self.task = AdjustDetectorMapTask()
+
+    def rejectBadLines(self, yResid, isTrace=None, selection=None):
+        """Run ``rejectBadLines`` on the residuals
+
+        Parameters
+        ----------
+        yResid : `np.ndarray` of `float`
+            Spectral residuals (pixels).
+        isTrace : `np.ndarray` of `bool`, optional
+            Which measurements are traces; defaults to none of them.
+        selection : `np.ndarray` of `bool`, optional
+            Which measurements were used in the fit; defaults to all of them.
+
+        Returns
+        -------
+        keep : `np.ndarray` of `bool`
+            Which measurements to keep.
+        """
+        if isTrace is None:
+            isTrace = np.zeros(self.numLines, dtype=bool)
+        if selection is None:
+            selection = np.ones(self.numLines, dtype=bool)
+        lines = FakeLines(wavelength=self.wavelength)
+        stats = Struct(
+            xResid=np.zeros(self.numLines),
+            yResid=yResid,
+            isTrace=isTrace,
+            selection=selection,
+        )
+        return self.task.rejectBadLines(stats, lines)
+
+    def testNoBadLines(self):
+        """Nothing is rejected if all lines are good"""
+        self.assertTrue(np.all(self.rejectBadLines(self.yResid)))
+
+    def testBadLines(self):
+        """Bad lines are rejected, even if they bias the fit"""
+        bias = 0.3  # The fit has been dragged by the bad lines
+        yResid = self.yResid + bias
+        badIndices = [3, 11, 17]
+        isBad = np.isin(self.wavelength, np.unique(self.wavelength)[badIndices])
+        yResid[isBad] -= 3.0
+        keep = self.rejectBadLines(yResid)
+        np.testing.assert_array_equal(keep, ~isBad)
+
+    def testThreshold(self):
+        """Departures smaller than badLineMinThreshold are not rejected"""
+        yResid = self.yResid.copy()
+        isSmall = self.wavelength == np.unique(self.wavelength)[5]
+        isLarge = self.wavelength == np.unique(self.wavelength)[6]
+        yResid[isSmall] += 0.5*self.task.config.badLineMinThreshold
+        yResid[isLarge] += 2.0*self.task.config.badLineMinThreshold
+        keep = self.rejectBadLines(yResid)
+        np.testing.assert_array_equal(keep, ~isLarge)
+
+    def testSparseLines(self):
+        """Lines with too few measurements aren't tested, nor are traces"""
+        yResid = self.yResid.copy()
+        isBad = self.wavelength == np.unique(self.wavelength)[7]
+        yResid[isBad] += 3.0
+        selection = np.ones(self.numLines, dtype=bool)
+        selection[np.flatnonzero(isBad)[self.task.config.badLineMinNum - 1:]] = False
+        self.assertTrue(np.all(self.rejectBadLines(yResid, selection=selection)))
+
+        isTrace = isBad.copy()
+        self.assertTrue(np.all(self.rejectBadLines(yResid, isTrace=isTrace)))
 
 
 class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
