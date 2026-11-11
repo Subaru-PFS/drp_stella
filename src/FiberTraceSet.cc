@@ -278,7 +278,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                     ImageT const imageValue = dataImage(xData, yData);
                     VarianceT const varianceValue = dataVariance(xData, yData);
                     if ((maskValue & badBitMask) || !std::isfinite(imageValue) ||
-                        !std::isfinite(varianceValue) || varianceValue == 0) {
+                        !std::isfinite(varianceValue) || varianceValue <= 0) {
                         continue;
                     }
                     double const iModel = iModelImage(xi, iyModel)/iNorm;
