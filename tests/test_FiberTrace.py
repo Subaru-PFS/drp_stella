@@ -264,7 +264,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
             lsst.geom.Box2I(self.xy0 + offset, self.fullDims),
             lsst.geom.Box2I(self.xy0 - offset, lsst.geom.Extent2I(self.width, self.height)),
         ):
-            with self.subTest(bbox=bbox):
+            with self.subTest(bbox=str(bbox)):  # str for pytest-xdist serialization
                 overlap = lsst.geom.Box2I(bbox)
                 overlap.clip(expected.getBBox())
 
