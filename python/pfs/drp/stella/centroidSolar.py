@@ -525,8 +525,8 @@ class CentroidSolarConfig(Config):
             # Blue arm, hitting all those lovely solar absorption lines
             400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0,
             # Red/MR arm
-            655.0, 859.0, # Halpha and Calcium triplet
-            735.0, 795.0, 836.0, 890.0, 945.0, # Sky lines, avoiding telluric bands
+            655.0, 859.0,  # Halpha and Calcium triplet
+            735.0, 795.0, 836.0, 890.0, 945.0,  # Sky lines, avoiding telluric bands
         ],
         doc="Central wavelengths to use for centroiding (nm)",
     )
