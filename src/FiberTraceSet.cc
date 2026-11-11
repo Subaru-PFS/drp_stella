@@ -127,7 +127,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             maskBadResult[ii] = noData;  // used in case of failure
 
             if (useTrace[ii]) {
-                std::size_t const yy = yData - box.getMinY();
+                std::size_t const yy = yActual - box.getMinY();
                 auto const& traceImage = _traces[ii]->getTrace();
                 auto const& mask = ndarray::asEigenMatrix(traceImage.getMask()->getArray()[yy]);
                 auto const select = mask.unaryExpr(
@@ -247,26 +247,31 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 assert(jTrace.getBBox().getMinX() >= 0 && jTrace.getBBox().getMinY() >= 0);
                 std::size_t const jxMin = jTrace.getBBox().getMinX();
                 std::size_t const jxMax = jTrace.getBBox().getMaxX();
-                std::size_t const jyModel = yData - jTrace.getBBox().getMinY();
+                std::size_t const jyModel = yActual - jTrace.getBBox().getMinY();
                 //   |----------------|
                 // ixMin            ixMax
                 //            |----------------|
                 //          jxMin            jxMax
                 std::size_t const overlapMin = std::max(ixMin, jxMin);
                 std::size_t const overlapMax = std::min(ixMax, jxMax);
-                std::size_t const overlapStart = std::max(std::ptrdiff_t(overlapMin), x0);
 
                 if (overlapMax < overlapMin) {
                     // No more overlaps
                     break;
                 }
 
+                // Restrict the overlap to the image (inclusive bounds, in parent coordinates)
+                std::ptrdiff_t const overlapStart = std::max(std::ptrdiff_t(overlapMin), x0);
+                std::ptrdiff_t const overlapStop = std::min(
+                    std::ptrdiff_t(overlapMax), x0 + std::ptrdiff_t(width) - 1
+                );
+
                 // Accumulate in overlap
                 double modelModel = 0.0;  // model_i dot model_j
-                for (std::size_t xData = overlapStart - x0,
-                        xi = overlapStart - ixMin, xj = overlapStart - jxMin;
-                        xData <= overlapMax - x0;
-                        ++xData, ++xi, ++xj) {
+                for (std::ptrdiff_t xx = overlapStart; xx <= overlapStop; ++xx) {
+                    std::size_t const xData = xx - x0;
+                    std::size_t const xi = xx - ixMin;
+                    std::size_t const xj = xx - jxMin;
                     if (!(iModelMask(xi, iyModel) & require)) continue;
                     if (!(jModelMask(xj, jyModel) & require)) continue;
                     MaskT const maskValue = dataMask(xData, yData);
