@@ -793,6 +793,7 @@ class CentroidSolarTask(Task):
             ff: lsf[ff].warp(detectorMap.getWavelength(ff), targetTemplate.wavelength)
             for ff in subConfig.fiberId
         }
+
         # Fibers sharing (to within lsfWidthRelTol) the same LSF (the common case today, e.g. when
         # the input LsfDict was built from a single nominal width divided by each fiber's own
         # dispersion) share a single convolution per PWV trial below, instead of paying for one
@@ -907,9 +908,9 @@ class CentroidSolarTask(Task):
                             pwv=pwv,
                         )
                     except RuntimeError as exc:
-                        # self.log.debug(
-                        #     "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
-                        # )
+                        self.log.debug(
+                            "Fitting for fiberId=%d, wavelength=%f failed: %s", ff, centerWavelength, exc
+                        )
                         result = None
                     else:
                         numGood += 1
