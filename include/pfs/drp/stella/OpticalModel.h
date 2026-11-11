@@ -542,6 +542,15 @@ class DetectorModel {
 
   private:
 
+    /// Apply the affine transformation for the right CCD (if divided)
+    lsst::geom::Point2D applyRightCcd(lsst::geom::Point2D const& detector) const;
+
+    /// Invert the affine transformation for the right CCD (if divided)
+    lsst::geom::Point2D invertRightCcd(lsst::geom::Point2D const& pixels) const;
+
+    /// Calculate the sum of the distortions at a position in the pixels frame
+    lsst::geom::Extent2D calculateDistortion(lsst::geom::Point2D const& pixels) const;
+
     /// Base constructor for the two public ctors
     DetectorModel(
         lsst::geom::Box2I const& bbox,
