@@ -8,7 +8,7 @@ import scipy.optimize
 import lsstDebug
 
 from lsst.utils import getPackageDir
-from lsst.pex.config import Config, Field, ListField, DictField
+from lsst.pex.config import Config, Field, ListField, DictField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D, Box2I, Extent2I, Point2D, Extent2D, AffineTransform, LinearTransform
 from lsst.afw.image import VisitInfo
@@ -23,6 +23,7 @@ from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .applyExclusionZone import getExclusionZone
 from .arcLine import ArcLineSet
+from .fitDetectorCorrection import FitDetectorCorrectionTask, addBSplineDistortions
 from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
 from .table import Table
@@ -328,6 +329,19 @@ class FitDetectorMapConfig(Config):
             "at the distorted position (only for MosaicPolynomialDistortion)"
         ),
     )
+    doDetectorCorrection = Field(
+        dtype=bool,
+        default=False,
+        doc="Fit an empirical correction for detector effects (e.g., epoxy bumps) from the traces?",
+    )
+    detectorCorrection = ConfigurableField(
+        target=FitDetectorCorrectionTask, doc="Fit empirical correction for detector effects"
+    )
+    detectorCorrectionIterations = Field(
+        dtype=int,
+        default=2,
+        doc="Number of iterations of fitting the detector correction and refitting the detectorMap",
+    )
 
 
 class FitDetectorMapTask(Task):
@@ -336,6 +350,7 @@ class FitDetectorMapTask(Task):
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
+        self.makeSubtask("detectorCorrection")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, dataId, bbox, lines, visitInfo, metadata=None,
@@ -408,24 +423,47 @@ class FitDetectorMapTask(Task):
         DistortionClass = self.getDistortionClass(dataId["arm"])
         if self.config.doSlitOffsets:
             self.initializeSlitOffsets(base, lines, dispersion)
-        for ii in range(self.config.traceIterations or 1):
-            self.log.debug("Commencing trace iteration %d", ii)
-            residuals = self.calculateBaseResiduals(base, lines)
+        if self.config.doDetectorCorrection:
+            # Fit the detector correction afresh, rather than on top of any existing correction
+            base = self.setDetectorDistortions(base, [])
+        numCorrectionIterations = (
+            self.config.detectorCorrectionIterations if self.config.doDetectorCorrection else 0
+        )
+        correction = None
+        for correctionIteration in range(numCorrectionIterations + 1):
+            for ii in range(self.config.traceIterations or 1):
+                self.log.debug("Commencing trace iteration %d", ii)
+                residuals = self.calculateBaseResiduals(base, lines)
 
-            weights = self.calculateWeights(lines)
-            results = self.fitDistortion(
-                base.bbox, residuals, weights, dispersion, seed=visitInfo.id, DistortionClass=DistortionClass
-            )
-            reserved = results.reserved
-            detectorMap = self.makeDetectorMap(base, bbox, results.distortion, visitInfo, metadata)
-            numParameters = results.numParameters
-            if self.config.doSlitOffsets:
-                for _ in range(self.config.slitOffsetIterations):
-                    offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
-                numParameters += offsets.numParameters
-            if not self.updateTraceWavelengths(lines, detectorMap):
+                weights = self.calculateWeights(lines)
+                results = self.fitDistortion(
+                    base.bbox,
+                    residuals,
+                    weights,
+                    dispersion,
+                    seed=visitInfo.id,
+                    DistortionClass=DistortionClass,
+                )
+                reserved = results.reserved
+                detectorMap = self.makeDetectorMap(base, bbox, results.distortion, visitInfo, metadata)
+                numParameters = results.numParameters
+                if self.config.doSlitOffsets:
+                    for _ in range(self.config.slitOffsetIterations):
+                        offsets = self.measureSlitOffsets(detectorMap, lines, results.selection, weights)
+                    numParameters += offsets.numParameters
+                if not self.updateTraceWavelengths(lines, detectorMap):
+                    break
+
+            if correctionIteration == numCorrectionIterations:
                 break
+            increment = self.fitDetectorCorrection(lines, detectorMap, results.selection)
+            if increment is None:
+                break
+            correction = addBSplineDistortions(correction, increment)
+            base = self.setDetectorDistortions(base, [correction])
 
+        if correction is not None:
+            numParameters += correction.getNumParameters()
         results = self.measureQuality(lines, detectorMap, results.selection, numParameters)
         results.detectorMap = detectorMap
         results.reserved = reserved
@@ -494,6 +532,77 @@ class FitDetectorMapTask(Task):
         detector = DetectorModel(jeg.getBBox())
         return OpticalModelDetectorMap(slit, optics, detector, jeg.getVisitInfo(), jeg.getMetadata())
 
+    def fitDetectorCorrection(
+        self, lines: ArcLineSet, detectorMap: OpticalModelDetectorMap, selection: np.ndarray
+    ) -> Optional[Distortion]:
+        """Fit an (incremental) empirical correction for detector effects
+
+        The correction is fit to the residuals in x of the trace measurements
+        used in the fit.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Line measurements.
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
+            Current detectorMap.
+        selection : `numpy.ndarray` of `bool`
+            Which measurements were used in the fit.
+
+        Returns
+        -------
+        correction : `pfs.drp.stella.BSplineDistortion` or `None`
+            Correction to add to the current correction, or `None` if there are
+            no trace measurements.
+        """
+        isTrace = selection & (lines.description == "Trace")
+        if not np.any(isTrace):
+            self.log.warning("No trace measurements with which to fit the detector correction")
+            return None
+        fiberId = lines.fiberId[isTrace]
+        xx = lines.x[isTrace].astype(float)
+        yy = lines.y[isTrace].astype(float)
+        dx = xx - detectorMap.getXCenter(fiberId, yy)
+        correction = self.detectorCorrection.run(
+            detectorMap.bbox, detectorMap.detectorModel.getIsDivided(), fiberId, xx, yy, dx
+        )
+        values = correction(xx, yy)[:, 0]
+        self.log.info(
+            "Fit detector correction from %d traces: rms %f, max %f pixels",
+            isTrace.sum(), np.sqrt(np.mean(values**2)), np.max(np.abs(values)),
+        )
+        return correction
+
+    def setDetectorDistortions(
+        self, detectorMap: OpticalModelDetectorMap, distortions: list[Distortion]
+    ) -> OpticalModelDetectorMap:
+        """Return a copy of the detectorMap with different detector distortions
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
+            DetectorMap to copy.
+        distortions : `list` of `pfs.drp.stella.Distortion`
+            Distortions to apply in the detector model.
+
+        Returns
+        -------
+        detectorMap : `pfs.drp.stella.OpticalModelDetectorMap`
+            Copy of the detectorMap, with the new detector distortions.
+        """
+        model = detectorMap.detectorModel
+        if model.getIsDivided():
+            detector = DetectorModel(model.getBBox(), model.getRightCcd(), distortions)
+        else:
+            detector = DetectorModel(model.getBBox(), distortions)
+        return OpticalModelDetectorMap(
+            detectorMap.slitModel.copy(),
+            detectorMap.opticsModel.copy(),
+            detector,
+            detectorMap.visitInfo,
+            detectorMap.metadata,
+        )
+
     def getDistortionClass(self, arm: str) -> Type:
         """Return the class to use for the distortion
 
@@ -519,6 +628,9 @@ class FitDetectorMapTask(Task):
     ) -> DetectorMap:
         """Make a DetectorMap from a base and distortion
 
+        The detector distortions (e.g., the detector correction) of the base are
+        carried over to the new detectorMap.
+
         Parameters
         ----------
         base : `pfs.drp.stella.OpticalModelDetectorMap`
@@ -536,6 +648,8 @@ class FitDetectorMapTask(Task):
             DetectorMap with distortion applied.
         """
         slit = base.slitModel.copy()
+        # Detector distortions (e.g., the detector correction) are carried over from the base
+        detectorDistortions = [dd.clone() for dd in base.detectorModel.getDistortions()]
         if isinstance(distortion, MosaicPolynomialDistortion):
             # The MosaicPolynomialDistortion evaluates its affine transform
             # on positions normalized by the distortion range (the base
@@ -564,9 +678,9 @@ class FitDetectorMapTask(Task):
                 distortion.getXCoefficients(),
                 distortion.getYCoefficients(),
             )
-            detector = DetectorModel(bbox, rightCcd)
+            detector = DetectorModel(bbox, rightCcd, detectorDistortions)
         elif isinstance(distortion, PolynomialDistortion):
-            detector = DetectorModel(bbox)
+            detector = DetectorModel(bbox, detectorDistortions)
         else:
             raise RuntimeError(f"Unknown distortion type: {distortion}")
         optics = OpticsModel(
