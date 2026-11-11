@@ -313,6 +313,7 @@ class CentroidSolarTestCase(lsst.utils.tests.TestCase):
         config = copy.deepcopy(self.centroidSolarConfig)
         config.doFitAtmosphere = True
         config.atmosphereTransmission = atmospherePath
+        config.pwv = None  # Fit for PWV, rather than using a fixed value
         config.pwvMin = pwvGrid[0]
         config.pwvMax = pwvGrid[-1]
 
