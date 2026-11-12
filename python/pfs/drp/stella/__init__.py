@@ -28,7 +28,8 @@ from .arcLine import *
 from .lsfLine import *
 from .lsfProfile import *
 from .smoothSurface import *
-from .lsfModel import *
+from .armLsf import *
+from .spectraLsf import *
 from .fitLsfLines import *
 from .centroidImage import *
 from .DistortionContinued import *

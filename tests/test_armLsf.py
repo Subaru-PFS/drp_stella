@@ -5,13 +5,14 @@ import tempfile
 import types
 import unittest
 
+import astropy.units as u
 import numpy as np
 
 import lsst.utils.tests
 
 from pfs.drp.stella.lsfProfile import diskProfile, diskSigma
 from pfs.drp.stella.smoothSurface import DetectorCoords, SmoothSurface, fitSmoothSurface, supportedDegree
-from pfs.drp.stella.lsfModel import ArmLsfModel, FiberSpline, addBlur, gaussianEquivalentSigma
+from pfs.drp.stella.armLsf import ArmLsf, FiberSpline, addBlur, gaussianEquivalentSigma
 from pfs.drp.stella.fitLsfLines import fitDiskLine
 from pfs.drp.stella.lsfLine import LsfLineSet, LsfLineFlag
 
@@ -33,14 +34,14 @@ def constantSurface(name, value):
 
 
 def makeModel(radius=1.8, rms=0.65, S=0.1, K=0.5, length=4176, fiberId=(10, 20, 30)):
-    """Make an `ArmLsfModel` with constant parameters"""
+    """Make an `ArmLsf` with constant parameters"""
     fiberId = np.array(fiberId)
     surfaces = {name: constantSurface(name, value) for name, value in
                 dict(radius=radius, rms=rms, S=S, K=K, centroid=0.0).items()}
     xCenter = FiberSpline.fromFunction(fiberId, length, 32, lambda ff, rows: 100.0*ff + 0.01*rows)
     wavelength = FiberSpline.fromFunction(fiberId, length, 32,
                                           lambda ff, rows: 600 + 0.05*rows + 1e-6*rows**2)
-    return ArmLsfModel("r", 1, fiberId, length, surfaces, DetectorCoords(2048.0), xCenter, wavelength)
+    return ArmLsf("r", 1, fiberId, length, surfaces, DetectorCoords(2048.0), xCenter, wavelength)
 
 
 class LsfProfileTestCase(lsst.utils.tests.TestCase):
@@ -161,11 +162,7 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         wavelength = 600 + 0.05*rows + 1e-6*rows**2
         kernel = self.model.computeKernelAtWavelength(20, 700.0)
         self.assertFloatsAlmostEqual(np.interp(kernel.center, rows, wavelength), 700.0, atol=1.0e-6)
-        self.assertFloatsAlmostEqual(kernel.wavelength, wavelength[kernel.slice], atol=1.0e-6)
-        shifted = wavelength + 0.01
-        kernel = self.model.computeKernelAtWavelength(20, 700.0, wavelengthArray=shifted)
-        self.assertFloatsAlmostEqual(np.interp(kernel.center, rows, shifted), 700.0, atol=1.0e-9)
-        self.assertFloatsEqual(kernel.wavelength, shifted[kernel.slice])
+        self.assertFloatsAlmostEqual(kernel.wavelength.to_value(u.nm), wavelength[kernel.slice], atol=1.0e-6)
 
     def testKernels(self):
         """The stacked kernels match the individual ones"""
@@ -183,12 +180,25 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
 
     def testParameters(self):
         """getParameters returns the surfaces' values"""
-        params = self.model.getParameters([10, 20], [100.0, 200.0])
+        params = self.model._parameterValues([10, 20], [100.0, 200.0])
         self.assertFloatsAlmostEqual(params["radius"], 1.8, atol=1.0e-12)
         self.assertFloatsAlmostEqual(params["K"], 0.5, atol=1.0e-12)
         self.assertFloatsAlmostEqual(params["x"], [1001.0, 2002.0], atol=1.0e-6)
         self.assertFloatsAlmostEqual(params["sigma"], diskSigma(1.8, 0.65), atol=1.0e-12)
         self.assertGreater(self.model.computeFwhm(20, 1000.0), 2*diskSigma(1.8, 0.65))
+
+    def testParameterTable(self):
+        """Claude: getParameters gives a table with units, and parameters describes them"""
+        table = self.model.getParameters([10, 20], [100.0, 200.0]*u.pix)
+        self.assertEqual(len(table), 2)
+        self.assertEqual(table["radius"].unit, u.pix)
+        self.assertEqual(table["K"].unit, u.dimensionless_unscaled)
+        self.assertFloatsAlmostEqual(table["radius"].to_value(u.pix), 1.8, atol=1.0e-12)
+        self.assertFloatsAlmostEqual(table["row"].to_value(u.pix), [100.0, 200.0], atol=0)
+        for name, param in self.model.parameters.items():
+            self.assertIn(name, table.colnames)
+            self.assertEqual(table[name].unit, param.unit)
+            self.assertGreater(len(param.doc), 0)
 
     def testGaussianEquivalentSolver(self):
         """Claude: the Gaussian equivalent of a Gaussian is itself, whatever the method"""
@@ -244,8 +254,8 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         """A model with a Lorentzian has broader wings"""
         model = makeModel()
         model.surfaces["lorentz"] = constantSurface("lorentz", 0.12)
-        self.assertIn("lorentz", model.parameterNames)
-        self.assertFloatsAlmostEqual(model.getParameters(20, 1000.0)["lorentz"], 0.12, atol=1.0e-12)
+        self.assertIn("lorentz", model.parameters)
+        self.assertFloatsAlmostEqual(model._parameterValues(20, 1000.0)["lorentz"], 0.12, atol=1.0e-12)
         kernel = model.computeKernel(20, 1000.3, halfWidth=10)
         core = self.model.computeKernel(20, 1000.3, halfWidth=10)
         self.assertLess(kernel.norm, core.norm)
@@ -259,11 +269,11 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model = makeModel()
         model.engineeringFiberId = np.array([20])
         model.iisRadiusScale = constantSurface("iisRadiusScale", 0.5)
-        eng = model.getParameters(20, 1000.0)
-        sci = model.getParameters(10, 1000.0)
+        eng = model._parameterValues(20, 1000.0)
+        sci = model._parameterValues(10, 1000.0)
         self.assertFloatsAlmostEqual(eng["radius"], 0.5*sci["radius"], rtol=1.0e-12)
         self.assertFloatsAlmostEqual(eng["rms"], sci["rms"], rtol=1.0e-12)
-        both = model.getParameters([10, 20], [1000.0, 1000.0])
+        both = model._parameterValues([10, 20], [1000.0, 1000.0])
         self.assertFloatsAlmostEqual(both["radius"], [sci["radius"], eng["radius"]], rtol=1.0e-12)
         self.assertLess(model.computeFwhm(20, 1000.0), model.computeFwhm(10, 1000.0))
         copy = pickle.loads(pickle.dumps(model))
@@ -272,36 +282,38 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model.surfaces["haloFrac"] = constantSurface("haloFrac", 0.02)
         model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.5)
         model.iisHaloScale = constantSurface("iisHaloScale", 1.5)
-        self.assertFloatsAlmostEqual(model.getParameters(20, 1000.0)["haloFrac"], 0.03, rtol=1.0e-12)
-        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["haloFrac"], 0.02, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model._parameterValues(20, 1000.0)["haloFrac"], 0.03, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model._parameterValues(10, 1000.0)["haloFrac"], 0.02, rtol=1.0e-12)
         # Claude: ... and their blur kernel convolved with iisExtraBlur
         model.iisExtraBlur = (0.09, 0.002)
-        eng, sci = model.getParameters(20, 1000.0), model.getParameters(10, 1000.0)
+        eng, sci = model._parameterValues(20, 1000.0), model._parameterValues(10, 1000.0)
         rms, (S, K) = addBlur(sci["rms"], [sci["S"], sci["K"]], 0.09, 0.002)
         self.assertFloatsAlmostEqual(eng["rms"], rms, rtol=1.0e-12)
         self.assertFloatsAlmostEqual(eng["K"], K, rtol=1.0e-12)
         self.assertFloatsAlmostEqual(eng["S"], S, rtol=1.0e-12)
-        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["rms"], sci["rms"], rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model._parameterValues(10, 1000.0)["rms"], sci["rms"], rtol=1.0e-12)
 
     def testFiberGroups(self):
         """Claude: a fibre's group offset (e.g. its MTP sub-bundle) is added to the surface"""
         model = makeModel()
-        rms = model.getParameters(10, 1000.0)["rms"]
+        rms = model._parameterValues(10, 1000.0)["rms"]
         model.surfaces["rms"].offsets["mtp"] = {"U3-1": (0.0, 0.0), "D1-3": (-0.02, 0.001)}
         model.fiberGroups = {"mtp": {10: "D1-3", 20: "U3-1"}}
-        self.assertFloatsAlmostEqual(model.getParameters(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
-        both = model.getParameters([10, 20], [1000.0, 1000.0])["rms"]
-        self.assertFloatsAlmostEqual(both, [rms - 0.02, model.getParameters(20, 1000.0)["rms"]], rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(model._parameterValues(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
+        both = model._parameterValues([10, 20], [1000.0, 1000.0])["rms"]
+        self.assertFloatsAlmostEqual(both, [rms - 0.02, model._parameterValues(20, 1000.0)["rms"]],
+                                     rtol=1.0e-12)
         copy = pickle.loads(pickle.dumps(model))
-        self.assertFloatsAlmostEqual(copy.getParameters(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(copy._parameterValues(10, 1000.0)["rms"], rms - 0.02, rtol=1.0e-12)
         # Re-centring keeps the grouped fibres' values, and gives an ungrouped fibre the mean offset
         model.fiberGroups["mtp"][30] = ""
-        before = model.getParameters([10, 20], [1000.0, 1000.0])["rms"]
-        ungrouped = model.getParameters(30, 1000.0)["rms"]
+        before = model._parameterValues([10, 20], [1000.0, 1000.0])["rms"]
+        ungrouped = model._parameterValues(30, 1000.0)["rms"]
         model.surfaces["rms"].recentre("mtp", {"U3-1": 3.0, "D1-3": 1.0})
-        self.assertFloatsAlmostEqual(model.getParameters([10, 20], [1000.0, 1000.0])["rms"], before,
+        self.assertFloatsAlmostEqual(model._parameterValues([10, 20], [1000.0, 1000.0])["rms"], before,
                                      atol=1.0e-12)
-        self.assertFloatsAlmostEqual(model.getParameters(30, 1000.0)["rms"], ungrouped - 0.005, atol=1.0e-12)
+        self.assertFloatsAlmostEqual(model._parameterValues(30, 1000.0)["rms"], ungrouped - 0.005,
+                                     atol=1.0e-12)
 
     def testAddBlur(self):
         """Claude: cumulants add under convolution"""
@@ -324,7 +336,7 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model = makeModel()
         model.surfaces["haloFrac"] = constantSurface("haloFrac", 0.03)
         model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.2)
-        params = model.getParameters(20, 1000.0)
+        params = model._parameterValues(20, 1000.0)
         self.assertFloatsAlmostEqual(params["haloFrac"], 0.03, atol=1.0e-12)
         kernel = model.computeKernel(20, 1000.3, halfWidth=10)
         core = self.model.computeKernel(20, 1000.3, halfWidth=10)
