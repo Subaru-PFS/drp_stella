@@ -338,13 +338,16 @@ class DetectorMapTemplatesTestCase(lsst.utils.tests.TestCase):
                 rootLogger.removeHandler(handler)
         rootLogger.setLevel(self.rootLevel)
 
-    def editTemplate(self, name):
-        """Copy a template, setting the arm, as a user would
+    def editTemplate(self, name, replacements=None):
+        """Copy and edit a template, as a user would
 
         Parameters
         ----------
         name : `str`
             Name of the template file in ``EXAMPLES_DIR``.
+        replacements : `dict` [`str`: `str`], optional
+            Text to replace in the template. Each must appear exactly once.
+            Defaults to setting the arm to ``r``.
 
         Returns
         -------
@@ -355,12 +358,16 @@ class DetectorMapTemplatesTestCase(lsst.utils.tests.TestCase):
         """
         template = os.path.join(EXAMPLES_DIR, name)
         task, _, _, _ = parseTemplate(template)
+        if replacements is None:
+            replacements = {'ARM = "b"': 'ARM = "r"'}
         with open(template) as fd:
             contents = fd.read()
-        self.assertEqual(contents.count('ARM = "b"'), 1)
+        for old, new in replacements.items():
+            self.assertEqual(contents.count(old), 1, f"{old!r} in {name}")
+            contents = contents.replace(old, new)
         extra = os.path.join(self.tempDir, f"extra_{name}")
         with open(extra, "w") as fd:
-            fd.write(contents.replace('ARM = "b"', 'ARM = "r"'))
+            fd.write(contents)
         return task, extra
 
     def writeConfig(self, name, overrides):
@@ -429,6 +436,85 @@ class DetectorMapTemplatesTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(
                 adjusted.getWavelength(fiberId), fitted.getWavelength(fiberId), atol=1.0e-4
             )
+
+
+class FitDetectorMapCombinedTemplateTestCase(DetectorMapTemplatesTestCase):
+    """Test running the FitDetectorMapCombinedTask template on synthetic data
+
+    This follows ``test_fitDetectorMapCombined.py``, with arc lines only.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # Recreate the inputs to match test_fitDetectorMapCombined.py
+        self.synthConfig = SyntheticConfig()
+        self.synthConfig.separation = 100  # Avoid having a fiber go down the middle
+        self.base = makeSyntheticDetectorMap(self.synthConfig, 650.0, 950.0)
+        self.base.writeFits(os.path.join(self.tempDir, "detectorMap-sim-n1.fits"))
+        rows = []
+        for ff in self.synthConfig.fiberId:
+            for yy in np.arange(self.base.bbox.getMinY() + 1, self.base.bbox.getMaxY(), 50, dtype=float):
+                rows.append(
+                    ArcLine(
+                        ff,
+                        self.base.findWavelength(ff, yy),
+                        self.base.getXCenter(ff, yy),
+                        yy,
+                        0.01,
+                        0.01,
+                        np.nan,
+                        np.nan,
+                        np.nan,
+                        1000.0,
+                        1.0,
+                        np.nan,
+                        False,
+                        ReferenceLineStatus.GOOD,
+                        "Fake",
+                        None,
+                        ReferenceLineSource.NONE,
+                    )
+                )
+        self.linesFile = os.path.join(self.tempDir, "combinedLines.fits")
+        ArcLineSet.fromRows(rows).writeFits(self.linesFile)
+
+    def testFitDetectorMap(self):
+        pass  # Covered by DetectorMapTemplatesTestCase
+
+    def testAdjustDetectorMap(self):
+        pass  # Covered by DetectorMapTemplatesTestCase
+
+    def testRun(self):
+        """Test the FitDetectorMapCombinedTask template"""
+        dims = self.base.bbox.getDimensions()
+        task, extra = self.editTemplate(
+            "FitDetectorMapCombinedTask.py",
+            {'ARM = "b"': 'ARM = "n"', "DIMENSIONS = (4096, 4176)": f"DIMENSIONS = ({dims.x}, {dims.y})"},
+        )
+        basePath = os.path.join(self.tempDir, "detectorMap-sim-%(arm)s%(spectrograph)s.fits")
+        overrides = "".join(
+            f"config.{sub}.{line}\n"
+            for sub in ("fitDetectorMap", "adjustDetectorMap")
+            for line in (
+                "order = 1",
+                "doSlitOffsets = False",
+                "exclusionRadius = 1.0",
+                f"base = {basePath!r}",
+            )
+        )
+        configFile = self.writeConfig("combinedConfig.py", overrides)
+        outFile = os.path.join(self.tempDir, "combined.fits")
+        result = harness.runTask(
+            task,
+            [f"arcLines:ArcLineSet={self.linesFile}"],
+            configFile=configFile,
+            extraFile=extra,
+            outputSpecs=[f"detectorMap:{outFile}"],
+        )
+        detMap = DetectorMap.readFits(outFile)
+        self.assertFloatsAlmostEqual(detMap.getXCenter(), self.base.getXCenter(), atol=1.0e-3)
+        self.assertFloatsAlmostEqual(detMap.getWavelength(), self.base.getWavelength(), rtol=1.0e-5)
+        self.assertTrue(np.all(result.lines.description == "Fake"))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
