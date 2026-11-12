@@ -19,10 +19,13 @@ Examples:
 
 import argparse
 import json
+import signal
 import sys
 
 
 def main():
+    # Exit quietly if the output is closed early (e.g., piped into head)
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     parser = argparse.ArgumentParser(
         description="Extract fields from JSON log files."
     )
