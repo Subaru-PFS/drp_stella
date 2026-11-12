@@ -201,6 +201,16 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(datamodel.inputs), 2*num)
 
 
+class ConvertersTestCase(lsst.utils.tests.TestCase):
+    def testConverters(self):
+        """The converters to the deprecated storage classes keep the LSF"""
+        from pfs.datamodel.drp import PfsCalibrated, PfsCoadd
+        from pfs.drp.stella.datamodel.pfsTargetSpectra import PfsCalibratedSpectra, PfsObjectSpectra
+        lsf = object()
+        self.assertIs(PfsObjectSpectra.fromPfsCoadd(PfsCoadd([], {}, lsf=lsf)).lsf, lsf)
+        self.assertIs(PfsCalibratedSpectra.fromPfsCalibrated(PfsCalibrated([], {}, lsf=lsf)).lsf, lsf)
+
+
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
 
