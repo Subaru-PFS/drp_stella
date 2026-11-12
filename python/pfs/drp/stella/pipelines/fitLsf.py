@@ -346,6 +346,7 @@ class FitLsfTask(PipelineTask):
         exposures = [exp for exp, iis in zip(exposures, isIis) if not iis]
         if not exposures:
             raise RuntimeError("No science-fibre (PFI) arcs among the inputs")
+        lamps = {exp.visit: exp.lamps for exp in exposures}
         if iisExposures:
             self.log.info("IIS (engineering-fibre) arcs: %s",
                           [(exp.visit, exp.lamps) for exp in iisExposures])
@@ -420,7 +421,7 @@ class FitLsfTask(PipelineTask):
             self.log.info("Fitting the halo to %d bright lines (%d catalogue lines with median S/N >= %g)",
                           len(haloRows), len(bright), self.config.haloMinSN)
             haloSurfaces, rejected = self.fitSurfaces(haloRows, coords, detMap,
-                                                      names=("haloFrac", "haloWidth"))
+                                                      names=("haloFrac", "haloWidth"), lamps=lamps)
             haloRejected = {(visit, ff.fiberId, round(ff.catWavelength, 4)): rejected[jj]
                             for jj, (visit, ff) in enumerate(haloRows) if jj in rejected}
             fixHalos = {}
@@ -467,7 +468,7 @@ class FitLsfTask(PipelineTask):
         usedRows = [ii for ii, (_, ff) in enumerate(rows) if isUsed(ff)]
         surfaces, rejected = self.fitSurfaces(
             [rows[ii] for ii in usedRows], coords, detMap,
-            names=[nn for nn in self.config.degrees if nn not in haloSurfaces],
+            names=[nn for nn in self.config.degrees if nn not in haloSurfaces], lamps=lamps,
         )
         surfaces.update(haloSurfaces)
         rejectedFlags = defaultdict(int)
@@ -747,7 +748,33 @@ class FitLsfTask(PipelineTask):
             saturated[key] = [(lamps, lam) for lam in sat]
         return Struct(fits=fits, saturated=saturated)
 
-    def fitSurfaces(self, rows, coords, detMap, names=None):
+    @staticmethod
+    def lampWeights(visits, lamps):
+        """Weights of the visits in the average over the lamps
+
+        Claude: lamps illuminate the fibres differently (e.g. in b and n the
+        Ne lines are 0.1-0.2 pixel rms narrower than the Ar, Kr, Xe and HgCd
+        lines), and sky lines lie between them, so the model is the average
+        lamp's LSF rather than one visit's.
+
+        Parameters
+        ----------
+        visits : array-like of `str`
+            Visit of each line.
+        lamps : `dict` [`int`, `str`]
+            Lamps of each visit.
+
+        Returns
+        -------
+        weights : `dict` [`str`, `float`]
+            Weight of each visit: each set of lamps has equal weight, shared
+            equally by its visits.
+        """
+        present = sorted(set(np.asarray(visits).tolist()))
+        perLamp = Counter(lamps.get(int(vv), vv) for vv in present)
+        return {vv: 1.0/perLamp[lamps.get(int(vv), vv)] for vv in present}
+
+    def fitSurfaces(self, rows, coords, detMap, names=None, lamps=None):
         """Fit each parameter as a smooth function over the detector
 
         Parameters
@@ -760,6 +787,9 @@ class FitLsfTask(PipelineTask):
             Mapping of fiberId,wavelength to x,y (for the detector's extent).
         names : iterable of `str`, optional
             Only fit these parameters.
+        lamps : `dict` [`int`, `str`], optional
+            Lamps of each visit; the per-visit offsets average zero over the
+            lamps (`lampWeights`), so the surfaces are the average lamp's.
 
         Returns
         -------
@@ -794,6 +824,8 @@ class FitLsfTask(PipelineTask):
             params["haloFrac"] = ([ff.haloFrac for ff in fits], [ff.haloFracErr for ff in fits])
             params["haloWidth"] = ([ff.haloWidth for ff in fits], [ff.haloWidthErr for ff in fits])
 
+        lampWeights = self.lampWeights(labels["visit"], lamps or {})
+
         surfaces = {}
         rejected = defaultdict(int)
         for name, (value, error) in params.items():
@@ -826,6 +858,11 @@ class FitLsfTask(PipelineTask):
                 u, v, value, error, degree, domain=domain, name=name, nIter=self.config.nIter,
                 nSigma=self.config.nSigma, groups=groups,
             )
+            if "visit" in groups:
+                surface.recentre("visit", lampWeights)
+                self.log.info("%s: per-visit offsets about the average lamp: %s", name,
+                              ", ".join(f"{vv} ({(lamps or {}).get(int(vv), '?')}) {off:+.3f}"
+                                        for vv, (off, _) in sorted(surface.offsets["visit"].items())))
             for factor in ("mtp", "connector"):
                 # Claude: fibre-group offsets average zero over the fibres, so the surface is the average
                 # fibre's, as used for the engineering fibres (which are in no group)

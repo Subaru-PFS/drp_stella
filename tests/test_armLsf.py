@@ -315,6 +315,33 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(model._parameterValues(30, 1000.0)["rms"], ungrouped - 0.005,
                                      atol=1.0e-12)
 
+    def testLampAverage(self):
+        """Claude: per-visit offsets recentred to average zero over the lamps, each lamp counting once"""
+        from pfs.drp.stella.pipelines.fitLsf import FitLsfTask
+        lamps = {1: "Ne", 2: "Ar", 3: "Ar", 4: "Kr"}
+        weights = FitLsfTask.lampWeights(["1", "2", "2", "3", "4", "4"], lamps)
+        self.assertEqual(weights, {"1": 1.0, "2": 0.5, "3": 0.5, "4": 1.0})
+        # A constant surface with an offset per visit; the fit leaves the most populous visit at zero
+        rng = np.random.default_rng(12345)
+        visits = np.repeat(["1", "2", "3", "4"], [60, 50, 50, 50])
+        truth = {"1": 1.0, "2": 1.2, "3": 1.3, "4": 1.1}
+        uu, vv = rng.uniform(-1, 1, (2, visits.size))
+        value = np.array([truth[vis] for vis in visits]) + rng.normal(0.0, 0.01, visits.size)
+        surface, _, _ = fitSmoothSurface(uu, vv, value, np.full(visits.size, 0.01), 0,
+                                         domain=((-1, 1), (-1, 1)), groups=dict(visit=visits))
+        self.assertEqual(surface.getOffset("visit", "1"), 0.0)
+        before = {vis: surface(0.0, 0.0) + surface.getOffset("visit", vis) for vis in truth}
+        weights = FitLsfTask.lampWeights(visits, lamps)
+        surface.recentre("visit", weights)
+        # Each visit's values are unchanged; the offsets average zero over the lamps
+        for vis in truth:
+            self.assertFloatsAlmostEqual(surface(0.0, 0.0) + surface.getOffset("visit", vis), before[vis],
+                                         atol=1.0e-12)
+        self.assertFloatsAlmostEqual(sum(ww*surface.getOffset("visit", vis) for vis, ww in weights.items()),
+                                     0.0, atol=1.0e-12)
+        mean = (truth["1"] + 0.5*(truth["2"] + truth["3"]) + truth["4"])/3
+        self.assertFloatsAlmostEqual(surface(0.0, 0.0), mean, atol=5.0e-3)
+
     def testAddBlur(self):
         """Claude: cumulants add under convolution"""
         # A top hat of width w (variance w^2/12, kappa4 -w^4/120) convolved with a Gaussian of rms g
