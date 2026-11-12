@@ -15,8 +15,8 @@ namespace {
 
 
 PYBIND11_MODULE(photometry, mod) {
-    mod.def("photometer", &photometer, "image"_a, "fiberId"_a, "wavelength"_a, "psf"_a, "badBitMask"_a=0,
-            "positions"_a=nullptr);
+    mod.def("photometer", &photometer, "image"_a, "fiberId"_a, "wavelength"_a, "psf"_a, "detectorMap"_a,
+            "badBitMask"_a=0, "positions"_a=nullptr);
 }
 
 } // anonymous namespace

@@ -4,6 +4,7 @@ from scipy.interpolate import interp1d
 
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task, Struct
+from lsst.geom import Box2D
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLineSet
@@ -133,7 +134,7 @@ class PhotometerLinesTask(Task):
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Aperture correction that was applied, or ``None``.
         """
-        psf = checkPsf(exposure, detectorMap, self.config.fwhm)
+        psf = checkPsf(exposure, self.config.fwhm)
 
         positions = None
         if isinstance(lines, ReferenceLineSet):
@@ -165,8 +166,8 @@ class PhotometerLinesTask(Task):
 
         badBitMask = exposure.mask.getPlaneBitMask(self.config.mask)
         select = (lines.status & ReferenceLineStatus.fromNames(*self.config.excludeStatus)) == 0
-        catalog = photometer(exposure.maskedImage, fiberId[select], wavelength[select], psf, badBitMask,
-                             positions[select] if positions is not None else None)
+        catalog = photometer(exposure.maskedImage, fiberId[select], wavelength[select], psf, detectorMap,
+                             badBitMask, positions[select] if positions is not None else None)
 
         assert np.all(catalog["fiberId"] == lines.fiberId[select])
         assert np.all(catalog["wavelength"] == lines.wavelength[select])
@@ -180,7 +181,7 @@ class PhotometerLinesTask(Task):
             apCorr = self.apertureCorrection.run(exposure, pfsConfig, detectorMap, lines)
 
         if self.config.doSubtractLines:
-            self.subtractLines(exposure, lines, apCorr, pfsConfig)
+            self.subtractLines(exposure, lines, apCorr, pfsConfig, detectorMap)
 
         return Struct(lines=lines, apCorr=apCorr)
 
@@ -226,7 +227,7 @@ class PhotometerLinesTask(Task):
             select = lines.fiberId == fiberId
             lines.fluxNorm[select] = interp(lines.wavelength[select])
 
-    def subtractLines(self, exposure, lines, apCorr, pfsConfig):
+    def subtractLines(self, exposure, lines, apCorr, pfsConfig, detectorMap):
         """Subtract lines from the image
 
         This can be used as a check of the quality of the measurement.
@@ -241,6 +242,8 @@ class PhotometerLinesTask(Task):
             Aperture corrections.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
             Top-end configuration, for specifying fiber positions.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
         """
         if apCorr is not None:
             psfFlux = np.full_like(lines.flux, np.nan, dtype=float)
@@ -250,6 +253,7 @@ class PhotometerLinesTask(Task):
                 psfFlux[select] = calculateApertureCorrection(apCorr, fiberId, wavelength, pfsConfig,
                                                               lines.flux[select], invert=True).flux
         imageBox = exposure.getBBox()
+        detectorBox = Box2D(detectorMap.bbox)
         psf = exposure.getPsf()
         for ii, ll in enumerate(lines):
             if ll.flag:
@@ -258,7 +262,11 @@ class PhotometerLinesTask(Task):
             if not np.isfinite(flux):
                 continue
 
-            psfImage = psf.computeImage(ll.fiberId, ll.wavelength)
+            point = detectorMap.findPoint(ll.fiberId, ll.wavelength)
+            finite = np.isfinite(point.getX()) and np.isfinite(point.getY())
+            if not finite or not detectorBox.contains(point):
+                continue
+            psfImage = psf.computeImage(point)
             psfBox = psfImage.getBBox()
             psfBox.clip(imageBox)
             exposure.image[psfBox].scaledMinus(flux, psfImage[psfBox].convertF())
