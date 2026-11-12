@@ -1,3 +1,4 @@
+import contextlib
 from types import SimpleNamespace
 import numpy as np
 
@@ -176,7 +177,8 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
     def testDefaultLightSources(self):
         """Test expected light sources are listed in default configuration"""
         config = ReadLineListConfig()
-        config.lightSources = ["Ne", "Xe", "HgAr", "Kr", "Ar", "HgCd", "Quartz"]
+        config.lightSources = ["Ne", "Xe", "HgAr", "Kr", "Ar", "HgCd", "Quartz",
+                               "Ne_eng", "Ar_eng", "Kr_eng", "HgAr_eng", "He_eng", "H_eng", "Quartz_eng"]
         config.validate()
 
     def testInvalidLightSource(self):
@@ -283,6 +285,53 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         badLines = lines[lines.status == ReferenceLineStatus.BLEND]
         self.assertEqual(len(badLines), 1)
         self.assertEqual(badLines[0].wavelength, dupWavelength)
+
+    def readLists(self, lists, lightSources):
+        """Read ``lightSources`` with ``lightSourceMap`` pointing at temporary files
+
+        ``lists`` maps each ``lightSourceMap`` key to a list of `Line`.
+        """
+        with contextlib.ExitStack() as stack:
+            lightSourceMap = {}
+            for key, contents in lists.items():
+                filename = stack.enter_context(lsst.utils.tests.getTempFilePath(f"_{key}.txt"))
+                with open(filename, "w") as fd:
+                    for line in contents:
+                        fd.write(f"{line.wavelength} {line.intensity} {line.description} {line.flag}\n")
+                lightSourceMap[key] = filename
+            self.config.lightSourceMap = lightSourceMap
+            self.config.lightSources = lightSources
+            return ReadLineListTask(name="readLineList", config=self.config).run()
+
+    def testEngineeringLampOwnList(self):
+        """An engineering-fibre (IIS) lamp uses its own list if there is one"""
+        lists = dict(Ne=[Line(600.0, 10, "NeI", 0)], Ne_eng=[Line(700.0, 20, "NeI", 0)])
+        self.assertLineList(self.readLists(lists, ["Ne_eng"]), lists["Ne_eng"])
+
+    def testEngineeringLampFallback(self):
+        """An engineering-fibre (IIS) lamp with no list of its own uses the PFI lamp's"""
+        lists = dict(Ne=[Line(600.0, 10, "NeI", 0)])
+        self.assertLineList(self.readLists(lists, ["Ne_eng"]), lists["Ne"])
+
+    def testEngineeringAndScienceLamps(self):
+        """With PFI and IIS lamps both lit, the PFI copy of a shared line is kept"""
+        lists = dict(Ne=[Line(600.0, 10, "NeI", 0), Line(650.0, 30, "NeI", 0)],
+                     Ne_eng=[Line(600.0, 20, "NeI", 0), Line(700.0, 40, "NeI", 0)])
+        for lightSources in (["Ne", "Ne_eng"], ["Ne_eng", "Ne"]):
+            lines = self.readLists(lists, lightSources)
+            good = lines[lines.status == ReferenceLineStatus.GOOD]
+            self.assertLineList(good, [Line(600.0, 10, "NeI", 0), Line(650.0, 30, "NeI", 0),
+                                       Line(700.0, 40, "NeI", 0)])
+
+    def testEngineeringLightSourceValidation(self):
+        """A ``<lamp>_eng`` light source validates if ``<lamp>_eng`` or ``<lamp>`` is in the map"""
+        config = ReadLineListConfig()
+        config.lightSourceMap = {"Ne": "Ne.txt", "Ar_eng": "Ar_IIS.txt"}
+        config.lightSources = ["Ne_eng", "Ar_eng"]
+        config.validate()
+        config.lightSources = ["Kr_eng"]
+        with self.assertRaises(RuntimeError):
+            config.validate()
 
     def testDuplicatesHgArHgCd(self):
         """Tests whether the combination of HgAr and HgCd active lamps

@@ -10,6 +10,24 @@ import numpy as np
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 
+def isEngineering(lightSource):
+    """Is ``lightSource`` an engineering-fibre (IIS) lamp, i.e. named ``<lamp>_eng``?"""
+    return lightSource.endswith("_eng")
+
+
+def lightSourceKey(lightSource, lightSourceMap):
+    """Return the ``lightSourceMap`` key to use for ``lightSource``, or `None`
+
+    An engineering-fibre (IIS) lamp ``<lamp>_eng`` uses its own entry if there
+    is one, and otherwise the entry for ``<lamp>``.
+    """
+    if lightSource in lightSourceMap:
+        return lightSource
+    if isEngineering(lightSource) and lightSource[:-len("_eng")] in lightSourceMap:
+        return lightSource[:-len("_eng")]
+    return None
+
+
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
     lightSources = ListField(dtype=str,
@@ -25,10 +43,10 @@ class ReadLineListConfig(Config):
                                     "A value of ``None`` means no line list file "
                                     "is available for that source. "
                                     "If the value is not an absolute path, "
-                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``."),
+                                    "it is assumed that the path is relative to ``obs_pfs/pfs/lineLists/``. "
+                                    "Engineering-fibre (IIS) lamps are named ``<lamp>_eng``; if there is no "
+                                    "entry for one, the entry for ``<lamp>`` is used."),
                                default={'Ar': 'Ar.txt',
-                                        'H': 'H.txt',
-                                        'He': 'He.txt',
                                         'Ne': 'Ne.txt',
                                         'Kr': 'Kr.txt',
                                         'OI': 'contamination.txt',
@@ -36,7 +54,16 @@ class ReadLineListConfig(Config):
                                         'HgAr': 'HgAr.txt',
                                         'HgCd': 'HgCd.txt',
                                         'Quartz': None,
-                                        'sky': 'skyLines-ragnar.txt'})
+                                        'sky': 'skyLines-ragnar.txt',
+                                        # IIS lamps (engineering fibres)
+                                        'Ar_eng': 'Ar_IIS.txt',
+                                        'H_eng': 'H_IIS.txt',
+                                        'He_eng': 'He_IIS.txt',
+                                        'HgAr_eng': 'HgAr_IIS.txt',
+                                        'Kr_eng': 'Kr_IIS.txt',
+                                        'Ne_eng': 'Ne_IIS.txt',
+                                        'Quartz_eng': None,
+                                        })
     assumeSky = Field(dtype=bool, default=False,
                       doc="Assume that we're looking at sky even if lamps claim to be active?")
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
@@ -57,8 +84,7 @@ class ReadLineListConfig(Config):
         if duplicateLightSources:
             raise RuntimeError(f'There are duplicate light sources {duplicateLightSources}')
 
-        lightSourcesSet = set(self.lightSources)
-        invalidSources = lightSourcesSet - lightSourcesSet.intersection(self.lightSourceMap.keys())
+        invalidSources = {ll for ll in self.lightSources if lightSourceKey(ll, self.lightSourceMap) is None}
         if invalidSources:
             raise RuntimeError('The following light sources '
                                f'are not in the lightSourceMap: {invalidSources}')
@@ -111,19 +137,20 @@ class ReadLineListTask(Task):
         lines = ReferenceLineSet.empty()
         engineeringIlluminated = set()
         scienceIlluminated = set()
-        for ll in lightSources:
-            mat = re.search(r"^(.*)_eng$", ll)
-            if mat:
-                ll = mat.group(1)
-                engineeringIlluminated.add(ll)
-            else:
-                scienceIlluminated.add(ll)
-
-            if ll not in self.config.lightSourceMap:
+        # Read the PFI lamps' lists before the IIS (engineering-fibre) ones, so that when the same line
+        # appears in both, filterDuplicates keeps the PFI copy.
+        for ll in sorted(lightSources, key=lambda name: (isEngineering(name), name)):
+            key = lightSourceKey(ll, self.config.lightSourceMap)
+            if key is None:
                 raise KeyError(
                     f"Lamp {ll} is unknown; valid options [{', '.join(self.config.lightSourceMap)}]")
 
-            filename = self.config.lightSourceMap[ll]
+            if isEngineering(ll):
+                engineeringIlluminated.add(ll[:-len("_eng")])
+            else:
+                scienceIlluminated.add(ll)
+
+            filename = self.config.lightSourceMap[key]
             if filename is not None:
                 lines.extend(ReferenceLineSet.fromLineList(filename))
 
