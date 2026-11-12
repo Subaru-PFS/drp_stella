@@ -736,7 +736,9 @@ class ArmLsf(LsfModel):
 
     The surfaces were fit with per-group offsets (e.g. per lamp, which absorb
     differences in focus or brightness between exposures); the kernels use the
-    bare surfaces, which describe the reference groups (``surfaces[name].reference``).
+    bare surfaces. The per-visit offsets average zero over the lamps, so the
+    surfaces describe the average lamp, and the MTP offsets average zero over
+    the fibres.
 
     ``centroid`` (if present) is not part of the profile: it is the measured
     offset (pixels) of the arc lines from the detectorMap used in the fit, with
@@ -971,7 +973,7 @@ class ArmLsf(LsfModel):
         -------
         offset : `numpy.ndarray`
             Data minus detectorMap position along the dispersion (pixels), with
-            each fibre's constant offset (for the reference lamp).
+            each fibre's constant offset (for the average lamp).
         """
         self._checkFiberId(fiberId)
         x, y = self.getDetectorPosition(fiberId, row)
