@@ -125,6 +125,37 @@ class SolveLeastSquaresTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(np.average(results.resid), 0.0, atol=1.0e-1)
         self.assertLess(np.std(results.resid), 1.2 * noise)
 
+    def testForcedMultiple(self, num=100, noise=1.0e-1):
+        """Test forcing multiple parameters
+
+        A miscount of the number of forced parameters used to leave a column
+        of the reduced design matrix uninitialized when more than one
+        parameter was forced.
+
+        Parameters
+        ----------
+        num : `int`
+            Number of points.
+        noise : `float`
+            Noise level.
+        """
+        coeffs = np.array([1.23, 4.56, 3.0])
+        for _ in range(10):
+            # The miscount left part of the reduced design matrix uninitialized, which only caused trouble
+            # if the memory contained garbage, so dirty the heap first.
+            junk = [np.full(num*size, np.nan) for size in (2, 3, 4)]
+            del junk
+            results = self.doFit(
+                num,
+                noise,
+                coeffs=coeffs,
+                forced=np.array([True, True, False]),
+                params=np.array([coeffs[0], coeffs[1], np.nan]),
+            )
+            self.assertFloatsEqual(results.params[:2], coeffs[:2])
+            self.assertFloatsAlmostEqual(results.params[2], coeffs[2], atol=5.0e-2)
+            self.assertFloatsAlmostEqual(results.fit, results.y, atol=3 * noise)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
