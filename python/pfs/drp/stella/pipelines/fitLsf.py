@@ -17,7 +17,7 @@ from ..DetectorMapContinued import DetectorMap
 from ..fitLsfLines import centroidZeroPoint, findBroadLines, measureLsfMany, pinnedCentres
 from ..gen3 import readDatasetRefs
 from ..lsfLine import LsfLineFlag, LsfLineSet
-from ..lsfModel import ArmLsfModel, CUMULANT_NAMES, FiberSpline, addBlur
+from ..armLsf import ArmLsf, CUMULANT_NAMES, FiberSpline, addBlur
 from ..readLineList import ReadLineListTask
 from ..referenceLine import ReferenceLineStatus
 from ..scatteredLight import ScatteredLightConfig
@@ -51,10 +51,10 @@ class FitLsfConnections(PipelineTaskConnections, dimensions=("instrument", "arm"
         multiple=True,
     )
 
-    lsfModel = OutputConnection(
-        name="lsfModel",
+    armLsf = OutputConnection(
+        name="armLsf",
         doc="Model of the line-spread function over the detector",
-        storageClass="ArmLsfModel",
+        storageClass="ArmLsf",
         dimensions=("instrument", "arm", "spectrograph"),
     )
     lsfLines = OutputConnection(
@@ -262,7 +262,7 @@ class FitLsfTask(PipelineTask):
     than their neighbours are dropped. The lines' centres are then pinned so
     that the models' first moments match the data's on average, and each
     parameter is fit as a smooth function of position on the detector, giving
-    an `ArmLsfModel`; the per-line fits are written as an `LsfLineSet`.
+    an `ArmLsf`; the per-line fits are written as an `LsfLineSet`.
     """
 
     ConfigClass = FitLsfConfig
@@ -326,7 +326,7 @@ class FitLsfTask(PipelineTask):
 
         Returns
         -------
-        lsfModel : `ArmLsfModel`
+        armLsf : `ArmLsf`
             Model of the LSF.
         lsfLines : `LsfLineSet`
             Per-line fits.
@@ -480,20 +480,20 @@ class FitLsfTask(PipelineTask):
         if iisExposures and self.config.doIisRadius:
             iis = self.fitIisRadius(arm, iisExposures, surfaces, coords, detMap)
 
-        lsfModel = self.makeModel(arm, spectrograph, exposures, surfaces, coords, zeroPoint,
-                                  extraExposures=iisExposures)
-        lsfModel.metadata.update(zeroPointErr=zeroPointErr, zeroPointScatter=scatter)
+        armLsf = self.makeModel(arm, spectrograph, exposures, surfaces, coords, zeroPoint,
+                                extraExposures=iisExposures)
+        armLsf.metadata.update(zeroPointErr=zeroPointErr, zeroPointScatter=scatter)
         if self.config.doPfiRadiusModel:
-            lsfModel.metadata.update(pfiRadiusScale=dict(scale=self.radiusScale, **radiusSummary))
+            armLsf.metadata.update(pfiRadiusScale=dict(scale=self.radiusScale, **radiusSummary))
         if iis is not None:
-            lsfModel.engineeringFiberId = iis.fiberId
-            lsfModel.iisRadiusScale = iis.scale
-            lsfModel.iisHaloScale = iis.haloScale
-            lsfModel.iisExtraBlur = iis.extraBlur
-            lsfModel.metadata.update(iisVisits=[exp.visit for exp in iisExposures],
-                                     iisLamps=[exp.lamps for exp in iisExposures],
-                                     iisRadiusScale=iis.summary, iisHaloScale=iis.haloSummary,
-                                     iisExtraBlur=iis.blurSummary)
+            armLsf.engineeringFiberId = iis.fiberId
+            armLsf.iisRadiusScale = iis.scale
+            armLsf.iisHaloScale = iis.haloScale
+            armLsf.iisExtraBlur = iis.extraBlur
+            armLsf.metadata.update(iisVisits=[exp.visit for exp in iisExposures],
+                                   iisLamps=[exp.lamps for exp in iisExposures],
+                                   iisRadiusScale=iis.summary, iisHaloScale=iis.haloSummary,
+                                   iisExtraBlur=iis.blurSummary)
 
         flags = {}
         for ii, (visit, ff) in enumerate(rows):
@@ -517,7 +517,7 @@ class FitLsfTask(PipelineTask):
             rows = rows + iis.rows
             saturated.update(iis.saturated)
         lsfLines = self.makeLineSet(allExposures, rows, flags, saturated)
-        return Struct(lsfModel=lsfModel, lsfLines=lsfLines)
+        return Struct(armLsf=armLsf, lsfLines=lsfLines)
 
     def checkBroad(self, excess, broad, status):
         """Report the broad lines, and disagreements with the catalogue's BROAD flags
@@ -1127,7 +1127,7 @@ class FitLsfTask(PipelineTask):
 
         Returns
         -------
-        lsfModel : `ArmLsfModel`
+        armLsf : `ArmLsf`
             Model of the LSF.
         """
         detMap = exposures[0].detMap
@@ -1145,9 +1145,9 @@ class FitLsfTask(PipelineTask):
             fiberGroups["mtp"] = mtp
         if any("connector" in surface.offsets for surface in surfaces.values()):
             fiberGroups["connector"] = {ff: label.split("-")[0] for ff, label in mtp.items()}
-        return ArmLsfModel(arm, spectrograph, fiberId, length, surfaces, coords, xCenter, wavelength,
-                           extraction=self.config.extraction, centroidZeroPoint=zeroPoint, metadata=metadata,
-                           fiberGroups=fiberGroups)
+        return ArmLsf(arm, spectrograph, fiberId, length, surfaces, coords, xCenter, wavelength,
+                      extraction=self.config.extraction, centroidZeroPoint=zeroPoint, metadata=metadata,
+                      fiberGroups=fiberGroups)
 
     @staticmethod
     def mtpGroups(fiberIds):

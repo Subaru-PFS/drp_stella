@@ -11,7 +11,7 @@ solved by weighted least squares, while the nonlinear parameters are optimised
 on the outside.
 
 These are the per-line measurements from which `pfs.drp.stella.pipelines.FitLsfTask`
-builds an `pfs.drp.stella.lsfModel.ArmLsfModel`.
+builds an `pfs.drp.stella.armLsf.ArmLsf`.
 """
 import concurrent.futures
 import multiprocessing
