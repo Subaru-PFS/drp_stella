@@ -27,6 +27,7 @@ from .focalPlaneFunction import FocalPlaneFunction
 from .utils.sysUtils import getPfsVersions
 from .lsf import LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
+from .spectraLsf import armFiberLsfs, combinedSpectraLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
@@ -238,6 +239,10 @@ class MergeArmsTask(PipelineTask):
             else:
                 self.log.warn("Skipping barycentric correction for lamp exposure")
 
+        # The LSF of each fibre of each arm: from the pfsArm's lsf, or the deprecated pfsArmLsf
+        lsfList = [[armFiberLsfs(armSpec, armLsf) for armSpec, armLsf in zip(spec, lsf)]
+                   for spec, lsf in zip(spectra, lsfList)]
+
         # Merge in wavelength
         spectrographs = [self.mergeSpectra(ss, wavelength, sc) for ss, sc in zip(spectra, scales)]
         metadata = allSpectra[0].metadata.copy()
@@ -250,6 +255,7 @@ class MergeArmsTask(PipelineTask):
             for ll, ss, sp in zip(lsfList, spectra, spectrographs)
         ]
         mergedLsf = self.combineLsfs(lsfList)
+        merged.lsf = combinedSpectraLsf(mergedLsf, dict(zip(merged.fiberId.tolist(), merged.wavelength)))
 
         return Struct(pfsMerged=merged, pfsMergedLsf=mergedLsf, sky1d=sky1d)
 
