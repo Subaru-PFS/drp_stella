@@ -44,6 +44,20 @@ class FitContinuumConfig(Config):
     mask = ListField(
         dtype=str, default=["BAD", "CR", "NO_DATA", "SUSPECT", "BAD_FLAT"], doc="Mask planes to ignore"
     )
+    telluricCenter = ListField(
+        # A: 758.2 to 773.0 nm
+        # B: 686.5 to 697.5 nm
+        dtype=float, default=[765.6, 692.0], doc="Center of telluric absorption bands (nm)"
+    )
+    telluricWidth = ListField(
+        dtype=float, default=[8.0, 6.0], doc="Half-width of telluric absorption bands (nm)"
+    )
+
+    def validate(self):
+        """Validate configuration"""
+        super().validate()
+        if len(self.telluricCenter) != len(self.telluricWidth):
+            raise RuntimeError("telluricCenter and telluricWidth must have the same length")
 
 
 class FitContinuumTask(Task):
@@ -125,6 +139,9 @@ class FitContinuumTask(Task):
         good = np.isfinite(flux)
         if self.config.doMaskLines and lines and spectrum.isWavelengthSet():
             good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
+        if self.config.telluricCenter and spectrum.isWavelengthSet():
+            for center, width in zip(self.config.telluricCenter, self.config.telluricWidth):
+                good &= np.abs(spectrum.wavelength - center) >= width
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
         if not np.any(good):
             raise FitContinuumError("No good values when fitting continuum")
