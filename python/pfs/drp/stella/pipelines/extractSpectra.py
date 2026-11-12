@@ -214,7 +214,7 @@ class ExtractSpectraTask(PipelineTask):
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
 
         if self.config.doMaskLines:
-            refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=identity.arm)
             maskLines(exposure.mask, detectorMap, refLines, self.config.linesRadius)
 
         if self.config.doRepair:
