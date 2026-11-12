@@ -463,8 +463,8 @@ class CombinedLsf(Lsf):
         """Return a kernel for the nominated position
 
         The kernel is that for a line centered on the pixel nearest to
-        ``center`` (as for `ExtractionLsf`); use ``computeArray`` or
-        ``computeWindow`` for sub-pixel positions.
+        ``center``; use ``computeArray`` or ``computeWindow`` for sub-pixel
+        positions.
 
         Parameters
         ----------
