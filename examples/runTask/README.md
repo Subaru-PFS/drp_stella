@@ -141,6 +141,6 @@ and that `INPUTS` plus the `data["..."]` assignments supply every required argum
 and no unknown ones.
 The check finds the assignments by parsing the file, so assign with a literal key (`data["name"] = ...`).
 Where synthetic inputs are easy to make, also add a test that runs the template
-(see `FitDetectorMapTemplateTestCase`).
+(see `DetectorMapTemplatesTestCase` in `tests/test_harness.py`).
 The templates are exempt from flake8's undefined-name check (F821), because `data` is provided by the
 harness.

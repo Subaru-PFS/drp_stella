@@ -285,8 +285,12 @@ class TemplatesTestCase(lsst.utils.tests.TestCase):
                     self.assertIn(typeName, harness.TYPE_REGISTRY)
 
 
-class FitDetectorMapTemplateTestCase(lsst.utils.tests.TestCase):
-    """Test running the FitDetectorMapTask template on synthetic data"""
+class DetectorMapTemplatesTestCase(lsst.utils.tests.TestCase):
+    """Test running the FitDetectorMapTask and AdjustDetectorMapTask templates
+
+    The templates are copied and edited, as a user would, and run on
+    synthetic data.
+    """
 
     def setUp(self):
         self.tempDir = tempfile.mkdtemp()
@@ -294,38 +298,19 @@ class FitDetectorMapTemplateTestCase(lsst.utils.tests.TestCase):
         self.rootHandlers = list(rootLogger.handlers)
         self.rootLevel = rootLogger.level
 
-    def tearDown(self):
-        shutil.rmtree(self.tempDir, ignore_errors=True)
-        rootLogger = logging.getLogger()
-        for handler in list(rootLogger.handlers):
-            if handler not in self.rootHandlers:
-                rootLogger.removeHandler(handler)
-        rootLogger.setLevel(self.rootLevel)
-
-    def testRun(self):
-        """Copy and edit the template, as a user would, and run it"""
-        template = os.path.join(EXAMPLES_DIR, "FitDetectorMapTask.py")
-        task, _, _, _ = parseTemplate(template)
-        with open(template) as fd:
-            contents = fd.read()
-        self.assertEqual(contents.count('ARM = "b"'), 1)
-        extra = os.path.join(self.tempDir, "extra.py")
-        with open(extra, "w") as fd:
-            fd.write(contents.replace('ARM = "b"', 'ARM = "r"'))
-
-        synthConfig = SyntheticConfig()
-        base = makeSyntheticDetectorMap(synthConfig, 650.0, 950.0)
-        baseFile = os.path.join(self.tempDir, "base.fits")
-        base.writeFits(baseFile)
+        self.synthConfig = SyntheticConfig()
+        self.base = makeSyntheticDetectorMap(self.synthConfig, 650.0, 950.0)
+        self.baseFile = os.path.join(self.tempDir, "base.fits")
+        self.base.writeFits(self.baseFile)
 
         rows = []
-        for ff in synthConfig.fiberId:
-            for yy in range(base.bbox.getMinY(), base.bbox.getMaxY(), 4):
+        for ff in self.synthConfig.fiberId:
+            for yy in range(self.base.bbox.getMinY(), self.base.bbox.getMaxY(), 4):
                 rows.append(
                     ArcLine(
                         ff,
-                        base.getWavelength(ff, yy),
-                        base.getXCenter(ff, yy),
+                        self.base.getWavelength(ff, yy),
+                        self.base.getXCenter(ff, yy),
                         float(yy),
                         0.01,
                         0.01,
@@ -342,25 +327,108 @@ class FitDetectorMapTemplateTestCase(lsst.utils.tests.TestCase):
                         ReferenceLineSource.NONE,
                     )
                 )
-        linesFile = os.path.join(self.tempDir, "lines.fits")
-        ArcLineSet.fromRows(rows).writeFits(linesFile)
+        self.linesFile = os.path.join(self.tempDir, "lines.fits")
+        ArcLineSet.fromRows(rows).writeFits(self.linesFile)
 
-        configFile = os.path.join(self.tempDir, "config.py")
-        with open(configFile, "w") as fd:
-            fd.write("config.order = 1\nconfig.doSlitOffsets = True\nconfig.exclusionRadius = 1.0\n")
+    def tearDown(self):
+        shutil.rmtree(self.tempDir, ignore_errors=True)
+        rootLogger = logging.getLogger()
+        for handler in list(rootLogger.handlers):
+            if handler not in self.rootHandlers:
+                rootLogger.removeHandler(handler)
+        rootLogger.setLevel(self.rootLevel)
 
+    def editTemplate(self, name):
+        """Copy a template, setting the arm, as a user would
+
+        Parameters
+        ----------
+        name : `str`
+            Name of the template file in ``EXAMPLES_DIR``.
+
+        Returns
+        -------
+        task : `str`
+            Fully-qualified dotted path to the task.
+        extra : `str`
+            Path to the edited copy of the template.
+        """
+        template = os.path.join(EXAMPLES_DIR, name)
+        task, _, _, _ = parseTemplate(template)
+        with open(template) as fd:
+            contents = fd.read()
+        self.assertEqual(contents.count('ARM = "b"'), 1)
+        extra = os.path.join(self.tempDir, f"extra_{name}")
+        with open(extra, "w") as fd:
+            fd.write(contents.replace('ARM = "b"', 'ARM = "r"'))
+        return task, extra
+
+    def writeConfig(self, name, overrides):
+        """Write a config override file"""
+        filename = os.path.join(self.tempDir, name)
+        with open(filename, "w") as fd:
+            fd.write(overrides)
+        return filename
+
+    def fitDetectorMap(self):
+        """Run the FitDetectorMapTask template
+
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+            Result from the task.
+        filename : `str`
+            Path to the fitted detectorMap.
+        """
+        task, extra = self.editTemplate("FitDetectorMapTask.py")
+        configFile = self.writeConfig(
+            "fitConfig.py", "config.order = 1\nconfig.doSlitOffsets = True\nconfig.exclusionRadius = 1.0\n"
+        )
         outFile = os.path.join(self.tempDir, "detectorMap.fits")
         result = harness.runTask(
             task,
-            [f"lines:ArcLineSet={linesFile}", f"base:DetectorMap={baseFile}"],
+            [f"lines:ArcLineSet={self.linesFile}", f"base:DetectorMap={self.baseFile}"],
             configFile=configFile,
             extraFile=extra,
             outputSpecs=[f"detectorMap:{outFile}"],
         )
+        return result, outFile
+
+    def testFitDetectorMap(self):
+        """Test the FitDetectorMapTask template"""
+        result, outFile = self.fitDetectorMap()
         detMap = DetectorMap.readFits(outFile)
-        self.assertEqual(detMap.bbox, base.bbox)
+        self.assertEqual(detMap.bbox, self.base.bbox)
         self.assertFloatsAlmostEqual(detMap.opticsModel.distortions[0].getCoefficients(), 0.0, atol=2.0e-7)
         self.assertFloatsAlmostEqual(result.xRms, 0.0, atol=1.0e-3)
+
+    def testAdjustDetectorMap(self):
+        """Test the AdjustDetectorMapTask template
+
+        We adjust the fitted detectorMap using the same lines, so the
+        adjustment should be negligible.
+        """
+        _, fitFile = self.fitDetectorMap()
+        task, extra = self.editTemplate("AdjustDetectorMapTask.py")
+        configFile = self.writeConfig("adjustConfig.py", "config.exclusionRadius = 1.0\n")
+        outFile = os.path.join(self.tempDir, "adjusted.fits")
+        result = harness.runTask(
+            task,
+            [f"detectorMap:DetectorMap={fitFile}", f"lines:ArcLineSet={self.linesFile}"],
+            configFile=configFile,
+            extraFile=extra,
+            outputSpecs=[f"detectorMap:{outFile}"],
+        )
+        fitted = DetectorMap.readFits(fitFile)
+        adjusted = DetectorMap.readFits(outFile)
+        self.assertFloatsAlmostEqual(result.xRms, 0.0, atol=1.0e-3)
+        for fiberId in self.synthConfig.fiberId:
+            self.assertFloatsAlmostEqual(
+                adjusted.getXCenter(fiberId), fitted.getXCenter(fiberId), atol=1.0e-3
+            )
+            self.assertFloatsAlmostEqual(
+                adjusted.getWavelength(fiberId), fitted.getWavelength(fiberId), atol=1.0e-4
+            )
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
