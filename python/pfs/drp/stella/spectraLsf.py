@@ -25,11 +25,12 @@ import scipy.special
 
 from pfs.datamodel.pfsLsf import PfsLsf, PfsLsfInput
 
-from .armLsf import LsfKernel, detectorLsfFromDatamodel, dispersionAtRow, rowAtWavelength
+from .armLsf import GaussianArmLsf, LsfKernel, detectorLsfFromDatamodel, dispersionAtRow, rowAtWavelength
 from .combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from .lsf import Kernel1D, Lsf, LsfDict, convolveInBlocks
 
-__all__ = ("SpectraLsf", "BoundArmLsf", "CombinedSpectraLsf", "ArmFiberLsf", "spectraLsfFromDatamodel")
+__all__ = ("SpectraLsf", "BoundArmLsf", "CombinedSpectraLsf", "ArmFiberLsf", "spectraLsfFromDatamodel",
+           "armFiberLsfs", "combinedSpectraLsf")
 
 DEFAULT_HALF_WIDTH = 12*u.pix  # Default half-width of kernels
 
@@ -497,3 +498,62 @@ def kernelWidth(kernel: LsfKernel, method: str = "fit", intrinsicWidth: float = 
     result = scipy.optimize.least_squares(lambda pp: model(pp) - values, [values.sum(), 0.0, guess])
     sigma = abs(float(result.x[2]))
     return float(np.sqrt(max(sigma**2 - intrinsicWidth**2, 0.0)))
+
+
+def armFiberLsfs(spectra, legacy=None) -> Dict[int, Lsf]:
+    """The LSF of each fibre of a pfsArm, as inputs to a combination
+
+    Parameters
+    ----------
+    spectra : `pfs.drp.stella.datamodel.PfsArm`
+        Spectra of one arm, with their ``lsf`` if known.
+    legacy : `dict` [`int`, `pfs.drp.stella.Lsf`], optional
+        The deprecated ``pfsArmLsf``, used if the spectra have no ``lsf``
+        (they were written before it existed).
+
+    Returns
+    -------
+    lsfs : `dict` [`int`, `pfs.drp.stella.Lsf`]
+        LSF of each fibre: `ArmFiberLsf` if the detector's LSF is known (so
+        that the combination's LSF can be written with the spectra);
+        otherwise the legacy LSFs.
+    """
+    lsf = getattr(spectra, "lsf", None)
+    if isinstance(lsf, BoundArmLsf):
+        return {int(ff): ArmFiberLsf(lsf.detectorLsf, ff) for ff in spectra.fiberId}
+    if legacy is None:
+        return {}
+    identity = spectra.identity
+    gaussian = GaussianArmLsf.fromLegacy(identity.arm, identity.spectrograph,
+                                         {ff: ll for ff, ll in legacy.items() if ll is not None})
+    if gaussian is None:
+        return dict(legacy)
+    return {int(ff): (ArmFiberLsf(gaussian, ff) if ll is not None else None) for ff, ll in legacy.items()}
+
+
+def combinedSpectraLsf(lsfs: Dict[object, Lsf], wavelength: Dict[object, np.ndarray]
+                       ) -> Optional[CombinedSpectraLsf]:
+    """The LSF of combined spectra, if it can be written with them
+
+    Parameters
+    ----------
+    lsfs : `dict` [`int` or `pfs.datamodel.Target`, `pfs.drp.stella.Lsf`]
+        LSF of each combined spectrum (`pfs.drp.stella.CombinedLsf`).
+    wavelength : `dict` [`int` or `pfs.datamodel.Target`, `numpy.ndarray`]
+        Vacuum wavelength (nm) of each spectrum's pixels.
+
+    Returns
+    -------
+    lsf : `CombinedSpectraLsf` or `None`
+        The LSF of the spectra, or `None` if any of their inputs' LSFs isn't a
+        detector's (an `ArmFiberLsf`), as for spectra reduced before the LSF
+        was written with them.
+    """
+    if not lsfs:
+        return None
+    for lsf in lsfs.values():
+        if not isinstance(lsf, CombinedLsf):
+            return None
+        if not all(isinstance(inp.lsf, ArmFiberLsf) for inp in lsf.inputs):
+            return None
+    return CombinedSpectraLsf(lsfs, wavelength)
