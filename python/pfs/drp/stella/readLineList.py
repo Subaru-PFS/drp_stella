@@ -83,6 +83,14 @@ class ReadLineListConfig(Config):
             "intensities use zero for lines that weren't detected.",
     )
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
+    exclusionMinRelativeIntensity = Field(
+        dtype=float,
+        default=0.05,
+        doc="Lines fainter than this fraction of the intensity of another line within the exclusion "
+            "radius are treated as not visible when applying the exclusion zone to that line: the faint "
+            "line is flagged, but the bright line is not. Zero or negative disables this, so that all "
+            "lines within the exclusion radius are flagged.",
+    )
 
     def validate(self):
         """Validate input config parameters"""
@@ -196,7 +204,7 @@ class ReadLineListTask(Task):
         lines = self.filterByWavelength(lines, detectorMap)
         self.filterDuplicates(lines)
         radius = self.config.exclusionRadius if exclusionRadius is None else exclusionRadius
-        lines.applyExclusionZone(radius)
+        lines.applyExclusionZone(radius, minRelativeIntensity=self.config.exclusionMinRelativeIntensity)
         return lines
 
     def filterDuplicates(self, lines: ReferenceLineSet) -> None:

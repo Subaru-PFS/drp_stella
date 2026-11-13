@@ -190,11 +190,14 @@ class ReferenceLineSet(Table):
         return cls.fromRows(lines)
 
     def applyExclusionZone(self, exclusionRadius: float,
-                           status: ReferenceLineStatus = ReferenceLineStatus.BLEND
+                           status: ReferenceLineStatus = ReferenceLineStatus.BLEND,
+                           minRelativeIntensity: float = 0.0,
                            ):
         """Apply an exclusion zone around each line
 
-        A line cannot have another line within ``exclusionRadius``.
+        A line cannot have another line within ``exclusionRadius``, unless the
+        other line is fainter than ``minRelativeIntensity`` times its intensity
+        (in which case only the fainter line is flagged).
 
         The line list is modified in-place.
 
@@ -204,9 +207,13 @@ class ReferenceLineSet(Table):
             Radius in wavelength (nm) to apply around lines.
         status : `ReferenceLineStatus`
             Status to apply to lines that fall within the exclusion zone.
+        minRelativeIntensity : `float`, optional
+            Minimum intensity, relative to a line, of another line within the
+            exclusion zone for that other line to cause the line to be
+            excluded. Zero or negative means intensities are not considered.
         """
         from .applyExclusionZone import applyExclusionZone
-        return applyExclusionZone(self, exclusionRadius, status)
+        return applyExclusionZone(self, exclusionRadius, status, minRelativeIntensity)
 
     def sort(self):
         """Sort the line list, in-place
