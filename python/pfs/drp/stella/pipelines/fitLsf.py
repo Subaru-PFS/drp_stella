@@ -334,7 +334,7 @@ class FitLsfTask(PipelineTask):
         self.radiusScale = self.config.pfiRadiusModelScale   # None until measured, if it's to be measured
         exposures = []
         for visit, pfsArm, detMap, metadata in zip(visits, pfsArmList, detectorMapList, metadataList):
-            lines = self.readLineList.run(detectorMap=detMap, metadata=metadata)
+            lines = self.readLineList.run(detectorMap=detMap, metadata=metadata, arm=arm)
             lamps = "+".join(sorted(self.readLineList.getLampInfo(metadata).lamps))
             exposures.append(Struct(visit=int(visit), pfsArm=pfsArm, detMap=detMap, lines=lines, lamps=lamps))
             self.log.info("Visit %d (%s): %d catalogue lines", visit, lamps, len(lines))
