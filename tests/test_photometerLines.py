@@ -3,10 +3,13 @@ import numpy as np
 import lsst.utils.tests
 import lsst.afw.image
 import lsst.afw.image.testUtils
+import lsst.pex.exceptions
+from lsst.afw.detection import GaussianPsf
 from pfs.drp.stella.focalPlaneFunction import FocalPlaneFunction
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.photometerLines import PhotometerLinesTask, PhotometerLinesConfig
+from pfs.drp.stella.photometry import photometer
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella import ReferenceLineSource
 from pfs.drp.stella.tests.utils import runTests, methodParameters
@@ -116,6 +119,62 @@ class PhotometerLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(lines.flag, 0)
         self.assertFloatsEqual(lines.status, int(ReferenceLineStatus.GOOD))
         self.assertListEqual(lines.description.tolist(), [description]*len(lines))
+
+    def testSubtractLines(self):
+        """Test that subtracting lines skips lines that are off the detector"""
+        flux = 123456.789
+        fwhm = 3.21
+        synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
+        synthConfig.fwhm = fwhm
+        synthConfig.height = 432
+        rng = np.random.RandomState(12345)
+        arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, numLines=10, fwhm=fwhm, flux=flux,
+                                                        rng=rng, addNoise=False)
+        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
+        pfsConfig = pfs.drp.stella.synthetic.makeSyntheticPfsConfig(synthConfig, 12345, 67890, rng)
+        fiberId = detMap.fiberId[detMap.getNumFibers()//2]
+        referenceLines = ReferenceLineSet.fromRows([
+            ReferenceLine(
+                description="Simulated",
+                wavelength=detMap.getWavelength(fiberId, yy),
+                intensity=flux,
+                status=ReferenceLineStatus.GOOD,
+                transition="UNKNOWN",
+                source=ReferenceLineSource.NONE,
+            ) for yy in arc.lines
+        ])
+
+        exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(arc.image))
+        exposure.mask.set(0)
+        exposure.variance.set(synthConfig.readnoise)
+
+        config = PhotometerLinesConfig()
+        config.fwhm = fwhm
+        config.doSubtractContinuum = False
+        config.doApertureCorrection = False
+        task = PhotometerLinesTask(name="photometer", config=config)
+        lines = task.run(exposure, referenceLines, detMap, pfsConfig).lines
+        self.assertFloatsEqual(lines.flag, 0)
+
+        # Move one line off the detector: it should be skipped, rather than causing an error
+        lines.wavelength[0] = 1.0e4
+        self.assertFalse(np.all(np.isfinite(detMap.findPoint(lines.fiberId[0], lines.wavelength[0]))))
+        peak = np.max(exposure.image.array)
+        numBright = np.sum(exposure.image.array > 0.5*peak)
+        task.subtractLines(exposure, lines, None, pfsConfig, detMap)
+        # Everything is subtracted apart from the line we moved, which remains
+        remaining = np.sum(np.abs(exposure.image.array) > 0.5*peak)
+        self.assertGreater(remaining, 0)
+        self.assertLess(remaining, numBright/5)
+
+    def testPhotometerRequiresDetectorMap(self):
+        """Test that photometer requires a detectorMap if there are no positions"""
+        image = lsst.afw.image.MaskedImageF(10, 10)
+        psf = GaussianPsf(11, 11, 1.5)
+        fiberId = np.array([1], dtype=np.int32)
+        wavelength = np.array([500.0])
+        with self.assertRaises(lsst.pex.exceptions.InvalidParameterError):
+            photometer(image, fiberId, wavelength, psf, None)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

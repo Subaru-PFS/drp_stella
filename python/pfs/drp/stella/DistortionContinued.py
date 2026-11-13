@@ -1,5 +1,4 @@
 import io
-import astropy.io.fits
 
 from lsst.utils import continueClass
 
@@ -43,9 +42,6 @@ class Distortion:  # noqa: F811 (redefinition)
         """
         assert SubClass not in cls._subclasses
         cls._subclasses[SubClass.__name__] = SubClass
-        for method in ("readFits", "fromBytes", "fromFits", "writeFits", "toBytes", "toFits",
-                       "__reduce__"):
-            setattr(SubClass, "method", getattr(cls, method))
 
     @classmethod
     def fromDatamodel(cls, distortion: pfs.datamodel.PfsDistortion) -> "Distortion":
@@ -68,78 +64,33 @@ class Distortion:  # noqa: F811 (redefinition)
         return cls._subclasses[subclass].fromDatamodel(distortion)
 
     @classmethod
-    def fromFits(cls, fits: astropy.io.fits.HDUList) -> "Distortion":
-        """Construct from FITS file
-
-        Parameters
-        ----------
-        fits : `astropy.io.fits.HDUList`
-            FITS file.
-
-        Returns
-        -------
-        self : subclass of ``pfs::drp::stella::Distortion``
-            Instantiated subclass, read from the file.
-        """
-        detMap = pfs.datamodel.PfsDistortion._readImpl(fits, None)
-        return cls.fromDatamodel(detMap)
-
-    def toFits(self):
-        """Generate a FITS file
-
-        Returns
-        -------
-        fits : `astropy.io.fits.HDUList`
-            FITS file.
-        """
-        return self.toDatamodel()._writeImpl()
-
-    @classmethod
     def readFits(cls, pathName: str) -> "Distortion":
         """Read Distortion from FITS
 
         Parameters
         ----------
-        pathName : `str`
-            Path to file from which to read.
-        hdu : `int`, optional
-            HDU from which to read; unused in this implementation.
-        flags : `int`, optional
-            Flags for reading; unused in this implementation.
-
-        Raises
-        ------
-        NotImplementedError
-            If ``hdu`` or ``flags`` are requested.
+        pathName : `str` or file-like object
+            Path to file (or file-like object) from which to read.
 
         Returns
         -------
         out : `pfs.drp.stella.Distortion`
             Distortion read from FITS file.
         """
-        with astropy.io.fits.open(pathName) as fits:
-            return cls.fromFits(fits)
+        return cls.fromDatamodel(pfs.datamodel.PfsDistortion.readFits(pathName))
 
     def writeFits(self, pathName: str):
         """Write Distortion to FITS
 
         Parameters
         ----------
-        pathName : `str`
-            Path of file to which to write.
-
-        Raises
-        ------
-        NotImplementedError
-            If ``flags`` are requested.
+        pathName : `str` or file-like object
+            Path of file (or file-like object) to which to write.
         """
-        hdus = self.toFits()
-        # clobber=True in writeto prints a message, so use open instead
-        with open(pathName, "wb") as fd:
-            hdus.writeto(fd)
+        self.toDatamodel().writeFits(pathName)
 
     @classmethod
-    def fromBytes(cls, string: str) -> "Distortion":
+    def fromBytes(cls, string: bytes) -> "Distortion":
         """Construct from bytes
 
         Parameters
@@ -152,10 +103,9 @@ class Distortion:  # noqa: F811 (redefinition)
         self : cls
             Constructed object.
         """
-        with astropy.io.fits.open(io.BytesIO(string.encode())) as fd:
-            return cls.fromFits(fd)
+        return cls.readFits(io.BytesIO(string))
 
-    def toBytes(self):
+    def toBytes(self) -> bytes:
         """Convert to bytes
 
         Returns
@@ -163,8 +113,6 @@ class Distortion:  # noqa: F811 (redefinition)
         string : `bytes`
             String of bytes.
         """
-        fits = self.toFits()
         buffer = io.BytesIO()
-        fits.writeto(buffer)
-        fits.close()
+        self.writeFits(buffer)
         return buffer.getvalue()
