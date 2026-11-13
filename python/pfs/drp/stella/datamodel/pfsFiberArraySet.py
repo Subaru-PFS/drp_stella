@@ -12,6 +12,24 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
     _ylabel = "flux"                    # y-axis label for plots, overridden in derived classes such as pfsArm
 
     @property
+    def lsf(self):
+        """Line-spread function of the spectra (`pfs.drp.stella.SpectraLsf`), or `None`
+
+        The LSF read from a file is converted when first used.
+        """
+        lsf = getattr(self, "_lsf", None)
+        if isinstance(lsf, pfs.datamodel.PfsLsf):
+            from ..spectraLsf import spectraLsfFromDatamodel
+            keys = [int(ff) for ff in self.fiberId]
+            wavelength = {ff: wl for ff, wl in zip(keys, self.wavelength)}
+            lsf = self._lsf = spectraLsfFromDatamodel(lsf, keys, wavelength, self.length)
+        return lsf
+
+    @lsf.setter
+    def lsf(self, value):
+        self._lsf = value
+
+    @property
     def spectrograph(self):
         """Return spectrograph number"""
         return spectrographFromFiberId(self.fiberId)

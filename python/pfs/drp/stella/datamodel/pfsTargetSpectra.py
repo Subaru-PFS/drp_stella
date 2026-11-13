@@ -21,7 +21,8 @@ class PfsCalibratedSpectra(pfs.datamodel.drp.PfsCalibrated):
         pfs.drp.stella.pfsTargetSpectra.PfsCalibratedSpectra
         to pfs.datamodel.drp.PfsCalibrated
         """
-        return cls([pfsCalibrated[target] for target in pfsCalibrated], pfsCalibrated.metadata)
+        return cls([pfsCalibrated[target] for target in pfsCalibrated], pfsCalibrated.metadata,
+                   lsf=getattr(pfsCalibrated, "lsf", None))
 
 
 class PfsObjectSpectra(pfs.datamodel.drp.PfsCoadd):
@@ -33,4 +34,5 @@ class PfsObjectSpectra(pfs.datamodel.drp.PfsCoadd):
         pfs.drp.stella.pfsTargetSpectra.PfsObjectSpectra
         to pfs.datamodel.drp.PfsCoadd
         """
-        return cls([pfsCoadd[target] for target in pfsCoadd], pfsCoadd.metadata)
+        return cls([pfsCoadd[target] for target in pfsCoadd], pfsCoadd.metadata,
+                   lsf=getattr(pfsCoadd, "lsf", None))

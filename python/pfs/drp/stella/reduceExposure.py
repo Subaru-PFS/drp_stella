@@ -41,6 +41,7 @@ from lsst.obs.pfs.utils import getLamps, isWindowed
 from pfs.datamodel import FiberStatus, TargetType, Identity
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
 from .extractSpectraTask import ExtractSpectraTask
+from .armLsf import ArmLsf, GaussianArmLsf
 from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
@@ -106,6 +107,12 @@ class ReduceExposureConnections(
         dimensions=("instrument",),
         isCalibration=True,
     )
+    armLsf = PrerequisiteConnection(
+        name="armLsf",
+        doc="Line-spread function of the detector (from FitLsfTask); used if doArmLsf",
+        storageClass="ArmLsf",
+        dimensions=("instrument", "arm", "spectrograph"),
+    )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
         doc="Mapping from fiberId,wavelength to x,y",
@@ -164,6 +171,8 @@ class ReduceExposureConnections(
             self.prerequisiteInputs.remove("fiberNorms")
         if not self.config.doApplySkyNorms:
             self.prerequisiteInputs.remove("skyNorms")
+        if not self.config.doArmLsf:
+            self.prerequisiteInputs.remove("armLsf")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -189,8 +198,18 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
                         "use a boxcar of boxcarWidth to extract the ENGINEERING fibres")
     doBoxcarForIIS = Field(dtype=bool, default=True,
                            doc="Enable boxcar extractions when ENGINEERING fibres are illuminated?")
+    doArmLsf = Field(dtype=bool, default=False,
+                     doc="Give the pfsArm the detector's measured LSF (the armLsf dataset, from FitLsfTask)? "
+                         "If not, it gets a Gaussian of width gaussianLsfWidth (a placeholder)")
+    armLsfWarnShift = Field(dtype=float, default=1.0,
+                            doc="Warn if the wavelength solution differs from the armLsf's by more than this "
+                                "(pixels)")
+    armLsfMaxShift = Field(dtype=float, default=20.0,
+                           doc="Fail if the wavelength solution differs from the armLsf's by more than this "
+                               "(pixels): the wrong armLsf")
     gaussianLsfWidth = DictField(keytype=str, itemtype=float,
-                                 doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
+                                 doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm "
+                                     "(the placeholder used if not doArmLsf)",
                                  default=dict(b=0.081, r=0.109, m=0.059, n=0.109))
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
     doApplyScreenResponse = Field(dtype=bool, default=True, doc="Apply screen response correction to quartz?")
@@ -291,6 +310,8 @@ class ReduceExposureTask(PipelineTask):
             inputs["fiberNorms"] = None
         if not self.config.doApplySkyNorms:
             inputs["skyNorms"] = None
+        if not self.config.doArmLsf:
+            inputs["armLsf"] = None
         outputs = self.run(**inputs, dataId=dataId)
         if outputs.apCorr is None:  # e.g., for a quartz
             del outputRefs.apCorr
@@ -307,6 +328,7 @@ class ReduceExposureTask(PipelineTask):
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
         crMask: Mask | None = None,
+        armLsf: ArmLsf | None = None,
     ) -> Struct:
         """Process an arm exposure
 
@@ -326,6 +348,9 @@ class ReduceExposureTask(PipelineTask):
             Data identifier.
         crMask : `lsst.afw.image.Mask`, optional
             Cosmic-ray mask.
+        armLsf : `pfs.drp.stella.ArmLsf`, optional
+            Line-spread function of the detector; if not provided, the pfsArm
+            gets a Gaussian placeholder.
 
         Returns
         -------
@@ -339,8 +364,9 @@ class ReduceExposureTask(PipelineTask):
             Measured lines.
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Measured aperture correction.
-        lsf : LSF
-            Line-spread function.
+        lsf : `LsfDict`
+            Line-spread function of each fibre: the deprecated ``pfsArmLsf``
+            (the pfsArm has its LSF as ``pfsArm.lsf``).
         """
 
         arm = dataId["arm"]
@@ -410,6 +436,12 @@ class ReduceExposureTask(PipelineTask):
 
         pfsArm = pfsArm.select(pfsConfig, targetType=~TargetType.SCIENCE_MASKED)
         lsf = LsfDict({ff: lsf[ff] for ff in pfsArm.fiberId})
+        if armLsf is not None:
+            pfsArm.lsf = armLsf.forSpectra(pfsArm, self.config.armLsfWarnShift, self.config.armLsfMaxShift)
+            lsf = pfsArm.lsf.toLegacy()  # The deprecated pfsArmLsf, from the same LSF
+        else:
+            placeholder = GaussianArmLsf.fromLegacy(arm, spectrograph, lsf)
+            pfsArm.lsf = placeholder.forSpectra(pfsArm) if placeholder is not None else None
 
         if self.config.doApplyScreenResponse:
             self.screen.run(exposure.getMetadata(), pfsArm, pfsConfig)
@@ -424,7 +456,7 @@ class ReduceExposureTask(PipelineTask):
             pfsArm.metadata["PFS.HASH.FIBERPROFILES"] = fiberProfiles.hash
 
         if not self.isIIS(pfsConfig):
-            if self.config.doApplyFiberNorms:
+            if self.config.doApplyFiberNorms and boxcarWidth < 0:
                 if fiberNorms is None:
                     raise RuntimeError("fiberNorms required but not provided")
                 missingFiberIds = applyFiberNorms(pfsArm, fiberNorms, self.config.doCheckFiberNormsHashes)
