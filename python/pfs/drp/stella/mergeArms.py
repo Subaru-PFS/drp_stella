@@ -2,7 +2,7 @@ from collections import defaultdict
 import numpy as np
 
 import lsstDebug
-from lsst.pex.config import Field, ConfigurableField, ListField
+from lsst.pex.config import Field, ConfigField, ConfigurableField, ListField
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -25,7 +25,8 @@ from pfs.datamodel import Identity
 from .fitFocalPlane import FitBlockedOversampledSplineTask
 from .focalPlaneFunction import FocalPlaneFunction
 from .utils.sysUtils import getPfsVersions
-from .lsf import LsfDict, CoaddLsf
+from .lsf import LsfDict
+from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
@@ -83,6 +84,7 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
     resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >1 uses a Lanczos of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
+    lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the merged line-spread function")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
     fitSkyModel = ConfigurableField(target=FitBlockedOversampledSplineTask,
@@ -219,9 +221,13 @@ class MergeArmsTask(PipelineTask):
         spectrographs = [self.mergeSpectra(ss, wavelength) for ss in spectra]  # Merge in wavelength
         metadata = allSpectra[0].metadata.copy()
         metadata.update(getPfsVersions())
-        merged = PfsMerged.fromMerge(spectrographs, metadata=metadata)  # Merge across spectrographs
+        # Merge across spectrographs
+        merged = PfsMerged.fromMerge([sp.pfsMerged for sp in spectrographs], metadata=metadata)
 
-        lsfList = [self.mergeLsfs(ll, ss, wavelength) for ll, ss in zip(lsfList, spectra)]
+        lsfList = [
+            self.mergeLsfs(ll, ss, wavelength, sp.weights)
+            for ll, ss, sp in zip(lsfList, spectra, spectrographs)
+        ]
         mergedLsf = self.combineLsfs(lsfList)
 
         return Struct(pfsMerged=merged, pfsMergedLsf=mergedLsf, sky1d=sky1d)
@@ -381,8 +387,11 @@ class MergeArmsTask(PipelineTask):
 
         Returns
         -------
-        result : `pfs.datamodel.PfsMerged`
+        pfsMerged : `pfs.datamodel.PfsMerged`
             Merged spectra.
+        weights : `lsst.pipe.base.Struct`
+            Weights of the combination (from
+            `pfs.drp.stella.combineSpectra.mergeWeights`).
         """
         archetype = spectraList[0]
         identity = Identity.fromMerge([ss.identity for ss in spectraList])
@@ -411,21 +420,29 @@ class MergeArmsTask(PipelineTask):
         }  # Hashes, indexed by spectrograph,arm to define the order
         metadata["PFS.HASH.FIBERPROFILES"] = createHash(fiberProfilesHashes.values())  # Hash of hashes
 
-        return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
-                         combination.sky, combination.norm, combination.covar, flags, metadata,
-                         notes)
+        pfsMerged = PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
+                              combination.sky, combination.norm, combination.covar, flags, metadata,
+                              notes)
+        return Struct(pfsMerged=pfsMerged, weights=combination.weights)
 
-    def mergeLsfs(self, lsfList, spectraList, wavelength: np.ndarray):
+    def mergeLsfs(self, lsfList, spectraList, wavelength: np.ndarray, weights: Struct):
         """Merge LSFs for different arms within a spectrograph
+
+        The merged LSF of each fiber is a `pfs.drp.stella.CombinedLsf`: the arm
+        LSFs, resampled as the spectra are, and combined with smooth versions
+        of the weights used for the spectra.
 
         Parameters
         ----------
         lsfList : iterable of `dict` (`int`: `pfs.drp.stella.Lsf`)
             Line-spread functions indexed by fiberId, for each arm.
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
-            Spectra for each arm.
+            Spectra for each arm (before resampling).
         wavelength : `np.ndarray`
             Wavelength array to which to resample.
+        weights : `lsst.pipe.base.Struct`
+            Weights of the combination of the spectra (from
+            `pfs.drp.stella.combineSpectra.mergeWeights`).
 
         Returns
         -------
@@ -435,29 +452,15 @@ class MergeArmsTask(PipelineTask):
         fiberId = set(lsfList[0].keys())
         for lsf in lsfList:
             assert set(lsf.keys()) == fiberId
-        warpedLsfList = []
-        minIndexList = []
-        maxIndexList = []
-        last = wavelength.size - 1
-        for lsf, spectra in zip(lsfList, spectraList):
-            warpedLsf = {}
-            minIndex = {}
-            maxIndex = {}
-            for ii in range(len(spectra)):
-                ff = spectra.fiberId[ii]
-                warpedLsf[ff] = lsf.get(ff).warp(spectra.wavelength[ii], wavelength)
-                minIndex[ff] = max(0, np.searchsorted(wavelength, spectra.wavelength[ii][0], "left"))
-                maxIndex[ff] = min(last, np.searchsorted(wavelength, spectra.wavelength[ii][-1], "right"))
-
-            warpedLsfList.append(warpedLsf)
-            minIndexList.append(minIndex)
-            maxIndexList.append(maxIndex)
-
-        return {ff: CoaddLsf(
-            [ww.get(ff, None) for ww in warpedLsfList],
-            [minIndex[ff] for minIndex in minIndexList],
-            [maxIndex[ff] for maxIndex in maxIndexList],
-        ) for ff in fiberId}
+        return {ff: makeCombinedLsf(
+            [lsf.get(ff) for lsf in lsfList],
+            [ss.wavelength[ii] for ss in spectraList],
+            wavelength,
+            [ww[ii] for ww in weights.weights],
+            [sel[ii] for sel in weights.selects],
+            self.config.resampleOrder,
+            self.config.lsf,
+        ) for ii, ff in enumerate(spectraList[0].fiberId)}
 
     def combineLsfs(self, lsfList):
         """Combine LSFs for different spectrographs

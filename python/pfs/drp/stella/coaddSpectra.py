@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Mapping
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import ConfigurableField, ListField, Field
+from lsst.pex.config import ConfigField, ConfigurableField, ListField, Field
 from lsst.pipe.base import Struct
 
 from lsst.pipe.base import PipelineTask, PipelineTaskConfig, PipelineTaskConnections
@@ -26,7 +26,9 @@ from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
-from .lsf import Lsf, LsfDict, CoaddLsf
+from .lsf import Lsf, LsfDict
+from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
+from .combineSpectra import accumulateWeighted, coaddWeights
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -131,6 +133,7 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
     resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >=1 uses a Lanczos of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
+    lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the coadded line-spread function")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
@@ -394,8 +397,9 @@ class CoaddSpectraTask(PipelineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArray`
             List of spectra to combine for each visit.
-        lsfList : iterable of LSF (type TBD)
-            List of line-spread functions for each arm for each visit.
+        lsfList : iterable of `pfs.drp.stella.LsfDict`, or `None`
+            Line-spread functions (indexed by fiberId) for each spectrum, or
+            `None` to skip the line-spread function of the combination.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
         wavelength : `np.ndarray`
@@ -411,24 +415,20 @@ class CoaddSpectraTask(PipelineTask):
             Covariance matrix for combined spectrum.
         mask : `numpy.ndarray` of `int`
             Mask for combined spectrum.
+        lsf : `pfs.drp.stella.CombinedLsf` or `None`
+            Line-spread function for combined spectrum (`None` if
+            ``lsfList`` is `None`).
         """
         # First, resample to a common wavelength sampling
         resampled = []
-        resampledLsf = []
-        resampledRange = []
         numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
-        for spectrum, lsf in zip(spectraList, lsfList):
-            fiberId = spectrum.observations.fiberId[0]
+        for spectrum in spectraList:
             resampled.append(spectrum.resample(
                 wavelength,
                 order=self.config.resampleOrder,
                 minWeight=self.config.resampleMinWeight,
                 bad=self.config.mask,
             ))
-            resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
-            minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
-            maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
-            resampledRange.append((minIndex, maxIndex))
         assert all(rr.covar.shape[0] == numCovar for rr in resampled)
 
         # Now do a weighted coaddition
@@ -438,23 +438,15 @@ class CoaddSpectraTask(PipelineTask):
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
         covar = np.zeros((numCovar, length), dtype=archetype.covar.dtype)
-        sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        allValues = np.full((len(resampled), length), np.nan)
-
-        for ii, ss in enumerate(resampled):
-            weight = np.zeros_like(flux)
-            with np.errstate(invalid="ignore", divide="ignore"):
-                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                ww = 1.0 / ss.covar[0][good]
-                weight[good] = ww
-                flux[good] += ss.flux[good]*ww
-                sky[good] += ss.sky[good]*ww
-                mask[good] |= ss.mask[good]
-                covar[:, good] += ss.covar[:, good]*ww**2
-                sumWeights += weight
-
-                allValues[ii][good] = ss.flux[good]/np.sqrt(ss.covar[0][good])
+        weights = coaddWeights(resampled, self.config.mask)
+        sumWeights = weights.sumWeights
+        accumulateWeighted([ss.flux for ss in resampled], weights.weights, weights.selects, flux)
+        accumulateWeighted([ss.sky for ss in resampled], weights.weights, weights.selects, sky)
+        accumulateWeighted([ss.covar for ss in resampled], [ww**2 for ww in weights.weights], weights.selects,
+                           covar)
+        for ss, select in zip(resampled, weights.selects):
+            mask[select] |= ss.mask[select]
 
         good = sumWeights > 0
         ww = sumWeights[good]
@@ -464,6 +456,16 @@ class CoaddSpectraTask(PipelineTask):
         covar[:, ~good] = np.inf
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        lsf = CoaddLsf(resampledLsf, [rr[0] for rr in resampledRange], [rr[1] for rr in resampledRange])
+        lsf = None
+        if lsfList is not None:
+            lsf = makeCombinedLsf(
+                [ll.get(ss.observations.fiberId[0]) for ll, ss in zip(lsfList, spectraList)],
+                [ss.wavelength for ss in spectraList],
+                wavelength,
+                weights.weights,
+                weights.selects,
+                self.config.resampleOrder,
+                self.config.lsf,
+            )
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2, lsf=lsf)

@@ -247,9 +247,8 @@ class CoaddNoiseTask(CoaddSpectraTask):
         observations = self.getObservations(data.keys(), pfsConfigList)
         wavelength = self.wavelength.run(any(ident.arm == "m" for ident in data))
 
-        lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([dd.pfsArm.flags for dd in data.values()])
-        combineArgs = (lsfList, flags, wavelength)
+        combineArgs = (None, flags, wavelength)  # No LSF: we don't use it
         original = self.combine([self.getSpectrum(target, dd) for dd in data.values()], *combineArgs)
 
         combinations = [

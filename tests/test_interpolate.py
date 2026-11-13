@@ -11,6 +11,7 @@ from pfs.drp.stella.interpolate import (
     interpolateVariance,
     interpolate,
     interpolateCovariance,
+    Resampler,
 )
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
 
@@ -267,6 +268,69 @@ class InterpolateTestCase(lsst.utils.tests.TestCase):
         # Eigenvalues should be non-negative
         # They may be negative if numCovar is too small.
         self.assertTrue(np.all(np.real(eigvals) > -1.0e-12))
+
+
+class ResamplerTestCase(lsst.utils.tests.TestCase):
+    """Claude: Resampler applies the spectra's resampling to other rows (PIPE2D-1993)"""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(54321)
+        numIn = 500
+        # a non-uniform source grid, resampled onto a finer one that extends beyond it at both ends
+        self.fromWavelength = 600.0 + 0.1*np.arange(numIn) + 1.0e-5*np.arange(numIn)**2
+        self.toWavelength = np.linspace(599.5, self.fromWavelength[-1] + 0.5, 700)
+
+    def testSameAsFunctions(self):
+        """Resampler gives the same results as interpolate and interpolateFlux"""
+        numIn = len(self.fromWavelength)
+        flux = self.rng.normal(size=numIn)
+        variance = self.rng.uniform(1.0, 2.0, size=numIn)
+        mask = (self.rng.random(numIn) < 0.05).astype(np.int32)
+        for order in (1, 3):
+            resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+            expect = interpolate(self.fromWavelength, flux, mask, variance, self.toWavelength, order=order,
+                                 minWeight=0.5, badMask=1, fillMask=2, numCovar=order + 1)
+            result = resampler(flux, mask, variance, minWeight=0.5, badMask=1, fillMask=2, numCovar=order + 1)
+            for name in ("flux", "mask", "covariance"):
+                np.testing.assert_array_equal(getattr(result, name), getattr(expect, name))
+            np.testing.assert_array_equal(
+                resampler.resampleFlux(flux),
+                interpolateFlux(self.fromWavelength, flux, self.toWavelength, order=order),
+            )
+
+    def testFloatPrecision(self):
+        """Claude: float32 values are resampled at double-precision positions
+
+        The source index used to be cast to the type of the values, which for
+        float32 rounds it by up to ~1e-4 pixels at indices of a few thousand.
+        """
+        numIn = 4096
+        fromWavelength = 600.0 + 0.0731*np.arange(numIn)
+        toWavelength = np.linspace(601.0, fromWavelength[-1] - 1.0, 3000)
+        flux = np.sin(np.arange(numIn)/2.0)  # Large gradient, so position errors matter
+        variance = np.ones(numIn)
+        mask = np.zeros(numIn, dtype=np.int32)
+        for order in (1, 3):
+            resampler = Resampler(fromWavelength, toWavelength, order=order)
+            expect = resampler.resampleFlux(flux)  # double precision
+            result = resampler(flux.astype(np.float32), mask, variance.astype(np.float32))
+            np.testing.assert_allclose(result.flux, expect, rtol=0, atol=1.0e-6)
+
+    def testWindow(self):
+        """resampleWindow is resampleFlux of a row that is zero outside the window"""
+        numIn = len(self.fromWavelength)
+        for order in (1, 3, 5):
+            resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+            for start, size in ((200, 11), (0, 7), (numIn - 9, 9), (3, 1), (numIn - 1, 1)):
+                values = self.rng.uniform(0.5, 1.5, size=size)
+                row = np.zeros(numIn)
+                row[start:start + size] = values
+                expect = resampler.resampleFlux(row)
+                outStart, result = resampler.resampleWindow(values, start)
+                full = np.zeros_like(expect)
+                full[outStart:outStart + len(result)] = result
+                np.testing.assert_array_equal(full, expect, err_msg=f"order={order} start={start}")
+                self.assertGreater(len(result), 0)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
