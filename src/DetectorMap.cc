@@ -393,8 +393,16 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorMap::getTracePositionImpl(
     int halfWidth
 ) const {
     double const xCenter = getXCenter(fiberId, row);
-    int const xMin = std::max<int>(int(xCenter) - halfWidth, _bbox.getMinX());
-    int const xMax = std::min<int>(int(xCenter + 0.5) + halfWidth, _bbox.getMaxX());
+    if (!std::isfinite(xCenter)) {
+        return std::make_pair(0, ndarray::allocate(0));
+    }
+    // Symmetric window of the 2*halfWidth + 1 pixels nearest the center
+    int const xNearest = std::floor(xCenter + 0.5);
+    int const xMin = std::max<int>(xNearest - halfWidth, _bbox.getMinX());
+    int const xMax = std::min<int>(xNearest + halfWidth, _bbox.getMaxX());
+    if (xMin > xMax) {
+        return std::make_pair(0, ndarray::allocate(0));
+    }
     ndarray::Array<double, 1, 1> dx = ndarray::allocate(xMax - xMin + 1);
     double xx = xMin - xCenter;
     for (std::size_t ii = 0; ii < dx.size(); ++ii, ++xx) {

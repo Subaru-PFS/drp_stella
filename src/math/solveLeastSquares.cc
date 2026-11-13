@@ -1,4 +1,4 @@
-#include <numeric>
+#include <algorithm>
 
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -37,9 +37,7 @@ ndarray::Array<double, 1, 1> solveLeastSquaresDesign(
     std::size_t numForced = 0;
     if (!forced.isEmpty()) {
         utils::checkSize(forced.size(), numParams, "forced vs design");
-        numForced = std::accumulate(
-            forced.begin(), forced.end(), 0UL, [](bool ff, std::size_t num) { return ff ? num + 1 : num; }
-        );
+        numForced = std::count(forced.begin(), forced.end(), true);
         if (!params.isEmpty()) {
             utils::checkSize(params.size(), numParams, "params vs design");
         }

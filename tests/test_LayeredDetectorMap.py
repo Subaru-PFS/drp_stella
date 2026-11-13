@@ -5,15 +5,13 @@ import numpy as np
 
 import lsst.utils.tests
 import lsst.afw.image.testUtils
-from lsst.afw.detection import GaussianPsf
-from lsst.afw.image import ExposureF
 from lsst.geom import Point2D, Box2D
 from lsst.pex.exceptions import DomainError
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DetectorMap, PolynomialDistortion
-from pfs.drp.stella import LayeredDetectorMap, ImagingSpectralPsf
+from pfs.drp.stella import LayeredDetectorMap
 from pfs.drp.stella import FiberProfile, FiberProfileSet
 from pfs.drp.stella import SpectrumSet
 from pfs.drp.stella.tests.utils import runTests
@@ -147,6 +145,51 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
             disp.mtv(makeSyntheticFlat(self.synthConfig))
             detMap.display(disp)
 
+    def testTracePosition(self):
+        """Test that getTracePosition provides a symmetric window
+
+        The window should be the ``2*halfWidth + 1`` pixels nearest the center,
+        whatever the sub-pixel position of the trace. We test both the
+        LayeredDetectorMap and the base class implementation (used by the
+        SplinedDetectorMap).
+        """
+        halfWidth = 3
+        for detMap in (self.base, self.makeLayeredDetectorMap(True)):
+            for fiberId in detMap.fiberId[::5]:
+                for row in range(100, detMap.bbox.getHeight() - 100, 37):
+                    xMin, dx = detMap.getTracePosition(fiberId, row, halfWidth)
+                    self.assertEqual(dx.size, 2*halfWidth + 1, f"{type(detMap)} {fiberId} {row}")
+                    self.assertLessEqual(np.max(np.abs(dx)), halfWidth + 0.5 + 1.0e-6)
+                    self.assertFloatsAlmostEqual(np.diff(dx), 1.0, atol=1.0e-3)
+                    xCenter = detMap.getXCenter(fiberId, row)
+                    self.assertFloatsAlmostEqual(xMin - xCenter, dx[0], atol=1.0e-3)
+
+    def testTracePositionHalfPixel(self):
+        """Test getTracePosition when the center is exactly on a half-pixel
+
+        The two pixels at either end of the window are then equally distant
+        from the center, and the window should still contain
+        ``2*halfWidth + 1`` pixels, the same for the LayeredDetectorMap as for
+        the base class implementation.
+        """
+        self.synthConfig.slope = 0.0
+        self.synthConfig.separation = 50.5  # Every second trace is centered on a half-pixel
+        self.base = makeSyntheticDetectorMap(self.synthConfig, self.minWl, self.maxWl)
+        layered = self.makeLayeredDetectorMap(True)
+        halfWidth = 3
+        row = 1000
+        numHalf = 0
+        for fiberId in self.base.fiberId:
+            xCenter = self.base.getXCenter(fiberId, row)
+            if xCenter % 1 == 0.5:
+                numHalf += 1
+            expect = self.base.getTracePosition(fiberId, row, halfWidth)
+            self.assertEqual(expect[1].size, 2*halfWidth + 1)
+            xMin, dx = layered.getTracePosition(fiberId, row, halfWidth)
+            self.assertEqual(xMin, expect[0])
+            self.assertFloatsAlmostEqual(dx, expect[1], atol=1.0e-6)
+        self.assertGreater(numHalf, 0)
+
     def testSlitOffsets(self):
         """Test different value for one of the slit offsets"""
         self.synthConfig.slope = 0.0  # Straighten the traces to avoid coupling x,y offsets
@@ -249,24 +292,6 @@ class LayeredDetectorMapTestCase(lsst.utils.tests.TestCase):
         detMap = self.makeLayeredDetectorMap(False)
         copy = pickle.loads(pickle.dumps(detMap))
         self.assertLayeredDetectorMapsEqual(detMap, copy)
-
-    def testPersistable(self):
-        """Test behaviour as a Persistable
-
-        This involves sticking it in a Psf, which gets stuck in an Exposure
-        """
-        size = 21
-        sigma = 3
-        detMap = self.makeLayeredDetectorMap(False)
-        imagePsf = GaussianPsf(size, size, sigma)
-        psf = ImagingSpectralPsf(imagePsf, detMap)
-        exposure = ExposureF(size, size)
-        exposure.setPsf(psf)
-        with lsst.utils.tests.getTempFilePath(".fits") as filename:
-            exposure.writeFits(filename)
-            copy = ExposureF(filename).getPsf().getDetectorMap()
-            copy.metadata.set("METADATA", self.metadata)  # Persistence doesn't preserve the metadata
-            self.assertLayeredDetectorMapsEqual(detMap, copy)
 
     def testOutOfRange(self):
         """Test that inputs that are out-of-range produce NaNs"""

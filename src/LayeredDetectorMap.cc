@@ -592,7 +592,10 @@ std::pair<int, ndarray::Array<double, 1, 1>> LayeredDetectorMap::getTracePositio
     for (int xx = xStart; xx <= xStop; ++xx) {
         lsst::geom::Point2D const point = fromDetectorFrame(lsst::geom::Point2D(xx, row));
         double const dx = point.getX() - model.getX();
-        if (std::isfinite(point.getX()) && std::abs(dx) <= halfWidth) {
+        // Use the 2*halfWidth + 1 pixels nearest the center (a symmetric window). The interval is half-open
+        // so that a center exactly on a half-pixel gets the same window as DetectorMap::getTracePositionImpl
+        // (which uses floor(x + 0.5)).
+        if (std::isfinite(point.getX()) && dx > -halfWidth - 0.5 && dx <= halfWidth + 0.5) {
             if (xMin == -1) {
                 xMin = xx;
             }

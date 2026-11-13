@@ -546,7 +546,10 @@ std::pair<int, ndarray::Array<double, 1, 1>> DetectorModel::detectorToPixelsColu
     for (int pp = pStart; pp <= pStop; ++pp) {
         lsst::geom::Point2D const point = pixelsToDetector(lsst::geom::Point2D(pp, row));
         double const dp = point.getX() - detector.getX();
-        if (std::isfinite(point.getX()) && std::abs(dp) <= halfWidth + 0.5) {
+        // Use the 2*halfWidth + 1 pixels nearest the center (a symmetric window). The interval is half-open
+        // so that a center exactly on a half-pixel gets the same window as DetectorMap::getTracePositionImpl
+        // (which uses floor(x + 0.5)).
+        if (std::isfinite(point.getX()) && dp > -halfWidth - 0.5 && dp <= halfWidth + 0.5) {
             if (pMin == -1) {
                 pMin = pp;
             }

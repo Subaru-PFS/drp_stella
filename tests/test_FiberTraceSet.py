@@ -310,6 +310,113 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
             self.assertTrue(np.all(ss.variance > 0))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
 
+    def testExtractionVariance(self):
+        """Test that the extracted variance matches the scatter in the flux
+
+        The flux is measured without weighting by the inverse variance. When
+        the variance varies over the trace (e.g., a bright source dominated by
+        Poisson noise), the variance of that estimator is larger than the
+        inverse of the inverse-variance weighted matrix diagonal.
+        """
+        rng = np.random.default_rng(12345)
+        width, height = 64, 1000
+        sigma = 1.3
+        radius = 5
+        flux = 1.0e5  # bright, so the variance varies strongly over the trace
+        readNoise = 4.0
+        numRealizations = 50
+        centers = [15.3, 31.6, 47.1]
+        dims = lsst.geom.Extent2I(width, height)
+
+        traces = drpStella.FiberTraceSet(len(centers))
+        for ii, cc in enumerate(centers):
+            profile = drpStella.FiberProfile.makeGaussian(sigma, height, radius, 10)
+            traces.add(profile.makeFiberTrace(dims, lambda rows, cc=cc: np.full_like(rows, cc), ii + 1))
+
+        spectra = drpStella.SpectrumSet(len(traces), height)
+        for ss, tt in zip(spectra, traces):
+            ss.fiberId = tt.fiberId
+            ss.flux[:] = flux
+            ss.mask.array[:] = 0
+            ss.variance[:] = 0.0
+            ss.norm[:] = 1.0
+        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), dims)
+        model = spectra.makeImage(bbox, traces).array.astype(float)
+        variance = model + readNoise**2
+
+        fluxes = []
+        variances = []
+        for _ in range(numRealizations):
+            image = lsst.afw.image.MaskedImageF(bbox)
+            image.image.array[:] = model + rng.normal(size=model.shape)*np.sqrt(variance)
+            image.variance.array[:] = variance
+            image.mask.array[:] = 0
+            extracted = traces.extractSpectra(image, 0)
+            fluxes.append([ss.flux for ss in extracted])
+            variances.append([ss.variance for ss in extracted])
+        fluxes = np.array(fluxes)
+        variances = np.array(variances)
+
+        empirical = np.var(fluxes, axis=0, ddof=1).mean()
+        reported = variances.mean()
+        # Expect agreement to within the statistical uncertainty: ~sqrt(2/(numRealizations*height*3)) < 1%
+        self.assertFloatsAlmostEqual(empirical/reported, 1.0, atol=0.03)
+
+    def testExtractSubimage(self):
+        """Test extraction from an image with a non-zero xy0
+
+        The results for the rows and fibers covered by the sub-image should
+        match extraction from the full image. The traces overlap, and vary from
+        row to row, so this checks that the correct rows of the traces are used
+        for the normalization and the overlaps, and that overlaps extending
+        beyond the edge of the image are handled.
+        """
+        width, height = 64, 300
+        sigma = 1.3
+        radius = 5
+        flux = 1.0e4
+        centers = [10.2, 16.7, 23.1, 29.6, 36.0, 42.4, 48.9]  # Overlapping
+        dims = lsst.geom.Extent2I(width, height)
+
+        traces = drpStella.FiberTraceSet(len(centers))
+        rows = np.arange(height)
+        for ii, cc in enumerate(centers):
+            profile = drpStella.FiberProfile.makeGaussian(sigma, height, radius, 10)
+            trace = profile.makeFiberTrace(dims, lambda rr, cc=cc: np.full_like(rr, cc), ii + 1)
+            trace.trace.image.array *= (1.0 + rows/height + 0.1*ii)[:, np.newaxis]  # Vary from row to row
+            traces.add(trace)
+
+        spectra = drpStella.SpectrumSet(len(traces), height)
+        for ss, tt in zip(spectra, traces):
+            ss.fiberId = tt.fiberId
+            ss.flux[:] = flux
+            ss.mask.array[:] = 0
+            ss.variance[:] = 0.0
+            ss.norm[:] = 1.0
+        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), dims)
+        image = lsst.afw.image.MaskedImageF(bbox)
+        image.image.array[:] = spectra.makeImage(bbox, traces).array
+        image.variance.array[:] = 100.0
+        image.mask.array[:] = 0
+
+        full = traces.extractSpectra(image, 0)
+
+        # The sub-image cuts through the overlapping traces of the last few fibers
+        yStart, yStop = 100, 200
+        xStart, xStop = 3, 45
+        subBox = lsst.geom.Box2I(lsst.geom.Point2I(xStart, yStart), lsst.geom.Point2I(xStop - 1, yStop - 1))
+        sub = traces.extractSpectra(image.Factory(image, subBox, lsst.afw.image.PARENT), 0)
+
+        for ff, ss in zip(full, sub):
+            self.assertEqual(len(ss), yStop - yStart)
+            self.assertTrue(np.all(np.isfinite(ss.flux)))
+            self.assertTrue(np.all(np.isfinite(ss.variance)))
+        for ii in (1, 2, 3, 4):  # Fibers whose traces and neighbors' overlaps are entirely in the sub-image
+            self.assertFloatsAlmostEqual(sub[ii].norm, full[ii].norm[yStart:yStop], rtol=1.0e-6)
+            self.assertFloatsAlmostEqual(sub[ii].flux, full[ii].flux[yStart:yStop], rtol=1.0e-5)
+            # The extracted flux is in units of the trace normalization
+            self.assertFloatsAlmostEqual(sub[ii].flux, flux*sub[ii].norm, rtol=1.0e-4)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

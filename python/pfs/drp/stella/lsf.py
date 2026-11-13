@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from functools import partial, lru_cache
-from typing import TYPE_CHECKING
 from collections.abc import Callable, Iterable, Iterator
 import numbers
 import pickle
@@ -10,14 +9,12 @@ from scipy.interpolate import interp1d
 from scipy.integrate import trapezoid
 from numpy.typing import NDArray, ArrayLike
 
-from lsst.geom import Point2D, Point2I, Extent2I, Box2I
-from lsst.afw.image import ImageF, ImageD, MaskedImageF
+from lsst.geom import Point2D, Point2I, Box2I
+from lsst.afw.image import ImageF, ImageD
 from lsst.afw.math import FixedKernel
 from lsst.afw.geom.ellipses import Quadrupole, BaseCore
 
-from .FiberTraceSetContinued import FiberTraceSet
-
-__all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf", "ExtractionLsf",
+__all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf",
            "CoaddLsf", "LsfDict")
 
 # Default interpolator factory
@@ -32,9 +29,6 @@ Interpolator = Callable[[ArrayLike], ArrayLike]
 
 # Interpolator factory type
 InterpolatorFactory = Callable[[NDArray[FloatingPoint], NDArray[FloatingPoint]], Interpolator]
-
-if TYPE_CHECKING:
-    from pfs.drp.stella import SpectralPsf, FiberTrace
 
 
 class Kernel1D:
@@ -926,105 +920,6 @@ class FixedEmpiricalLsf(Lsf):
     def __reduce__(self):
         """Pickling"""
         return self.__class__, (self.kernel, self.length, self.interpolator)
-
-
-class ExtractionLsf(Lsf):
-    """LSF from extracting a PSF
-
-    Parameters
-    ----------
-    psf : `pfs.drp.stella.SpectralPsf`
-        Point-spread function for spectral data.
-    fiberTrace : `pfs.drp.stella.FiberTrace`
-        Fiber profile.
-    length : `int`
-        Array length.
-    """
-    def __init__(self, psf: "SpectralPsf", fiberTrace: "FiberTrace", length: int):
-        self.psf = psf
-        self.fiberTrace = fiberTrace
-        self.fiberId = fiberTrace.fiberId
-        super().__init__(length)
-
-    def computeKernel(self, center: float) -> Kernel1D:
-        """Return a kernel for the nominated position
-
-        Besides the difference in return types from the ``computeArray``
-        method (this returns a `Kernel1D`, while ``computeArray`` returns a
-        an array), this method provides a model for the LSF centered at zero.
-
-        This implementation realises the PSF and extracts it with the
-        fiberTrace. The difference from ``computeArray` is that this method
-        puts the center on the middle of a pixel.
-
-        Parameters
-        ----------
-        center : `float`, pixels
-            Position at which to evaluate the LSF. Not that it matters, as it's
-            the same everywhere.
-
-        Returns
-        -------
-        kernel : `Kernel1D`
-            Kernel with a model of the LSF at the nominated position.
-        """
-        detMap = self.psf.getDetectorMap()
-        xx = detMap.getXCenter(self.fiberId, center)
-        psfImage = MaskedImageF(self.psf.computeKernelImage(Point2D(xx, center)).convertF())
-        psfImage.variance.set(1.0)
-        xy0 = psfImage.getXY0()
-        psfImage.setXY0(xy0 + Extent2I(int(xx + 0.5), int(center + 0.5)))  # So extraction works properly
-        traces = FiberTraceSet(1)
-        traces.add(self.fiberTrace)
-        spectra = traces.extractSpectra(psfImage)
-        assert len(spectra) == 1
-        return Kernel1D(spectra[0].flux, -xy0.getY())
-
-    def computeArray(self, center: float) -> NDArray[FloatingPoint]:
-        """Return an array with the LSF inserted at the nominated position
-
-        Besides the difference in return types from the ``computeKernel``
-        method (this returns an array, while ``computeKernel`` returns a
-        `Kernel1D`), this method allows positioning of the LSF at sub-pixel
-        positions. This is the method you want to use if you want a model for
-        a particular line in a spectrum, e.g., to measure the flux and/or
-        subtract the line.
-
-        This implementation realises the PSF and extracts it with the
-        fiberTrace. The difference from ``computeKernel` is that this method
-        puts the center at the nominated position instead on the center of a
-        pixel.
-
-        Parameters
-        ----------
-        center : `float`, pixels
-            Position at which to insert the LSF.
-
-        Returns
-        -------
-        array : `numpy.ndarray`, floating-point, shape ``(self.length,)``
-            Array containing the LSF inserted.
-        """
-        detMap = self.psf.getDetectorMap()
-        xx = detMap.getXCenter(self.fiberId, center)
-        psfImage = MaskedImageF(self.psf.computeImage(Point2D(xx, center)).convertF())
-        psfImage.variance.set(1.0)
-        psfBox = psfImage.getBBox()
-        traces = FiberTraceSet(1)
-        traces.add(self.fiberTrace)
-        spectra = traces.extractSpectra(psfImage)
-        assert len(spectra) == 1
-        array = np.zeros(self.length)
-        yMin = max(psfBox.getMinY(), 0)
-        yMax = min(psfBox.getMaxY() + 1, self.length)
-        spectrum = spectra[0].flux[yMin - psfBox.getMinY():yMax - psfBox.getMinY()]
-        spectrum /= spectrum.sum()
-        array[yMin:yMax] = spectrum
-        return array
-
-    def __reduce__(self):
-        """Pickling"""
-        return self.__class__, (self.psf, self.fiberTrace, self.length)
 
 
 class NoLsfsError(RuntimeError):
