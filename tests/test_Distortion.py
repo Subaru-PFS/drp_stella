@@ -28,22 +28,46 @@ class DistortionTestCase(lsst.utils.tests.TestCase):
         self.xx = self.rng.uniform(self.range.getMinX(), self.range.getMaxX(), numPoints)
         self.yy = self.rng.uniform(self.range.getMinY(), self.range.getMaxY(), numPoints)
 
-    def makePolynomialDistortion(self) -> PolynomialDistortion:
-        """Construct a PolynomialDistortion with random coefficients"""
-        numCoeff = PolynomialDistortion.getNumDistortionForOrder(self.order)
-        xCoeff = self.rng.normal(size=numCoeff)
-        yCoeff = self.rng.normal(size=numCoeff)
-        return PolynomialDistortion(self.order, self.range, xCoeff, yCoeff)
+    def makePolynomialDistortion(
+        self, xOrder: int | None = None, yOrder: int | None = None
+    ) -> PolynomialDistortion:
+        """Construct a PolynomialDistortion with random coefficients
 
-    def makeMosaicPolynomialDistortion(self) -> MosaicPolynomialDistortion:
-        """Construct a MosaicPolynomialDistortion with random coefficients"""
-        numParams = MosaicPolynomialDistortion.getNumParametersForOrder(self.order)
-        return MosaicPolynomialDistortion(self.order, self.range, self.rng.normal(size=numParams))
+        The orders default to ``self.order``; if both are defaulted, the
+        single-order constructor is used.
+        """
+        if xOrder is None and yOrder is None:
+            numCoeff = PolynomialDistortion.getNumDistortionForOrder(self.order)
+            xCoeff = self.rng.normal(size=numCoeff)
+            yCoeff = self.rng.normal(size=numCoeff)
+            return PolynomialDistortion(self.order, self.range, xCoeff, yCoeff)
+        xOrder = self.order if xOrder is None else xOrder
+        yOrder = self.order if yOrder is None else yOrder
+        xCoeff = self.rng.normal(size=PolynomialDistortion.getNumDistortionForOrder(xOrder))
+        yCoeff = self.rng.normal(size=PolynomialDistortion.getNumDistortionForOrder(yOrder))
+        return PolynomialDistortion(xOrder, yOrder, self.range, xCoeff, yCoeff)
+
+    def makeMosaicPolynomialDistortion(
+        self, xOrder: int | None = None, yOrder: int | None = None
+    ) -> MosaicPolynomialDistortion:
+        """Construct a MosaicPolynomialDistortion with random coefficients
+
+        The orders default to ``self.order``; if both are defaulted, the
+        single-order constructor is used.
+        """
+        if xOrder is None and yOrder is None:
+            numParams = MosaicPolynomialDistortion.getNumParametersForOrder(self.order)
+            return MosaicPolynomialDistortion(self.order, self.range, self.rng.normal(size=numParams))
+        xOrder = self.order if xOrder is None else xOrder
+        yOrder = self.order if yOrder is None else yOrder
+        numParams = MosaicPolynomialDistortion.getNumParametersForOrder(xOrder, yOrder)
+        return MosaicPolynomialDistortion(xOrder, yOrder, self.range, self.rng.normal(size=numParams))
 
     def assertDistortionsEqual(self, left: Distortion, right: Distortion):
         """Assert that two distortions are identical"""
         self.assertIs(type(left), type(right))
-        self.assertEqual(left.getOrder(), right.getOrder())
+        self.assertEqual(left.getXOrder(), right.getXOrder())
+        self.assertEqual(left.getYOrder(), right.getYOrder())
         self.assertEqual(left.getRange(), right.getRange())
         np.testing.assert_array_equal(left.getCoefficients(), right.getCoefficients())
         np.testing.assert_array_equal(left(self.xx, self.yy), right(self.xx, self.yy))
@@ -130,8 +154,15 @@ class DistortionTestCase(lsst.utils.tests.TestCase):
         yMeas[~isLine] = 1.0e6  # Traces have no y measurement: this should be ignored
         xErr = np.where(isLine, 0.01, traceErr)
         yErr = np.full(num, 0.01, dtype=float)
+        if truth.getXOrder() == truth.getYOrder():
+            # Exercise the single-order interface
+            return type(truth).fit(
+                truth.getXOrder(), self.range, xx, yy, xMeas, yMeas, xErr, yErr, isLine,
+                forced=forced, params=params,
+            )
         return type(truth).fit(
-            self.order, self.range, xx, yy, xMeas, yMeas, xErr, yErr, isLine, forced=forced, params=params
+            truth.getXOrder(), truth.getYOrder(), self.range, xx, yy, xMeas, yMeas, xErr, yErr, isLine,
+            forced=forced, params=params,
         )
 
     def assertFitMatches(self, fit: Distortion, truth: Distortion):
@@ -148,6 +179,44 @@ class DistortionTestCase(lsst.utils.tests.TestCase):
         """Test fitting MosaicPolynomialDistortion"""
         truth = self.makeMosaicPolynomialDistortion()
         self.assertFitMatches(self.fitDistortion(truth), truth)
+
+    def testDifferentOrders(self):
+        """Test distortions with different orders in x and y"""
+        xOrder, yOrder = 4, 2
+        numX = PolynomialDistortion.getNumDistortionForOrder(xOrder)
+        numY = PolynomialDistortion.getNumDistortionForOrder(yOrder)
+        for truth, numParams in (
+            (self.makePolynomialDistortion(xOrder, yOrder), numX + numY),
+            (self.makeMosaicPolynomialDistortion(xOrder, yOrder), 6 + numX + numY),
+        ):
+            Class = type(truth)
+            with self.subTest(distortion=Class.__name__):
+                self.assertEqual(truth.getXOrder(), xOrder)
+                self.assertEqual(truth.getYOrder(), yOrder)
+                with self.assertRaises(RuntimeError):
+                    truth.getOrder()
+                self.assertEqual(Class.getNumParametersForOrder(xOrder, yOrder), numParams)
+                self.assertEqual(truth.getNumParameters(), numParams)
+                self.assertEqual(len(truth.getCoefficients()), numParams)
+                self.assertEqual(truth.getXNumDistortion(), numX)
+                self.assertEqual(truth.getYNumDistortion(), numY)
+                self.assertEqual(len(truth.getXCoefficients()), numX)
+                self.assertEqual(len(truth.getYCoefficients()), numY)
+                self.checkPersistence(truth)
+                self.assertFitMatches(self.fitDistortion(truth, numTraces=1000), truth)
+
+    def testSameOrders(self):
+        """Test that the single-order interfaces match the two-order ones"""
+        for Class in (PolynomialDistortion, MosaicPolynomialDistortion):
+            with self.subTest(distortion=Class.__name__):
+                self.assertEqual(
+                    Class.getNumParametersForOrder(self.order),
+                    Class.getNumParametersForOrder(self.order, self.order),
+                )
+        distortion = self.makePolynomialDistortion()
+        self.assertEqual(distortion.getOrder(), self.order)
+        self.assertEqual(distortion.getXOrder(), self.order)
+        self.assertEqual(distortion.getYOrder(), self.order)
 
     def testFitWithDominantTraces(self):
         """Test fitting when traces dominate the x measurements

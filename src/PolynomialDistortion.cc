@@ -26,55 +26,65 @@ namespace stella {
 
 
 PolynomialDistortion::PolynomialDistortion(
-    int order,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     PolynomialDistortion::Array1D const& coeff
-) : PolynomialDistortion(order, range, splitCoefficients(order, coeff))
+) : PolynomialDistortion(xOrder, yOrder, range, splitCoefficients(xOrder, yOrder, coeff))
 {}
 
 
 PolynomialDistortion::PolynomialDistortion(
-    int order,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     PolynomialDistortion::Array1D const& xCoeff,
     PolynomialDistortion::Array1D const& yCoeff
-) : AnalyticDistortion<PolynomialDistortion>(order, range, joinCoefficients(order, xCoeff, yCoeff)),
+) : AnalyticDistortion<PolynomialDistortion>(
+        xOrder, yOrder, range, joinCoefficients(xOrder, yOrder, xCoeff, yCoeff)
+    ),
     _xPoly(xCoeff, range),
     _yPoly(yCoeff, range)
 {}
 
 
-template<> std::size_t AnalyticDistortion<PolynomialDistortion>::getNumParametersForOrder(int order) {
-    return 2*PolynomialDistortion::getNumDistortionForOrder(order);
+template<> std::size_t AnalyticDistortion<PolynomialDistortion>::getNumParametersForOrder(
+    int xOrder, int yOrder
+) {
+    return PolynomialDistortion::getNumDistortionForOrder(xOrder)
+        + PolynomialDistortion::getNumDistortionForOrder(yOrder);
 }
 
 
-PolynomialDistortion::Array2D
+std::pair<ndarray::Array<double, 1, 1>, ndarray::Array<double, 1, 1>>
 PolynomialDistortion::splitCoefficients(
-    int order,
+    int xOrder,
+    int yOrder,
     ndarray::Array<double, 1, 1> const& coeff
 ) {
-    utils::checkSize(coeff.size(), PolynomialDistortion::getNumParametersForOrder(order), "coeff");
-    std::size_t const numDistortion = PolynomialDistortion::getNumDistortionForOrder(order);
-    Array2D split = ndarray::allocate(2, numDistortion);
-    for (std::size_t ii = 0; ii < 2; ++ii) {
-        split[ndarray::view(ii)] = coeff[ndarray::view(ii*numDistortion, (ii + 1)*numDistortion)];
-    }
-    return split;
+    std::size_t const xNumDistortion = PolynomialDistortion::getNumDistortionForOrder(xOrder);
+    std::size_t const yNumDistortion = PolynomialDistortion::getNumDistortionForOrder(yOrder);
+    utils::checkSize(coeff.size(), xNumDistortion + yNumDistortion, "coeff");
+
+    Array1D xCoeff = ndarray::copy(coeff[ndarray::view(0, xNumDistortion)]);
+    Array1D yCoeff = ndarray::copy(coeff[ndarray::view(xNumDistortion, xNumDistortion + yNumDistortion)]);
+    return std::make_pair(xCoeff, yCoeff);
 }
 
 
 PolynomialDistortion::Array1D PolynomialDistortion::joinCoefficients(
-    int order,
+    int xOrder,
+    int yOrder,
     PolynomialDistortion::Array1D const& xCoeff,
     PolynomialDistortion::Array1D const& yCoeff
 ) {
-    std::size_t const numDistortion = getNumDistortionForOrder(order);
-    utils::checkSize(xCoeff.size(), numDistortion, "xCoeff");
-    utils::checkSize(yCoeff.size(), numDistortion, "yCoeff");
-    Array1D coeff = ndarray::allocate(2*numDistortion);
-    coeff[ndarray::view(0, numDistortion)] = xCoeff;
-    coeff[ndarray::view(numDistortion, 2*numDistortion)] = yCoeff;
+    std::size_t const xNumDistortion = getNumDistortionForOrder(xOrder);
+    std::size_t const yNumDistortion = getNumDistortionForOrder(yOrder);
+    utils::checkSize(xCoeff.size(), xNumDistortion, "xCoeff");
+    utils::checkSize(yCoeff.size(), yNumDistortion, "yCoeff");
+    Array1D coeff = ndarray::allocate(xNumDistortion + yNumDistortion);
+    coeff[ndarray::view(0, xNumDistortion)] = xCoeff;
+    coeff[ndarray::view(xNumDistortion, xNumDistortion + yNumDistortion)] = yCoeff;
     return coeff;
 }
 
@@ -112,7 +122,8 @@ PolynomialDistortion::Array1D PolynomialDistortion::getYCoefficients() const {
 
 std::ostream& operator<<(std::ostream& os, PolynomialDistortion const& model) {
     os << "PolynomialDistortion(";
-    os << "order=" << model.getOrder() << ", ";
+    os << "xOrder=" << model.getXOrder() << ", ";
+    os << "yOrder=" << model.getYOrder() << ", ";
     os << "range=" << model.getRange() << ", ";
     os << "xCoeff=" << model.getXCoefficients() << ", ";
     os << "yCoeff=" << model.getYCoefficients() << ")";
@@ -122,7 +133,8 @@ std::ostream& operator<<(std::ostream& os, PolynomialDistortion const& model) {
 
 template<>
 PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
-    int distortionOrder,
+    int xOrder,
+    int yOrder,
     lsst::geom::Box2D const& range,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
@@ -145,13 +157,15 @@ PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     utils::checkSize(yErr.size(), length, "yErr");
     utils::checkSize(isLine.size(), length, "isLine");
 
-    PolynomialDistortion::Polynomial const poly(distortionOrder, range);
-    std::size_t const numPoly = poly.getNParameters();
+    PolynomialDistortion::Polynomial const xPoly(xOrder, range);
+    PolynomialDistortion::Polynomial const yPoly(yOrder, range);
+    std::size_t const xNumPoly = xPoly.getNParameters();
+    std::size_t const yNumPoly = yPoly.getNParameters();
     if (!forced.isEmpty()) {
-        utils::checkSize(forced.size(), 2*numPoly, "forced");
+        utils::checkSize(forced.size(), xNumPoly + yNumPoly, "forced");
     }
     if (!params.isEmpty()) {
-        utils::checkSize(params.size(), 2*numPoly, "params");
+        utils::checkSize(params.size(), xNumPoly + yNumPoly, "params");
     }
 
     // The x and y dimensions are independent, so we fit them separately. This
@@ -159,16 +173,18 @@ PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     // that dimension only, which is important when the number of measurements
     // in each dimension is very different (traces only provide x).
     std::size_t const numLines = std::count(isLine.begin(), isLine.end(), true);
-    Array2D xDesign = ndarray::allocate(length, numPoly);
-    Array2D yDesign = ndarray::allocate(numLines, numPoly);
+    Array2D xDesign = ndarray::allocate(length, xNumPoly);
+    Array2D yDesign = ndarray::allocate(numLines, yNumPoly);
     Array1D yMeasLines = ndarray::allocate(numLines);
     Array1D yErrLines = ndarray::allocate(numLines);
     for (std::size_t ii = 0, jj = 0; ii < length; ++ii) {
-        auto const terms = poly.getDFuncDParameters(xx[ii], yy[ii]);
-        assert(terms.size() == numPoly);
-        std::copy(terms.begin(), terms.end(), xDesign[ii].begin());
+        auto const xTerms = xPoly.getDFuncDParameters(xx[ii], yy[ii]);
+        assert(xTerms.size() == xNumPoly);
+        std::copy(xTerms.begin(), xTerms.end(), xDesign[ii].begin());
         if (isLine[ii]) {
-            std::copy(terms.begin(), terms.end(), yDesign[jj].begin());
+            auto const yTerms = yPoly.getDFuncDParameters(xx[ii], yy[ii]);
+            assert(yTerms.size() == yNumPoly);
+            std::copy(yTerms.begin(), yTerms.end(), yDesign[jj].begin());
             yMeasLines[jj] = yMeas[ii];
             yErrLines[jj] = yErr[ii];
             ++jj;
@@ -176,10 +192,10 @@ PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
     }
 
     // forced and params are ordered: x coefficients, y coefficients
-    std::vector<std::size_t> xIndices(numPoly);
-    std::vector<std::size_t> yIndices(numPoly);
+    std::vector<std::size_t> xIndices(xNumPoly);
+    std::vector<std::size_t> yIndices(yNumPoly);
     std::iota(xIndices.begin(), xIndices.end(), 0);
-    std::iota(yIndices.begin(), yIndices.end(), numPoly);
+    std::iota(yIndices.begin(), yIndices.end(), xNumPoly);
 
     Array1D const xSolution = math::solveLeastSquaresDesign(
         xDesign, xMeas, xErr, threshold,
@@ -189,7 +205,7 @@ PolynomialDistortion AnalyticDistortion<PolynomialDistortion>::fit(
         yDesign, yMeasLines, yErrLines, threshold,
         detail::takeOptional(forced, yIndices), detail::takeOptional(params, yIndices)
     );
-    return PolynomialDistortion(distortionOrder, range, xSolution, ySolution);
+    return PolynomialDistortion(xOrder, yOrder, range, xSolution, ySolution);
 }
 
 
@@ -201,7 +217,8 @@ class PolynomialDistortionSchema {
     using DoubleArray = lsst::afw::table::Array<double>;
   public:
     lsst::afw::table::Schema schema;
-    lsst::afw::table::Key<int> distortionOrder;
+    lsst::afw::table::Key<int> xOrder;
+    lsst::afw::table::Key<int> yOrder;
     lsst::afw::table::Box2DKey range;
     lsst::afw::table::Key<DoubleArray> coefficients;
     lsst::afw::table::Key<int> visitInfo;
@@ -214,7 +231,8 @@ class PolynomialDistortionSchema {
   private:
     PolynomialDistortionSchema()
       : schema(),
-        distortionOrder(schema.addField<int>("distortionOrder", "polynomial order for distortion", "")),
+        xOrder(schema.addField<int>("xOrder", "polynomial order for x distortion", "")),
+        yOrder(schema.addField<int>("yOrder", "polynomial order for y distortion", "")),
         range(lsst::afw::table::Box2DKey::addFields(schema, "range", "range of input values", "pixel")),
         coefficients(schema.addField<DoubleArray>("coefficients", "distortion coefficients", "", 0))
         {}
@@ -227,7 +245,8 @@ void PolynomialDistortion::write(lsst::afw::table::io::OutputArchiveHandle & han
     PolynomialDistortionSchema const &schema = PolynomialDistortionSchema::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     std::shared_ptr<lsst::afw::table::BaseRecord> record = cat.addNew();
-    record->set(schema.distortionOrder, getOrder());
+    record->set(schema.xOrder, getXOrder());
+    record->set(schema.yOrder, getYOrder());
     record->set(schema.range, getRange());
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getCoefficients());
     record->set(schema.coefficients, xCoeff);
@@ -246,11 +265,12 @@ class PolynomialDistortion::Factory : public lsst::afw::table::io::PersistableFa
         lsst::afw::table::BaseRecord const& record = catalogs.front().front();
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
 
-        int const distortionOrder = record.get(schema.distortionOrder);
+        int const xOrder = record.get(schema.xOrder);
+        int const yOrder = record.get(schema.yOrder);
         lsst::geom::Box2D const range = record.get(schema.range);
         ndarray::Array<double, 1, 1> coeff = ndarray::copy(record.get(schema.coefficients));
 
-        return std::make_shared<PolynomialDistortion>(distortionOrder, range, coeff);
+        return std::make_shared<PolynomialDistortion>(xOrder, yOrder, range, coeff);
     }
 
     Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}

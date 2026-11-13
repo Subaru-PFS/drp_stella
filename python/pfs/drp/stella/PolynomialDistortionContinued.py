@@ -29,7 +29,8 @@ class PolynomialDistortion:  # noqa: F811 (redefinition)
             raise RuntimeError(f"Wrong type: {distortion}")
         box = distortion.box
         return cls(
-            distortion.order,
+            distortion.xOrder,
+            distortion.yOrder,
             Box2D(Point2D(box.xMin, box.yMin), Point2D(box.xMax, box.yMax)),
             distortion.xCoefficients,
             distortion.yCoefficients,
@@ -40,11 +41,12 @@ class PolynomialDistortion:  # noqa: F811 (redefinition)
 
         Returns
         -------
-        distortion : `pfs.datamodel.RotScaleDistortion`
-            Datamodel representation of RotScaleDistortion.
+        distortion : `pfs.datamodel.PolynomialDistortion`
+            Datamodel representation of PolynomialDistortion.
         """
         return pfs.datamodel.PolynomialDistortion(
-            self.getOrder(),
+            self.getXOrder(),
+            self.getYOrder(),
             pfs.datamodel.Box.fromLsst(self.getRange()),
             self.getXCoefficients(),
             self.getYCoefficients(),

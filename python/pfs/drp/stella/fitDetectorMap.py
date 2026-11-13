@@ -264,7 +264,8 @@ class FitDetectorMapConfig(Config):
     traceIterations = Field(dtype=int, default=1, doc="Number of iterations for updating trace wavleengths")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
-    order = Field(dtype=int, default=7, doc="Distortion order")
+    xOrder = Field(dtype=int, default=7, doc="Distortion order in x")
+    yOrder = Field(dtype=int, default=7, doc="Distortion order in y")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
     soften = Field(dtype=float, default=0.003, doc="Systematic error to apply")
     lsqThreshold = Field(dtype=float, default=1.0e-6, doc="Eigenvaluethreshold for solving least-squares")
@@ -348,6 +349,19 @@ class FitDetectorMapConfig(Config):
         doc="Number of iterations for measuring slit offsets when refitting the detectorMap after applying "
         "the detector correction (starting from the previous slit offsets)",
     )
+
+    @property
+    def order(self):
+        """Get common distortion order, for backward compatibility"""
+        if self.xOrder != self.yOrder:
+            raise RuntimeError("Order is not the same")
+        return self.xOrder
+
+    @order.setter
+    def order(self, value):
+        """Set common distortion order, for backward compatibility"""
+        self.xOrder = value
+        self.yOrder = value
 
 
 class FitDetectorMapTask(Task):
@@ -688,7 +702,8 @@ class FitDetectorMapTask(Task):
             )
             rightCcd = distortion.getAffine()*renormalize
             distortion = PolynomialDistortion(
-                distortion.getOrder(),
+                distortion.getXOrder(),
+                distortion.getYOrder(),
                 distortion.getRange(),
                 distortion.getXCoefficients(),
                 distortion.getYCoefficients(),
@@ -1549,7 +1564,8 @@ class FitDetectorMapTask(Task):
             Distortion model that was fit to the data.
         """
         return DistortionClass.fit(
-            self.config.order,
+            self.config.xOrder,
+            self.config.yOrder,
             bbox,
             xBase,
             yBase,
@@ -1626,7 +1642,8 @@ class FitDetectorMapTask(Task):
         if not np.any(onRightCcd):
             return correction
         poly = PolynomialDistortion(
-            distortion.getOrder(),
+            distortion.getXOrder(),
+            distortion.getYOrder(),
             distortion.getRange(),
             distortion.getXCoefficients(),
             distortion.getYCoefficients(),
