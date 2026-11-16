@@ -11,6 +11,7 @@ def combineSpectraSets(
     flags: MaskHelper,
     badMasks: List[str],
     suspectMasks: Optional[List[str]] = None,
+    weights: Optional[List[np.ndarray]] = None,
 ) -> Struct:
     """Combine spectra
 
@@ -26,6 +27,10 @@ def combineSpectraSets(
     suspectMasks : `list` of `str`, optional
         Mask planes to exclude from the combination unless they provide the only
         non-bad pixels.
+    weights : `list` of `numpy.ndarray` of `float`, optional
+        Inverse-variance weights for each of the ``spectra`` (in units of the
+        inverse of the ``spectra`` variance), e.g., from ``ModelWeightsTask``.
+        If not provided, the inverse of the measured variance is used.
 
     Returns
     -------
@@ -43,6 +48,8 @@ def combineSpectraSets(
         Mask for combined spectrum.
     """
     archetype = spectra[0]
+    if weights is not None and len(weights) != len(spectra):
+        raise RuntimeError(f"Length mismatch between spectra ({len(spectra)}) and weights ({len(weights)})")
 
     def makeData():
         """Make a Struct to hold the combination data"""
@@ -63,7 +70,7 @@ def combineSpectraSets(
         badMasks = list(badMasks) + list(suspectMasks)  # Don't use suspect masks unless necessary
         suspectData = makeData()
 
-    def accumulate(data, spectrum, weight, select):
+    def accumulate(data, spectrum, weight, variance, select):
         """Accumulate a spectrum into the combination
 
         Parameters
@@ -74,6 +81,8 @@ def combineSpectraSets(
             Spectrum to accumulate.
         weight : `numpy.ndarray` of `float`
             Weights for each pixel.
+        variance : `numpy.ndarray` of `float`
+            Normalised variance for each pixel.
         select : `numpy.ndarray` of `bool`
             Pixels to accumulate.
         """
@@ -82,26 +91,31 @@ def combineSpectraSets(
             data.flux[select] += spectrum.flux[select]*factor
             data.sky[select] += spectrum.sky[select]*factor
             data.norm[select] += spectrum.norm[select]*weight[select]
+            data.covar[:, 0][select] += variance[select]*weight[select]**2
         data.mask[select] |= spectrum.mask[select]
         data.count[select] += 1
         data.sumWeights[select] += weight[select]
 
-    for ss in spectra:
+    for ii, ss in enumerate(spectra):
         with np.errstate(invalid="ignore", divide="ignore"):
             variance = ss.variance/ss.norm**2
             goodVariance = np.isfinite(variance) & (variance > 0)
+            if weights is not None:
+                weight = weights[ii]*ss.norm**2
+                goodVariance &= np.isfinite(weight) & (weight > 0)
+            else:
+                weight = 1.0/variance
         good = ((ss.mask & ss.flags.get(*badMasks)) == 0) & goodVariance  # Use freely
         suspect = None
         if suspectMasks:
             suspect = ((ss.mask & ss.flags.get(*suspectMasks)) != 0) & goodVariance  # Use if we're desperate
         bad = ((ss.mask & ss.flags.get(*badMasks)) != 0) & goodVariance
 
-        weight = np.zeros_like(ss.flux)
-        weight[goodVariance] = 1.0/variance[goodVariance]
-        accumulate(goodData, ss, weight, good)
+        weight = np.where(goodVariance, weight, 0.0)
+        accumulate(goodData, ss, weight, variance, good)
         if suspectMasks and np.any(suspect):
-            accumulate(suspectData, ss, weight, suspect)
-        accumulate(badData, ss, weight, bad)
+            accumulate(suspectData, ss, weight, variance, suspect)
+        accumulate(badData, ss, weight, variance, bad)
 
     def calculate(target, source, select):
         """Calculate the final combined spectrum
@@ -120,7 +134,7 @@ def combineSpectraSets(
             target.flux[select] = source.flux[select]*factor
             target.sky[select] = source.sky[select]*factor
             target.norm[select] = source.norm[select]*factor
-            target.covar[:, 0][select] = factor
+            target.covar[:, 0][select] = source.covar[:, 0][select]*factor**2
 
     good = (goodData.count > 0) & (goodData.sumWeights > 0)
     calculate(goodData, goodData, good)
