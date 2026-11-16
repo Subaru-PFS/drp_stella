@@ -29,6 +29,7 @@ from .lsf import LsfDict, CoaddLsf
 from .SpectrumContinued import Spectrum
 from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
 from .fitContinuum import FitContinuumTask
+from .modelWeights import ModelWeightsTask, resampleWeights
 from .subtractSky1d import subtractSky1d
 from .barycentricCorrection import applyBarycentricCorrection
 from .wavelengthSampling import WavelengthSamplingTask
@@ -102,6 +103,16 @@ class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnectio
         ],
     )
     doBarycentricCorrection = Field(dtype=bool, default=True, doc="Apply barycentric correction to sky data?")
+    doModelWeights = Field(
+        dtype=bool,
+        default=True,
+        doc=(
+            "Weight by the inverse of a model variance when combining arms? Otherwise, weight by the inverse "
+            "of the measured variance, which biases the combination low because the measured variance is "
+            "correlated with the noise."
+        ),
+    )
+    modelWeights = ConfigurableField(target=ModelWeightsTask, doc="Model inverse-variance weights")
 
     def setDefaults(self):
         super().setDefaults()
@@ -122,6 +133,7 @@ class MergeArmsTask(PipelineTask):
     selectSky: SelectFibersTask
     fitSkyModel: FitBlockedOversampledSplineTask
     fitContinuum: FitContinuumTask
+    modelWeights: ModelWeightsTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -129,6 +141,7 @@ class MergeArmsTask(PipelineTask):
         self.makeSubtask("selectSky")
         self.makeSubtask("fitSkyModel")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("modelWeights")
         self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, spectra, pfsConfig, lsfList, haveMedRes: bool = False):
@@ -173,8 +186,15 @@ class MergeArmsTask(PipelineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
+        # The pfsArm spectra are in units of counts; record the factor applied by the normalisation, so we
+        # can model the variance in units of counts.
+        originalNorms = [[ss.norm.copy() for ss in spec] for spec in spectra]
         for spec in spectra:
             self.normalizeSpectra(spec, wavelength)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            scales = [
+                [ss.norm/nn for ss, nn in zip(spec, norms)] for spec, norms in zip(spectra, originalNorms)
+            ]
 
         md = allSpectra[0].metadata
         haveSky = not getLamps(md)  # No lamps probably means sky exposure, but might be a dark
@@ -216,7 +236,8 @@ class MergeArmsTask(PipelineTask):
             else:
                 self.log.warn("Skipping barycentric correction for lamp exposure")
 
-        spectrographs = [self.mergeSpectra(ss, wavelength) for ss in spectra]  # Merge in wavelength
+        # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss, wavelength, sc) for ss, sc in zip(spectra, scales)]
         metadata = allSpectra[0].metadata.copy()
         metadata.update(getPfsVersions())
         merged = PfsMerged.fromMerge(spectrographs, metadata=metadata)  # Merge across spectrographs
@@ -366,7 +387,7 @@ class MergeArmsTask(PipelineTask):
 
         return norm
 
-    def mergeSpectra(self, spectraList, wavelength: np.ndarray):
+    def mergeSpectra(self, spectraList, wavelength: np.ndarray, scaleList=None):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -378,6 +399,10 @@ class MergeArmsTask(PipelineTask):
             List of spectra to coadd.
         wavelength : `np.ndarray`
             Wavelength array to which to resample.
+        scaleList : iterable of `numpy.ndarray` of `float`, optional
+            Factor converting counts to the units of each of the spectra, used
+            for modeling the variance (see ``ModelWeightsTask``). This is
+            important near dichroics, where the throughput falls steeply.
 
         Returns
         -------
@@ -390,16 +415,24 @@ class MergeArmsTask(PipelineTask):
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
-        resampled = [
-            ss.resample(
-                wavelength,
-                order=self.config.resampleOrder,
-                minWeight=self.config.resampleMinWeight,
-                bad=self.config.mask,
-            ) for ss in spectraList
-        ]
+        resampleKwargs = dict(
+            order=self.config.resampleOrder,
+            minWeight=self.config.resampleMinWeight,
+            bad=self.config.mask,
+        )
+        resampled = [ss.resample(wavelength, **resampleKwargs) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
-        combination = combineSpectraSets(resampled, flags, self.config.mask, self.config.suspect)
+        weights = None
+        if self.config.doModelWeights:
+            # Model the variance at the original sampling, where the pixels are independent, and then
+            # resample the weights in the same way as the spectra.
+            if scaleList is None:
+                scaleList = [None]*len(spectraList)
+            weights = [
+                resampleWeights(ss, self.modelWeights.run(ss, scale), wavelength, **resampleKwargs)
+                for ss, scale in zip(spectraList, scaleList, strict=True)
+            ]
+        combination = combineSpectraSets(resampled, flags, self.config.mask, self.config.suspect, weights)
 
         notes = PfsMerged.NotesClass.empty(len(archetype))
         for name in self.config.notesCopyFirst:
