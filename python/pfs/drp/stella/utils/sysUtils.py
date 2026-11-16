@@ -3,9 +3,6 @@ import re
 import sys
 import importlib
 import numpy as np
-import pandas as pd
-import psycopg2
-import warnings
 
 import astropy.io.fits
 import lsst.afw.fits
@@ -15,26 +12,7 @@ from pfs.utils.coordinates.transform import makePfiTransform
 from pfs.datamodel import FiberStatus, TargetType
 
 __all__ = ["headerToMetadata", "metadataToHeader", "getPfsVersions", "processConfigListFromCmdLine",
-           "pd_read_sql", "makePfiTransformFromOpdb", "getHomeVisits", "getTimeForVisits", "calculateNxNy"]
-
-
-def pd_read_sql(sql_query: str, db_conn: psycopg2.extensions.connection,
-                showQuery: bool = False) -> pd.DataFrame:
-    """Execute SQL Query and get Dataframe with pandas
-
-    Works around (harmless but annoying) pandas warning telling me to use sqlalchemy to access postgres
-    """
-
-    if showQuery:
-        print(sql_query)
-
-    with warnings.catch_warnings():
-        # ignore warning for non-SQLAlchemy Connecton
-        # see github.com/pandas-dev/pandas/issues/45660
-        warnings.simplefilter('ignore', UserWarning)
-        # create pandas DataFrame from database query
-        df = pd.read_sql_query(sql_query, db_conn)
-    return df
+           "makePfiTransformFromOpdb", "getHomeVisits", "getTimeForVisits", "calculateNxNy"]
 
 
 def getPfsVersions(prefix="VERSION_"):
