@@ -27,6 +27,7 @@ from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
 from .lsf import Lsf, LsfDict, CoaddLsf
+from .modelWeights import ModelWeightsTask, resampleWeights
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -135,6 +136,15 @@ class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraCon
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     objId = ListField(dtype=int, default=[], doc="Object IDs to process; empty for all")
+    doModelWeights = Field(
+        dtype=bool,
+        default=True,
+        doc=(
+            "Weight by the inverse of a model variance? Otherwise, weight by the inverse of the measured "
+            "variance, which biases the coadd low because the measured variance is correlated with the noise."
+        ),
+    )
+    modelWeights = ConfigurableField(target=ModelWeightsTask, doc="Model inverse-variance weights")
 
 
 class CoaddSpectraTask(PipelineTask):
@@ -143,11 +153,13 @@ class CoaddSpectraTask(PipelineTask):
     ConfigClass = CoaddSpectraConfig
 
     fluxTable: FluxTableTask
+    modelWeights: ModelWeightsTask
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("wavelength")
         self.makeSubtask("fluxTable")
+        self.makeSubtask("modelWeights")
 
     def run(self, data: Mapping[Identity, Struct]) -> Struct:
         """Coadd multiple observations
@@ -324,7 +336,39 @@ class CoaddSpectraTask(PipelineTask):
             visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter, obsTime, expTime
         )
 
-    def getSpectrum(self, target: Target, data: Struct) -> PfsSingle:
+    def calibrate(self, spectrum: PfsArm, data: Struct) -> Struct:
+        """Calibrate the spectrum of a single target
+
+        Parameters
+        ----------
+        spectrum : `PfsArm`
+            Spectrum of the target (a single fiber), in units of counts. This
+            will be modified.
+        data : `Struct`
+            Data for the pfsArm containing the target.
+
+        Returns
+        -------
+        spectrum : `PfsSingle`
+            Calibrated spectrum of the target.
+        weights : `numpy.ndarray` of `float`, or `None`
+            Inverse-variance weights for the calibrated spectrum, from a model
+            of the variance (see ``ModelWeightsTask``), or `None` if
+            ``doModelWeights`` is disabled.
+        """
+        norm = spectrum.norm.copy()
+        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
+        # calibratePfsArm divides by the norm and the flux calibration (the dispersion cancels)
+        cal = data.fluxCal(spectrum.wavelength, data.pfsConfig.select(fiberId=spectrum.fiberId))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            scale = 1.0/(norm*np.asarray(cal.values))
+        single = spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
+        # Model the variance at the original sampling, where the pixels are independent. The throughput
+        # falls steeply near the dichroics, so we model the variance in units of counts.
+        weights = self.modelWeights.run(single, scale[0]) if self.config.doModelWeights else None
+        return Struct(spectrum=single, weights=weights)
+
+    def getSpectrum(self, target: Target, data: Struct) -> Struct:
         """Return a calibrated spectrum for the nominated target
 
         Parameters
@@ -338,20 +382,12 @@ class CoaddSpectraTask(PipelineTask):
         -------
         spectrum : `PfsSingle`
             Calibrated spectrum of the target.
+        weights : `numpy.ndarray` of `float`, or `None`
+            Inverse-variance weights for the calibrated spectrum, or `None` to
+            use the measured variance.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
-        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
-
-        if False:
-            from scipy.signal import medfilt
-            from .utils.math import robustRms
-            spectrum.flux[0] -= medfilt(spectrum.flux[0], kernel_size=51)
-
-            select = (spectrum.wavelength > 400) & (spectrum.wavelength < 550)
-            if np.any(select):
-                print(robustRms((spectrum.flux/np.sqrt(spectrum.variance[0]))[select], True))
-
-        return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
+        return self.calibrate(spectrum, data)
 
     def process(self, target: Target, data: Dict[Identity, Struct]) -> Struct:
         """Generate coadded spectra for a single target
@@ -376,10 +412,11 @@ class CoaddSpectraTask(PipelineTask):
         observations = self.getObservations(data.keys(), pfsConfigList)
         wavelength = self.wavelength.run(any(ident.arm == "m" for ident in data))
 
-        spectra = [self.getSpectrum(target, dd) for dd in data.values()]
+        calibrated = [self.getSpectrum(target, dd) for dd in data.values()]
+        spectra = [cc.spectrum for cc in calibrated]
         lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
-        combination = self.combine(spectra, lsfList, flags, wavelength)
+        combination = self.combine(spectra, lsfList, flags, wavelength, [cc.weights for cc in calibrated])
         fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra)
 
         coadd = PfsObject(target, observations, combination.wavelength, combination.flux,
@@ -387,7 +424,7 @@ class CoaddSpectraTask(PipelineTask):
                           getPfsVersions(), fluxTable)
         return Struct(pfsObject=coadd, pfsObjectLsf=combination.lsf)
 
-    def combine(self, spectraList, lsfList, flags, wavelength: np.ndarray):
+    def combine(self, spectraList, lsfList, flags, wavelength: np.ndarray, weightsList=None):
         """Combine spectra
 
         Parameters
@@ -400,6 +437,11 @@ class CoaddSpectraTask(PipelineTask):
             Mask interpreter, for identifying bad pixels.
         wavelength : `np.ndarray`
             Wavelength array for the combined spectrum.
+        weightsList : iterable of (`numpy.ndarray` of `float` or `None`), optional
+            Inverse-variance weights for each spectrum, at the original
+            sampling (see ``ModelWeightsTask``). These are resampled along with
+            the spectra. If `None` (for all spectra, or for an individual
+            spectrum), we weight by the inverse of the measured variance.
 
         Returns
         -------
@@ -416,19 +458,25 @@ class CoaddSpectraTask(PipelineTask):
         resampled = []
         resampledLsf = []
         resampledRange = []
+        resampledWeights = []
         numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
-        for spectrum, lsf in zip(spectraList, lsfList):
+        if weightsList is None:
+            weightsList = [None]*len(spectraList)
+        resampleKwargs = dict(
+            order=self.config.resampleOrder,
+            minWeight=self.config.resampleMinWeight,
+            bad=self.config.mask,
+        )
+        for spectrum, lsf, weights in zip(spectraList, lsfList, weightsList, strict=True):
             fiberId = spectrum.observations.fiberId[0]
-            resampled.append(spectrum.resample(
-                wavelength,
-                order=self.config.resampleOrder,
-                minWeight=self.config.resampleMinWeight,
-                bad=self.config.mask,
-            ))
+            resampled.append(spectrum.resample(wavelength, **resampleKwargs))
             resampledLsf.append(lsf[fiberId].warp(spectrum.wavelength, wavelength))
             minIndex = np.searchsorted(wavelength, spectrum.wavelength[0])
             maxIndex = np.searchsorted(wavelength, spectrum.wavelength[-1])
             resampledRange.append((minIndex, maxIndex))
+            resampledWeights.append(
+                None if weights is None else resampleWeights(spectrum, weights, wavelength, **resampleKwargs)
+            )
         assert all(rr.covar.shape[0] == numCovar for rr in resampled)
 
         # Now do a weighted coaddition
@@ -445,8 +493,13 @@ class CoaddSpectraTask(PipelineTask):
         for ii, ss in enumerate(resampled):
             weight = np.zeros_like(flux)
             with np.errstate(invalid="ignore", divide="ignore"):
+                if resampledWeights[ii] is not None:
+                    pixelWeights = resampledWeights[ii]
+                else:
+                    pixelWeights = 1.0/ss.covar[0]
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
-                ww = 1.0 / ss.covar[0][good]
+                good &= np.isfinite(pixelWeights) & (pixelWeights > 0)
+                ww = pixelWeights[good]
                 weight[good] = ww
                 flux[good] += ss.flux[good]*ww
                 sky[good] += ss.sky[good]*ww
