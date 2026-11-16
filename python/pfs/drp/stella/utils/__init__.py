@@ -8,7 +8,7 @@ import importlib.util
 # ``import *`` exports nothing, as before: listing the lazy names would rot.
 __all__ = []
 
-_LAZY_MODULES = ("asinhNorm", "display", "fiberProfiles", "guiders", "math", "plotting", "sunss", "sysUtils")
+_LAZY_MODULES = ("asinhNorm", "display", "fiberProfiles", "math", "plotting", "sunss", "sysUtils")
 
 
 def __getattr__(name):
