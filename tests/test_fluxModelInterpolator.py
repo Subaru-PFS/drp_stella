@@ -85,6 +85,32 @@ class PCAFluxModelInterpolatorTestCase(lsst.utils.tests.TestCase):
         # The original should be unaffected
         self.assertEqual(self.model.interpolator(xx).shape, fullCoeff.shape)
 
+    def testBinnedInterpolator(self):
+        """Test that getBinnedInterpolator matches binning the full model"""
+        self.assertIs(self.model.getBinnedInterpolator(1), self.model)
+        with self.assertRaises(ValueError):
+            self.model.getBinnedInterpolator(0)
+
+        full = self.model.interpolate(**self.param)
+        for binning in (2, 3, 7):
+            length = len(full.flux) // binning
+            binned = self.model.getBinnedInterpolator(binning).interpolate(**self.param)
+            self.assertEqual(len(binned.flux), length)
+            self.assertIsInstance(binned.wavelength, WavelengthArray)
+            expectFlux = full.flux[: length * binning].reshape(length, binning).mean(axis=1)
+            expectWavelength = full.wavelength[: length * binning].reshape(length, binning).mean(axis=1)
+            self.assertFloatsAlmostEqual(binned.flux, expectFlux, atol=1.0e-12)
+            self.assertFloatsAlmostEqual(binned.wavelength, expectWavelength, atol=1.0e-9)
+
+        # Binning and truncation should commute
+        smallerBinned = self.model.getSmallerInterpolator(5).getBinnedInterpolator(3)
+        binnedSmaller = self.model.getBinnedInterpolator(3).getSmallerInterpolator(5)
+        self.assertFloatsAlmostEqual(
+            smallerBinned.interpolate(**self.param).flux,
+            binnedSmaller.interpolate(**self.param).flux,
+            atol=1.0e-12,
+        )
+
 
 def setup_module(module):
     lsst.utils.tests.init()
