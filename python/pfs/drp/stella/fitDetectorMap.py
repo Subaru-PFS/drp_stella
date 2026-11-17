@@ -1170,8 +1170,22 @@ class FitDetectorMapTask(Task):
         isLine = ~isTrace
         points = np.full((len(lines), 2), np.nan, dtype=float)
         points[isLine] = base.findPoint(lines.fiberId[isLine], lines.wavelength[isLine])
-        points[:, 0][isTrace] = base.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
-        points[:, 1][isTrace] = lines.y[isTrace]
+        # Traces are evaluated at their wavelength, not their row: the fitted distortion moves a trace
+        # along itself (in y) as well as across (in x), so the same row in the base and in the final
+        # detectorMap don't correspond. Only the x position of a trace is used in the fit.
+        traceIndex = np.flatnonzero(isTrace)
+        hasWavelength = np.isfinite(lines.wavelength[traceIndex])
+        withWavelength = traceIndex[hasWavelength]
+        withoutWavelength = traceIndex[~hasWavelength]
+        if withWavelength.size > 0:
+            points[withWavelength] = base.findPoint(
+                lines.fiberId[withWavelength], lines.wavelength[withWavelength]
+            )
+        if withoutWavelength.size > 0:
+            points[withoutWavelength, 0] = base.getXCenter(
+                lines.fiberId[withoutWavelength], lines.y[withoutWavelength]
+            )
+            points[withoutWavelength, 1] = lines.y[withoutWavelength]
         xx = lines.x
         yy = lines.y
 
