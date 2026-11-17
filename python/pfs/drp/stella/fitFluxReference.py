@@ -2141,8 +2141,7 @@ def spectrumToSpectrumSet(spectrum: PfsSimpleSpectrum, snr: float) -> SpectrumSe
         result.variance[:] = spectrum.variance
     else:
         result.variance[:] = (np.nanmedian(spectrum.flux) / snr) ** 2
-    # Assign in place, as SpectrumSet.fromPfsArm does
-    result.wavelength[:] = spectrum.wavelength
+    result.setWavelength(spectrum.wavelength)
 
     # Copy mask planes across, not values
     result.mask.array[:] = 0
