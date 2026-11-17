@@ -474,6 +474,57 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
             pcaCompositorSlice,
         )
 
+    def getBinnedInterpolator(self, binning: int) -> "PCAFluxModelInterpolator":
+        """Get another interpolator producing spectra binned in wavelength.
+
+        The PCA mean and basis vectors are binned (by averaging groups of
+        ``binning`` pixels), so that the interpolated spectra are binned
+        without having to compute them at full resolution. Any pixels left
+        over at the red end are dropped.
+
+        Parameters
+        ----------
+        binning : `int`
+            Binning factor.
+
+        Returns
+        -------
+        interpolator : `PCAFluxModelInterpolator`
+            New interpolator; or ``self`` if ``binning`` is 1.
+        """
+        if binning < 1:
+            raise ValueError(f"Binning factor must be at least 1: {binning}")
+        if binning == 1:
+            return self
+
+        length = len(self.wavelength) // binning
+
+        def binArray(array: np.ndarray) -> np.ndarray:
+            """Bin the last axis of an array by averaging"""
+            array = array[..., : length * binning]
+            return array.reshape(array.shape[:-1] + (length, binning)).mean(axis=-1)
+
+        # The binned wavelength array is the mean wavelength of each bin;
+        # this is linear because the original is.
+        dWavelength = (self.wavelength.maxWavelength - self.wavelength.minWavelength) / (
+            len(self.wavelength) - 1
+        )
+        minWavelength = self.wavelength.minWavelength + 0.5 * (binning - 1) * dWavelength
+        maxWavelength = minWavelength + (length - 1) * binning * dWavelength
+        header = WavelengthArray(minWavelength, maxWavelength, length).toFitsHeader()
+
+        pcaCompositor = PCACompositor(
+            binArray(self.pcaCompositor.basis), binArray(self.pcaCompositor.mean), header
+        )
+        return PCAFluxModelInterpolator(
+            self.interpolator,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            pcaCompositor,
+        )
+
     @staticmethod
     def _makeInterpolatorSlice(baseInterpolator, numComponents: int):
         """Make a function that slices the output of an interpolator.

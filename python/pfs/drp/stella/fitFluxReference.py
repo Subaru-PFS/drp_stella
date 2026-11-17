@@ -251,6 +251,18 @@ class FitFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitFluxRefe
         " Number of PCA components to use during fitting."
         " The final products are made of all components regardless of this setting.",
     )
+    modelBinning = Field(
+        dtype=int,
+        default=1,
+        check=lambda value: value >= 1,
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Factor by which to bin model spectra in wavelength (by averaging) during fitting."
+        " The models are sampled much more finely than the observed spectra, so modest binning"
+        " (such that the model sampling remains a few times finer than the observed sampling)"
+        " makes the fitting faster with little effect on the results."
+        " 1 means no binning."
+        " The final products are made of unbinned models regardless of this setting.",
+    )
     paramMargin = ListField(
         dtype=float,
         default=[100, 0, 0, 0],
@@ -766,6 +778,15 @@ class FitFluxReferenceTask(PipelineTask):
                 " Update fluxmodeldata package."
             )
             modelInterpolator = self.modelInterpolator
+
+        if self.config.modelBinning > 1:
+            if hasattr(modelInterpolator, "getBinnedInterpolator"):
+                modelInterpolator = modelInterpolator.getBinnedInterpolator(self.config.modelBinning)
+            else:
+                self.log.warn(
+                    "FluxModelInterpolator does not support binning; ignoring modelBinning=%d.",
+                    self.config.modelBinning,
+                )
 
         bestParams: dict[int, Struct] = {}
         # This dict will be filled only if debug mode is on
