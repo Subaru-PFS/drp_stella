@@ -21,7 +21,7 @@ from pfs.datamodel.pfsFiberArray import PfsFiberArray
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
-from pfs.drp.stella import SpectrumSet
+from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
@@ -305,6 +305,14 @@ class FitFluxReferenceTask(PipelineTask):
         self.makeSubtask("fitModelContinuum")
         self.makeSubtask("fitDownsampledContinuum")
         self.makeSubtask("estimateRadialVelocity")
+
+        # Lines to mask when fitting continua
+        self.continuumLines = ReferenceLineSet.fromRows(
+            [
+                ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
+                ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
+            ]
+        )
 
         self.debugInfo = lsstDebug.Info(__name__)
 
@@ -637,28 +645,18 @@ class FitFluxReferenceTask(PipelineTask):
         if mode == "downsampled":
             fitContinuum = self.fitDownsampledContinuum
 
-        # If `spectra` is actually a single spectrum,
-        # we put it into PfsFiberArraySet
         if len(spectra.flux.shape) == 1:
-            if not hasattr(spectra, "covar"):
-                spectra = promoteSimpleSpectrumToFiberArray(spectra, snr=self.config.modelSNR)
-            # This is temporary object, so any fiberId will do.
-            spectra = promoteFiberArrayToFiberArraySet(spectra, fiberId=1)
-
-        # This function actually works with `PfsFiberArraySet`
-        # nonetheless for its name.
-        # (PfsArm is a subclass of PfsFiberArraySet)
-        specset = SpectrumSet.fromPfsArm(spectra)
-
-        lines = ReferenceLineSet.fromRows(
-            [
-                ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
-                ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
-            ]
-        )
+            # A single spectrum: this is called many times while fitting,
+            # so we convert directly rather than via PfsFiberArraySet.
+            specset = spectrumToSpectrumSet(spectra, snr=self.config.modelSNR)
+        else:
+            # This function actually works with `PfsFiberArraySet`
+            # nonetheless for its name.
+            # (PfsArm is a subclass of PfsFiberArraySet)
+            specset = SpectrumSet.fromPfsArm(spectra)
 
         # Get the continuum for each fiber
-        continuum = fitContinuum.run(specset, lines=lines)
+        continuum = fitContinuum.run(specset, lines=self.continuumLines)
         return Continuum(continuum, np.array([], dtype=int))
 
     def fitModelsToSpectra(
@@ -2109,6 +2107,52 @@ def promoteFiberArrayToFiberArraySet(spectrum: PfsFiberArray, fiberId: int) -> P
         flags=spectrum.flags,
         metadata=spectrum.metadata,
     )
+
+
+def spectrumToSpectrumSet(spectrum: PfsSimpleSpectrum, snr: float) -> SpectrumSet:
+    """Convert a single spectrum to a `SpectrumSet`.
+
+    This gives the same result as
+    ``SpectrumSet.fromPfsArm(promoteFiberArrayToFiberArraySet(spectrum, 1))``
+    (with ``promoteSimpleSpectrumToFiberArray`` applied first if ``spectrum``
+    has no ``covar``), but without constructing the intermediate objects.
+
+    Parameters
+    ----------
+    spectrum : `PfsSimpleSpectrum` or `PfsFiberArray`
+        Spectrum to convert.
+    snr : `float`
+        Signal to noise ratio from which to invent the variance, if
+        ``spectrum`` has no ``covar``. See
+        ``promoteSimpleSpectrumToFiberArray``.
+
+    Returns
+    -------
+    spectrumSet : `pfs.drp.stella.SpectrumSet`
+        Set containing the single spectrum, with ``fiberId=1``.
+    """
+    length = len(spectrum.flux)
+    result = Spectrum(length)
+    result.fiberId = 1
+    result.flux[:] = spectrum.flux
+    result.norm[:] = 1.0
+    if hasattr(spectrum, "covar"):
+        result.variance[:] = spectrum.variance
+    else:
+        result.variance[:] = (np.nanmedian(spectrum.flux) / snr) ** 2
+    # Assign in place, as SpectrumSet.fromPfsArm does
+    result.wavelength[:] = spectrum.wavelength
+
+    # Copy mask planes across, not values
+    result.mask.array[:] = 0
+    for name in spectrum.flags.flags:
+        source = spectrum.flags.get(name)
+        target = 2 ** result.mask.addMaskPlane(name)
+        result.mask.array[0, (spectrum.mask & source) != 0] |= target
+
+    spectrumSet = SpectrumSet(length)
+    spectrumSet.add(result)
+    return spectrumSet
 
 
 def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) -> Generator[PfsFiberArray, None, None]:
