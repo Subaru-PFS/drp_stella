@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import warnings
 import numpy as np
 
 import lsstDebug
@@ -346,9 +345,35 @@ def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> T
     xWide[select] = xMasked
     yWide[select] = yMasked
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings(action='ignore', message='All-NaN slice encountered')
-        xBinned = np.nanmedian(xWide.reshape((numBins, -1)), axis=(1,))
-        yBinned = np.nanmedian(yWide.reshape((numBins, -1)), axis=(1,))
+    xBinned = _nanmedianRows(xWide.reshape((numBins, -1)))
+    yBinned = _nanmedianRows(yWide.reshape((numBins, -1)))
 
     return xBinned, yBinned
+
+
+def _nanmedianRows(array: np.ndarray) -> np.ndarray:
+    """Median of each row of a 2D array, ignoring NaNs
+
+    This is equivalent to ``np.nanmedian(array, axis=1)``, but much faster for
+    arrays with many short rows (for which numpy falls back to a slow
+    masked-array implementation). Rows with no non-NaN values produce NaN.
+
+    Parameters
+    ----------
+    array : `numpy.ndarray`, floating-point, shape ``(M, N)``
+        Array for which to calculate the median of each row.
+
+    Returns
+    -------
+    median : `numpy.ndarray`, floating-point, shape ``(M,)``
+        Median of each row.
+    """
+    numRows = array.shape[0]
+    rows = np.arange(numRows)
+    ordered = np.sort(array, axis=1)  # NaNs sort to the end
+    count = np.count_nonzero(~np.isnan(ordered), axis=1)
+    low = np.maximum((count - 1) // 2, 0)
+    high = np.maximum(count // 2, 0)
+    median = 0.5*(ordered[rows, low] + ordered[rows, high])
+    median[count == 0] = np.nan
+    return median
