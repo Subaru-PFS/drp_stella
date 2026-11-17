@@ -315,6 +315,9 @@ class Lsf(ABC):
         ``y`` should produce an interpolator that can be called with an array of
         ``x`` values at which to interpolate.
     """
+    isConstant: bool = False
+    """Is the kernel independent of position?"""
+
     def __init__(self, length: int, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR):
         self.length = length
         self.interpolator = interpolator
@@ -741,6 +744,8 @@ class GaussianLsf(Lsf):
     width : `float`
         Gaussian RMS width.
     """
+    isConstant = True
+
     def __init__(self, length: int, width: float):
         super().__init__(length)
         self.width = width
@@ -890,6 +895,8 @@ class FixedEmpiricalLsf(Lsf):
         ``y`` should produce an interpolator that can be called with an array of
         ``x`` values at which to interpolate.
     """
+    isConstant = True
+
     def __init__(
         self, kernel: Kernel1D, length: int, interpolator: InterpolatorFactory = DEFAULT_INTERPOLATOR
     ):
@@ -1042,6 +1049,9 @@ class CoaddLsf(Lsf):
         convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
             Convolved array.
         """
+        if all(lsf is None or lsf.isConstant for lsf in self.lsfList):
+            return self._convolveConstant(array, sampling)
+
         length = len(array)
         convolved = np.zeros_like(array)
         for start in range(0, length, sampling):
@@ -1068,6 +1078,51 @@ class CoaddLsf(Lsf):
             convolved[start:stop] = conv[beginSub:endSub]
 
         return convolved
+
+    def _convolveConstant(self, array: NDArray[FloatingPoint], sampling: int) -> NDArray[FloatingPoint]:
+        """Convolve an array by the LSF, when all components are constant
+
+        This produces the same result as the general implementation in
+        ``convolve``, but each component's kernel is applied to the entire
+        array at once, and the results are combined with the weights that
+        apply to each block of ``sampling`` pixels. This is much faster than
+        iterating over the blocks.
+
+        Parameters
+        ----------
+        array : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Array to convolve.
+        sampling : `int`
+            Sampling length for convolution, pixels.
+
+        Returns
+        -------
+        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+            Convolved array.
+        """
+        length = len(array)
+        starts = np.arange(0, length, sampling)
+        stops = np.minimum(starts + sampling, length)
+        centers = 0.5*(starts + stops)
+        blockSizes = stops - starts
+
+        convolved = np.zeros(length, dtype=float)
+        sumWeights = np.zeros(length, dtype=float)
+        for lsf, minIndex, maxIndex, weight in zip(self.lsfList, self.minIndex, self.maxIndex, self.weights):
+            if lsf is None:
+                continue
+            # Same selection as in _iterateLsfs
+            select = np.repeat((centers >= minIndex) & (centers <= maxIndex), blockSizes)
+            if not np.any(select):
+                continue
+            # Kernel is constant, so the center doesn't matter
+            kernel = lsf.computeKernel(0.5*length)
+            convolved[select] += weight*kernel.convolve(array)[select]
+            sumWeights[select] += weight
+
+        haveLsf = sumWeights > 0
+        convolved[haveLsf] /= sumWeights[haveLsf]
+        return convolved.astype(array.dtype, copy=False)
 
     def warp(
         self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]
