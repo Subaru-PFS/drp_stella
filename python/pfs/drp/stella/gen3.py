@@ -593,6 +593,24 @@ def certifyDatasets(
     if not query:
         log.warning("No %s datasets found.", sourceDatasetType)
         return []
+
+    # Refuse to certify superseded datasets (e.g., from an earlier run in a chain)
+    latest = set(registry.queryDatasets(
+        fromType, collections=collection, instrument=instrumentName, findFirst=True
+    ))
+    superseded = sorted(
+        (ref for ref in query if ref not in latest),
+        key=lambda ref: (ref.dataId["arm"], ref.dataId["spectrograph"], ref.run),
+    )
+    if superseded:
+        details = ", ".join(
+            f"{ref.dataId['arm']}{ref.dataId['spectrograph']} in {ref.run}" for ref in superseded
+        )
+        raise RuntimeError(
+            f"Collection {collection} holds {len(superseded)} superseded {sourceDatasetType} dataset(s) "
+            f"({details}); certify from the RUN(s) holding only the datasets you want."
+        )
+
     datasets = []
     for ref in query:
         log.info("Ingesting %s ...", ref.dataId)
