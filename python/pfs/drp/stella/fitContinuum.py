@@ -9,6 +9,7 @@ from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.datamodel.pfsFiberArraySet import PfsFiberArraySet
 from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.maskLines import maskLines
+from .interpolate import interpolateIndices
 from .referenceLine import ReferenceLineSet
 
 from typing import Tuple
@@ -36,6 +37,15 @@ class FitContinuumConfig(Config):
         },
     )
     numKnots = Field(dtype=int, default=30, doc="Number of spline knots")
+    knotPosition = ChoiceField(
+        dtype=str,
+        default="median",
+        doc="Position of each spline knot within its bin",
+        allowed={
+            "median": "Median position of the good pixels in the bin",
+            "fixed": "Nominal position of the knot, regardless of masking",
+        },
+    )
     iterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
     doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines before fitting?")
@@ -83,6 +93,11 @@ class FitContinuumTask(Task):
 
         Fit the continuum for each spectrum.
 
+        If the spectra have wavelengths, the spline knots are placed at the
+        same wavelengths for all spectra (``numKnots`` knots evenly spaced
+        over the full wavelength range of the spectra), so that the continua
+        are consistent from spectrum to spectrum.
+
         Parameters
         ----------
         spectra : `pfs.drp.stella.SpectrumSet`/`pfs.datamodel.PfsFiberArraySet`
@@ -98,15 +113,52 @@ class FitContinuumTask(Task):
         if isinstance(spectra, PfsFiberArraySet):
             spectra = SpectrumSet.fromPfsArm(spectra)
 
+        knotWavelengths = self.getKnotWavelengths(spectra)
         continua = np.full((len(spectra), spectra.getLength()), np.nan, dtype=np.float32)
         for ii, spec in enumerate(spectra):
+            knots = None
+            if knotWavelengths is not None and spec.isWavelengthSet():
+                knots = wavelengthToPixels(spec.wavelength, knotWavelengths)
             try:
-                continua[ii] = self.fitContinuum(spec, lines)
+                continua[ii] = self.fitContinuum(spec, lines, knots=knots)
             except FitContinuumError:
                 continue
         return continua
 
-    def fitContinuum(self, spectrum, lines=None):
+    def getKnotWavelengths(self, spectra: SpectrumSet) -> np.ndarray | None:
+        """Get wavelengths of spline knots common to a set of spectra
+
+        The knots are evenly spaced over the full wavelength range of the
+        spectra, at the centers of ``numKnots`` bins.
+
+        Parameters
+        ----------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Spectra for which to determine knots.
+
+        Returns
+        -------
+        knotWavelengths : `numpy.ndarray` of `float`, or `None`
+            Wavelengths of knots (nm), or `None` if no spectrum has
+            wavelengths.
+        """
+        minWavelength = np.inf
+        maxWavelength = -np.inf
+        for spec in spectra:
+            if not spec.isWavelengthSet():
+                continue
+            wavelength = spec.wavelength
+            wavelength = wavelength[np.isfinite(wavelength)]
+            if wavelength.size == 0:
+                continue
+            minWavelength = min(minWavelength, wavelength.min())
+            maxWavelength = max(maxWavelength, wavelength.max())
+        if not np.isfinite(minWavelength) or not np.isfinite(maxWavelength) or maxWavelength <= minWavelength:
+            return None
+        binWidth = (maxWavelength - minWavelength) / self.config.numKnots
+        return minWavelength + (np.arange(self.config.numKnots) + 0.5) * binWidth
+
+    def fitContinuum(self, spectrum, lines=None, *, knots=None):
         """Fit continuum to the spectrum
 
         Uses ``lsst.afw.math.Interpolate`` to fit, and performs iterative
@@ -118,6 +170,11 @@ class FitContinuumTask(Task):
             Spectrum to fit.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
+        knots : array_like of `float`, optional
+            Nominal positions of the spline knots, in pixels. Each knot's bin
+            extends halfway to its neighbours (and to the ends of the
+            spectrum for the first and last knots). If not provided, we use
+            ``numKnots`` bins of equal size.
 
         Raises
         ------
@@ -147,15 +204,15 @@ class FitContinuumTask(Task):
         keep = np.ones_like(good, dtype=bool)
         for ii in range(self.config.iterations):
             use = good & keep
-            fit = self._fitContinuumImpl(flux, use)
+            fit = self._fitContinuumImpl(flux, use, knots)
             diff = flux - fit
             lq, uq = np.percentile(diff[use], [25.0, 75.0])
             stdev = 0.741 * (uq - lq)
             with np.errstate(invalid="ignore"):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
-        return self._fitContinuumImpl(flux, good & keep)
+        return self._fitContinuumImpl(flux, good & keep, knots)
 
-    def _fitContinuumImpl(self, values, good):
+    def _fitContinuumImpl(self, values, good, knots=None):
         """Implementation of the business part of fitting
 
         Parameters
@@ -164,6 +221,8 @@ class FitContinuumTask(Task):
             Spectrum array to fit.
         good : `numpy.ndarray`, boolean
             Boolean array indicating which points are good.
+        knots : `numpy.ndarray` of `float`, optional
+            Nominal positions of the spline knots, in pixels.
 
         Raises
         ------
@@ -176,13 +235,20 @@ class FitContinuumTask(Task):
             Fit array.
         """
         indices = np.arange(len(values), dtype=values.dtype)
-        knots, binned = binData(indices, values, good, self.config.numKnots)
-        use = np.isfinite(knots) & np.isfinite(binned)
+        fixed = self.config.knotPosition == "fixed"
+        if knots is None and not fixed:
+            xKnots, binned = binData(indices, values, good, self.config.numKnots)
+        else:
+            if knots is None:
+                # Centers of bins of equal size
+                knots = (np.arange(self.config.numKnots) + 0.5) * len(values) / self.config.numKnots - 0.5
+            xKnots, binned = binDataByKnots(indices, values, good, knots, fixed)
+        use = np.isfinite(xKnots) & np.isfinite(binned)
         if not np.any(use):
             raise FitContinuumError("No finite knots when fitting continuum")
 
         try:
-            interp = makeInterpolate(knots[use], binned[use], self.fitType)
+            interp = makeInterpolate(xKnots[use], binned[use], self.fitType)
         except Exception as e:
             msg = "Fitting continuum: " + ", ".join(e.args)
             self.log.warn(msg)
@@ -213,7 +279,7 @@ class FitContinuumTask(Task):
                 ax.plot(xBinned, yBinned, "k-")
 
             ax.plot(indices, fit, "b-")
-            ax.plot(knots, binned, "bo")
+            ax.plot(xKnots, binned, "bo")
             ax.set_ylim(0.7 * fit.min(), 1.3 * fit.max())
             plt.show()
 
@@ -349,6 +415,106 @@ def binData(xx: np.ndarray, yy: np.ndarray, good: np.ndarray, numBins: int) -> T
     yBinned = _nanmedianRows(yWide.reshape((numBins, -1)))
 
     return xBinned, yBinned
+
+
+def binDataByKnots(
+    xx: np.ndarray, yy: np.ndarray, good: np.ndarray, knots: np.ndarray, fixed: bool = False
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Bin arrays around nominated knots
+
+    Each knot's bin extends halfway to its neighbours; the first and last
+    bins extend to the ends of the arrays.
+
+    Parameters
+    ----------
+    xx, yy : `numpy.ndarray`
+        Arrays to bin. ``xx`` must be sorted.
+    good : `numpy.ndarray`, boolean
+        Boolean array indicating which points are good.
+    knots : array_like of `float`
+        Nominal positions of the knots, in the same units as ``xx``.
+    fixed : `bool`, optional
+        Use the nominal knot positions for the binned ``xx``? Otherwise, use
+        the median of the good ``xx`` values in each bin.
+
+    Returns
+    -------
+    xBinned, yBinned : `numpy.ndarray`
+        Binned data. Bins with no good points have NaN values.
+    """
+    knots = np.sort(np.asarray(knots, dtype=float))
+    numBins = len(knots)
+    edges = 0.5*(knots[:-1] + knots[1:])
+    binIndex = np.searchsorted(edges, xx, side="right")
+    yBinned = _binnedMedians(binIndex, np.where(good, yy, np.nan), numBins)
+    if fixed:
+        xBinned = knots.astype(xx.dtype)
+        xBinned[np.isnan(yBinned)] = np.nan
+    else:
+        xBinned = _binnedMedians(binIndex, np.where(good, xx, np.nan), numBins)
+    return xBinned, yBinned
+
+
+def _binnedMedians(binIndex: np.ndarray, values: np.ndarray, numBins: int) -> np.ndarray:
+    """Median of values in each bin, ignoring NaNs
+
+    Parameters
+    ----------
+    binIndex : `numpy.ndarray` of `int`, shape ``(N,)``
+        Index of the bin for each value, in the range ``[0, numBins)``.
+    values : `numpy.ndarray`, floating-point, shape ``(N,)``
+        Values; NaNs are ignored.
+    numBins : `int`
+        Number of bins.
+
+    Returns
+    -------
+    median : `numpy.ndarray`, floating-point, shape ``(numBins,)``
+        Median of the values in each bin; NaN for bins with no values.
+    """
+    select = ~np.isnan(values)
+    index = binIndex[select]
+    values = values[select]
+    order = np.lexsort((values, index))
+    index = index[order]
+    values = values[order]
+    counts = np.bincount(index, minlength=numBins)
+    starts = np.cumsum(counts) - counts
+    median = np.full(numBins, np.nan, dtype=values.dtype)
+    have = counts > 0
+    low = starts[have] + (counts[have] - 1) // 2
+    high = starts[have] + counts[have] // 2
+    median[have] = 0.5*(values[low] + values[high])
+    return median
+
+
+def wavelengthToPixels(wavelength: np.ndarray, knotWavelengths: np.ndarray) -> np.ndarray:
+    """Convert knot wavelengths to pixel positions in a spectrum
+
+    Knots outside the wavelength range of the spectrum are dropped.
+
+    Parameters
+    ----------
+    wavelength : `numpy.ndarray` of `float`
+        Wavelength of each pixel in the spectrum (increasing).
+    knotWavelengths : `numpy.ndarray` of `float`
+        Wavelengths of the knots.
+
+    Returns
+    -------
+    knots : `numpy.ndarray` of `float`
+        Positions of the knots, in pixels.
+    """
+    knotWavelengths = np.asarray(knotWavelengths, dtype=float)
+    finite = np.isfinite(wavelength)
+    if np.all(finite):
+        knots = interpolateIndices(wavelength, knotWavelengths)
+    else:
+        # Interpolate over the finite pixels only, then map back to pixels
+        pixels = np.flatnonzero(finite)
+        indices = interpolateIndices(wavelength[finite], knotWavelengths)
+        knots = np.interp(indices, np.arange(len(pixels)), pixels.astype(float))
+    return knots[np.isfinite(knots)]
 
 
 def _nanmedianRows(array: np.ndarray) -> np.ndarray:

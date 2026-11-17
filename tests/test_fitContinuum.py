@@ -2,8 +2,9 @@ import numpy as np
 
 import lsst.utils.tests
 
-from pfs.drp.stella import Spectrum
-from pfs.drp.stella.fitContinuum import FitContinuumConfig, FitContinuumTask, binData
+from pfs.drp.stella import Spectrum, SpectrumSet
+from pfs.drp.stella.fitContinuum import FitContinuumConfig, FitContinuumTask, binData, binDataByKnots
+from pfs.drp.stella.fitContinuum import wavelengthToPixels
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
@@ -71,6 +72,77 @@ class FitContinuumTestCase(lsst.utils.tests.TestCase):
                         sup.filter(RuntimeWarning, "All-NaN slice encountered")
                         expected = np.nanmedian(wide.reshape(numBins, -1), axis=1)
                     np.testing.assert_array_equal(binned, expected)
+
+    def testBinDataByKnots(self):
+        """Test binning around nominated knots"""
+        rng = np.random.default_rng(54321)
+        length = 1000
+        xx = np.arange(length, dtype=float)
+        yy = rng.normal(size=length)
+        good = rng.uniform(size=length) > 0.3
+        good[400:500] = False  # A bin with no good values
+        knots = np.array([30.0, 200.0, 450.0, 470.0, 800.0])
+        edges = [-np.inf, 115.0, 325.0, 460.0, 635.0, np.inf]
+        for fixed in (False, True):
+            xBinned, yBinned = binDataByKnots(xx, yy, good, knots, fixed)
+            for ii in range(len(knots)):
+                select = good & (xx >= edges[ii]) & (xx < edges[ii + 1])
+                if not np.any(select):
+                    self.assertTrue(np.isnan(xBinned[ii]))
+                    self.assertTrue(np.isnan(yBinned[ii]))
+                    continue
+                self.assertEqual(yBinned[ii], np.median(yy[select]))
+                self.assertEqual(xBinned[ii], knots[ii] if fixed else np.median(xx[select]))
+
+    def testKnots(self):
+        """Test fitting with nominated knots"""
+        spectrum = self.makeSpectrum()
+        length = spectrum.getNumPixels()
+        expected = 1000.0 + 0.1*np.arange(length)
+        # Noise is needed for the rejection to work (the scatter must not be zero)
+        spectrum.flux[:] = expected + np.random.default_rng(12345).normal(0.0, 0.1, length)
+        for knotPosition in ("median", "fixed"):
+            config = FitContinuumConfig()
+            config.knotPosition = knotPosition
+            config.doMaskLines = False
+            config.telluricCenter = []
+            config.telluricWidth = []
+            task = FitContinuumTask(config=config)
+            for knots in (np.linspace(50, 1950, 20), None):  # None means bins of equal size
+                continuum = task.fitContinuum(spectrum, knots=knots)
+                # Only test between the outermost knots: the interpolation doesn't extrapolate the slope
+                self.assertFloatsAlmostEqual(continuum[100:-100], expected[100:-100], atol=0.3)
+
+    def testCommonKnots(self):
+        """Test that run places knots at the same wavelengths for all spectra"""
+        length = 2000
+        spectra = SpectrumSet(length)
+        for start in (650.0, 655.5, 661.0):
+            spectrum = Spectrum(length)
+            spectrum.setWavelength(np.linspace(start, start + 300.0, length))
+            spectrum.flux[:] = 1000.0
+            spectrum.mask[:] = 0
+            spectrum.variance[:] = 1.0
+            spectra.add(spectrum)
+
+        task = FitContinuumTask()
+        knotWavelengths = task.getKnotWavelengths(spectra)
+        self.assertEqual(len(knotWavelengths), task.config.numKnots)
+        binWidth = (961.0 - 650.0) / task.config.numKnots
+        self.assertFloatsAlmostEqual(knotWavelengths[0], 650.0 + 0.5*binWidth, atol=1.0e-9)
+        self.assertFloatsAlmostEqual(knotWavelengths[-1], 961.0 - 0.5*binWidth, atol=1.0e-9)
+
+        for spectrum in spectra:
+            knots = wavelengthToPixels(spectrum.wavelength, knotWavelengths)
+            # Knots outside the range of the spectrum are dropped
+            wavelength = spectrum.wavelength
+            inside = (knotWavelengths >= wavelength[0]) & (knotWavelengths <= wavelength[-1])
+            self.assertEqual(len(knots), inside.sum())
+            backToWavelength = np.interp(knots, np.arange(length), spectrum.wavelength)
+            self.assertFloatsAlmostEqual(backToWavelength, knotWavelengths[inside], atol=1.0e-9)
+
+        continua = task.run(spectra)
+        self.assertFloatsAlmostEqual(continua, 1000.0, rtol=1.0e-6)
 
     def testValidate(self):
         """Test that mismatched telluric lists are rejected"""
