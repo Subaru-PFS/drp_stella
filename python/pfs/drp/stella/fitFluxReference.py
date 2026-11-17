@@ -783,6 +783,11 @@ class FitFluxReferenceTask(PipelineTask):
             teffList = teffList.reshape(-1)  # Shape (N, 1) => (N,)
             prior1d = scipy.interpolate.Akima1DInterpolator(teffList, prior1dList)
 
+            # The model wavelength sampling and the LSF are the same for every
+            # evaluation of the objective, so we warp the LSF only once.
+            modelWavelength = modelInterpolator.wavelength * doppler
+            warpedLsf = pfsMergedLsf[fiberId].warp(obsSpectrum.wavelength, modelWavelength)
+
             def objective(x: NDArray, returnChisq=False) -> float | Struct:
                 """Objective function to minimize.
 
@@ -815,8 +820,10 @@ class FitFluxReferenceTask(PipelineTask):
                         return np.inf
 
                 model = modelInterpolator.interpolate(*param)
-                model.wavelength = model.wavelength * doppler
-                model = convolveLsf(model, pfsMergedLsf[fiberId], obsSpectrum.wavelength)
+                model.wavelength = modelWavelength
+                # ``model`` is a fresh object, so we can convolve in place
+                # rather than using ``convolveLsf``, which makes a deep copy.
+                model.flux = warpedLsf.convolve(model.flux)
                 model = model.resample(obsSpectrum.wavelength)
                 modelContinuum = self.computeContinuum(model, mode="observed")
                 model = modelContinuum.whiten(model)
