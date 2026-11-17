@@ -88,7 +88,7 @@ class FitContinuumTask(Task):
 
     def run(
         self, spectra: SpectrumSet | PfsFiberArraySet, lines: ReferenceLineSet | None = None
-    ) -> SpectrumSet:
+    ) -> np.ndarray:
         """Fit spectrum continua
 
         Fit the continuum for each spectrum.
@@ -110,20 +110,59 @@ class FitContinuumTask(Task):
         continuum : `np.ndarray` of `float`
             Continuum fit for each input spectrum.
         """
+        return self.measureContinua(spectra, lines).continua
+
+    def measureContinua(
+        self,
+        spectra: SpectrumSet | PfsFiberArraySet,
+        lines: ReferenceLineSet | None = None,
+        *,
+        good: np.ndarray | None = None,
+    ) -> Struct:
+        """Fit spectrum continua, and report the pixels used
+
+        This is the same as ``run``, except that it also returns the pixels
+        used in the final fit for each spectrum, and it can be given the
+        pixels to use (e.g., from a previous call) instead of determining
+        them by masking and iterative rejection.
+
+        Parameters
+        ----------
+        spectra : `pfs.drp.stella.SpectrumSet`/`pfs.datamodel.PfsFiberArraySet`
+            Set of spectra to which to fit continua.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask. Ignored if ``good`` is provided.
+        good : `numpy.ndarray` of `bool`, shape ``(N, M)``, optional
+            Pixels to use for each spectrum. See ``measureContinuum``.
+
+        Returns
+        -------
+        continua : `numpy.ndarray` of `float`, shape ``(N, M)``
+            Continuum fit for each input spectrum (NaN if the fit failed).
+        good : `numpy.ndarray` of `bool`, shape ``(N, M)``
+            Pixels used in the final fit for each spectrum (all `False` if the
+            fit failed).
+        """
         if isinstance(spectra, PfsFiberArraySet):
             spectra = SpectrumSet.fromPfsArm(spectra)
 
         knotWavelengths = self.getKnotWavelengths(spectra)
-        continua = np.full((len(spectra), spectra.getLength()), np.nan, dtype=np.float32)
+        shape = (len(spectra), spectra.getLength())
+        continua = np.full(shape, np.nan, dtype=np.float32)
+        used = np.zeros(shape, dtype=bool)
         for ii, spec in enumerate(spectra):
             knots = None
             if knotWavelengths is not None and spec.isWavelengthSet():
                 knots = wavelengthToPixels(spec.wavelength, knotWavelengths)
             try:
-                continua[ii] = self.fitContinuum(spec, lines, knots=knots)
+                result = self.measureContinuum(
+                    spec, lines, knots=knots, good=None if good is None else good[ii]
+                )
             except FitContinuumError:
                 continue
-        return continua
+            continua[ii] = result.continuum
+            used[ii] = result.good
+        return Struct(continua=continua, good=used)
 
     def getKnotWavelengths(self, spectra: SpectrumSet) -> np.ndarray | None:
         """Get wavelengths of spline knots common to a set of spectra
@@ -186,19 +225,67 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
+        return self.measureContinuum(spectrum, lines, knots=knots).continuum
+
+    def measureContinuum(self, spectrum, lines=None, *, knots=None, good=None) -> Struct:
+        """Fit continuum to the spectrum, and report the pixels used
+
+        This is the same as ``fitContinuum``, except that it also returns the
+        pixels used in the final fit, and it can be given the pixels to use
+        instead of determining them by masking and iterative rejection.
+
+        Providing the pixels to use allows continua of different spectra to
+        be measured consistently (e.g., a model spectrum compared with an
+        observed spectrum), and makes the result a continuous function of
+        the flux values (rejection makes it discontinuous).
+
+        Parameters
+        ----------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Spectrum to fit.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask. Ignored if ``good`` is provided.
+        knots : array_like of `float`, optional
+            Nominal positions of the spline knots, in pixels. See
+            ``fitContinuum``.
+        good : array_like of `bool`, optional
+            Pixels to use (e.g., the ``good`` result of a previous call). If
+            provided, these are combined only with the spectrum's mask and the
+            finiteness of its flux, and a single fit is performed without
+            iterative rejection.
+
+        Raises
+        ------
+        FitContinuumError
+            If we had no good values.
+
+        Returns
+        -------
+        continuum : `numpy.ndarray`
+            Array of continuum fit.
+        good : `numpy.ndarray` of `bool`
+            Pixels used in the final fit.
+        """
         if hasattr(spectrum, "normFlux"):
             flux = spectrum.normFlux
         else:
             flux = spectrum.flux
             if hasattr(flux, "norm"):
                 flux /= flux.norm  # Normalize the flux to 1.0
+        maskOk = (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
+        if good is not None:
+            use = np.asarray(good, dtype=bool) & np.isfinite(flux) & maskOk
+            if not np.any(use):
+                raise FitContinuumError("No good values when fitting continuum")
+            return Struct(continuum=self._fitContinuumImpl(flux, use, knots), good=use)
+
         good = np.isfinite(flux)
         if self.config.doMaskLines and lines and spectrum.isWavelengthSet():
             good &= ~maskLines(spectrum.wavelength, lines.wavelength, self.config.maskLineRadius)
         if self.config.telluricCenter and spectrum.isWavelengthSet():
             for center, width in zip(self.config.telluricCenter, self.config.telluricWidth):
                 good &= np.abs(spectrum.wavelength - center) >= width
-        good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
+        good &= maskOk
         if not np.any(good):
             raise FitContinuumError("No good values when fitting continuum")
         keep = np.ones_like(good, dtype=bool)
@@ -210,7 +297,8 @@ class FitContinuumTask(Task):
             stdev = 0.741 * (uq - lq)
             with np.errstate(invalid="ignore"):
                 keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection * stdev)
-        return self._fitContinuumImpl(flux, good & keep, knots)
+        use = good & keep
+        return Struct(continuum=self._fitContinuumImpl(flux, use, knots), good=use)
 
     def _fitContinuumImpl(self, values, good, knots=None):
         """Implementation of the business part of fitting

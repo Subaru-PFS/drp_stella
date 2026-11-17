@@ -144,6 +144,45 @@ class FitContinuumTestCase(lsst.utils.tests.TestCase):
         continua = task.run(spectra)
         self.assertFloatsAlmostEqual(continua, 1000.0, rtol=1.0e-6)
 
+    def testGoodPixels(self):
+        """Test reporting and supplying the pixels used in the fit"""
+        rng = np.random.default_rng(13579)
+        spectrum = self.makeSpectrum()
+        length = spectrum.getNumPixels()
+        spectrum.flux[:] += rng.normal(0.0, 1.0, length)
+        spectrum.flux[1000:1010] += 500.0  # An emission line, which should be rejected
+        config = FitContinuumConfig()
+        config.doMaskLines = False
+        task = FitContinuumTask(config=config)
+
+        result = task.measureContinuum(spectrum)
+        self.assertFloatsEqual(result.continuum, task.fitContinuum(spectrum))
+        self.assertFalse(np.any(result.good[1000:1010]))  # Line rejected
+        self.assertFalse(np.all(result.good))  # Telluric bands excluded
+
+        # Supplying the pixels reproduces the fit exactly
+        again = task.measureContinuum(spectrum, good=result.good)
+        self.assertFloatsEqual(again.continuum, result.continuum)
+        np.testing.assert_array_equal(again.good, result.good)
+
+        # With the pixels supplied, there's no rejection, so the continuum is
+        # a continuous function of the flux: a small change in the flux makes
+        # a small change in the continuum.
+        perturbed = self.makeSpectrum()
+        perturbed.flux[:] = spectrum.flux + 1.0e-3*rng.normal(size=length)
+        fixedMask = task.measureContinuum(perturbed, good=result.good)
+        self.assertFloatsAlmostEqual(fixedMask.continuum, result.continuum, atol=1.0e-2)
+
+        # A set of spectra
+        spectra = SpectrumSet(length)
+        spectra.add(spectrum)
+        spectra.add(perturbed)
+        measured = task.measureContinua(spectra)
+        self.assertFloatsEqual(measured.continua, task.run(spectra))
+        self.assertEqual(measured.good.shape, (2, length))
+        again = task.measureContinua(spectra, good=measured.good)
+        self.assertFloatsEqual(again.continua, measured.continua)
+
     def testValidate(self):
         """Test that mismatched telluric lists are rejected"""
         config = FitContinuumConfig()
