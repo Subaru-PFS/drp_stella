@@ -86,7 +86,7 @@ class SpectrumSet:  # noqa: F811 (redefinition)
             spectrum.flux[:] = pfsArm.flux[ii]
             spectrum.norm[:] = pfsArm.norm[ii]
             spectrum.variance[:] = pfsArm.variance[ii]
-            spectrum.wavelength[:] = pfsArm.wavelength[ii]
+            spectrum.setWavelength(pfsArm.wavelength[ii])
 
             # We need to take care that the mask planes are copied across, not the values
             spectrum.mask.array[:] = 0
