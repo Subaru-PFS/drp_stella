@@ -3,7 +3,7 @@ import numpy as np
 import lsst.utils.tests
 
 from pfs.drp.stella import Spectrum
-from pfs.drp.stella.fitContinuum import FitContinuumConfig, FitContinuumTask
+from pfs.drp.stella.fitContinuum import FitContinuumConfig, FitContinuumTask, binData
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
@@ -41,6 +41,36 @@ class FitContinuumTestCase(lsst.utils.tests.TestCase):
         config.telluricWidth = []
         continuum = self.fit(spectrum, config)
         self.assertLess(np.min(continuum), 900.0)
+
+    def testBinData(self):
+        """Test that binData calculates medians as np.nanmedian does"""
+        rng = np.random.default_rng(12345)
+        for length, numBins in ((1000, 50), (1003, 50), (11251, 50), (100, 30)):
+            for dtype in (np.float32, np.float64):
+                xx = np.arange(length, dtype=dtype)
+                yy = rng.normal(size=length).astype(dtype)
+                good = rng.uniform(size=length) > 0.3
+                good[: length // 5] = False  # Some bins with no good values
+                xBinned, yBinned = binData(xx, yy, good, numBins)
+                self.assertEqual(xBinned.dtype, dtype)
+                self.assertEqual(yBinned.dtype, dtype)
+
+                # Reference implementation
+                lenWide = (length + numBins - 1) // numBins * numBins
+                numExtra = lenWide - length
+                select = np.ones(lenWide, dtype=bool)
+                if numExtra > 0:
+                    indexExtra = np.around(
+                        (lenWide - 1) / numExtra * (np.arange(numExtra).astype(np.float32) + 0.5)
+                    ).astype(int)
+                    select[indexExtra] = False
+                for values, binned in ((xx, xBinned), (yy, yBinned)):
+                    wide = np.full(lenWide, np.nan, dtype=dtype)
+                    wide[select] = np.where(good, values, np.nan)
+                    with np.testing.suppress_warnings() as sup:
+                        sup.filter(RuntimeWarning, "All-NaN slice encountered")
+                        expected = np.nanmedian(wide.reshape(numBins, -1), axis=1)
+                    np.testing.assert_array_equal(binned, expected)
 
     def testValidate(self):
         """Test that mismatched telluric lists are rejected"""
