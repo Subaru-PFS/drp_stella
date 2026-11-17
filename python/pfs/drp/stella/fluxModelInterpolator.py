@@ -8,6 +8,7 @@ from deprecated import deprecated
 import numpy as np
 import scipy.interpolate
 
+import copy
 import json
 import os
 import pickle
@@ -452,6 +453,46 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         """
         baseInterpolator = self.interpolator
 
+        smallerRbf = _truncateRbfInterpolator(baseInterpolator, numComponents)
+        if smallerRbf is not None:
+            interpolatorSlice = smallerRbf
+        else:
+            interpolatorSlice = self._makeInterpolatorSlice(baseInterpolator, numComponents)
+
+        pcaCompositorSlice = PCACompositor(
+            self.pcaCompositor.basis[:numComponents, ...],
+            self.pcaCompositor.mean,
+            self.pcaCompositor.header,
+        )
+
+        return PCAFluxModelInterpolator(
+            interpolatorSlice,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            pcaCompositorSlice,
+        )
+
+    @staticmethod
+    def _makeInterpolatorSlice(baseInterpolator, numComponents: int):
+        """Make a function that slices the output of an interpolator.
+
+        This is the fallback for when the interpolator cannot be truncated.
+
+        Parameters
+        ----------
+        baseInterpolator : callable
+            Interpolator to wrap.
+        numComponents : `int`
+            Number of components to keep.
+
+        Returns
+        -------
+        interpolatorSlice : callable
+            Function returning the first ``numComponents`` components.
+        """
+
         def interpolatorSlice(x: np.ndarray) -> np.ndarray:
             """Duck-typed alternative to ``PCAFluxModelInterpolator.interpolator``.
 
@@ -470,17 +511,54 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
             """
             return baseInterpolator(x)[..., :numComponents]
 
-        pcaCompositorSlice = PCACompositor(
-            self.pcaCompositor.basis[:numComponents, ...],
-            self.pcaCompositor.mean,
-            self.pcaCompositor.header,
-        )
+        return interpolatorSlice
 
-        return PCAFluxModelInterpolator(
-            interpolatorSlice,
-            self.teffScale,
-            self.loggScale,
-            self.mScale,
-            self.alphaScale,
-            pcaCompositorSlice,
-        )
+
+def _truncateRbfInterpolator(
+    interpolator: scipy.interpolate.RBFInterpolator, numComponents: int
+) -> scipy.interpolate.RBFInterpolator | None:
+    """Make an RBF interpolator that evaluates only the first components.
+
+    Each column of the RBF coefficients depends only on the corresponding
+    column of the data, so truncating the coefficients is equivalent to
+    building an interpolator from truncated data, without solving the
+    linear system again. Evaluating the truncated interpolator costs only
+    ``numComponents/N`` of the original.
+
+    This relies on private attributes of
+    `scipy.interpolate.RBFInterpolator`; if they are not as expected, we
+    return `None`.
+
+    Parameters
+    ----------
+    interpolator : `scipy.interpolate.RBFInterpolator`
+        Interpolator to truncate.
+    numComponents : `int`
+        Number of components to keep.
+
+    Returns
+    -------
+    truncated : `scipy.interpolate.RBFInterpolator` or `None`
+        Truncated interpolator, or `None` if truncation is not possible.
+    """
+    if not isinstance(interpolator, scipy.interpolate.RBFInterpolator):
+        return None
+    if getattr(interpolator, "neighbors", None) is not None:
+        return None  # Coefficients are computed on the fly
+    if getattr(interpolator, "d_dtype", None) is not float:
+        return None  # Complex data are stored with twice the number of columns
+    coeffs = getattr(interpolator, "_coeffs", None)
+    data = getattr(interpolator, "d", None)
+    dShape = getattr(interpolator, "d_shape", None)
+    if coeffs is None or data is None or dShape is None:
+        return None
+    if coeffs.ndim != 2 or data.ndim != 2 or len(dShape) != 1 or coeffs.shape[1] != data.shape[1]:
+        return None
+    if numComponents >= data.shape[1]:
+        return interpolator
+
+    truncated = copy.copy(interpolator)
+    truncated._coeffs = np.ascontiguousarray(coeffs[:, :numComponents])
+    truncated.d = np.ascontiguousarray(data[:, :numComponents])
+    truncated.d_shape = (numComponents,)
+    return truncated
