@@ -11,7 +11,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
-from lsst.pex.config import ConfigurableField, ChoiceField, Field, ListField
+from lsst.pex.config import ConfigurableField, ChoiceField, DictField, Field, ListField
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
@@ -205,6 +205,14 @@ class FitFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitFluxRefe
         default="Powell",
         doc="Method with which to find the minimum of the objective function of spectrum fitting."
         " Valid values are 'brute-force' or any valid arguments for `scipy.optimize.minimize()`",
+    )
+    minimizationOptions = DictField(
+        keytype=str,
+        itemtype=float,
+        default={},
+        doc="(Valid if minimizationMethod!='brute-force') Solver options passed to"
+        " `scipy.optimize.minimize()` as ``options``; they must be appropriate for ``minimizationMethod``."
+        " For 'Powell', note that ``xtol`` applies to the parameters after scaling by ``paramScale``.",
     )
     priorCutoff = Field(
         dtype=float,
@@ -839,7 +847,11 @@ class FitFluxReferenceTask(PipelineTask):
 
             with np.errstate(invalid="ignore"):
                 result = scipy.optimize.minimize(
-                    objective, x0, bounds=bounds, method=self.config.minimizationMethod
+                    objective,
+                    x0,
+                    bounds=bounds,
+                    method=self.config.minimizationMethod,
+                    options=dict(self.config.minimizationOptions),
                 )
             param = xToParam(result.x)
             chisq = objective(result.x, returnChisq=True)
