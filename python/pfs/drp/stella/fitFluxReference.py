@@ -43,6 +43,7 @@ import scipy.spatial
 
 import copy
 import dataclasses
+import functools
 import math
 import os
 import warnings
@@ -2374,10 +2375,35 @@ class FilterCurve(TransmissionCurve):
         filename = os.path.join(
             os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "bandpass", self.filenames[filterName]
         )
-        data = np.genfromtxt(filename, dtype=[("wavelength", "f4"), ("flux", "f4")])
-        wavelength = data["wavelength"]
-        transmission = data["flux"]  # Relative transmission
+        wavelength, transmission = _readFilterCurve(filename)
         super().__init__(wavelength, transmission)
+
+
+@functools.lru_cache
+def _readFilterCurve(filename: str) -> tuple[NDArray[np.float32], NDArray[np.float32]]:
+    """Read a filter transmission curve from file.
+
+    The result is cached, since the same filters are used repeatedly; the
+    returned arrays are read-only, since they are shared.
+
+    Parameters
+    ----------
+    filename : `str`
+        Name of file to read.
+
+    Returns
+    -------
+    wavelength : `numpy.ndarray` of `float`, shape ``(N,)``
+        Wavelength, nm.
+    transmission : `numpy.ndarray` of `float`, shape ``(N,)``
+        Relative transmission.
+    """
+    data = np.genfromtxt(filename, dtype=[("wavelength", "f4"), ("flux", "f4")])
+    wavelength = np.array(data["wavelength"])
+    transmission = np.array(data["flux"])
+    wavelength.flags.writeable = False
+    transmission.flags.writeable = False
+    return wavelength, transmission
 
 
 def _trapezoidal(x: np.ndarray, y: np.ndarray, weight: np.ndarray, power: float = 1) -> float:
