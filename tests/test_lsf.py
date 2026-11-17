@@ -312,6 +312,36 @@ class CoaddLsfTestCase(lsst.utils.tests.TestCase):
             centroid, rms = calculateMoments(convolved)
             self.assertFloatsAlmostEqual(centroid, center, atol=1.0e-2)
 
+    def testConvolveConstant(self):
+        """Test that the fast path for constant LSFs matches the general case"""
+
+        def makeCoaddLsf(minIndex, maxIndex, haveGap, forceGeneral):
+            lsfList = [GaussianLsf(self.length, width) for width in self.width]
+            self.assertTrue(all(lsf.isConstant for lsf in lsfList))
+            if forceGeneral:
+                for lsf in lsfList:
+                    lsf.isConstant = False
+            coadd = CoaddLsf(lsfList, minIndex, maxIndex, self.weights)
+            if haveGap:
+                coadd.lsfList[1] = None  # Constructor doesn't allow None, but convolve supports it
+            return coadd
+
+        array = self.rng.normal(size=self.length)
+        for minIndex, maxIndex, haveGap in (
+            (self.minIndex, self.maxIndex, False),  # Abutting
+            (self.minIndex, self.maxIndex, True),  # Gap with no LSF
+            ([0, 300, 600], [700, 1000, 1234], False),  # Overlapping
+        ):
+            fast = makeCoaddLsf(minIndex, maxIndex, haveGap, False)
+            general = makeCoaddLsf(minIndex, maxIndex, haveGap, True)
+            for sampling in (10, 100, 333):
+                self.assertFloatsAlmostEqual(
+                    fast.convolve(array, sampling), general.convolve(array, sampling), atol=1.0e-14
+                )
+
+        # Single-precision input should give single-precision output, as for the general case
+        self.assertEqual(self.lsf.convolve(array.astype(np.float32)).dtype, np.float32)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
