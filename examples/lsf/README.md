@@ -13,6 +13,12 @@ until it does, set `PFS_REPO` to a copy of the `butler.yaml` that does. The defa
 used in the tickets: the armLsf fit to the Run 30 arcs is `u/rhl/PIPE2D-1940-armLsf-lampAvg`, and the
 PIPE2D-1993 regression used the `u/kiyoyabe/weekly_hilo/w.2026.04` weekly.
 
+## Fitting the LSF of a detector
+
+| Script | What it does |
+|---|---|
+| `fitLsfOneDetector.py` | Runs `FitLsfTask` on one detector without pipetask, writes `armLsf` and `lsfLines` to files, and uses the model (the example in the LSF chapter of the documentation) |
+
 ## Why do the lamps' line widths differ? (PIPE2D-1940)
 
 The model's per-visit offsets average zero over the lamps; these scripts test what the offsets are.
