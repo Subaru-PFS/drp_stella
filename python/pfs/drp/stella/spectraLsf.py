@@ -25,14 +25,14 @@ import scipy.special
 
 from pfs.datamodel.pfsLsf import PfsLsf, PfsLsfInput
 
-from .armLsf import GaussianArmLsf, LsfKernel, detectorLsfFromDatamodel, dispersionAtRow, rowAtWavelength
+from .armLsf import GaussianArmLsf, LsfProfile, detectorLsfFromDatamodel, dispersionAtRow, rowAtWavelength
 from .combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from .lsf import Kernel1D, Lsf, LsfDict, convolveInBlocks
 
 __all__ = ("SpectraLsf", "BoundArmLsf", "CombinedSpectraLsf", "ArmFiberLsf", "spectraLsfFromDatamodel",
            "armFiberLsfs", "combinedSpectraLsf")
 
-DEFAULT_HALF_WIDTH = 12*u.pix  # Default half-width of kernels
+DEFAULT_HALF_WIDTH = 12*u.pix  # Default half-width of profiles
 
 
 class SpectraLsf(ABC):
@@ -85,7 +85,7 @@ class SpectraLsf(ABC):
             return rowAtWavelength(self.getWavelength(key), position.to_value(u.nm))
         return np.asarray(position, dtype=float) if np.ndim(position) else float(position)
 
-    def computeKernel(self, key, position, halfWidth=DEFAULT_HALF_WIDTH) -> LsfKernel:
+    def computeProfile(self, key, position, halfWidth=DEFAULT_HALF_WIDTH) -> LsfProfile:
         """The LSF of a spectrum for a line at a position
 
         Parameters
@@ -94,13 +94,13 @@ class SpectraLsf(ABC):
             The spectrum.
         position : `float`, array-like, or `astropy.units.Quantity`
             Position(s) of the line's first moment: pixels, or vacuum
-            wavelength(s). An array gives a batch of kernels.
+            wavelength(s). An array gives a batch of profiles.
         halfWidth : `astropy.units.Quantity`
-            The kernel covers ``position +/- halfWidth`` (pixels).
+            The profile covers ``position +/- halfWidth`` (pixels).
 
         Returns
         -------
-        kernel : `LsfKernel`
+        profile : `LsfProfile`
             The LSF, normalised to unit sum, with the vacuum wavelength of each
             pixel.
         """
@@ -109,9 +109,9 @@ class SpectraLsf(ABC):
         if np.ndim(center) == 0:
             if not np.isfinite(center):
                 raise ValueError(f"Position {position} is outside spectrum {key}")
-            kernel = self._computeKernel(key, float(center), half)
+            kernel = self._computeProfile(key, float(center), half)
         else:
-            kernels = [self._computeKernel(key, float(cc), half) for cc in np.ravel(center)]
+            kernels = [self._computeProfile(key, float(cc), half) for cc in np.ravel(center)]
             width = 2*int(np.ceil(half)) + 2
             start = np.ceil(np.ravel(center) - half - 0.5).astype(int)
             values = np.zeros((len(kernels), width))
@@ -120,14 +120,14 @@ class SpectraLsf(ABC):
                 hi = min(kk.stop - ss, width)
                 values[ii, lo:hi] = kk.values[lo - (kk.start - ss):hi - (kk.start - ss)]
             norm = np.array([kk.norm for kk in kernels])
-            kernel = LsfKernel(key, np.ravel(center), start, values, norm=norm)
+            kernel = LsfProfile(key, np.ravel(center), start, values, norm=norm)
         wavelength = self.getWavelength(key)
         kernel.wavelength = kernel.extract(np.append(wavelength, np.nan))*u.nm if kernel.isBatch else \
             wavelength[kernel.slice]*u.nm
         return kernel
 
     @abstractmethod
-    def _computeKernel(self, key, center: float, halfWidth: float) -> LsfKernel:
+    def _computeProfile(self, key, center: float, halfWidth: float) -> LsfProfile:
         """The LSF of a spectrum at a position (pixels), clipped to the spectrum"""
         raise NotImplementedError("Subclasses must implement")
 
@@ -192,8 +192,8 @@ class SpectraLsf(ABC):
 
         This implementation measures the pixel-integrated kernels.
         """
-        return np.array([kernelWidth(self._computeKernel(key, float(cc), DEFAULT_HALF_WIDTH.value),
-                                     method, intrinsicWidth) for cc in center])
+        return np.array([profileWidth(self._computeProfile(key, float(cc), DEFAULT_HALF_WIDTH.value),
+                                      method, intrinsicWidth) for cc in center])
 
     def toLegacy(self) -> LsfDict:
         """The deprecated product (``pfsArmLsf``, ``pfsMergedLsf``, ``pfsCoaddLsf``)"""
@@ -234,13 +234,13 @@ class ArmFiberLsf(Lsf):
         if self._legacy is not None:
             return self._legacy.computeKernel(center)
         pixel = int(np.floor(center + 0.5))
-        kernel = self.detectorLsf.computeKernel(self.fiberId, float(pixel), clip=False)
+        kernel = self.detectorLsf.computeProfile(self.fiberId, float(pixel), clip=False)
         return Kernel1D(kernel.values, pixel - kernel.start, normalize=False)  # Already normalised
 
     def computeWindow(self, center, clip=True):
         if self._legacy is not None:
             return self._legacy.computeWindow(center, clip=clip)
-        kernel = self.detectorLsf.computeKernel(self.fiberId, float(center), clip=clip)
+        kernel = self.detectorLsf.computeProfile(self.fiberId, float(center), clip=clip)
         return kernel.start, kernel.values
 
     def computeArray(self, center):
@@ -302,8 +302,8 @@ class BoundArmLsf(SpectraLsf):
     def getWavelength(self, key):
         return self.wavelength[self._index[int(key)]]
 
-    def _computeKernel(self, key, center, halfWidth):
-        return self.detectorLsf.computeKernel(int(key), center, halfWidth)
+    def _computeProfile(self, key, center, halfWidth):
+        return self.detectorLsf.computeProfile(int(key), center, halfWidth)
 
     def getLegacyLsf(self, key):
         if int(key) not in self._index:
@@ -352,7 +352,7 @@ class CombinedSpectraLsf(SpectraLsf):
     def getWavelength(self, key):
         return self.wavelength[key]
 
-    def _computeKernel(self, key, center, halfWidth):
+    def _computeProfile(self, key, center, halfWidth):
         start, values = self.lsfs[key].computeWindow(center, clip=True)
         pixels = np.arange(start, start + len(values))
         window = np.clip(halfWidth + 0.5 - np.abs(pixels - center), 0.0, 1.0)
@@ -363,7 +363,7 @@ class CombinedSpectraLsf(SpectraLsf):
         values = values[keep[0]:keep[-1] + 1]
         norm = float(np.sum(values))
         values = values/norm if norm > 0 else values
-        return LsfKernel(key, float(center), int(start + keep[0]), values, norm=norm)
+        return LsfProfile(key, float(center), int(start + keep[0]), values, norm=norm)
 
     def getLegacyLsf(self, key):
         return self.lsfs[key]
@@ -455,13 +455,13 @@ def spectraLsfFromDatamodel(data: PfsLsf, keys: list, wavelength: Dict[object, n
     return CombinedSpectraLsf(lsfs, {key: wavelength[key] for key in lsfs})
 
 
-def kernelWidth(kernel: LsfKernel, method: str = "fit", intrinsicWidth: float = 0.0) -> float:
-    """The rms (pixels) of the Gaussian equivalent to a pixel-integrated kernel
+def profileWidth(kernel: LsfProfile, method: str = "fit", intrinsicWidth: float = 0.0) -> float:
+    """The rms (pixels) of the Gaussian equivalent to a pixel-integrated profile
 
     Parameters
     ----------
-    kernel : `LsfKernel`
-        The kernel (a single one).
+    profile : `LsfProfile`
+        The profile (a single one).
     method : `str`
         ``"fit"`` (least-squares fit of a pixel-integrated Gaussian, with free
         centre and amplitude) or ``"moment"`` (second moment).

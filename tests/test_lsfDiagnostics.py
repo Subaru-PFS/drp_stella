@@ -39,7 +39,7 @@ def makeSpectra(model, lines, background=10.0, amplitude=1000.0):
     flux = np.full((len(FIBER_ID), LENGTH), background)
     for row in lines.itertuples():
         ii = int(np.flatnonzero(FIBER_ID == row.fiberId)[0])
-        kernel = model.computeKernel(row.fiberId, row.pixel, halfWidth=20)
+        kernel = model.computeProfile(row.fiberId, row.pixel, halfWidth=20)
         flux[ii, kernel.start:kernel.start + len(kernel.values)] += amplitude*kernel.values
     wavelength = np.array([model.wavelength(ff, np.arange(LENGTH, dtype=float)) for ff in FIBER_ID])
     return types.SimpleNamespace(fiberId=FIBER_ID, length=LENGTH, flux=flux, variance=flux.copy(),

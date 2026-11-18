@@ -172,7 +172,7 @@ def lineResiduals(model: ArmLsf, lines: pd.DataFrame, getSpectra: Callable[[int]
             if row.fiberId not in index or row.fiberId not in model:
                 continue
             ii = index[row.fiberId]
-            kernel = visitModel.computeKernel(row.fiberId, row.pixel, halfWidth=halfWidth)
+            kernel = visitModel.computeProfile(row.fiberId, row.pixel, halfWidth=halfWidth)
             pixels = kernel.start + np.arange(len(kernel.values))
             if pixels[0] < 0 or pixels[-1] >= spectra.length:
                 continue
@@ -283,7 +283,7 @@ def gaussianEquivalents(model: ArmLsf, fiberId: int, row: float, intrinsicWidths
     offsets, values = [], []
     for jj in range(numSub):
         center = row + jj/numSub
-        kernel = model.computeKernel(fiberId, center)
+        kernel = model.computeProfile(fiberId, center)
         offsets.append(kernel.start + np.arange(len(kernel.values)) - center)
         values.append(np.asarray(kernel.values, dtype=float))
     offsets = np.concatenate(offsets)
@@ -412,7 +412,7 @@ def checkSpectraLsf(spectra, lsf, lines, halfWidth: float = 8, minSn: float = 10
         inRange = (wl > spectra.wavelength[ii].min()) & (wl < spectra.wavelength[ii].max())
         if not np.any(inRange):
             continue
-        kernels = lsf.computeKernel(ff, wl[inRange]*u.nm)
+        kernels = lsf.computeProfile(ff, wl[inRange]*u.nm)
         pixels = kernels.start[:, None] + np.arange(kernels.values.shape[1])
         moment = np.sum(kernels.values*pixels, axis=1)/np.sum(kernels.values, axis=1)
         position.extend(moment - yy[select][inRange])
@@ -442,7 +442,7 @@ def checkSpectraLsf(spectra, lsf, lines, halfWidth: float = 8, minSn: float = 10
                           & (peak > neighbourFrac*f0) & (sn > 5))
             if not s0 > minSn or np.any(neighbours):
                 continue
-            kernel = lsf.computeKernel(ff, y0*u.pix, halfWidth=halfWidth*u.pix)
+            kernel = lsf.computeProfile(ff, y0*u.pix, halfWidth=halfWidth*u.pix)
             if kernel.start < 2 or kernel.stop + 2 > len(flux) or np.any(mask[kernel.slice] != 0):
                 continue
             offsets = kernel.pixels - y0

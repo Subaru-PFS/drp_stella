@@ -105,7 +105,7 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
 
     def testKernel(self):
         """A kernel is short, normalised, and has its first moment at the centre"""
-        kernel = self.model.computeKernel(20, 1000.3, halfWidth=10)
+        kernel = self.model.computeProfile(20, 1000.3, halfWidth=10)
         self.assertEqual(kernel.start, 990)
         self.assertEqual(len(kernel), 21)
         self.assertEqual(kernel.slice, slice(990, 1011))
@@ -116,16 +116,16 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
 
     def testWindow(self):
         """The window is symmetric about the centre: the fraction of each pixel within halfWidth"""
-        unwindowed = self.model.computeKernel(20, 1000.3, halfWidth=20, normalize=False)
-        kernel = self.model.computeKernel(20, 1000.3, halfWidth=10, normalize=False)
+        unwindowed = self.model.computeProfile(20, 1000.3, halfWidth=20, normalize=False)
+        kernel = self.model.computeProfile(20, 1000.3, halfWidth=10, normalize=False)
         expect = np.ones(21)
         expect[0] = 0.2
         expect[-1] = 0.8
         core = unwindowed.values[kernel.start - unwindowed.start:kernel.stop - unwindowed.start]
         np.testing.assert_allclose(kernel.values, core*expect, rtol=1.0e-12, atol=0.0)
         # An integer centre with an integer halfWidth has half-weighted end pixels
-        kernel = self.model.computeKernel(20, 1000.0, halfWidth=10, normalize=False)
-        unwindowed = self.model.computeKernel(20, 1000.0, halfWidth=20, normalize=False)
+        kernel = self.model.computeProfile(20, 1000.0, halfWidth=10, normalize=False)
+        unwindowed = self.model.computeProfile(20, 1000.0, halfWidth=20, normalize=False)
         self.assertEqual(kernel.slice, slice(990, 1011))
         expect = np.ones(21)
         expect[[0, -1]] = 0.5
@@ -133,26 +133,26 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
 
     def testEdge(self):
         """A kernel at the end of the spectrum is clipped"""
-        kernel = self.model.computeKernel(20, 2.0, halfWidth=10)
+        kernel = self.model.computeProfile(20, 2.0, halfWidth=10)
         self.assertEqual(kernel.start, 0)
         self.assertEqual(kernel.stop, 13)
-        unwindowed = self.model.computeKernel(20, 2.0, halfWidth=20, normalize=False)
+        unwindowed = self.model.computeProfile(20, 2.0, halfWidth=20, normalize=False)
         expect = unwindowed.values[:13]*np.append(np.ones(12), 0.5)   # the end pixel is half-weighted
         np.testing.assert_allclose(kernel.values*kernel.norm, expect, rtol=1.0e-12, atol=0.0)
         self.assertLess(kernel.norm, 1.0)
-        kernel = self.model.computeKernel(20, self.model.length - 1.5, halfWidth=10)
+        kernel = self.model.computeProfile(20, self.model.length - 1.5, halfWidth=10)
         self.assertEqual(kernel.stop, self.model.length)
         with self.assertRaises(ValueError):
-            self.model.computeKernel(20, -50.0, halfWidth=10)
+            self.model.computeProfile(20, -50.0, halfWidth=10)
         with self.assertRaises(KeyError):
-            self.model.computeKernel(21, 1000.0)
+            self.model.computeProfile(21, 1000.0)
 
     def testExtract(self):
         """The kernel extracts the matching slice of a spectrum"""
         length = self.model.length
         flux = np.arange(3*length, dtype=float).reshape(3, length)
         spectra = types.SimpleNamespace(fiberId=self.model.fiberId, flux=flux)
-        kernel = self.model.computeKernel(20, 1234.5)
+        kernel = self.model.computeProfile(20, 1234.5)
         self.assertFloatsEqual(kernel.extract(flux[1]), flux[1, kernel.start:kernel.stop])
         self.assertFloatsEqual(kernel.extractFrom(spectra, "flux"), flux[1, kernel.start:kernel.stop])
 
@@ -160,18 +160,18 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         """A kernel at a wavelength has its centre there, and its pixels' wavelengths"""
         rows = np.arange(self.model.length, dtype=float)
         wavelength = 600 + 0.05*rows + 1e-6*rows**2
-        kernel = self.model.computeKernelAtWavelength(20, 700.0)
+        kernel = self.model.computeProfileAtWavelength(20, 700.0)
         self.assertFloatsAlmostEqual(np.interp(kernel.center, rows, wavelength), 700.0, atol=1.0e-6)
         self.assertFloatsAlmostEqual(kernel.wavelength.to_value(u.nm), wavelength[kernel.slice], atol=1.0e-6)
 
     def testKernels(self):
         """The stacked kernels match the individual ones"""
         centers = np.array([500.2, 1500.7, 3.0])
-        kernels = self.model.computeKernels(30, centers, halfWidth=8)
+        kernels = self.model.computeProfiles(30, centers, halfWidth=8)
         self.assertEqual(kernels.values.shape, (3, 18))
         self.assertFloatsAlmostEqual(kernels.values.sum(axis=1), 1.0, atol=1.0e-12)
         for ii, cc in enumerate(centers):
-            single = self.model.computeKernel(30, cc, halfWidth=8)
+            single = self.model.computeProfile(30, cc, halfWidth=8)
             stacked = kernels[ii]
             self.assertFloatsEqual(stacked.values[single.start - stacked.start:single.stop - stacked.start],
                                    single.values)
@@ -256,8 +256,8 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model.surfaces["lorentz"] = constantSurface("lorentz", 0.12)
         self.assertIn("lorentz", model.parameters)
         self.assertFloatsAlmostEqual(model._parameterValues(20, 1000.0)["lorentz"], 0.12, atol=1.0e-12)
-        kernel = model.computeKernel(20, 1000.3, halfWidth=10)
-        core = self.model.computeKernel(20, 1000.3, halfWidth=10)
+        kernel = model.computeProfile(20, 1000.3, halfWidth=10)
+        core = self.model.computeProfile(20, 1000.3, halfWidth=10)
         self.assertLess(kernel.norm, core.norm)
         # The window is symmetric about the centre, so the truncated wings hardly shift the first moment
         self.assertFloatsAlmostEqual(np.sum(kernel.pixels*kernel.values), 1000.3, atol=2.0e-4)
@@ -277,7 +277,8 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(both["radius"], [sci["radius"], eng["radius"]], rtol=1.0e-12)
         self.assertLess(model.computeFwhm(20, 1000.0), model.computeFwhm(10, 1000.0))
         copy = pickle.loads(pickle.dumps(model))
-        self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values, model.computeKernel(20, 1000.3).values)
+        self.assertFloatsEqual(copy.computeProfile(20, 1000.3).values,
+                               model.computeProfile(20, 1000.3).values)
         # ... and their halo fraction times iisHaloScale
         model.surfaces["haloFrac"] = constantSurface("haloFrac", 0.02)
         model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.5)
@@ -365,18 +366,19 @@ class LsfModelTestCase(lsst.utils.tests.TestCase):
         model.surfaces["haloWidth"] = constantSurface("haloWidth", 2.2)
         params = model._parameterValues(20, 1000.0)
         self.assertFloatsAlmostEqual(params["haloFrac"], 0.03, atol=1.0e-12)
-        kernel = model.computeKernel(20, 1000.3, halfWidth=10)
-        core = self.model.computeKernel(20, 1000.3, halfWidth=10)
+        kernel = model.computeProfile(20, 1000.3, halfWidth=10)
+        core = self.model.computeProfile(20, 1000.3, halfWidth=10)
         self.assertFloatsAlmostEqual(np.sum(kernel.pixels*kernel.values), 1000.3, atol=1.0e-4)
         self.assertGreater(kernel.values[2], core.values[2])
         copy = pickle.loads(pickle.dumps(model))
-        self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values, model.computeKernel(20, 1000.3).values)
+        self.assertFloatsEqual(copy.computeProfile(20, 1000.3).values,
+                               model.computeProfile(20, 1000.3).values)
 
     def testPickle(self):
         """The model can be pickled"""
         copy = pickle.loads(pickle.dumps(self.model))
-        self.assertFloatsEqual(copy.computeKernel(20, 1000.3).values,
-                               self.model.computeKernel(20, 1000.3).values)
+        self.assertFloatsEqual(copy.computeProfile(20, 1000.3).values,
+                               self.model.computeProfile(20, 1000.3).values)
         self.assertFloatsEqual(copy.wavelength(20, [1.0, 2.5]), self.model.wavelength(20, [1.0, 2.5]))
 
 
