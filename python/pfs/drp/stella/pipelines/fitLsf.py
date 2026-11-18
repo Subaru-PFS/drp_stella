@@ -230,6 +230,11 @@ class FitLsfConfig(PipelineTaskConfig, pipelineConnections=FitLsfConnections):
                             "fibre in the centroid (a wavelength zero-point error); 'mtp' (sub-bundle, e.g. "
                             "U3-1) or 'connector' (MTP connector, e.g. U3) for fibre-to-fibre blur from "
                             "focal-ratio degradation")
+    minGroupFibers = Field(dtype=int, default=2,
+                           doc="A fibre factor of groupBy ('mtp' or 'connector') is dropped from a "
+                               "smooth fit, with a warning, if any of its groups has fewer distinct fibres "
+                               "than this: with one fibre per group the offsets are degenerate with the "
+                               "surface's x terms (e.g. with a large fiberStep)")
     nIter = Field(dtype=int, default=3, doc="Clip-and-refit iterations of the smooth fits")
     nSigma = Field(dtype=float, default=4.0, doc="Clipping threshold (robust sigma) of the smooth fits")
     doCoverageGuard = Field(dtype=bool, default=True,
@@ -854,6 +859,18 @@ class FitLsfTask(PipelineTask):
                     degree = supported
             factors = self.config.groupBy.get(name, self.config.groupBy.get("default", ""))
             groups = {ff: labels[ff] for ff in factors.split(",") if ff}
+            for factor in ("mtp", "connector"):
+                if factor in groups:
+                    # Claude: each group needs several fibres, or its offset trades off against the x terms
+                    fibers = defaultdict(set)
+                    for label, fiberId in zip(groups[factor], labels["fiberId"]):
+                        fibers[label].add(fiberId)
+                    numFibers = min((len(ff) for label, ff in fibers.items() if label), default=0)
+                    if numFibers < self.config.minGroupFibers:
+                        self.log.warning("Not fitting per-%s offsets of %s: a group has only %d fibre(s) "
+                                         "(minGroupFibers=%d; fiberStep=%d)", factor, name, numFibers,
+                                         self.config.minGroupFibers, self.config.fiberStep)
+                        del groups[factor]
             surface, used, residual = fitSmoothSurface(
                 u, v, value, error, degree, domain=domain, name=name, nIter=self.config.nIter,
                 nSigma=self.config.nSigma, groups=groups,
