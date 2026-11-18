@@ -8,7 +8,14 @@ from .math import interpolateFlux as interpolateFluxImpl
 from .math import interpolateCovariance as interpolateCovarianceImpl
 from .spline import SplineD
 
-__all__ = ["calculateDispersion", "interpolate", "interpolateFlux", "interpolateVariance", "interpolateMask"]
+__all__ = [
+    "calculateDispersion",
+    "interpolate",
+    "interpolateMaskedVariance",
+    "interpolateFlux",
+    "interpolateVariance",
+    "interpolateMask",
+]
 
 
 def calculateDispersion(wavelength):
@@ -144,6 +151,90 @@ def interpolate(
     return Struct(
         wavelength=toWavelength,
         flux=resultFlux,
+        mask=resultMask,
+        covariance=resultCovariance,
+        variance=resultCovariance[0],
+    )
+
+
+def interpolateMaskedVariance(
+    fromWavelength: np.ndarray,
+    fromMask: np.ndarray,
+    fromVariance: np.ndarray,
+    toWavelength: np.ndarray,
+    *,
+    fill: float = 0.0,
+    order: int = 3,
+    minWeight: float = 0.1,
+    badMask: int = 0,
+    fillMask: int = 0,
+    numCovar: int = 1,
+) -> Struct:
+    """Interpolate the variance and mask of a spectrum
+
+    This is the same as ``interpolate``, including the treatment of bad
+    pixels, but without the flux.
+
+    Parameters
+    ----------
+    fromWavelength : `np.ndarray` of `float`
+        Source wavelength array.
+    fromMask : `np.ndarray` of `integer`
+        Source mask array.
+    fromVariance : `np.ndarray` of `float`
+        Source variance array.
+    toWavelength : `np.ndarray` of `float`
+        Target wavelength array.
+    fill: `float`, optional
+        Fill value.
+    order : `int`, optional
+        Interpolation order to use. Less than or equal to 1 means linear
+        interpolation; higher orders use Lanczos interpolation of the given
+        order.
+    minWeight : `float`, optional
+        The minimum sum of weights to accept; if the sum of weights is less than
+        this value, the output will be masked.
+    badMask : `int`, optional
+        Value to use to identify bad pixels in the input mask. This is used only
+        for Lanczos interpolation.
+    fillMask : `int`, optional
+        Value to use to mark pixels in the output mask that failed
+        interpolation.
+    numCovar : `int`, optional
+        Number of covariance diagonals to interpolate. 1 means just the variance;
+        2 means variance and first off-diagonal; etc.
+
+    Returns
+    -------
+    spectrum : `Struct`
+        Struct with fields:
+        - wavelength: `numpy.ndarray` of `float`
+            Target wavelength array.
+        - mask: `numpy.ndarray` of `int`
+            Target mask array.
+        - variance: `numpy.ndarray` of `float`
+            Target variance array.
+        - covariance: `numpy.ndarray` of `float`, shape ``(numCovar, N)``
+            Target covariance array.
+    """
+    resultMask = interpolateMask(fromWavelength, fromMask, toWavelength, fillMask)
+    length = len(toWavelength)
+    indices = interpolateIndices(fromWavelength, toWavelength)
+    interpMask = np.empty(length, dtype=bool)
+    resultCovariance = np.empty((numCovar, length), dtype=fromVariance.dtype)
+    interpolateCovarianceImpl(
+        resultCovariance,
+        interpMask,
+        fromVariance,
+        (fromMask & badMask) != 0,
+        indices,
+        fill,
+        order,
+        minWeight,
+    )
+    resultMask[interpMask] |= fillMask
+    return Struct(
+        wavelength=toWavelength,
         mask=resultMask,
         covariance=resultCovariance,
         variance=resultCovariance[0],
