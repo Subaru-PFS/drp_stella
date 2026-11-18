@@ -582,12 +582,13 @@ class PsfMatchCalibsTask(PipelineTask):
             Identity of the outputs.
         referencePfsConfig, targetPfsConfig : `pfs.datamodel.PfsConfig`, optional
             Top-end configurations for the reference and target. These are
-            used for excluding fibers from the kernel fit if ``useLineList``,
-            and the ``referencePfsConfig`` is used for selecting fibers when
-            adjusting the detectorMap to the reference.
+            used for excluding fibers from the kernel fit and identifying
+            breaks in the comb of fibers (see `PsfMatchTask`), and the
+            ``referencePfsConfig`` is used for selecting fibers when adjusting
+            the detectorMap to the reference.
         useLineList : `bool`, optional
-            Use the line list (and fiber exclusion) when measuring the
-            PSF-matching kernel? This is appropriate for sky exposures.
+            Use the line list when measuring the PSF-matching kernel? This is
+            appropriate for sky exposures.
         kernel : `lsst.afw.math.Kernel`, optional
             PSF-matching kernel from the reference to the target, to use
             instead of measuring one (e.g., measured for another arm). If
@@ -620,8 +621,10 @@ class PsfMatchCalibsTask(PipelineTask):
         if kernel is not None:
             self.log.info("Using the provided PSF-matching kernel instead of measuring one")
             psfMatch = None
-        elif useLineList:
-            refLines = self.readLineList.run(referenceDetectorMap, target.getMetadata(), arm=identity.arm)
+        else:
+            refLines = None
+            if useLineList:
+                refLines = self.readLineList.run(referenceDetectorMap, target.getMetadata(), arm=identity.arm)
             psfMatch = self.psfMatch.run(
                 reference,
                 target,
@@ -630,8 +633,6 @@ class PsfMatchCalibsTask(PipelineTask):
                 sourcePfsConfig=referencePfsConfig,
                 targetPfsConfig=targetPfsConfig,
             )
-        else:
-            psfMatch = self.psfMatch.run(reference, target)
         if psfMatch is not None:
             kernel = psfMatch.psfMatchingKernel
 
