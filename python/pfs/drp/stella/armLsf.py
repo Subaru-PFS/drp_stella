@@ -1,7 +1,7 @@
 """Models of the line-spread function over a spectrograph's fibres
 
 An `LsfModel` returns, for a fibre and a (floating-point) position along its
-spectrum, a short `LsfKernel`: the LSF's flux in each pixel of a slice of the
+spectrum, a short `LsfProfile`: the LSF's flux in each pixel of a slice of the
 spectrum's row, with methods to extract the matching slice of e.g. ``flux``.
 
 `ArmLsf` is the model for one detector (arm, spectrograph), in pixels:
@@ -24,16 +24,16 @@ from pfs.datamodel.pfsLsf import PfsArmLsfData, PfsLsf, PfsLsfSurface
 
 from .smoothSurface import DetectorCoords, SmoothSurface
 
-__all__ = ("LsfKernel", "LsfParameter", "LsfModel", "ArmLsf", "GaussianArmLsf", "FiberSpline",
+__all__ = ("LsfProfile", "LsfParameter", "LsfModel", "ArmLsf", "GaussianArmLsf", "FiberSpline",
            "gaussianEquivalentSigma")
 
 
 @dataclass
-class LsfKernel:
+class LsfProfile:
     """The LSF of a spectrum at a position: a short slice of the spectrum
 
     It is both the convolution kernel and the model of a line at a sub-pixel
-    position. It may hold several kernels at once (computed for an array of
+    position. It may hold several profiles at once (computed for an array of
     positions), all of the same width: then ``center`` and ``start`` are
     arrays, and ``values`` is two-dimensional.
 
@@ -47,15 +47,15 @@ class LsfKernel:
         Index of ``values[..., 0]`` in the spectrum.
     values : `numpy.ndarray`
         LSF flux in each pixel, times the window (normalised to sum 1 unless
-        the kernel was computed with ``normalize=False``). The window is the
+        the profile was computed with ``normalize=False``). The window is the
         fraction of each pixel within ``halfWidth`` of ``center``: 1 except for
         the end pixels, so that it is symmetric about ``center`` and the
-        truncation of the LSF's wings doesn't shift the kernel's first moment
+        truncation of the LSF's wings doesn't shift the profile's first moment
         (to first order).
     wavelength : `astropy.units.Quantity`, optional
         Vacuum wavelength of each pixel, if known.
     norm : `float` or `numpy.ndarray`
-        Fraction of the LSF's flux within the (windowed) kernel before
+        Fraction of the LSF's flux within the (windowed) profile before
         normalisation (< 1 from the truncated wings, and if clipped at the ends
         of the spectrum).
     """
@@ -73,47 +73,47 @@ class LsfKernel:
 
     @property
     def isBatch(self):
-        """Does this hold several kernels?"""
+        """Does this hold several profiles?"""
         return np.ndim(self.values) == 2
 
     @property
-    def numKernels(self):
-        """Number of kernels held"""
+    def numProfiles(self):
+        """Number of profiles held"""
         return len(self.values) if self.isBatch else 1
 
     def __getitem__(self, index):
-        """The ``index``-th of several kernels"""
+        """The ``index``-th of several profiles"""
         if not self.isBatch:
-            raise TypeError("Not a batch of kernels")
-        return LsfKernel(self.key, float(self.center[index]), int(self.start[index]), self.values[index],
-                         None if self.wavelength is None else self.wavelength[index],
-                         float(np.broadcast_to(self.norm, (self.numKernels,))[index]))
+            raise TypeError("Not a batch of profiles")
+        return LsfProfile(self.key, float(self.center[index]), int(self.start[index]), self.values[index],
+                          None if self.wavelength is None else self.wavelength[index],
+                          float(np.broadcast_to(self.norm, (self.numProfiles,))[index]))
 
     def __repr__(self):
         if self.isBatch:
-            return f"LsfKernel(key={self.key}, {self.numKernels} kernels of {len(self)} pixels)"
+            return f"LsfProfile(key={self.key}, {self.numProfiles} profiles of {len(self)} pixels)"
         where = f"center={self.center:.3f} pixels"
         if self.wavelength is not None and len(self.wavelength) == len(self.values):
             lam = np.interp(self.center, self.pixels, self.wavelength.to_value(u.nm))
             where += f" ({lam:.3f} nm, vacuum)"
-        return (f"LsfKernel(key={self.key}, {where}, pixels {self.start}:{self.stop}, "
+        return (f"LsfProfile(key={self.key}, {where}, pixels {self.start}:{self.stop}, "
                 f"norm={self.norm:.4f})")
 
     @property
     def stop(self):
-        """Index one beyond the kernel's last pixel in the spectrum"""
+        """Index one beyond the profile's last pixel in the spectrum"""
         return np.asarray(self.start) + len(self) if self.isBatch else self.start + len(self)
 
     @property
     def slice(self):
-        """The `slice` of the spectrum covered by the kernel"""
+        """The `slice` of the spectrum covered by the profile"""
         if self.isBatch:
-            raise TypeError("A batch of kernels has no single slice")
+            raise TypeError("A batch of profiles has no single slice")
         return slice(self.start, self.stop)
 
     @property
     def pixels(self):
-        """Indices of the kernel's pixels in the spectrum"""
+        """Indices of the profile's pixels in the spectrum"""
         return np.asarray(self.start)[..., np.newaxis] + np.arange(len(self)) if self.isBatch else \
             np.arange(self.start, self.stop)
 
@@ -124,11 +124,11 @@ class LsfKernel:
         return self.pixels - (center[..., np.newaxis] if self.isBatch else center)
 
     def __len__(self):
-        """Number of pixels in the kernel"""
+        """Number of pixels in the profile"""
         return np.shape(self.values)[-1]
 
     def extract(self, array):
-        """The slice of ``array`` matching the kernel
+        """The slice of ``array`` matching the profile
 
         Parameters
         ----------
@@ -138,8 +138,8 @@ class LsfKernel:
         Returns
         -------
         sliced : `numpy.ndarray`
-            ``array[..., self.slice]``; for a batch of kernels, one slice per
-            kernel (zero beyond the ends of ``array``).
+            ``array[..., self.slice]``; for a batch of profiles, one slice per
+            profile (zero beyond the ends of ``array``).
         """
         array = np.asarray(array)
         if not self.isBatch:
@@ -202,7 +202,7 @@ class LsfModel(ABC):
             raise KeyError(f"fiberId(s) {missing.tolist()} not in the LSF model")
 
     @abstractmethod
-    def computeKernel(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
+    def computeProfile(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
         """The LSF of a fibre at a position
 
         Parameters
@@ -212,25 +212,25 @@ class LsfModel(ABC):
         center : `float`
             Position of the LSF's first moment (native units).
         halfWidth : `float`, optional
-            The kernel covers ``center +/- halfWidth`` (pixels), with the end
-            pixels weighted by the fraction of them inside (see `LsfKernel`);
+            The profile covers ``center +/- halfWidth`` (pixels), with the end
+            pixels weighted by the fraction of them inside (see `LsfProfile`);
             defaults to ``defaultHalfWidth``.
         normalize : `bool`
-            Normalise the kernel to sum 1?
+            Normalise the profile to sum 1?
         clip : `bool`
-            Clip the kernel to the spectrum's row? If `False`, a kernel near the
+            Clip the profile to the spectrum's row? If `False`, a profile near the
             end of the row extends beyond it: the LSF belongs to the instrument,
             and the end of the row only means that there's no data there.
 
         Returns
         -------
-        kernel : `LsfKernel`
+        profile : `LsfProfile`
             The LSF.
         """
         raise NotImplementedError("Subclasses must implement")
 
     @abstractmethod
-    def computeKernelAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
+    def computeProfileAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
         """The LSF of a fibre at a wavelength
 
         Parameters
@@ -240,10 +240,10 @@ class LsfModel(ABC):
         wavelength : `float`
             Vacuum wavelength (nm) of the LSF's first moment.
         halfWidth : `float`, optional
-            The kernel covers pixels within ``halfWidth`` (pixels) of ``center``;
+            The profile covers pixels within ``halfWidth`` (pixels) of ``center``;
             defaults to ``defaultHalfWidth``.
         normalize : `bool`
-            Normalise the kernel to sum 1?
+            Normalise the profile to sum 1?
 
         The wavelengths are those of the model (from the fit). For a particular
         set of spectra, use the LSF bound to them (``forSpectra``), which uses
@@ -251,7 +251,7 @@ class LsfModel(ABC):
 
         Returns
         -------
-        kernel : `LsfKernel`
+        profile : `LsfProfile`
             The LSF, with ``wavelength`` set.
         """
         raise NotImplementedError("Subclasses must implement")
@@ -274,7 +274,7 @@ class LsfModel(ABC):
         """
         raise NotImplementedError("Subclasses must implement")
 
-    def computeKernels(self, fiberId, center, halfWidth=None):
+    def computeProfiles(self, fiberId, center, halfWidth=None):
         """The LSFs of a fibre at many positions, all the same length (normalised to sum 1)
 
         Parameters
@@ -284,14 +284,14 @@ class LsfModel(ABC):
         center : array-like of `float`
             Positions (native units).
         halfWidth : `float`, optional
-            Each kernel is as from `computeKernel`, padded with zeros to
+            Each profile is as from `computeProfile`, padded with zeros to
             ``2*ceil(halfWidth) + 2`` pixels starting at ``ceil(center -
             halfWidth - 0.5)``.
 
         Returns
         -------
-        kernels : `LsfKernel`
-            The kernels, as a batch.
+        profiles : `LsfProfile`
+            The profiles, as a batch.
         """
         halfWidth = self.defaultHalfWidth if halfWidth is None else halfWidth
         center = np.atleast_1d(np.asarray(center, dtype=float)).ravel()
@@ -300,10 +300,10 @@ class LsfModel(ABC):
         values = np.zeros((center.size, width))
         norm = np.zeros(center.size)
         for i, (cc, ss) in enumerate(zip(center, start)):
-            kernel = self.computeKernel(int(fiberId), float(cc), halfWidth=halfWidth)
+            kernel = self.computeProfile(int(fiberId), float(cc), halfWidth=halfWidth)
             values[i, kernel.start - ss:kernel.stop - ss] = kernel.values
             norm[i] = kernel.norm
-        return LsfKernel(int(fiberId), center, start, values, norm=norm)
+        return LsfProfile(int(fiberId), center, start, values, norm=norm)
 
     def _sampleProfiles(self, fiberId, center, step, halfWidth, integrated=True):
         """The LSF densities on a fine grid about their first moments
@@ -468,12 +468,12 @@ class LsfModel(ABC):
         raise NotImplementedError("Subclasses must implement")
 
     def _window(self, center, halfWidth, clip=True):
-        """The pixels of a kernel and its window
+        """The pixels of a profile and its window
 
         Parameters
         ----------
         center : `float`
-            Centre of the kernel (pixels).
+            Centre of the profile (pixels).
         halfWidth : `float`
             Half-width of the window (pixels).
         clip : `bool`
@@ -987,23 +987,23 @@ class ArmLsf(LsfModel):
                            cumulants, self.extraction, float(params.get("lorentz", 0.0)),
                            float(params.get("haloFrac", 0.0)), float(params.get("haloWidth", np.nan)))
 
-    def computeKernel(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
+    def computeProfile(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
         halfWidth = self.defaultHalfWidth if halfWidth is None else halfWidth
         start, window = self._window(center, halfWidth, clip)
         values = self._profile(fiberId, center, np.arange(start, start + len(window)))*window
         norm = float(np.sum(values))
         if normalize and norm > 0:
             values = values/norm
-        return LsfKernel(int(fiberId), float(center), start, values, norm=norm)
+        return LsfProfile(int(fiberId), float(center), start, values, norm=norm)
 
-    def computeKernelAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
+    def computeProfileAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
         if self.wavelength is None:
             raise RuntimeError("This model has no wavelengths: use the LSF bound to spectra")
         wavelengthArray = self.wavelength(int(fiberId), np.arange(self.length, dtype=float))
         center = rowAtWavelength(wavelengthArray, wavelength)
         if not np.isfinite(center):
             raise ValueError(f"wavelength {wavelength} is outside the spectrum of fiberId {fiberId}")
-        kernel = self.computeKernel(fiberId, center, halfWidth, normalize)
+        kernel = self.computeProfile(fiberId, center, halfWidth, normalize)
         kernel.wavelength = wavelengthArray[kernel.slice]*u.nm
         return kernel
 
@@ -1285,14 +1285,14 @@ class GaussianArmLsf(LsfModel):
         """The model's parameters: `dict` [`str`, `LsfParameter`]"""
         return dict(sigma=PARAMETERS["sigma"])
 
-    def computeKernel(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
+    def computeProfile(self, fiberId, center, halfWidth=None, normalize=True, clip=True):
         start, values = self.legacyLsf(fiberId).computeWindow(float(center), clip=clip)
         norm = float(np.sum(values))
         if normalize and norm > 0:
             values = values/norm
-        return LsfKernel(int(fiberId), float(center), int(start), np.asarray(values, dtype=float), norm=norm)
+        return LsfProfile(int(fiberId), float(center), int(start), np.asarray(values, dtype=float), norm=norm)
 
-    def computeKernelAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
+    def computeProfileAtWavelength(self, fiberId, wavelength, halfWidth=None, normalize=True):
         raise RuntimeError("A GaussianArmLsf has no wavelengths: use the LSF bound to spectra")
 
     def getParameters(self, fiberId, center):

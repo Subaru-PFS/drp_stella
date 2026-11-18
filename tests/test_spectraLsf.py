@@ -58,7 +58,7 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.armLsf = makeArmLsf()
 
-    def assertKernelsEqual(self, left, right, atol=0.0):
+    def assertProfilesEqual(self, left, right, atol=0.0):
         self.assertEqual(left.start, right.start)
         self.assertFloatsAlmostEqual(left.values, right.values, rtol=0, atol=atol)
 
@@ -73,7 +73,7 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(copy.engineeringFiberId, [30])
         for ff in FIBERS:
             for row in (3.0, 1234.5, LENGTH - 2.0):
-                self.assertKernelsEqual(copy.computeKernel(ff, row), self.armLsf.computeKernel(ff, row))
+                self.assertProfilesEqual(copy.computeProfile(ff, row), self.armLsf.computeProfile(ff, row))
         rows = np.arange(10.0)
         self.assertFloatsEqual(copy.wavelength(20, rows), self.armLsf.wavelength(20, rows))
 
@@ -96,20 +96,20 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         """The bound LSF uses the spectra's wavelengths"""
         spectra = makeArm(self.armLsf, shift=0.03)
         lsf = self.armLsf.forSpectra(spectra, warnShift=1.0)
-        kernel = lsf.computeKernel(20, 1234.5*u.pix)
-        self.assertKernelsEqual(kernel, self.armLsf.computeKernel(20, 1234.5))
+        kernel = lsf.computeProfile(20, 1234.5*u.pix)
+        self.assertProfilesEqual(kernel, self.armLsf.computeProfile(20, 1234.5))
         self.assertFloatsEqual(kernel.wavelength.to_value(u.nm), spectra.wavelength[1, kernel.slice])
 
         # At a wavelength, the kernel is centred on that wavelength in the spectra's solution
-        kernel = lsf.computeKernel(20, 700.0*u.nm)
+        kernel = lsf.computeProfile(20, 700.0*u.nm)
         rows = np.arange(LENGTH, dtype=float)
         self.assertFloatsAlmostEqual(np.interp(kernel.center, rows, spectra.wavelength[1]), 700.0, atol=1e-9)
 
         # Several positions at once
-        batch = lsf.computeKernel(20, [500.2, 1500.7]*u.pix, halfWidth=8*u.pix)
-        self.assertEqual(batch.numKernels, 2)
+        batch = lsf.computeProfile(20, [500.2, 1500.7]*u.pix, halfWidth=8*u.pix)
+        self.assertEqual(batch.numProfiles, 2)
         for ii, cc in enumerate((500.2, 1500.7)):
-            single = lsf.computeKernel(20, cc*u.pix, halfWidth=8*u.pix)
+            single = lsf.computeProfile(20, cc*u.pix, halfWidth=8*u.pix)
             self.assertFloatsEqual(batch[ii].values[single.start - batch[ii].start:][:len(single)],
                                    single.values)
 
@@ -132,8 +132,8 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         self.assertIsInstance(copy.lsf, BoundArmLsf)
         self.assertIsNone(copy.lsf.detectorLsf.wavelength)  # The spectra have their own
         for position in (3.0*u.pix, 1234.5*u.pix, 700.0*u.nm):
-            self.assertKernelsEqual(copy.lsf.computeKernel(20, position),
-                                    spectra.lsf.computeKernel(20, position))
+            self.assertProfilesEqual(copy.lsf.computeProfile(20, position),
+                                     spectra.lsf.computeProfile(20, position))
 
     def testGaussian(self):
         """The Gaussian placeholder is the old GaussianLsf"""
@@ -142,7 +142,7 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         lsf = gaussian.forSpectra(makeArm(self.armLsf))
         for ff in FIBERS:
             start, values = legacy[ff].computeWindow(1234.5)
-            kernel = lsf.computeKernel(ff, 1234.5*u.pix, halfWidth=100*u.pix)
+            kernel = lsf.computeProfile(ff, 1234.5*u.pix, halfWidth=100*u.pix)
             self.assertEqual(kernel.start, start)
             self.assertFloatsAlmostEqual(kernel.values, values/values.sum(), atol=1e-15)
             self.assertFloatsEqual(lsf.toLegacy()[ff].computeArray(1234.5), legacy[ff].computeArray(1234.5))
@@ -191,8 +191,8 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(copy.lsf.keys, list(FIBERS))
         for ff in FIBERS:
             for position in (640.0*u.nm, 680.0*u.nm, 800.0*u.nm, 1234.5*u.pix):
-                self.assertKernelsEqual(copy.lsf.computeKernel(ff, position),
-                                        combined.computeKernel(ff, position), atol=1e-12)
+                self.assertProfilesEqual(copy.lsf.computeProfile(ff, position),
+                                         combined.computeProfile(ff, position), atol=1e-12)
             self.assertFloatsAlmostEqual(copy.lsf.toLegacy()[ff].computeArray(3000.0),
                                          lsfs[int(ff)].computeArray(3000.0), atol=1e-12)
         # The arm LSFs are stored once each, with only the fibres used
