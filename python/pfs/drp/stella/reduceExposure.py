@@ -108,10 +108,11 @@ class ReduceExposureConnections(
         isCalibration=True,
     )
     armLsf = PrerequisiteConnection(
-        name="armLsf",
+        name="armLsf_calib",
         doc="Line-spread function of the detector (from FitLsfTask); used if doArmLsf",
         storageClass="ArmLsf",
         dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",

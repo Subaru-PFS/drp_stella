@@ -9,8 +9,11 @@ At a central fibre and a few rows of each detector, prints the rms (pixels) of:
 - fit(s): the same for a Gaussian line of intrinsic rms ``s`` pixels, with
   ``s`` removed in quadrature;
 - moment: the second moment within +/- 12 pixels, halo included
-  (``method="moment"``): right for broad lines;
+  (``method="moment"``): right for broad Gaussian lines;
 - core: the second moment within +/- 4 pixels.
+
+The collection must be the RUN collection that FitLsfTask wrote: in a
+CALIBRATION collection the model can only be looked up with an exposure's date.
 
 Example::
 
@@ -34,12 +37,15 @@ def main():
                         help="Fibre (default: the central science fibre)")
     parser.add_argument("--intrinsic", nargs="+", type=float, default=[1, 2, 4],
                         help="Intrinsic rms widths (pixels) of resolved lines")
+    parser.add_argument("--datasetType", default="armLsf_calib",
+                        help="Dataset type of the LSF model ('armLsf' for collections written before it was "
+                             "a calibration)")
     args = parser.parse_args()
 
     butler = Butler(args.repo, collections=args.collection)
     header = None
     for det in args.detectors:
-        model = butler.get("armLsf", instrument="PFS", arm=det[0], spectrograph=int(det[1:]))
+        model = butler.get(args.datasetType, instrument="PFS", arm=det[0], spectrograph=int(det[1:]))
         fiberId = args.fiberId
         if fiberId is None:
             # The central science fibre: the engineering fibres' LSFs are narrower

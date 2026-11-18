@@ -11,7 +11,9 @@ The Butler repository is `$PFS_REPO` (default `/work/datastore`). Reading `pfsAr
 needs the repository's `butler.yaml` to use obs_pfs's `PfsFiberArraySetFormatter` for PfsArm and PfsMerged;
 until it does, set `PFS_REPO` to a copy of the `butler.yaml` that does. The default collections are the ones
 used in the tickets: the armLsf fit to the Run 30 arcs is `u/rhl/PIPE2D-1940-armLsf-lampAvg`, and the
-PIPE2D-1993 regression used the `u/kiyoyabe/weekly_hilo/w.2026.04` weekly.
+PIPE2D-1993 regression used the `u/kiyoyabe/weekly_hilo/w.2026.04` weekly. Those collections were written
+before the LSF model became a calibration, so the scripts read it as `armLsf`; models fit since are
+`armLsf_calib`.
 
 ## Fitting the LSF of a detector
 

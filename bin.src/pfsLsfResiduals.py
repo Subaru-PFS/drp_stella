@@ -10,6 +10,9 @@ the residuals are divided by the fitted peak. Per lamp, it prints:
 - stack: the largest absolute value of the stacked residual profile (the
   systematic misfit), and its offset (pixels) from the line centre.
 
+The collections must include the RUN collection that FitLsfTask wrote: in a
+CALIBRATION collection the model can only be looked up with an exposure's date.
+
 Example::
 
     pfsLsfResiduals.py /work/datastore --collections u/me/armLsf u/me/arcs PFS/defaults --detectors b2 r2
@@ -33,11 +36,14 @@ def main():
     parser.add_argument("--halfWidth", type=float, default=12, help="Kernel half-width (pixels)")
     parser.add_argument("--perVisit", action="store_true",
                         help="Include each visit's (lamp's) offsets, rather than using the average lamp")
+    parser.add_argument("--datasetType", default="armLsf_calib",
+                        help="Dataset type of the LSF model ('armLsf' for collections written before it was "
+                             "a calibration)")
     args = parser.parse_args()
 
     butler = Butler(args.repo, collections=args.collections)
     if args.detectors is None:
-        refs = butler.registry.queryDatasets("armLsf", findFirst=True)
+        refs = butler.registry.queryDatasets(args.datasetType, findFirst=True)
         detectors = sorted({(ref.dataId["arm"], ref.dataId["spectrograph"]) for ref in refs})
     else:
         detectors = [(det[0], int(det[1:])) for det in args.detectors]
@@ -45,7 +51,7 @@ def main():
     print(f"{'det':3} {'lamp':6} {'n':>4} {'maxAbs':>7} {'noise':>7} {'stack':>7} {'at':>6}")
     for arm, spectrograph in detectors:
         dataId = dict(instrument="PFS", arm=arm, spectrograph=spectrograph)
-        model = butler.get("armLsf", dataId)
+        model = butler.get(args.datasetType, dataId)
         lines = selectUsedLines(butler.get("lsfLines", dataId), args.minSn)
         if len(lines) > args.maxLines:
             lines = lines.sample(args.maxLines, random_state=1)
