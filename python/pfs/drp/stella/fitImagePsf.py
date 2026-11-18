@@ -892,14 +892,25 @@ class FitImagePsfQaTask(PipelineTask):
         inputRefs: InputQuantizedConnection,
         outputRefs: OutputQuantizedConnection,
     ):
-        data = readDatasetRefs(butler, inputRefs, "exposures", "pfsConfigs", "detectorMaps")
+        # Match inputs and outputs explicitly by visit: the residuals must be
+        # written to the visit they came from.
+        exposureRefs = sorted(inputRefs.exposures, key=lambda ref: ref.dataId["visit"])
+        visits = [ref.dataId["visit"] for ref in exposureRefs]
+        pfsConfigRefs = {ref.dataId["visit"]: ref for ref in inputRefs.pfsConfigs}
+        detectorMapRefs = {ref.dataId["visit"]: ref for ref in inputRefs.detectorMaps}
+        residualRefs = {ref.dataId["visit"]: ref for ref in outputRefs.residuals}
+        arm = exposureRefs[0].dataId.arm.name
+
+        exposures = [butler.get(ref) for ref in exposureRefs]
+        pfsConfigs = [butler.get(pfsConfigRefs[vv]) for vv in visits]
+        detectorMaps = [butler.get(detectorMapRefs[vv]) for vv in visits]
         psf = butler.get(inputRefs.psf)
-        arm = inputRefs.exposures[0].dataId.arm.name
-        outputs = self.run(data.exposures, data.pfsConfigs, data.detectorMaps, psf, arm=arm)
+
+        outputs = self.run(exposures, pfsConfigs, detectorMaps, psf, arm=arm)
         butler.put(outputs.qualityPlot, outputRefs.qualityPlot)
         butler.put(outputs.spatialPlot, outputRefs.spatialPlot)
-        for ref, residual in zip(outputRefs.residuals, outputs.residuals):
-            butler.put(residual, ref)
+        for vv, residual in zip(visits, outputs.residuals):
+            butler.put(residual, residualRefs[vv])
         return outputs
 
     def run(
