@@ -28,6 +28,7 @@ from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
 from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
+from .spectraLsf import armFiberLsfs, combinedSpectraLsf
 from .combineSpectra import accumulateWeighted, coaddWeights
 from .gen3 import DatasetRefList, zipDatasetRefs
 
@@ -178,6 +179,10 @@ class CoaddSpectraTask(PipelineTask):
             for target in dd.pfsConfig.select(fiberStatus=FiberStatus.GOOD, targetType=targetTypes):
                 targetSources[target].append(identity)
 
+        # The LSF of each fibre of each input: once per input, so that each detector's LSF appears once
+        for dd in data.values():
+            dd.fiberLsfs = armFiberLsfs(dd.pfsArm, dd.pfsArmLsf)
+
         pfsCoadd: Dict[Target, PfsObject] = {}
         pfsCoaddLsf: Dict[Target, Lsf] = {}
         for target, sources in targetSources.items():
@@ -185,8 +190,11 @@ class CoaddSpectraTask(PipelineTask):
             pfsCoadd[target] = result.pfsObject
             pfsCoaddLsf[target] = result.pfsObjectLsf
 
+        # The LSF written with the spectra is keyed by each spectrum's target (as in the PfsCoadd)
+        lsf = combinedSpectraLsf({pfsCoadd[tt].target: ll for tt, ll in pfsCoaddLsf.items()},
+                                 {ss.target: ss.wavelength for ss in pfsCoadd.values()})
         return Struct(
-            pfsCoadd=PfsCoadd(pfsCoadd.values(), getPfsVersions()),
+            pfsCoadd=PfsCoadd(pfsCoadd.values(), getPfsVersions(), lsf=lsf),
             pfsCoaddLsf=LsfDict(pfsCoaddLsf),
         )
 
@@ -380,7 +388,7 @@ class CoaddSpectraTask(PipelineTask):
         wavelength = self.wavelength.run(any(ident.arm == "m" for ident in data))
 
         spectra = [self.getSpectrum(target, dd) for dd in data.values()]
-        lsfList = [dd.pfsArmLsf for dd in data.values()]
+        lsfList = [getattr(dd, "fiberLsfs", dd.pfsArmLsf) for dd in data.values()]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectra])
         combination = self.combine(spectra, lsfList, flags, wavelength)
         fluxTable = self.fluxTable.run([dd.getDict() for dd in data.keys()], spectra)
