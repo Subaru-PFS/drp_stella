@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
+import scipy.fft
 import scipy.ndimage
 
 import lsst.afw.image as afwImage
@@ -13,7 +14,7 @@ from lsst.ip.diffim.makeKernelBasisList import makeKernelBasisList
 from lsst.ip.diffim.psfMatch import PsfMatchConfigDF
 from lsst.ip.diffim.psfMatch import PsfMatchTask as BasePsfMatchTask
 from lsst.utils.timer import timeMethod
-from pfs.datamodel import PfsConfig
+from pfs.datamodel import FiberStatus, PfsConfig, TargetType
 
 from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
@@ -29,6 +30,9 @@ __all__ = (
     "PsfMatchTask",
     "peakSignalToNoise",
     "subtractRunningMedian",
+    "measureOffset",
+    "shiftMaskedImage",
+    "offsetKernel",
     "plotSpatialKernel",
     "calculateFirstMoments",
     "plotFirstMoments",
@@ -94,6 +98,207 @@ def subtractRunningMedian(maskedImage: afwImage.MaskedImage, numRows: int) -> af
     median = scipy.ndimage.median_filter(np.where(finite, array, 0.0), size=(numRows, 1), mode="nearest")
     array[finite] -= median[finite]
     return filtered
+
+
+def measureOffset(
+    source: afwImage.MaskedImage,
+    target: afwImage.MaskedImage,
+    maxOffsetX: int,
+    maxOffsetY: int,
+    ignoreMask: int = 0,
+    weights: Optional[Sequence[np.ndarray]] = None,
+    minAliasSeparation: int = 3,
+) -> pipeBase.Struct:
+    """Measure the integer offset between two images by cross-correlation
+
+    The cross-correlation ``sum_x weight(x) source(x) target(x + offset)`` is
+    calculated with FFTs for each of the ``weights``, and normalized by its
+    maximum within ``maxOffsetX`` and ``maxOffsetY``. The offset with the
+    largest minimum (over the ``weights``) correlation is returned, so that
+    ``target(x + offset)`` best matches ``source(x)``.
+
+    For fiber spectrograph images, the comb of fibers makes the correlation
+    nearly periodic in x (with the fiber pitch). The ``weights`` can be used
+    to emphasize the breaks in the comb, which break the aliasing (see
+    `PsfMatchTask._makeOffsetWeights`). Because a fiber with a break on one
+    side suppresses only the alias in one direction, the fibers with breaks
+    on each side are best given separate weights: the true offset correlates
+    well with both, but each alias correlates poorly with one of them.
+
+    Parameters
+    ----------
+    source, target : `lsst.afw.image.MaskedImage`
+        Images to correlate; must have the same dimensions. These should
+        have any continuum removed (e.g., with `subtractRunningMedian`), so
+        that the correlation is determined by the lines.
+    maxOffsetX, maxOffsetY : `int`
+        Maximum offset (pixels) to consider in each dimension.
+    ignoreMask : `int`, optional
+        Mask bits for pixels to ignore (set to zero) in the correlation.
+    weights : sequence of `numpy.ndarray` of `float`, optional
+        Weights for each pixel of ``source``; each produces a separate
+        correlation. If not provided, uniform weights are used.
+    minAliasSeparation : `int`, optional
+        Minimum separation in x (pixels) from the peak for the
+        ``aliasRatio`` diagnostic.
+
+    Returns
+    -------
+    dx, dy : `int`
+        Offset (pixels) of ``target`` relative to ``source``.
+    peak : `float`
+        Correlation coefficient at the peak (with the first of the
+        ``weights``).
+    aliasRatio : `float`
+        Ratio of the largest (combined) correlation at offsets at least
+        ``minAliasSeparation`` from the peak in x (at any y offset) to the
+        peak; values approaching unity indicate that the x offset is poorly
+        determined. NaN if there are no such offsets.
+    """
+    if source.getDimensions() != target.getDimensions():
+        raise ValueError(
+            f"Dimensions differ: source {source.getDimensions()} vs target {target.getDimensions()}"
+        )
+
+    def prepare(image: afwImage.MaskedImage) -> np.ndarray:
+        array = image.image.array.astype(np.float32)
+        good = np.isfinite(array) & ((image.mask.array & ignoreMask) == 0)
+        if not np.any(good):
+            raise RuntimeError("No good pixels for measuring the offset")
+        result = np.zeros_like(array)
+        result[good] = array[good] - np.median(array[good])
+        return result
+
+    sourceArray = prepare(source)
+    targetArray = prepare(target)
+    shape = sourceArray.shape
+    targetTransform = scipy.fft.rfft2(targetArray)
+    targetNorm = np.sqrt(np.sum(targetArray.astype(float) ** 2))
+    # Restrict to the allowed offsets; negative offsets wrap around
+    yOffsets = np.arange(-maxOffsetY, maxOffsetY + 1)
+    xOffsets = np.arange(-maxOffsetX, maxOffsetX + 1)
+    yIndices = yOffsets % shape[0]
+    xIndices = xOffsets % shape[1]
+
+    if weights is None:
+        weights = [None]
+    combined = None
+    coefficients = []
+    for weight in weights:
+        weighted = sourceArray if weight is None else sourceArray * weight.astype(np.float32)
+        correlation = scipy.fft.irfft2(np.conj(scipy.fft.rfft2(weighted)) * targetTransform, s=shape)
+        window = correlation[np.ix_(yIndices, xIndices)]
+        windowMax = window.max()
+        if windowMax <= 0:
+            raise RuntimeError("No positive correlation for measuring the offset")
+        norm = np.sqrt(np.sum(weighted.astype(float) ** 2)) * targetNorm
+        coefficients.append(window / norm if norm > 0 else np.full_like(window, np.nan))
+        normalized = window / windowMax
+        combined = normalized if combined is None else np.minimum(combined, normalized)
+
+    yIndex, xIndex = np.unravel_index(np.argmax(combined), combined.shape)
+    best = combined[yIndex, xIndex]
+    alias = np.abs(xOffsets - xOffsets[xIndex]) >= minAliasSeparation
+    aliasRatio = float(combined[:, alias].max() / best) if np.any(alias) else np.nan
+    return pipeBase.Struct(
+        dx=int(xOffsets[xIndex]),
+        dy=int(yOffsets[yIndex]),
+        peak=float(coefficients[0][yIndex, xIndex]),
+        aliasRatio=aliasRatio,
+    )
+
+
+def shiftMaskedImage(
+    maskedImage: afwImage.MaskedImage, dx: int, dy: int
+) -> Tuple[afwImage.MaskedImage, np.ndarray]:
+    """Shift an image by an integer offset, keeping the same bounding box
+
+    The result is ``shifted(x, y) = maskedImage(x + dx, y + dy)``. Pixels
+    shifted in from outside the image have zero image, variance of
+    ``EXCLUDED_VARIANCE`` and the ``NO_DATA`` mask plane set.
+
+    Parameters
+    ----------
+    maskedImage : `lsst.afw.image.MaskedImage`
+        Image to shift; not modified.
+    dx, dy : `int`
+        Offset (pixels).
+
+    Returns
+    -------
+    shifted : `lsst.afw.image.MaskedImage`
+        Shifted image.
+    missing : `numpy.ndarray` of `bool`
+        Pixels shifted in from outside the image.
+    """
+    height, width = maskedImage.image.array.shape
+    shifted = maskedImage.clone()
+    missing = np.ones((height, width), dtype=bool)
+    targetY = slice(max(0, -dy), min(height, height - dy))
+    targetX = slice(max(0, -dx), min(width, width - dx))
+    sourceY = slice(max(0, dy), min(height, height + dy))
+    sourceX = slice(max(0, dx), min(width, width + dx))
+    missing[targetY, targetX] = False
+    for target, source in (
+        (shifted.image.array, maskedImage.image.array),
+        (shifted.mask.array, maskedImage.mask.array),
+        (shifted.variance.array, maskedImage.variance.array),
+    ):
+        target[targetY, targetX] = source[sourceY, sourceX]
+    shifted.image.array[missing] = 0.0
+    shifted.variance.array[missing] = EXCLUDED_VARIANCE
+    shifted.mask.array[missing] = shifted.mask.getPlaneBitMask("NO_DATA")
+    return shifted, missing
+
+
+def offsetKernel(
+    kernel: afwMath.LinearCombinationKernel, dx: int, dy: int
+) -> afwMath.LinearCombinationKernel:
+    """Fold an integer offset into a spatially varying kernel
+
+    Each basis kernel is embedded in a larger kernel (enlarged by twice the
+    offset in each dimension, so it remains centered) at a position that
+    moves the kernel's effect by the offset. If ``kernel`` matches ``source``
+    to ``shifted``, where ``shifted(x) = target(x + offset)`` (see
+    `shiftMaskedImage`), then the result matches ``source`` to ``target``,
+    and its first moment differs from that of ``kernel`` by ``-offset``
+    (because `lsst.afw.math.convolve` is a correlation). The spatial model is
+    unchanged, so it is evaluated at the position in ``target`` rather than
+    in ``shifted``; this is negligible for a model that varies slowly
+    compared to the offset.
+
+    Parameters
+    ----------
+    kernel : `lsst.afw.math.LinearCombinationKernel`
+        Spatially varying kernel, with odd dimensions.
+    dx, dy : `int`
+        Offset (pixels).
+
+    Returns
+    -------
+    offsetKernel : `lsst.afw.math.LinearCombinationKernel`
+        Kernel including the offset.
+    """
+    if dx == 0 and dy == 0:
+        return kernel
+    width, height = kernel.getDimensions()
+    if width % 2 == 0 or height % 2 == 0:
+        raise ValueError(f"Kernel dimensions must be odd; got {width}x{height}")
+    newWidth = width + 2 * abs(dx)
+    newHeight = height + 2 * abs(dy)
+    # Kernel pixel k (relative to the center) moves to k - offset
+    xStart = abs(dx) - dx
+    yStart = abs(dy) - dy
+    image = afwImage.ImageD(kernel.getDimensions())
+    basisList = []
+    for basis in kernel.getKernelList():
+        basis.computeImage(image, False)
+        newImage = afwImage.ImageD(newWidth, newHeight)
+        newImage.array[yStart : yStart + height, xStart : xStart + width] = image.array
+        basisList.append(afwMath.FixedKernel(newImage))
+    newKernel = afwMath.LinearCombinationKernel(basisList, kernel.getSpatialFunctionList())
+    newKernel.setSpatialParameters(kernel.getSpatialParameters())
+    return newKernel
 
 
 class PsfMatchResult(pipeBase.Struct):
@@ -256,6 +461,48 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Half-height (pixels, in the dispersion dimension) of the region around each line that is scaled "
         "by its flux ratio; pixels farther from any line with a good flux ratio are not scaled",
     )
+    doOffset = pexConfig.Field(
+        dtype=bool,
+        default=True,
+        doc="Measure the integer offset between source and target by cross-correlation, and shift the "
+        "target by it before fitting the kernel? The offset is folded back into the output kernel, so "
+        "kernel.active.kernelSize need only span the residual shift (and the PSF change)",
+    )
+    maxOffsetX = pexConfig.Field(
+        dtype=int,
+        default=4,
+        check=lambda offset: offset >= 0,
+        doc="Maximum integer offset (pixels) in x (the spatial dimension) to consider when doOffset. The "
+        "comb of fibers makes the correlation nearly periodic in x, so this should be small compared to "
+        "the fiber pitch, as a backstop to offsetEdgeFraction",
+    )
+    maxOffsetY = pexConfig.Field(
+        dtype=int,
+        default=15,
+        check=lambda offset: offset >= 0,
+        doc="Maximum integer offset (pixels) in y (the dispersion dimension) to consider when doOffset",
+    )
+    offsetEdgeFraction = pexConfig.Field(
+        dtype=float,
+        default=0.5,
+        check=lambda fraction: 0 <= fraction < 1,
+        doc="Fraction of the total weight in the offset cross-correlation to give to pixels on 'edge' "
+        "fibers (those next to a dark or missing fiber, or at the end of the slit), which break the "
+        "aliasing from the comb of fibers; 0 means no up-weighting. Requires a detectorMap; a pfsConfig "
+        "identifies fibers without flux",
+    )
+    offsetDarkFiberStatus = pexConfig.ListField(
+        dtype=str,
+        default=["BROKENFIBER", "BLOCKED", "BLACKSPOT", "UNILLUMINATED"],
+        doc="FiberStatus values for fibers without flux, which break the comb of fibers (for identifying "
+        "edge fibers when measuring the offset)",
+    )
+    offsetDarkTargetType = pexConfig.ListField(
+        dtype=str,
+        default=["ENGINEERING", "BLACKSPOT"],
+        doc="TargetType values for fibers without flux, which break the comb of fibers (for identifying "
+        "edge fibers when measuring the offset)",
+    )
     lineMaskPlane = pexConfig.Field(
         dtype=str,
         default="PSFMATCH_EXCLUDED",
@@ -343,10 +590,19 @@ class PsfMatchTask(BasePsfMatchTask):
     We do not warp ``source`` onto ``target`` before matching: the two
     exposures are assumed to already share a pixel grid, and any relative
     shift between them (e.g., from differing trace or wavelength solutions)
-    is expected to be absorbed by the fitted kernel itself, which may
-    therefore end up off-center. For this to work, ``kernel.active.kernelSize``
-    must be set large enough to span the largest expected relative shift
-    between ``source`` and ``target``.
+    is absorbed by the fitted kernel itself, which may therefore end up
+    off-center. With ``config.doOffset`` (the default), the integer part of
+    a large shift is measured first by cross-correlating the images, the
+    ``target`` is shifted by it (so the frame of ``source``, in which the
+    ``detectorMap`` applies, is retained), and the offset is folded back
+    into the fitted kernel (which is enlarged accordingly). The comb of
+    fibers makes the cross-correlation nearly periodic in x, so the x offset
+    is limited to ``config.maxOffsetX`` (small compared to the fiber pitch),
+    and, if a ``detectorMap`` is provided, the fibers next to breaks in the
+    comb (which distinguish the true offset from its aliases) are up-weighted
+    (``config.offsetEdgeFraction``). Either way,
+    ``kernel.active.kernelSize`` must be large enough to span the remaining
+    shift (which may vary over the image) plus the PSF change.
 
     If a line list (and detectorMap) is provided to ``run``, the pixels
     around lines with any of the ``config.lineMaskStatus`` flags set are
@@ -460,7 +716,8 @@ class PsfMatchTask(BasePsfMatchTask):
             ``source``, convolved by the psf-matching kernel with the
             fitted background added, so as to resemble ``target``.
         psfMatchingKernel : `lsst.afw.math.LinearCombinationKernel`
-            Spatially varying kernel that matches ``source`` to ``target``.
+            Spatially varying kernel that matches ``source`` to ``target``,
+            including the ``offset``.
         backgroundModel : `lsst.afw.math.Function2D`
             Spatially varying background difference between ``source`` (as
             matched) and ``target``.
@@ -485,6 +742,10 @@ class PsfMatchTask(BasePsfMatchTask):
             Line flux ratios measured for ``config.doLineScale`` (see
             ``_measureLineRatios``), or `None` if no line list was provided
             or ``config.doLineScale`` is not set.
+        offset : `tuple` of `int`
+            Integer offset (x, y) of ``target`` relative to ``source`` that
+            was removed before fitting the kernel, and folded back into
+            ``psfMatchingKernel``; ``(0, 0)`` unless ``config.doOffset``.
         """
 
         self.log.info(
@@ -503,6 +764,19 @@ class PsfMatchTask(BasePsfMatchTask):
 
         bbox = source.getBBox()
         bbox.clip(target.getBBox())
+
+        sourceFit = source.maskedImage
+        targetMaskedImage = target.maskedImage
+        targetFit = targetMaskedImage
+        if self.config.doContinuumFilter:
+            self.log.info(
+                "Fitting kernel to images with %d-row running median subtracted",
+                self.config.continuumFilterRows,
+            )
+            sourceFit = subtractRunningMedian(sourceFit, self.config.continuumFilterRows)
+            targetFit = subtractRunningMedian(targetFit, self.config.continuumFilterRows)
+
+        # Exclusions of lines and fibers are in the frame of the source (where the detectorMap applies)
         exclude = None
         numLinesExcluded = None
         numFibersExcluded = None
@@ -522,22 +796,27 @@ class PsfMatchTask(BasePsfMatchTask):
             fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfigList)
             exclude = fiberExclusion.exclude if exclude is None else exclude | fiberExclusion.exclude
             numFibersExcluded = fiberExclusion.numFibers
-        maskExclusion = self._makeMaskExclusion(bbox, source.maskedImage, target.maskedImage)
+
+        # Shift the target onto the source, so the kernel need only span the residual shift. Everything
+        # that uses the detectorMap (lines, fibers) is then in the frame of the source.
+        offset = (0, 0)
+        if self.config.doOffset:
+            offset = self._measureOffset(bbox, sourceFit, targetFit, detectorMap, pfsConfigList, exclude)
+            dx, dy = offset
+            if dx != 0 or dy != 0:
+                targetMaskedImage, missing = shiftMaskedImage(targetMaskedImage, dx, dy)
+                if self.config.doContinuumFilter:
+                    targetFit = shiftMaskedImage(targetFit, dx, dy)[0]
+                else:
+                    targetFit = targetMaskedImage
+                exclude = missing if exclude is None else exclude | missing
+
+        maskExclusion = self._makeMaskExclusion(bbox, source.maskedImage, targetMaskedImage)
         if maskExclusion is not None:
             exclude = maskExclusion if exclude is None else exclude | maskExclusion
         if exclude is not None:
             excludedFraction = float(exclude.mean())
             self.log.info("Excluding %.1f%% of pixels from kernel fit", 100 * excludedFraction)
-
-        sourceFit = source.maskedImage
-        targetFit = target.maskedImage
-        if self.config.doContinuumFilter:
-            self.log.info(
-                "Fitting kernel to images with %d-row running median subtracted",
-                self.config.continuumFilterRows,
-            )
-            sourceFit = subtractRunningMedian(sourceFit, self.config.continuumFilterRows)
-            targetFit = subtractRunningMedian(targetFit, self.config.continuumFilterRows)
 
         lineRatios = None
         if refLines is not None and self.config.doLineScale:
@@ -558,6 +837,8 @@ class PsfMatchTask(BasePsfMatchTask):
         basisList = makeKernelBasisList(self.kConfig)
         spatialSolution, spatialKernel, spatialBackground = self._solve(buildResult.kernelCellSet, basisList)
         self.log.info("Solved for spatial PSF-matching kernel using %d candidates", buildResult.numUsed)
+        # The background model is in the frame of the source, but it's smooth, so the offset doesn't matter.
+        spatialKernel = offsetKernel(spatialKernel, *offset)
 
         convolutionControl = afwMath.ConvolutionControl()
         convolutionControl.setDoNormalize(False)
@@ -596,7 +877,198 @@ class PsfMatchTask(BasePsfMatchTask):
                 excludedFraction=excludedFraction,
             ),
             lineRatios=lineRatios,
+            offset=offset,
         )
+
+    def _measureOffset(
+        self,
+        bbox: geom.Box2I,
+        sourceFit: afwImage.MaskedImage,
+        targetFit: afwImage.MaskedImage,
+        detectorMap: Optional[DetectorMap],
+        pfsConfigList: Iterable[PfsConfig],
+        exclude: Optional[np.ndarray],
+    ) -> Tuple[int, int]:
+        """Measure the integer offset of the target relative to the source
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        sourceFit, targetFit : `lsst.afw.image.MaskedImage`
+            Images to correlate (with any continuum removed).
+        detectorMap : `DetectorMap`, optional
+            Mapping of fiberId,wavelength to x,y for the source, used to
+            up-weight edge fibers (see ``_makeOffsetWeights``).
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations, identifying fibers without flux.
+        exclude : `numpy.ndarray` of `bool`, optional
+            Pixels of the source to exclude from the correlation.
+
+        Returns
+        -------
+        dx, dy : `int`
+            Offset (pixels) of the target relative to the source.
+        """
+        ignoreMask = sourceFit.mask.getPlaneBitMask(
+            list(self.config.badMaskPlanes) + list(self.config.excludeMaskPlanes)
+        )
+        width, height = bbox.getDimensions()
+        weights = [np.ones((height, width), dtype=np.float32)]
+        if detectorMap is not None and self.config.offsetEdgeFraction > 0:
+            weights = self._makeOffsetWeights(bbox, detectorMap, pfsConfigList)
+        if exclude is not None:
+            for weight in weights:
+                weight[exclude] = 0.0
+        result = measureOffset(
+            sourceFit, targetFit, self.config.maxOffsetX, self.config.maxOffsetY, ignoreMask, weights
+        )
+        self.log.info(
+            "Measured offset of target relative to source: dx=%d dy=%d (peak %.3f, x alias ratio %.3f)",
+            result.dx,
+            result.dy,
+            result.peak,
+            result.aliasRatio,
+        )
+        if abs(result.dx) == self.config.maxOffsetX or abs(result.dy) == self.config.maxOffsetY:
+            self.log.warning(
+                "Offset (%d, %d) is at the limit of maxOffsetX=%d, maxOffsetY=%d",
+                result.dx,
+                result.dy,
+                self.config.maxOffsetX,
+                self.config.maxOffsetY,
+            )
+        if np.isfinite(result.aliasRatio) and result.aliasRatio > 0.9:
+            self.log.warning("Offset in x is poorly determined: alias ratio %.3f", result.aliasRatio)
+        self.metadata["offsetX"] = result.dx
+        self.metadata["offsetY"] = result.dy
+        self.metadata["offsetAliasRatio"] = result.aliasRatio
+        return result.dx, result.dy
+
+    def _makeOffsetWeights(
+        self, bbox: geom.Box2I, detectorMap: DetectorMap, pfsConfigList: Iterable[PfsConfig] = ()
+    ) -> List[np.ndarray]:
+        """Make weights for the offset cross-correlation
+
+        The fibers form a regular comb in x, so a shift of one fiber pitch
+        matches each fiber with its neighbour, and the cross-correlation is
+        nearly periodic in x. Only breaks in the comb distinguish the true
+        offset from the aliases: a fiber next to a break lands on nothing
+        when shifted by a pitch towards the break. We make two sets of
+        weights, one for fibers with a break on the left and one for those
+        with a break on the right, each up-weighting the pixels on those
+        "edge" fibers so that they carry ``config.offsetEdgeFraction`` of the
+        total weight on fibers. Each suppresses the aliases in one direction
+        (see `measureOffset`).
+
+        A break is any of:
+
+        - a fiber without flux: one with a ``fiberStatus`` in
+          ``config.offsetDarkFiberStatus`` or a ``targetType`` in
+          ``config.offsetDarkTargetType`` in any of the ``pfsConfigList``,
+          or (if any pfsConfigs are provided) not in all of them;
+        - a jump in ``fiberId`` between neighbouring fibers (fibers missing
+          from the ``detectorMap``; this includes the chip gap);
+        - the end of the slit, or the edge of the image.
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of the region of interest.
+        detectorMap : `DetectorMap`
+            Mapping of fiberId,wavelength to x,y for the source.
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`, optional
+            Top-end configurations, identifying fibers without flux.
+
+        Returns
+        -------
+        weights : `list` of `numpy.ndarray` of `float`
+            Weights for each pixel, with shape matching ``bbox``: for fibers
+            with a break on the left, and on the right (or a single set of
+            uniform weights, if there are no edge fibers).
+        """
+        width, height = bbox.getDimensions()
+        uniform = [np.ones((height, width), dtype=np.float32)]
+        fiberId = detectorMap.fiberId
+        if len(fiberId) < 3:
+            return uniform
+        rows = np.arange(height)
+        middle = np.full(len(fiberId), bbox.getMinY() + 0.5 * (height - 1), dtype=float)
+        xMiddle = detectorMap.getXCenter(fiberId, middle)
+        onImage = np.isfinite(xMiddle) & (xMiddle >= bbox.getMinX()) & (xMiddle <= bbox.getMaxX())
+        order = np.argsort(np.where(onImage, xMiddle, np.inf))
+        fiberId = fiberId[order]
+        xMiddle = xMiddle[order]
+        onImage = onImage[order]
+        pitch = np.median(np.abs(np.diff(xMiddle[onImage])))
+        radius = max(int(np.floor(0.5 * pitch)), 0)
+
+        lit = onImage.copy()
+        darkStatus = [FiberStatus[name] for name in self.config.offsetDarkFiberStatus]
+        darkType = [TargetType[name] for name in self.config.offsetDarkTargetType]
+        for pfsConfig in pfsConfigList:
+            sorter = np.argsort(pfsConfig.fiberId)
+            position = np.searchsorted(pfsConfig.fiberId, fiberId, sorter=sorter)
+            position = np.clip(position, 0, len(sorter) - 1)
+            index = sorter[position]
+            present = pfsConfig.fiberId[index] == fiberId
+            dark = ~present
+            dark[present] = np.isin(pfsConfig.fiberStatus[index[present]], darkStatus) | np.isin(
+                pfsConfig.targetType[index[present]], darkType
+            )
+            lit &= ~dark
+
+        # Breaks between neighbouring fibers
+        isGap = ~onImage[:-1] | ~onImage[1:] | (np.abs(np.diff(fiberId)) != 1)
+        leftBreak = np.concatenate(([True], ~lit[:-1] | isGap))
+        rightBreak = np.concatenate((~lit[1:] | isGap, [True]))
+
+        # Pixel coordinates of each trace
+        traces = []
+        for ff in fiberId:
+            xCenter = detectorMap.getXCenter(ff, (rows + bbox.getMinY()).astype(float))
+            good = np.isfinite(xCenter)
+            columns = np.floor(xCenter[good] + 0.5).astype(int) - bbox.getMinX()
+            traceRows = rows[good]
+            inside = (columns >= 0) & (columns < width)
+            traces.append((traceRows[inside], columns[inside]))
+
+        leftEdge = lit & leftBreak
+        rightEdge = lit & rightBreak
+
+        def traceMask(select: np.ndarray) -> np.ndarray:
+            mask = np.zeros((height, width), dtype=bool)
+            offsets = np.arange(-radius, radius + 1)
+            for ii in np.flatnonzero(select):
+                traceRows, columns = traces[ii]
+                cols = columns[:, np.newaxis] + offsets[np.newaxis, :]
+                rr = np.broadcast_to(traceRows[:, np.newaxis], cols.shape)
+                inside = (cols >= 0) & (cols < width)
+                mask[rr[inside], cols[inside]] = True
+            return mask
+
+        litMask = traceMask(lit)
+        self.log.info(
+            "Offset weights: %d/%d fibers dark; %d with a break on the left, %d on the right "
+            "(pitch %.2f pixels)",
+            (~lit).sum(),
+            len(fiberId),
+            leftEdge.sum(),
+            rightEdge.sum(),
+            pitch,
+        )
+        fraction = self.config.offsetEdgeFraction
+        weights = []
+        for edge in (leftEdge, rightEdge):
+            edgeMask = traceMask(edge)
+            numEdge = edgeMask.sum()
+            numOther = (litMask & ~edgeMask).sum()
+            if numEdge == 0 or numOther == 0:
+                continue
+            weight = np.ones((height, width), dtype=np.float32)
+            weight[edgeMask] = max(fraction / (1 - fraction) * numOther / numEdge, 1.0)
+            weights.append(weight)
+        return weights if weights else uniform
 
     def _makeMaskExclusion(
         self, bbox: geom.Box2I, source: afwImage.MaskedImage, target: afwImage.MaskedImage

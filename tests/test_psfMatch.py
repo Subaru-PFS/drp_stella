@@ -8,12 +8,15 @@ import lsst.afw.math as afwMath
 import lsst.geom as geom
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.ip.diffim.psfMatch import NoKernelCandidatesError
 
 from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, subtractRunningMedian, EXCLUDED_VARIANCE
+from pfs.drp.stella.psfMatch import calculateFirstMoments, measureOffset, offsetKernel, shiftMaskedImage
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticArc, addNoiseToImage
 from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.tests.utils import runTests
+from pfs.drp.stella import SplinedDetectorMap
 from pfs.datamodel import FiberStatus, TargetType
 
 display = None
@@ -1130,6 +1133,278 @@ class BuildCellSetTestCase(lsst.utils.tests.TestCase):
         self.assertLess(peakSignalToNoise(image, ignore), 1.0e3)
         ignore[:] = True
         self.assertEqual(peakSignalToNoise(image, ignore), -np.inf)
+
+
+class OffsetTestCase(lsst.utils.tests.TestCase):
+    """Test removing an integer offset before fitting the kernel
+
+    The target is the source (convolved to a broader PSF) shifted by more
+    than a 9x9 kernel can span on its own.
+    """
+
+    def setUp(self):
+        synth = SyntheticConfig()
+        synth.width = 512
+        synth.height = 512
+        synth.separation = 20.0
+        synth.fwhm = 3.0
+        synth.gain = 1.5
+        synth.readnoise = 3.0
+        self.synth = synth
+        self.offset = (2, -7)  # Offset of target relative to source
+
+        rng = np.random.RandomState(12345)
+        # Two sets of evenly-spaced lines, so the pattern isn't periodic over the offsets considered
+        trueImage = makeSyntheticArc(synth, numLines=60, fwhm=3.5, flux=3.0e5, addNoise=False).image
+        trueImage += makeSyntheticArc(synth, numLines=23, fwhm=3.5, flux=2.0e5, addNoise=False).image
+        sourceImage = afwImage.ImageF(trueImage.getBBox())
+        broadImage = afwImage.ImageF(trueImage.getBBox())
+        convolutionControl = afwMath.ConvolutionControl()
+        convolutionControl.setDoNormalize(True)
+        afwMath.convolve(sourceImage, trueImage, makeGaussianKernel(0.6), convolutionControl)
+        afwMath.convolve(broadImage, trueImage, makeGaussianKernel(1.3), convolutionControl)
+        sourceImage.array[~np.isfinite(sourceImage.array)] = 0.0
+        broadImage.array[~np.isfinite(broadImage.array)] = 0.0
+
+        # target(x + offset) = broad(x)
+        dx, dy = self.offset
+        targetImage = afwImage.ImageF(trueImage.getBBox())
+        targetImage.array[:] = np.roll(broadImage.array, (dy, dx), axis=(0, 1))
+
+        borderMask = np.zeros(sourceImage.array.shape, dtype=bool)
+        border = 7 + max(abs(dx), abs(dy))
+        borderMask[:border] = True
+        borderMask[-border:] = True
+        borderMask[:, :border] = True
+        borderMask[:, -border:] = True
+
+        addNoiseToImage(sourceImage, synth.gain, synth.readnoise, rng)
+        addNoiseToImage(targetImage, synth.gain, synth.readnoise, rng)
+        self.sourceExposure = makeExposure(sourceImage, borderMask, synth.gain, synth.readnoise)
+        self.targetExposure = makeExposure(targetImage, borderMask, synth.gain, synth.readnoise)
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.kernel["DF"].kernelSize = 9
+        self.config.kernel["DF"].sizeCellX = 128
+        self.config.kernel["DF"].sizeCellY = 128
+        self.config.xStampSize = 48
+        self.config.yStampSize = 48
+        self.config.doContinuumFilter = False  # Lines are too dense; see PsfMatchTestCase
+
+    def tearDown(self):
+        del self.sourceExposure
+        del self.targetExposure
+
+    def testMeasureOffset(self):
+        """measureOffset finds the offset of the target"""
+        result = measureOffset(self.sourceExposure.maskedImage, self.targetExposure.maskedImage, 10, 10)
+        self.assertEqual((result.dx, result.dy), self.offset)
+        self.assertGreater(result.peak, 0.5)
+
+        # Restricted to smaller offsets, it can't
+        result = measureOffset(self.sourceExposure.maskedImage, self.targetExposure.maskedImage, 3, 3)
+        self.assertNotEqual((result.dx, result.dy), self.offset)
+
+    def testShiftMaskedImage(self):
+        """shiftMaskedImage(image, dx, dy)(x, y) = image(x + dx, y + dy)"""
+        image = self.targetExposure.maskedImage
+        dx, dy = self.offset
+        shifted, missing = shiftMaskedImage(image, dx, dy)
+        height, width = image.image.array.shape
+        self.assertFloatsEqual(
+            shifted.image.array[10:20, 30:40], image.image.array[10 + dy : 20 + dy, 30 + dx : 40 + dx]
+        )
+        self.assertEqual(missing.sum(), height * width - (height - abs(dy)) * (width - abs(dx)))
+        self.assertTrue(np.all(missing[: abs(dy)]))  # dy < 0: bottom rows are missing
+        self.assertTrue(np.all(missing[:, width - dx :]))  # dx > 0: right columns are missing
+        self.assertTrue(np.all(shifted.mask.array[missing] & shifted.mask.getPlaneBitMask("NO_DATA")))
+        self.assertTrue(np.all(shifted.image.array[missing] == 0))
+
+    def testOffsetKernel(self):
+        """offsetKernel shifts the convolution and the first moment"""
+        basisList = [makeGaussianKernel(1.0, 9), makeGaussianKernel(2.0, 9)]
+        spatialFunction = afwMath.PolynomialFunction2D(1)
+        kernel = afwMath.LinearCombinationKernel(basisList, spatialFunction)
+        kernel.setSpatialParameters([[1.0, 1.0e-3, 0.0], [0.5, 0.0, -1.0e-3]])
+        dx, dy = self.offset
+        offset = offsetKernel(kernel, dx, dy)
+        self.assertEqual(offset.getDimensions(), geom.Extent2I(9 + 2 * abs(dx), 9 + 2 * abs(dy)))
+        self.assertIs(offsetKernel(kernel, 0, 0), kernel)
+
+        xx = np.array([50.0, 200.0])
+        yy = np.array([100.0, 30.0])
+        original = calculateFirstMoments(kernel, xx, yy)
+        moved = calculateFirstMoments(offset, xx, yy)
+        self.assertFloatsAlmostEqual(moved.kernelSum, original.kernelSum, rtol=1.0e-12)
+        self.assertFloatsAlmostEqual(moved.x, original.x - dx, atol=1.0e-10)
+        self.assertFloatsAlmostEqual(moved.y, original.y - dy, atol=1.0e-10)
+
+        # Convolving with the offset kernel = convolving with the original, then shifting by the offset.
+        # The spatial model is evaluated at the output pixel, which differs by the offset, so use a kernel
+        # without spatial variation for this.
+        kernel.setSpatialParameters([[1.0, 0.0, 0.0], [0.5, 0.0, 0.0]])
+        offset = offsetKernel(kernel, dx, dy)
+        image = self.sourceExposure.image
+        convolutionControl = afwMath.ConvolutionControl()
+        convolutionControl.setDoNormalize(False)
+        convolved = afwImage.ImageF(image.getBBox())
+        afwMath.convolve(convolved, image, kernel, convolutionControl)
+        convolvedOffset = afwImage.ImageF(image.getBBox())
+        afwMath.convolve(convolvedOffset, image, offset, convolutionControl)
+        # convolvedOffset(x + offset) = convolved(x)
+        self.assertFloatsAlmostEqual(
+            convolvedOffset.array[40 + dy : 200 + dy, 40 + dx : 200 + dx],
+            convolved.array[40:200, 40:200],
+            rtol=1.0e-5,
+        )
+
+    def testRun(self):
+        """The kernel includes the offset, and the matched image matches"""
+        task = PsfMatchTask(config=self.config)
+        result = task.run(self.sourceExposure, self.targetExposure, seed=1)
+        self.assertEqual(result.offset, self.offset)
+
+        dx, dy = self.offset
+        xx = np.linspace(80, 432, 4)
+        yy = np.linspace(80, 432, 4)
+        moments = calculateFirstMoments(result.psfMatchingKernel, *np.meshgrid(xx, yy))
+        # Centroid shift is the negative first moment
+        self.assertFloatsAlmostEqual(moments.x, -dx, atol=0.1)
+        self.assertFloatsAlmostEqual(moments.y, -dy, atol=0.1)
+
+        select = (result.matchedExposure.mask.array == 0) & (self.targetExposure.mask.array == 0)
+        select &= np.isfinite(result.matchedExposure.image.array)
+        self.assertGreater(select.sum(), 0.5 * select.size)
+        residual = result.matchedExposure.image.array - self.targetExposure.image.array
+        chi2 = np.sum((residual[select] / np.sqrt(self.targetExposure.variance.array[select])) ** 2)
+        self.assertLess(chi2 / select.sum(), 2.0)
+
+        # Without the offset, a 9x9 kernel can't match: the fit either fails, or gets the shift wrong
+        self.config.doOffset = False
+        try:
+            result = PsfMatchTask(config=self.config).run(self.sourceExposure, self.targetExposure, seed=1)
+        except NoKernelCandidatesError:
+            return
+        self.assertEqual(result.offset, (0, 0))
+        moments = calculateFirstMoments(result.psfMatchingKernel, *np.meshgrid(xx, yy))
+        self.assertGreater(np.max(np.abs(moments.y + dy)), 1.0)
+
+
+class CombOffsetTestCase(lsst.utils.tests.TestCase):
+    """Test measuring the offset with a realistic comb of fibers
+
+    The fibers are separated by 6 pixels, so the cross-correlation is nearly
+    periodic in x. The comb has breaks of each kind recognized by
+    `PsfMatchTask._makeOffsetWeights`: a broken fiber and an engineering
+    fiber (from the pfsConfig), a fiber missing from the detectorMap (a jump
+    in fiberId), and a chip gap (a larger jump in fiberId, with a gap).
+    """
+
+    def setUp(self):
+        synth = SyntheticConfig()
+        synth.width = 384
+        synth.height = 256
+        synth.fwhm = 2.5
+        synth.slope = 0.0
+        synth.gain = 1.5
+        synth.readnoise = 3.0
+        self.synth = synth
+        self.offset = (2, -5)
+
+        numFibers = 55
+        centers = 12.0 + 6.0 * np.arange(numFibers)
+        fiberId = 1 + np.arange(numFibers, dtype=np.int32)
+        centers[45:] += 12.0  # Chip gap
+        fiberId[45:] += 23
+        self.broken = 10
+        self.missing = 20  # Not in the detectorMap
+        self.engineering = 30
+        inMap = np.arange(numFibers) != self.missing
+        lit = ~np.isin(np.arange(numFibers), [self.broken, self.missing, self.engineering])
+
+        rows = np.arange(synth.height, dtype=float)
+        self.detectorMap = SplinedDetectorMap(
+            lsst.geom.Box2I(lsst.geom.Point2I(0, 0), synth.dims),
+            fiberId[inMap],
+            [rows] * inMap.sum(),
+            [np.full(synth.height, cc) for cc in centers[inMap]],
+            [rows] * inMap.sum(),
+            [np.linspace(600.0, 900.0, synth.height)] * inMap.sum(),
+        )
+        synth.separation = 6.0  # Provides enough fibers for the pfsConfig
+        self.pfsConfig = makeSyntheticPfsConfig(synth, 123, 456)[np.arange(numFibers)]
+        self.pfsConfig.fiberId[:] = fiberId
+        self.pfsConfig.fiberStatus[:] = FiberStatus.GOOD
+        self.pfsConfig.targetType[:] = TargetType.SKY
+        self.pfsConfig.fiberStatus[self.broken] = FiberStatus.BROKENFIBER
+        self.pfsConfig.targetType[self.engineering] = TargetType.ENGINEERING
+
+        sigma = 1.5
+        lines = np.concatenate((np.linspace(10, 245, 17), np.linspace(17, 240, 7)))
+        profiles = np.exp(-0.5 * ((rows[np.newaxis, :] - lines[:, np.newaxis]) / sigma) ** 2)
+        spectrum = (profiles.sum(axis=0) * 2.0e4).astype(np.float32)
+        trueImage = makeSpectrumImage(spectrum, synth.dims, centers[lit], np.zeros(synth.height), synth.fwhm)
+        dx, dy = self.offset
+        rng = np.random.RandomState(12345)
+        sourceImage = trueImage.clone()
+        targetImage = trueImage.clone()
+        targetImage.array[:] = np.roll(trueImage.array, (dy, dx), axis=(0, 1))
+        addNoiseToImage(sourceImage, synth.gain, synth.readnoise, rng)
+        addNoiseToImage(targetImage, synth.gain, synth.readnoise, rng)
+        borderMask = np.zeros(sourceImage.array.shape, dtype=bool)
+        self.source = makeExposure(sourceImage, borderMask, synth.gain, synth.readnoise)
+        self.target = makeExposure(targetImage, borderMask, synth.gain, synth.readnoise)
+        self.centers = centers
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.maxOffsetX = 8  # Includes aliases at dx +/- 6
+        self.task = PsfMatchTask(config=self.config)
+
+    def tearDown(self):
+        del self.source
+        del self.target
+        del self.detectorMap
+        del self.pfsConfig
+        del self.task
+
+    def getEdges(self, weight):
+        """Return the indices of fibers with weight > 1"""
+        row = self.synth.height // 2
+        fiberWeight = weight[row, np.floor(self.centers + 0.5).astype(int)]
+        return set(np.flatnonzero(fiberWeight > 1).tolist())
+
+    def testWeights(self):
+        """Fibers next to breaks are up-weighted, separately for each side"""
+        bbox = self.source.getBBox()
+        left, right = self.task._makeOffsetWeights(bbox, self.detectorMap, [self.pfsConfig])
+        last = len(self.centers) - 1
+        self.assertEqual(self.getEdges(left), {0, 11, 21, 31, 45})
+        self.assertEqual(self.getEdges(right), {9, 19, 29, 44, last})
+
+        # Without the pfsConfig, only the fiberId jump, the gap and the ends are recognized
+        left, right = self.task._makeOffsetWeights(bbox, self.detectorMap)
+        self.assertEqual(self.getEdges(left), {0, 21, 45})
+        self.assertEqual(self.getEdges(right), {19, 44, last})
+
+    def testOffset(self):
+        """Up-weighting the edge fibers suppresses the aliases"""
+        bbox = self.source.getBBox()
+        unweighted = measureOffset(self.source.maskedImage, self.target.maskedImage, 8, 10)
+        weights = self.task._makeOffsetWeights(bbox, self.detectorMap, [self.pfsConfig])
+        weighted = measureOffset(self.source.maskedImage, self.target.maskedImage, 8, 10, weights=weights)
+        self.assertEqual((weighted.dx, weighted.dy), self.offset)
+        # The aliases are nearly as strong as the peak without the weights, and much weaker with
+        self.assertGreater(unweighted.aliasRatio, 0.9)
+        self.assertLess(weighted.aliasRatio, 0.65)
+
+    def testTask(self):
+        """The task uses the weights when given a detectorMap and pfsConfig"""
+        bbox = self.source.getBBox()
+        dx, dy = self.task._measureOffset(
+            bbox, self.source.maskedImage, self.target.maskedImage, self.detectorMap, [self.pfsConfig], None
+        )
+        self.assertEqual((dx, dy), self.offset)
+        self.assertLess(self.task.metadata["offsetAliasRatio"], 0.65)
 
 
 class ConfigTestCase(lsst.utils.tests.TestCase):
