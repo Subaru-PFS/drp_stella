@@ -10,6 +10,7 @@ import scipy.interpolate
 
 import copy
 import json
+from collections.abc import Callable
 import os
 import pickle
 
@@ -30,12 +31,15 @@ class PCACompositor:
         Mean. Shape (N,). This vector is added to linear combinations
         of basis vectors.
 
-    header : `astropy.io.fits.Header`
+    header : `astropy.io.fits.Header` or `None`
         FITS header that contains WCS cards
-        for ``mean`` and for vectors output from ``__call__()``.
+        for ``mean`` and for vectors output from ``__call__()``;
+        or `None` if the sampling can't be described by a WCS.
     """
 
-    def __init__(self, basis: np.ndarray, mean: np.ndarray, header: astropy.io.fits.Header) -> None:
+    def __init__(
+        self, basis: np.ndarray, mean: np.ndarray, header: astropy.io.fits.Header | None
+    ) -> None:
         self.basis = np.asarray(basis)
         self.mean = np.asarray(mean)
         self.header = header
@@ -335,6 +339,9 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
     pcaCompositor : `PCACompositor`
         Converter that converts an output of ``interpolator``
         to a spectrum.
+    wavelength : `np.ndarray`, optional
+        Wavelength array of the spectra. If not provided, it is determined from
+        the WCS in ``pcaCompositor.header``.
     """
 
     def __init__(
@@ -345,6 +352,7 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         mScale: float,
         alphaScale: float,
         pcaCompositor: PCACompositor,
+        wavelength: np.ndarray | None = None,
     ) -> None:
         self.interpolator = interpolator
         self.teffScale = teffScale
@@ -352,11 +360,18 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         self.mScale = mScale
         self.alphaScale = alphaScale
         self.pcaCompositor = pcaCompositor
-        self.wavelength = WavelengthArray.fromFitsHeader(
-            pcaCompositor.header,
-            pcaCompositor.getLength(),
-            dtype=float,
-        )
+        if wavelength is None:
+            wavelength = WavelengthArray.fromFitsHeader(
+                pcaCompositor.header,
+                pcaCompositor.getLength(),
+                dtype=float,
+            )
+        elif len(wavelength) != pcaCompositor.getLength():
+            raise ValueError(
+                f"Length of wavelength ({len(wavelength)}) doesn't match the PCA basis "
+                f"({pcaCompositor.getLength()})"
+            )
+        self.wavelength = wavelength
 
     @classmethod
     def fromFluxModelData(cls, path: str) -> "FluxModelInterpolator":
@@ -472,6 +487,7 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
             self.mScale,
             self.alphaScale,
             pcaCompositorSlice,
+            self.wavelength,
         )
 
     def getBinnedInterpolator(self, binning: int) -> "PCAFluxModelInterpolator":
@@ -523,6 +539,46 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
             self.mScale,
             self.alphaScale,
             pcaCompositor,
+        )
+
+    def applyLinearTransform(
+        self, transform: Callable[[np.ndarray], np.ndarray], wavelength: np.ndarray
+    ) -> "PCAFluxModelInterpolator":
+        """Get another interpolator producing linearly transformed spectra.
+
+        A linear transformation of the interpolated spectra (e.g., convolution
+        by a line-spread function, and resampling) is equivalent to the same
+        transformation applied to the PCA mean and each of the basis vectors.
+        Applying it to those once allows transformed spectra to be generated
+        without having to transform each spectrum.
+
+        Parameters
+        ----------
+        transform : callable
+            Function that transforms a spectrum: it takes an array of flux
+            sampled at ``self.wavelength``, and returns an array of flux
+            sampled at ``wavelength``. It must be linear (e.g., resampling must
+            use a fill value of zero).
+        wavelength : `np.ndarray`
+            Wavelength array of the transformed spectra.
+
+        Returns
+        -------
+        interpolator : `PCAFluxModelInterpolator`
+            New interpolator.
+        """
+        mean = transform(self.pcaCompositor.mean)
+        basis = np.empty((len(self.pcaCompositor.basis), len(mean)), dtype=mean.dtype)
+        for ii, vector in enumerate(self.pcaCompositor.basis):
+            basis[ii] = transform(vector)
+        return PCAFluxModelInterpolator(
+            self.interpolator,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            PCACompositor(basis, mean, None),
+            np.asarray(wavelength),
         )
 
     @staticmethod

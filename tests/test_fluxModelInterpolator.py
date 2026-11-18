@@ -111,6 +111,33 @@ class PCAFluxModelInterpolatorTestCase(lsst.utils.tests.TestCase):
             atol=1.0e-12,
         )
 
+    def testLinearTransform(self):
+        """Test that applyLinearTransform matches transforming each spectrum"""
+        length = len(self.model.wavelength)
+        rng = np.random.default_rng(24680)
+        matrix = rng.normal(size=(length // 3, length))  # A general linear transform
+        newWavelength = np.linspace(500.0, 600.0, length // 3)
+
+        def transform(flux):
+            return matrix @ flux
+
+        transformed = self.model.applyLinearTransform(transform, newWavelength)
+        self.assertFloatsEqual(transformed.wavelength, newWavelength)
+        full = self.model.interpolate(**self.param)
+        spectrum = transformed.interpolate(**self.param)
+        self.assertFloatsAlmostEqual(spectrum.flux, transform(full.flux), atol=1.0e-10)
+        self.assertFloatsEqual(spectrum.wavelength, newWavelength)
+
+        # Truncation should still work
+        smaller = transformed.getSmallerInterpolator(5)
+        expected = self.model.getSmallerInterpolator(5).interpolate(**self.param)
+        self.assertFloatsAlmostEqual(
+            smaller.interpolate(**self.param).flux, transform(expected.flux), atol=1.0e-10
+        )
+
+        with self.assertRaises(ValueError):
+            self.model.applyLinearTransform(transform, newWavelength[:-1])
+
 
 def setup_module(module):
     lsst.utils.tests.init()
