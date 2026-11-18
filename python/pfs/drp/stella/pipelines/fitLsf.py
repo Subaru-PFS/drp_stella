@@ -52,10 +52,11 @@ class FitLsfConnections(PipelineTaskConnections, dimensions=("instrument", "arm"
     )
 
     armLsf = OutputConnection(
-        name="armLsf",
-        doc="Model of the line-spread function over the detector",
+        name="armLsf_calib",
+        doc="Model of the line-spread function over the detector: a calibration, to be certified",
         storageClass="ArmLsf",
         dimensions=("instrument", "arm", "spectrograph"),
+        isCalibration=True,
     )
     lsfLines = OutputConnection(
         name="lsfLines",
