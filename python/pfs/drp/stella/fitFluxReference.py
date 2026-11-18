@@ -29,7 +29,8 @@ from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fluxModelSet import FluxModelSet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateIndices, interpolateMask
+from pfs.drp.stella.math import interpolateFlux as interpolateFluxImpl
 from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict
 from pfs.drp.stella.utils.math import ChisqList
 from pfs.drp.stella.utils import debugging
@@ -839,6 +840,22 @@ class FitFluxReferenceTask(PipelineTask):
 
             continuumMask = continuumMasks.get(fiberId) if continuumMasks is not None else None
 
+            # Doppler shift, convolution and resampling are all linear (and
+            # fixed for this fiber), so if possible we apply them to the
+            # interpolator's basis once, rather than to every model.
+            fiberInterpolator = None
+            if hasattr(modelInterpolator, "applyLinearTransform"):
+                resampleIndices = interpolateIndices(modelWavelength, obsSpectrum.wavelength)
+
+                def transform(flux: NDArray[np.float64]) -> NDArray[np.float64]:
+                    """Convolve by the LSF and resample to the observed frame.
+
+                    This is equivalent to what ``model.resample`` does.
+                    """
+                    return interpolateFluxImpl(warpedLsf.convolve(flux), resampleIndices, 0.0, 3)
+
+                fiberInterpolator = modelInterpolator.applyLinearTransform(transform, obsSpectrum.wavelength)
+
             def objective(x: NDArray, returnChisq=False) -> float | Struct:
                 """Objective function to minimize.
 
@@ -870,12 +887,15 @@ class FitFluxReferenceTask(PipelineTask):
                     else:
                         return np.inf
 
-                model = modelInterpolator.interpolate(*param)
-                model.wavelength = modelWavelength
-                # ``model`` is a fresh object, so we can convolve in place
-                # rather than using ``convolveLsf``, which makes a deep copy.
-                model.flux = warpedLsf.convolve(model.flux)
-                model = model.resample(obsSpectrum.wavelength)
+                if fiberInterpolator is not None:
+                    model = fiberInterpolator.interpolate(*param)
+                else:
+                    model = modelInterpolator.interpolate(*param)
+                    model.wavelength = modelWavelength
+                    # ``model`` is a fresh object, so we can convolve in place
+                    # rather than using ``convolveLsf``, which makes a deep copy.
+                    model.flux = warpedLsf.convolve(model.flux)
+                    model = model.resample(obsSpectrum.wavelength)
                 modelContinuum = self.computeContinuum(model, mode="observed", good=continuumMask)
                 model = modelContinuum.whiten(model)
                 chisq = calculateSpecChiSquare(obsSpectrum, model, self.getBadMask())
