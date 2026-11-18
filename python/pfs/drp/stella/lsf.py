@@ -1115,10 +1115,17 @@ class CoaddLsf(Lsf):
             select = np.repeat((centers >= minIndex) & (centers <= maxIndex), blockSizes)
             if not np.any(select):
                 continue
+            # The selected pixels are contiguous, so we need only convolve that
+            # range, plus enough on either side to cover the kernel.
+            low, high = np.flatnonzero(select)[[0, -1]]
+            high += 1  # exclusive
             # Kernel is constant, so the center doesn't matter
             kernel = lsf.computeKernel(0.5*length)
-            convolved[select] += weight*kernel.convolve(array)[select]
-            sumWeights[select] += weight
+            halfWidth = max(kernel.center, len(kernel) - kernel.center - 1)
+            start = max(0, low - halfWidth)
+            stop = min(length, high + halfWidth)
+            convolved[low:high] += weight*kernel.convolve(array[start:stop])[low - start:high - start]
+            sumWeights[low:high] += weight
 
         haveLsf = sumWeights > 0
         convolved[haveLsf] /= sumWeights[haveLsf]
