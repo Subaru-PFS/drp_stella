@@ -1,4 +1,4 @@
-"""Lamp exposures from the raw headers, and the HgCd lamp's warm-up (PIPE2D-1969)
+"""Lamp exposures from the raw headers; the HgCd lamp's warm-up and the IIS He lamp's behaviour (PIPE2D-1969)
 
 * `scanLampHeaders` lists the lamps lit in each visit according to the raw headers (``getLamps``), with
   the registry's ``lamps`` field alongside.  The registry is wrong for some visits (~205, mostly 2026
@@ -8,10 +8,21 @@
   (b arm), relative to the first exposure of each series, against the time since that exposure.
   Ratios don't depend on the exposure time, which is imprecise for HgCd: its exposures are timed by
   the shutter (``W_CLHGCT``).
+* `heLineRates` and `heLampLevels` measure the IIS He lamp (``He_eng``, engineering fibres): He I and
+  O I line rates, and each exposure relative to the lamp's settled level (the median of the exposures
+  that aren't the first of their series).  The He lamp sets the exposure time, so the rates mean
+  something.
 
 The HgCd lamp is turned on and left until a photodiode sees the Cd (200-300 s); the voltage is then
 lowered and the exposures taken.  The Cd lines keep brightening relative to Hg over the following
 minutes: x1.12 at 2 min and x1.20 at 4 min before 2026-07, x1.23 and x1.37 since.
+
+The He lamp is stable after the first exposure of a series (later exposures agree to < 1%, and to
++-5% from night to night), but the first exposure is often low, by up to 60%.  The O I impurity burns
+off, to about 0.6 of its first-exposure value within a few minutes.
+
+Reduce lamp series with ``-c cosmicray:grouping=separate``: the default grouping compares the exposures
+of a series, and masks the cores of lines whose brightness changes as cosmic rays.
 """
 import multiprocessing
 import time
@@ -20,7 +31,8 @@ import numpy as np
 import pandas as pd
 
 __all__ = ["scanLampHeaders", "lampMismatches", "hasLamp", "lampSeries", "HG_LINES", "CD_LINES",
-           "integratedLineFluxes", "hgcdRatios", "warmupGrowth", "warmupSummary", "plotWarmup"]
+           "integratedLineFluxes", "hgcdRatios", "warmupGrowth", "warmupSummary", "plotWarmup",
+           "HE_LINES", "HE_RATIOS", "heLineRates", "heLampLevels", "plotHeLamp"]
 
 # Isolated b-arm lines (vacuum nm)
 HG_LINES = (404.7708, 435.956, 546.22675, 577.121, 579.22757)
@@ -28,6 +40,17 @@ CD_LINES = (467.94587, 480.1254, 508.72393)
 # Ratios measured: (numerator, denominator); the first is the warm-up diagnostic
 RATIOS = ((508.72393, 435.956), (480.1254, 435.956), (467.94587, 435.956), (508.72393, 546.22675),
           (404.7708, 435.956))
+
+# IIS He lamp: bright isolated He I lines, and the O I impurity (777.41, 844.88), by arm (vacuum nm).
+# 1083.30 is the whole 1083.21 + 1083.33 complex.
+_HE_RED = (667.9996, 706.7197, 728.3357, 777.4083, 844.8801)
+HE_LINES = {"b": (388.9745, 447.2757, 471.449, 492.3305, 501.7077, 587.7289), "r": _HE_RED, "m": _HE_RED,
+            "n": (1083.3, 1197.2389, 1253.0911)}
+# Ratios: name -> (numerator, denominator), as column names of `heLineRates`
+HE_RATIOS = {"668/588": ("668.00", "587.73"), "502/447": ("501.71", "447.28"),
+             "728/707": ("728.34", "706.72"),
+             "1083/1197": ("1083.30", "1197.24"), "OI777/He707": ("777.41", "706.72"),
+             "OI845/He707": ("844.88", "706.72")}
 
 _butler = None   # per-process butler for scanLampHeaders
 
@@ -389,5 +412,178 @@ def plotWarmup(growth, split=20260701, fig=None):
                 ylim=(0.9, 1.5))
     axes[2].set(xlabel="date", ylabel="Cd/Hg in first exposure", title="First exposure")
     for ax in axes[1:]:
+        ax.tick_params(axis="x", rotation=30)
+    return fig
+
+
+def heLineRates(butler, visits, arms=("b", "r", "m", "n"), spectrographs=(1, 2, 3, 4), minFibres=5,
+                log=None):
+    """Measure the IIS He lamp's line rates on the engineering fibres
+
+    For each exposure's pfsArms, the fluxes of the lines in `HE_LINES` are measured in each engineering
+    fibre (`integratedLineFluxes`, rejecting saturated lines); each rate is the median over fibres
+    divided by the pfsArm's exposure time.
+
+    Parameters
+    ----------
+    butler : `lsst.daf.butler.Butler`
+        Butler with the pfsArms and pfsConfigs.  Reduce with ``-c cosmicray:grouping=separate``.
+    visits : iterable of `int`
+        He_eng visits; missing pfsArms are skipped.
+    arms : iterable of `str`
+        Arms.
+    spectrographs : iterable of `int`
+        Spectrographs.
+    minFibres : `int`
+        Minimum number of fibres for a rate.
+    log : callable, optional
+        Called with progress messages.
+
+    Returns
+    -------
+    rates : `pandas.DataFrame`
+        One row per (visit, arm, spectrograph): ``expTime``, ``numFibers`` (engineering fibres), and the
+        line rates in counts/s, in columns named by wavelength (e.g. ``706.72``).
+    """
+    from pfs.datamodel import TargetType
+
+    rows = []
+    for visit in [int(vv) for vv in visits]:
+        try:
+            pfsConfig = butler.get("pfsConfig", visit=visit)
+        except Exception:
+            continue
+        engineering = pfsConfig.fiberId[pfsConfig.targetType == TargetType.ENGINEERING]
+        for arm in arms:
+            for spectrograph in spectrographs:
+                try:
+                    pfsArm = butler.get("pfsArm", visit=visit, arm=arm, spectrograph=spectrograph)
+                except Exception:
+                    continue
+                expTime = float(pfsArm.identity.expTime)
+                indices = np.flatnonzero(np.isin(pfsArm.fiberId, engineering))
+                sat = pfsArm.flags["SAT"]
+                row = dict(visit=visit, arm=arm, spectrograph=spectrograph, expTime=expTime,
+                           numFibers=len(indices))
+                fluxes = pd.DataFrame([integratedLineFluxes(pfsArm.wavelength[ii], pfsArm.flux[ii],
+                                                            pfsArm.mask[ii], sat, HE_LINES[arm])
+                                       for ii in indices], columns=list(HE_LINES[arm]))
+                for wl in HE_LINES[arm]:
+                    good = fluxes[wl][np.isfinite(fluxes[wl])]
+                    enough = len(good) >= minFibres and expTime > 0
+                    row[f"{wl:.2f}"] = good.median()/expTime if enough else np.nan
+                rows.append(row)
+    if log is not None:
+        log(f"{len(rows)} rows ({len({rr['visit'] for rr in rows})} visits)")
+    return pd.DataFrame(rows)
+
+
+def heLampLevels(series, rates, columns=("706.72", "587.73", "OI777/He707")):
+    """The IIS He lamp's rates and ratios, and each exposure relative to the settled level
+
+    The *settled level* is the median, per spectrograph, of the exposures that aren't the first of their
+    series.  Each exposure is compared with the lamp-wide settled level (``_norm``) and with its own
+    series' (``_own``, for series with more than one exposure); the comparison is made per spectrograph,
+    then averaged over spectrographs.
+
+    Parameters
+    ----------
+    series : `pandas.DataFrame`
+        Output of `lampSeries` (with any extra columns, e.g. ``day_obs``).
+    rates : `pandas.DataFrame`
+        Output of `heLineRates`.
+    columns : iterable of `str`
+        Lines (e.g. ``706.72``) or ratios (keys of `HE_RATIOS`) to compare with the settled levels.
+
+    Returns
+    -------
+    levels : `pandas.DataFrame`
+        One row per visit: ``series``, ``idx``, ``t`` (minutes since the series' first exposure),
+        ``expTime``, any extra columns of ``series``, and for each line rate and ratio its mean over
+        spectrographs and error (suffix ``_err``, from the scatter between spectrographs); for each of
+        ``columns``, ``_norm`` and ``_own`` (and their ``Err``).
+    """
+    lines = [cc for cc in rates.columns if cc[0].isdigit()]
+    perSpec = rates.groupby(["visit", "spectrograph"])[lines].first()   # combine the arms
+    for name, (num, den) in HE_RATIOS.items():
+        if num in perSpec and den in perSpec:
+            perSpec[name] = perSpec[num]/perSpec[den]
+    quantities = list(perSpec.columns)
+    extra = [cc for cc in series.columns if cc not in ("visit", "start")]
+    perSpec = perSpec.reset_index().join(series.set_index("visit")[extra], on="visit", how="inner")
+    settled = perSpec.idx > 0
+
+    for cc in columns:
+        level = perSpec[settled].groupby("spectrograph")[cc].median()
+        perSpec[cc + "_norm"] = perSpec[cc]/perSpec.spectrograph.map(level)
+        own = perSpec[settled].groupby(["series", "spectrograph"])[cc].median()
+        perSpec[cc + "_own"] = [value/own.get((ss, sp), np.nan) for value, ss, sp in
+                                zip(perSpec[cc], perSpec.series, perSpec.spectrograph)]
+
+    def mean(values):
+        return values[np.isfinite(values)].mean()
+
+    def error(values):
+        num = np.isfinite(values).sum()
+        return values[np.isfinite(values)].std(ddof=1)/np.sqrt(num) if num > 1 else np.nan
+
+    measured = quantities + [cc + suffix for cc in columns for suffix in ("_norm", "_own")]
+    grouped = perSpec.groupby("visit")[measured]
+    levels = grouped.agg(mean).join(grouped.agg(error), rsuffix="_err")
+    levels = levels.rename(columns={f"{cc}{suffix}_err": f"{cc}{suffix}Err" for cc in columns
+                                    for suffix in ("_norm", "_own")})
+    levels = series.set_index("visit")[extra].join(levels, how="inner")
+    levels["t"] = levels.pop("tSeries")/60
+    levels = levels.join(rates.groupby("visit").expTime.median())
+    return levels.reset_index()
+
+
+def plotHeLamp(levels, fig=None):
+    """Plot the IIS He lamp: every exposure relative to the settled level, against date; the
+    multi-exposure series relative to their own settled levels; and the O I impurity against date
+
+    Parameters
+    ----------
+    levels : `pandas.DataFrame`
+        Output of `heLampLevels` (with ``day_obs``).
+    fig : `matplotlib.figure.Figure`, optional
+        Figure to use.
+
+    Returns
+    -------
+    fig : `matplotlib.figure.Figure`
+        The figure.
+    """
+    import matplotlib.pyplot as plt
+
+    blue, aqua, muted = "#2a78d6", "#1baf7a", "#6b6a63"
+    levels = levels.copy()
+    levels["date"] = pd.to_datetime(levels.day_obs.astype(str))
+    if fig is None:
+        fig = plt.figure(figsize=(16, 4.8), layout="constrained")
+    axes = fig.subplots(1, 3)
+    for first, marker, face, label in ((True, "o", "white", "first of a series"),
+                                       (False, "s", blue, "later in a series")):
+        select = (levels.idx == 0) == first
+        axes[0].errorbar(levels.date[select], levels["706.72_norm"][select],
+                         yerr=levels["706.72_normErr"][select].fillna(0), fmt=marker, mfc=face, color=blue,
+                         capsize=2, label=label)
+    axes[0].axhline(1, color=muted, lw=0.8)
+    axes[0].set(xlabel="date", ylabel="He I 706.72 / settled level", title="Every exposure")
+    axes[0].legend(frameon=False)
+    own = levels[levels["706.72_own"].notna()]
+    for column, color, label in (("706.72", blue, "He I 706.72"),
+                                 ("OI777/He707", aqua, "O I 777.4 / He I 706.7")):
+        for ii, (_, ss) in enumerate(own.groupby("series")):
+            axes[1].errorbar(ss.t, ss[column + "_own"], yerr=ss[column + "_ownErr"].fillna(0), fmt="-o",
+                             color=color, ms=4, alpha=0.8, capsize=2, label=label if ii == 0 else None)
+    axes[1].axhline(1, color=muted, lw=0.8)
+    axes[1].set(xlabel="min since the series' first exposure", ylabel="relative to the series' settled level",
+                title=f"Within series ({own.series.nunique()} multi-exposure series)")
+    axes[1].legend(frameon=False)
+    axes[2].errorbar(levels.date, levels["OI777/He707"], yerr=levels["OI777/He707_err"].fillna(0), fmt="o",
+                     color=aqua, capsize=2)
+    axes[2].set(xlabel="date", ylabel="O I 777.4 / He I 706.7", title="O I impurity")
+    for ax in (axes[0], axes[2]):
         ax.tick_params(axis="x", rotation=30)
     return fig
