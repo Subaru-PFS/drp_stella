@@ -8,7 +8,9 @@ from deprecated import deprecated
 import numpy as np
 import scipy.interpolate
 
+import copy
 import json
+from collections.abc import Callable
 import os
 import pickle
 
@@ -29,12 +31,15 @@ class PCACompositor:
         Mean. Shape (N,). This vector is added to linear combinations
         of basis vectors.
 
-    header : `astropy.io.fits.Header`
+    header : `astropy.io.fits.Header` or `None`
         FITS header that contains WCS cards
-        for ``mean`` and for vectors output from ``__call__()``.
+        for ``mean`` and for vectors output from ``__call__()``;
+        or `None` if the sampling can't be described by a WCS.
     """
 
-    def __init__(self, basis: np.ndarray, mean: np.ndarray, header: astropy.io.fits.Header) -> None:
+    def __init__(
+        self, basis: np.ndarray, mean: np.ndarray, header: astropy.io.fits.Header | None
+    ) -> None:
         self.basis = np.asarray(basis)
         self.mean = np.asarray(mean)
         self.header = header
@@ -334,6 +339,9 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
     pcaCompositor : `PCACompositor`
         Converter that converts an output of ``interpolator``
         to a spectrum.
+    wavelength : `np.ndarray`, optional
+        Wavelength array of the spectra. If not provided, it is determined from
+        the WCS in ``pcaCompositor.header``.
     """
 
     def __init__(
@@ -344,6 +352,7 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         mScale: float,
         alphaScale: float,
         pcaCompositor: PCACompositor,
+        wavelength: np.ndarray | None = None,
     ) -> None:
         self.interpolator = interpolator
         self.teffScale = teffScale
@@ -351,11 +360,18 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         self.mScale = mScale
         self.alphaScale = alphaScale
         self.pcaCompositor = pcaCompositor
-        self.wavelength = WavelengthArray.fromFitsHeader(
-            pcaCompositor.header,
-            pcaCompositor.getLength(),
-            dtype=float,
-        )
+        if wavelength is None:
+            wavelength = WavelengthArray.fromFitsHeader(
+                pcaCompositor.header,
+                pcaCompositor.getLength(),
+                dtype=float,
+            )
+        elif len(wavelength) != pcaCompositor.getLength():
+            raise ValueError(
+                f"Length of wavelength ({len(wavelength)}) doesn't match the PCA basis "
+                f"({pcaCompositor.getLength()})"
+            )
+        self.wavelength = wavelength
 
     @classmethod
     def fromFluxModelData(cls, path: str) -> "FluxModelInterpolator":
@@ -452,6 +468,138 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
         """
         baseInterpolator = self.interpolator
 
+        smallerRbf = _truncateRbfInterpolator(baseInterpolator, numComponents)
+        if smallerRbf is not None:
+            interpolatorSlice = smallerRbf
+        else:
+            interpolatorSlice = self._makeInterpolatorSlice(baseInterpolator, numComponents)
+
+        pcaCompositorSlice = PCACompositor(
+            self.pcaCompositor.basis[:numComponents, ...],
+            self.pcaCompositor.mean,
+            self.pcaCompositor.header,
+        )
+
+        return PCAFluxModelInterpolator(
+            interpolatorSlice,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            pcaCompositorSlice,
+            self.wavelength,
+        )
+
+    def getBinnedInterpolator(self, binning: int) -> "PCAFluxModelInterpolator":
+        """Get another interpolator producing spectra binned in wavelength.
+
+        The PCA mean and basis vectors are binned (by averaging groups of
+        ``binning`` pixels), so that the interpolated spectra are binned
+        without having to compute them at full resolution. Any pixels left
+        over at the red end are dropped.
+
+        Parameters
+        ----------
+        binning : `int`
+            Binning factor.
+
+        Returns
+        -------
+        interpolator : `PCAFluxModelInterpolator`
+            New interpolator; or ``self`` if ``binning`` is 1.
+        """
+        if binning < 1:
+            raise ValueError(f"Binning factor must be at least 1: {binning}")
+        if binning == 1:
+            return self
+
+        length = len(self.wavelength) // binning
+
+        def binArray(array: np.ndarray) -> np.ndarray:
+            """Bin the last axis of an array by averaging"""
+            array = array[..., : length * binning]
+            return array.reshape(array.shape[:-1] + (length, binning)).mean(axis=-1)
+
+        # The binned wavelength array is the mean wavelength of each bin;
+        # this is linear because the original is.
+        dWavelength = (self.wavelength.maxWavelength - self.wavelength.minWavelength) / (
+            len(self.wavelength) - 1
+        )
+        minWavelength = self.wavelength.minWavelength + 0.5 * (binning - 1) * dWavelength
+        maxWavelength = minWavelength + (length - 1) * binning * dWavelength
+        header = WavelengthArray(minWavelength, maxWavelength, length).toFitsHeader()
+
+        pcaCompositor = PCACompositor(
+            binArray(self.pcaCompositor.basis), binArray(self.pcaCompositor.mean), header
+        )
+        return PCAFluxModelInterpolator(
+            self.interpolator,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            pcaCompositor,
+        )
+
+    def applyLinearTransform(
+        self, transform: Callable[[np.ndarray], np.ndarray], wavelength: np.ndarray
+    ) -> "PCAFluxModelInterpolator":
+        """Get another interpolator producing linearly transformed spectra.
+
+        A linear transformation of the interpolated spectra (e.g., convolution
+        by a line-spread function, and resampling) is equivalent to the same
+        transformation applied to the PCA mean and each of the basis vectors.
+        Applying it to those once allows transformed spectra to be generated
+        without having to transform each spectrum.
+
+        Parameters
+        ----------
+        transform : callable
+            Function that transforms a spectrum: it takes an array of flux
+            sampled at ``self.wavelength``, and returns an array of flux
+            sampled at ``wavelength``. It must be linear (e.g., resampling must
+            use a fill value of zero).
+        wavelength : `np.ndarray`
+            Wavelength array of the transformed spectra.
+
+        Returns
+        -------
+        interpolator : `PCAFluxModelInterpolator`
+            New interpolator.
+        """
+        mean = transform(self.pcaCompositor.mean)
+        basis = np.empty((len(self.pcaCompositor.basis), len(mean)), dtype=mean.dtype)
+        for ii, vector in enumerate(self.pcaCompositor.basis):
+            basis[ii] = transform(vector)
+        return PCAFluxModelInterpolator(
+            self.interpolator,
+            self.teffScale,
+            self.loggScale,
+            self.mScale,
+            self.alphaScale,
+            PCACompositor(basis, mean, None),
+            np.asarray(wavelength),
+        )
+
+    @staticmethod
+    def _makeInterpolatorSlice(baseInterpolator, numComponents: int):
+        """Make a function that slices the output of an interpolator.
+
+        This is the fallback for when the interpolator cannot be truncated.
+
+        Parameters
+        ----------
+        baseInterpolator : callable
+            Interpolator to wrap.
+        numComponents : `int`
+            Number of components to keep.
+
+        Returns
+        -------
+        interpolatorSlice : callable
+            Function returning the first ``numComponents`` components.
+        """
+
         def interpolatorSlice(x: np.ndarray) -> np.ndarray:
             """Duck-typed alternative to ``PCAFluxModelInterpolator.interpolator``.
 
@@ -470,17 +618,54 @@ class PCAFluxModelInterpolator(FluxModelInterpolator):
             """
             return baseInterpolator(x)[..., :numComponents]
 
-        pcaCompositorSlice = PCACompositor(
-            self.pcaCompositor.basis[:numComponents, ...],
-            self.pcaCompositor.mean,
-            self.pcaCompositor.header,
-        )
+        return interpolatorSlice
 
-        return PCAFluxModelInterpolator(
-            interpolatorSlice,
-            self.teffScale,
-            self.loggScale,
-            self.mScale,
-            self.alphaScale,
-            pcaCompositorSlice,
-        )
+
+def _truncateRbfInterpolator(
+    interpolator: scipy.interpolate.RBFInterpolator, numComponents: int
+) -> scipy.interpolate.RBFInterpolator | None:
+    """Make an RBF interpolator that evaluates only the first components.
+
+    Each column of the RBF coefficients depends only on the corresponding
+    column of the data, so truncating the coefficients is equivalent to
+    building an interpolator from truncated data, without solving the
+    linear system again. Evaluating the truncated interpolator costs only
+    ``numComponents/N`` of the original.
+
+    This relies on private attributes of
+    `scipy.interpolate.RBFInterpolator`; if they are not as expected, we
+    return `None`.
+
+    Parameters
+    ----------
+    interpolator : `scipy.interpolate.RBFInterpolator`
+        Interpolator to truncate.
+    numComponents : `int`
+        Number of components to keep.
+
+    Returns
+    -------
+    truncated : `scipy.interpolate.RBFInterpolator` or `None`
+        Truncated interpolator, or `None` if truncation is not possible.
+    """
+    if not isinstance(interpolator, scipy.interpolate.RBFInterpolator):
+        return None
+    if getattr(interpolator, "neighbors", None) is not None:
+        return None  # Coefficients are computed on the fly
+    if getattr(interpolator, "d_dtype", None) is not float:
+        return None  # Complex data are stored with twice the number of columns
+    coeffs = getattr(interpolator, "_coeffs", None)
+    data = getattr(interpolator, "d", None)
+    dShape = getattr(interpolator, "d_shape", None)
+    if coeffs is None or data is None or dShape is None:
+        return None
+    if coeffs.ndim != 2 or data.ndim != 2 or len(dShape) != 1 or coeffs.shape[1] != data.shape[1]:
+        return None
+    if numComponents >= data.shape[1]:
+        return interpolator
+
+    truncated = copy.copy(interpolator)
+    truncated._coeffs = np.ascontiguousarray(coeffs[:, :numComponents])
+    truncated.d = np.ascontiguousarray(data[:, :numComponents])
+    truncated.d_shape = (numComponents,)
+    return truncated

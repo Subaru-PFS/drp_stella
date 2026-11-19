@@ -161,6 +161,8 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         dataId = dict(spectrograph=spectrograph, arm=arm, visit=visit)
 
         converted = SpectrumSet.fromPfsArm(spectra.toPfsArm(dataId))
+        for ss in converted:
+            self.assertTrue(ss.isWavelengthSet())
 
         # datamodel currently does not preserve the fiberId values
         # so put in the correct values so the assertion can pass

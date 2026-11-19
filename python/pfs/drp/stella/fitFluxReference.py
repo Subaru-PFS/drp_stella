@@ -11,7 +11,7 @@ from lsst.pipe.base.connectionTypes import Output as OutputConnection
 from lsst.pipe.base.connectionTypes import Input as InputConnection
 from lsst.pipe.base.connectionTypes import PrerequisiteInput as PrerequisiteConnection
 
-from lsst.pex.config import ConfigurableField, ChoiceField, Field, ListField
+from lsst.pex.config import ConfigurableField, ChoiceField, DictField, Field, ListField
 from lsst.utils import getPackageDir
 from pfs.datamodel.identity import Identity
 from pfs.datamodel.masks import MaskHelper
@@ -21,7 +21,7 @@ from pfs.datamodel.pfsFiberArray import PfsFiberArray
 from pfs.datamodel.pfsFluxReference import PfsFluxReference
 from pfs.drp.stella.fluxModelInterpolator import FluxModelInterpolator
 from pfs.drp.stella import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
-from pfs.drp.stella import SpectrumSet
+from pfs.drp.stella import Spectrum, SpectrumSet
 from pfs.drp.stella.datamodel import PfsFiberArraySet, PfsMerged, PfsSimpleSpectrum, PfsSingle
 from pfs.drp.stella.dustMap import DustMap
 from pfs.drp.stella.estimateRadialVelocity import EstimateRadialVelocityTask
@@ -29,7 +29,8 @@ from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fluxModelSet import FluxModelSet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateMask
+from pfs.drp.stella.interpolate import interpolateFlux, interpolateIndices, interpolateMask
+from pfs.drp.stella.math import interpolateFlux as interpolateFluxImpl
 from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict
 from pfs.drp.stella.utils.math import ChisqList
 from pfs.drp.stella.utils import debugging
@@ -43,6 +44,7 @@ import scipy.spatial
 
 import copy
 import dataclasses
+import functools
 import math
 import os
 import warnings
@@ -206,6 +208,14 @@ class FitFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitFluxRefe
         doc="Method with which to find the minimum of the objective function of spectrum fitting."
         " Valid values are 'brute-force' or any valid arguments for `scipy.optimize.minimize()`",
     )
+    minimizationOptions = DictField(
+        keytype=str,
+        itemtype=float,
+        default={},
+        doc="(Valid if minimizationMethod!='brute-force') Solver options passed to"
+        " `scipy.optimize.minimize()` as ``options``; they must be appropriate for ``minimizationMethod``."
+        " For 'Powell', note that ``xtol`` applies to the parameters after scaling by ``paramScale``.",
+    )
     priorCutoff = Field(
         dtype=float,
         default=0.01,
@@ -241,6 +251,18 @@ class FitFluxReferenceConfig(PipelineTaskConfig, pipelineConnections=FitFluxRefe
         doc="(Valid if minimizationMethod!='brute-force')"
         " Number of PCA components to use during fitting."
         " The final products are made of all components regardless of this setting.",
+    )
+    modelBinning = Field(
+        dtype=int,
+        default=1,
+        check=lambda value: value >= 1,
+        doc="(Valid if minimizationMethod!='brute-force')"
+        " Factor by which to bin model spectra in wavelength (by averaging) during fitting."
+        " The models are sampled much more finely than the observed spectra, so modest binning"
+        " (such that the model sampling remains a few times finer than the observed sampling)"
+        " makes the fitting faster with little effect on the results."
+        " 1 means no binning."
+        " The final products are made of unbinned models regardless of this setting.",
     )
     paramMargin = ListField(
         dtype=float,
@@ -297,6 +319,14 @@ class FitFluxReferenceTask(PipelineTask):
         self.makeSubtask("fitModelContinuum")
         self.makeSubtask("fitDownsampledContinuum")
         self.makeSubtask("estimateRadialVelocity")
+
+        # Lines to mask when fitting continua
+        self.continuumLines = ReferenceLineSet.fromRows(
+            [
+                ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
+                ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
+            ]
+        )
 
         self.debugInfo = lsstDebug.Info(__name__)
 
@@ -442,7 +472,9 @@ class FitFluxReferenceTask(PipelineTask):
         pfsMerged /= pfsMerged.norm
         pfsMerged.norm[...] = 1.0
 
-        pfsMerged = self.computeContinuum(pfsMerged, mode="observed").whiten(pfsMerged)
+        obsContinuum = self.computeContinuum(pfsMerged, mode="observed")
+        continuumMasks = {fiberId: obsContinuum.good[ii] for ii, fiberId in enumerate(pfsMerged.fiberId)}
+        pfsMerged = obsContinuum.whiten(pfsMerged)
         pfsMerged = self.maskUninterestingRegions(pfsMerged)
 
         if self.debugInfo.doWriteWhitenedFlux:
@@ -464,7 +496,9 @@ class FitFluxReferenceTask(PipelineTask):
 
         # Likelihoods from spectral fitting, where line spectra matter.
         self.log.info("Fitting models to spectra (takes some time)...")
-        bestParams = self.fitModelsToSpectra(pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs)
+        bestParams = self.fitModelsToSpectra(
+            pfsConfig, pfsMerged, pfsMergedLsf, radialVelocities, bbPdfs, continuumMasks
+        )
 
         flag = self.fitFlagNames.add("FITMODELS_FAILED")
         for fiberId in pfsConfig.fiberId:
@@ -606,6 +640,7 @@ class FitFluxReferenceTask(PipelineTask):
         spectra: PfsSimpleSpectrum | PfsFiberArraySet,
         *,
         mode: Literal["observed", "model", "downsampled"],
+        good: NDArray[np.bool_] | None = None,
     ) -> "Continuum":
         """Whiten one or more spectra.
 
@@ -616,6 +651,11 @@ class FitFluxReferenceTask(PipelineTask):
         mode : {"observed", "model", "downsampled"}
             Whether ``spectra`` is from observation, from simulation,
             or downsampled from simulation.
+        good : `numpy.ndarray` of `bool`, optional
+            Pixels to use to fit the continuum, e.g., the ``good`` member of a
+            previously-computed `Continuum`. Shape ``(N,)`` for a single
+            spectrum, or ``(M, N)`` for multiple spectra. If provided, the
+            continuum is fit without iterative rejection.
 
         Returns
         -------
@@ -629,29 +669,22 @@ class FitFluxReferenceTask(PipelineTask):
         if mode == "downsampled":
             fitContinuum = self.fitDownsampledContinuum
 
-        # If `spectra` is actually a single spectrum,
-        # we put it into PfsFiberArraySet
         if len(spectra.flux.shape) == 1:
-            if not hasattr(spectra, "covar"):
-                spectra = promoteSimpleSpectrumToFiberArray(spectra, snr=self.config.modelSNR)
-            # This is temporary object, so any fiberId will do.
-            spectra = promoteFiberArrayToFiberArraySet(spectra, fiberId=1)
+            # A single spectrum: this is called many times while fitting,
+            # so we convert directly rather than via PfsFiberArraySet.
+            specset = spectrumToSpectrumSet(spectra, snr=self.config.modelSNR)
+        else:
+            # This function actually works with `PfsFiberArraySet`
+            # nonetheless for its name.
+            # (PfsArm is a subclass of PfsFiberArraySet)
+            specset = SpectrumSet.fromPfsArm(spectra)
 
-        # This function actually works with `PfsFiberArraySet`
-        # nonetheless for its name.
-        # (PfsArm is a subclass of PfsFiberArraySet)
-        specset = SpectrumSet.fromPfsArm(spectra)
-
-        lines = ReferenceLineSet.fromRows(
-            [
-                ReferenceLine("Hbeta", 486.2721, 1.0, ReferenceLineStatus.GOOD, "", 0),
-                ReferenceLine("Halpha", 656.4614, 1.0, ReferenceLineStatus.GOOD, "", 0),
-            ]
-        )
+        if good is not None:
+            good = np.asarray(good, dtype=bool).reshape(len(specset), -1)
 
         # Get the continuum for each fiber
-        continuum = fitContinuum.run(specset, lines=lines)
-        return Continuum(continuum, np.array([], dtype=int))
+        result = fitContinuum.measureContinua(specset, lines=self.continuumLines, good=good)
+        return Continuum(result.continua, np.array([], dtype=int), result.good)
 
     def fitModelsToSpectra(
         self,
@@ -660,6 +693,7 @@ class FitFluxReferenceTask(PipelineTask):
         pfsMergedLsf: LsfDict,
         radialVelocities: dict[int, Struct],
         priorPdfs: dict[int, NDArray[np.float64]],
+        continuumMasks: dict[int, NDArray[np.bool_]] | None = None,
     ) -> dict[int, Struct]:
         """For each observed spectrum,
         get probability of each model fitting to the spectrum.
@@ -680,6 +714,13 @@ class FitFluxReferenceTask(PipelineTask):
             For each ``priorPdfs[fiberId]`` in ``priorPdfs``,
             ``priorPdfs[fiberId][iSED]`` is the prior probability of the SED ``iSED``
             matching the spectrum ``fiberId``.
+        continuumMasks : `dict` [`int`, `NDArray` [`np.bool_`]], optional
+            Pixels used to fit the continuum of each observed spectrum,
+            indexed by fiberId. If provided, the continuum of each model is
+            fit with the same pixels, without rejection. This treats the model
+            and observed spectra consistently, and makes the objective function
+            smooth (rejection makes it discontinuous in the model parameters).
+            Not used if ``minimizationMethod='brute-force'``.
 
         Returns
         -------
@@ -760,6 +801,15 @@ class FitFluxReferenceTask(PipelineTask):
             )
             modelInterpolator = self.modelInterpolator
 
+        if self.config.modelBinning > 1:
+            if hasattr(modelInterpolator, "getBinnedInterpolator"):
+                modelInterpolator = modelInterpolator.getBinnedInterpolator(self.config.modelBinning)
+            else:
+                self.log.warn(
+                    "FluxModelInterpolator does not support binning; ignoring modelBinning=%d.",
+                    self.config.modelBinning,
+                )
+
         bestParams: dict[int, Struct] = {}
         # This dict will be filled only if debug mode is on
         whitenedModels: dict[int, PfsSimpleSpectrum] = {}
@@ -782,6 +832,29 @@ class FitFluxReferenceTask(PipelineTask):
             teffList, prior1dList = marginalizePdf(param4d, priorPdf, axis=(1, 2, 3))
             teffList = teffList.reshape(-1)  # Shape (N, 1) => (N,)
             prior1d = scipy.interpolate.Akima1DInterpolator(teffList, prior1dList)
+
+            # The model wavelength sampling and the LSF are the same for every
+            # evaluation of the objective, so we warp the LSF only once.
+            modelWavelength = modelInterpolator.wavelength * doppler
+            warpedLsf = pfsMergedLsf[fiberId].warp(obsSpectrum.wavelength, modelWavelength)
+
+            continuumMask = continuumMasks.get(fiberId) if continuumMasks is not None else None
+
+            # Doppler shift, convolution and resampling are all linear (and
+            # fixed for this fiber), so if possible we apply them to the
+            # interpolator's basis once, rather than to every model.
+            fiberInterpolator = None
+            if hasattr(modelInterpolator, "applyLinearTransform"):
+                resampleIndices = interpolateIndices(modelWavelength, obsSpectrum.wavelength)
+
+                def transform(flux: NDArray[np.float64]) -> NDArray[np.float64]:
+                    """Convolve by the LSF and resample to the observed frame.
+
+                    This is equivalent to what ``model.resample`` does.
+                    """
+                    return interpolateFluxImpl(warpedLsf.convolve(flux), resampleIndices, 0.0, 3)
+
+                fiberInterpolator = modelInterpolator.applyLinearTransform(transform, obsSpectrum.wavelength)
 
             def objective(x: NDArray, returnChisq=False) -> float | Struct:
                 """Objective function to minimize.
@@ -814,11 +887,16 @@ class FitFluxReferenceTask(PipelineTask):
                     else:
                         return np.inf
 
-                model = modelInterpolator.interpolate(*param)
-                model.wavelength = model.wavelength * doppler
-                model = convolveLsf(model, pfsMergedLsf[fiberId], obsSpectrum.wavelength)
-                model = model.resample(obsSpectrum.wavelength)
-                modelContinuum = self.computeContinuum(model, mode="observed")
+                if fiberInterpolator is not None:
+                    model = fiberInterpolator.interpolate(*param)
+                else:
+                    model = modelInterpolator.interpolate(*param)
+                    model.wavelength = modelWavelength
+                    # ``model`` is a fresh object, so we can convolve in place
+                    # rather than using ``convolveLsf``, which makes a deep copy.
+                    model.flux = warpedLsf.convolve(model.flux)
+                    model = model.resample(obsSpectrum.wavelength)
+                modelContinuum = self.computeContinuum(model, mode="observed", good=continuumMask)
                 model = modelContinuum.whiten(model)
                 chisq = calculateSpecChiSquare(obsSpectrum, model, self.getBadMask())
                 if returnChisq:
@@ -832,7 +910,11 @@ class FitFluxReferenceTask(PipelineTask):
 
             with np.errstate(invalid="ignore"):
                 result = scipy.optimize.minimize(
-                    objective, x0, bounds=bounds, method=self.config.minimizationMethod
+                    objective,
+                    x0,
+                    bounds=bounds,
+                    method=self.config.minimizationMethod,
+                    options=dict(self.config.minimizationOptions),
                 )
             param = xToParam(result.x)
             chisq = objective(result.x, returnChisq=True)
@@ -1492,10 +1574,13 @@ class Continuum:
     invalidIndices : `numpy.array`
         List of indices in [0, M).
         ``flux[i]`` (``i`` in  ``invalidIndices``) is invalid.
+    good : `numpy.array` of `bool`, optional
+        Pixels used to fit the continuum. Shape (M, N).
     """
 
     flux: NDArray[np.float64]
     invalidIndices: NDArray[np.int64]
+    good: NDArray[np.bool_] | None = None
 
     @overload
     def whiten(self, spectra: PfsFiberArraySet) -> PfsFiberArraySet:
@@ -2092,6 +2177,51 @@ def promoteFiberArrayToFiberArraySet(spectrum: PfsFiberArray, fiberId: int) -> P
     )
 
 
+def spectrumToSpectrumSet(spectrum: PfsSimpleSpectrum, snr: float) -> SpectrumSet:
+    """Convert a single spectrum to a `SpectrumSet`.
+
+    This gives the same result as
+    ``SpectrumSet.fromPfsArm(promoteFiberArrayToFiberArraySet(spectrum, 1))``
+    (with ``promoteSimpleSpectrumToFiberArray`` applied first if ``spectrum``
+    has no ``covar``), but without constructing the intermediate objects.
+
+    Parameters
+    ----------
+    spectrum : `PfsSimpleSpectrum` or `PfsFiberArray`
+        Spectrum to convert.
+    snr : `float`
+        Signal to noise ratio from which to invent the variance, if
+        ``spectrum`` has no ``covar``. See
+        ``promoteSimpleSpectrumToFiberArray``.
+
+    Returns
+    -------
+    spectrumSet : `pfs.drp.stella.SpectrumSet`
+        Set containing the single spectrum, with ``fiberId=1``.
+    """
+    length = len(spectrum.flux)
+    result = Spectrum(length)
+    result.fiberId = 1
+    result.flux[:] = spectrum.flux
+    result.norm[:] = 1.0
+    if hasattr(spectrum, "covar"):
+        result.variance[:] = spectrum.variance
+    else:
+        result.variance[:] = (np.nanmedian(spectrum.flux) / snr) ** 2
+    result.setWavelength(spectrum.wavelength)
+
+    # Copy mask planes across, not values
+    result.mask.array[:] = 0
+    for name in spectrum.flags.flags:
+        source = spectrum.flags.get(name)
+        target = 2 ** result.mask.addMaskPlane(name)
+        result.mask.array[0, (spectrum.mask & source) != 0] |= target
+
+    spectrumSet = SpectrumSet(length)
+    spectrumSet.add(result)
+    return spectrumSet
+
+
 def fibers(pfsConfig: PfsConfig, fiberArraySet: PfsFiberArraySet) -> Generator[PfsFiberArray, None, None]:
     """Iterator that yields each fiber in `PfsFiberArraySet`.
 
@@ -2311,10 +2441,35 @@ class FilterCurve(TransmissionCurve):
         filename = os.path.join(
             os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "bandpass", self.filenames[filterName]
         )
-        data = np.genfromtxt(filename, dtype=[("wavelength", "f4"), ("flux", "f4")])
-        wavelength = data["wavelength"]
-        transmission = data["flux"]  # Relative transmission
+        wavelength, transmission = _readFilterCurve(filename)
         super().__init__(wavelength, transmission)
+
+
+@functools.lru_cache
+def _readFilterCurve(filename: str) -> tuple[NDArray[np.float32], NDArray[np.float32]]:
+    """Read a filter transmission curve from file.
+
+    The result is cached, since the same filters are used repeatedly; the
+    returned arrays are read-only, since they are shared.
+
+    Parameters
+    ----------
+    filename : `str`
+        Name of file to read.
+
+    Returns
+    -------
+    wavelength : `numpy.ndarray` of `float`, shape ``(N,)``
+        Wavelength, nm.
+    transmission : `numpy.ndarray` of `float`, shape ``(N,)``
+        Relative transmission.
+    """
+    data = np.genfromtxt(filename, dtype=[("wavelength", "f4"), ("flux", "f4")])
+    wavelength = np.array(data["wavelength"])
+    transmission = np.array(data["flux"])
+    wavelength.flags.writeable = False
+    transmission.flags.writeable = False
+    return wavelength, transmission
 
 
 def _trapezoidal(x: np.ndarray, y: np.ndarray, weight: np.ndarray, power: float = 1) -> float:
