@@ -20,7 +20,7 @@ makeWarpingControl(std::string const &warpingKernelName) {
     lsst::afw::math::WarpingControl ctrl(warpingKernelName, "bilinear");
     lsst::afw::image::MaskedImage<float>::SinglePixel pad = {
         std::numeric_limits<float>::quiet_NaN(),
-        lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getMaskPlane("NO_DATA"),
+        lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getPlaneBitMask("NO_DATA"),
         std::numeric_limits<float>::quiet_NaN()
     };
     return {ctrl, pad};
