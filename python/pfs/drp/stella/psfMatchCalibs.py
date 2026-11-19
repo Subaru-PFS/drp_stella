@@ -35,7 +35,7 @@ from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .pipelines.lookups import lookupCalibForVisit, lookupDatasetsForArm
 from .PolynomialDistortionContinued import PolynomialDistortion
 from .psfBias import calculatePeakToCentroidBias
-from .psfMatch import PsfMatchTask, calculateFirstMoments
+from .psfMatch import PsfMatchTask, calculateFirstMoments, calculateWarpShifts
 from .readLineList import ReadLineListTask
 from .utils.math import robustRms
 from .utils.psf import makeGaussianPsf
@@ -282,6 +282,14 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         dimensions=("instrument", "arm", "spectrograph"),
         isCalibration=True,
     )
+    visitDetectorMaps = PrerequisiteConnection(
+        name="detectorMap",
+        doc="Mapping from fiberId,wavelength to x,y for the reference and target exposures (e.g., from "
+        "reductions), for warping the target onto the reference (``config.doWarp``)",
+        storageClass="DetectorMap",
+        dimensions=("instrument", "visit", "arm", "spectrograph"),
+        multiple=True,  # One per visit
+    )
     otherArmKernel = PrerequisiteConnection(
         name="psfMatchKernel",
         doc="PSF-matching kernel measured for another arm (``config.kernelArm``), used instead of measuring "
@@ -321,6 +329,8 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
             self.detectorMap = dataclasses.replace(self.detectorMap, lookupFunction=lookup)
             self.fiberProfiles = dataclasses.replace(self.fiberProfiles, lookupFunction=lookup)
         if config is not None:
+            if not config.doWarp:
+                self.prerequisiteInputs.remove("visitDetectorMaps")
             if config.kernelArm is None:
                 self.prerequisiteInputs.remove("otherArmKernel")
             else:
@@ -381,6 +391,14 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         default=True,
         doc="Adjust the detectorMap to the reference exposure before applying the kernel?",
     )
+    doWarp = Field(
+        dtype=bool,
+        default=True,
+        doc="Warp the target onto the reference (using the detectorMaps for each visit) before measuring "
+        "the PSF-matching kernel? The kernel then doesn't include the shift of the warp, which is added "
+        "separately. This allows large and variable shifts. A kernel for another arm (``kernelArm``) must "
+        "have been measured with the same setting.",
+    )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines on reference")
     doForceTraces = Field(dtype=bool, default=True, doc="Centroid traces on reference, even for arcs?")
@@ -431,6 +449,16 @@ class PsfMatchCalibsTask(PipelineTask):
     convolved with the kernel, and shifted to be relative to the new (peak)
     trace positions.
 
+    The shift between the reference and the target can be large (several
+    pixels) and vary over the detector, which a kernel of reasonable size
+    can't represent. With ``config.doWarp`` (the default), the target is
+    warped onto the reference using the detectorMaps for each visit (e.g.,
+    from the reductions) before measuring the kernel, so that the kernel
+    need only represent the PSF change. The shift of the warp is added to
+    the shift of the kernel when measuring the change in peak positions, and
+    removed when shifting the convolved fiberProfiles (since the kernel
+    doesn't include it).
+
     The blue arm has too few lines in sky exposures to measure a good kernel.
     Instead, ``config.kernelArm`` can specify another arm (e.g., ``r``) whose
     kernel (from a previous run of this task, with the same reference and
@@ -438,7 +466,9 @@ class PsfMatchCalibsTask(PipelineTask):
     PSF model, detectorMap and fiberProfiles for this arm. The kernel is
     evaluated at the same pixel position: the same fiber is only a few tens of
     pixels from the same position in the other arm, and the kernel varies
-    slowly. The kernel is not written for this arm in that case.
+    slowly. The kernel is not written for this arm in that case. With
+    ``config.doWarp``, the shift of the warp comes from the detectorMaps for
+    this arm.
 
     In a pipeline, the data query should select two visits: the reference
     (identified by ``config.referenceVisit``) and the target. The calibs are
@@ -521,6 +551,16 @@ class PsfMatchCalibsTask(PipelineTask):
             for visit in (referenceVisit, targetVisit)
         }
 
+        referenceVisitDetectorMap = None
+        targetVisitDetectorMap = None
+        if self.config.doWarp:
+            visitDetectorMapRefs = {ref.dataId["visit"]: ref for ref in inputRefs.visitDetectorMaps}
+            missingDetectorMap = {referenceVisit, targetVisit} - set(visitDetectorMapRefs)
+            if missingDetectorMap:
+                raise RuntimeError(f"Missing detectorMap for visits {sorted(missingDetectorMap)}")
+            referenceVisitDetectorMap = butler.get(visitDetectorMapRefs[referenceVisit])
+            targetVisitDetectorMap = butler.get(visitDetectorMapRefs[targetVisit])
+
         dataId = targetRef.dataId
         identity = CalibIdentity(
             obsDate=dataId.timespan.begin.to_datetime().date().isoformat(),
@@ -540,6 +580,8 @@ class PsfMatchCalibsTask(PipelineTask):
             targetPfsConfig=pfsConfigs[targetVisit],
             useLineList=useLineList,
             kernel=kernel,
+            referenceVisitDetectorMap=referenceVisitDetectorMap,
+            targetVisitDetectorMap=targetVisitDetectorMap,
         )
         butler.put(outputs.detectorMap, outputRefs.outputDetectorMap)
         butler.put(outputs.fiberProfiles, outputRefs.outputFiberProfiles)
@@ -562,6 +604,8 @@ class PsfMatchCalibsTask(PipelineTask):
         targetPfsConfig: Optional[PfsConfig] = None,
         useLineList: bool = False,
         kernel: Optional[afwMath.Kernel] = None,
+        referenceVisitDetectorMap: Optional[DetectorMap] = None,
+        targetVisitDetectorMap: Optional[DetectorMap] = None,
     ) -> Struct:
         """Adjust the detectorMap and fiberProfiles for the target
 
@@ -593,6 +637,12 @@ class PsfMatchCalibsTask(PipelineTask):
             PSF-matching kernel from the reference to the target, to use
             instead of measuring one (e.g., measured for another arm). If
             provided, ``useLineList`` and the ``targetPfsConfig`` are not used.
+            If ``config.doWarp``, this must have been measured with warping.
+        referenceVisitDetectorMap, targetVisitDetectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Mappings from fiberId,wavelength to x,y for the reference and
+            target exposures; required if ``config.doWarp``. The target is
+            warped onto the reference using these before measuring the
+            kernel, and the shift of the warp is added to that of the kernel.
 
         Returns
         -------
@@ -612,6 +662,14 @@ class PsfMatchCalibsTask(PipelineTask):
         fit : `lsst.pipe.base.Struct`
             Results of fitting the distortion (see `fitDistortion`).
         """
+        warpDetectorMaps = None
+        if self.config.doWarp:
+            if referenceVisitDetectorMap is None or targetVisitDetectorMap is None:
+                raise ValueError(
+                    "referenceVisitDetectorMap and targetVisitDetectorMap are required for doWarp"
+                )
+            warpDetectorMaps = (referenceVisitDetectorMap, targetVisitDetectorMap)
+
         referenceDetectorMap = detectorMap
         if self.config.doAdjustReference:
             referenceDetectorMap = self.adjustReferenceDetectorMap(
@@ -632,11 +690,13 @@ class PsfMatchCalibsTask(PipelineTask):
                 detectorMap=referenceDetectorMap,
                 sourcePfsConfig=referencePfsConfig,
                 targetPfsConfig=targetPfsConfig,
+                sourceDetectorMap=referenceVisitDetectorMap if self.config.doWarp else None,
+                targetDetectorMap=targetVisitDetectorMap if self.config.doWarp else None,
             )
         if psfMatch is not None:
             kernel = psfMatch.psfMatchingKernel
 
-        shifts = self.measurePeakShifts(kernel, psf, referenceDetectorMap)
+        shifts = self.measurePeakShifts(kernel, psf, referenceDetectorMap, warpDetectorMaps)
         fit = self.fitDistortion(referenceDetectorMap, shifts)
 
         metadata = referenceDetectorMap.metadata.deepCopy()
@@ -646,7 +706,7 @@ class PsfMatchCalibsTask(PipelineTask):
 
         # The fiberProfiles are relative to the input detectorMap, so the shift is relative to that
         newFiberProfiles = self.adjustFiberProfiles(
-            fiberProfiles, kernel, detectorMap, newDetectorMap, identity, target.visitInfo
+            fiberProfiles, kernel, detectorMap, newDetectorMap, identity, target.visitInfo, warpDetectorMaps
         )
 
         return Struct(
@@ -706,7 +766,13 @@ class PsfMatchCalibsTask(PipelineTask):
             lines.extend(self.centroidTraces.run(reference, detectorMap, pfsConfig))
         return self.adjustReference.run(detectorMap, lines, arm, reference.visitInfo, seed=seed).detectorMap
 
-    def measurePeakShifts(self, kernel: afwMath.Kernel, psf: Psf, detectorMap: DetectorMap) -> Struct:
+    def measurePeakShifts(
+        self,
+        kernel: afwMath.Kernel,
+        psf: Psf,
+        detectorMap: DetectorMap,
+        warpDetectorMaps: Optional[tuple[DetectorMap, DetectorMap]] = None,
+    ) -> Struct:
         """Measure the shifts in peak position on a grid
 
         Parameters
@@ -717,6 +783,11 @@ class PsfMatchCalibsTask(PipelineTask):
             PSF model for the reference.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from fiberId,wavelength to x,y for the reference.
+        warpDetectorMaps : `tuple` of `pfs.drp.stella.DetectorMap`, optional
+            Mappings from fiberId,wavelength to x,y for the reference and
+            target exposures, if the target was warped onto the reference
+            when measuring the kernel. The shift of the warp is added to the
+            shift of the kernel.
 
         Returns
         -------
@@ -736,6 +807,9 @@ class PsfMatchCalibsTask(PipelineTask):
             Peak minus centroid for the target.
         kernelSum : `numpy.ndarray` of `float`
             Sum of the kernel at each position.
+        dxWarp, dyWarp : `numpy.ndarray` of `float`
+            Shift of the warp (included in ``dx``, ``dy``, ``dxCentroid``
+            and ``dyCentroid``); zero if not warped.
         """
         allFiberId = detectorMap.fiberId
         numFibers = min(self.config.numFibers, len(allFiberId))
@@ -773,6 +847,27 @@ class PsfMatchCalibsTask(PipelineTask):
         shifts.row = row
         shifts.xx = xx
         shifts.yy = yy
+
+        shifts.dxWarp = np.zeros_like(xx)
+        shifts.dyWarp = np.zeros_like(xx)
+        if warpDetectorMaps is not None:
+            shifts.dxWarp, shifts.dyWarp = calculateWarpShifts(*warpDetectorMaps, fiberId, row)
+            self.log.info(
+                "Kernel peak shifts: dx = %.3f +/- %.3f, dy = %.3f +/- %.3f; adding warp shifts: "
+                "dx = %.3f +/- %.3f, dy = %.3f +/- %.3f",
+                np.nanmedian(shifts.dx),
+                robustRms(shifts.dx[np.isfinite(shifts.dx)]),
+                np.nanmedian(shifts.dy),
+                robustRms(shifts.dy[np.isfinite(shifts.dy)]),
+                np.nanmedian(shifts.dxWarp),
+                robustRms(shifts.dxWarp[np.isfinite(shifts.dxWarp)]),
+                np.nanmedian(shifts.dyWarp),
+                robustRms(shifts.dyWarp[np.isfinite(shifts.dyWarp)]),
+            )
+            shifts.dx = shifts.dx + shifts.dxWarp
+            shifts.dy = shifts.dy + shifts.dyWarp
+            shifts.dxCentroid = shifts.dxCentroid + shifts.dxWarp
+            shifts.dyCentroid = shifts.dyCentroid + shifts.dyWarp
 
         good = np.isfinite(shifts.dx) & np.isfinite(shifts.dy)
         self.log.info(
@@ -937,6 +1032,7 @@ class PsfMatchCalibsTask(PipelineTask):
         newDetectorMap: DetectorMap,
         identity: CalibIdentity,
         visitInfo: VisitInfo,
+        warpDetectorMaps: Optional[tuple[DetectorMap, DetectorMap]] = None,
     ) -> FiberProfileSet:
         """Convolve the fiber profiles with the kernel, and shift them
 
@@ -954,6 +1050,12 @@ class PsfMatchCalibsTask(PipelineTask):
             Identity of the output.
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for the target.
+        warpDetectorMaps : `tuple` of `pfs.drp.stella.DetectorMap`, optional
+            Mappings from fiberId,wavelength to x,y for the reference and
+            target exposures, if the target was warped onto the reference
+            when measuring the kernel. The kernel doesn't include the shift of
+            the warp, so the shift of the trace between these is removed from
+            the shift of the trace when shifting the convolved profiles.
 
         Returns
         -------
@@ -974,6 +1076,15 @@ class PsfMatchCalibsTask(PipelineTask):
             rows = np.asarray(profile.rows, dtype=float)
             xOld = oldDetectorMap.getXCenter(fiberId, rows)
             xNew = newDetectorMap.getXCenter(fiberId, rows)
+            if warpDetectorMaps is not None:
+                # The convolved profile is displaced by the kernel's shift only, not the warp's. The
+                # profile is at a fixed row, so we need the shift of the trace at fixed row (not at fixed
+                # wavelength, as for the peak shifts).
+                referenceVisitDetectorMap, targetVisitDetectorMap = warpDetectorMaps
+                xNew = xNew - (
+                    targetVisitDetectorMap.getXCenter(fiberId, rows)
+                    - referenceVisitDetectorMap.getXCenter(fiberId, rows)
+                )
             result[fiberId] = convolveFiberProfile(
                 profile, kernel, xOld, xNew, self.config.profileInterpOrder
             )

@@ -381,6 +381,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         realistic exposures.
         """
         self.task.config.doAdjustReference = False
+        self.task.config.doWarp = False
         profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
         profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
         exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
@@ -399,6 +400,91 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(diff[:, 0], -1.0, atol=2.0e-3)
         self.assertFloatsAlmostEqual(diff[:, 1], 0.0, atol=2.0e-3)
         self.assertEqual(set(result.fiberProfiles.fiberId), set(profiles.fiberId))
+
+    def makeShiftedDetectorMap(self, dx, dy):
+        """Make a detectorMap shifted relative to ours
+
+        Parameters
+        ----------
+        dx, dy : `list` of `float`
+            Coefficients of the shift (``a + b*x + c*y``).
+
+        Returns
+        -------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Shifted detectorMap.
+        """
+        bbox = Box2D(self.detectorMap.bbox)
+        numCoeff = PolynomialDistortion.getNumDistortionForOrder(1)
+        xCoeff = np.zeros(numCoeff, dtype=float)
+        yCoeff = np.zeros(numCoeff, dtype=float)
+        xCoeff[:3] = dx
+        yCoeff[:3] = dy
+        return addOpticsDistortion(self.detectorMap, PolynomialDistortion(1, bbox, xCoeff, yCoeff))
+
+    def testRunWithKernelWarp(self):
+        """Test run with a provided kernel, and warping
+
+        The shift of the warp (from the detectorMaps for each visit) is added
+        to the shift of the kernel, and the fiberProfiles (relative to the
+        trace) are unaffected by the warp.
+        """
+        self.task.config.doAdjustReference = False
+        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
+        profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
+        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
+        kernel = makeDeltaKernel(5, 1, 0)
+        targetDetectorMap = self.makeShiftedDetectorMap([2.5, 0.3, 0.0], [-5.0, 0.0, 0.5])
+
+        self.task.psfMatch.run = unittest.mock.Mock(side_effect=AssertionError("Shouldn't measure kernel"))
+        with self.assertRaises(ValueError):
+            # The detectorMaps for each visit are required
+            self.task.run(
+                exposure, exposure, self.psf, self.detectorMap, profiles, self.identity, kernel=kernel
+            )
+        result = self.task.run(
+            exposure,
+            exposure,
+            self.psf,
+            self.detectorMap,
+            profiles,
+            self.identity,
+            kernel=kernel,
+            referenceVisitDetectorMap=self.detectorMap,
+            targetVisitDetectorMap=targetDetectorMap,
+        )
+        shifts = result.shifts
+        # Warp shift is 2.5 +/- 0.3 in x and -5.0 +/- 0.5 in y over the detector
+        self.assertTrue(np.all((shifts.dxWarp > 2.1) & (shifts.dxWarp < 2.9)))
+        self.assertTrue(np.all((shifts.dyWarp > -5.6) & (shifts.dyWarp < -4.4)))
+        self.assertFloatsAlmostEqual(shifts.dx, shifts.dxWarp - 1.0, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(shifts.dy, shifts.dyWarp, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(shifts.dxCentroid, shifts.dxWarp - 1.0, atol=1.0e-12)
+        self.assertFloatsAlmostEqual(shifts.dyCentroid, shifts.dyWarp, atol=1.0e-12)
+
+        # The new detectorMap matches the target, except for the kernel's shift
+        wavelength = self.detectorMap.findWavelength(shifts.fiberId, shifts.row).astype(float)
+        newPoints = result.detectorMap.findPoint(shifts.fiberId, wavelength)
+        targetPoints = targetDetectorMap.findPoint(shifts.fiberId, wavelength)
+        self.assertFloatsAlmostEqual(newPoints[:, 0] - targetPoints[:, 0], -1.0, atol=2.0e-3)
+        self.assertFloatsAlmostEqual(newPoints[:, 1] - targetPoints[:, 1], 0.0, atol=2.0e-3)
+
+        # The delta-function kernel doesn't change the profiles, and the warp shouldn't either
+        for ff in profiles:
+            self.assertFloatsAlmostEqual(
+                result.fiberProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
+            )
+
+    def testWarpConnections(self):
+        """The detectorMaps for each visit are required only with doWarp"""
+        config = PsfMatchCalibsTask.ConfigClass()
+        config.referenceVisit = 1
+        self.assertTrue(config.doWarp)
+        connections = PsfMatchCalibsConnections(config=config)
+        self.assertIn("visitDetectorMaps", connections.prerequisiteInputs)
+        config.doWarp = False
+        connections = PsfMatchCalibsConnections(config=config)
+        self.assertNotIn("visitDetectorMaps", connections.prerequisiteInputs)
 
     def testKernelArmConnections(self):
         """Test the connections with and without kernelArm
