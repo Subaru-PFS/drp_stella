@@ -20,6 +20,7 @@ from .DetectorMap import DetectorMap
 from .referenceLine import ReferenceLineSet, ReferenceLineStatus
 from .repair import maskLines
 from .selectFibers import SelectFibersTask
+from .warp import warpImage
 
 if TYPE_CHECKING:
     import matplotlib
@@ -33,6 +34,8 @@ __all__ = (
     "measureOffset",
     "shiftMaskedImage",
     "offsetKernel",
+    "warpMaskedImage",
+    "calculateWarpShifts",
     "plotSpatialKernel",
     "calculateFirstMoments",
     "plotFirstMoments",
@@ -251,6 +254,80 @@ def shiftMaskedImage(
     return shifted, missing
 
 
+def warpMaskedImage(
+    maskedImage: afwImage.MaskedImage,
+    fromDetectorMap: DetectorMap,
+    toDetectorMap: DetectorMap,
+    warpingKernel: str = "lanczos3",
+) -> Tuple[afwImage.MaskedImage, np.ndarray]:
+    """Warp an image from the frame of one detectorMap to that of another
+
+    Each point (fiberId, wavelength) is moved from its position in
+    ``fromDetectorMap`` to its position in ``toDetectorMap``, using
+    `pfs.drp.stella.warp.warpImage`. Pixels without data (mapped from outside
+    the input) have zero image, variance of ``EXCLUDED_VARIANCE`` and the
+    ``NO_DATA`` mask plane set.
+
+    Parameters
+    ----------
+    maskedImage : `lsst.afw.image.MaskedImage`
+        Image to warp, in the frame of ``fromDetectorMap``; not modified.
+    fromDetectorMap : `DetectorMap`
+        Mapping of fiberId,wavelength to x,y for ``maskedImage``.
+    toDetectorMap : `DetectorMap`
+        Mapping of fiberId,wavelength to x,y for the output frame.
+    warpingKernel : `str`, optional
+        Name of the warping kernel (e.g., ``lanczos3``).
+
+    Returns
+    -------
+    warped : `lsst.afw.image.MaskedImage`
+        Warped image, with the bounding box of ``toDetectorMap``.
+    missing : `numpy.ndarray` of `bool`
+        Pixels without data.
+    """
+    warped = warpImage(maskedImage, fromDetectorMap, toDetectorMap, warpingKernel)
+    missing = ~np.isfinite(warped.image.array) | ~np.isfinite(warped.variance.array)
+    warped.image.array[missing] = 0.0
+    warped.variance.array[missing] = EXCLUDED_VARIANCE
+    warped.mask.array[missing] = warped.mask.getPlaneBitMask("NO_DATA")
+    return warped, missing
+
+
+def calculateWarpShifts(
+    fromDetectorMap: DetectorMap,
+    toDetectorMap: DetectorMap,
+    fiberId: np.ndarray,
+    row: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Calculate the shift of the warp between two detectorMaps
+
+    For each point (``fiberId``, ``row``) on a trace in ``fromDetectorMap``,
+    we calculate the shift of the point with the same fiberId and wavelength
+    in ``toDetectorMap``.
+
+    Parameters
+    ----------
+    fromDetectorMap, toDetectorMap : `DetectorMap`
+        Mappings of fiberId,wavelength to x,y.
+    fiberId : `numpy.ndarray` of `int`
+        Fiber identifiers.
+    row : `numpy.ndarray` of `float`
+        Rows on the trace in ``fromDetectorMap``.
+
+    Returns
+    -------
+    dx, dy : `numpy.ndarray` of `float`
+        Shift (``toDetectorMap`` minus ``fromDetectorMap``).
+    """
+    fiberId = np.asarray(fiberId, dtype=np.int32)
+    row = np.asarray(row, dtype=float)
+    wavelength = fromDetectorMap.findWavelength(fiberId, row).astype(float)
+    xFrom = fromDetectorMap.getXCenter(fiberId, row)
+    toPoints = toDetectorMap.findPoint(fiberId, wavelength)
+    return toPoints[:, 0] - xFrom, toPoints[:, 1] - row
+
+
 def offsetKernel(
     kernel: afwMath.LinearCombinationKernel, dx: int, dy: int
 ) -> afwMath.LinearCombinationKernel:
@@ -461,6 +538,12 @@ class PsfMatchConfig(pexConfig.Config):
         doc="Half-height (pixels, in the dispersion dimension) of the region around each line that is scaled "
         "by its flux ratio; pixels farther from any line with a good flux ratio are not scaled",
     )
+    warpingKernel = pexConfig.Field(
+        dtype=str,
+        default="lanczos3",
+        doc="Warping kernel for warping the target onto the frame of the source (when detectorMaps for both "
+        "are provided to run)",
+    )
     doOffset = pexConfig.Field(
         dtype=bool,
         default=True,
@@ -587,11 +670,21 @@ class PsfMatchTask(BasePsfMatchTask):
     actual kernel solve is inherited unchanged from the base class's
     ``_solve`` method.
 
-    We do not warp ``source`` onto ``target`` before matching: the two
-    exposures are assumed to already share a pixel grid, and any relative
-    shift between them (e.g., from differing trace or wavelength solutions)
-    is absorbed by the fitted kernel itself, which may therefore end up
-    off-center. With ``config.doOffset`` (the default), the integer part of
+    If detectorMaps for both ``source`` and ``target`` are provided to
+    ``run``, the ``target`` is warped onto the frame of the ``source`` (each
+    point fiberId,wavelength is moved from its position in the ``target`` to
+    its position in the ``source``) before matching, so the kernel need only
+    represent the PSF change (and any error in the detectorMaps). The kernel
+    then doesn't include the shift of the warp: the caller must add it (see
+    `calculateWarpShifts`). Resampling with a Lanczos kernel barely changes
+    the PSF of a well-sampled image (the second moment changes by less than
+    0.1% for a Gaussian with sigma >= 1 pixel), so the kernel remains
+    appropriate for the unwarped images.
+
+    Otherwise, the two exposures are assumed to share a pixel grid, and any
+    relative shift between them (e.g., from differing trace or wavelength
+    solutions) is absorbed by the fitted kernel itself, which may therefore
+    end up off-center. With ``config.doOffset`` (the default), the integer part of
     a large shift is measured first by cross-correlating the images, the
     ``target`` is shifted by it (so the frame of ``source``, in which the
     ``detectorMap`` applies, is retained), and the offset is folded back
@@ -673,11 +766,14 @@ class PsfMatchTask(BasePsfMatchTask):
         detectorMap: Optional[DetectorMap] = None,
         sourcePfsConfig: Optional[PfsConfig] = None,
         targetPfsConfig: Optional[PfsConfig] = None,
+        sourceDetectorMap: Optional[DetectorMap] = None,
+        targetDetectorMap: Optional[DetectorMap] = None,
     ) -> PsfMatchResult:
         """Match the PSF of ``source`` to ``target``
 
-        ``source`` and ``target`` must already share a pixel grid: this
-        Task does not warp either exposure.
+        If ``sourceDetectorMap`` and ``targetDetectorMap`` are provided, the
+        ``target`` is warped onto the frame of the ``source`` before matching;
+        otherwise, ``source`` and ``target`` must already share a pixel grid.
 
         Parameters
         ----------
@@ -704,6 +800,12 @@ class PsfMatchTask(BasePsfMatchTask):
             either is provided, pixels on fibers selected by the
             ``maskFibers`` subtask in any of those provided are excluded from
             the kernel fit. Requires ``detectorMap``.
+        sourceDetectorMap, targetDetectorMap : `DetectorMap`, optional
+            Mappings of fiberId,wavelength to x,y for ``source`` and
+            ``target`` (e.g., fit to each exposure). If provided (both are
+            required), the ``target`` is warped onto the frame of the
+            ``source`` before matching, so the kernel doesn't include the
+            shift of the warp (see `calculateWarpShifts`).
 
         Returns
         -------
@@ -714,7 +816,8 @@ class PsfMatchTask(BasePsfMatchTask):
 
         matchedExposure : `lsst.afw.image.Exposure`
             ``source``, convolved by the psf-matching kernel with the
-            fitted background added, so as to resemble ``target``.
+            fitted background added, so as to resemble ``target`` (or, if
+            warped, ``warpedTarget``).
         psfMatchingKernel : `lsst.afw.math.LinearCombinationKernel`
             Spatially varying kernel that matches ``source`` to ``target``,
             including the ``offset``.
@@ -746,6 +849,9 @@ class PsfMatchTask(BasePsfMatchTask):
             Integer offset (x, y) of ``target`` relative to ``source`` that
             was removed before fitting the kernel, and folded back into
             ``psfMatchingKernel``; ``(0, 0)`` unless ``config.doOffset``.
+        warpedTarget : `lsst.afw.image.MaskedImage` or `None`
+            ``target`` warped onto the frame of the ``source``, or `None` if
+            not warped.
         """
 
         self.log.info(
@@ -767,6 +873,21 @@ class PsfMatchTask(BasePsfMatchTask):
 
         sourceFit = source.maskedImage
         targetMaskedImage = target.maskedImage
+        warpedTarget = None
+        warpMissing = None
+        if sourceDetectorMap is not None or targetDetectorMap is not None:
+            if sourceDetectorMap is None or targetDetectorMap is None:
+                raise ValueError("Both sourceDetectorMap and targetDetectorMap are required for warping")
+            self.log.info("Warping target onto the frame of the source")
+            warpedTarget, warpMissing = warpMaskedImage(
+                targetMaskedImage, targetDetectorMap, sourceDetectorMap, self.config.warpingKernel
+            )
+            if warpedTarget.getBBox() != targetMaskedImage.getBBox():
+                raise RuntimeError(
+                    f"Warped target bbox {warpedTarget.getBBox()} doesn't match target bbox "
+                    f"{targetMaskedImage.getBBox()}"
+                )
+            targetMaskedImage = warpedTarget
         targetFit = targetMaskedImage
         if self.config.doContinuumFilter:
             self.log.info(
@@ -796,6 +917,8 @@ class PsfMatchTask(BasePsfMatchTask):
             fiberExclusion = self._makeFiberExclusion(bbox, detectorMap, pfsConfigList)
             exclude = fiberExclusion.exclude if exclude is None else exclude | fiberExclusion.exclude
             numFibersExcluded = fiberExclusion.numFibers
+        if warpMissing is not None:
+            exclude = warpMissing if exclude is None else exclude | warpMissing
 
         # Shift the target onto the source, so the kernel need only span the residual shift. Everything
         # that uses the detectorMap (lines, fibers) is then in the frame of the source.
@@ -878,6 +1001,7 @@ class PsfMatchTask(BasePsfMatchTask):
             ),
             lineRatios=lineRatios,
             offset=offset,
+            warpedTarget=warpedTarget,
         )
 
     def _measureOffset(

@@ -12,6 +12,7 @@ from lsst.ip.diffim.psfMatch import NoKernelCandidatesError
 
 from pfs.drp.stella.psfMatch import PsfMatchTask, peakSignalToNoise, subtractRunningMedian, EXCLUDED_VARIANCE
 from pfs.drp.stella.psfMatch import calculateFirstMoments, measureOffset, offsetKernel, shiftMaskedImage
+from pfs.drp.stella.psfMatch import calculateWarpShifts, warpMaskedImage
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticArc, addNoiseToImage
 from pfs.drp.stella.synthetic import makeSpectrumImage, makeSyntheticDetectorMap, makeSyntheticPfsConfig
@@ -1405,6 +1406,201 @@ class CombOffsetTestCase(lsst.utils.tests.TestCase):
         )
         self.assertEqual((dx, dy), self.offset)
         self.assertLess(self.task.metadata["offsetAliasRatio"], 0.65)
+
+
+def makeLinearDetectorMap(dims, centers, fiberId, dx, dy):
+    """Make a detectorMap with straight traces, shifted by a function
+
+    The trace of each fiber is at ``centers + dx(x, y)``, and the wavelength
+    is ``600 + 0.1*(y - dy(x, y))`` nm.
+
+    Parameters
+    ----------
+    dims : `lsst.geom.Extent2I`
+        Dimensions of the image.
+    centers : `numpy.ndarray` of `float`
+        Unshifted x positions of the traces.
+    fiberId : `numpy.ndarray` of `int`
+        Fiber identifiers.
+    dx, dy : callable
+        Functions of (x, y) giving the shift.
+
+    Returns
+    -------
+    detectorMap : `SplinedDetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    """
+    rows = np.arange(dims.getY(), dtype=float)
+    return SplinedDetectorMap(
+        geom.Box2I(geom.Point2I(0, 0), dims),
+        fiberId,
+        [rows] * len(centers),
+        [cc + dx(cc, rows) for cc in centers],
+        [rows] * len(centers),
+        [600.0 + 0.1 * (rows - dy(cc, rows)) for cc in centers],
+    )
+
+
+def renderLines(detectorMap, wavelengths, sigma, flux):
+    """Render Gaussian lines at the positions given by a detectorMap
+
+    Parameters
+    ----------
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        Mapping of fiberId,wavelength to x,y.
+    wavelengths : `numpy.ndarray` of `float`
+        Wavelengths of lines (nm).
+    sigma : `float`
+        Gaussian sigma of the lines (pixels).
+    flux : `float`
+        Flux of each line.
+
+    Returns
+    -------
+    image : `lsst.afw.image.ImageF`
+        Image of the lines.
+    """
+    image = afwImage.ImageF(detectorMap.bbox)
+    height, width = image.array.shape
+    radius = int(6 * sigma) + 1
+    norm = flux / (2 * np.pi * sigma**2)
+    for fiberId in detectorMap.fiberId:
+        points = detectorMap.findPoint(np.full(len(wavelengths), fiberId, dtype=np.int32), wavelengths)
+        for xx, yy in points:
+            if not np.isfinite(xx) or not np.isfinite(yy):
+                continue
+            xMin, xMax = max(int(xx) - radius, 0), min(int(xx) + radius + 1, width)
+            yMin, yMax = max(int(yy) - radius, 0), min(int(yy) + radius + 1, height)
+            if xMin >= xMax or yMin >= yMax:
+                continue
+            yIndex, xIndex = np.mgrid[yMin:yMax, xMin:xMax]
+            image.array[yMin:yMax, xMin:xMax] += norm * np.exp(
+                -0.5 * ((xIndex - xx) ** 2 + (yIndex - yy) ** 2) / sigma**2
+            )
+    return image
+
+
+class WarpTestCase(lsst.utils.tests.TestCase):
+    """Test warping the target onto the source before fitting the kernel
+
+    The target has a broader PSF, and is shifted by several pixels, by an
+    amount that varies over the image (as in reality for some cameras), which
+    neither a 9x9 kernel nor an integer offset can represent.
+
+    The fibers are widely separated: a realistic comb of fibers (all with the
+    same spectrum) leaves the x first moment of the kernel poorly constrained
+    (by about 0.1 pixel), whether or not we warp.
+    """
+
+    def setUp(self):
+        self.size = 512
+        self.sourceSigma = 1.3
+        self.targetSigma = 1.6
+        dims = geom.Extent2I(self.size, self.size)
+        pitch = 16.0
+        centers = 20.0 + pitch * np.arange(int((self.size - 40) / pitch))
+        fiberId = 1 + np.arange(len(centers), dtype=np.int32)
+        self.dx = lambda xx, yy: 2.0 + 3.5 * xx / self.size + 0.0 * yy  # noqa: E731
+        self.dy = lambda xx, yy: 4.0 + 6.0 * yy / self.size + 0.0 * xx  # noqa: E731
+        zero = lambda xx, yy: 0.0 * xx + 0.0 * yy  # noqa: E731
+        self.sourceDetectorMap = makeLinearDetectorMap(dims, centers, fiberId, zero, zero)
+        self.targetDetectorMap = makeLinearDetectorMap(dims, centers, fiberId, self.dx, self.dy)
+
+        # Two sets of evenly-spaced lines, so the pattern isn't periodic
+        wavelengths = np.concatenate((np.arange(602.0, 650.0, 2.37), np.arange(603.1, 650.0, 4.13)))
+        gain = 1.5
+        readnoise = 3.0
+        rng = np.random.RandomState(12345)
+        sourceImage = renderLines(self.sourceDetectorMap, wavelengths, self.sourceSigma, 3.0e4)
+        targetImage = renderLines(self.targetDetectorMap, wavelengths, self.targetSigma, 3.0e4)
+        addNoiseToImage(sourceImage, gain, readnoise, rng)
+        addNoiseToImage(targetImage, gain, readnoise, rng)
+        noBorder = np.zeros(sourceImage.array.shape, dtype=bool)
+        self.source = makeExposure(sourceImage, noBorder, gain, readnoise)
+        self.target = makeExposure(targetImage, noBorder, gain, readnoise)
+
+        self.config = PsfMatchTask.ConfigClass()
+        self.config.kernel["DF"].sizeCellX = 128
+        self.config.kernel["DF"].sizeCellY = 128
+        self.config.xStampSize = 48
+        self.config.yStampSize = 48
+        self.config.doContinuumFilter = False  # No continuum
+
+    def tearDown(self):
+        del self.source
+        del self.target
+        del self.sourceDetectorMap
+        del self.targetDetectorMap
+
+    def testCalculateWarpShifts(self):
+        """calculateWarpShifts gives the shift of fixed fiberId,wavelength"""
+        fiberId = np.repeat(self.sourceDetectorMap.fiberId[::10], 5)
+        row = np.tile(np.linspace(50, 450, 5), len(self.sourceDetectorMap.fiberId[::10]))
+        dx, dy = calculateWarpShifts(self.sourceDetectorMap, self.targetDetectorMap, fiberId, row)
+        xx = self.sourceDetectorMap.getXCenter(fiberId.astype(np.int32), row)
+        self.assertFloatsAlmostEqual(dx, self.dx(xx, row + dy), atol=1.0e-3)
+        self.assertFloatsAlmostEqual(dy, self.dy(xx, row + dy), atol=1.0e-3)
+
+    def testWarpMaskedImage(self):
+        """Warping the target puts its lines where the source has them"""
+        warped, missing = warpMaskedImage(
+            self.target.maskedImage, self.targetDetectorMap, self.sourceDetectorMap
+        )
+        self.assertEqual(warped.getBBox(), self.target.getBBox())
+        # The shift is 4 to 10 pixels in y and 2 to 5.5 pixels in x, so the top rows and the right
+        # columns have no data. The warping kernel also needs a few pixels on each side.
+        self.assertTrue(np.all(missing[-12:]))
+        self.assertTrue(np.all(missing[:, -8:]))
+        self.assertFalse(np.any(missing[3:-15, 3:-12]))
+        noData = warped.mask.getPlaneBitMask("NO_DATA")
+        self.assertTrue(np.all(warped.mask.array[missing] == noData))
+        self.assertTrue(np.all(warped.variance.array[missing] == EXCLUDED_VARIANCE))
+        self.assertTrue(np.all(warped.image.array[missing] == 0.0))
+        # Bright pixels coincide: the correlation of the warped target with the source is high
+        good = ~missing
+        corr = np.corrcoef(warped.image.array[good], self.source.image.array[good])[0, 1]
+        self.assertGreater(corr, 0.9)
+
+    def testRun(self):
+        """The kernel represents only the PSF change"""
+        task = PsfMatchTask(config=self.config)
+        with self.assertRaises(ValueError):
+            task.run(self.source, self.target, seed=1, sourceDetectorMap=self.sourceDetectorMap)
+        result = task.run(
+            self.source,
+            self.target,
+            seed=1,
+            sourceDetectorMap=self.sourceDetectorMap,
+            targetDetectorMap=self.targetDetectorMap,
+        )
+        self.assertIsNotNone(result.warpedTarget)
+        self.assertEqual(result.offset, (0, 0))
+
+        xx, yy = np.meshgrid(np.linspace(80, 432, 4), np.linspace(80, 400, 4))
+        moments = calculateFirstMoments(result.psfMatchingKernel, xx, yy)
+        self.assertFloatsAlmostEqual(moments.x, 0.0, atol=0.05)
+        self.assertFloatsAlmostEqual(moments.y, 0.0, atol=0.05)
+
+        # Second moment of the kernel is the difference of the PSF second moments
+        expectVariance = self.targetSigma**2 - self.sourceSigma**2
+        image = afwImage.ImageD(result.psfMatchingKernel.getDimensions())
+        for xPos, yPos in zip(xx.flatten(), yy.flatten()):
+            result.psfMatchingKernel.computeImage(image, True, float(xPos), float(yPos))
+            array = image.array
+            indices = np.arange(array.shape[0]) - array.shape[0] // 2
+            xVariance = np.sum(array.sum(axis=0) * indices**2)
+            yVariance = np.sum(array.sum(axis=1) * indices**2)
+            self.assertFloatsAlmostEqual(xVariance, expectVariance, rtol=0.15)
+            self.assertFloatsAlmostEqual(yVariance, expectVariance, rtol=0.15)
+
+        # The matched exposure matches the warped target
+        warped = result.warpedTarget
+        select = (result.matchedExposure.mask.array == 0) & (warped.mask.array == 0)
+        select &= np.isfinite(result.matchedExposure.image.array)
+        self.assertGreater(select.sum(), 0.5 * select.size)
+        residual = result.matchedExposure.image.array - warped.image.array
+        chi2 = np.sum((residual[select] / np.sqrt(warped.variance.array[select])) ** 2)
+        self.assertLess(chi2 / select.sum(), 2.0)
 
 
 class ConfigTestCase(lsst.utils.tests.TestCase):
