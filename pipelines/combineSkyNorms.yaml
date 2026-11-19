@@ -13,5 +13,6 @@ tasks:
     class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask
     config:
       doRemovePfiCorrection: False  # ... so don't remove it
+      doRemoveBlackSpotCorrection: False  # (nor the black spot correction, which was also applied)
   combineSkyNorms:
     class: pfs.drp.stella.skyNorms.CombineSkyNormsTask

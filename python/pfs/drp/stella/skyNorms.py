@@ -20,7 +20,7 @@ from .fitContinuum import FitContinuumTask
 from .fitFocalPlane import FitBlockedOversampledSplineTask, FitConstantPerFiberTask
 from .fitFocalPlane import FitFocalPlanePolynomialTask
 from .math import calculateMedian
-from .PfiCorrection import removePfiCorrection
+from .PfiCorrection import removeBlackSpotCorrection, removePfiCorrection
 from .readLineList import ReadLineListTask
 from .referenceLine import ReferenceLineSet
 from .selectFibers import SelectFibersTask
@@ -100,6 +100,11 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
         default=True,
         doc="Remove the PFI correction (including any sky norms) applied by reduceExposure before measuring?",
     )
+    doRemoveBlackSpotCorrection = Field(
+        dtype=bool,
+        default=True,
+        doc="Remove the black spot correction applied by reduceExposure before measuring?",
+    )
     requireSky = Field(
         dtype=bool,
         default=True,
@@ -155,7 +160,9 @@ class MeasureSkyNormsTask(PipelineTask):
     By default (``doRemovePfiCorrection``) the normalizations are raw:
     relative only to the fiberNorms applied by ``reduceExposure``.  Any
     later correction, as recorded in the ``pfsArm``'s
-    ``notes.pfiCorrection``, is first removed (see `removePfiCorrection`).
+    ``notes.pfiCorrection``, is first removed (see `removePfiCorrection`),
+    as is the black spot correction (``doRemoveBlackSpotCorrection``;
+    ``notes.blackSpotCorrection``, see `removeBlackSpotCorrection`).
     With ``requireSky``, exposures that aren't of the sky (not ``science``,
     lamps on, or a light source other than the PFI) are ignored, so the
     task can be run as part of ``reduceExposure.yaml``.
@@ -236,6 +243,13 @@ class MeasureSkyNormsTask(PipelineTask):
                     removed = removePfiCorrection(pfsArm)
                     if np.any(removed):
                         self.log.debug("Removed PFI correction from %d fibers in %s", removed.sum(),
+                                       pfsArm.identity)
+        if self.config.doRemoveBlackSpotCorrection:
+            for pfsArms in pfsArmList.values():
+                for pfsArm in pfsArms:
+                    removed = removeBlackSpotCorrection(pfsArm)
+                    if np.any(removed):
+                        self.log.debug("Removed black spot correction from %d fibers in %s", removed.sum(),
                                        pfsArm.identity)
 
         results = {ss: self.runSpectrograph(pfsArmList[ss], pfsConfig) for ss in pfsArmList}
