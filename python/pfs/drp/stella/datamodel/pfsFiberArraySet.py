@@ -1,9 +1,10 @@
 import numpy as np
 import pfs.datamodel
+from lsst.pipe.base import Struct
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import interpolate, interpolateFlux
+from ..interpolate import interpolate, interpolateFlux, interpolateMaskedVariance
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -120,6 +121,52 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             figure.show()
         return figure, ax
 
+    def _prepareMask(self, index: int, variance: np.ndarray, bad: list[str] | None) -> Struct:
+        """Prepare the mask of a single fiber for interpolation
+
+        Pixels with non-finite flux, sky or variance, or a bad normalisation,
+        are marked as ``NO_DATA``. This ensures consistent treatment of bad
+        pixels by ``resample`` and ``resampleVariance``.
+
+        Parameters
+        ----------
+        index : `int`
+            Index of the fiber.
+        variance : `numpy.ndarray` of `float`
+            Variance to interpolate for this fiber. Pixels for which this or
+            the variance of the spectrum is non-finite are treated as bad.
+        bad : `list` of `str`, optional
+            List of mask names to consider bad.
+
+        Returns
+        -------
+        mask : `numpy.ndarray` of `int`
+            Mask to use for interpolation.
+        badFlux : `numpy.ndarray` of `bool`
+            Pixels with bad flux values (to be replaced before interpolation).
+        badVariance : `numpy.ndarray` of `bool`
+            Pixels with bad variance values (to be replaced before
+            interpolation).
+        badMask : `int`
+            Bitmask for bad pixels, which are excluded from interpolation.
+        fillMask : `int`
+            Bitmask for pixels in the output that failed interpolation.
+        """
+        badNorm = (self.norm[index] == 0) | ~np.isfinite(self.norm[index])
+        badFlux = ~np.isfinite(self.flux[index])
+        badVariance = badNorm | ~np.isfinite(self.variance[index]) | ~np.isfinite(variance)
+        badSky = badNorm | ~np.isfinite(self.sky[index])
+        noData = self.flags.get("NO_DATA")
+        mask = self.mask[index].copy()
+        mask[badFlux | badVariance | badSky] |= noData
+        return Struct(
+            mask=mask,
+            badFlux=badFlux,
+            badVariance=badVariance,
+            badMask=self.flags.get(*bad) if bad else 0,
+            fillMask=noData,
+        )
+
     def resample(
         self,
         wavelength,
@@ -168,32 +215,26 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
         covar = np.zeros((numSpectra, numCovar, numSamples), dtype=self.covar.dtype)
 
-        badMask = self.flags.get(*bad) if bad else 0
         kwargs = dict(fill=0.0, order=order)
 
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
             norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength, **kwargs)
-            badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
-            badFlux = ~np.isfinite(self.flux[jj])
-            badVar = badNorm | ~np.isfinite(self.variance[jj])
-            badSky = badNorm | ~np.isfinite(self.sky[jj])
-            bad = badFlux | badVar | badSky
-            mm = self.mask[jj].copy()
-            mm[bad] |= self.flags["NO_DATA"]
-
+            prepared = self._prepareMask(jj, self.variance[jj], bad)
             result = interpolate(
                 self.wavelength[jj],
-                np.where(badFlux, 0.0, self.flux[jj]).astype(np.float32),
-                mm,
-                np.where(badVar, 0.0, np.where(badVar, 0.0, self.covar[jj][0])).astype(np.float32),
+                np.where(prepared.badFlux, 0.0, self.flux[jj]).astype(np.float32),
+                prepared.mask,
+                np.where(prepared.badVariance, 0.0, self.variance[jj]).astype(np.float32),
                 wavelength,
                 minWeight=minWeight,
-                badMask=badMask,
-                fillMask=self.flags.get("NO_DATA"),
+                badMask=prepared.badMask,
+                fillMask=prepared.fillMask,
                 numCovar=numCovar,
                 **kwargs,
             )
+            badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
+            badSky = badNorm | ~np.isfinite(self.sky[jj])
             flux[ii] = result.flux
             mask[ii] = result.mask
             covar[ii] = result.covariance
@@ -204,3 +245,70 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
                           flux, mask, sky, norm, covar, self.flags, self.metadata)
+
+    def resampleVariance(
+        self,
+        wavelength: np.ndarray,
+        variance: np.ndarray,
+        order: int = 3,
+        bad: list[str] | None = None,
+        minWeight: float = 0.1,
+        numCovar: int = 0,
+    ) -> Struct:
+        """Resample a variance array in the same manner as the spectra
+
+        This provides the mask and covariance that ``resample`` would produce
+        if the spectra had the provided ``variance``, without resampling the
+        flux, sky or norm.
+
+        Parameters
+        ----------
+        wavelength : `numpy.ndarray` of `float`
+            New wavelength values (nm).
+        variance : `numpy.ndarray` of `float`
+            Variance to resample, with the same shape as the ``flux``.
+            Non-finite values are treated as bad pixels.
+        order : `int`, optional
+            Interpolation order to use. Less than or equal to 1 means linear
+            interpolation; higher orders use Lanczos interpolation of the given
+            order.
+        bad : `list` of `str`, optional
+            List of mask names to consider bad.
+        minWeight : `float`, optional
+            Minimum weight for Lanczos interpolation.
+        numCovar : `int`, optional
+            Number of covariance diagonals to interpolate. If 0, use
+            ``order + 1``.
+
+        Returns
+        -------
+        mask : `numpy.ndarray` of `int`, shape ``(N, M)``
+            Resampled mask for each fiber. Pixels affected by bad pixels
+            (including those with a non-finite ``variance``) have the
+            ``NO_DATA`` bit set.
+        covariance : `numpy.ndarray` of `float`, shape ``(N, numCovar, M)``
+            Resampled covariance for each fiber.
+        """
+        if numCovar == 0:
+            numCovar = order + 1
+        if variance.shape != self.flux.shape:
+            raise RuntimeError(f"Shape mismatch between variance {variance.shape} and flux {self.flux.shape}")
+        mask = np.empty((len(self), len(wavelength)), dtype=self.mask.dtype)
+        covar = np.zeros((len(self), numCovar, len(wavelength)), dtype=self.covar.dtype)
+        for ii in range(len(self)):
+            prepared = self._prepareMask(ii, variance[ii], bad)
+            result = interpolateMaskedVariance(
+                self.wavelength[ii],
+                prepared.mask,
+                np.where(prepared.badVariance, 0.0, variance[ii]).astype(np.float32),
+                wavelength,
+                minWeight=minWeight,
+                badMask=prepared.badMask,
+                fillMask=prepared.fillMask,
+                numCovar=numCovar,
+                fill=0.0,
+                order=order,
+            )
+            mask[ii] = result.mask
+            covar[ii] = result.covariance
+        return Struct(mask=mask, covariance=covar)
