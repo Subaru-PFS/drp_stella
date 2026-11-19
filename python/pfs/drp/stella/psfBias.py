@@ -7,7 +7,7 @@ import lsst.afw.math as afwMath
 from lsst.afw.detection import Psf
 from lsst.afw.image import ExposureF, ImageD, MaskedImageF, PARENT
 from lsst.afw.table import SourceCatalog, SourceTable
-from lsst.geom import Box2I, Extent2I, Point2D, Point2I
+from lsst.geom import Box2D, Box2I, Extent2I, Point2D, Point2I
 from lsst.meas.base import SdssCentroidAlgorithm, SdssCentroidControl
 
 from .images import calculateCentroid
@@ -102,7 +102,9 @@ def calculatePeakToCentroidBias(
     -------
     xBias, yBias : `numpy.ndarray`
         Bias (peak-based position minus flux-weighted centroid position),
-        one pair of values per nominated position, in pixels.
+        one pair of values per nominated position, in pixels. These are NaN
+        where the (convolved) PSF's centroid is not finite or lies outside
+        its realization (e.g., where the kernel sums to almost zero).
 
     Notes
     -----
@@ -200,6 +202,10 @@ def calculatePeakToCentroidBias(
         croppedModel = model[overlap, PARENT] if overlap != modelBBox else model
 
         centroid = calculateCentroid(croppedModel)
+        if not np.isfinite(centroid.x) or not np.isfinite(centroid.y):
+            continue  # e.g., kernel sums to zero here
+        if not Box2D(modelBBox).contains(Point2D(centroid.x, centroid.y)):
+            continue  # e.g., kernel sum is close to zero, so the centroid is meaningless
 
         paddedBBox = Box2I(modelBBox)
         paddedBBox.grow(margin)

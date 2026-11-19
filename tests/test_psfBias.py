@@ -105,6 +105,19 @@ class PsfBiasTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(xBiasShifted, xBias, atol=1.0e-3)
         self.assertFloatsAlmostEqual(yBiasShifted, yBias, atol=1.0e-3)
 
+    def testBadCentroid(self):
+        """A kernel that sums to (nearly) zero gives NaN, rather than crashing"""
+        psf = GaussianPsf(25, 25, 1.5)
+        x = np.array([100.0, 200.3])
+        y = np.array([100.0, 150.6])
+        for value in (-1.0, -0.999):
+            array = np.zeros((5, 5))
+            array[2, 2] = 1.0
+            array[2, 3] = value
+            xBias, yBias = calculatePeakToCentroidBias(psf, x, y, kernel=self.makeKernel(array))
+            self.assertTrue(np.all(np.isnan(xBias)))
+            self.assertTrue(np.all(np.isnan(yBias)))
+
     def testErrors(self):
         """Invalid kernels raise, rather than returning a bogus bias"""
         psf = GaussianPsf(25, 25, 1.5)
