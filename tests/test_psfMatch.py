@@ -1561,6 +1561,27 @@ class WarpTestCase(lsst.utils.tests.TestCase):
         corr = np.corrcoef(warped.image.array[good], self.source.image.array[good])[0, 1]
         self.assertGreater(corr, 0.9)
 
+    def testWarpOffTrace(self):
+        """Warping where wavelengths are off the end of the trace
+
+        Near the end of the trace, the wavelength in one detectorMap can be
+        beyond the trace in the other. If the boundary is jagged (varying
+        between neighboring fibers), the warp's grid had no good triangles
+        there, and the warp failed.
+        """
+        fiberId = self.sourceDetectorMap.fiberId
+        centers = self.sourceDetectorMap.getXCenter(fiberId, np.full(len(fiberId), 100.0))
+        zero = lambda xx, yy: 0.0 * xx + 0.0 * yy  # noqa: E731
+        odd = set(centers[1::2].round().astype(int))
+        dy = lambda xx, yy: 0.0 * yy + (12.0 if round(xx) in odd else 8.0)  # noqa: E731
+        dims = self.sourceDetectorMap.bbox.getDimensions()
+        targetDetectorMap = makeLinearDetectorMap(dims, centers, fiberId, zero, dy)
+        warped, missing = warpMaskedImage(self.target.maskedImage, targetDetectorMap, self.sourceDetectorMap)
+        # Rows beyond the shift (8 to 12 pixels) mostly have no data, but the rest is fine
+        self.assertTrue(np.all(missing[-1]))
+        self.assertGreater(missing[-8:].mean(), 0.9)
+        self.assertFalse(np.any(missing[3:-15, 3:-12]))
+
     def testRun(self):
         """The kernel represents only the PSF change"""
         task = PsfMatchTask(config=self.config)

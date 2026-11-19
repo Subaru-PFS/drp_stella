@@ -40,6 +40,12 @@ lsst::afw::image::MaskedImage<float> warpFiber(
 
 //@{
 /// Warp an image to match a different detector map
+///
+/// The warp is interpolated on a grid of fibers and rows of the "from"
+/// detectorMap. Fibers without a complete trace in the "from" detectorMap are
+/// not used. Where a wavelength is not on the fiber's trace in the "to"
+/// detectorMap (e.g., beyond the end of the trace), the shift of the nearest
+/// good point on the fiber (or of the nearest fiber) is used.
 /// @param fromImage : input image to warp
 /// @param fromDetectorMap : mapping between fiberId,wavelength and x,y on the input image's detector
 /// @param toDetectorMap : mapping between fiberId,wavelength and x,y on the output image's detector
