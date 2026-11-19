@@ -1,4 +1,7 @@
-description: Reduce an exposure
+description: |
+  Reduce an exposure.
+  For exposures of the sky, also measure the skyNorms (see MeasureSkyNormsTask),
+  after removing any correction applied after the fiberNorms (so they're raw).
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 
 tasks:
@@ -17,3 +20,5 @@ tasks:
       requireAdjustDetectorMap: True
   mergeArms:
     class: pfs.drp.stella.mergeArms.MergeArmsTask
+  skyNorms:  # Exposures of the sky only;  measured after removing the PFI correction and any skyNorms
+    class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask

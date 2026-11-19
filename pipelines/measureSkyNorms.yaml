@@ -1,4 +1,6 @@
-description: Measure skyNorms
+description: |
+  Measure raw skyNorms (relative to the fiberNorms;  no later correction is applied).
+  reduceExposure.yaml also measures skyNorms (removing any correction it applied).
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 
 tasks:
