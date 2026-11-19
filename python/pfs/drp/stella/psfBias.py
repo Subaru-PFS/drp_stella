@@ -89,11 +89,14 @@ def calculatePeakToCentroidBias(
         `CentroidLinesConfig.fwhm`. Defaults to that Gaussian (FWHM of
         `pfs.drp.stella.utils.psf.CENTROID_FWHM`).
     peakSearch : `int`
-        Half-size (pixels) of the box, centered on each nominated position,
-        within which to find the peak pixel of the realized (and possibly
-        convolved) PSF, used as ``SdssCentroid``'s starting point. The
-        kernel can shift the realized PSF so that its peak pixel is no
-        longer the one nearest the nominated position.
+        Half-size (pixels) of the box within which to find the peak pixel of
+        the realized (and possibly convolved) PSF, used as ``SdssCentroid``'s
+        starting point. The box is centered on the (convolved) PSF's
+        centroid, not the nominated position, because the kernel can shift
+        the PSF by more than ``peakSearch`` (e.g., a kernel that includes a
+        large offset). This corresponds to `CentroidLinesTask` searching
+        about the expected position of a line, which already includes the
+        shift.
 
     Returns
     -------
@@ -204,10 +207,11 @@ def calculatePeakToCentroidBias(
         working.image[paddedBBox, PARENT].array[:] = 0.0
         working.image[overlap, PARENT].array[:] = croppedModel.array
 
-        # Start SdssCentroid from the peak pixel (as CentroidLinesTask does, via findPeak), which the
-        # kernel may have shifted away from the pixel nearest the nominated position.
+        # Start SdssCentroid from the peak pixel (as CentroidLinesTask does, via findPeak). The kernel
+        # may have shifted the PSF away from the nominated position, by more than peakSearch, so we
+        # search about the centroid.
         searchBBox = Box2I(
-            Point2I(int(round(xPos)) - peakSearch, int(round(yPos)) - peakSearch),
+            Point2I(int(round(centroid.x)) - peakSearch, int(round(centroid.y)) - peakSearch),
             Extent2I(2 * peakSearch + 1, 2 * peakSearch + 1),
         )
         searchBBox.clip(workingBBox)

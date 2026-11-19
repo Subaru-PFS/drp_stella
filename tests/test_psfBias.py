@@ -84,6 +84,27 @@ class PsfBiasTestCase(lsst.utils.tests.TestCase):
         self.assertGreater(shift * np.sign(firstMoment), 0.05)
         self.assertLess(abs(shift), abs(firstMoment))
 
+    def testLargeShift(self):
+        """A kernel that shifts the PSF by more than the peak search radius
+
+        The bias should be the same as without the shift.
+        """
+        halfWidth = 8
+        shift = 6  # Larger than peakSearch
+        array = self.makeAsymmetricKernel(halfWidth)
+        shifted = np.zeros((2*halfWidth + 1 + 2*shift, 2*halfWidth + 1))
+        shifted[2*shift:, :] = array  # Kernel center is now offset by +shift in y: shifts the PSF by -shift
+
+        psf = GaussianPsf(25, 25, 1.5)
+        x = np.array([100.0, 200.3])
+        y = np.array([100.0, 150.6])
+        xBias, yBias = calculatePeakToCentroidBias(psf, x, y, kernel=self.makeKernel(array), peakSearch=3)
+        xBiasShifted, yBiasShifted = calculatePeakToCentroidBias(
+            psf, x, y, kernel=self.makeKernel(shifted), peakSearch=3
+        )
+        self.assertFloatsAlmostEqual(xBiasShifted, xBias, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(yBiasShifted, yBias, atol=1.0e-3)
+
     def testErrors(self):
         """Invalid kernels raise, rather than returning a bogus bias"""
         psf = GaussianPsf(25, 25, 1.5)
