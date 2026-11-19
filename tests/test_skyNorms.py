@@ -11,7 +11,7 @@ from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import PfsConfig, FiberStatus, TargetType
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.drp.stella.focalPlaneFunction import ConstantPerFiber
-from pfs.drp.stella.PfiCorrection import PfiCorrectionTask, removePfiCorrection
+from pfs.drp.stella.PfiCorrection import PfiCorrectionTask, removeBlackSpotCorrection, removePfiCorrection
 from pfs.drp.stella.skyNorms import MeasureSkyNormsTask
 
 
@@ -93,10 +93,39 @@ class RemovePfiCorrectionTestCase(lsst.utils.tests.TestCase):
         self.assertFalse(np.any(removed))
         self.assertFloatsAlmostEqual(self.pfsArm.norm, norm, rtol=rtol)
 
+    def testRemoveBlackSpot(self):
+        """Removing the black spot correction (and the PFI correction) restores the norm"""
+        norm = self.pfsArm.norm.copy()
+        self.assertFalse(np.any(removeBlackSpotCorrection(self.pfsArm)))   # nothing applied
+        self.assertFloatsEqual(self.pfsArm.norm, norm)
+
+        # As BlackSpotCorrectionTask:  most fibers are far from a spot (correction 1), some are dimmed
+        corr = np.ones(self.numFibers, dtype=np.float32)
+        near = self.rng.uniform(size=self.numFibers) < 0.2
+        corr[near] = self.rng.uniform(0.3, 1.0, size=near.sum())
+        corr[0] = 0.0   # can't be undone
+        self.pfsArm.norm *= corr[:, None]
+        self.pfsArm.notes.blackSpotCorrection[:] = corr
+        PfiCorrectionTask().run(self.pfsArm, self.pfsConfig, None)
+
+        rtol = 1.0e-6  # the notes are float32
+        self.assertFalse(np.any(np.isnan(self.pfsArm.notes.blackSpotCorrection[1:])))
+        removePfiCorrection(self.pfsArm)
+        removed = removeBlackSpotCorrection(self.pfsArm)
+        self.assertFalse(removed[0])
+        self.assertTrue(np.all(removed[1:]))
+        self.assertFloatsAlmostEqual(self.pfsArm.norm[1:], norm[1:], rtol=rtol)
+        self.assertTrue(np.all(np.isnan(self.pfsArm.notes.blackSpotCorrection[1:])))
+
+        # Removing again is harmless
+        self.assertFalse(np.any(removeBlackSpotCorrection(self.pfsArm)))
+        self.assertFloatsAlmostEqual(self.pfsArm.norm[1:], norm[1:], rtol=rtol)
+
     def testConfig(self):
-        """The default is to remove the correction"""
+        """The default is to remove the corrections"""
         config = MeasureSkyNormsTask.ConfigClass()
         self.assertTrue(config.doRemovePfiCorrection)
+        self.assertTrue(config.doRemoveBlackSpotCorrection)
         self.assertTrue(config.requireSky)
 
     def testDeviations(self):
