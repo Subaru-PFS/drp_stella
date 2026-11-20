@@ -27,6 +27,7 @@ from lsst.daf.butler import (
     Registry,
     Timespan,
 )
+from lsst.daf.butler import MissingCollectionError
 from lsst.daf.butler.registry._registry import CollectionArgType
 from lsst.obs.base.formatters.fitsGeneric import FitsGenericFormatter
 from lsst.pipe.base import Instrument
@@ -611,25 +612,54 @@ def certifyDatasets(
             f"({details}); certify from the RUN(s) holding only the datasets you want."
         )
 
+    # Datasets already copied into the certify RUN by a previous call (e.g., certifying into another
+    # target collection) can't be ingested again, so we reuse them if they are the same.
+    try:
+        previous = {
+            (ref.dataId["arm"], ref.dataId["spectrograph"]): ref
+            for ref in registry.queryDatasets(toType, collections=run, instrument=instrumentName)
+        }
+    except MissingCollectionError:
+        previous = {}
+
     datasets = []
+    reused = []
     for ref in query:
-        log.info("Ingesting %s ...", ref.dataId)
         uri = butler.getURI(ref)
-        dataId = dict(
-            instrument=instrumentName, arm=ref.dataId["arm"], spectrograph=ref.dataId["spectrograph"]
-        )
+        key = (ref.dataId["arm"], ref.dataId["spectrograph"])
+        if key in previous:
+            old = previous[key]
+            if butler.getURI(old).read() != uri.read():
+                raise RuntimeError(
+                    f"{calibDatasetType} for {ref.dataId} in {run} differs from the {sourceDatasetType} in "
+                    f"{ref.run}; was the source collection changed after a previous certification?"
+                )
+            log.info("Reusing %s %s already in %s", calibDatasetType, ref.dataId, run)
+            reused.append(old)
+            continue
+        log.info("Ingesting %s ...", ref.dataId)
+        dataId = dict(instrument=instrumentName, arm=key[0], spectrograph=key[1])
         new = DatasetRef(toType, dataId, run)
         datasets.append(FileDataset(path=uri, refs=[new], formatter=formatterClass))
 
     with registry.transaction():
-        butler.ingest(*datasets, transfer=transfer)
+        if datasets:
+            butler.ingest(*datasets, transfer=transfer)
+        refs = reused + [dataset.refs[0] for dataset in datasets]
 
-        log.info("Certifying newly-ingested %s datasets...", calibDatasetType)
-        query = list(registry.queryDatasets(toType, collections=run))
-        if not query:
-            raise RuntimeError(f"Unable to find newly-ingested {calibDatasetType} datasets!")
         registry.registerCollection(target, type=CollectionType.CALIBRATION)
-        registry.certify(target, query, timespan)
+        # Skip datasets already certified in the target with the same timespan (e.g., a repeated call)
+        certified = {
+            (association.ref.id, association.timespan)
+            for association in registry.queryDatasetAssociations(toType, collections=target)
+        }
+        toCertify = [ref for ref in refs if (ref.id, timespan) not in certified]
+        if len(toCertify) < len(refs):
+            log.info("%d %s datasets already certified in %s", len(refs) - len(toCertify), calibDatasetType,
+                     target)
+        if toCertify:
+            log.info("Certifying %d %s datasets...", len(toCertify), calibDatasetType)
+            registry.certify(target, toCertify, timespan)
     return datasets
 
 
