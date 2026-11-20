@@ -2,28 +2,29 @@ description: |
   Adjust detectorMap and fiberProfiles for a change in focus, using a PSF-matching kernel
 
   The data query should select two visits (arcs or sky): the reference (with
-  the same focus as the imagePsf, detectorMap_calib and fiberProfiles) and the
-  target. Set the reference visit with "-c parameters:referenceVisit=<visit>".
-  The outputs (detectorMap_psfMatch, fiberProfiles_psfMatch) can be certified
-  with certifyDetectorMaps.py and certifyFiberProfiles.py (with --datasetType).
+  the same focus as the imagePsf, detectorMap_calib and fiberProfiles valid
+  for it) and the target. Say which is which with
+  "-c parameters:referenceIsLater=True" (the reference has the larger visit
+  number) or False. The calibs valid for each visit are copied by the
+  calibsForVisit task. The outputs (detectorMap_candidate,
+  fiberProfiles_candidate) can be certified with certifyDetectorMaps.py and
+  certifyFiberProfiles.py (with --datasetType fiberProfiles_candidate).
 
   By default (doWarp), the target is warped onto the reference before
-  measuring the kernel, using the detectorMap for each visit (e.g., from the
-  reductions), which must be in the inputs. Use "-c psfMatchCalibs:doWarp=False"
-  to fit the shift with the kernel instead.
+  measuring the kernel, using the detectorMap_calib valid for the target and
+  the reference's detectorMap_calib adjusted to the reference. Use
+  "-c psfMatchCalibs:doWarp=False" to fit the shift with the kernel instead.
 
   The blue arm has too few lines in sky exposures to measure a good kernel. To
   use the kernel measured for the red arm instead, first run for the red arm,
   and then run for the blue arm with "-c psfMatchCalibs:kernelArm=r", including
-  the red-arm output collection in the inputs. With doWarp, the shift of the
-  red kernel is removed (doRecenterOtherArmKernel), since it may compensate for
-  errors in the red-arm detectorMaps.
+  the red-arm output collection in the inputs.
 
   By default (doCheckTarget), lines and traces are measured on the target and
   compared with the new detectorMap; look for "Target measurements" in the log.
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 parameters:
-  referenceVisit: None
+  referenceIsLater: None
 tasks:
   isr:
     class: lsst.obs.pfs.isrTask.PfsIsrTask
@@ -32,7 +33,9 @@ tasks:
     config:
       grouping: separate
       doWriteExposure: true
+  calibsForVisit:
+    class: pfs.drp.stella.pipelines.calibsForVisit.CalibsForVisitTask
   psfMatchCalibs:
     class: pfs.drp.stella.psfMatchCalibs.PsfMatchCalibsTask
     config:
-      referenceVisit: parameters.referenceVisit
+      referenceIsLater: parameters.referenceIsLater

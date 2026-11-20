@@ -15,8 +15,9 @@ from pfs.drp.stella.centroidLines import CentroidLinesTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.pipelines.lookups import lookupDatasetsForArm
+from pfs.drp.stella.pipelines.calibsForVisit import CalibsForVisitConfig, CalibsForVisitConnections
 from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsConnections, PsfMatchCalibsTask
-from pfs.drp.stella.psfMatchCalibs import addOpticsDistortion, convolveFiberProfile
+from pfs.drp.stella.psfMatchCalibs import addOpticsDistortion, convolveFiberProfile, selectReferenceVisit
 from pfs.drp.stella.synthetic import (
     SyntheticConfig,
     makeSyntheticArc,
@@ -141,7 +142,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.psf = GaussianPsf(17, 17, 1.3)
         self.identity = CalibIdentity("2026-01-01", 1, "r", 12345)
         config = PsfMatchCalibsTask.ConfigClass()
-        config.referenceVisit = 1
+        config.referenceIsLater = True
         config.numFibers = 10
         config.numRows = 10
         config.distortionOrder = 2
@@ -235,21 +236,6 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         xNew = xOld - 1.0
         convolved = convolveFiberProfile(profile, kernel, xOld, xNew)
         # Values within a pixel of the edge are lost by the shift
-        interior = np.abs(profile.index) < profile.radius
-        self.assertFloatsAlmostEqual(
-            convolved.profiles.data[:, interior], profile.profiles.data[:, interior], atol=1.0e-12
-        )
-
-    def testProfileRecenter(self):
-        """Test that recentring removes the shift of the kernel
-
-        With ``recenter``, the delta-function kernel's shift (-1 pixel) is
-        removed, so the profile is unchanged when the trace doesn't move.
-        """
-        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
-        kernel = makeDeltaKernel(5, 1, 0)
-        xOld = np.full(len(profile.rows), 100.0)
-        convolved = convolveFiberProfile(profile, kernel, xOld, xOld, recenter=True)
         interior = np.abs(profile.index) < profile.radius
         self.assertFloatsAlmostEqual(
             convolved.profiles.data[:, interior], profile.profiles.data[:, interior], atol=1.0e-12
@@ -446,12 +432,11 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
     def testRunWithKernelWarp(self):
         """Test run with a provided kernel, and warping
 
-        The shift of the warp (from the detectorMaps for each visit) is added
-        to the shift of the kernel, and the fiberProfiles (relative to the
-        trace) are unaffected by the warp.
+        The shift of the warp (from the reference detectorMap to the target's
+        calib detectorMap) is added to the full shift of the kernel, and the
+        fiberProfiles (relative to the trace) are unaffected by the warp.
         """
         self.task.config.doAdjustReference = False
-        self.task.config.doRecenterOtherArmKernel = False
         self.task.config.doCheckTarget = False
         profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
         profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
@@ -461,7 +446,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
 
         self.task.psfMatch.run = unittest.mock.Mock(side_effect=AssertionError("Shouldn't measure kernel"))
         with self.assertRaises(ValueError):
-            # The detectorMaps for each visit are required
+            # The target's detectorMap is required
             self.task.run(
                 exposure, exposure, self.psf, self.detectorMap, profiles, self.identity, kernel=kernel
             )
@@ -473,8 +458,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
             profiles,
             self.identity,
             kernel=kernel,
-            referenceVisitDetectorMap=self.detectorMap,
-            targetVisitDetectorMap=targetDetectorMap,
+            targetDetectorMap=targetDetectorMap,
         )
         shifts = result.shifts
         # Warp shift is 2.5 +/- 0.3 in x and -5.0 +/- 0.5 in y over the detector
@@ -493,48 +477,6 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(newPoints[:, 1] - targetPoints[:, 1], 0.0, atol=2.0e-3)
 
         # The delta-function kernel doesn't change the profiles, and the warp shouldn't either
-        for ff in profiles:
-            self.assertFloatsAlmostEqual(
-                result.fiberProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
-            )
-
-    def testRunWithKernelWarpRecenter(self):
-        """Test run with a provided kernel, warping and recentring
-
-        The shift of the provided kernel is removed, so the new detectorMap
-        matches the target detectorMap, and the fiberProfiles are unchanged.
-        """
-        self.task.config.doAdjustReference = False
-        self.task.config.doCheckTarget = False
-        self.assertTrue(self.task.config.doRecenterOtherArmKernel)  # The default
-        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
-        profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
-        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
-        kernel = makeDeltaKernel(5, 1, 2)  # Shift that should be removed
-        targetDetectorMap = self.makeShiftedDetectorMap([2.5, 0.3, 0.0], [-5.0, 0.0, 0.5])
-        self.task.psfMatch.run = unittest.mock.Mock(side_effect=AssertionError("Shouldn't measure kernel"))
-        result = self.task.run(
-            exposure,
-            exposure,
-            self.psf,
-            self.detectorMap,
-            profiles,
-            self.identity,
-            kernel=kernel,
-            referenceVisitDetectorMap=self.detectorMap,
-            targetVisitDetectorMap=targetDetectorMap,
-        )
-        shifts = result.shifts
-        self.assertFloatsAlmostEqual(shifts.dx, shifts.dxWarp, atol=1.0e-3)
-        self.assertFloatsAlmostEqual(shifts.dy, shifts.dyWarp, atol=1.0e-3)
-        self.assertFloatsAlmostEqual(shifts.dxCentroid, shifts.dxWarp, atol=1.0e-12)
-        self.assertFloatsAlmostEqual(shifts.dyCentroid, shifts.dyWarp, atol=1.0e-12)
-
-        wavelength = self.detectorMap.findWavelength(shifts.fiberId, shifts.row).astype(float)
-        newPoints = result.detectorMap.findPoint(shifts.fiberId, wavelength)
-        targetPoints = targetDetectorMap.findPoint(shifts.fiberId, wavelength)
-        self.assertFloatsAlmostEqual(newPoints, targetPoints, atol=2.0e-3)
-
         for ff in profiles:
             self.assertFloatsAlmostEqual(
                 result.fiberProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
@@ -586,7 +528,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         """Test that checkTarget measures the residuals from the detectorMap"""
         exposure, detectorMap, profiles, referenceLines = self.makeTarget()
         config = PsfMatchCalibsTask.ConfigClass()
-        config.referenceVisit = 1
+        config.referenceIsLater = True
         config.centroidLines.doSubtractContinuum = False
         config.centroidLines.fwhm = SyntheticConfig().fwhm
         task = PsfMatchCalibsTask(config=config)
@@ -616,16 +558,41 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(metadata["targetLineYMedian"], -dy, atol=0.05)
         self.assertFloatsAlmostEqual(metadata["targetTraceXMedian"], -dx, atol=0.05)
 
-    def testWarpConnections(self):
-        """The detectorMaps for each visit are required only with doWarp"""
+    def testConnections(self):
+        """The calibs are per-visit inputs, from CalibsForVisitTask"""
         config = PsfMatchCalibsTask.ConfigClass()
-        config.referenceVisit = 1
-        self.assertTrue(config.doWarp)
+        config.referenceIsLater = True
         connections = PsfMatchCalibsConnections(config=config)
-        self.assertIn("visitDetectorMaps", connections.prerequisiteInputs)
-        config.doWarp = False
-        connections = PsfMatchCalibsConnections(config=config)
+        for name, datasetType in (
+            ("detectorMaps", "detectorMap_forVisit"),
+            ("fiberProfiles", "fiberProfiles_forVisit"),
+            ("psfs", "imagePsf_forVisit"),
+        ):
+            self.assertIn(name, connections.inputs)
+            connection = getattr(connections, name)
+            self.assertEqual(connection.name, datasetType)
+            self.assertIn("visit", connection.dimensions)
+            self.assertTrue(connection.multiple)
         self.assertNotIn("visitDetectorMaps", connections.prerequisiteInputs)
+        self.assertEqual(connections.outputDetectorMap.name, "detectorMap_candidate")
+        self.assertEqual(connections.outputFiberProfiles.name, "fiberProfiles_candidate")
+
+        # The calibs are written with the visit dimension
+        calibConnections = CalibsForVisitConnections(config=CalibsForVisitConfig())
+        self.assertEqual(calibConnections.outputDetectorMap.name, "detectorMap_forVisit")
+        self.assertEqual(calibConnections.outputFiberProfiles.name, "fiberProfiles_forVisit")
+        self.assertEqual(calibConnections.outputPsf.name, "imagePsf_forVisit")
+        self.assertEqual(calibConnections.fiberProfiles.minimum, 0)
+        self.assertEqual(calibConnections.psf.minimum, 0)
+
+    def testSelectReferenceVisit(self):
+        """Test identifying the reference and target visits"""
+        self.assertEqual(selectReferenceVisit([5, 3], True), (5, 3))
+        self.assertEqual(selectReferenceVisit([5, 3], False), (3, 5))
+        self.assertEqual(selectReferenceVisit([3, 5, 5], True), (5, 3))
+        for visits in ([3], [3, 4, 5]):
+            with self.assertRaises(RuntimeError):
+                selectReferenceVisit(visits, True)
 
     def testKernelArmConnections(self):
         """Test the connections with and without kernelArm
@@ -635,7 +602,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         write one.
         """
         config = PsfMatchCalibsTask.ConfigClass()
-        config.referenceVisit = 1
+        config.referenceIsLater = True
         connections = PsfMatchCalibsConnections(config=config)
         self.assertNotIn("otherArmKernel", connections.prerequisiteInputs)
         self.assertIn("outputKernel", connections.outputs)
@@ -669,11 +636,11 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertIsNone(config.kernelArm)
 
     def testConfigValidate(self):
-        """Test that referenceVisit is required"""
+        """Test that referenceIsLater is required"""
         config = PsfMatchCalibsTask.ConfigClass()
         with self.assertRaises(ValueError):
             config.validate()
-        config.referenceVisit = 123
+        config.referenceIsLater = False
         config.validate()
 
 
