@@ -40,8 +40,6 @@ from .DetectorMapContinued import DetectorMap
 from lsst.obs.pfs.utils import getLamps, isWindowed
 from pfs.datamodel import FiberStatus, TargetType, Identity
 from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
-from pfs.datamodel.pfsThetaPhiFine import PfsThetaPhiFine
-from pfs.datamodel.pfsThetaPhiModel import PfsThetaPhiModel
 from .extractSpectraTask import ExtractSpectraTask
 from .lsf import GaussianLsf, LsfDict
 from .readLineList import ReadLineListTask
@@ -60,7 +58,6 @@ from .applyFluxCal import applyFiberNorms
 from .fitDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
-from .thetaPhiCorrection import ThetaPhiCorrectionTask
 from .focalPlaneFunction import ConstantPerFiber
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -108,21 +105,6 @@ class ReduceExposureConnections(
         storageClass="FocalPlaneFunction",
         dimensions=("instrument",),
         isCalibration=True,
-    )
-    thetaPhiModel = PrerequisiteConnection(
-        name="thetaPhiModel_calib",
-        doc="Smooth model of each fiber's throughput against its cobra's angles",
-        storageClass="PfsThetaPhiModel",
-        dimensions=("instrument",),
-        isCalibration=True,
-    )
-    thetaPhiFine = PrerequisiteConnection(
-        name="thetaPhiFine_calib",
-        doc="Each fiber's fine structure in throughput against its cobra's angles",
-        storageClass="PfsThetaPhiFine",
-        dimensions=("instrument", "arm"),
-        isCalibration=True,
-        minimum=0,
     )
     detectorMap = PrerequisiteConnection(
         name="detectorMap_calib",
@@ -182,9 +164,6 @@ class ReduceExposureConnections(
             self.prerequisiteInputs.remove("fiberNorms")
         if not self.config.doApplySkyNorms:
             self.prerequisiteInputs.remove("skyNorms")
-        if not (self.config.doApplyPfiCorrection and self.config.doApplyThetaPhi):
-            self.prerequisiteInputs.remove("thetaPhiModel")
-            self.prerequisiteInputs.remove("thetaPhiFine")
 
 
 class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposureConnections):
@@ -225,22 +204,11 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     spectralOffset = Field(dtype=float, default=0.0, doc="Spectral offset to add")
     doApplyFiberNorms = Field(dtype=bool, default=True, doc="Apply fiber norms to extracted spectra?")
     doCheckFiberNormsHashes = Field(dtype=bool, default=True, doc="Check hashes in fiberNorms?")
-    doApplySkyNorms = Field(
-        dtype=bool,
-        default=False,
-        doc="Apply sky norms (skyNorms_calib) to extracted spectra?  Superseded by doApplyThetaPhi",
-    )
+    doApplySkyNorms = Field(dtype=bool, default=True, doc="Apply sky norms to extracted spectra?")
     doScatteredLight = Field(dtype=bool, default=True, doc="Apply scattered light correction?")
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
     doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
-    doApplyThetaPhi = Field(
-        dtype=bool,
-        default=False,
-        doc="Correct each fiber's throughput for its cobra's position (thetaPhiModel_calib, "
-            "thetaPhiFine_calib)?  Part of the PFI correction (requires doApplyPfiCorrection)",
-    )
-    thetaPhiCorrection = ConfigurableField(target=ThetaPhiCorrectionTask, doc="Cobra-position correction")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -307,7 +275,6 @@ class ReduceExposureTask(PipelineTask):
         self.makeSubtask("blackSpotCorrection")
         self.makeSubtask("scatteredLight")
         self.makeSubtask("pfiCorrection")
-        self.makeSubtask("thetaPhiCorrection")
 
     def runQuantum(
         self,
@@ -324,9 +291,6 @@ class ReduceExposureTask(PipelineTask):
             inputs["fiberNorms"] = None
         if not self.config.doApplySkyNorms:
             inputs["skyNorms"] = None
-        if not (self.config.doApplyPfiCorrection and self.config.doApplyThetaPhi):
-            inputs["thetaPhiModel"] = None
-            inputs["thetaPhiFine"] = None
         outputs = self.run(**inputs, dataId=dataId)
         if outputs.apCorr is None:  # e.g., for a quartz
             del outputRefs.apCorr
@@ -343,8 +307,6 @@ class ReduceExposureTask(PipelineTask):
         detectorMap: DetectorMap,
         dataId: dict[str, str] | DataCoordinate,
         crMask: Mask | None = None,
-        thetaPhiModel: PfsThetaPhiModel | None = None,
-        thetaPhiFine: PfsThetaPhiFine | None = None,
     ) -> Struct:
         """Process an arm exposure
 
@@ -364,11 +326,6 @@ class ReduceExposureTask(PipelineTask):
             Data identifier.
         crMask : `lsst.afw.image.Mask`, optional
             Cosmic-ray mask.
-        thetaPhiModel : `pfs.datamodel.PfsThetaPhiModel`, optional
-            Smooth model of each fiber's throughput against its cobra's angles (required if
-            ``doApplyThetaPhi``).
-        thetaPhiFine : `pfs.datamodel.PfsThetaPhiFine`, optional
-            Each fiber's fine structure, for this arm.
 
         Returns
         -------
@@ -475,17 +432,7 @@ class ReduceExposureTask(PipelineTask):
                     self.log.warn("Missing fiberIds in fiberNorms: %s", list(missingFiberIds))
 
             if self.config.doApplyPfiCorrection:
-                thetaPhiFactor = None
-                if self.config.doApplyThetaPhi:
-                    if thetaPhiModel is None:
-                        raise RuntimeError("thetaPhiModel required but not provided")
-                    date = exposure.visitInfo.date.toPython().date().isoformat()
-                    thetaPhi = self.thetaPhiCorrection.run(
-                        pfsArm, pfsConfig, thetaPhiModel, thetaPhiFine, dataId["arm"], date
-                    )
-                    thetaPhiFactor = thetaPhi.factor
-                    pfsArm.metadata["PFS.HASH.THETAPHIMODEL"] = thetaPhiModel.hash
-                self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms, thetaPhiFactor)
+                self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms)
 
         return Struct(
             outputExposure=exposure,
