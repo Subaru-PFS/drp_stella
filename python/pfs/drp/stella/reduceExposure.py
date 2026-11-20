@@ -484,7 +484,7 @@ class ReduceExposureTask(PipelineTask):
                         pfsArm, pfsConfig, thetaPhiModel, thetaPhiFine, dataId["arm"], date
                     )
                     thetaPhiFactor = thetaPhi.factor
-                    pfsArm.metadata["PFS.HASH.THETAPHIMODEL"] = thetaPhiModel.hash
+                    pfsArm.metadata["PFS.THETAPHIMODEL.ID"] = thetaPhiModel.modelId
                 self.pfiCorrection.run(pfsArm, pfsConfig, skyNorms, thetaPhiFactor)
 
         return Struct(

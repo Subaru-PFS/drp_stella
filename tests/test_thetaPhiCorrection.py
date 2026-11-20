@@ -76,7 +76,7 @@ class ThetaPhiCorrectionTestCase(lsst.utils.tests.TestCase):
             np.tile([2.1, 21.0], (num, 1)), np.tile([2.2, 15.0], (num, 1)), np.zeros(num, dtype=int),
             np.full(num, 0.5), np.full(num, 0.25), self.rng.uniform(0, 400, total),
             self.rng.uniform(0, 180, total), self.rng.normal(0, 100, total), [0.0, 5.0], [0.4, 1.0],
-            dict(ARM="r", SMOOTH_HASH=self.model.hash),
+            dict(ARM="r", SMOOTH_ID=self.model.modelId),
         )
 
     def testIsCobraHome(self):
@@ -106,7 +106,7 @@ class ThetaPhiCorrectionTestCase(lsst.utils.tests.TestCase):
         task = ThetaPhiCorrectionTask()
         with self.assertRaises(RuntimeError):
             task.run(self.pfsArm, self.pfsConfig, self.model, self.fine, "b", "2026-11-19")
-        self.fine.metadata["SMOOTH_HASH"] = 12345
+        self.fine.metadata["SMOOTH_ID"] = "another model"
         with self.assertRaises(RuntimeError):
             task.run(self.pfsArm, self.pfsConfig, self.model, self.fine, "r", "2026-11-19")
         result = task.run(self.pfsArm, self.pfsConfig, self.model, None, "r", "2026-11-19")   # no fine layer
