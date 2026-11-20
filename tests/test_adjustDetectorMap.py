@@ -11,6 +11,7 @@ import lsst.log
 
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
+from pfs.drp.stella.fitDetectorMap import FIT_STATISTICS
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.referenceLine import ReferenceLine, ReferenceLineSet, ReferenceLineStatus
@@ -26,6 +27,46 @@ from pfs.drp.stella.tests.utils import runTests, methodParameters
 from pfs.drp.stella.utils.math import robustRms
 
 display = None
+
+
+def assertFitMetadata(testCase, task, results, lines):
+    """Assert that the fit statistics are in the task metadata
+
+    Parameters
+    ----------
+    testCase : `lsst.utils.tests.TestCase`
+        Test case, for the assertions.
+    task : `AdjustDetectorMapTask`
+        Task that has been run.
+    results : `lsst.pipe.base.Struct`
+        Results of running the task.
+    lines : `ArcLineSet`
+        Line measurements given to the task.
+    """
+    metadata = task.metadata
+    for prefix in ("fit", "reserved", "final"):
+        for suffix in FIT_STATISTICS:
+            testCase.assertIn(prefix + suffix, metadata)
+    testCase.assertGreaterEqual(metadata["fitNumAvailable"], metadata["fitNumLines"])
+    testCase.assertGreater(metadata["reservedNumLines"], 0)
+
+    # The final statistics are those returned
+    testCase.assertEqual(metadata["finalChi2"], results.chi2)
+    testCase.assertEqual(metadata["finalDof"], results.dof)
+    testCase.assertEqual(metadata["finalXRms"], results.xRms)
+    testCase.assertEqual(metadata["finalNumLines"], results.selection.sum())
+
+    species = metadata.getArray("speciesName")
+    testCase.assertEqual(species, sorted(set(lines.description)))
+    qaFiberId = metadata.getArray("qaFiberId")
+    testCase.assertGreater(len(qaFiberId), 0)
+    testCase.assertLessEqual(len(qaFiberId), task.config.qaNumFibers)
+    testCase.assertEqual(qaFiberId, sorted(set(qaFiberId)))
+    for suffix in FIT_STATISTICS:
+        testCase.assertEqual(len(metadata.getArray("species" + suffix)), len(species))
+        testCase.assertEqual(len(metadata.getArray("qaFiber" + suffix)), len(qaFiberId))
+    # Each line is in exactly one species
+    testCase.assertEqual(sum(metadata.getArray("speciesNumLines")), metadata["finalNumLines"])
 
 
 class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
@@ -203,6 +244,7 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
             adjusted.detectorMap.display(disp, ctype="green", wavelengths=refLines.wavelength)
 
         self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
+        assertFitMetadata(self, task, adjusted, lines)
 
 
 class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
@@ -340,6 +382,8 @@ class AdjustDetectorMapQuartzTestCase(lsst.utils.tests.TestCase):
 
         if display is not None:
             adjusted.detectorMap.display(disp, ctype="green")
+
+        assertFitMetadata(self, task, adjusted, lines)
 
         # xCenter
         expected = self.base.getXCenter()

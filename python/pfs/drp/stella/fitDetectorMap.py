@@ -255,6 +255,60 @@ def calculateFitStatistics(
                   xSoften=xSoften, ySoften=ySoften, **kwargs)
 
 
+#: Fit statistics recorded in task metadata: metadata key suffix and the
+#: function that reads it from `calculateFitStatistics` results.
+FIT_STATISTICS = {
+    "Chi2": lambda stats: float(stats.chi2),
+    "Dof": lambda stats: int(stats.dof),
+    "XRms": lambda stats: float(stats.xRms),
+    "YRms": lambda stats: float(stats.yRms),
+    "XRobustRms": lambda stats: float(stats.xRobustRms),
+    "YRobustRms": lambda stats: float(stats.yRobustRms),
+    "XSoften": lambda stats: float(stats.xSoften),
+    "YSoften": lambda stats: float(stats.ySoften),
+    "NumLines": lambda stats: int(stats.selection.sum()),
+}
+
+
+def recordFitStatistics(metadata, prefix: str, stats: Struct) -> None:
+    """Record fit statistics in task metadata
+
+    Writes one key per entry of `FIT_STATISTICS`, named ``<prefix><suffix>``
+    (e.g., ``fitChi2``). Values are always written, NaN when undefined, so the
+    set of keys is the same for every fit.
+
+    Parameters
+    ----------
+    metadata : `lsst.pipe.base.TaskMetadata`
+        Task metadata to update.
+    prefix : `str`
+        Prefix for the keys.
+    stats : `lsst.pipe.base.Struct`
+        Fit statistics, from `calculateFitStatistics`.
+    """
+    for suffix, getValue in FIT_STATISTICS.items():
+        metadata[prefix + suffix] = getValue(stats)
+
+
+def recordFitStatisticsArrays(metadata, prefix: str, statsList: list[Struct]) -> None:
+    """Record fit statistics for several subsets in task metadata
+
+    Writes one array per entry of `FIT_STATISTICS`, named ``<prefix><suffix>``
+    (e.g., ``speciesXRms``), with one element per entry of ``statsList``.
+
+    Parameters
+    ----------
+    metadata : `lsst.pipe.base.TaskMetadata`
+        Task metadata to update.
+    prefix : `str`
+        Prefix for the keys.
+    statsList : `list` of `lsst.pipe.base.Struct`
+        Fit statistics for each subset, from `calculateFitStatistics`.
+    """
+    for suffix, getValue in FIT_STATISTICS.items():
+        metadata[prefix + suffix] = [getValue(stats) for stats in statsList]
+
+
 class FittingError(RuntimeError):
     """Error in fitting distortion model"""
     pass
@@ -1024,6 +1078,11 @@ class FitDetectorMapTask(Task):
     def fitDistortion(self, bbox, lines, weights, dispersion, seed=0, DistortionClass=None):
         """Fit a distortion model
 
+        The statistics of the final fit and of the reserved lines are recorded
+        in the task metadata as ``fit*`` and ``reserved*``
+        (`recordFitStatistics`), with ``fitNumAvailable``, the number of good
+        lines that were not reserved.
+
         Parameters
         ----------
         bbox : `lsst.geom.Box2I`
@@ -1136,6 +1195,8 @@ class FitDetectorMapTask(Task):
                       result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion,
                       result.xSoften, result.ySoften, used.sum(), numGood - numReserved,
                       getDescriptionCounts(lines.description, used))
+        recordFitStatistics(self.metadata, "fit", result)
+        self.metadata["fitNumAvailable"] = int(numGood - numReserved)
         fit = self.evaluateModel(result.distortion, lines.xBase, lines.yBase, lines.slope, isLine)
         soften = (self.config.soften, self.config.soften)
         reservedStats = calculateFitStatistics(
@@ -1147,6 +1208,7 @@ class FitDetectorMapTask(Task):
                       reservedStats.yRobustRms*dispersion, reservedStats.xSoften, reservedStats.ySoften,
                       reserved.sum(), reserved.sum()/numGood*100,
                       getDescriptionCounts(lines.description, reserved))
+        recordFitStatistics(self.metadata, "reserved", reservedStats)
         self.log.debug("    Final fit model: %s", result.distortion)
 
         if False:
@@ -1368,6 +1430,11 @@ class FitDetectorMapTask(Task):
         Returned results apply to the entire fit, but we calculate and log
         statistics for smaller sub-sections of the data.
 
+        The statistics are also recorded in the task metadata
+        (`recordFitStatistics`): ``final*`` for the entire fit, and arrays
+        ``species*`` (per ``speciesName``) and ``qaFiber*`` (per
+        ``qaFiberId``) for the sub-sections.
+
         Parameters
         ----------
         lines : `ArcLineSet`
@@ -1422,8 +1489,11 @@ class FitDetectorMapTask(Task):
                       results.chi2, results.dof, results.xRms, results.yRms,
                       results.xSoften, results.ySoften, results.selection.sum(),
                       getDescriptionCounts(lines.description, results.selection))
+        recordFitStatistics(self.metadata, "final", results)
 
-        for descr in sorted(set(lines.description)):
+        speciesNames = sorted(set(lines.description))
+        speciesStats = []
+        for descr in speciesNames:
             choose = selection & (lines.description == descr)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0)
             self.log.info(
@@ -1432,9 +1502,15 @@ class FitDetectorMapTask(Task):
                 stats.xSoften, stats.ySoften, stats.selection.sum(),
                 getDescriptionCounts(lines.description, stats.selection),
             )
+            speciesStats.append(stats)
+        self.metadata["speciesName"] = [str(descr) for descr in speciesNames]
+        recordFitStatisticsArrays(self.metadata, "species", speciesStats)
 
         fiberId = np.array(sorted(set(lines.fiberId[selection])))
-        for ff in fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)]:
+        # Fewer fibers than qaNumFibers would repeat some
+        qaFiberId = np.unique(fiberId[np.linspace(0, len(fiberId) - 1, self.config.qaNumFibers, dtype=int)])
+        qaFiberStats = []
+        for ff in qaFiberId:
             choose = selection & (lines.fiberId == ff)
             stats = calculateFitStatistics(fitPosition, lines, choose, 0)
             self.log.info("Stats for fiberId=%d: chi2=%f dof=%d xRMS=%f yRMS=%f xSoften=%f ySoften=%f "
@@ -1442,6 +1518,9 @@ class FitDetectorMapTask(Task):
                           ff, stats.chi2, stats.dof, stats.xRms, stats.yRms,
                           stats.xSoften, stats.ySoften, stats.selection.sum(),
                           getDescriptionCounts(lines.description, stats.selection))
+            qaFiberStats.append(stats)
+        self.metadata["qaFiberId"] = [int(ff) for ff in qaFiberId]
+        recordFitStatisticsArrays(self.metadata, "qaFiber", qaFiberStats)
 
         if self.log.isEnabledFor(self.log.DEBUG):
             good = self.getGoodLines(lines) & (lines.description != "Trace")
