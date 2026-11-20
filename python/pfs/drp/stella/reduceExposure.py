@@ -533,6 +533,9 @@ class ReduceExposureTask(PipelineTask):
 
         windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
 
+        # Whether the adjusted detectorMap is used: adjustDetectorMap's fit statistics in the task
+        # metadata are for the detectorMap used only when this is "applied".
+        self.metadata["detectorMapAdjustment"] = "skipped"
         if self.config.doAdjustDetectorMap and not windowed:
             try:
                 detectorMap = self.adjustDetectorMap.run(
@@ -543,7 +546,9 @@ class ReduceExposureTask(PipelineTask):
                     exposure.metadata,
                     seed=seed,
                 ).detectorMap
+                self.metadata["detectorMapAdjustment"] = "applied"
             except (FittingError, RuntimeError) as exc:
+                self.metadata["detectorMapAdjustment"] = "failed"
                 if self.config.requireAdjustDetectorMap:
                     raise
                 self.log.warn("DetectorMap adjustment failed: %s", exc)
