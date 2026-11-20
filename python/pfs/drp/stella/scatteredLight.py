@@ -464,6 +464,10 @@ class ScatteredLightTask(Task):
 
         No subtraction is performed if the scattered light scale factor is zero.
 
+        The model's scale factors (``top``, ``bottom``) and the mean and maximum
+        of the subtracted model image (``modelMean``, ``modelMax``; zero when
+        nothing is subtracted) are recorded in the task metadata.
+
         Parameters
         ----------
         image : `MaskedImage`
@@ -479,10 +483,16 @@ class ScatteredLightTask(Task):
             Scattered light model image.
         """
         model = self.config.getModel(pfsArm.identity.arm, pfsArm.identity.spectrograph)
+        self.metadata["top"] = float(model.top)
+        self.metadata["bottom"] = float(model.bottom)
         if model.top == 0.0 and model.bottom == 0.0:
             self.log.warn("Scattered light model scale is zero; not subtracting")
+            self.metadata["modelMean"] = 0.0
+            self.metadata["modelMax"] = 0.0
             return Struct(model=None)
         self.log.info("Subtracting scattered light model: %s", model)
         modelImage = model.calculateImage(pfsArm, detectorMap)
         image -= modelImage
+        self.metadata["modelMean"] = float(np.nanmean(modelImage.array))
+        self.metadata["modelMax"] = float(np.nanmax(modelImage.array))
         return Struct(model=modelImage)

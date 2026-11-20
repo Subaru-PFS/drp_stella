@@ -304,6 +304,12 @@ class PfiCorrectionTask(Task):
     def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig, skyNorms: ConstantPerFiber | None = None) -> Struct:
         """Calculate and apply the PFI corrections
 
+        The mean and standard deviation over fibers of the PFI correction
+        (``correctionMean``, ``correctionStd``) and of the sky norms
+        (``skyNormsMean``, ``skyNormsStd``; NaN without ``skyNorms``), and the
+        number of fibers whose total correction is not finite (``numBad``),
+        are recorded in the task metadata.
+
         Parameters
         ----------
         pfsArm : `pfs.datamodel.drp.PfsArm`
@@ -334,16 +340,23 @@ class PfiCorrectionTask(Task):
             np.nanmean(result.correction),
             np.nanstd(result.correction),
         )
+        self.metadata["correctionMean"] = float(np.nanmean(result.correction))
+        self.metadata["correctionStd"] = float(np.nanstd(result.correction))
 
         result.skyNorms = None
+        self.metadata["skyNormsMean"] = np.nan
+        self.metadata["skyNormsStd"] = np.nan
         if skyNorms is not None:
             result.skyNorms = skyNorms.eval(pfsArm.fiberId).values.reshape(len(pfsArm))
             self.log.info(
                 "Applying sky norms: %.3f +/- %.3f", np.nanmean(result.skyNorms), np.nanstd(result.skyNorms)
             )
+            self.metadata["skyNormsMean"] = float(np.nanmean(result.skyNorms))
+            self.metadata["skyNormsStd"] = float(np.nanstd(result.skyNorms))
             result.correction += result.skyNorms
 
         good = np.isfinite(result.correction)
+        self.metadata["numBad"] = int((~good).sum())
         pfsArm.norm[good] *= (1.0 + result.correction[good])[:, None]
         pfsArm.mask[~good] |= pfsArm.flags.add("BAD_PFI_CORRECTION")
         pfsArm.notes.pfiCorrection[:] = result.correction
