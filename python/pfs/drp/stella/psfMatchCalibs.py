@@ -37,6 +37,7 @@ from .PolynomialDistortionContinued import PolynomialDistortion
 from .psfBias import calculatePeakToCentroidBias
 from .psfMatch import PsfMatchTask, calculateFirstMoments, calculateWarpShifts
 from .readLineList import ReadLineListTask
+from .referenceLine import ReferenceLineStatus
 from .utils.math import robustRms
 from .utils.psf import makeGaussianPsf
 
@@ -160,6 +161,7 @@ def convolveFiberProfile(
     xOld: np.ndarray,
     xNew: np.ndarray,
     interpOrder: int = 3,
+    recenter: bool = False,
 ) -> FiberProfile:
     """Convolve a fiber profile with a PSF-matching kernel, and shift it
 
@@ -189,6 +191,10 @@ def convolveFiberProfile(
         Trace center for each swath in the new detectorMap.
     interpOrder : `int`, optional
         Spline order for the sub-pixel shift.
+    recenter : `bool`, optional
+        Remove the shift of the kernel (its first moment in x), so that
+        the profile is broadened but not displaced by it. This is
+        appropriate when ``xNew`` doesn't include the kernel's shift.
 
     Returns
     -------
@@ -230,7 +236,11 @@ def convolveFiberProfile(
                 masked[target] |= mask[ii, source]
 
         # Shift so the profile is relative to the new trace: shifted(u) = convolved(u + xNew - xOld)
-        shift = -(xNew[ii] - xx) * oversample
+        traceShift = xNew[ii] - xx
+        if recenter:
+            # The correlation displaced the profile by minus the first moment of the kernel
+            traceShift -= np.sum((np.arange(len(kernel1d)) - center) * kernel1d)
+        shift = -traceShift * oversample
         convolved[ii] = scipy.ndimage.shift(values, shift, order=interpOrder, mode="constant", cval=0.0)
         newMask[ii] = scipy.ndimage.shift(masked.astype(float), shift, order=1, mode="constant", cval=0.0) > 0
 
@@ -399,6 +409,19 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         "separately. This allows large and variable shifts. A kernel for another arm (``kernelArm``) must "
         "have been measured with the same setting.",
     )
+    doRecenterOtherArmKernel = Field(
+        dtype=bool,
+        default=True,
+        doc="When using a kernel for another arm (``kernelArm``) with ``doWarp``, remove the kernel's "
+        "shift, so that the shift comes only from the warp for this arm? The kernel then provides only "
+        "the change in PSF. After the warp, the kernel's shift should be small, unless it compensates "
+        "for an error in the detectorMaps for the other arm, which doesn't apply to this arm.",
+    )
+    doCheckTarget = Field(
+        dtype=bool,
+        default=True,
+        doc="Measure lines and traces on the target, and compare them with the new detectorMap?",
+    )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines on reference")
     doForceTraces = Field(dtype=bool, default=True, doc="Centroid traces on reference, even for arcs?")
@@ -468,7 +491,14 @@ class PsfMatchCalibsTask(PipelineTask):
     pixels from the same position in the other arm, and the kernel varies
     slowly. The kernel is not written for this arm in that case. With
     ``config.doWarp``, the shift of the warp comes from the detectorMaps for
-    this arm.
+    this arm, and (with ``config.doRecenterOtherArmKernel``) the shift of the
+    other arm's kernel is removed, since it may compensate for errors in the
+    other arm's detectorMaps.
+
+    With ``config.doCheckTarget``, lines and traces are measured on the
+    target using the new detectorMap and fiberProfiles, and their residuals
+    from the new detectorMap are logged: this is an independent check of the
+    outputs against the data.
 
     In a pipeline, the data query should select two visits: the reference
     (identified by ``config.referenceVisit``) and the target. The calibs are
@@ -636,8 +666,9 @@ class PsfMatchCalibsTask(PipelineTask):
         kernel : `lsst.afw.math.Kernel`, optional
             PSF-matching kernel from the reference to the target, to use
             instead of measuring one (e.g., measured for another arm). If
-            provided, ``useLineList`` and the ``targetPfsConfig`` are not used.
-            If ``config.doWarp``, this must have been measured with warping.
+            provided, ``useLineList`` is not used. If ``config.doWarp``, this
+            must have been measured with warping; with
+            ``config.doRecenterOtherArmKernel``, its shift is removed.
         referenceVisitDetectorMap, targetVisitDetectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mappings from fiberId,wavelength to x,y for the reference and
             target exposures; required if ``config.doWarp``. The target is
@@ -661,6 +692,10 @@ class PsfMatchCalibsTask(PipelineTask):
             Peak shifts measured on the grid (see `measurePeakShifts`).
         fit : `lsst.pipe.base.Struct`
             Results of fitting the distortion (see `fitDistortion`).
+        targetLines : `pfs.drp.stella.ArcLineSet` or `None`
+            Lines and traces measured on the target with the new
+            detectorMap (see `checkTarget`), or `None` if not
+            ``config.doCheckTarget``.
         """
         warpDetectorMaps = None
         if self.config.doWarp:
@@ -676,9 +711,11 @@ class PsfMatchCalibsTask(PipelineTask):
                 reference, detectorMap, fiberProfiles, referencePfsConfig, identity.arm
             )
 
+        recenter = False
         if kernel is not None:
             self.log.info("Using the provided PSF-matching kernel instead of measuring one")
             psfMatch = None
+            recenter = self.config.doWarp and self.config.doRecenterOtherArmKernel
         else:
             refLines = None
             if useLineList:
@@ -696,7 +733,7 @@ class PsfMatchCalibsTask(PipelineTask):
         if psfMatch is not None:
             kernel = psfMatch.psfMatchingKernel
 
-        shifts = self.measurePeakShifts(kernel, psf, referenceDetectorMap, warpDetectorMaps)
+        shifts = self.measurePeakShifts(kernel, psf, referenceDetectorMap, warpDetectorMaps, recenter)
         fit = self.fitDistortion(referenceDetectorMap, shifts)
 
         metadata = referenceDetectorMap.metadata.deepCopy()
@@ -706,8 +743,21 @@ class PsfMatchCalibsTask(PipelineTask):
 
         # The fiberProfiles are relative to the input detectorMap, so the shift is relative to that
         newFiberProfiles = self.adjustFiberProfiles(
-            fiberProfiles, kernel, detectorMap, newDetectorMap, identity, target.visitInfo, warpDetectorMaps
+            fiberProfiles,
+            kernel,
+            detectorMap,
+            newDetectorMap,
+            identity,
+            target.visitInfo,
+            warpDetectorMaps,
+            recenter,
         )
+
+        targetLines = None
+        if self.config.doCheckTarget:
+            targetLines = self.checkTarget(
+                target, newDetectorMap, newFiberProfiles, targetPfsConfig, identity.arm
+            )
 
         return Struct(
             detectorMap=newDetectorMap,
@@ -717,6 +767,7 @@ class PsfMatchCalibsTask(PipelineTask):
             psfMatch=psfMatch,
             shifts=shifts,
             fit=fit,
+            targetLines=targetLines,
         )
 
     def adjustReferenceDetectorMap(
@@ -772,6 +823,7 @@ class PsfMatchCalibsTask(PipelineTask):
         psf: Psf,
         detectorMap: DetectorMap,
         warpDetectorMaps: Optional[tuple[DetectorMap, DetectorMap]] = None,
+        recenter: bool = False,
     ) -> Struct:
         """Measure the shifts in peak position on a grid
 
@@ -788,6 +840,9 @@ class PsfMatchCalibsTask(PipelineTask):
             target exposures, if the target was warped onto the reference
             when measuring the kernel. The shift of the warp is added to the
             shift of the kernel.
+        recenter : `bool`, optional
+            Remove the shift of the kernel (its centroid shift), retaining
+            only the change in the peak-to-centroid bias.
 
         Returns
         -------
@@ -847,6 +902,20 @@ class PsfMatchCalibsTask(PipelineTask):
         shifts.row = row
         shifts.xx = xx
         shifts.yy = yy
+
+        if recenter:
+            good = np.isfinite(shifts.dxCentroid) & np.isfinite(shifts.dyCentroid)
+            self.log.info(
+                "Removing the kernel centroid shifts: dx = %.3f +/- %.3f, dy = %.3f +/- %.3f",
+                np.median(shifts.dxCentroid[good]),
+                robustRms(shifts.dxCentroid[good]),
+                np.median(shifts.dyCentroid[good]),
+                robustRms(shifts.dyCentroid[good]),
+            )
+            shifts.dx = shifts.dx - shifts.dxCentroid
+            shifts.dy = shifts.dy - shifts.dyCentroid
+            shifts.dxCentroid = np.zeros_like(xx)
+            shifts.dyCentroid = np.zeros_like(xx)
 
         shifts.dxWarp = np.zeros_like(xx)
         shifts.dyWarp = np.zeros_like(xx)
@@ -991,7 +1060,10 @@ class PsfMatchCalibsTask(PipelineTask):
         """Check that the new detectorMap reproduces the peak shifts
 
         We compare the change in position of points of fixed fiberId and
-        wavelength with the measured peak shifts, and log the result.
+        wavelength with the measured peak shifts, and log the result. This
+        checks the fit of the distortion and its application to the
+        detectorMap, not the shifts themselves (see `checkTarget` for a
+        comparison with the data).
 
         Parameters
         ----------
@@ -1033,6 +1105,7 @@ class PsfMatchCalibsTask(PipelineTask):
         identity: CalibIdentity,
         visitInfo: VisitInfo,
         warpDetectorMaps: Optional[tuple[DetectorMap, DetectorMap]] = None,
+        recenter: bool = False,
     ) -> FiberProfileSet:
         """Convolve the fiber profiles with the kernel, and shift them
 
@@ -1056,6 +1129,9 @@ class PsfMatchCalibsTask(PipelineTask):
             when measuring the kernel. The kernel doesn't include the shift of
             the warp, so the shift of the trace between these is removed from
             the shift of the trace when shifting the convolved profiles.
+        recenter : `bool`, optional
+            Remove the shift of the kernel when convolving (because it was
+            removed from the peak shifts).
 
         Returns
         -------
@@ -1086,8 +1162,94 @@ class PsfMatchCalibsTask(PipelineTask):
                     - referenceVisitDetectorMap.getXCenter(fiberId, rows)
                 )
             result[fiberId] = convolveFiberProfile(
-                profile, kernel, xOld, xNew, self.config.profileInterpOrder
+                profile, kernel, xOld, xNew, self.config.profileInterpOrder, recenter
             )
         if missing:
             self.log.warning("Fibers not in detectorMap; profiles not adjusted: %s", missing)
         return result
+
+    def checkTarget(
+        self,
+        target: Exposure,
+        detectorMap: DetectorMap,
+        fiberProfiles: FiberProfileSet,
+        pfsConfig: Optional[PfsConfig],
+        arm: str,
+    ) -> ArcLineSet:
+        """Compare lines and traces measured on the target with the new
+        detectorMap
+
+        This is an independent check of the outputs against the data, as when
+        fitting a detectorMap. We log the median and robust rms of the
+        residuals (measured minus model) of the lines (in x and y) and traces
+        (in x).
+
+        Parameters
+        ----------
+        target : `lsst.afw.image.Exposure`
+            Target exposure.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y for the target.
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of fibers for the target.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration for the target, for selecting fibers.
+        arm : `str`
+            Spectrograph arm in use (``b``, ``r``, ``n``, ``m``).
+
+        Returns
+        -------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Lines and traces measured on the target.
+        """
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+        refLines = self.readLineList.run(detectorMap, target.getMetadata(), arm=arm)
+        seed = target.visitInfo.id if target.visitInfo is not None else 0
+        lines = ArcLineSet.empty()
+        if len(refLines) > 0:
+            lines = self.centroidLines.run(target, refLines, detectorMap, pfsConfig, fiberTraces, seed=seed)
+        lines.extend(self.centroidTraces.run(target, detectorMap, pfsConfig))
+
+        isTrace = lines.description == "Trace"
+        numLinesMeasured = int((~isTrace).sum())
+        good = ~lines.flag & (lines.status == ReferenceLineStatus.GOOD)
+        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
+        isLine = good & ~isTrace
+        isTrace &= good
+
+        model = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine].astype(float))
+        xLine = lines.x[isLine] - model[:, 0]
+        yLine = lines.y[isLine] - model[:, 1]
+        xTrace = lines.x[isTrace] - detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+
+        def stats(values: np.ndarray) -> tuple[int, float, float]:
+            values = values[np.isfinite(values)]
+            if len(values) == 0:
+                return 0, np.nan, np.nan
+            return len(values), float(np.median(values)), float(robustRms(values))
+
+        numLines, xLineMedian, xLineRms = stats(xLine)
+        _, yLineMedian, yLineRms = stats(yLine)
+        numTrace, xTraceMedian, xTraceRms = stats(xTrace)
+        self.log.info(
+            "Target measurements about new detectorMap: %d/%d lines: x = %.4f +/- %.4f, y = %.4f +/- %.4f; "
+            "%d traces: x = %.4f +/- %.4f",
+            numLines,
+            numLinesMeasured,
+            xLineMedian,
+            xLineRms,
+            yLineMedian,
+            yLineRms,
+            numTrace,
+            xTraceMedian,
+            xTraceRms,
+        )
+        self.metadata["targetNumLines"] = numLines
+        self.metadata["targetLineXMedian"] = xLineMedian
+        self.metadata["targetLineXRms"] = xLineRms
+        self.metadata["targetLineYMedian"] = yLineMedian
+        self.metadata["targetLineYRms"] = yLineRms
+        self.metadata["targetNumTrace"] = numTrace
+        self.metadata["targetTraceXMedian"] = xTraceMedian
+        self.metadata["targetTraceXRms"] = xTraceRms
+        return lines

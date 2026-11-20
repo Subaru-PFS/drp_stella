@@ -15,7 +15,12 @@ description: |
   The blue arm has too few lines in sky exposures to measure a good kernel. To
   use the kernel measured for the red arm instead, first run for the red arm,
   and then run for the blue arm with "-c psfMatchCalibs:kernelArm=r", including
-  the red-arm output collection in the inputs.
+  the red-arm output collection in the inputs. With doWarp, the shift of the
+  red kernel is removed (doRecenterOtherArmKernel), since it may compensate for
+  errors in the red-arm detectorMaps.
+
+  By default (doCheckTarget), lines and traces are measured on the target and
+  compared with the new detectorMap; look for "Target measurements" in the log.
 instrument: lsst.obs.pfs.PrimeFocusSpectrograph
 parameters:
   referenceVisit: None

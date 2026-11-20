@@ -17,7 +17,12 @@ from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.pipelines.lookups import lookupDatasetsForArm
 from pfs.drp.stella.psfMatchCalibs import PsfMatchCalibsConnections, PsfMatchCalibsTask
 from pfs.drp.stella.psfMatchCalibs import addOpticsDistortion, convolveFiberProfile
-from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
+from pfs.drp.stella.synthetic import (
+    SyntheticConfig,
+    makeSyntheticArc,
+    makeSyntheticDetectorMap,
+    makeSyntheticFlat,
+)
 from pfs.drp.stella.tests.utils import methodParameters, runTests
 
 display = None
@@ -235,6 +240,21 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
             convolved.profiles.data[:, interior], profile.profiles.data[:, interior], atol=1.0e-12
         )
 
+    def testProfileRecenter(self):
+        """Test that recentring removes the shift of the kernel
+
+        With ``recenter``, the delta-function kernel's shift (-1 pixel) is
+        removed, so the profile is unchanged when the trace doesn't move.
+        """
+        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
+        kernel = makeDeltaKernel(5, 1, 0)
+        xOld = np.full(len(profile.rows), 100.0)
+        convolved = convolveFiberProfile(profile, kernel, xOld, xOld, recenter=True)
+        interior = np.abs(profile.index) < profile.radius
+        self.assertFloatsAlmostEqual(
+            convolved.profiles.data[:, interior], profile.profiles.data[:, interior], atol=1.0e-12
+        )
+
     def testProfileGaussianKernel(self):
         """Test convolving a Gaussian profile with a Gaussian kernel"""
         sigma = 1.5
@@ -382,6 +402,7 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         """
         self.task.config.doAdjustReference = False
         self.task.config.doWarp = False
+        self.task.config.doCheckTarget = False
         profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
         profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
         exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
@@ -430,6 +451,8 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         trace) are unaffected by the warp.
         """
         self.task.config.doAdjustReference = False
+        self.task.config.doRecenterOtherArmKernel = False
+        self.task.config.doCheckTarget = False
         profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
         profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
         exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
@@ -474,6 +497,124 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(
                 result.fiberProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
             )
+
+    def testRunWithKernelWarpRecenter(self):
+        """Test run with a provided kernel, warping and recentring
+
+        The shift of the provided kernel is removed, so the new detectorMap
+        matches the target detectorMap, and the fiberProfiles are unchanged.
+        """
+        self.task.config.doAdjustReference = False
+        self.task.config.doCheckTarget = False
+        self.assertTrue(self.task.config.doRecenterOtherArmKernel)  # The default
+        profile = FiberProfile.makeGaussian(1.5, self.synthConfig.height, 5, 10)
+        profiles = FiberProfileSet({ff: profile.copy() for ff in self.detectorMap.fiberId}, self.identity)
+        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(self.synthConfig.dims)))
+        kernel = makeDeltaKernel(5, 1, 2)  # Shift that should be removed
+        targetDetectorMap = self.makeShiftedDetectorMap([2.5, 0.3, 0.0], [-5.0, 0.0, 0.5])
+        self.task.psfMatch.run = unittest.mock.Mock(side_effect=AssertionError("Shouldn't measure kernel"))
+        result = self.task.run(
+            exposure,
+            exposure,
+            self.psf,
+            self.detectorMap,
+            profiles,
+            self.identity,
+            kernel=kernel,
+            referenceVisitDetectorMap=self.detectorMap,
+            targetVisitDetectorMap=targetDetectorMap,
+        )
+        shifts = result.shifts
+        self.assertFloatsAlmostEqual(shifts.dx, shifts.dxWarp, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(shifts.dy, shifts.dyWarp, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(shifts.dxCentroid, shifts.dxWarp, atol=1.0e-12)
+        self.assertFloatsAlmostEqual(shifts.dyCentroid, shifts.dyWarp, atol=1.0e-12)
+
+        wavelength = self.detectorMap.findWavelength(shifts.fiberId, shifts.row).astype(float)
+        newPoints = result.detectorMap.findPoint(shifts.fiberId, wavelength)
+        targetPoints = targetDetectorMap.findPoint(shifts.fiberId, wavelength)
+        self.assertFloatsAlmostEqual(newPoints, targetPoints, atol=2.0e-3)
+
+        for ff in profiles:
+            self.assertFloatsAlmostEqual(
+                result.fiberProfiles[ff].profiles.data, profiles[ff].profiles.data, atol=2.0e-3
+            )
+
+    def makeTarget(self):
+        """Make a synthetic arc and flat as the target, with its detectorMap
+
+        Returns
+        -------
+        exposure : `lsst.afw.image.Exposure`
+            Target exposure.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y for the target.
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of fibers.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            Lines in the arc.
+        """
+        synthConfig = SyntheticConfig()
+        detectorMap = makeSyntheticDetectorMap(synthConfig)
+        flux = 1.0e5
+        arc = makeSyntheticArc(synthConfig, numLines=20, fwhm=synthConfig.fwhm, flux=flux, addNoise=False)
+        image = arc.image
+        image += makeSyntheticFlat(synthConfig, flux=3.0e4, addNoise=False)
+        exposure = afwImage.makeExposure(afwImage.makeMaskedImage(image))
+        exposure.mask.set(0)
+        exposure.variance.set(synthConfig.readnoise**2)
+        fiberId = detectorMap.fiberId[detectorMap.getNumFibers() // 2]
+        referenceLines = ReferenceLineSet.fromRows(
+            [
+                ReferenceLine(
+                    description="Simulated",
+                    wavelength=detectorMap.getWavelength(fiberId, yy),
+                    intensity=flux,
+                    status=ReferenceLineStatus.GOOD,
+                    transition="UNKNOWN",
+                    source=ReferenceLineSource.NONE,
+                )
+                for yy in arc.lines
+            ]
+        )
+        sigma = synthConfig.fwhm / (2 * np.sqrt(2 * np.log(2)))
+        profile = FiberProfile.makeGaussian(sigma, synthConfig.height, 5, 10)
+        profiles = FiberProfileSet({ff: profile.copy() for ff in detectorMap.fiberId}, self.identity)
+        return exposure, detectorMap, profiles, referenceLines
+
+    def testCheckTarget(self):
+        """Test that checkTarget measures the residuals from the detectorMap"""
+        exposure, detectorMap, profiles, referenceLines = self.makeTarget()
+        config = PsfMatchCalibsTask.ConfigClass()
+        config.referenceVisit = 1
+        config.centroidLines.doSubtractContinuum = False
+        config.centroidLines.fwhm = SyntheticConfig().fwhm
+        task = PsfMatchCalibsTask(config=config)
+        task.readLineList.run = unittest.mock.Mock(return_value=referenceLines)
+
+        lines = task.checkTarget(exposure, detectorMap, profiles, None, "r")
+        self.assertGreater(len(lines), 0)
+        metadata = task.metadata
+        self.assertGreater(metadata["targetNumLines"], 0)
+        self.assertGreater(metadata["targetNumTrace"], 0)
+        self.assertFloatsAlmostEqual(metadata["targetLineXMedian"], 0.0, atol=0.02)
+        self.assertFloatsAlmostEqual(metadata["targetLineYMedian"], 0.0, atol=0.02)
+        self.assertFloatsAlmostEqual(metadata["targetTraceXMedian"], 0.0, atol=0.02)
+
+        # A detectorMap that is wrong by a shift is detected
+        dx, dy = 0.5, -1.0
+        bbox = Box2D(detectorMap.bbox)
+        numCoeff = PolynomialDistortion.getNumDistortionForOrder(1)
+        xCoeff = np.zeros(numCoeff, dtype=float)
+        yCoeff = np.zeros(numCoeff, dtype=float)
+        xCoeff[0] = dx
+        yCoeff[0] = dy
+        shifted = addOpticsDistortion(detectorMap, PolynomialDistortion(1, bbox, xCoeff, yCoeff))
+        task.checkTarget(exposure, shifted, profiles, None, "r")
+        metadata = task.metadata
+        self.assertFloatsAlmostEqual(metadata["targetLineXMedian"], -dx, atol=0.05)
+        self.assertFloatsAlmostEqual(metadata["targetLineYMedian"], -dy, atol=0.05)
+        self.assertFloatsAlmostEqual(metadata["targetTraceXMedian"], -dx, atol=0.05)
 
     def testWarpConnections(self):
         """The detectorMaps for each visit are required only with doWarp"""
