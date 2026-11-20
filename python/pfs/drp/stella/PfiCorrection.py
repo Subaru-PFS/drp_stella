@@ -233,6 +233,17 @@ class PfiCorrectionConfig(Config):
         optional=True,
         doc="Filename for fiber throughput model parameters",
     )
+    doEdge = Field(
+        dtype=bool,
+        default=False,
+        doc="Apply the edge vignetting term?  Superseded by the theta/phi throughput calibrations",
+    )
+    doBlob = Field(dtype=bool, default=True, doc="Apply the blob vignetting term?")
+    doFibers = Field(
+        dtype=bool,
+        default=False,
+        doc="Apply the per-fiber throughput term?  Superseded by the theta/phi throughput calibrations",
+    )
 
 
 class PfiCorrectionTask(Task):
@@ -290,9 +301,12 @@ class PfiCorrectionTask(Task):
         fibers : `numpy.ndarray`
             Fiber throughput correction factors for each fiber.
         """
-        edge = self.edge(x, y)
-        blob = self.blob(x, y)
-        fibers = np.array([self.fibers.evaluateSingle(*args) for args in zip(fiberId, x, y)])
+        edge = self.edge(x, y) if self.config.doEdge else np.zeros(len(fiberId))
+        blob = self.blob(x, y) if self.config.doBlob else np.zeros(len(fiberId))
+        if self.config.doFibers:
+            fibers = np.array([self.fibers.evaluateSingle(*args) for args in zip(fiberId, x, y)])
+        else:
+            fibers = np.zeros(len(fiberId))
         correction = edge + blob + fibers
         return Struct(
             correction=correction,
@@ -301,8 +315,18 @@ class PfiCorrectionTask(Task):
             fibers=fibers,
         )
 
-    def run(self, pfsArm: PfsArm, pfsConfig: PfsConfig, skyNorms: ConstantPerFiber | None = None) -> Struct:
+    def run(
+        self,
+        pfsArm: PfsArm,
+        pfsConfig: PfsConfig,
+        skyNorms: ConstantPerFiber | None = None,
+        thetaPhiFactor: np.ndarray | None = None,
+    ) -> Struct:
         """Calculate and apply the PFI corrections
+
+        The terms of this task (and any sky norms) are added;  the norm is multiplied by one plus their sum,
+        times ``thetaPhiFactor`` (from `ThetaPhiCorrectionTask`) if provided.  The total factor applied, minus
+        one, is recorded in ``pfsArm.notes.pfiCorrection``.
 
         Parameters
         ----------
@@ -312,6 +336,9 @@ class PfiCorrectionTask(Task):
             Configuration of fibers on the focal plane.
         skyNorms : `ConstantPerFiber`, optional
             Sky normalization corrections to apply (if any).
+        thetaPhiFactor : `numpy.ndarray` of `float`, optional
+            Factor for each fiber of ``pfsArm`` correcting its throughput for its cobra's position (from
+            `ThetaPhiCorrectionTask`);  NaN where it can't be calculated.
 
         Returns
         -------
@@ -342,6 +369,9 @@ class PfiCorrectionTask(Task):
                 "Applying sky norms: %.3f +/- %.3f", np.nanmean(result.skyNorms), np.nanstd(result.skyNorms)
             )
             result.correction += result.skyNorms
+
+        if thetaPhiFactor is not None:
+            result.correction = (1.0 + result.correction)*thetaPhiFactor - 1.0
 
         good = np.isfinite(result.correction)
         pfsArm.norm[good] *= (1.0 + result.correction[good])[:, None]
