@@ -275,7 +275,8 @@ def recordFitStatistics(metadata, prefix: str, stats: Struct) -> None:
 
     Writes one key per entry of `FIT_STATISTICS`, named ``<prefix><suffix>``
     (e.g., ``fitChi2``). Values are always written, NaN when undefined, so the
-    set of keys is the same for every fit.
+    set of keys is the same for every fit that completes. ``NumLines`` counts
+    the selected lines with a finite x residual, trace points included.
 
     Parameters
     ----------
@@ -1081,7 +1082,12 @@ class FitDetectorMapTask(Task):
         The statistics of the final fit and of the reserved lines are recorded
         in the task metadata as ``fit*`` and ``reserved*``
         (`recordFitStatistics`), with ``fitNumAvailable``, the number of good
-        lines that were not reserved.
+        lines that were not reserved. The RMS that the reserved-lines log
+        message reports is ``reservedXRobustRms``, ``reservedYRobustRms``;
+        ``reservedDof`` subtracts the parameters of a model that was not fit to
+        those lines. A later failure (e.g., in a following trace iteration)
+        leaves these in place: the ``final*`` keys of `measureQuality` mark a
+        fit that completed.
 
         Parameters
         ----------

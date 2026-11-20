@@ -49,6 +49,11 @@ def assertFitMetadata(testCase, task, results, lines):
             testCase.assertIn(prefix + suffix, metadata)
     testCase.assertGreaterEqual(metadata["fitNumAvailable"], metadata["fitNumLines"])
     testCase.assertGreater(metadata["reservedNumLines"], 0)
+    # fit* and reserved* describe the lines the task flagged as used and reserved
+    used = (lines.status & ReferenceLineStatus.DETECTORMAP_USED) != 0
+    reserved = (lines.status & ReferenceLineStatus.DETECTORMAP_RESERVED) != 0
+    testCase.assertEqual(metadata["fitNumLines"], used.sum())
+    testCase.assertEqual(metadata["reservedNumLines"], reserved.sum())
 
     # The final statistics are those returned
     testCase.assertEqual(metadata["finalChi2"], results.chi2)

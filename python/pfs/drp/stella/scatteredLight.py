@@ -466,7 +466,8 @@ class ScatteredLightTask(Task):
 
         The model's scale factors (``top``, ``bottom``) and the mean and maximum
         of the subtracted model image (``modelMean``, ``modelMax``; zero when
-        nothing is subtracted) are recorded in the task metadata.
+        nothing is subtracted) are recorded in the task metadata; a task that
+        is run several times keeps those of the last run.
 
         Parameters
         ----------
