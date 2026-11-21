@@ -59,6 +59,8 @@ from .fitDetectorMap import FittingError
 from .scatteredLight import ScatteredLightTask
 from .PfiCorrection import PfiCorrectionTask
 from .focalPlaneFunction import ConstantPerFiber
+from .rowBinning import RowBinning, binDetectorMap, binFiberNorms, binFiberTraces, scaleSpectraNorm
+from .rowBinning import unbinLines
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -209,6 +211,16 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
     doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
+    doRowBinning = Field(dtype=bool, default=True,
+                         doc="Handle data binned in the parallel direction (W_CDRBIN > 1) by collapsing the "
+                             "image to one row per binned row, and binning the detectorMap, fiberTraces and "
+                             "fiberNorms to match?")
+    rowBinningAdjustWavelength = Field(
+        dtype=bool, default=False,
+        doc="For data binned in the parallel direction, use the line positions to adjust the wavelength "
+            "solution? The lines are undersampled in binned data, so their positions in the spectral "
+            "direction are poorly measured; if False, only the traces are used to adjust the detectorMap "
+            "and the wavelengths are taken from the unadjusted detectorMap.")
 
 
 class ReduceExposureTask(PipelineTask):
@@ -376,8 +388,21 @@ class ReduceExposureTask(PipelineTask):
                 raise RuntimeError("crMask required but not provided")
             exposure.mask |= crMask
 
+        # Data binned in the parallel direction: the post-ISR image is full-sized, with each binned row
+        # repeated; collapse it to one row per binned row, and bin the calibrations to match.
+        binning = RowBinning.fromMetadata(exposure.getMetadata(), exposure.getHeight())
+        if self.config.doRowBinning and binning:
+            self.log.info("Data is binned by %d in the parallel direction: extracting %d rows",
+                          binning.factor, binning.numBinned)
+            exposure = binning.binExposure(exposure)
+            if fiberNorms is not None:
+                fiberNorms = binFiberNorms(fiberNorms, binning)
+        else:
+            binning = None
+        windowed = isWindowed(exposure.getMetadata(), binning.height if binning else exposure.getHeight())
+
         measurements = self.measure(
-            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm
+            exposure, pfsConfig, fiberProfiles, detectorMap, fiberNorms, boxcarWidth, arm, binning
         )
 
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
@@ -390,8 +415,12 @@ class ReduceExposureTask(PipelineTask):
             fiberId,
             True if boxcarWidth > 0 else False,
         ).spectra
+        if binning:
+            scaleSpectraNorm(spectra, binning)
 
-        if self.config.doScatteredLight and not isWindowed(exposure.getMetadata(), exposure.getHeight()):
+        if self.config.doScatteredLight and binning:
+            self.log.info("Not correcting scattered light in data binned in the parallel direction")
+        elif self.config.doScatteredLight and not windowed:
             pfsArm = spectra.toPfsArm(identity)
             self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
             # Extract spectra again after scattered light correction
@@ -518,8 +547,68 @@ class ReduceExposureTask(PipelineTask):
         fiberNorms: PfsFiberNorms | None,
         boxcarWidth: int,
         arm: str,
+        binning: RowBinning | None = None,
     ) -> Struct:
-        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
+        """Measure lines and traces, and adjust the detectorMap
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure to measure; binned if ``binning`` is set.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            PFS fiber configuration.
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of fibers (unbinned).
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y (unbinned).
+        fiberNorms : `pfs.datamodel.PfsFiberNorms`, optional
+            Normalization of fibers (binned if ``binning`` is set).
+        boxcarWidth : `int`
+            Width of boxcar extraction; use fiberProfiles if <= 0.
+        arm : `str`
+            Spectrograph arm.
+        binning : `RowBinning`, optional
+            Binning of the exposure in the parallel direction. If set (and
+            the binning factor is > 1), the fiberTraces and detectorMap
+            are binned to match the exposure; the detectorMap adjustment is
+            done on the unbinned detectorMap.
+
+        Returns
+        -------
+        refLines : `pfs.drp.stella.ReferenceLineSet`
+            Reference lines.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Measured lines (in the coordinates of ``exposure``).
+        apCorr : `pfs.drp.stella.FocalPlaneFunction` or `None`
+            Measured aperture correction.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Adjusted detectorMap, appropriate for ``exposure``.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces, appropriate for ``exposure``.
+        unbinnedDetectorMap : `pfs.drp.stella.DetectorMap`
+            Adjusted unbinned detectorMap.
+        """
+        if binning is not None and not binning:
+            binning = None
+
+        def makeTraces(detMap: DetectorMap) -> Struct:
+            """Make fiberTraces and detectorMap appropriate for the exposure"""
+            traces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap, boxcarWidth)
+            if binning is None:
+                return Struct(fiberTraces=traces, detectorMap=detMap)
+            # Unless configured otherwise, the wavelengths come from the unadjusted detectorMap
+            wlDetMap = None if self.config.rowBinningAdjustWavelength else calibDetectorMap
+            return Struct(
+                fiberTraces=binFiberTraces(traces, binning),
+                detectorMap=binDetectorMap(detMap, binning, wlDetMap),
+            )
+
+        unbinnedDetectorMap = detectorMap
+        calibDetectorMap = detectorMap
+        made = makeTraces(unbinnedDetectorMap)
+        fiberTraces = made.fiberTraces
+        detectorMap = made.detectorMap
+
         refLines = self.readLineList.run(detectorMap, exposure.getMetadata(), arm=arm)
         seed = exposure.visitInfo.id if exposure.visitInfo is not None else 0
         lines = ArcLineSet.empty()
@@ -531,16 +620,29 @@ class ReduceExposureTask(PipelineTask):
             traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
             lines.extend(traces)
 
-        windowed = isWindowed(exposure.getMetadata(), exposure.getHeight())
+        height = binning.height if binning is not None else exposure.getHeight()
+        windowed = isWindowed(exposure.getMetadata(), height)
 
         # Whether the adjusted detectorMap is used: adjustDetectorMap's fit statistics in the task
         # metadata are for the detectorMap used only when this is "applied".
         self.metadata["detectorMapAdjustment"] = "skipped"
         if self.config.doAdjustDetectorMap and not windowed:
+            # For binned data, we adjust the unbinned detectorMap using the
+            # measurements converted to unbinned coordinates. The positions of
+            # lines in the spectral direction are poorly measured in binned
+            # data (the lines are undersampled), so by default we use only the
+            # traces, and take the wavelengths from the unadjusted
+            # detectorMap.
+            adjustLines = lines
+            if binning is not None:
+                select = np.ones(len(lines), dtype=bool)
+                if not self.config.rowBinningAdjustWavelength:
+                    select = lines.description == "Trace"
+                adjustLines = unbinLines(lines[select], binning)
             try:
-                detectorMap = self.adjustDetectorMap.run(
-                    detectorMap,
-                    lines,
+                unbinnedDetectorMap = self.adjustDetectorMap.run(
+                    unbinnedDetectorMap,
+                    adjustLines,
                     arm,
                     exposure.visitInfo,
                     exposure.metadata,
@@ -552,14 +654,21 @@ class ReduceExposureTask(PipelineTask):
                 if self.config.requireAdjustDetectorMap:
                     raise
                 self.log.warn("DetectorMap adjustment failed: %s", exc)
+            if binning is not None:
+                lines.status[select] = adjustLines.status  # adjustDetectorMap updates the status
 
             if fiberProfiles is not None:
                 # make fiberTraces with new detectorMap
-                fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap, boxcarWidth)
+                made = makeTraces(unbinnedDetectorMap)
+                fiberTraces = made.fiberTraces
+                detectorMap = made.detectorMap
 
         # Update photometry using best detectorMap
         notTrace = lines.description != "Trace"
         if not self.config.doPhotometerLines or windowed:
+            apCorr = None
+        elif binning is not None:
+            self.log.info("Not photometering lines in data binned in the parallel direction")
             apCorr = None
         else:
             phot = self.photometerLines.run(
@@ -579,6 +688,7 @@ class ReduceExposureTask(PipelineTask):
             apCorr=apCorr,
             detectorMap=detectorMap,
             fiberTraces=fiberTraces,
+            unbinnedDetectorMap=unbinnedDetectorMap,
         )
 
     def defaultLsf(self, arm, fiberId, detectorMap):
