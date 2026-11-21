@@ -16,6 +16,7 @@ from .SpectrumSetContinued import SpectrumSet
 if TYPE_CHECKING:
     from .datamodel import PfsArm
     from .DetectorMapContinued import DetectorMap
+    from .rowBinning import RowBinning
 
 
 __all__ = ("ScatteredLightTask", "ScatteredLightConfig", "ScatteredLightModel")
@@ -459,7 +460,13 @@ class ScatteredLightTask(Task):
     ConfigClass = ScatteredLightConfig
     _DefaultName = "scatteredLight"
 
-    def run(self, image: MaskedImage, pfsArm: "PfsArm", detectorMap: "DetectorMap") -> Struct:
+    def run(
+        self,
+        image: MaskedImage,
+        pfsArm: "PfsArm",
+        detectorMap: "DetectorMap",
+        binning: "RowBinning | None" = None,
+    ) -> Struct:
         """Subtract the scattered light in an image
 
         No subtraction is performed if the scattered light scale factor is zero.
@@ -476,13 +483,22 @@ class ScatteredLightTask(Task):
         pfsArm : `PfsArm`
             Spectra from which to estimate the scattered light.
         detectorMap : `DetectorMap`
-            Mapping of fiberId,wavelength to x,y.
+            Mapping of fiberId,wavelength to x,y. If ``binning`` is provided,
+            this is the unbinned detectorMap.
+        binning : `pfs.drp.stella.rowBinning.RowBinning`, optional
+            Binning of the ``image`` and ``pfsArm`` in the parallel direction.
+            If provided, the model is calculated on the unbinned pixel grid
+            (with the flux of each binned pixel spread equally over its
+            unbinned rows), and summed over the binned rows before being
+            subtracted.
 
         Returns
         -------
         model : `Image`
-            Scattered light model image.
+            Scattered light model image (binned, if ``binning`` is provided).
         """
+        if binning is not None and not binning:
+            binning = None
         model = self.config.getModel(pfsArm.identity.arm, pfsArm.identity.spectrograph)
         self.metadata["top"] = float(model.top)
         self.metadata["bottom"] = float(model.bottom)
@@ -492,7 +508,13 @@ class ScatteredLightTask(Task):
             self.metadata["modelMax"] = 0.0
             return Struct(model=None)
         self.log.info("Subtracting scattered light model: %s", model)
-        modelImage = model.calculateImage(pfsArm, detectorMap)
+        if binning is None:
+            modelImage = model.calculateImage(pfsArm, detectorMap)
+        else:
+            from .rowBinning import unbinPfsArm  # import here to avoid circular import
+            unbinned = model.calculateImage(unbinPfsArm(pfsArm, binning, detectorMap), detectorMap)
+            modelImage = ImageF(image.getBBox())
+            modelImage.array[:] = binning.sum(unbinned.array)
         image -= modelImage
         self.metadata["modelMean"] = float(np.nanmean(modelImage.array))
         self.metadata["modelMax"] = float(np.nanmax(modelImage.array))

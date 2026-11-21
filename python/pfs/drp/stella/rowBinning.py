@@ -34,6 +34,7 @@ from .FiberTraceSet import FiberTraceSet
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 
 if TYPE_CHECKING:
+    from pfs.datamodel import PfsArm
     from pfs.datamodel.pfsFiberNorms import PfsFiberNorms
     from .arcLine import ArcLineSet
     from .DetectorMapContinued import DetectorMap
@@ -46,6 +47,7 @@ __all__ = (
     "binFiberTraces",
     "binFiberNorms",
     "unbinLines",
+    "unbinPfsArm",
     "scaleSpectraNorm",
 )
 
@@ -240,6 +242,49 @@ def binFiberNorms(fiberNorms: "PfsFiberNorms", binning: RowBinning) -> "PfsFiber
         fiberProfilesHash=fiberNorms.fiberProfilesHash,
         model=fiberNorms.model,
         metadata=dict(fiberNorms.metadata, **{"PFS.BINNING.ROWS": binning.factor}),
+    )
+
+
+def unbinPfsArm(pfsArm: "PfsArm", binning: RowBinning, detectorMap: "DetectorMap") -> "PfsArm":
+    """Spread spectra extracted from binned data over the unbinned rows
+
+    The flux (and norm) of each binned pixel is divided equally among the
+    unbinned rows it contains, so that the result is the flux per unbinned row
+    (as for unbinned data); this is appropriate for models (e.g., of the
+    scattered light) that are calculated on the unbinned pixel grid.
+
+    Parameters
+    ----------
+    pfsArm : `pfs.datamodel.PfsArm`
+        Spectra extracted from binned data.
+    binning : `RowBinning`
+        Row binning.
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        Unbinned detectorMap, from which we take the wavelengths.
+
+    Returns
+    -------
+    unbinned : `pfs.datamodel.PfsArm`
+        Spectra on the unbinned pixel grid.
+    """
+    if pfsArm.length != binning.numBinned:
+        raise RuntimeError(f"pfsArm length ({pfsArm.length}) doesn't match binning ({binning})")
+    counts = binning.counts.astype(float)
+    numSpectra = len(pfsArm.fiberId)
+    covar = np.zeros((numSpectra, 3, binning.height), dtype=float)
+    covar[:, 0, :] = binning.expand(pfsArm.variance/counts, axis=1)  # variance per unbinned row
+    wavelength = np.array([detectorMap.getWavelength(ff) for ff in pfsArm.fiberId])
+    return type(pfsArm)(
+        identity=pfsArm.identity,
+        fiberId=pfsArm.fiberId,
+        wavelength=wavelength,
+        flux=binning.expand(pfsArm.flux/counts, axis=1),
+        mask=binning.expand(pfsArm.mask, axis=1),
+        sky=binning.expand(pfsArm.sky/counts, axis=1),
+        norm=binning.expand(pfsArm.norm/counts, axis=1),
+        covar=covar,
+        flags=pfsArm.flags,
+        metadata=dict(pfsArm.metadata),
     )
 
 

@@ -74,6 +74,56 @@ class ScatteredLightTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(metadata["modelMax"], 0.0)
         self.assertFloatsEqual(self.image.image.array, 0.0)
 
+    def testBinned(self):
+        """Scattered light for data binned in the parallel direction
+
+        The model subtracted from the binned image should be the unbinned
+        model summed over the binned rows, provided the flux is constant
+        within each binned row.
+        """
+        from pfs.drp.stella.rowBinning import RowBinning
+        height = self.synthConfig.height
+        binning = RowBinning(20, height)
+        self.assertNotEqual(binning.counts[-1], binning.factor)  # partial final group
+        rng = np.random.RandomState(12345)
+        perRow = rng.uniform(500, 1500, size=(len(self.pfsArm), binning.numBinned))  # flux per unbinned row
+
+        unbinned = self.pfsArm
+        unbinned.flux[:] = binning.expand(perRow, axis=1)
+        unbinned.covar[:, 0, :] = unbinned.flux
+
+        numSpectra = len(unbinned)
+        covar = np.zeros((numSpectra, 3, binning.numBinned))
+        covar[:, 0, :] = binning.sum(unbinned.covar[:, 0, :], axis=1)
+        binned = type(unbinned)(
+            identity=unbinned.identity,
+            fiberId=unbinned.fiberId,
+            wavelength=binning.mean(unbinned.wavelength, axis=1),
+            flux=binning.sum(unbinned.flux, axis=1),
+            mask=binning.bitwiseOr(unbinned.mask, axis=1),
+            sky=binning.sum(unbinned.sky, axis=1),
+            norm=binning.sum(unbinned.norm, axis=1),
+            covar=covar,
+            flags=unbinned.flags,
+            metadata=dict(unbinned.metadata),
+        )
+
+        task = self.makeTask()
+        expect = task.run(self.image, unbinned, self.detectorMap).model
+
+        binnedImage = lsst.afw.image.MaskedImageF(self.synthConfig.width, binning.numBinned)
+        binnedImage.image.array[:] = 0.0
+        model = task.run(binnedImage, binned, self.detectorMap, binning=binning).model
+        self.assertEqual(model.getDimensions(), binnedImage.getDimensions())
+        self.assertFloatsAlmostEqual(model.array, binning.sum(expect.array), rtol=1.0e-5, atol=1.0e-3)
+        self.assertFloatsAlmostEqual(binnedImage.image.array, -model.array, rtol=1.0e-6)
+
+        # A binning factor of 1 is the same as no binning
+        image = lsst.afw.image.MaskedImageF(self.synthConfig.width, height)
+        image.image.array[:] = 0.0
+        same = task.run(image, unbinned, self.detectorMap, binning=RowBinning(1, height)).model
+        self.assertFloatsEqual(same.array, expect.array)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

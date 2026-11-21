@@ -418,11 +418,15 @@ class ReduceExposureTask(PipelineTask):
         if binning:
             scaleSpectraNorm(spectra, binning)
 
-        if self.config.doScatteredLight and binning:
-            self.log.info("Not correcting scattered light in data binned in the parallel direction")
-        elif self.config.doScatteredLight and not windowed:
+        if self.config.doScatteredLight and not windowed:
             pfsArm = spectra.toPfsArm(identity)
-            self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
+            if binning:
+                # The scattered light model is calculated on the unbinned pixel grid
+                self.scatteredLight.run(
+                    exposure.maskedImage, pfsArm, measurements.unbinnedDetectorMap, binning=binning
+                )
+            else:
+                self.scatteredLight.run(exposure.maskedImage, pfsArm, measurements.detectorMap)
             # Extract spectra again after scattered light correction
             spectra = self.extractSpectra.run(
                 exposure.maskedImage,
@@ -431,6 +435,8 @@ class ReduceExposureTask(PipelineTask):
                 fiberId,
                 True if boxcarWidth > 0 else False,
             ).spectra
+            if binning:
+                scaleSpectraNorm(spectra, binning)
 
         if self.config.doBlackSpotCorrection:
             self.blackSpotCorrection.run(pfsConfig, spectra)
