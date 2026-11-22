@@ -211,10 +211,6 @@ class ReduceExposureConfig(PipelineTaskConfig, pipelineConnections=ReduceExposur
     scatteredLight = ConfigurableField(target=ScatteredLightTask, doc="Scattered light correction")
     doApplyPfiCorrection = Field(dtype=bool, default=True, doc="Apply PFI correction?")
     pfiCorrection = ConfigurableField(target=PfiCorrectionTask, doc="PFI correction")
-    doRowBinning = Field(dtype=bool, default=True,
-                         doc="Handle data binned in the parallel direction (W_CDRBIN > 1) by collapsing the "
-                             "image to one row per binned row, and binning the detectorMap, fiberTraces and "
-                             "fiberNorms to match?")
     rowBinningAdjustWavelength = Field(
         dtype=bool, default=False,
         doc="For data binned in the parallel direction, use the line positions to adjust the wavelength "
@@ -391,7 +387,7 @@ class ReduceExposureTask(PipelineTask):
         # Data binned in the parallel direction: the post-ISR image is full-sized, with each binned row
         # repeated; collapse it to one row per binned row, and bin the calibrations to match.
         binning = RowBinning.fromMetadata(exposure.getMetadata(), exposure.getHeight())
-        if self.config.doRowBinning and binning:
+        if binning:
             self.log.info("Data is binned by %d in the parallel direction: extracting %d rows",
                           binning.factor, binning.numBinned)
             exposure = binning.binExposure(exposure)
