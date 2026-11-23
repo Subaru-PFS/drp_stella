@@ -520,6 +520,42 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.all(rejected[row, cosmicRay & ((original[row] & crBit) == 0)]))
         self.assertEqual(numRejected[2:], [0]*(len(passes) - 2))  # no spreading after the first full pass
 
+    def testRejectOutliersNoData(self):
+        """Test that a fiber-row ruined by our rejection is flagged NO_DATA
+
+        If our rejection leaves too little of a fiber's profile in a row, the
+        flux would be fit from the faint edges of the profile, so we flag it
+        NO_DATA. A fiber-row that is mostly masked for other reasons (e.g., by
+        the ISR) keeps the extraction's usual treatment.
+        """
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        index = 3
+        crRow = 100
+        externalRow = 150
+        fiberId = self.fiberTraces[index].fiberId
+        columns = np.arange(self.synthConfig.width)
+        image.mask.addMaskPlane("CR")
+        crBit = image.mask.getPlaneBitMask("CR")
+        xCenter = self.detMap.getXCenter(fiberId)[crRow]
+        image.image.array[crRow, np.abs(columns - xCenter) < 2.5] += 20000.0
+        xCenter = self.detMap.getXCenter(fiberId)[externalRow]
+        image.mask.array[externalRow, np.abs(columns - xCenter) < 2.5] |= crBit  # e.g., from the ISR
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image, self.fiberTraces, self.detMap).spectra
+        spectrum = [ss for ss in spectra if ss.fiberId == fiberId][0]
+        noData = spectrum.mask.getPlaneBitMask("NO_DATA")
+        mask = spectrum.mask.array[0]
+        self.assertTrue(mask[crRow] & noData)
+        self.assertTrue(mask[crRow] & spectrum.mask.getPlaneBitMask("CR"))
+        self.assertEqual(spectrum.flux[crRow], 0.0)
+        self.assertEqual(spectrum.variance[crRow], 0.0)
+        self.assertFalse(mask[externalRow] & noData)
+        self.assertTrue(mask[externalRow] & spectrum.mask.getPlaneBitMask("SUSPECT"))
+        self.assertEqual(np.count_nonzero(mask & noData), 1)  # nothing else
+
     def testRejectOutliersBoxcar(self):
         """Test that outlier rejection is not performed for boxcar extraction"""
         image = self.makeNoisyImage(1000.0, 100, 20.0)

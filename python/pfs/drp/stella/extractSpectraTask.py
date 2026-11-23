@@ -315,12 +315,78 @@ class ExtractSpectraTask(pipeBase.Task):
                     total, self.config.rejectMaskPlane, iteration + 1,
                     " (preliminary extraction)" if preliminary else "",
                 )
+                numNoData = self.flagRejectedSpectra(maskedImage, fiberTraceSet, spectra, badBitMask)
+                if numNoData > 0:
+                    self.log.info("Flagged %d spectral pixels as NO_DATA after rejecting outliers", numNoData)
 
         if detectorMap is not None:
             for spectrum in spectra:
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
 
         return spectra
+
+    def flagRejectedSpectra(
+        self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet, badBitMask: int
+    ) -> int:
+        """Flag as NO_DATA the spectral pixels that our rejection has ruined
+
+        If too little of a fiber's profile remains unmasked in a row (less
+        than ``config.minFracImage``), the extraction fits its flux from the
+        faint edges of the profile and flags it ``SUSPECT``; such fluxes can
+        be wildly wrong. Where our rejection contributed to that (there are
+        pixels we rejected as outliers within the fiber's footprint in that
+        row), we flag the spectral pixel as ``NO_DATA``, as the extraction
+        does when the whole of the trace is masked, and zero its flux and
+        variance. The masks that caused it (e.g., ``CR``) are retained.
+        Fibers that are mostly masked for other reasons are left as they are.
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which the spectra were extracted.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces used for the extraction.
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra (modified).
+        badBitMask : `int`
+            Bitmask for pixels to ignore.
+
+        Returns
+        -------
+        numFlagged : `int`
+            Number of spectral pixels flagged.
+        """
+        mask = maskedImage.mask.array
+        if self.config.rejectOutlierMaskPlane not in maskedImage.mask.getMaskPlaneDict():
+            return 0
+        outlierBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectOutlierMaskPlane)
+        x0, y0 = maskedImage.getXY0()
+        spectraByFiberId = {spectrum.fiberId: spectrum for spectrum in spectra}
+        numFlagged = 0
+        for ft in fiberTraceSet:
+            spectrum = spectraByFiberId.get(ft.fiberId)
+            if spectrum is None:
+                continue
+            box = ft.trace.getBBox()
+            rows = slice(box.getMinY() - y0, box.getMaxY() + 1 - y0)
+            columns = slice(box.getMinX() - x0, box.getMaxX() + 1 - x0)
+            norm = spectrum.norm[rows]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                inverseNorm = np.where((norm != 0) & np.isfinite(norm), 1.0/norm, 0.0)
+            inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
+            profile = np.where(inTrace, ft.trace.image.array, 0.0)*inverseNorm[:, np.newaxis]
+            traceMask = mask[rows, columns]
+            unmasked = np.sum(profile*((traceMask & badBitMask) == 0), axis=1)
+            ours = np.any((profile > 0) & ((traceMask & outlierBitMask) != 0), axis=1)
+            select = ours & (unmasked < self.config.minFracImage) & (norm != 0)
+            if not np.any(select):
+                continue
+            index = np.arange(box.getMinY() - y0, box.getMaxY() + 1 - y0)[select]
+            spectrum.flux[index] = 0.0
+            spectrum.variance[index] = 0.0
+            spectrum.mask.array[0, index] |= spectrum.mask.getPlaneBitMask("NO_DATA")
+            numFlagged += len(index)
+        return numFlagged
 
     def makeModelImage(self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet):
         """Construct the model image from the extracted spectra
