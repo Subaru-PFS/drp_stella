@@ -383,12 +383,18 @@ class ReduceExposureTask(PipelineTask):
         lsf = self.defaultLsf(arm, pfsConfig.fiberId, measurements.detectorMap)
 
         fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
+        # Outlier rejection in the extraction is for CCDs; the H4RGs reject cosmic rays up-the-ramp.
+        # We reject outliers in the first extraction, as the spectra are used to model the scattered light
+        # (outliers left in would cause it to be over-subtracted); the rejected pixels remain masked for
+        # the re-extraction.
+        rejectOutliers = False if arm == "n" else None  # None: use extractSpectra.doRejectOutliers
         spectra = self.extractSpectra.run(
             exposure.maskedImage,
             measurements.fiberTraces,
             measurements.detectorMap,
             fiberId,
             True if boxcarWidth > 0 else False,
+            rejectOutliers=rejectOutliers,
         ).spectra
 
         if self.config.doScatteredLight and not isWindowed(exposure.getMetadata(), exposure.getHeight()):
@@ -401,6 +407,7 @@ class ReduceExposureTask(PipelineTask):
                 measurements.detectorMap,
                 fiberId,
                 True if boxcarWidth > 0 else False,
+                rejectOutliers=rejectOutliers,
             ).spectra
 
         if self.config.doBlackSpotCorrection:

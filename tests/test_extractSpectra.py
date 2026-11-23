@@ -8,6 +8,7 @@ from lsst.geom import Box2I, Point2I, Extent2I
 from pfs.datamodel import CalibIdentity
 from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
+from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -228,6 +229,213 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         spectra = self.fiberTraces.extractSpectra(self.image, bad, 0.7)
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
         self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
+
+    def makeNoisyImage(self, flux, lineRow, lineFactor):
+        """Make a noisy image of the traces, with a bright 'line' in one row
+
+        The line has the shape of the fiber profiles (it's just a brighter
+        row), so the extraction should absorb it.
+        """
+        image = makeSyntheticFlat(self.synthConfig, flux=flux, addNoise=False, rng=self.rng)
+        image.array[lineRow] *= lineFactor
+        variance = image.array + self.synthConfig.readnoise**2
+        image.array += self.rng.normal(size=image.array.shape)*np.sqrt(variance)
+        maskedImage = lsst.afw.image.makeMaskedImage(image)
+        maskedImage.mask.array[:] = 0
+        maskedImage.variance.array[:] = variance
+        return maskedImage
+
+    def testRejectOutliers(self):
+        """Test rejection of outliers (cosmic rays) in the extraction"""
+        flux = 1000.0
+        lineRow = 100
+        lineFactor = 20.0
+        image = self.makeNoisyImage(flux, lineRow, lineFactor)
+        expectFlux = np.full(self.synthConfig.height, flux)
+        expectFlux[lineRow] *= lineFactor
+
+        # Cosmic rays: narrow (1-2 columns) deposits on the traces. N.b. a CR that resembles the profile
+        # (e.g., 2 columns centered on the trace) is largely absorbed into the fitted flux, and since the
+        # systematic error scales with the (raised) peak, it isn't rejected; so we use CRs that don't.
+        crList = []  # (row, columns)
+        for index, row, dx, width in ((3, 50, 0, 1), (5, 150, 2, 1), (2, 200, -3, 2)):
+            col = int(np.round(self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row])) + dx
+            columns = np.arange(col, col + width)
+            image.image.array[row, columns] += 3000.0
+            crList.append((index, row, columns))
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+
+        # Without rejection: the CRs bias the flux
+        unrejected = image.clone()
+        spectra = task.run(unrejected, self.fiberTraces, rejectOutliers=False).spectra
+        crBit = unrejected.mask.getPlaneBitMask("CR")
+        self.assertEqual(np.count_nonzero(unrejected.mask.array & crBit), 0)
+        for index, row, _ in crList:
+            self.assertGreater(spectra[index].flux[row] - flux, 300)
+
+        # With rejection
+        spectra = task.run(image, self.fiberTraces).spectra
+        crBit = image.mask.getPlaneBitMask("CR")
+        rejected = (image.mask.array & crBit) != 0
+        for index, row, columns in crList:
+            self.assertTrue(np.all(rejected[row, columns]), f"CR in row {row} not rejected")
+        # N.b. excluded pixels don't propagate their mask to the spectrum (same as for CRs from the cosmicray
+        # task); the spectrum is flagged SUSPECT only if too little of the profile remains.
+        # Nothing rejected in the line, and only the CRs (grown) rejected elsewhere
+        self.assertEqual(np.count_nonzero(rejected[lineRow]), 0)
+        crRows = {row for _, row, _ in crList}
+        self.assertEqual(set(np.where(rejected.any(axis=1))[0]), crRows)
+        # The rejection is extended to the whole trace of the struck fiber in that row (config
+        # rejectFiberFraction), but no further.
+        halfSeparation = 0.5*self.synthConfig.separation
+        columns = np.arange(self.synthConfig.width)
+        for index, row, _ in crList:
+            xCenter = self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row]
+            self.assertFalse(np.any(rejected[row] & (np.abs(columns - xCenter) > halfSeparation)))
+
+        # Fluxes are recovered (within the noise), except where too little of the profile remains, which is
+        # flagged.
+        flagged = self.fiberTraces[0].trace.mask.getPlaneBitMask(["SUSPECT", "NO_DATA"])
+        for ss in spectra:
+            use = (ss.mask.array[0] & flagged) == 0
+            self.assertLess(np.max(np.abs(ss.flux - expectFlux)[use]/np.sqrt(ss.variance[use])), 5.0)
+        for index, row, _ in crList:
+            ss = spectra[index]
+            self.assertTrue(
+                (ss.mask.array[0, row] & flagged) != 0
+                or np.abs(ss.flux[row] - expectFlux[row]) < 5*np.sqrt(ss.variance[row])
+            )
+
+    def testRejectOutliersNonSeparable(self):
+        """Test that a bright line with a different cross-section isn't rejected
+
+        The PSF isn't separable into the fiber profile and the LSF, so a bright
+        line's profile across the fiber differs from the continuum's. The
+        residuals in the wings scale with the line's peak, and should not be
+        rejected.
+        """
+        flux = 1000.0
+        lineRow = 100
+        lineFactor = 50.0
+        broadConfig = SyntheticConfig()
+        for name in ("height", "width", "separation", "slope"):
+            setattr(broadConfig, name, getattr(self.synthConfig, name))
+        broadConfig.fwhm = 1.2*self.synthConfig.fwhm
+        image = makeSyntheticFlat(self.synthConfig, flux=flux, addNoise=False, rng=self.rng)
+        broad = makeSyntheticFlat(broadConfig, flux=flux*lineFactor, addNoise=False, rng=self.rng)
+        image.array[lineRow] = broad.array[lineRow]
+        variance = image.array + self.synthConfig.readnoise**2
+        image.array += self.rng.normal(size=image.array.shape)*np.sqrt(variance)
+        maskedImage = lsst.afw.image.makeMaskedImage(image)
+        maskedImage.mask.array[:] = 0
+        maskedImage.variance.array[:] = variance
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        task.run(maskedImage, self.fiberTraces)
+        rejected = (maskedImage.mask.array & maskedImage.mask.getPlaneBitMask("CR")) != 0
+        self.assertEqual(np.count_nonzero(rejected), 0)
+
+    def testRejectOutliersBackground(self):
+        """Test that light between the fibers doesn't cause rejections
+
+        The rejection is done before the scattered light is subtracted, so
+        there's light that isn't in the model. In the wings of an empty fiber
+        it isn't absorbed into the fitted flux, but it shouldn't be rejected;
+        a cosmic ray on that fiber should be.
+        """
+        flux = 1000.0
+        pedestal = 300.0
+        emptyIndex = 3
+        image = makeSyntheticFlat(self.synthConfig, flux=flux, addNoise=False, rng=self.rng)
+        xCenter = self.detMap.getXCenter(self.fiberTraces[emptyIndex].fiberId)
+        halfWidth = 0.5*self.synthConfig.separation
+        columns = np.arange(self.synthConfig.width)
+        for row in range(self.synthConfig.height):
+            image.array[row, np.abs(columns - xCenter[row]) < halfWidth] = 0.0
+        image.array += pedestal
+        variance = image.array + self.synthConfig.readnoise**2
+        image.array += self.rng.normal(size=image.array.shape)*np.sqrt(variance)
+        maskedImage = lsst.afw.image.makeMaskedImage(image)
+        maskedImage.mask.array[:] = 0
+        maskedImage.variance.array[:] = variance
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        config.rejectSystematicFraction = 0.03
+
+        # Without the floor from the background, the wings of the empty fiber are rejected
+        noFloorConfig = ExtractSpectraTask.ConfigClass()
+        noFloorConfig.update(**config.toDict())
+        noFloorConfig.rejectBackgroundMaxProfile = -1.0  # no background pixels
+        noFloor = maskedImage.clone()
+        ExtractSpectraTask(config=noFloorConfig).run(noFloor, self.fiberTraces)
+        self.assertGreater(np.count_nonzero(noFloor.mask.array & noFloor.mask.getPlaneBitMask("CR")), 0)
+
+        # With the floor, nothing is rejected
+        clean = maskedImage.clone()
+        ExtractSpectraTask(config=config).run(clean, self.fiberTraces)
+        self.assertEqual(np.count_nonzero(clean.mask.array & clean.mask.getPlaneBitMask("CR")), 0)
+
+        # ... except a cosmic ray on the empty fiber
+        crRow = 120
+        crColumn = int(np.round(xCenter[crRow])) + 2
+        maskedImage.image.array[crRow, crColumn] += 3000.0
+        ExtractSpectraTask(config=config).run(maskedImage, self.fiberTraces)
+        rejected = (maskedImage.mask.array & maskedImage.mask.getPlaneBitMask("CR")) != 0
+        self.assertTrue(rejected[crRow, crColumn])
+        self.assertEqual(set(np.where(rejected)[0]), {crRow})
+
+    def testRejectOutliersRejectedFiber(self):
+        """Test that there are no further rejections in a fiber rejected in a row
+
+        Once enough of a fiber's trace in a row has been rejected (whether by
+        us or by a cosmic-ray mask from elsewhere), its flux is fit from the
+        remaining pixels, so the model within its trace is unreliable: no
+        further pixels are rejected there (which would otherwise lead to a
+        cascade of rejections in the neighbouring fibers). We simulate the
+        unreliable fit by zeroing the flux of a fiber in two rows, one of
+        which has part of the fiber masked.
+        """
+        flux = 1000.0
+        image = self.makeNoisyImage(flux, 100, 1.0)
+        index = 3
+        maskedRow = 100
+        controlRow = 150
+        image.mask.addMaskPlane("CR")
+        crBit = image.mask.getPlaneBitMask("CR")
+        xCenter = self.detMap.getXCenter(self.fiberTraces[index].fiberId)[maskedRow]
+        columns = np.arange(self.synthConfig.width)
+        image.mask.array[maskedRow, (columns >= xCenter) & (columns < xCenter + 3)] |= crBit
+        original = image.mask.array.copy()
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        badBitMask = image.mask.getPlaneBitMask(config.mask) | crBit
+        spectra = self.fiberTraces.extractSpectra(image, badBitMask, config.minFracMask, config.minFracImage)
+        for row in (maskedRow, controlRow):
+            spectra[index].flux[row] = 0.0
+        task.rejectOutliers(image, self.fiberTraces, spectra, badBitMask)
+        rejected = ((image.mask.array & crBit) != 0) & ((original & crBit) == 0)
+        self.assertGreater(np.count_nonzero(rejected[controlRow]), 0)
+        self.assertEqual(set(np.where(rejected)[0]), {controlRow})
+
+    def testRejectOutliersBoxcar(self):
+        """Test that outlier rejection is not performed for boxcar extraction"""
+        image = self.makeNoisyImage(1000.0, 100, 20.0)
+        col = int(np.round(self.detMap.getXCenter(self.fiberTraces[3].fiberId)[50]))
+        image.image.array[50, col] += 3000.0
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        boxcars = self.fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap, 5)
+        task.run(image, boxcars, isBoxcar=True)
+        self.assertEqual(np.count_nonzero(image.mask.array & image.mask.getPlaneBitMask("CR")), 0)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
