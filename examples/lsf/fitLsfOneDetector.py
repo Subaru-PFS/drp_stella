@@ -13,7 +13,7 @@ used only for the engineering fibres.
 
 Usage::
 
-    python fitLsfOneDetector.py /work/datastore u/rhl/shaka-arc,PFS/raw/sps,PFS/defaults,PFS/calib \\
+    python fitLsfOneDetector.py /work/datastore u/rhl/shaka-arc,PFS/defaults \\
         r 1 148314 148317 148320 148326 --fiberStep 10 --nWorkers 8
 """
 import argparse
