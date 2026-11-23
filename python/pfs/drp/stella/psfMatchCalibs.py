@@ -443,6 +443,10 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         # A linear spatial kernel can't follow the curvature in the change of position with focus,
         # especially at the edges of the detector
         self.psfMatch.dfKernel.spatialKernelOrder = 3
+        # Where few lines constrain the spatial kernel (e.g., the ends of the n arm), spatial clipping
+        # rejects stamps the model fits poorly, so the model there is unconstrained extrapolation, which
+        # produces errors of up to ~1 pix in the output detectorMap.
+        self.psfMatch.dfKernel.spatialKernelClipping = False
 
     def validate(self):
         super().validate()

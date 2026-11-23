@@ -648,6 +648,12 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         config.referenceIsLater = False
         config.validate()
 
+    def testKernelDefaults(self):
+        """Spatial clipping must be off, so poorly constrained regions keep their stamps"""
+        config = PsfMatchCalibsTask.ConfigClass()
+        self.assertEqual(config.psfMatch.dfKernel.spatialKernelOrder, 3)
+        self.assertFalse(config.psfMatch.dfKernel.spatialKernelClipping)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
