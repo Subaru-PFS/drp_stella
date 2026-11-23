@@ -300,6 +300,7 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         storageClass="FiberProfileSet",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
+        deferGraphConstraint=True,  # Only needed for the reference
     )
     psfs = InputConnection(
         name="imagePsf_forVisit",
@@ -308,6 +309,7 @@ class PsfMatchCalibsConnections(PipelineTaskConnections, dimensions=("instrument
         storageClass="Psf",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
+        deferGraphConstraint=True,  # Only needed for the reference
     )
     otherArmKernel = PrerequisiteConnection(
         name="psfMatchKernel",

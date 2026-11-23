@@ -573,6 +573,11 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(connection.name, datasetType)
             self.assertIn("visit", connection.dimensions)
             self.assertTrue(connection.multiple)
+        # The reference-only calibs mustn't constrain the graph, or the target visit is dropped when
+        # running on existing calibs (without CalibsForVisitTask in the pipeline)
+        self.assertFalse(connections.detectorMaps.deferGraphConstraint)
+        self.assertTrue(connections.fiberProfiles.deferGraphConstraint)
+        self.assertTrue(connections.psfs.deferGraphConstraint)
         self.assertNotIn("visitDetectorMaps", connections.prerequisiteInputs)
         self.assertEqual(connections.outputDetectorMap.name, "detectorMap_candidate")
         self.assertEqual(connections.outputFiberProfiles.name, "fiberProfiles_candidate")
