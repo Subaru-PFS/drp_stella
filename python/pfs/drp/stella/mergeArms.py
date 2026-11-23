@@ -416,7 +416,7 @@ class MergeArmsTask(PipelineTask):
             Merged spectra.
         weights : `lsst.pipe.base.Struct`
             Weights of the combination (from
-            `pfs.drp.stella.combineSpectra.mergeWeights`).
+            `pfs.drp.stella.combineSpectra.calculateCombineWeights`).
         """
         archetype = spectraList[0]
         identity = Identity.fromMerge([ss.identity for ss in spectraList])
@@ -475,7 +475,7 @@ class MergeArmsTask(PipelineTask):
             Wavelength array to which to resample.
         weights : `lsst.pipe.base.Struct`
             Weights of the combination of the spectra (from
-            `pfs.drp.stella.combineSpectra.mergeWeights`).
+            `pfs.drp.stella.combineSpectra.calculateCombineWeights`).
 
         Returns
         -------

@@ -70,11 +70,11 @@ def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> 
 
 
 class Resampler:
-    """Resample rows from one wavelength sampling to another
+    """Resample arrays from one wavelength sampling to another
 
     This is the resampling used for spectra (`interpolate`, `interpolateFlux`),
     with the source indices of the target wavelengths computed once. The same
-    operation can then be applied to several rows sampled like the spectrum:
+    operation can then be applied to several arrays sampled like the spectrum:
     its flux, variance and sky, or a line-spread function kernel.
 
     Parameters
@@ -183,7 +183,7 @@ class Resampler:
         )
 
     def resampleFlux(self, values: np.ndarray) -> np.ndarray:
-        """Resample a flux-like row, with no mask (as `interpolateFlux`)
+        """Resample a flux-like array, with no mask (as `interpolateFlux`)
 
         Parameters
         ----------
@@ -198,12 +198,12 @@ class Resampler:
         return interpolateFluxImpl(values, self.indices, self.fill, self.order)
 
     def resampleWindow(self, values: np.ndarray, start: int) -> tuple[int, np.ndarray]:
-        """Resample a row that is zero except for a short window
+        """Resample an array that is zero outside a short window
 
-        This gives the same values as `resampleFlux` on the full row (with
-        ``values`` at source pixels ``start:start + len(values)`` and zeros
-        elsewhere), but only does the work near the window. It is used to
-        resample a line-spread function kernel.
+        This is used to resample a line-spread function kernel. It gives the
+        same values as `resampleFlux` on the full array (with ``values`` at
+        source pixels ``start:start + len(values)`` and zeros elsewhere), but
+        only does the work near the window.
 
         Parameters
         ----------
@@ -226,7 +226,7 @@ class Resampler:
 def resampleWindow(
     values: np.ndarray, start: int, indices: np.ndarray, numIn: int | None, order: int, fill: float = 0.0
 ) -> tuple[int, np.ndarray]:
-    """Resample a row that is zero except for a short window
+    """Resample an array that is zero outside a short window
 
     This is the operation of `Resampler.resampleWindow`, for target pixels
     whose source indices are provided directly.
@@ -241,8 +241,8 @@ def resampleWindow(
         Source indices of a contiguous run of target pixels (NaN where the
         target is outside the source). Monotonic increasing.
     numIn : `int` or `None`
-        Length of the source row (interpolation windows are clipped to it).
-        If `None`, the source row is unbounded: ``start`` may be negative,
+        Length of the source array (interpolation windows are clipped to it).
+        If `None`, the source array is unbounded: ``start`` may be negative,
         and target pixels beyond the ends of the source are resampled as if
         the source continued (with the provided ``indices``).
     order : `int`
@@ -265,15 +265,15 @@ def resampleWindow(
     pad = 2*halfSize + 1
     lo = start - pad if numIn is None else max(0, start - pad)
     hi = stop + pad if numIn is None else min(numIn, stop + pad)
-    row = np.zeros(hi - lo, dtype=np.float64)
-    row[start - lo:stop - lo] = values
+    array = np.zeros(hi - lo, dtype=np.float64)
+    array[start - lo:stop - lo] = values
     with np.errstate(invalid="ignore"):
         select = (indices >= start - halfSize) & (indices <= stop - 1 + halfSize)
     if not np.any(select):
         return 0, np.zeros(0, dtype=np.float64)
     outIndex = np.flatnonzero(select)
     outStart, outStop = outIndex[0], outIndex[-1] + 1
-    return int(outStart), interpolateFluxImpl(row, indices[outStart:outStop] - lo, fill, order)
+    return int(outStart), interpolateFluxImpl(array, indices[outStart:outStop] - lo, fill, order)
 
 
 def interpolate(

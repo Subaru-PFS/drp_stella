@@ -29,7 +29,7 @@ from .utils.sysUtils import getPfsVersions
 from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
-from .combineSpectra import accumulateWeighted, coaddWeights
+from .combineSpectra import accumulateWeighted, calculateCoaddWeights
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -487,7 +487,7 @@ class CoaddSpectraTask(PipelineTask):
         sky = np.zeros(length, dtype=archetype.sky.dtype)
         covar = np.zeros((numCovar, length), dtype=archetype.covar.dtype)
 
-        weights = coaddWeights(resampled, self.config.mask, resampledWeights)
+        weights = calculateCoaddWeights(resampled, self.config.mask, resampledWeights)
         sumWeights = weights.sumWeights
         accumulateWeighted([ss.flux for ss in resampled], weights.weights, weights.selects, flux)
         accumulateWeighted([ss.sky for ss in resampled], weights.weights, weights.selects, sky)

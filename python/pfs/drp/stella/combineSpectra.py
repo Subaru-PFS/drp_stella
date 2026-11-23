@@ -5,25 +5,25 @@ import numpy as np
 from lsst.pipe.base import Struct
 from pfs.datamodel import PfsFiberArraySet, MaskHelper
 
-__all__ = ("combineSpectraSets", "mergeWeights", "coaddWeights", "accumulateWeighted")
+__all__ = ("combineSpectraSets", "calculateCombineWeights", "calculateCoaddWeights", "accumulateWeighted")
 
 
 def accumulateWeighted(
-    rows: Sequence[np.ndarray],
+    arrays: Sequence[np.ndarray],
     weights: Sequence[np.ndarray],
     selects: Sequence[np.ndarray],
     out: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Weighted sum of rows: the common step of the spectral combinations
+    """Weighted sum of arrays: the common step of the spectral combinations
 
-    Each input's selected pixels contribute ``row*weight``. The other pixels
+    Each input's selected pixels contribute ``array*weight``. The other pixels
     contribute nothing, not even a non-finite value. The inputs are added in
     order. Normalisation (e.g., by the sum of the weights) is left to the
     caller, as it is part of the combination's policy.
 
     Parameters
     ----------
-    rows : sequence of `numpy.ndarray`
+    arrays : sequence of `numpy.ndarray`
         The values of each input, e.g. its flux. They may have leading
         dimensions (e.g. covariance diagonals); the pixels are the last axes.
     weights : sequence of `numpy.ndarray`
@@ -32,7 +32,7 @@ def accumulateWeighted(
         The pixels of each input to use.
     out : `numpy.ndarray`, optional
         Array to accumulate into; if not provided, a zero array like the
-        first row.
+        first array.
 
     Returns
     -------
@@ -40,14 +40,14 @@ def accumulateWeighted(
         The weighted sum.
     """
     if out is None:
-        out = np.zeros_like(rows[0])
-    for row, weight, select in zip(rows, weights, selects):
+        out = np.zeros_like(arrays[0])
+    for array, weight, select in zip(arrays, weights, selects):
         with np.errstate(invalid="ignore"):
-            out[..., select] += row[..., select]*weight[select]
+            out[..., select] += array[..., select]*weight[select]
     return out
 
 
-def mergeWeights(
+def calculateCombineWeights(
     spectra: List[PfsFiberArraySet],
     flags: MaskHelper,
     badMasks: List[str],
@@ -185,7 +185,7 @@ def combineSpectraSets(
 ) -> Struct:
     """Combine spectra
 
-    The weights are those of `mergeWeights`. The flux and sky are combined
+    The weights are those of `calculateCombineWeights`. The flux and sky are combined
     normalised (divided by the norm), and the result is multiplied by the
     combined norm. The variance is propagated for the weights used:
     ``sum(variance*weight**2)/sum(weight)**2``.
@@ -222,10 +222,10 @@ def combineSpectraSets(
     mask : `numpy.ndarray` of `int`
         Mask for combined spectrum.
     weights : `lsst.pipe.base.Struct`
-        The weights used (from `mergeWeights`).
+        The weights used (from `calculateCombineWeights`).
     """
     archetype = spectra[0]
-    weights = mergeWeights(spectra, flags, badMasks, suspectMasks, weights)
+    weights = calculateCombineWeights(spectra, flags, badMasks, suspectMasks, weights)
     with np.errstate(invalid="ignore", divide="ignore"):
         fluxWeights = [ww/ss.norm for ww, ss in zip(weights.weights, spectra)]  # flux and sky: normalised
         varianceWeights = [ww**2 for ww in weights.weights]
@@ -257,7 +257,7 @@ def combineSpectraSets(
         )
 
 
-def coaddWeights(
+def calculateCoaddWeights(
     spectra: List, badMasks: List[str], modelWeights: Optional[Sequence[Optional[np.ndarray]]] = None
 ) -> Struct:
     """The weights with which `CoaddSpectraTask.combine` combines spectra
