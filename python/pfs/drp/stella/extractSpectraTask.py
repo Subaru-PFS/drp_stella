@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 import warnings
 
 import numpy as np
@@ -89,6 +89,36 @@ class ExtractSpectraConfig(pexConfig.Config):
              "peak"),
     )
     rejectMaskPlane = pexConfig.Field(dtype=str, default="CR", doc="Mask plane for rejected pixels")
+    rejectOutlierMaskPlane = pexConfig.Field(
+        dtype=str,
+        default="OUTLIER",
+        doc=("Additional mask plane for pixels rejected as outliers in their own right (as opposed to "
+             "pixels rejected because the rest of their fiber's trace was rejected; see "
+             "rejectFiberFraction, or pixels masked elsewhere, e.g., by the ISR). Only these count "
+             "towards the fibers' rejected fractions: counting the rest of a rejected fiber's trace "
+             "would propagate the rejection across the fibers, and the masks from elsewhere are trusted "
+             "(the fibers' fluxes are fit from the remaining pixels, as usual)."),
+    )
+    preliminaryRejectIterations = pexConfig.Field(
+        dtype=int,
+        default=1,
+        doc=("Maximum number of rejection iterations in a preliminary extraction (one whose spectra are used "
+             "to model the scattered light, before it is subtracted). Only the bright outliers matter for "
+             "the scattered light, and the model is poorer before the scattered light is subtracted, so "
+             "we reject less there."),
+    )
+    preliminaryRejectThreshold = pexConfig.Field(
+        dtype=float,
+        default=8.0,
+        doc="Rejection threshold (positive residual/sigma) for outliers in a preliminary extraction",
+    )
+    preliminaryRejectFiberFraction = pexConfig.Field(
+        dtype=float,
+        default=0.0,
+        doc=("Value of rejectFiberFraction in a preliminary extraction. A fiber rejected in a row is "
+             "refit from its wings, which (before the scattered light is subtracted) contain light that "
+             "isn't in the model. Disabled if <= 0."),
+    )
     rejectMinProfile = pexConfig.Field(
         dtype=float,
         default=0.02,
@@ -129,6 +159,7 @@ class ExtractSpectraTask(pipeBase.Task):
         fiberId: Optional[np.ndarray] = None,
         isBoxcar: bool = False,
         rejectOutliers: Optional[bool] = None,
+        preliminary: bool = False,
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -157,6 +188,10 @@ class ExtractSpectraTask(pipeBase.Task):
         rejectOutliers : `bool`, optional
             Reject outliers? If ``None``, use ``config.doRejectOutliers``.
             Rejection is not performed for boxcar extraction.
+        preliminary : `bool`, optional
+            Is this a preliminary extraction (e.g., one whose spectra are used
+            to model the scattered light, which hasn't yet been subtracted)?
+            If so, the rejection uses the ``preliminaryReject*`` parameters.
 
         Returns
         -------
@@ -192,7 +227,9 @@ class ExtractSpectraTask(pipeBase.Task):
                 missing = sorted(set(fiberId) ^ set(fiberTraceSet.fiberId))
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
-        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap, isBoxcar, rejectOutliers)
+        spectra = self.extractAllSpectra(
+            maskedImage, fiberTraceSet, detectorMap, isBoxcar, rejectOutliers, preliminary
+        )
 
         if fiberId is not None:
             spectra = self.includeSpectra(spectra, fiberId, detectorMap)
@@ -209,6 +246,7 @@ class ExtractSpectraTask(pipeBase.Task):
         detectorMap: Optional[DetectorMap] = None,
         isBoxcar: bool = False,
         rejectOutliers: bool = False,
+        preliminary: bool = False,
     ) -> SpectrumSet:
         """Extract all spectra in the fiberTraceSet
 
@@ -227,6 +265,9 @@ class ExtractSpectraTask(pipeBase.Task):
         rejectOutliers : `bool`
             Reject outliers (not performed for boxcar extraction)? Rejected
             pixels are flagged in the ``maskedImage``'s mask.
+        preliminary : `bool`
+            Is this a preliminary extraction? If so, the rejection uses the
+            ``preliminaryReject*`` parameters.
 
         Returns
         -------
@@ -248,10 +289,20 @@ class ExtractSpectraTask(pipeBase.Task):
                 maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
             )
             if rejectOutliers:
+                if preliminary:
+                    iterations = self.config.preliminaryRejectIterations
+                    threshold = self.config.preliminaryRejectThreshold
+                    fiberFraction = self.config.preliminaryRejectFiberFraction
+                else:
+                    iterations = self.config.rejectIterations
+                    threshold = self.config.rejectThreshold
+                    fiberFraction = self.config.rejectFiberFraction
                 total = 0
                 iteration = -1
-                for iteration in range(self.config.rejectIterations):
-                    numRejected = self.rejectOutliers(maskedImage, fiberTraceSet, spectra, badBitMask)
+                for iteration in range(iterations):
+                    numRejected = self.rejectOutliers(
+                        maskedImage, fiberTraceSet, spectra, badBitMask, threshold, fiberFraction
+                    )
                     self.log.debug("Iteration %d: rejected %d pixels", iteration, numRejected)
                     if numRejected == 0:
                         break
@@ -260,8 +311,9 @@ class ExtractSpectraTask(pipeBase.Task):
                         maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
                     )
                 self.log.info(
-                    "Rejected %d outlying pixels (masked as %s) in %d iterations",
+                    "Rejected %d outlying pixels (masked as %s) in %d iterations%s",
                     total, self.config.rejectMaskPlane, iteration + 1,
+                    " (preliminary extraction)" if preliminary else "",
                 )
 
         if detectorMap is not None:
@@ -314,7 +366,13 @@ class ExtractSpectraTask(pipeBase.Task):
         return model.array, profile.array
 
     def rejectOutliers(
-        self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet, badBitMask: int
+        self,
+        maskedImage: MaskedImage,
+        fiberTraceSet: FiberTraceSet,
+        spectra: SpectrumSet,
+        badBitMask: int,
+        threshold: Optional[float] = None,
+        fiberFraction: Optional[float] = None,
     ) -> int:
         """Flag pixels that are inconsistent with the model of the spectra
 
@@ -350,15 +408,16 @@ class ExtractSpectraTask(pipeBase.Task):
         separable into the fiber profile and the LSF, so near bright features
         there are residuals in the profile wings that scale with the peak.
 
-        The rejection is performed before the scattered light is subtracted
-        (as the scattered light is estimated from the spectra), so there is
-        smooth light in the image that isn't in the model. Within the bright
-        part of a trace it is absorbed into the fiber's flux, but in the wings
-        of a faint (or empty) fiber next to a gap it isn't, and the
-        systematic error (which scales with the fiber's own small peak) doesn't
-        cover it. We therefore use as the model the maximum of the model and
-        the background measured between the fibers (see
-        ``estimateBackground``).
+        In a preliminary extraction, the rejection is performed before the
+        scattered light is subtracted (as the scattered light is estimated
+        from the spectra), so there is smooth light in the image that isn't
+        in the model. Within the bright part of a trace it is absorbed into
+        the fiber's flux, but in the wings of a faint (or empty) fiber next to
+        a gap it isn't, and the systematic error (which scales with the
+        fiber's own small peak) doesn't cover it. We therefore use as the
+        model the maximum of the model and the background measured between
+        the fibers (see ``estimateBackground``); after the scattered light
+        has been subtracted, this background should be small.
 
         Parameters
         ----------
@@ -370,18 +429,30 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         badBitMask : `int`
             Bitmask for pixels to ignore.
+        threshold : `float`, optional
+            Rejection threshold; defaults to ``config.rejectThreshold``.
+        fiberFraction : `float`, optional
+            Fraction of a fiber's profile that, if rejected in a row, causes
+            the whole of its trace in that row to be rejected; defaults to
+            ``config.rejectFiberFraction``. Disabled if <= 0.
 
         Returns
         -------
         numRejected : `int`
             Number of newly rejected pixels.
         """
+        if threshold is None:
+            threshold = self.config.rejectThreshold
+        if fiberFraction is None:
+            fiberFraction = self.config.rejectFiberFraction
         model, profile = self.makeModelImage(maskedImage, fiberTraceSet, spectra)
         inTrace = profile > self.config.rejectMinProfile
         image = maskedImage.image.array
         variance = maskedImage.variance.array
         mask = maskedImage.mask.array
         rejectBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectMaskPlane)
+        maskedImage.mask.addMaskPlane(self.config.rejectOutlierMaskPlane)
+        outlierBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectOutlierMaskPlane)
         good = ((mask & badBitMask) == 0) & np.isfinite(image) & np.isfinite(variance) & (variance > 0)
 
         readNoise2 = self.estimateReadNoise2(image, variance, model, good)
@@ -398,13 +469,17 @@ class ExtractSpectraTask(pipeBase.Task):
             noise2 += (self.config.rejectSystematicFraction*systematic)**2
             chi = (image - model)/np.sqrt(noise2)
             candidate = inTrace & good & np.isfinite(chi)
-            if self.config.rejectFiberFraction > 0:
-                # Don't reject in the traces of fibers that have already been rejected in that row: the model
-                # there is unreliable
-                rejected = (mask & rejectBitMask) != 0
-                _, protect = self.rejectFibers(maskedImage, fiberTraceSet, spectra, rejected)
+            # Pixels we previously rejected as outliers in their own right (e.g., in a preliminary extraction
+            # made without rejecting whole fibers)
+            previousSeeds = (mask & outlierBitMask) != 0
+            if fiberFraction > 0:
+                # Don't reject anything else in the traces of fibers whose previously rejected pixels exceed
+                # the fraction (we reject the rest of those traces below): the model there is unreliable
+                _, protect = self.rejectFibers(
+                    maskedImage, fiberTraceSet, spectra, previousSeeds, fiberFraction
+                )
                 candidate &= ~protect
-            outlier = candidate & (chi > self.config.rejectThreshold)
+            outlier = candidate & (chi > threshold)
             if self.config.rejectGrowThreshold > 0 and np.any(outlier):
                 # Grow to the connected pixels with a significant excess (including those already rejected,
                 # so that a region can be connected through them)
@@ -416,12 +491,17 @@ class ExtractSpectraTask(pipeBase.Task):
         if self.config.rejectGrow > 0:
             structure = np.ones((1, 2*self.config.rejectGrow + 1), dtype=bool)
             outlier = scipy.ndimage.binary_dilation(outlier, structure=structure) & inTrace
-        if self.config.rejectFiberFraction > 0 and np.any(outlier):
-            outlier |= self.rejectFibers(maskedImage, fiberTraceSet, spectra, outlier)[0]
+        fiberReject = np.zeros_like(outlier)
+        if fiberFraction > 0:
+            # The fractions include our previous rejections
+            seeds = outlier | previousSeeds
+            fiberReject = self.rejectFibers(maskedImage, fiberTraceSet, spectra, seeds, fiberFraction)[0]
+            fiberReject &= ~seeds
 
-        new = outlier & ((mask & rejectBitMask) == 0)
-        mask[new] |= rejectBitMask
-        return int(np.count_nonzero(new))
+        unmasked = (mask & rejectBitMask) == 0
+        mask[outlier & unmasked] |= rejectBitMask | outlierBitMask
+        mask[fiberReject & unmasked] |= rejectBitMask
+        return int(np.count_nonzero((outlier | fiberReject) & unmasked))
 
     def rejectFibers(
         self,
@@ -429,15 +509,18 @@ class ExtractSpectraTask(pipeBase.Task):
         fiberTraceSet: FiberTraceSet,
         spectra: SpectrumSet,
         outlier: np.ndarray,
-    ) -> np.ndarray:
+        fiberFraction: Optional[float] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Extend rejections to the whole of a fiber's trace in a row
 
         The core of an outlier that resembles the fiber profile is absorbed
         into the fitted flux, so it can't be identified from the residuals.
-        If the rejected pixels in a row carry more than
-        ``config.rejectFiberFraction`` of a fiber's (normalised) profile, we
-        reject all of that fiber's trace (where its normalised profile exceeds
-        ``config.rejectMinProfile``) in that row.
+        If the rejected pixels in a row carry more than ``fiberFraction``
+        of a fiber's (normalised) profile, we reject all of that fiber's trace
+        (where its normalised profile exceeds ``config.rejectMinProfile``) in
+        that row. The rejected pixels provided should be the outliers
+        themselves, not pixels rejected because the rest of their fiber was,
+        or the rejection would propagate across the fibers.
 
         We also return the footprint of the traces of such fibers in those
         rows. The flux of such a fiber is then fit from the remaining pixels
@@ -456,6 +539,9 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         outlier : `numpy.ndarray` of `bool`
             Rejected pixels.
+        fiberFraction : `float`, optional
+            Fraction of a fiber's profile that must be rejected in a row;
+            defaults to ``config.rejectFiberFraction``.
 
         Returns
         -------
@@ -464,6 +550,8 @@ class ExtractSpectraTask(pipeBase.Task):
         footprint : `numpy.ndarray` of `bool`
             Footprint of the traces of the fibers rejected in each row.
         """
+        if fiberFraction is None:
+            fiberFraction = self.config.rejectFiberFraction
         reject = np.zeros_like(outlier)
         footprint = np.zeros_like(outlier)
         x0, y0 = maskedImage.getXY0()
@@ -481,7 +569,7 @@ class ExtractSpectraTask(pipeBase.Task):
             inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
             profile = np.where(inTrace, ft.trace.image.array, 0.0)*inverseNorm[:, np.newaxis]
             fraction = np.sum(profile*outlier[rows, columns], axis=1)
-            select = fraction > self.config.rejectFiberFraction
+            select = fraction > fiberFraction
             if np.any(select):
                 reject[rows, columns][select] |= profile[select] > self.config.rejectMinProfile
                 footprint[rows, columns][select] |= profile[select] > 0
