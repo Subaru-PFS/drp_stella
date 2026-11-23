@@ -157,7 +157,7 @@ class ReduceExposureConnections(
         if not config:
             return
         if not self.config.doApplyCrMask:
-            self.prerequisiteInputs.remove("crMask")
+            self.inputs.remove("crMask")
         if self.config.doBoxcarExtraction:
             self.prerequisiteInputs.remove("fiberProfiles")
         if not self.config.doApplyFiberNorms:
