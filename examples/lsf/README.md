@@ -4,7 +4,7 @@ Claude: the scripts behind the line-spread function work of PIPE2D-1940 (`ArmLsf
 spectra) and PIPE2D-1993 (the LSF of pfsMerged and pfsCoadd). They are kept as a record of how the results
 in the tickets and in the LSF chapter of the documentation were measured, and as starting points for the
 follow-ups. They are not maintained tools: those are in `bin` (`pfsLsfResiduals.py`, `pfsLsfWidths.py`,
-`pfsCheckArmLsf.py`, `pfsLsfChi2.py`, `pfsRunRegression.sh`, `pfsCompareRuns.py`) and
+`pfsCheckArmLsf.py`, `pfsLsfChi2.py`, `pfsCompareRuns.py`) and
 `pfs.drp.stella.lsfDiagnostics`.
 
 The Butler repository is `$PFS_REPO` (default `/work/datastore`). Reading `pfsArm.lsf` or `pfsMerged.lsf`
