@@ -116,20 +116,100 @@ class Resampler:
     toWavelength : `np.ndarray` of `float`
         Target wavelength array.
     order : `int`, optional
-        Interpolation order to use. Less than or equal to 1 means linear
-        interpolation; higher orders use Lanczos interpolation of the given
-        order.
+        The legacy specification of the kernel: 1 means linear interpolation;
+        higher orders use a Lanczos kernel of the given order. Default 3, unless
+        ``kernel`` is given (it's an error to give both).
+    kernel : `str`, optional
+        Interpolation kernel: ``"linear"`` (a triangle, half-width one source
+        pixel), or ``"lanczos"`` (of order ``lanczosOrder``).
+    lanczosOrder : `int`, optional
+        Order (half-width, in source pixels) of the Lanczos kernel; at least 2.
     fill : `float`, optional
         Fill value, for target wavelengths outside the source range.
     """
 
-    def __init__(self, fromWavelength: np.ndarray, toWavelength: np.ndarray, *, order: int = 3,
-                 fill: float = 0.0):
+    kernels = ("linear", "lanczos")
+    """Supported interpolation kernels"""
+
+    def __init__(
+        self,
+        fromWavelength: np.ndarray,
+        toWavelength: np.ndarray,
+        *,
+        order: int | None = None,
+        kernel: str | None = None,
+        lanczosOrder: int = 3,
+        fill: float = 0.0,
+    ):
         self.fromWavelength = fromWavelength
         self.toWavelength = toWavelength
-        self.order = order
+        self.order = self.kernelOrder(order, kernel, lanczosOrder)
         self.fill = fill
         self.indices = interpolateIndices(fromWavelength, toWavelength)
+
+    @classmethod
+    def kernelOrder(cls, order: int | None = None, kernel: str | None = None, lanczosOrder: int = 3) -> int:
+        """The order of the C++ implementation for a kernel specification
+
+        Parameters are as for the constructor.
+
+        Returns
+        -------
+        order : `int`
+            1 for linear interpolation; otherwise the order of the Lanczos
+            kernel.
+        """
+        if kernel is None:
+            order = 3 if order is None else order
+            if order < 1:
+                raise ValueError(f"Interpolation order ({order}) must be positive")
+            return order
+        if order is not None:
+            raise ValueError("Specify the interpolation kernel or the order, not both")
+        if kernel == "linear":
+            return 1
+        if kernel == "lanczos":
+            if lanczosOrder < 2:
+                raise ValueError(f"Lanczos order ({lanczosOrder}) must be at least 2 (1 is linear)")
+            return lanczosOrder
+        raise ValueError(f"Unrecognised interpolation kernel {kernel!r}: expected one of {cls.kernels}")
+
+    @property
+    def kernelName(self) -> str:
+        """Name of the interpolation kernel: ``"linear"`` or ``"lanczos"``"""
+        return "linear" if self.order <= 1 else "lanczos"
+
+    def numCovarNeeded(self, numInputDiagonals: int = 1) -> int:
+        """Number of covariance diagonals of the result needed to hold all of
+        its covariance
+
+        Two output pixels are correlated only if their kernels share source
+        pixels (or source pixels correlated with each other), i.e., if they are
+        less than ``2*halfSize + numInputDiagonals - 1`` source pixels apart.
+        This depends on the kernel and the ratio of the output to the input
+        pixel spacing (for non-uniform grids, the smallest output spacing).
+
+        Parameters
+        ----------
+        numInputDiagonals : `int`, optional
+            Number of non-zero diagonals of the source covariance (1 for
+            uncorrelated source pixels).
+
+        Returns
+        -------
+        numCovar : `int`
+            Number of diagonals: the variance, and the covariances at offsets
+            ``1..numCovar - 1``.
+        """
+        indices = np.asarray(self.indices, dtype=np.float64)
+        indices = indices[np.isfinite(indices)]
+        if len(indices) < 2:
+            return 1
+        spacing = np.min(np.abs(np.diff(indices)))
+        if spacing <= 0:
+            return len(indices)
+        reach = 2*self.halfSize + max(numInputDiagonals, 1) - 1
+        return int(min(len(indices), max(1, np.ceil(reach/spacing - 1.0e-9))))
 
     @property
     def halfSize(self) -> int:

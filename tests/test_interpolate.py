@@ -484,6 +484,60 @@ class ResamplerCovarianceTestCase(lsst.utils.tests.TestCase):
         np.testing.assert_allclose(resampled.covar[0], expect, rtol=1.0e-6, atol=1.0e-6)
 
 
+class ResamplerKernelTestCase(lsst.utils.tests.TestCase):
+    """Claude: the kernel specification, and the number of covariance diagonals needed"""
+
+    def testKernel(self):
+        """kernel/lanczosOrder and the legacy order give the same resampling"""
+        fromWavelength = 600.0 + 0.067*np.arange(300)
+        toWavelength = np.linspace(601.0, 618.0, 200)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="linear").order, 1)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="lanczos").order, 3)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=5).order, 5)
+        self.assertEqual(Resampler(fromWavelength, toWavelength).order, 3)  # the legacy default
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="linear").kernelName, "linear")
+        self.assertEqual(Resampler(fromWavelength, toWavelength, order=4).kernelName, "lanczos")
+        flux = np.random.default_rng(1).normal(size=300)
+        np.testing.assert_array_equal(
+            Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=4).resampleFlux(flux),
+            Resampler(fromWavelength, toWavelength, order=4).resampleFlux(flux),
+        )
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="linear", order=1)
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=1)
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="sinc")
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, order=0)
+
+    def testNumCovarNeeded(self):
+        """numCovarNeeded holds all of the covariance, for various kernels and changes of sampling"""
+        numIn = 600
+        fromWavelength = 600.0 + 0.1*np.arange(numIn)
+        expected = {  # (kernel, lanczosOrder, output/input spacing): number of diagonals
+            ("linear", 3, 0.5): 4, ("linear", 3, 0.91): 3, ("linear", 3, 1.2): 2, ("linear", 3, 2.5): 1,
+            ("lanczos", 3, 0.91): 7, ("lanczos", 3, 1.2): 5, ("lanczos", 5, 0.98): 11,
+        }
+        for (kernel, lanczosOrder, ratio), numCovar in expected.items():
+            toWavelength = np.arange(fromWavelength[20], fromWavelength[-20], 0.1*ratio)
+            resampler = Resampler(fromWavelength, toWavelength, kernel=kernel, lanczosOrder=lanczosOrder)
+            needed = resampler.numCovarNeeded()
+            self.assertEqual(needed, numCovar, msg=f"{kernel} {lanczosOrder} {ratio}")
+            covar = resampler.propagateCovariance(np.ones((1, numIn)), numCovar=needed + 3)
+            np.testing.assert_array_equal(covar[needed:, :-needed - 3], 0.0)  # nothing beyond
+            self.assertGreater(np.max(np.abs(covar[needed - 1, :-needed])), 0.0)  # and the last one is used
+            # Correlated input needs more diagonals
+            correlated = np.zeros((3, numIn))
+            correlated[0] = 1.0
+            correlated[1] = 0.3
+            correlated[2] = 0.1
+            neededCorrelated = resampler.numCovarNeeded(3)
+            self.assertGreater(neededCorrelated, needed)
+            covar = resampler.propagateCovariance(correlated, numCovar=neededCorrelated + 3)
+            np.testing.assert_allclose(covar[neededCorrelated:, :-neededCorrelated - 3], 0.0, atol=1.0e-15)
+
+
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
 

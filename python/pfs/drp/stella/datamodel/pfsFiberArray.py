@@ -176,6 +176,15 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
+    def _numCorrelatedDiagonals(self) -> int:
+        """Number of diagonals of the covariance up to the last non-zero one
+
+        1 means that the pixels are uncorrelated.
+        """
+        offDiagonal = np.nan_to_num(self.covar[1:]) != 0
+        nonZero = np.flatnonzero(np.any(offDiagonal, axis=1))
+        return 1 + (nonZero[-1] + 1 if len(nonZero) > 0 else 0)
+
     def _prepareMask(self, variance: np.ndarray, bad: list[str] | None) -> Struct:
         """Prepare the mask for interpolation
 
@@ -243,19 +252,20 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``, which is suitable for interpolation on a similar
-            wavelength grid to the original.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed to hold all of the covariance, which depends on the kernel,
+            the change in sampling and any correlations already present (see
+            `pfs.drp.stella.interpolate.Resampler.numCovarNeeded`).
 
         Returns
         -------
         resampled : `PfsFiberArray`
             Resampled spectrum.
         """
-        if numCovar == 0:
-            numCovar = order + 1
-        prepared = self._prepareMask(self.variance, bad)
         resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        if numCovar == 0:
+            numCovar = resampler.numCovarNeeded(self._numCorrelatedDiagonals())
+        prepared = self._prepareMask(self.variance, bad)
         result = resampler(
             np.where(prepared.badFlux, 0.0, self.flux),
             prepared.mask,
@@ -314,8 +324,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed (as for ``resample``).
 
         Returns
         -------
@@ -332,15 +342,15 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             covariance): the ``variance`` would be resampled as if its pixels
             were independent, unlike the spectrum's.
         """
-        if numCovar == 0:
-            numCovar = order + 1
-        if self.covar.shape[0] > 1 and np.any(np.nan_to_num(self.covar[1:]) != 0):
+        if self._numCorrelatedDiagonals() > 1:
             raise NotImplementedError(
                 "Resampling a variance for a spectrum with correlated pixels "
                 "(non-zero off-diagonal covariance)"
             )
-        prepared = self._prepareMask(variance, bad)
         resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        if numCovar == 0:
+            numCovar = resampler.numCovarNeeded()
+        prepared = self._prepareMask(variance, bad)
         result = resampler.resampleVariance(
             prepared.mask,
             np.where(prepared.badVariance, 0.0, variance),

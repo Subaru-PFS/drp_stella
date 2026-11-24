@@ -11,7 +11,8 @@ class FluxTableConfig(Config):
     ignoreFlags = ListField(dtype=str, default=[], doc="Flags to ignore in coadd")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
-    resampleOrder = Field(dtype=int, default=3, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=3,
+                          doc="Interpolation order: 1 is linear; >1 uses a Lanczos kernel of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
 
 

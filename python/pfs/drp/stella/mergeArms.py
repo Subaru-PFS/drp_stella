@@ -84,7 +84,8 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=1,
+                          doc="Interpolation order: 1 is linear; >1 uses a Lanczos kernel of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the merged line-spread function")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
@@ -435,7 +436,9 @@ class MergeArmsTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
-        resampled = [ss.resample(wavelength, **resampleKwargs) for ss in spectraList]
+        # combineSpectraSets propagates only the variance, so we don't need more covariance diagonals
+        numCovar = self.config.resampleOrder + 1
+        resampled = [ss.resample(wavelength, numCovar=numCovar, **resampleKwargs) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         weights = None
         if self.config.doModelWeights:

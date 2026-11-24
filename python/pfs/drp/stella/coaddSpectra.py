@@ -26,6 +26,7 @@ from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
+from .interpolate import Resampler
 from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
@@ -133,7 +134,8 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=1,
+                          doc="Interpolation order: 1 is linear; >1 uses a Lanczos kernel of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the coadded line-spread function")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
@@ -472,7 +474,6 @@ class CoaddSpectraTask(PipelineTask):
         # First, resample to a common wavelength sampling
         resampled = []
         resampledWeights = []
-        numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
         if weightsList is None:
             weightsList = [None]*len(spectraList)
         resampleKwargs = dict(
@@ -480,8 +481,15 @@ class CoaddSpectraTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
+        # Enough covariance diagonals for every input: this depends on the kernel and the change of sampling
+        numCovar = max(
+            Resampler(ss.wavelength, wavelength, order=self.config.resampleOrder).numCovarNeeded(
+                ss._numCorrelatedDiagonals()
+            )
+            for ss in spectraList
+        )
         for spectrum, weights in zip(spectraList, weightsList, strict=True):
-            resampled.append(spectrum.resample(wavelength, **resampleKwargs))
+            resampled.append(spectrum.resample(wavelength, numCovar=numCovar, **resampleKwargs))
             resampledWeights.append(
                 None if weights is None else resampleWeights(spectrum, weights, wavelength, **resampleKwargs)
             )
