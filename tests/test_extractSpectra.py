@@ -630,6 +630,57 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(mask[externalRow] & spectrum.mask.getPlaneBitMask("SUSPECT"))
         self.assertEqual(np.count_nonzero(mask & noData), 1)  # nothing else
 
+    def testRejectOutliersRuinedNeighbours(self):
+        """Test that a ruined fiber doesn't bias its neighbours
+
+        A cosmic ray covers the cores of two fibers (as in 155914 r4 row 172,
+        fibers 2447/2448). Once it's rejected, their fluxes could only be fit
+        from the faint edges of their profiles, which they share with their
+        neighbours; if there's light there that the profiles don't describe
+        (we add some), those fits are wild and bias the neighbours. The
+        ruined fibers must be excluded from the fit (and flagged NO_DATA), so
+        that their neighbours' fluxes are unbiased.
+
+        We mask the ruined fibers' light down to a lower profile value than
+        the default, so that it includes the light we add (with the default,
+        the neighbour would absorb it directly, as for any light that isn't
+        in the model).
+        """
+        self.setUpTraces(separation=6.2, fwhm=3.5, measure=False)
+        flux = 1000.0
+        image = self.makeNoisyImage(flux, 100, 1.0)
+        index = len(self.fiberTraces)//2
+        row = 100
+        xCenter = int(np.round(self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row]))
+        image.image.array[row, xCenter - 2:xCenter + 7] += 3000.0  # cosmic ray on index and index + 1
+        image.image.array[row, xCenter - 4:xCenter - 2] += 1500.0  # light not in the profile of index
+        ruined = {index, index + 1}
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        config.rejectRuinedProfileThreshold = 0.005
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image, self.fiberTraces).spectra
+        noData = spectra[index].mask.getPlaneBitMask("NO_DATA")
+        flagged = spectra[index].mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])
+        for ii in ruined:
+            self.assertTrue(spectra[ii].mask.array[0, row] & noData)
+            self.assertEqual(spectra[ii].flux[row], 0.0)
+            self.assertGreater(spectra[ii].norm[row], 0.0)
+        for ii in range(len(spectra)):
+            if ii in ruined:
+                continue
+            ss = spectra[ii]
+            self.assertFalse(ss.mask.array[0, row] & noData, f"fiber index {ii}")
+            if ss.mask.array[0, row] & flagged:
+                continue
+            chi = (ss.flux[row] - flux)/np.sqrt(ss.variance[row])
+            self.assertLess(np.abs(chi), 5.0, f"fiber index {ii}: flux {ss.flux[row]}")
+        # The fiber traces are unchanged
+        for ft in self.fiberTraces:
+            inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
+            self.assertTrue(np.all(inTrace.any(axis=1)))
+
     def testRejectOutliersBoxcar(self):
         """Test that outlier rejection is not performed for boxcar extraction"""
         image = self.makeNoisyImage(1000.0, 100, 20.0)
