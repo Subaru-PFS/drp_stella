@@ -566,6 +566,33 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         for key in softenKeys:
             self.assertLess(metadata[key], 0.05, key)
 
+    def testCheckTargetSignalToNoise(self):
+        """Test that checkTarget excludes low signal-to-noise lines"""
+        exposure, detectorMap, profiles, referenceLines = self.makeTarget()
+        config = PsfMatchCalibsTask.ConfigClass()
+        config.referenceIsLater = True
+        config.centroidLines.doSubtractContinuum = False
+        config.centroidLines.fwhm = SyntheticConfig().fwhm
+        config.targetMinSignalToNoise = 0.0
+        task = PsfMatchCalibsTask(config=config)
+        task.readLineList.run = unittest.mock.Mock(return_value=referenceLines)
+
+        lines = task.checkTarget(exposure, detectorMap, profiles, None, "r")
+        numLinesAll = task.metadata["targetNumLines"]
+        numTrace = task.metadata["targetNumTrace"]
+        isLine = lines.description != "Trace"
+        good = isLine & ~lines.flag & (lines.status == ReferenceLineStatus.GOOD)
+        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
+        signalToNoise = lines.flux[good] / lines.fluxErr[good]
+        threshold = np.median(signalToNoise)
+
+        task.config.targetMinSignalToNoise = threshold
+        task.checkTarget(exposure, detectorMap, profiles, None, "r")
+        metadata = task.metadata
+        self.assertLess(metadata["targetNumLines"], numLinesAll)
+        self.assertEqual(metadata["targetNumLines"], np.sum(signalToNoise > threshold))
+        self.assertEqual(metadata["targetNumTrace"], numTrace)  # Traces aren't affected
+
     def testConnections(self):
         """The calibs are per-visit inputs, from CalibsForVisitTask"""
         config = PsfMatchCalibsTask.ConfigClass()

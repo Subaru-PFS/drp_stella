@@ -434,6 +434,13 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         default=3,
         doc="Number of rejection iterations for the statistics of the target measurements (doCheckTarget)",
     )
+    targetMinSignalToNoise = Field(
+        dtype=float,
+        default=20.0,
+        doc="Minimum signal-to-noise ratio (flux/fluxErr) of lines for the statistics of the target "
+        "measurements (doCheckTarget); faint lines have poor (or blended) centroids. Not applied to "
+        "traces.",
+    )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines on reference")
     doForceTraces = Field(dtype=bool, default=True, doc="Centroid traces on reference, even for arcs?")
@@ -1175,7 +1182,8 @@ class PsfMatchCalibsTask(PipelineTask):
         `pfs.drp.stella.fitDetectorMap.calculateFitStatistics`) about the
         median. The soften values keep the measurement noise out of the
         statistics (e.g., the per-row trace centroids on a sky exposure are
-        noisy).
+        noisy). Lines below ``targetMinSignalToNoise`` are excluded, since
+        faint lines have poor (or blended) centroids.
 
         Parameters
         ----------
@@ -1209,6 +1217,10 @@ class PsfMatchCalibsTask(PipelineTask):
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         isLine = good & ~isTrace
         isTrace &= good
+        if self.config.targetMinSignalToNoise > 0:
+            with np.errstate(invalid="ignore", divide="ignore"):
+                signalToNoise = lines.flux / lines.fluxErr
+            isLine &= np.isfinite(signalToNoise) & (signalToNoise > self.config.targetMinSignalToNoise)
 
         # Model positions: traces have no wavelength, so they're measured in x only, at the measured y
         model = np.full((len(lines), 2), np.nan, dtype=float)
