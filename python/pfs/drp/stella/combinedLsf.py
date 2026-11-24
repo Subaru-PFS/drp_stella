@@ -353,7 +353,11 @@ class CombinedLsfInput:
         Or `None` if the result is empty.
         """
         inCenter = self.indexMap(center)
-        inStart, inValues = self.lsf.computeWindow(inCenter, clip=False)
+        try:
+            inStart, inValues = self.lsf.computeWindow(inCenter, clip=False)
+        except NoLsfsError:
+            # e.g., the input is itself a CombinedLsf, with a gap here
+            return None
         inStop = inStart + len(inValues)
         # Output pixels whose interpolation windows can reach the input window; pad generously
         halfSize = max(self.order, 1)

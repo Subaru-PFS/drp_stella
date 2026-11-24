@@ -485,8 +485,11 @@ class MergeArmsTask(PipelineTask):
         fiberId = set(lsfList[0].keys())
         for lsf in lsfList:
             assert set(lsf.keys()) == fiberId
+        missing = set(spectraList[0].fiberId) - fiberId
+        if missing:
+            raise RuntimeError(f"No LSF for fiberId={sorted(missing)}")
         return {ff: makeCombinedLsf(
-            [lsf.get(ff) for lsf in lsfList],
+            [lsf[ff] for lsf in lsfList],
             [ss.wavelength[ii] for ss in spectraList],
             wavelength,
             [ww[ii] for ww in weights.weights],

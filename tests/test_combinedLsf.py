@@ -25,7 +25,7 @@ from pfs.drp.stella.coaddSpectra import CoaddSpectraConfig, CoaddSpectraTask
 from pfs.drp.stella.combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from pfs.drp.stella.datamodel import PfsArm, PfsSingle
 from pfs.drp.stella.interpolate import Resampler, interpolateIndices
-from pfs.drp.stella.lsf import GaussianLsf, convolveInBlocks
+from pfs.drp.stella.lsf import GaussianLsf, NoLsfsError, convolveInBlocks
 from pfs.drp.stella.mergeArms import MergeArmsConfig, MergeArmsTask
 
 # Arm: wavelength range (nm), length, LSF sigma (pixels), variance (powers of two, for exact float32 weights)
@@ -260,6 +260,39 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
         convolved = lsf.warp(self.wavelength, wider).convolve(np.ones(len(wider)))
         covered = (wider > 381.0) & (wider < 1259.0)
         self.assertFloatsAlmostEqual(convolved[covered], 1.0, atol=1.0e-6, rtol=0)
+
+    def testNestedGap(self):
+        """Claude: an input with a gap doesn't hide another input that covers it"""
+        task = MergeArmsTask(config=MergeArmsConfig())
+        arms, lsfs = self.makeArms(1)
+        merged = task.mergeSpectra(arms, self.wavelength)
+        full = task.mergeLsfs(lsfs, arms, self.wavelength, merged.weights)[self.fiberId[0]]
+        select = [0, 2]  # b and n: a gap from 650 to 940 nm
+        armsGap = [arms[ii] for ii in select]
+        lsfsGap = [lsfs[ii] for ii in select]
+        mergedGap = task.mergeSpectra(armsGap, self.wavelength)
+        gap = task.mergeLsfs(lsfsGap, armsGap, self.wavelength, mergedGap.weights)[self.fiberId[0]]
+        center = self.outPixel(800.0)
+        with self.assertRaises(NoLsfsError):
+            gap.computeWindow(center)
+
+        length = len(self.wavelength)
+        identity = IndexMap(np.array([0, length - 1]), np.array([0.0, length - 1.0]), 0.0)
+        weight = SmoothWeight.constant(0, length - 1)
+        combined = CombinedLsf(length, [CombinedLsfInput(full, identity, weight, 1),
+                                        CombinedLsfInput(gap, identity, weight, 1)])
+        np.testing.assert_allclose(combined.computeArray(center), full.computeArray(center),
+                                   rtol=0, atol=1.0e-12)
+
+    def testMissingLsf(self):
+        """Claude: merging fails at once if a fiber has no LSF"""
+        task = MergeArmsTask(config=MergeArmsConfig())
+        arms, lsfs = self.makeArms(1)
+        merged = task.mergeSpectra(arms, self.wavelength)
+        for lsf in lsfs:
+            del lsf[self.fiberId[1]]
+        with self.assertRaises(RuntimeError):
+            task.mergeLsfs(lsfs, arms, self.wavelength, merged.weights)
 
     def testKernel(self):
         """computeKernel is the LSF for a line on a pixel center"""
