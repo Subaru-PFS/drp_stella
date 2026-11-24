@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pfs.datamodel
 from lsst.pipe.base import Struct
 
-from ..interpolate import Resampler, interpolateFlux, interpolateMask
+from ..interpolate import Resampler, interpolateFlux, interpolateMask, maskCovariance
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -264,6 +264,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             badMask=prepared.badMask,
             fillMask=prepared.fillMask,
             numCovar=numCovar,
+            covariance=maskCovariance(self.covar, prepared.badVariance),
         )
         badSky = ~np.isfinite(self.sky)
         sky = resampler.resampleFlux(np.where(badSky, 0.0, self.sky))
@@ -323,9 +324,21 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             with a non-finite ``variance``) have the ``NO_DATA`` bit set.
         covariance : `numpy.ndarray` of `float`, shape ``(numCovar, N)``
             Resampled covariance.
+
+        Raises
+        ------
+        NotImplementedError
+            If the spectrum's pixels are correlated (non-zero off-diagonal
+            covariance): the ``variance`` would be resampled as if its pixels
+            were independent, unlike the spectrum's.
         """
         if numCovar == 0:
             numCovar = order + 1
+        if self.covar.shape[0] > 1 and np.any(np.nan_to_num(self.covar[1:]) != 0):
+            raise NotImplementedError(
+                "Resampling a variance for a spectrum with correlated pixels "
+                "(non-zero off-diagonal covariance)"
+            )
         prepared = self._prepareMask(variance, bad)
         resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
         result = resampler.resampleVariance(

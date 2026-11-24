@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse
 from scipy.interpolate import interp1d
 
 from lsst.pipe.base import Struct
@@ -10,6 +11,7 @@ from .spline import SplineD
 
 __all__ = [
     "calculateDispersion",
+    "maskCovariance",
     "Resampler",
     "resampleWindow",
     "interpolate",
@@ -69,6 +71,36 @@ def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> 
     return result
 
 
+def maskCovariance(covariance: np.ndarray, bad: np.ndarray) -> np.ndarray:
+    """Zero the elements of a banded covariance involving bad pixels
+
+    This is the treatment of the variance of bad pixels before resampling
+    (replaced by zero), extended to the off-diagonal elements.
+
+    Parameters
+    ----------
+    covariance : `np.ndarray` of `float`, shape ``(numDiagonals, num)``
+        Banded covariance: ``covariance[k][i]`` is the covariance of pixels
+        ``i`` and ``i + k``.
+    bad : `np.ndarray` of `bool`, shape ``(num,)``
+        Bad pixels.
+
+    Returns
+    -------
+    result : `np.ndarray` of `float`, shape ``(numDiagonals, num)``
+        Covariance with the elements involving bad pixels (and non-finite
+        elements) set to zero.
+    """
+    result = np.where(np.isfinite(covariance), covariance, 0.0).astype(covariance.dtype)
+    num = result.shape[1]
+    for kk in range(result.shape[0]):
+        if kk >= num:
+            break
+        either = bad[:num - kk] | bad[kk:]
+        result[kk, :num - kk][either] = 0.0
+    return result
+
+
 class Resampler:
     """Resample arrays from one wavelength sampling to another
 
@@ -114,11 +146,29 @@ class Resampler:
         badMask: int = 0,
         fillMask: int = 0,
         numCovar: int = 1,
+        covariance: np.ndarray | None = None,
     ) -> Struct:
         """Resample a spectrum: flux, mask and covariance
 
-        Parameters and results are as for `interpolate`.
+        Parameters and results are as for `interpolate`, with the addition of
+        ``covariance``.
+
+        Parameters
+        ----------
+        covariance : `np.ndarray` of `float`, shape ``(numDiagonals, numIn)``, optional
+            Banded covariance of the source pixels (``covariance[0]`` is the
+            ``variance``). If it has non-zero off-diagonal elements (e.g., the
+            spectrum has been resampled before), the covariance of the result
+            is calculated from it (see `propagateCovariance`); otherwise the
+            source pixels are taken to be uncorrelated.
         """
+        if covariance is not None:
+            covariance = np.atleast_2d(covariance)
+            if covariance.shape[1] != len(variance):
+                raise RuntimeError(
+                    f"Shape mismatch between covariance {covariance.shape} and variance {variance.shape}"
+                )
+        correlated = covariance is not None and covariance.shape[0] > 1 and np.any(covariance[1:] != 0)
         resultMask = interpolateMask(self.fromWavelength, mask, self.toWavelength, fillMask)
         length = len(self.toWavelength)
         resultFlux = np.empty(length, dtype=flux.dtype)
@@ -137,6 +187,10 @@ class Resampler:
             minWeight,
         )
         resultMask[interpMask] |= fillMask
+        if correlated:
+            resultCovariance = self.propagateCovariance(
+                covariance, mask, badMask, numCovar
+            ).astype(resultCovariance.dtype)
         return Struct(
             wavelength=self.toWavelength,
             flux=resultFlux,
@@ -181,6 +235,133 @@ class Resampler:
             covariance=resultCovariance,
             variance=resultCovariance[0],
         )
+
+    def kernel(self, x: np.ndarray) -> np.ndarray:
+        """The interpolation kernel, as used by the C++ implementation
+
+        ``order <= 1`` is a triangle (linear interpolation); higher orders are
+        a Lanczos kernel of that order (``sinc(x) sinc(x/order)``).
+
+        Parameters
+        ----------
+        x : `np.ndarray` of `float`
+            Offsets from the target position (source pixels).
+
+        Returns
+        -------
+        values : `np.ndarray` of `float`
+            Kernel values.
+        """
+        if self.order <= 1:
+            return np.clip(1.0 - np.abs(x), 0.0, None)
+        return np.sinc(x)*np.sinc(x/self.order)
+
+    def matrix(self, mask: np.ndarray | None = None, badMask: int = 0) -> scipy.sparse.csr_matrix:
+        """The resampling as a linear operator
+
+        The resampled values are ``matrix @ values``: each row is the
+        normalised kernel of an output pixel over the source pixels, as used by
+        ``__call__`` (source pixels with ``mask & badMask`` set are excluded and
+        the kernel renormalised over the others). Rows of output pixels that
+        can't be interpolated are zero.
+
+        This is the operator through which other quantities are resampled
+        consistently with the spectrum: the covariance (``K C K^T``; see
+        `propagateCovariance`), or realisations of the noise (``K n``).
+
+        Parameters
+        ----------
+        mask : `np.ndarray` of `int`, optional
+            Source mask.
+        badMask : `int`, optional
+            Bitmask of source pixels to exclude.
+
+        Returns
+        -------
+        matrix : `scipy.sparse.csr_matrix`, shape ``(numOut, numIn)``
+            The resampling operator.
+        """
+        numIn = len(self.fromWavelength)
+        numOut = len(self.toWavelength)
+        targets = np.asarray(self.indices, dtype=np.float64)
+        with np.errstate(invalid="ignore"):
+            valid = np.isfinite(targets) & (targets >= 0) & (targets <= numIn - 1)
+        rows = np.flatnonzero(valid)
+        target = targets[valid]
+        # The C++ window: source pixels ceil(target) - halfSize (inclusive) to ceil(target) + halfSize
+        halfSize = self.halfSize
+        columns = np.ceil(target).astype(np.int64)[:, np.newaxis] + np.arange(-halfSize, halfSize)
+        use = (columns >= 0) & (columns < numIn)
+        if mask is not None and badMask:
+            use &= (np.asarray(mask)[np.clip(columns, 0, numIn - 1)] & badMask) == 0
+        values = np.where(use, self.kernel(columns - target[:, np.newaxis]), 0.0)
+        sumValues = values.sum(axis=1)
+        good = sumValues > 0
+        values[good] /= sumValues[good, np.newaxis]
+        values[~good] = 0.0
+        use &= good[:, np.newaxis]
+        rowIndex = np.broadcast_to(rows[:, np.newaxis], columns.shape)
+        return scipy.sparse.csr_matrix(
+            (values[use], (rowIndex[use], columns[use])), shape=(numOut, numIn)
+        )
+
+    def propagateCovariance(
+        self,
+        covariance: np.ndarray,
+        mask: np.ndarray | None = None,
+        badMask: int = 0,
+        numCovar: int = 1,
+    ) -> np.ndarray:
+        """Propagate a banded covariance through the resampling: ``K C K^T``
+
+        Unlike the C++ implementation (used by ``__call__`` for uncorrelated
+        source pixels), this accounts for correlations between the source
+        pixels, e.g. from an earlier resampling. It is exact, up to the number
+        of diagonals retained.
+
+        Parameters
+        ----------
+        covariance : `np.ndarray` of `float`, shape ``(numDiagonals, numIn)``
+            Banded source covariance: ``covariance[k][i]`` is the covariance
+            of source pixels ``i`` and ``i + k``. Values must be finite (bad
+            pixels should be masked, or their values replaced, by the caller).
+        mask : `np.ndarray` of `int`, optional
+            Source mask.
+        badMask : `int`, optional
+            Bitmask of source pixels to exclude.
+        numCovar : `int`, optional
+            Number of diagonals of the result.
+
+        Returns
+        -------
+        result : `np.ndarray` of `float`, shape ``(numCovar, numOut)``
+            Banded covariance of the resampled values: ``result[k][i]`` is the
+            covariance of output pixels ``i`` and ``i + k``. As for the C++
+            implementation, output pixels that can't be interpolated, and
+            offsets beyond the end of the array, have the ``fill`` value.
+        """
+        covariance = np.atleast_2d(np.asarray(covariance, dtype=np.float64))
+        numIn = covariance.shape[1]
+        diagonals = [covariance[0]]
+        offsets = [0]
+        for kk in range(1, covariance.shape[0]):
+            if kk >= numIn:
+                break
+            diagonals += [covariance[kk, :numIn - kk]]*2
+            offsets += [kk, -kk]
+        cov = scipy.sparse.diags(diagonals, offsets, shape=(numIn, numIn), format="csr")
+        operator = self.matrix(mask, badMask)
+        product = (operator @ cov @ operator.T).tocsr()
+        numOut = operator.shape[0]
+        result = np.full((numCovar, numOut), self.fill, dtype=np.float64)
+        valid = np.diff(operator.indptr) > 0
+        for kk in range(numCovar):
+            if kk >= numOut:
+                break
+            values = product.diagonal(kk)
+            select = valid[:numOut - kk]
+            result[kk, :numOut - kk][select] = values[select]
+        return result
 
     def resampleFlux(self, values: np.ndarray) -> np.ndarray:
         """Resample a flux-like array, with no mask (as `interpolateFlux`)

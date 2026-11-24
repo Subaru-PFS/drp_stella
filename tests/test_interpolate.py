@@ -357,6 +357,113 @@ class ResamplerTestCase(lsst.utils.tests.TestCase):
                 self.assertGreater(len(result), 0)
 
 
+class ResamplerCovarianceTestCase(lsst.utils.tests.TestCase):
+    """Claude: the resampling as an operator, and the propagation of correlated noise"""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(24680)
+        numIn = 400
+        self.fromWavelength = 600.0 + 0.067*np.arange(numIn)
+        # ~0.07 nm: once resampled; then ~0.088 nm: a scale change
+        self.midWavelength = np.linspace(600.5, self.fromWavelength[-1] - 0.5, 380)
+        self.toWavelength = np.linspace(601.0, self.fromWavelength[-1] - 1.0, 300)
+
+    def testMatrix(self):
+        """The operator reproduces the C++ resampling: values and covariance"""
+        numIn = len(self.fromWavelength)
+        flux = self.rng.normal(size=numIn)
+        variance = self.rng.uniform(1.0, 2.0, size=numIn)
+        mask = (self.rng.random(numIn) < 0.05).astype(np.int32)
+        for order in (1, 3, 5):
+            numCovar = 2*order + 2
+            resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+            expect = resampler(flux, mask, variance, minWeight=0.0, badMask=1, numCovar=numCovar)
+            matrix = resampler.matrix(mask, 1)
+            np.testing.assert_allclose(matrix @ flux, expect.flux, rtol=0, atol=1.0e-12,
+                                       err_msg=f"order={order}")
+            covar = resampler.propagateCovariance(variance[np.newaxis, :], mask, 1, numCovar)
+            # The C++ gives garbage off-diagonals for pairs including an output pixel whose kernel sums to
+            # <= 0 after masking (it is masked, but its unnormalised kernel is still used); skip those pairs
+            empty = np.diff(matrix.indptr) == 0
+            numOut = len(self.toWavelength)
+            for kk in range(numCovar):
+                select = ~(empty[:numOut - kk] | empty[kk:])
+                np.testing.assert_allclose(
+                    covar[kk, :numOut - kk][select], expect.covariance[kk, :numOut - kk][select],
+                    rtol=1.0e-10, atol=1.0e-12, err_msg=f"order={order} offset={kk}",
+                )
+
+    def testCorrelated(self):
+        """Correlated input (resampled twice, with a scale change): K C K^T, against Monte Carlo"""
+        numIn = len(self.fromWavelength)
+        numSamples = 20000
+        for order in (1, 3):
+            first = Resampler(self.fromWavelength, self.midWavelength, order=order)
+            second = Resampler(self.midWavelength, self.toWavelength, order=order)
+            numMid = len(self.midWavelength)
+            numDiag = 2*order + 2
+            # Covariance after the first resampling (unit-variance, independent input)
+            midCovar = first.propagateCovariance(np.ones((1, numIn)), numCovar=numDiag)
+            self.assertGreater(np.max(np.abs(midCovar[1])), 0.05)  # correlated
+            # Exact, against a dense calculation
+            numCovar = 2*order + 2
+            result = second.propagateCovariance(midCovar, numCovar=numCovar)
+            dense = np.zeros((numMid, numMid))
+            for kk in range(numDiag):
+                dense += np.diag(midCovar[kk, :numMid - kk], k=kk)
+                if kk > 0:
+                    dense += np.diag(midCovar[kk, :numMid - kk], k=-kk)
+            operator = second.matrix().toarray()
+            expect = operator @ dense @ operator.T
+            for kk in range(numCovar):
+                np.testing.assert_allclose(result[kk, :len(self.toWavelength) - kk], np.diagonal(expect, kk),
+                                           rtol=0, atol=1.0e-12, err_msg=f"order={order} offset={kk}")
+            # Through __call__
+            called = second(np.zeros(numMid), np.zeros(numMid, dtype=np.int32), midCovar[0],
+                            numCovar=numCovar, covariance=midCovar)
+            np.testing.assert_allclose(called.covariance, result, rtol=0, atol=1.0e-12)
+            # Without the off-diagonals, the C++ path (uncorrelated) is used, and differs
+            uncorrelated = second(np.zeros(numMid), np.zeros(numMid, dtype=np.int32), midCovar[0],
+                                  numCovar=numCovar)
+            self.assertGreater(np.max(np.abs(uncorrelated.covariance - result)), 0.05)
+            # Monte Carlo:  noise resampled twice
+            noise = self.rng.normal(size=(numSamples, numIn))
+            mid = (first.matrix() @ noise.T).T
+            out = (second.matrix() @ mid.T).T
+            interior = slice(2*order + 2, len(self.toWavelength) - 3*order - 3)
+            for kk in range(numCovar):
+                measured = np.mean(out[:, :len(self.toWavelength) - kk]*out[:, kk:], axis=0)
+                np.testing.assert_allclose(
+                    measured[interior], result[kk, :len(self.toWavelength) - kk][interior],
+                    rtol=0, atol=0.05, err_msg=f"order={order} offset={kk}",
+                )
+
+    def testGuard(self):
+        """Resampling a model variance for correlated spectra is refused"""
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        numIn = len(self.fromWavelength)
+        flags = MaskHelper(NO_DATA=0)
+        covar = np.zeros((2, 3, numIn), dtype=np.float32)
+        covar[:, 0] = 1.0
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1, 2]),
+            np.array([self.fromWavelength]*2), np.ones((2, numIn), dtype=np.float32),
+            np.zeros((2, numIn), dtype=np.int32), np.zeros((2, numIn), dtype=np.float32),
+            np.ones((2, numIn), dtype=np.float32), covar, flags, {},
+        )
+        variance = np.ones((2, numIn))
+        spectra.resampleVariance(self.toWavelength, variance)  # uncorrelated: fine
+        covar[:, 1] = 0.2  # correlated
+        with self.assertRaises(NotImplementedError):
+            spectra.resampleVariance(self.toWavelength, variance)
+        # The spectra themselves are resampled with their correlations
+        resampled = spectra.resample(self.toWavelength, order=1, numCovar=2)
+        resampler = Resampler(self.fromWavelength, self.toWavelength, order=1)
+        expect = resampler.propagateCovariance(covar[0, :2], numCovar=2)
+        np.testing.assert_allclose(resampled.covar[0], expect, rtol=1.0e-6, atol=1.0e-6)
+
+
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
 

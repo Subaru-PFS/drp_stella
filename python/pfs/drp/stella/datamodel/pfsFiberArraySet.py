@@ -4,7 +4,7 @@ from lsst.pipe.base import Struct
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import Resampler
+from ..interpolate import Resampler, maskCovariance
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -246,6 +246,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 badMask=prepared.badMask,
                 fillMask=prepared.fillMask,
                 numCovar=numCovar,
+                covariance=maskCovariance(self.covar[jj], prepared.badVariance),
             )
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badSky = badNorm | ~np.isfinite(self.sky[jj])
@@ -300,11 +301,22 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             ``NO_DATA`` bit set.
         covariance : `numpy.ndarray` of `float`, shape ``(N, numCovar, M)``
             Resampled covariance for each fiber.
+
+        Raises
+        ------
+        NotImplementedError
+            If the spectra's pixels are correlated (non-zero off-diagonal
+            covariance): the ``variance`` would be resampled as if its pixels
+            were independent, unlike the spectra's.
         """
         if numCovar == 0:
             numCovar = order + 1
         if variance.shape != self.flux.shape:
             raise RuntimeError(f"Shape mismatch between variance {variance.shape} and flux {self.flux.shape}")
+        if self.covar.shape[1] > 1 and np.any(np.nan_to_num(self.covar[:, 1:]) != 0):
+            raise NotImplementedError(
+                "Resampling a variance for spectra with correlated pixels (non-zero off-diagonal covariance)"
+            )
         mask = np.empty((len(self), len(wavelength)), dtype=self.mask.dtype)
         covar = np.zeros((len(self), numCovar, len(wavelength)), dtype=self.covar.dtype)
         for ii in range(len(self)):
