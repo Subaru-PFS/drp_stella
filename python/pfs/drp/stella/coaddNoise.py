@@ -19,8 +19,7 @@ from pfs.datamodel.drp import PfsCoadd, PfsObject
 
 from .barycentricCorrection import applyBarycentricCorrection
 from .coaddSpectra import CoaddSpectraTask, CoaddSpectraConfig
-from .datamodel.drp import PfsArm, PfsSingle
-from .applyFluxCal import calibratePfsArm
+from .datamodel.drp import PfsArm
 from .focalPlaneFunction import FocalPlaneFunction
 from .interpolate import calculateDispersion
 from .utils.sysUtils import getPfsVersions
@@ -196,7 +195,7 @@ class CoaddNoiseTask(CoaddSpectraTask):
         noisy.flux += rng.normal(size=pfsArm.flux.shape)*np.sqrt(pfsArm.variance)
         return noisy
 
-    def getSpectrum(self, target: Target, data: Struct, number: int | None = None) -> PfsSingle:
+    def getSpectrum(self, target: Target, data: Struct, number: int | None = None) -> Struct:
         """Return a calibrated spectrum for the nominated target
 
         Parameters
@@ -212,12 +211,14 @@ class CoaddNoiseTask(CoaddSpectraTask):
         -------
         spectrum : `PfsSingle`
             Calibrated spectrum of the target.
+        weights : `numpy.ndarray` of `float`, or `None`
+            Inverse-variance weights for the calibrated spectrum, or `None` to
+            use the measured variance.
         """
         spectrum = data.pfsArm.select(data.pfsConfig, catId=target.catId, objId=target.objId)
         if number is not None:
             spectrum = self.addNoise(spectrum, number)
-        spectrum = calibratePfsArm(spectrum, data.pfsConfig, data.sky1d, data.fluxCal)
-        return spectrum.extractFiber(PfsSingle, data.pfsConfig, spectrum.fiberId[0])
+        return self.calibrate(spectrum, data)
 
     def process(self, target: Target, data: dict[Identity, Struct]) -> Struct:
         """Generate coadd noise spectra for a single target
@@ -250,12 +251,16 @@ class CoaddNoiseTask(CoaddSpectraTask):
         lsfList = [dd.pfsArmLsf for dd in data.values()]
         flags = MaskHelper.fromMerge([dd.pfsArm.flags for dd in data.values()])
         combineArgs = (lsfList, flags, wavelength)
-        original = self.combine([self.getSpectrum(target, dd) for dd in data.values()], *combineArgs)
 
-        combinations = [
-            self.combine([self.getSpectrum(target, dd, ii) for dd in data.values()], *combineArgs)
-            for ii in range(self.config.samples)
-        ]
+        def combine(number: int | None = None) -> Struct:
+            """Combine the calibrated spectra, with noise added if ``number`` is not `None`"""
+            calibrated = [self.getSpectrum(target, dd, number) for dd in data.values()]
+            return self.combine(
+                [cc.spectrum for cc in calibrated], *combineArgs, [cc.weights for cc in calibrated]
+            )
+
+        original = combine()
+        combinations = [combine(ii) for ii in range(self.config.samples)]
 
         residuals = np.array([combo.flux - original.flux for combo in combinations])
 

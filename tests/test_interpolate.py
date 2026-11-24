@@ -11,6 +11,7 @@ from pfs.drp.stella.interpolate import (
     interpolateVariance,
     interpolate,
     interpolateCovariance,
+    interpolateMaskedVariance,
 )
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
 
@@ -138,6 +139,29 @@ class InterpolateTestCase(lsst.utils.tests.TestCase):
         stdChi = np.std((outFlux - flux)/np.sqrt(outVariance))
         self.assertFloatsAlmostEqual(mean, flux, rtol=1.5e-3)
         self.assertFloatsAlmostEqual(stdChi, 1.0, rtol=0.15)
+
+    @methodParameters(dtype=("float32", "float64"))  # strings, so pytest-xdist can serialize subtests
+    def testMaskedVariance(self, dtype: str):
+        """Test that interpolateMaskedVariance matches interpolate"""
+        rng = np.random.default_rng(12345)
+        inSpectrum = self.makeSpectrum(5.0)
+        expected = self.makeSpectrum(4.321)
+        size = inSpectrum.wavelength.size
+        flux = rng.normal(size=size).astype(dtype)
+        variance = rng.uniform(1.0, 2.0, size=size).astype(dtype)
+        mask = np.where(rng.uniform(size=size) < 0.05, 1, 0).astype(np.int32)
+        mask[size//2:size//2 + 3] = 1  # failed interpolation, flagged with fillMask
+        kwargs = dict(order=self.order, minWeight=0.5, badMask=1, fillMask=2, numCovar=self.order + 1)
+
+        full = interpolate(inSpectrum.wavelength, flux, mask, variance, expected.wavelength, **kwargs)
+        result = interpolateMaskedVariance(
+            inSpectrum.wavelength, mask, variance, expected.wavelength, **kwargs
+        )
+        self.assertTrue(np.any(result.mask & 2))
+        self.assertFloatsEqual(result.mask, full.mask)
+        self.assertFloatsEqual(result.covariance, full.covariance)
+        self.assertFloatsEqual(result.variance, full.variance)
+        self.assertEqual(result.covariance.dtype, np.dtype(dtype))
 
     def testLsst(self):
         """Test that we get the same result as lsst.afw.math.offsetImage"""
