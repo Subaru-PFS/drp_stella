@@ -366,6 +366,50 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         rejected = (maskedImage.mask.array & maskedImage.mask.getPlaneBitMask("CR")) != 0
         self.assertEqual(np.count_nonzero(rejected), 0)
 
+    def testRejectOutliersLineWing(self):
+        """Test that the wing of a bright line in the next row isn't rejected
+
+        In data binned in the spectral direction, the row next to a bright
+        line contains the line's wing, whose profile across the fiber differs
+        from the fiber's (the PSF isn't separable); here it's shifted by a
+        pixel. The line is in a single fiber (e.g., an emission line), so the
+        fit there looks bad compared with the rest of the row; but it's judged
+        with the systematic error of the line's peak
+        (config.rejectSystematicRows), so nothing is rejected (as in 155929 r3
+        fiber 1424, and 155933 r4 fiber 2438).
+        """
+        flux = 1000.0
+        lineRow = 100
+        lineFactor = 20.0
+        wingFraction = 0.1
+        index = 3
+        xCenter = self.detMap.getXCenter(self.fiberTraces[index].fiberId)[lineRow]
+        columns = np.arange(self.synthConfig.width)
+        near = np.abs(columns - xCenter) < 0.5*self.synthConfig.separation
+        for rows in (0, ExtractSpectraTask.ConfigClass().rejectSystematicRows):
+            with self.subTest(rows=rows):
+                self.rng = np.random.RandomState(12345)
+                image = makeSyntheticFlat(self.synthConfig, flux=flux, addNoise=False, rng=self.rng)
+                image.array[lineRow, near] *= lineFactor
+                image.array[lineRow + 1] += wingFraction*np.roll(np.where(near, image.array[lineRow], 0.0), 1)
+                variance = image.array + self.synthConfig.readnoise**2
+                image.array += self.rng.normal(size=image.array.shape)*np.sqrt(variance)
+                maskedImage = lsst.afw.image.makeMaskedImage(image)
+                maskedImage.mask.array[:] = 0
+                maskedImage.variance.array[:] = variance
+
+                config = ExtractSpectraTask.ConfigClass()
+                config.doRejectOutliers = True
+                config.rejectSystematicRows = rows
+                task = ExtractSpectraTask(config=config)
+                task.run(maskedImage, self.fiberTraces, rejectBadFits=True)
+                crBit = maskedImage.mask.getPlaneBitMask("CR")
+                numRejected = np.count_nonzero(maskedImage.mask.array & crBit)
+                if rows == 0:
+                    self.assertGreater(numRejected, 0)  # The test is sensitive to the problem
+                else:
+                    self.assertEqual(numRejected, 0)
+
     def testRejectOutliersBackground(self):
         """Test that light between the fibers doesn't cause rejections
 

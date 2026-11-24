@@ -90,7 +90,8 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.05,
         doc=("Fraction of the model to add in quadrature to the noise when rejecting outliers, to allow "
              "for errors in the fiber profiles (including the non-separability of the PSF). The model used "
-             "is its local maximum along the row (see rejectSystematicWidth)."),
+             "is its local maximum along the row (see rejectSystematicWidth; and rejectSystematicRows for "
+             "judging bad fits)."),
     )
     rejectSystematicWidth = pexConfig.Field(
         dtype=int,
@@ -98,6 +99,17 @@ class ExtractSpectraConfig(pexConfig.Config):
         doc=("Half-width (pixels along the row) of the maximum filter applied to the model for the "
              "systematic error term, so that the wings of bright features get the systematic error of the "
              "peak"),
+    )
+    rejectSystematicRows = pexConfig.Field(
+        dtype=int,
+        default=1,
+        doc=("Half-width (rows) of the maximum filter applied to the model for the systematic error term "
+             "when judging whether fits are bad (rejectBadFitThreshold). In data binned in the spectral "
+             "direction, the row next to a bright line contains the line's wing, whose profile across the "
+             "fiber differs from the fiber's (the PSF isn't separable), so its fits are judged with the "
+             "systematic error of the line's peak. Not used for the rejection of pixels: an outlier absorbed "
+             "into its fiber's flux raises the model in its row, which would hide its extension into the "
+             "adjacent rows."),
     )
     rejectMaskPlane = pexConfig.Field(
         dtype=str,
@@ -671,6 +683,9 @@ class ExtractSpectraTask(pipeBase.Task):
         ``config.rejectSystematicWidth`` pixels along the row: the PSF isn't
         separable into the fiber profile and the LSF, so near bright features
         there are residuals in the profile wings that scale with the peak.
+        When judging whether fits are bad, ``peak`` is also the maximum over
+        ``config.rejectSystematicRows`` adjacent rows, which contain the wings
+        of a bright line.
 
         In a preliminary extraction, the rejection is performed before the
         scattered light is subtracted (as the scattered light is estimated
@@ -753,8 +768,21 @@ class ExtractSpectraTask(pipeBase.Task):
                 candidate &= ~protect
             outlier = candidate & (chi > threshold)
             if badFitThreshold > 0:
+                # The row next to a bright line contains the line's wing, whose profile across the fiber
+                # differs from the fiber's: judge the fits with the systematic error of the maximum of the
+                # model over the adjacent rows too. (Not for the pixels themselves: an outlier absorbed into
+                # its fiber's flux raises the model in its row, which would then hide its extension into the
+                # adjacent rows.)
+                fitChi = chi
+                if self.config.rejectSystematicRows > 0:
+                    rowsSystematic = scipy.ndimage.maximum_filter1d(
+                        systematic, size=2*self.config.rejectSystematicRows + 1, axis=0, mode="nearest"
+                    )
+                    fitNoise2 = noise2 + (self.config.rejectSystematicFraction*rowsSystematic)**2
+                    fitNoise2 -= (self.config.rejectSystematicFraction*systematic)**2
+                    fitChi = (image - model)/np.sqrt(fitNoise2)
                 outlier |= self.findBadFits(
-                    maskedImage, fiberTraceSet, spectra, chi, candidate, badFitThreshold
+                    maskedImage, fiberTraceSet, spectra, fitChi, candidate, badFitThreshold
                 )
             gap = good & ~inTrace & np.isfinite(chi)  # pixels between the traces
             gapSeeds = np.zeros_like(outlier)
