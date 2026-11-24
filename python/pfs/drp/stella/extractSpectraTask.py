@@ -118,9 +118,9 @@ class ExtractSpectraConfig(pexConfig.Config):
     rejectRuinedFiberMaskPlane = pexConfig.Field(
         dtype=str,
         default="RUINED_FIBER",
-        doc=("Additional mask plane for the pixels containing the light of a fiber in a row in which our "
-             "rejection left too little of its profile to measure its flux (see "
-             "rejectRuinedProfileThreshold). They are masked (with rejectMaskPlane too) and the row "
+        doc=("Additional mask plane for the pixels containing the light of a fiber in a row in which cosmic "
+             "rays (rejected by us or masked elsewhere) left too little of its profile to measure its flux "
+             "(see rejectRuinedProfileThreshold). They are masked (with rejectMaskPlane too) and the row "
              "re-extracted without the fiber, as otherwise its flux is fit from the faint edges of its "
              "profile, which it shares with its neighbours, biasing them. These pixels don't count as "
              "masked when deciding whether a neighbour is also ruined."),
@@ -433,15 +433,16 @@ class ExtractSpectraTask(pipeBase.Task):
     def flagRejectedSpectra(
         self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet, badBitMask: int
     ) -> Tuple[SpectrumSet, int]:
-        """Flag as NO_DATA the spectral pixels that our rejection has ruined
+        """Flag as NO_DATA the spectral pixels that cosmic rays have ruined
 
         If too little of a fiber's profile remains unmasked in a row (less
         than ``config.minFracImage``), the extraction fits its flux from the
         faint edges of the profile and flags it ``SUSPECT``; such fluxes can
         be wildly wrong, and as the fiber shares those pixels with its
-        neighbours, they bias the neighbours' fluxes too. Where our rejection
-        contributed to that (there are pixels we rejected as outliers within
-        the fiber's footprint in that row), we:
+        neighbours, they bias the neighbours' fluxes too. Where cosmic rays
+        are responsible (pixels masked with ``config.rejectMaskPlane``, whether
+        by our rejection or elsewhere, e.g., by the cosmicray task: without
+        them, enough of the profile would remain), we:
 
         - mask the pixels containing the fiber's light in that row
           (``config.rejectRuinedProfileThreshold``), with
@@ -451,9 +452,9 @@ class ExtractSpectraTask(pipeBase.Task):
           the whole of the trace is masked), with zero flux and variance,
           retaining the masks that caused it (e.g., ``CR``).
 
-        Fibers that are mostly masked for other reasons are left as they are,
-        and pixels masked only because they contain a ruined fiber's light
-        don't count towards ruining a neighbour.
+        Fibers that are mostly masked for other reasons (e.g., saturation) are
+        left as they are, and pixels masked only because they contain a ruined
+        fiber's light don't count towards ruining a neighbour.
 
         Parameters
         ----------
@@ -475,7 +476,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Number of spectral pixels flagged.
         """
         mask = maskedImage.mask.array
-        if self.config.rejectOutlierMaskPlane not in maskedImage.mask.getMaskPlaneDict():
+        planes = maskedImage.mask.getMaskPlaneDict()
+        if self.config.rejectMaskPlane not in planes or self.config.rejectOutlierMaskPlane not in planes:
             return spectra, 0
         outlierBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectOutlierMaskPlane)
         rejectBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectMaskPlane)
@@ -509,14 +511,13 @@ class ExtractSpectraTask(pipeBase.Task):
             onlyRuined &= (traceMask & (badBitMask & ~rejectBitMask)) == 0
             bad = (((traceMask & badBitMask) != 0) & ~onlyRuined) | invalid
             unmasked = np.sum(profile*~bad, axis=1)
-            # Our rejection must be what ruined the row: it contains our outliers, and without the rejection
-            # (the rejectMaskPlane, which external cosmic-ray masks share) enough of the profile is left.
-            # Rows ruined by other masks (e.g., saturation) are left as the extraction flagged them.
+            # Cosmic rays (the rejectMaskPlane: our rejections, and cosmic rays masked elsewhere) must be what
+            # ruined the row: without them, enough of the profile is left. Rows ruined by other masks (e.g.,
+            # saturation) are left as the extraction flagged them.
             other = ((traceMask & (badBitMask & ~rejectBitMask)) != 0) | invalid
             unmaskedOther = np.sum(profile*~other, axis=1)
-            ours = np.any((profile > 0) & ((traceMask & outlierBitMask) != 0), axis=1)
-            ours &= unmaskedOther >= self.config.minFracImage
-            select = ours & (unmasked < self.config.minFracImage) & (norm != 0)
+            byCosmicRays = unmaskedOther >= self.config.minFracImage
+            select = byCosmicRays & (unmasked < self.config.minFracImage) & (norm != 0)
             if not np.any(select):
                 continue
             light = np.zeros_like(inTrace)

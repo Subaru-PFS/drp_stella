@@ -635,25 +635,30 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(numRejected[2:], [0]*(len(passes) - 2))  # no spreading after the first full pass
 
     def testRejectOutliersNoData(self):
-        """Test that a fiber-row ruined by our rejection is flagged NO_DATA
+        """Test that a fiber-row ruined by cosmic rays is flagged NO_DATA
 
-        If our rejection leaves too little of a fiber's profile in a row, the
+        If cosmic rays (rejected by us, or masked elsewhere, e.g., by the
+        cosmicray task) leave too little of a fiber's profile in a row, the
         flux would be fit from the faint edges of the profile, so we flag it
-        NO_DATA. A fiber-row that is mostly masked for other reasons (e.g., by
-        the ISR) keeps the extraction's usual treatment.
+        NO_DATA. A fiber-row that is mostly masked for other reasons (e.g.,
+        saturation) keeps the extraction's usual treatment (SUSPECT).
         """
         image = self.makeNoisyImage(1000.0, 100, 1.0)
         index = 3
         crRow = 100
         externalRow = 150
+        satRow = 200
         fiberId = self.fiberTraces[index].fiberId
         columns = np.arange(self.synthConfig.width)
         image.mask.addMaskPlane("CR")
         crBit = image.mask.getPlaneBitMask("CR")
+        satBit = image.mask.getPlaneBitMask("SAT")
         xCenter = self.detMap.getXCenter(fiberId)[crRow]
         image.image.array[crRow, np.abs(columns - xCenter) < 2.5] += 20000.0
         xCenter = self.detMap.getXCenter(fiberId)[externalRow]
-        image.mask.array[externalRow, np.abs(columns - xCenter) < 2.5] |= crBit  # e.g., from the ISR
+        image.mask.array[externalRow, np.abs(columns - xCenter) < 2.5] |= crBit  # e.g., from cosmicray
+        xCenter = self.detMap.getXCenter(fiberId)[satRow]
+        image.mask.array[satRow, np.abs(columns - xCenter) < 2.5] |= satBit
 
         config = ExtractSpectraTask.ConfigClass()
         config.doRejectOutliers = True
@@ -662,13 +667,14 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         spectrum = [ss for ss in spectra if ss.fiberId == fiberId][0]
         noData = spectrum.mask.getPlaneBitMask("NO_DATA")
         mask = spectrum.mask.array[0]
-        self.assertTrue(mask[crRow] & noData)
-        self.assertTrue(mask[crRow] & spectrum.mask.getPlaneBitMask("CR"))
-        self.assertEqual(spectrum.flux[crRow], 0.0)
-        self.assertEqual(spectrum.variance[crRow], 0.0)
-        self.assertFalse(mask[externalRow] & noData)
-        self.assertTrue(mask[externalRow] & spectrum.mask.getPlaneBitMask("SUSPECT"))
-        self.assertEqual(np.count_nonzero(mask & noData), 1)  # nothing else
+        for row in (crRow, externalRow):
+            self.assertTrue(mask[row] & noData)
+            self.assertTrue(mask[row] & spectrum.mask.getPlaneBitMask("CR"))
+            self.assertEqual(spectrum.flux[row], 0.0)
+            self.assertEqual(spectrum.variance[row], 0.0)
+        self.assertFalse(mask[satRow] & noData)
+        self.assertTrue(mask[satRow] & spectrum.mask.getPlaneBitMask("SUSPECT"))
+        self.assertEqual(np.count_nonzero(mask & noData), 2)  # nothing else
 
     def testRejectOutliersRuinedNeighbours(self):
         """Test that a ruined fiber doesn't bias its neighbours
