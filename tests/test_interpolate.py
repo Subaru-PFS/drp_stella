@@ -382,16 +382,36 @@ class ResamplerCovarianceTestCase(lsst.utils.tests.TestCase):
             np.testing.assert_allclose(matrix @ flux, expect.flux, rtol=0, atol=1.0e-12,
                                        err_msg=f"order={order}")
             covar = resampler.propagateCovariance(variance[np.newaxis, :], mask, 1, numCovar)
-            # The C++ gives garbage off-diagonals for pairs including an output pixel whose kernel sums to
-            # <= 0 after masking (it is masked, but its unnormalised kernel is still used); skip those pairs
-            empty = np.diff(matrix.indptr) == 0
-            numOut = len(self.toWavelength)
-            for kk in range(numCovar):
-                select = ~(empty[:numOut - kk] | empty[kk:])
-                np.testing.assert_allclose(
-                    covar[kk, :numOut - kk][select], expect.covariance[kk, :numOut - kk][select],
-                    rtol=1.0e-10, atol=1.0e-12, err_msg=f"order={order} offset={kk}",
-                )
+            np.testing.assert_allclose(covar, expect.covariance, rtol=1.0e-10, atol=1.0e-12,
+                                       err_msg=f"order={order}")
+
+    def testNonPositiveKernel(self):
+        """An output pixel whose kernel sums to <= 0 has no covariance with its neighbours
+
+        With masked source pixels, a Lanczos kernel's remaining values can sum
+        to zero or less; the pixel is then masked and its covariance set to the
+        fill value. Its unnormalised kernel used to enter its neighbours'
+        off-diagonal covariances.
+        """
+        numIn = len(self.fromWavelength)
+        variance = np.ones(numIn)
+        order = 3
+        resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+        # Mask the source pixels where an output pixel's kernel is positive: only its negative lobes remain
+        ii = len(self.toWavelength)//2
+        target = resampler.indices[ii]
+        columns = np.ceil(target).astype(int) + np.arange(-order, order)
+        values = resampler.kernel(columns - target)
+        mask = np.zeros(numIn, dtype=np.int32)
+        mask[columns[values > 0]] = 1
+        self.assertLess(values[values <= 0].sum(), 0.0)
+        self.assertEqual(np.diff(resampler.matrix(mask, 1).indptr)[ii], 0)  # no valid kernel
+        result = resampler(np.zeros(numIn), mask, variance, minWeight=0.0, badMask=1, numCovar=4)
+        np.testing.assert_array_equal(result.covariance[:, ii], 0.0)
+        for kk in range(1, 4):
+            self.assertEqual(result.covariance[kk, ii - kk], 0.0)
+        expect = resampler.propagateCovariance(variance[np.newaxis, :], mask, 1, 4)
+        np.testing.assert_allclose(result.covariance, expect, rtol=1.0e-10, atol=1.0e-12)
 
     def testCorrelated(self):
         """Correlated input (resampled twice, with a scale change): K C K^T, against Monte Carlo"""
