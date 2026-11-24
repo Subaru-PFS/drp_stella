@@ -61,9 +61,18 @@ class ExtractSpectraConfig(pexConfig.Config):
     rejectGrowThreshold = pexConfig.Field(
         dtype=float,
         default=3.0,
-        doc=("Grow each rejected region to include the connected pixels (in both directions, within the "
-             "traces) whose positive residual exceeds this many standard deviations, so that all of a "
-             "detected outlier is rejected. Disabled if <= 0."),
+        doc=("Grow each rejected region to include the connected pixels (within the traces) whose positive "
+             "residual exceeds this many standard deviations, so that all of a detected outlier is "
+             "rejected. Disabled if <= 0. Growth into an adjacent row uses rejectGrowAcrossRowsThreshold."),
+    )
+    rejectGrowAcrossRowsThreshold = pexConfig.Field(
+        dtype=float,
+        default=5.0,
+        doc=("Threshold (positive residual/sigma) for growing a rejected region into an adjacent row; "
+             "within that row it then grows with rejectGrowThreshold. This is higher than "
+             "rejectGrowThreshold because for data binned in the spectral direction an adjacent row may be "
+             "many pixels away: a cosmic ray that crosses into it leaves a significant excess there, and "
+             "growing into noise rejects good data (and too much of a fiber's profile, losing the row)."),
     )
     rejectFiberFraction = pexConfig.Field(
         dtype=float,
@@ -550,10 +559,10 @@ class ExtractSpectraTask(pipeBase.Task):
                 # Grow to the connected pixels with a significant excess (including those already rejected,
                 # so that a region can be connected through them)
                 alreadyRejected = (mask & rejectBitMask) != 0
-                excess = (candidate & (chi > self.config.rejectGrowThreshold)) | outlier | alreadyRejected
-                labels, _ = scipy.ndimage.label(excess, structure=np.ones((3, 3), dtype=bool))
-                seeds = np.unique(labels[outlier])
-                outlier |= np.isin(labels, seeds[seeds > 0]) & inTrace & ~alreadyRejected
+                connect = outlier | alreadyRejected
+                alongRow = (candidate & (chi > self.config.rejectGrowThreshold)) | connect
+                acrossRows = (candidate & (chi > self.config.rejectGrowAcrossRowsThreshold)) | connect
+                outlier |= self.growOutliers(outlier, alongRow, acrossRows) & inTrace & ~alreadyRejected
         if self.config.rejectGrow > 0:
             structure = np.ones((1, 2*self.config.rejectGrow + 1), dtype=bool)
             outlier = scipy.ndimage.binary_dilation(outlier, structure=structure) & inTrace
@@ -568,6 +577,41 @@ class ExtractSpectraTask(pipeBase.Task):
         mask[outlier & unmasked] |= rejectBitMask | outlierBitMask
         mask[fiberReject & unmasked] |= rejectBitMask
         return int(np.count_nonzero((outlier | fiberReject) & unmasked))
+
+    @staticmethod
+    def growOutliers(seeds: np.ndarray, alongRow: np.ndarray, acrossRows: np.ndarray) -> np.ndarray:
+        """Grow outliers to the connected pixels with a significant excess
+
+        A region grows along a row through the pixels in ``alongRow``, and into
+        an adjacent row (including diagonally) only through the pixels in
+        ``acrossRows`` (a subset of ``alongRow`` with a higher threshold),
+        from which it continues to grow along that row.
+
+        Parameters
+        ----------
+        seeds : `np.ndarray` of `bool`
+            Pixels from which to grow.
+        alongRow : `np.ndarray` of `bool`
+            Pixels into which a region may grow within a row.
+        acrossRows : `np.ndarray` of `bool`
+            Pixels into which a region may grow from an adjacent row.
+
+        Returns
+        -------
+        grown : `np.ndarray` of `bool`
+            The grown regions (including the seeds).
+        """
+        alongRowStructure = np.array([[0, 0, 0], [1, 1, 1], [0, 0, 0]], dtype=bool)
+        labels, _ = scipy.ndimage.label(alongRow | seeds, structure=alongRowStructure)
+        grown = seeds.copy()
+        while True:
+            segments = np.unique(labels[grown])
+            grown = np.isin(labels, segments[segments > 0]) | grown
+            new = scipy.ndimage.binary_dilation(grown, structure=np.ones((3, 3), dtype=bool)) & acrossRows
+            new &= ~grown
+            if not np.any(new):
+                return grown
+            grown |= new
 
     def rejectFibers(
         self,

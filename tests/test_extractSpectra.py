@@ -468,6 +468,80 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertGreater(len(newColumns), 0)
         self.assertTrue(np.all((newColumns > min(halfway)) & (newColumns < max(halfway))))
 
+    def testRejectOutliersGrowAcrossRows(self):
+        """Test growing rejected regions into adjacent rows
+
+        For data binned in the spectral direction an adjacent row may be many
+        pixels away, so a rejected region grows into it only through pixels
+        with a significant excess (rejectGrowAcrossRowsThreshold), not those
+        that merely exceed rejectGrowThreshold (e.g., noise). Within a row,
+        it grows with rejectGrowThreshold.
+        """
+        flux = 1000.0
+        image = self.makeNoisyImage(flux, 100, 1.0)
+        noiseless = makeSyntheticFlat(self.synthConfig, flux=flux, addNoise=False, rng=self.rng).array
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        self.assertLess(config.rejectGrowThreshold, 4.0)
+        self.assertLess(4.0, config.rejectGrowAcrossRowsThreshold)
+        self.assertLess(config.rejectGrowAcrossRowsThreshold, 6.5)
+        self.assertLess(6.5, config.rejectThreshold)
+
+        def setExcess(row, col, nSigma):
+            """Set a pixel to the noiseless value plus nSigma times its noise (as used for rejection)"""
+            lo, hi = max(col - config.rejectSystematicWidth, 0), col + config.rejectSystematicWidth + 1
+            systematic = config.rejectSystematicFraction*np.max(noiseless[row, lo:hi])
+            sigma = np.sqrt(image.variance.array[row, col] + systematic**2)
+            image.image.array[row, col] = noiseless[row, col] + nSigma*sigma
+
+        # Cosmic rays (as in testRejectOutliers) in rows 100 and 150 of different fibers, with pixels in the
+        # next row at 4 sigma (weakRow; mustn't be grown into) and 6.5 sigma (strongRow; must be), and a
+        # pixel at 4 sigma along the row of the first (must be grown into).
+        crs = []
+        for index, row in ((3, 100), (6, 150)):
+            col = int(np.round(self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row])) + 2
+            image.image.array[row, col] += 3000.0
+            crs.append((row, col))
+        (crRow, crCol), (strongCrRow, strongCrCol) = crs
+        weakRow = crRow + 1
+        strongRow = strongCrRow + 1
+        for dx in (-1, 0, 1):
+            setExcess(weakRow, crCol + dx, 4.0)
+            setExcess(strongRow, strongCrCol + dx, 6.5)
+        setExcess(crRow, crCol + 1, 4.0)
+
+        task = ExtractSpectraTask(config=config)
+        task.run(image, self.fiberTraces)
+        crBit = image.mask.getPlaneBitMask("CR")
+        rejected = (image.mask.array & crBit) != 0
+        self.assertTrue(rejected[crRow, crCol])
+        self.assertTrue(rejected[crRow, crCol + 1])
+        self.assertTrue(rejected[strongCrRow, strongCrCol])
+        self.assertFalse(np.any(rejected[weakRow]))
+        self.assertTrue(np.all(rejected[strongRow, strongCrCol - 1:strongCrCol + 1]))
+        self.assertEqual(set(np.where(rejected.any(axis=1))[0]), {crRow, strongCrRow, strongRow})
+
+    def testGrowOutliers(self):
+        """Test the growth of outliers along and across rows"""
+        seeds = np.zeros((5, 8), dtype=bool)
+        alongRow = np.zeros_like(seeds)
+        acrossRows = np.zeros_like(seeds)
+        seeds[2, 2] = True
+        alongRow[2, 0:5] = True  # grows along the row, but not past column 4
+        alongRow[2, 6] = True  # not connected
+        alongRow[1, 1:4] = True  # adjacent row, not significant: not grown
+        alongRow[3, 4:7] = True  # adjacent row, connected diagonally through a significant pixel...
+        acrossRows[3, 5] = True  # ...which is not touching the region
+        acrossRows[3, 4] = True  # ...this one is (diagonally)
+        alongRow[4, 6] = True  # grows from row 3 via a significant pixel
+        acrossRows[4, 6] = True
+        grown = ExtractSpectraTask.growOutliers(seeds, alongRow, acrossRows)
+        expect = np.zeros_like(seeds)
+        expect[2, 0:5] = True
+        expect[3, 4:7] = True
+        expect[4, 6] = True
+        np.testing.assert_array_equal(grown, expect)
+
     def testRejectOutliersNoCascade(self):
         """Test that rejecting a fiber's trace doesn't propagate to its neighbours
 
