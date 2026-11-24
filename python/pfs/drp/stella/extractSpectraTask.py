@@ -188,6 +188,15 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=64,
         doc="Size (columns) of the bins in which the background between the fibers is estimated",
     )
+    rejectBackgroundRowWidth = pexConfig.Field(
+        dtype=int,
+        default=9,
+        doc=("Width (rows) of the running median applied to the background between the fibers (measured in "
+             "bins of rejectBackgroundBinSize columns). There can be very few pixels between the fibers "
+             "(e.g., a dozen in 500 columns in data binned in the spectral direction), so a cosmic ray "
+             "falling on them would raise the background (and hence the model's floor) over many fibers; "
+             "the background is smooth on scales of many rows. Disabled if <= 1."),
+    )
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -994,7 +1003,10 @@ class ExtractSpectraTask(pipeBase.Task):
         For each row, we take the median of the pixels between the fibers
         (where the sum of the normalised fiber profiles is less than
         ``config.rejectBackgroundMaxProfile``) in bins of
-        ``config.rejectBackgroundBinSize`` columns, and interpolate linearly
+        ``config.rejectBackgroundBinSize`` columns, take a running median of
+        those over ``config.rejectBackgroundRowWidth`` rows (there may be few
+        pixels between the fibers, so a cosmic ray on them would otherwise
+        raise the background of a whole bin or more), and interpolate linearly
         between the bins.
 
         Parameters
@@ -1020,6 +1032,12 @@ class ExtractSpectraTask(pipeBase.Task):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN bins
             binned = np.nanmedian(between.reshape(height, numBins, binSize), axis=2)
+            rowWidth = self.config.rejectBackgroundRowWidth
+            if rowWidth > 1:
+                half = rowWidth//2
+                padded = np.pad(binned, ((half, half), (0, 0)), constant_values=np.nan)
+                windows = np.lib.stride_tricks.sliding_window_view(padded, 2*half + 1, axis=0)
+                binned = np.nanmedian(windows, axis=-1)
         centers = np.minimum((np.arange(numBins) + 0.5)*binSize, width - 1)
         columns = np.arange(width)
         background = np.full((height, width), -np.inf, dtype=float)

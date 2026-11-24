@@ -416,6 +416,46 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(rejected[crRow, crColumn])
         self.assertEqual(set(np.where(rejected)[0]), {crRow})
 
+    def testRejectOutliersBackgroundOutlier(self):
+        """Test that an outlier between the fibers doesn't raise the model
+
+        There can be very few pixels between the fibers, so that a cosmic ray
+        on them would raise the background (the floor for the model) in that
+        row, making the fits of the fibers there look bad (the model is too
+        high in their wings) and causing them to be rejected with
+        rejectBadFits. The background is smoothed over rows to prevent this.
+        """
+        crRow = 150
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        config.rejectBackgroundBinSize = 16  # so the outlier affects only some of the fibers in the row
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image.clone(), self.fiberTraces, rejectOutliers=False).spectra
+        _, profile = task.makeModelImage(image, self.fiberTraces, spectra)
+        columns = np.arange(self.synthConfig.width)
+        between = (profile[crRow] < config.rejectBackgroundMaxProfile) & (columns >= 48) & (columns < 64)
+        self.assertGreater(between.sum(), 0)
+        original = image.image.array.copy()
+        image.image.array[crRow, between] += 300.0
+        good = np.ones_like(between, shape=original.shape)
+
+        # The background in that row is barely affected (but would be without the smoothing)
+        for rowWidth, minDiff, maxDiff in ((1, 100.0, np.inf), (config.rejectBackgroundRowWidth, 0.0, 10.0)):
+            with self.subTest(rowWidth=rowWidth):
+                config.rejectBackgroundRowWidth = rowWidth
+                task = ExtractSpectraTask(config=config)
+                diff = (task.estimateBackground(image.image.array, profile, good)
+                        - task.estimateBackground(original, profile, good))
+                self.assertGreater(np.max(diff[crRow]), minDiff)
+                self.assertLess(np.max(np.abs(diff)), maxDiff)
+
+        # Nothing is rejected
+        config.rejectBackgroundRowWidth = ExtractSpectraTask.ConfigClass().rejectBackgroundRowWidth
+        task = ExtractSpectraTask(config=config)
+        task.run(image, self.fiberTraces, rejectBadFits=True)
+        self.assertEqual(np.count_nonzero(image.mask.array & image.mask.getPlaneBitMask("CR")), 0)
+
     def testRejectOutliersRejectedFiber(self):
         """Test that there are no further rejections in a fiber rejected in a row
 
