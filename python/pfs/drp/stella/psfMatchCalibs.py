@@ -30,6 +30,7 @@ from .datamodel import PfsConfig
 from .DetectorMapContinued import DetectorMap
 from .fiberProfile import FiberProfile
 from .fiberProfileSet import FiberProfileSet
+from .fitDetectorMap import calculateFitStatistics
 from .OpticalModel import OpticsModel
 from .OpticalModelDetectorMapContinued import OpticalModelDetectorMap
 from .pipelines.lookups import lookupDatasetsForArm
@@ -421,6 +422,17 @@ class PsfMatchCalibsConfig(PipelineTaskConfig, pipelineConnections=PsfMatchCalib
         dtype=bool,
         default=True,
         doc="Measure lines and traces on the target, and compare them with the new detectorMap?",
+    )
+    targetRejection = Field(
+        dtype=float,
+        default=4.0,
+        doc="Rejection threshold (stdev, from the errors and robust rms in quadrature) for the statistics "
+        "of the target measurements (doCheckTarget)",
+    )
+    targetIterations = Field(
+        dtype=int,
+        default=3,
+        doc="Number of rejection iterations for the statistics of the target measurements (doCheckTarget)",
     )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines on reference")
@@ -1156,9 +1168,14 @@ class PsfMatchCalibsTask(PipelineTask):
         detectorMap
 
         This is an independent check of the outputs against the data, as when
-        fitting a detectorMap. We log the median and robust rms of the
-        residuals (measured minus model) of the lines (in x and y) and traces
-        (in x).
+        fitting a detectorMap. We log the median of the residuals (measured
+        minus model) of the lines (in x and y) and traces (in x), and their
+        robust rms and "soften" value (the systematic error that, added in
+        quadrature to the measurement errors, gives chi^2/dof = 1; see
+        `pfs.drp.stella.fitDetectorMap.calculateFitStatistics`) about the
+        median. The soften values keep the measurement noise out of the
+        statistics (e.g., the per-row trace centroids on a sky exposure are
+        noisy).
 
         Parameters
         ----------
@@ -1193,39 +1210,100 @@ class PsfMatchCalibsTask(PipelineTask):
         isLine = good & ~isTrace
         isTrace &= good
 
-        model = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine].astype(float))
-        xLine = lines.x[isLine] - model[:, 0]
-        yLine = lines.y[isLine] - model[:, 1]
-        xTrace = lines.x[isTrace] - detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+        # Model positions: traces have no wavelength, so they're measured in x only, at the measured y
+        model = np.full((len(lines), 2), np.nan, dtype=float)
+        model[isLine] = detectorMap.findPoint(lines.fiberId[isLine], lines.wavelength[isLine].astype(float))
+        model[isTrace, 0] = detectorMap.getXCenter(lines.fiberId[isTrace], lines.y[isTrace])
+        model[isTrace, 1] = lines.y[isTrace]
+        isLine &= np.all(np.isfinite(model), axis=1)
+        isTrace &= np.isfinite(model[:, 0])
 
-        def stats(values: np.ndarray) -> tuple[int, float, float]:
-            values = values[np.isfinite(values)]
-            if len(values) == 0:
-                return 0, np.nan, np.nan
-            return len(values), float(np.median(values)), float(robustRms(values))
+        lineStats = self.calculateTargetStatistics(lines, model, isLine)
+        traceStats = self.calculateTargetStatistics(lines, model, isTrace)
+        xLineMedian, yLineMedian = lineStats.median
+        xTraceMedian = traceStats.median[0]
+        numLines = int(isLine.sum())
+        numTrace = int(isTrace.sum())
 
-        numLines, xLineMedian, xLineRms = stats(xLine)
-        _, yLineMedian, yLineRms = stats(yLine)
-        numTrace, xTraceMedian, xTraceRms = stats(xTrace)
         self.log.info(
-            "Target measurements about new detectorMap: %d/%d lines: x = %.4f +/- %.4f, y = %.4f +/- %.4f; "
-            "%d traces: x = %.4f +/- %.4f",
+            "Target measurements about new detectorMap: %d/%d lines: x = %.4f +/- %.4f (soften %.4f), "
+            "y = %.4f +/- %.4f (soften %.4f); %d traces: x = %.4f +/- %.4f (soften %.4f)",
             numLines,
             numLinesMeasured,
             xLineMedian,
-            xLineRms,
+            lineStats.xRobustRms,
+            lineStats.xSoften,
             yLineMedian,
-            yLineRms,
+            lineStats.yRobustRms,
+            lineStats.ySoften,
             numTrace,
             xTraceMedian,
-            xTraceRms,
+            traceStats.xRobustRms,
+            traceStats.xSoften,
         )
         self.metadata["targetNumLines"] = numLines
         self.metadata["targetLineXMedian"] = xLineMedian
-        self.metadata["targetLineXRms"] = xLineRms
+        self.metadata["targetLineXRms"] = float(lineStats.xRobustRms)
+        self.metadata["targetLineXSoften"] = float(lineStats.xSoften)
         self.metadata["targetLineYMedian"] = yLineMedian
-        self.metadata["targetLineYRms"] = yLineRms
+        self.metadata["targetLineYRms"] = float(lineStats.yRobustRms)
+        self.metadata["targetLineYSoften"] = float(lineStats.ySoften)
         self.metadata["targetNumTrace"] = numTrace
         self.metadata["targetTraceXMedian"] = xTraceMedian
-        self.metadata["targetTraceXRms"] = xTraceRms
+        self.metadata["targetTraceXRms"] = float(traceStats.xRobustRms)
+        self.metadata["targetTraceXSoften"] = float(traceStats.xSoften)
         return lines
+
+    def calculateTargetStatistics(self, lines: ArcLineSet, model: np.ndarray, select: np.ndarray) -> Struct:
+        """Calculate statistics of the target measurements about the median
+
+        The statistics are about the median, because the target can be
+        offset as a whole (which the per-exposure adjustment of the
+        detectorMap removes). Outliers are rejected iteratively, as when
+        fitting a detectorMap.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Measured lines and traces.
+        model : `numpy.ndarray` of `float`, shape ``(N, 2)``
+            Model positions of the ``lines``.
+        select : `numpy.ndarray` of `bool`
+            Which of the ``lines`` to use. Traces are used only in x.
+
+        Returns
+        -------
+        median : `tuple` of `float`
+            Median residual (measured minus model) in x and y (pixels).
+        stats : `lsst.pipe.base.Struct`
+            Statistics about the median, from `calculateFitStatistics`
+            (including ``xRobustRms``, ``yRobustRms``, ``xSoften`` and
+            ``ySoften``), for the points that survive rejection.
+        """
+        isTrace = lines.description == "Trace"
+        select = select.copy()
+        numParameters = 2  # The median in x and y
+        for ii in range(self.config.targetIterations + 1):
+            xResid = lines.x[select] - model[select, 0]
+            yResid = lines.y[select] - model[select, 1]
+            xMedian = float(np.median(xResid)) if np.any(select) else np.nan
+            useY = ~isTrace[select]
+            yMedian = float(np.median(yResid[useY])) if np.any(useY) else np.nan
+            median = (xMedian, yMedian)
+            fit = model + np.array([[xMedian, yMedian if np.isfinite(yMedian) else 0.0]])
+            stats = calculateFitStatistics(fit, lines, select, numParameters)
+            if ii == self.config.targetIterations:
+                break
+            xSoften = stats.xRobustRms if np.isfinite(stats.xRobustRms) else 0.0
+            ySoften = stats.yRobustRms if np.isfinite(stats.yRobustRms) else 0.0
+            with np.errstate(invalid="ignore", divide="ignore"):
+                xRatio = np.abs(stats.xResid / np.hypot(lines.xErr, xSoften))
+                yRatio = np.abs(stats.yResid / np.hypot(lines.yErr, ySoften))
+            keep = (xRatio < self.config.targetRejection) & (
+                (yRatio < self.config.targetRejection) | isTrace
+            )
+            if np.all(keep[select]):
+                break
+            select &= keep
+        stats.median = median
+        return stats

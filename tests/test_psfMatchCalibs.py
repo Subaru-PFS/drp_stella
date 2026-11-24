@@ -542,6 +542,11 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(metadata["targetLineXMedian"], 0.0, atol=0.02)
         self.assertFloatsAlmostEqual(metadata["targetLineYMedian"], 0.0, atol=0.02)
         self.assertFloatsAlmostEqual(metadata["targetTraceXMedian"], 0.0, atol=0.02)
+        softenKeys = ("targetLineXSoften", "targetLineYSoften", "targetTraceXSoften")
+        for key in softenKeys:
+            self.assertTrue(np.isfinite(metadata[key]), key)
+            self.assertGreaterEqual(metadata[key], 0.0, key)
+            self.assertLess(metadata[key], 0.05, key)
 
         # A detectorMap that is wrong by a shift is detected
         dx, dy = 0.5, -1.0
@@ -557,6 +562,9 @@ class PsfMatchCalibsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(metadata["targetLineXMedian"], -dx, atol=0.05)
         self.assertFloatsAlmostEqual(metadata["targetLineYMedian"], -dy, atol=0.05)
         self.assertFloatsAlmostEqual(metadata["targetTraceXMedian"], -dx, atol=0.05)
+        # The statistics are about the median, so a shift doesn't count as scatter
+        for key in softenKeys:
+            self.assertLess(metadata[key], 0.05, key)
 
     def testConnections(self):
         """The calibs are per-visit inputs, from CalibsForVisitTask"""
