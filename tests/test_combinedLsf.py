@@ -25,7 +25,7 @@ from pfs.drp.stella.coaddSpectra import CoaddSpectraConfig, CoaddSpectraTask
 from pfs.drp.stella.combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from pfs.drp.stella.datamodel import PfsArm, PfsSingle
 from pfs.drp.stella.interpolate import Resampler, interpolateIndices
-from pfs.drp.stella.lsf import GaussianLsf
+from pfs.drp.stella.lsf import GaussianLsf, convolveInBlocks
 from pfs.drp.stella.mergeArms import MergeArmsConfig, MergeArmsTask
 
 # Arm: wavelength range (nm), length, LSF sigma (pixels), variance (powers of two, for exact float32 weights)
@@ -224,9 +224,42 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
                 np.testing.assert_allclose(warped.computeArray(center), expect, rtol=0, atol=1.0e-12)
             # Convolution works, and conserves flux (a delta function in the middle of a block of the
             # convolution, so it sees a single kernel)
+            blockSize = max(1, int(round(100*warped.getPixelScale())))
             array = np.zeros(len(fine))
-            array[100*(len(fine)//200) + 50] = 1.0
+            array[blockSize*(len(fine)//(2*blockSize)) + blockSize//2] = 1.0
             self.assertFloatsAlmostEqual(np.sum(warped.convolve(array)), 1.0, atol=1.0e-12)
+
+    def testConvolve(self):
+        """Claude: convolution uses blocks of underlying pixels, with kernels computed once"""
+        task = MergeArmsTask(config=MergeArmsConfig())
+        arms, lsfs = self.makeArms(1)
+        merged = task.mergeSpectra(arms, self.wavelength)
+        lsf = task.mergeLsfs(lsfs, arms, self.wavelength, merged.weights)[self.fiberId[0]]
+        fine = np.linspace(380.0, 1260.0, 88001)  # 8 times finer than the merged spectrum
+        warped = lsf.warp(self.wavelength, fine)
+        # Merged pixels are 0.08 nm, and the arms' are 0.066 (b), 0.083 (r) and 0.078 nm (n)
+        self.assertFloatsAlmostEqual(lsf.getPixelScale(), 0.066/0.08, rtol=0.01)
+        self.assertFloatsAlmostEqual(warped.getPixelScale(), 8*0.066/0.08, rtol=0.01)
+
+        rng = np.random.default_rng(12345)
+        array = rng.normal(size=(4, len(fine)))
+        convolved = warped.convolve(array)
+        self.assertEqual(len(warped._blockKernels), 1)
+        blocks = next(iter(warped._blockKernels.values()))
+        self.assertEqual(blocks[0][1], int(round(100*warped.getPixelScale())))
+        for row, conv in zip(array, convolved):
+            self.assertFloatsAlmostEqual(conv, warped.convolve(row), atol=1.0e-12, rtol=0)
+        self.assertEqual(len(warped._blockKernels), 1)  # The kernels were reused
+
+        # The result is that of convolving in blocks with those kernels
+        expect = convolveInBlocks(warped, array[0], blocks[0][1])
+        self.assertFloatsAlmostEqual(convolved[0], expect, atol=1.0e-12, rtol=0)
+
+        # Blocks straddling the ends of the LSF's coverage are convolved, not zeroed
+        wider = np.linspace(370.0, 1270.0, 90001)
+        convolved = lsf.warp(self.wavelength, wider).convolve(np.ones(len(wider)))
+        covered = (wider > 381.0) & (wider < 1259.0)
+        self.assertFloatsAlmostEqual(convolved[covered], 1.0, atol=1.0e-6, rtol=0)
 
     def testKernel(self):
         """computeKernel is the LSF for a line on a pixel center"""

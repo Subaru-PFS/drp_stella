@@ -43,7 +43,7 @@ from scipy.interpolate import CubicSpline
 from lsst.pex.config import Config, Field
 
 from .interpolate import interpolateIndices, resampleWindow
-from .lsf import FloatingPoint, Kernel1D, Lsf, NoLsfsError, convolveInBlocks
+from .lsf import FloatingPoint, Kernel1D, Lsf, NoLsfsError, computeBlockKernels, convolveBlocks
 
 __all__ = ("IndexMap", "SmoothWeight", "CombinedLsfInput", "CombinedLsf", "CombinedLsfConfig",
            "makeCombinedLsf")
@@ -190,6 +190,17 @@ class IndexMap:
         if self._spline is None:
             return 1.0
         return float(self._spline(pixel, 1))
+
+    def maxDerivative(self) -> float:
+        """Return the maximum absolute derivative (input pixels per output pixel)
+
+        The derivative is evaluated at the samples and midway between them.
+        """
+        if self._spline is None:
+            return 1.0
+        positions = self.positions.astype(np.float64)
+        pixels = np.concatenate((positions, 0.5*(positions[:-1] + positions[1:])))
+        return float(np.max(np.abs(self._spline(pixels, 1))))
 
     def contains(self, pixel: float) -> bool:
         """Is the output pixel covered by the input?"""
@@ -373,6 +384,27 @@ class CombinedLsf(Lsf):
     def __init__(self, length: int, inputs: Sequence[CombinedLsfInput]):
         super().__init__(length)
         self.inputs = list(inputs)
+        self._blockKernels: dict[tuple[int, int], list[tuple[int, int, Kernel1D | None]]] = {}
+
+    def getPixelScale(self) -> float:
+        """Return the scale of the underlying pixels
+
+        The underlying LSFs (those that aren't themselves `CombinedLsf`) are
+        defined on their own pixels, and vary slowly on those. This is the
+        smallest number of our pixels per underlying pixel, over all the inputs
+        (e.g., about 8 for a merged spectrum's LSF warped to a model spectrum
+        sampled eight times more finely).
+
+        Returns
+        -------
+        scale : `float`
+            Minimum number of pixels per underlying pixel.
+        """
+        scales = []
+        for inp in self.inputs:
+            inner = inp.lsf.getPixelScale() if isinstance(inp.lsf, CombinedLsf) else 1.0
+            scales.append(inner/max(inp.indexMap.maxDerivative(), 1.0e-3))
+        return min(scales) if scales else 1.0
 
     def _getInputs(self, center: float) -> list[CombinedLsfInput]:
         """Return the inputs that cover an output position"""
@@ -490,19 +522,35 @@ class CombinedLsf(Lsf):
     def convolve(self, array: NDArray[FloatingPoint], sampling: int = 100) -> NDArray[FloatingPoint]:
         """Convolve an array by the LSF
 
+        The array is convolved in blocks, each with the kernel at the block's
+        center. The underlying LSFs vary slowly on their own pixels, so the
+        blocks are ``sampling`` of those pixels long (see ``getPixelScale``):
+        an LSF warped to a finer sampling uses longer blocks, but the same
+        number of kernels. The kernels are computed once, and reused by later
+        calls with the same ``sampling`` and array length; and a
+        multi-dimensional array is convolved along its last axis with the same
+        kernels, so it's efficient to convolve many arrays at once (e.g., the
+        basis vectors of a model).
+
         Parameters
         ----------
-        array : `numpy.ndarray`, floating-point, shape ``(M,)``
-            Array to convolve.
+        array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+            Array to convolve; a multi-dimensional array is convolved along its
+            last axis.
         sampling : `int`
-            Sampling length for convolution, pixels.
+            Sampling length for convolution, underlying pixels.
 
         Returns
         -------
-        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Convolved array.
         """
-        return convolveInBlocks(self, array, sampling)
+        length = np.shape(array)[-1]
+        blockSize = max(1, int(round(sampling*self.getPixelScale())))
+        key = (length, blockSize)
+        if key not in self._blockKernels:
+            self._blockKernels[key] = computeBlockKernels(self, length, blockSize, searchEnds=True)
+        return convolveBlocks(self._blockKernels[key], array)
 
     def warp(self, inWavelength: NDArray[FloatingPoint], outWavelength: NDArray[FloatingPoint]
              ) -> "CombinedLsf":
