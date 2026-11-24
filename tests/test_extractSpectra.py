@@ -508,6 +508,45 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         task.run(image, self.fiberTraces)
         self.assertEqual(np.count_nonzero(image.mask.array & image.mask.getPlaneBitMask("CR")), 0)
 
+    def testRejectOutliersAlongRowCloseFibers(self):
+        """Test rejecting a cosmic ray lying along a row over close fibers
+
+        Where the fibers are close, there are no gaps between them. After the
+        fibers with the largest excesses are rejected (in the preliminary
+        pass, and the first iteration), those between them must still be
+        rejectable: the rejected fibers are excluded from the fit (rather
+        than having their fluxes fit from the edges of their profiles), so
+        the model in their footprints is reliable (as in 155914 r4 row 100,
+        fiber 2420 between 2419 and 2421). Every fiber whose flux is biased
+        must be flagged.
+        """
+        self.setUpTraces(separation=6.2, fwhm=3.5, measure=False)
+        flux = 1000.0
+        crRow = 150
+        start, stop = 40, 80  # columns
+        image = self.makeNoisyImage(flux, 100, 1.0)
+        image.image.array[crRow, start:stop] += np.random.RandomState(1).uniform(0, 1200, stop - start)
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        task.run(image, self.fiberTraces, preliminary=True)
+        spectra = task.run(image, self.fiberTraces).spectra
+        rejected = (image.mask.array & image.mask.getPlaneBitMask("CR")) != 0
+        self.assertEqual(set(np.where(rejected.any(axis=1))[0]), {crRow})
+        noData = spectra[0].mask.getPlaneBitMask("NO_DATA")
+        halfSeparation = 0.5*self.synthConfig.separation
+        numFlagged = 0
+        for ss in spectra:
+            xCenter = self.detMap.getXCenter(ss.fiberId)[crRow]
+            if ss.mask.array[0, crRow] & noData:
+                numFlagged += 1
+                self.assertGreater(xCenter, start - halfSeparation, f"fiberId={ss.fiberId}")
+                self.assertLess(xCenter, stop + halfSeparation, f"fiberId={ss.fiberId}")
+                continue
+            chi = (ss.flux[crRow] - flux)/np.sqrt(ss.variance[crRow])
+            self.assertLess(np.abs(chi), 5.0, f"fiberId={ss.fiberId}")
+        self.assertGreater(numFlagged, 0)
+
     def testRejectOutliersRejectedFiber(self):
         """Test that there are no further rejections in a fiber rejected in a row
 

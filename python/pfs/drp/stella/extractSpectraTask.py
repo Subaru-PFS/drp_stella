@@ -388,6 +388,10 @@ class ExtractSpectraTask(pipeBase.Task):
                     gapThreshold = self.config.rejectGapThreshold
                     if rejectBadFits:
                         badFitThreshold = self.config.rejectBadFitThreshold
+                # Fiber-rows ruined by cosmic rays are flagged and excluded from the fit after every
+                # extraction (including this one, for those masked earlier), so that the model used for the
+                # rejection doesn't include their wild fluxes (fit from the edges of their profiles).
+                spectra, numNoData = self.flagRejectedSpectra(maskedImage, fiberTraceSet, spectra, badBitMask)
                 total = 0
                 numIterations = 0  # iterations that rejected something
                 numRejected = 0
@@ -404,13 +408,15 @@ class ExtractSpectraTask(pipeBase.Task):
                     spectra = fiberTraceSet.extractSpectra(
                         maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
                     )
+                    spectra, numNoData = self.flagRejectedSpectra(
+                        maskedImage, fiberTraceSet, spectra, badBitMask
+                    )
                 self.log.info(
                     "Rejected %d outlying pixels (masked as %s) in %d iterations%s%s",
                     total, self.config.rejectMaskPlane, numIterations,
                     " (preliminary extraction)" if preliminary else "",
                     "; stopped at the iteration limit" if numRejected > 0 else "",
                 )
-                spectra, numNoData = self.flagRejectedSpectra(maskedImage, fiberTraceSet, spectra, badBitMask)
                 if numNoData > 0:
                     self.log.info(
                         "Flagged %d spectral pixels as NO_DATA after rejecting outliers, and re-extracted "
@@ -494,9 +500,9 @@ class ExtractSpectraTask(pipeBase.Task):
             Number of spectral pixels flagged.
         """
         mask = maskedImage.mask.array
-        planes = maskedImage.mask.getMaskPlaneDict()
-        if self.config.rejectMaskPlane not in planes or self.config.rejectOutlierMaskPlane not in planes:
+        if self.config.rejectMaskPlane not in maskedImage.mask.getMaskPlaneDict():
             return spectra, 0
+        maskedImage.mask.addMaskPlane(self.config.rejectOutlierMaskPlane)
         outlierBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectOutlierMaskPlane)
         rejectBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectMaskPlane)
         maskedImage.mask.addMaskPlane(self.config.rejectRuinedFiberMaskPlane)
@@ -993,6 +999,9 @@ class ExtractSpectraTask(pipeBase.Task):
         light that isn't in the model, so the model in its footprint
         (including the neighbouring fibers) is unreliable; making further
         rejections there leads to a cascade of rejections in the neighbours.
+        Fiber-rows that have been excluded from the fit (flagged ``NO_DATA``
+        by ``flagRejectedSpectra``) are skipped: their light is masked, and
+        they don't affect the model.
 
         Parameters
         ----------
@@ -1035,6 +1044,9 @@ class ExtractSpectraTask(pipeBase.Task):
             profile = np.where(inTrace, ft.trace.image.array, 0.0)*inverseNorm[:, np.newaxis]
             fraction = np.sum(profile*outlier[rows, columns], axis=1)
             select = fraction > fiberFraction
+            # Fiber-rows excluded from the fit (see flagRejectedSpectra) have their light masked already, and
+            # don't make the model unreliable
+            select &= (spectrum.mask.array[0, rows] & spectrum.mask.getPlaneBitMask("NO_DATA")) == 0
             if np.any(select):
                 reject[rows, columns][select] |= profile[select] > self.config.rejectMinProfile
                 footprint[rows, columns][select] |= profile[select] > 0
