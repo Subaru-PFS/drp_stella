@@ -645,6 +645,24 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         the default, so that it includes the light we add (with the default,
         the neighbour would absorb it directly, as for any light that isn't
         in the model).
+
+        We also run it as in the pipeline (a preliminary pass, then the full
+        rejection), with part of the cosmic ray masked elsewhere (as by the
+        cosmicray task, with the same mask plane as our rejection): the
+        ruined fibers must remain excluded from the fit in the second pass.
+        """
+        for external in (False, True):
+            with self.subTest(external=external):
+                self.checkRuinedNeighbours(external)
+
+    def checkRuinedNeighbours(self, external):
+        """Implementation for testRejectOutliersRuinedNeighbours
+
+        Parameters
+        ----------
+        external : `bool`
+            Mask part of the cosmic ray beforehand, and run a preliminary
+            pass before the full rejection?
         """
         self.setUpTraces(separation=6.2, fwhm=3.5, measure=False)
         flux = 1000.0
@@ -660,11 +678,16 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         config.doRejectOutliers = True
         config.rejectRuinedProfileThreshold = 0.005
         task = ExtractSpectraTask(config=config)
+        if external:
+            image.mask.addMaskPlane(config.rejectMaskPlane)
+            crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
+            image.mask.array[row, xCenter - 1:xCenter + 1] |= crBit
+            task.run(image, self.fiberTraces, preliminary=True)
         spectra = task.run(image, self.fiberTraces).spectra
         noData = spectra[index].mask.getPlaneBitMask("NO_DATA")
         flagged = spectra[index].mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])
         for ii in ruined:
-            self.assertTrue(spectra[ii].mask.array[0, row] & noData)
+            self.assertTrue(spectra[ii].mask.array[0, row] & noData, f"fiber index {ii}")
             self.assertEqual(spectra[ii].flux[row], 0.0)
             self.assertGreater(spectra[ii].norm[row], 0.0)
         for ii in range(len(spectra)):

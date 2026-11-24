@@ -436,6 +436,9 @@ class ExtractSpectraTask(pipeBase.Task):
                 continue
             light = np.zeros_like(inTrace)
             light[select] = profile[select] > self.config.rejectRuinedProfileThreshold
+            # Only mark pixels that aren't already masked: those that are must keep counting as masked, or
+            # the fiber would no longer appear ruined in a later pass and would be fit again.
+            light &= (traceMask & badBitMask) == 0
             traceMask[light] |= rejectBitMask | ruinedBitMask
             traceRows = np.where(select)[0]
             ruined[ft.fiberId] = (ft, traceRows, traceRows + box.getMinY() - y0)
