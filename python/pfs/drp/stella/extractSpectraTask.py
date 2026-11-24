@@ -11,6 +11,7 @@ import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 
 from lsst.afw.image import ImageF, MaskedImage
+from lsst.geom import Point2I
 from .DetectorMap import DetectorMap
 from .FiberTrace import FiberTrace
 from .FiberTraceSet import FiberTraceSet
@@ -54,9 +55,10 @@ class ExtractSpectraConfig(pexConfig.Config):
     rejectGrow = pexConfig.Field(
         dtype=int,
         default=1,
-        doc=("Number of pixels by which to grow rejected pixels along the row (i.e., across the fibers). "
-             "We don't grow in the spectral direction, as that is expensive for data binned in that "
-             "direction."),
+        doc=("Number of pixels by which to dilate rejected pixels along the row (i.e., across the fibers), "
+             "unconditionally (but only into pixels that may be rejected), after the growth by "
+             "rejectGrowThreshold. There is no unconditional dilation in the spectral direction, as that "
+             "is expensive for data binned in that direction."),
     )
     rejectGrowThreshold = pexConfig.Field(
         dtype=float,
@@ -97,7 +99,12 @@ class ExtractSpectraConfig(pexConfig.Config):
              "systematic error term, so that the wings of bright features get the systematic error of the "
              "peak"),
     )
-    rejectMaskPlane = pexConfig.Field(dtype=str, default="CR", doc="Mask plane for rejected pixels")
+    rejectMaskPlane = pexConfig.Field(
+        dtype=str,
+        default="CR",
+        doc=("Mask plane for rejected pixels. This is shared with cosmic-ray masks made elsewhere (which "
+             "are respected, and through which a rejected region may grow)."),
+    )
     rejectOutlierMaskPlane = pexConfig.Field(
         dtype=str,
         default="OUTLIER",
@@ -126,6 +133,19 @@ class ExtractSpectraConfig(pexConfig.Config):
              "that little of its light is left for its neighbours to absorb. Lower values leave less of "
              "its light but mask more of the neighbours' profiles (e.g., 0.005 makes many neighbours SUSPECT "
              "in b4, whose profiles have broad wings)."),
+    )
+    rejectBadFitThreshold = pexConfig.Field(
+        dtype=float,
+        default=10.0,
+        doc=("When rejecting bad fits (see ExtractSpectraTask.run's rejectBadFits), the chi^2 per degree of "
+             "freedom of a fiber's fit in a row (over the pixels in which its normalised profile exceeds "
+             "rejectMinProfile, with both positive and negative residuals) above which the fit is bad. A "
+             "cosmic ray on the core of a fiber is largely absorbed into the flux, leaving residuals that "
+             "are too small to reject (the systematic error scales with the raised model) but a fit that "
+             "is poor (low in the wings). The positive pixels of a bad fit (with at least half of the "
+             "largest residual) are rejected. As those are the core of the profile, the rest of the "
+             "fiber's trace in that row is then usually rejected too (rejectFiberFraction) and the "
+             "spectral pixel flagged NO_DATA. Not used for the preliminary extraction."),
     )
     preliminaryRejectIterations = pexConfig.Field(
         dtype=int,
@@ -188,6 +208,7 @@ class ExtractSpectraTask(pipeBase.Task):
         isBoxcar: bool = False,
         rejectOutliers: Optional[bool] = None,
         preliminary: bool = False,
+        rejectBadFits: bool = False,
     ) -> pipeBase.Struct:
         """Extract spectra from the image
 
@@ -220,6 +241,13 @@ class ExtractSpectraTask(pipeBase.Task):
             Is this a preliminary extraction (e.g., one whose spectra are used
             to model the scattered light, which hasn't yet been subtracted)?
             If so, the rejection uses the ``preliminaryReject*`` parameters.
+        rejectBadFits : `bool`, optional
+            Also reject the positive pixels of fibers whose fits are bad in a
+            row (``config.rejectBadFitThreshold``)? This assumes that the
+            fiber profiles describe the light well, which isn't true near
+            bright lines in unbinned data (the PSF isn't separable into the
+            fiber profile and the LSF), but is for data binned in the spectral
+            direction. Not used for the preliminary extraction.
 
         Returns
         -------
@@ -256,7 +284,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 self.log.warning(f"fiberIds {missing} are not in the fiberTraceSet")
 
         spectra = self.extractAllSpectra(
-            maskedImage, fiberTraceSet, detectorMap, isBoxcar, rejectOutliers, preliminary
+            maskedImage, fiberTraceSet, detectorMap, isBoxcar, rejectOutliers, preliminary, rejectBadFits
         )
 
         if fiberId is not None:
@@ -275,6 +303,7 @@ class ExtractSpectraTask(pipeBase.Task):
         isBoxcar: bool = False,
         rejectOutliers: bool = False,
         preliminary: bool = False,
+        rejectBadFits: bool = False,
     ) -> SpectrumSet:
         """Extract all spectra in the fiberTraceSet
 
@@ -296,6 +325,9 @@ class ExtractSpectraTask(pipeBase.Task):
         preliminary : `bool`
             Is this a preliminary extraction? If so, the rejection uses the
             ``preliminaryReject*`` parameters.
+        rejectBadFits : `bool`
+            Also reject the positive pixels of bad fits (not for a preliminary
+            extraction)? See ``run``.
 
         Returns
         -------
@@ -317,6 +349,8 @@ class ExtractSpectraTask(pipeBase.Task):
                 maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
             )
             if rejectOutliers:
+                self.checkGeometry(maskedImage, fiberTraceSet)
+                badFitThreshold = 0.0
                 if preliminary:
                     iterations = self.config.preliminaryRejectIterations
                     threshold = self.config.preliminaryRejectThreshold
@@ -325,23 +359,29 @@ class ExtractSpectraTask(pipeBase.Task):
                     iterations = self.config.rejectIterations
                     threshold = self.config.rejectThreshold
                     fiberFraction = self.config.rejectFiberFraction
+                    if rejectBadFits:
+                        badFitThreshold = self.config.rejectBadFitThreshold
                 total = 0
-                iteration = -1
+                numIterations = 0  # iterations that rejected something
+                numRejected = 0
                 for iteration in range(iterations):
                     numRejected = self.rejectOutliers(
-                        maskedImage, fiberTraceSet, spectra, badBitMask, threshold, fiberFraction
+                        maskedImage, fiberTraceSet, spectra, badBitMask, threshold, fiberFraction,
+                        badFitThreshold,
                     )
                     self.log.debug("Iteration %d: rejected %d pixels", iteration, numRejected)
                     if numRejected == 0:
                         break
                     total += numRejected
+                    numIterations += 1
                     spectra = fiberTraceSet.extractSpectra(
                         maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
                     )
                 self.log.info(
-                    "Rejected %d outlying pixels (masked as %s) in %d iterations%s",
-                    total, self.config.rejectMaskPlane, iteration + 1,
+                    "Rejected %d outlying pixels (masked as %s) in %d iterations%s%s",
+                    total, self.config.rejectMaskPlane, numIterations,
                     " (preliminary extraction)" if preliminary else "",
+                    "; stopped at the iteration limit" if numRejected > 0 else "",
                 )
                 spectra, numNoData = self.flagRejectedSpectra(maskedImage, fiberTraceSet, spectra, badBitMask)
                 if numNoData > 0:
@@ -355,6 +395,31 @@ class ExtractSpectraTask(pipeBase.Task):
                 spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
 
         return spectra
+
+    @staticmethod
+    def checkGeometry(maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet):
+        """Check the geometry assumed by the outlier rejection
+
+        The rejection indexes the spectra (which are indexed by row relative
+        to the image origin) and the image with the traces' bounding boxes,
+        and ``FiberTrace.constructImage`` indexes the spectra by absolute row,
+        so the image must have zero origin and contain the traces.
+
+        Raises
+        ------
+        RuntimeError
+            If the image origin is not zero, or a trace isn't contained in the
+            image.
+        """
+        if maskedImage.getXY0() != Point2I(0, 0):
+            raise RuntimeError(f"Outlier rejection requires zero image origin; xy0={maskedImage.getXY0()}")
+        bbox = maskedImage.getBBox()
+        for ft in fiberTraceSet:
+            if not bbox.contains(ft.trace.getBBox()):
+                raise RuntimeError(
+                    f"Trace for fiberId={ft.fiberId} ({ft.trace.getBBox()}) is not contained in the image "
+                    f"({bbox})"
+                )
 
     def flagRejectedSpectra(
         self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet, badBitMask: int
@@ -407,9 +472,11 @@ class ExtractSpectraTask(pipeBase.Task):
         rejectBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectMaskPlane)
         maskedImage.mask.addMaskPlane(self.config.rejectRuinedFiberMaskPlane)
         ruinedBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectRuinedFiberMaskPlane)
+        image = maskedImage.image.array
+        variance = maskedImage.variance.array
         x0, y0 = maskedImage.getXY0()
         spectraByFiberId = {spectrum.fiberId: spectrum for spectrum in spectra}
-        ruined = {}  # fiberId --> (fiberTrace, rows of the trace, rows of the spectrum)
+        ruined = []  # (fiberTrace, rows of the trace, rows of the spectrum)
         for ft in fiberTraceSet:
             spectrum = spectraByFiberId.get(ft.fiberId)
             if spectrum is None:
@@ -423,14 +490,23 @@ class ExtractSpectraTask(pipeBase.Task):
             inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
             profile = np.where(inTrace, ft.trace.image.array, 0.0)*inverseNorm[:, np.newaxis]
             traceMask = mask[rows, columns]  # a view
+            # Pixels the C++ extraction doesn't use, whatever their mask
+            invalid = ~(np.isfinite(image[rows, columns]) & np.isfinite(variance[rows, columns])
+                        & (variance[rows, columns] > 0))
             # Pixels masked only because they contain the light of a ruined fiber (ours or a neighbour's)
             # count as unmasked: they don't ruin a fiber by themselves (no spreading from fiber to fiber),
             # and a fiber we've already ruined remains ruined by its outliers.
             onlyRuined = ((traceMask & ruinedBitMask) != 0) & ((traceMask & outlierBitMask) == 0)
             onlyRuined &= (traceMask & (badBitMask & ~rejectBitMask)) == 0
-            bad = ((traceMask & badBitMask) != 0) & ~onlyRuined
+            bad = (((traceMask & badBitMask) != 0) & ~onlyRuined) | invalid
             unmasked = np.sum(profile*~bad, axis=1)
+            # Our rejection must be what ruined the row: it contains our outliers, and without the rejection
+            # (the rejectMaskPlane, which external cosmic-ray masks share) enough of the profile is left.
+            # Rows ruined by other masks (e.g., saturation) are left as the extraction flagged them.
+            other = ((traceMask & (badBitMask & ~rejectBitMask)) != 0) | invalid
+            unmaskedOther = np.sum(profile*~other, axis=1)
             ours = np.any((profile > 0) & ((traceMask & outlierBitMask) != 0), axis=1)
+            ours &= unmaskedOther >= self.config.minFracImage
             select = ours & (unmasked < self.config.minFracImage) & (norm != 0)
             if not np.any(select):
                 continue
@@ -441,30 +517,31 @@ class ExtractSpectraTask(pipeBase.Task):
             light &= (traceMask & badBitMask) == 0
             traceMask[light] |= rejectBitMask | ruinedBitMask
             traceRows = np.where(select)[0]
-            ruined[ft.fiberId] = (ft, traceRows, traceRows + box.getMinY() - y0)
+            ruined.append((ft, traceRows, traceRows + box.getMinY() - y0))
 
         if not ruined:
             return spectra, 0
 
         # Exclude the ruined fibers from the fit in those rows: they have no FIBERTRACE pixels there
-        saved = {}
-        for fiberId, (ft, traceRows, _) in ruined.items():
-            traceMaskArray = ft.trace.mask.array
-            saved[fiberId] = traceMaskArray[traceRows].copy()
-            traceMaskArray[traceRows] &= ~ft.trace.mask.getPlaneBitMask("FIBERTRACE")
+        saved = []  # (fiberTrace, rows of the trace, original mask of those rows)
         try:
+            for ft, traceRows, _ in ruined:
+                traceMaskArray = ft.trace.mask.array
+                saved.append((ft, traceRows, traceMaskArray[traceRows].copy()))
+                traceMaskArray[traceRows] &= ~ft.trace.mask.getPlaneBitMask("FIBERTRACE")
             newSpectra = fiberTraceSet.extractSpectra(
                 maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
             )
         finally:
-            for fiberId, (ft, traceRows, _) in ruined.items():
-                ft.trace.mask.array[traceRows] = saved[fiberId]
+            for ft, traceRows, original in reversed(saved):
+                ft.trace.mask.array[traceRows] = original
 
+        ruinedRows = {ft.fiberId: index for ft, _, index in ruined}
         numFlagged = 0
         for spectrum in newSpectra:
-            if spectrum.fiberId not in ruined:
+            index = ruinedRows.get(spectrum.fiberId)
+            if index is None:
                 continue
-            index = ruined[spectrum.fiberId][2]
             old = spectraByFiberId[spectrum.fiberId]
             spectrum.flux[index] = 0.0
             spectrum.variance[index] = 0.0
@@ -524,6 +601,7 @@ class ExtractSpectraTask(pipeBase.Task):
         badBitMask: int,
         threshold: Optional[float] = None,
         fiberFraction: Optional[float] = None,
+        badFitThreshold: float = 0.0,
     ) -> int:
         """Flag pixels that are inconsistent with the model of the spectra
 
@@ -586,6 +664,10 @@ class ExtractSpectraTask(pipeBase.Task):
             Fraction of a fiber's profile that, if rejected in a row, causes
             the whole of its trace in that row to be rejected; defaults to
             ``config.rejectFiberFraction``. Disabled if <= 0.
+        badFitThreshold : `float`, optional
+            Chi^2 per degree of freedom above which a fiber's fit in a row is
+            bad, and its positive pixels are rejected (see ``findBadFits``).
+            Disabled if <= 0.
 
         Returns
         -------
@@ -631,10 +713,16 @@ class ExtractSpectraTask(pipeBase.Task):
                 )
                 candidate &= ~protect
             outlier = candidate & (chi > threshold)
+            if badFitThreshold > 0:
+                outlier |= self.findBadFits(
+                    maskedImage, fiberTraceSet, spectra, chi, candidate, badFitThreshold
+                )
             if self.config.rejectGrowThreshold > 0 and np.any(outlier):
                 # Grow to the connected pixels with a significant excess (including those already rejected,
                 # so that a region can be connected through them; but not the traces of ruined fibers, which
-                # are masked whatever their contents)
+                # are masked whatever their contents). Already-rejected pixels include cosmic rays masked
+                # elsewhere and the rest of rejected fibers' traces, so a region may travel through them,
+                # but only the candidates are newly rejected.
                 alreadyRejected = (mask & rejectBitMask) != 0
                 ruined = np.zeros_like(alreadyRejected)
                 if self.config.rejectRuinedFiberMaskPlane in maskedImage.mask.getMaskPlaneDict():
@@ -646,7 +734,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 outlier |= self.growOutliers(outlier, alongRow, acrossRows) & inTrace & ~alreadyRejected
         if self.config.rejectGrow > 0:
             structure = np.ones((1, 2*self.config.rejectGrow + 1), dtype=bool)
-            outlier = scipy.ndimage.binary_dilation(outlier, structure=structure) & inTrace
+            outlier |= scipy.ndimage.binary_dilation(outlier, structure=structure) & candidate
         fiberReject = np.zeros_like(outlier)
         if fiberFraction > 0:
             # The fractions include our previous rejections
@@ -658,6 +746,101 @@ class ExtractSpectraTask(pipeBase.Task):
         mask[outlier & unmasked] |= rejectBitMask | outlierBitMask
         mask[fiberReject & unmasked] |= rejectBitMask
         return int(np.count_nonzero((outlier | fiberReject) & unmasked))
+
+    def findBadFits(
+        self,
+        maskedImage: MaskedImage,
+        fiberTraceSet: FiberTraceSet,
+        spectra: SpectrumSet,
+        chi: np.ndarray,
+        candidate: np.ndarray,
+        threshold: float,
+    ) -> np.ndarray:
+        """Find the positive pixels of fibers that are badly fit
+
+        A cosmic ray on the core of a fiber is largely absorbed into the
+        fiber's flux, raising the model (and hence the systematic error), so
+        that its residuals are too small to reject; but the fit is poor, as
+        the model is too high in the wings. For each fiber and row, we compute
+        the chi^2 per degree of freedom over the candidate pixels in which the
+        fiber's normalised profile exceeds ``config.rejectMinProfile``.
+
+        A fit can also be poor because the profile is wrong (in every row of
+        that fiber, e.g., profiles contaminated by a neighbouring broken cobra)
+        or because of a feature that's in every fiber in that row (e.g., a
+        bright sky line). A cosmic ray affects few fibers and rows, so a fit
+        is bad if its chi^2 exceeds the threshold multiplied by the larger of
+        unity, the fiber's median chi^2 over its rows, and the row's median
+        chi^2 over the fibers. For a bad fit we return the pixels with
+        positive residuals at least half of the largest. These are usually the
+        core of the profile, so the rest of the fiber's trace in that row is
+        then rejected too (``config.rejectFiberFraction``) and the spectral
+        pixel is flagged ``NO_DATA`` (see ``flagRejectedSpectra``).
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which the spectra were extracted.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces used for the extraction.
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        chi : `numpy.ndarray` of `float`
+            Residuals divided by the noise.
+        candidate : `numpy.ndarray` of `bool`
+            Pixels that may be rejected (and are used to measure the fit).
+        threshold : `float`
+            Chi^2 per degree of freedom (relative to the fiber's and row's
+            typical values) above which a fit is bad.
+
+        Returns
+        -------
+        reject : `numpy.ndarray` of `bool`
+            Pixels to reject.
+        """
+        reject = np.zeros_like(candidate)
+        height = maskedImage.getHeight()
+        x0, y0 = maskedImage.getXY0()
+        spectraByFiberId = {spectrum.fiberId: spectrum for spectrum in spectra}
+        chi2 = np.full((len(fiberTraceSet), height), np.nan)  # chi^2 per degree of freedom, by fiber and row
+        traces = []  # (index, rows, columns, use, traceChi)
+        for ii, ft in enumerate(fiberTraceSet):
+            spectrum = spectraByFiberId.get(ft.fiberId)
+            if spectrum is None:
+                continue
+            box = ft.trace.getBBox()
+            rows = slice(box.getMinY() - y0, box.getMaxY() + 1 - y0)
+            columns = slice(box.getMinX() - x0, box.getMaxX() + 1 - x0)
+            norm = spectrum.norm[rows]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                inverseNorm = np.where((norm != 0) & np.isfinite(norm), 1.0/norm, 0.0)
+            inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
+            profile = np.where(inTrace, ft.trace.image.array, 0.0)*inverseNorm[:, np.newaxis]
+            use = (profile > self.config.rejectMinProfile) & candidate[rows, columns]
+            traceChi = np.where(use, chi[rows, columns], 0.0)
+            num = use.sum(axis=1)
+            chi2[ii, rows] = np.where(num >= 3, np.sum(traceChi**2, axis=1)/np.maximum(num - 1, 1), np.nan)
+            traces.append((ii, rows, columns, use, traceChi))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)  # all-NaN slices
+            fiberMedian = np.nanmedian(chi2, axis=1)
+            rowMedian = np.nanmedian(chi2, axis=0)
+        baseline = np.maximum(np.nan_to_num(fiberMedian, nan=1.0)[:, np.newaxis],
+                              np.nan_to_num(rowMedian, nan=1.0)[np.newaxis, :])
+        baseline = np.maximum(baseline, 1.0)
+        with np.errstate(invalid="ignore"):
+            bad = chi2 > threshold*baseline  # False where chi2 is NaN
+
+        for ii, rows, columns, use, traceChi in traces:
+            traceBad = bad[ii, rows]
+            if not np.any(traceBad):
+                continue
+            positive = np.where(use & (traceChi > 0), traceChi, 0.0)
+            peak = positive.max(axis=1)
+            select = traceBad[:, np.newaxis] & (positive > 0) & (positive >= 0.5*peak[:, np.newaxis])
+            reject[rows, columns] |= select
+        return reject
 
     @staticmethod
     def growOutliers(seeds: np.ndarray, alongRow: np.ndarray, acrossRows: np.ndarray) -> np.ndarray:

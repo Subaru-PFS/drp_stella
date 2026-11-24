@@ -678,6 +678,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         config.doRejectOutliers = True
         config.rejectRuinedProfileThreshold = 0.005
         task = ExtractSpectraTask(config=config)
+        traceMasks = [ft.trace.mask.array.copy() for ft in self.fiberTraces]
         if external:
             image.mask.addMaskPlane(config.rejectMaskPlane)
             crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
@@ -700,9 +701,110 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             chi = (ss.flux[row] - flux)/np.sqrt(ss.variance[row])
             self.assertLess(np.abs(chi), 5.0, f"fiber index {ii}: flux {ss.flux[row]}")
         # The fiber traces are unchanged
-        for ft in self.fiberTraces:
-            inTrace = (ft.trace.mask.array & ft.trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
-            self.assertTrue(np.all(inTrace.any(axis=1)))
+        for ft, original in zip(self.fiberTraces, traceMasks):
+            np.testing.assert_array_equal(ft.trace.mask.array, original)
+
+    def testRejectOutliersRuinedByOtherMasks(self):
+        """Test that a row ruined by other masks isn't blamed on our rejection
+
+        The core of a fiber is masked as saturated, leaving too little of its
+        profile in that row, and we reject a cosmic ray in its wing. The row
+        must keep the extraction's usual treatment (SUSPECT), not be flagged
+        NO_DATA. Nor may the rejection's dilation spread into the saturated
+        pixels (marking them as outliers).
+        """
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        index = 3
+        row = 150
+        fiberId = self.fiberTraces[index].fiberId
+        columns = np.arange(self.synthConfig.width)
+        xCenter = self.detMap.getXCenter(fiberId)[row]
+        satBit = image.mask.getPlaneBitMask("SAT")
+        saturated = np.abs(columns - xCenter) < 1.5
+        image.mask.array[row, saturated] |= satBit
+        crColumn = int(np.max(columns[saturated])) + 1  # adjacent to the saturated pixels
+        image.image.array[row, crColumn] += 3000.0
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image, self.fiberTraces, self.detMap).spectra
+        outlierBit = image.mask.getPlaneBitMask(config.rejectOutlierMaskPlane)
+        self.assertTrue(image.mask.array[row, crColumn] & outlierBit)
+        self.assertFalse(np.any(image.mask.array[row, saturated] & outlierBit))
+        spectrum = spectra[index]
+        mask = spectrum.mask.array[0]
+        self.assertFalse(mask[row] & spectrum.mask.getPlaneBitMask("NO_DATA"))
+        self.assertTrue(mask[row] & spectrum.mask.getPlaneBitMask("SUSPECT"))
+        self.assertNotEqual(spectrum.flux[row], 0.0)
+
+    def testRejectOutliersGeometry(self):
+        """Test that rejection requires an image with zero origin"""
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        image.setXY0(Point2I(0, 1))
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        with self.assertRaises(RuntimeError):
+            task.run(image, self.fiberTraces)
+
+    def testRejectBadFits(self):
+        """Test rejecting the positive pixels of badly-fit fibers
+
+        A cosmic ray on the central couple of pixels of a trace is largely
+        absorbed into the fiber's flux, so it isn't rejected as an outlier
+        (as in 155914 r4 fiber 2414 row 47), but the fit is poor (the model is
+        too high in the wings). With rejectBadFits, the core is rejected, and
+        then the rest of the trace (rejectFiberFraction), so the row is flagged
+        NO_DATA; nothing is rejected in a bright line, which has the shape of
+        the profiles.
+        """
+        flux = 1000.0
+        lineRow = 100
+        lineFactor = 20.0
+        index = 3
+        row = 150
+        fiberId = self.fiberTraces[index].fiberId
+        xCenter = self.detMap.getXCenter(fiberId)[row]
+        columns = np.arange(self.synthConfig.width)
+        core = np.abs(columns - xCenter) < 1.0
+        self.assertEqual(core.sum(), 2)
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        for rejectBadFits in (False, True):
+            with self.subTest(rejectBadFits=rejectBadFits):
+                self.rng = np.random.RandomState(12345)
+                image = self.makeNoisyImage(flux, lineRow, lineFactor)
+                image.image.array[row, core] += 6000.0
+                spectra = task.run(image, self.fiberTraces, rejectBadFits=rejectBadFits).spectra
+                crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
+                rejected = (image.mask.array & crBit) != 0
+                spectrum = spectra[index]
+                chi = (spectrum.flux[row] - flux)/np.sqrt(spectrum.variance[row])
+                self.assertEqual(np.count_nonzero(rejected[lineRow]), 0)
+                if rejectBadFits:
+                    self.assertTrue(np.all(rejected[row, core]))
+                    self.assertEqual(set(np.where(rejected.any(axis=1))[0]), {row})
+                    self.assertTrue(spectrum.mask.array[0, row] & spectrum.mask.getPlaneBitMask("NO_DATA"))
+                    self.assertEqual(spectrum.flux[row], 0.0)
+                else:
+                    self.assertFalse(np.any(rejected[row, core]))
+                    self.assertGreater(chi, 10)
+
+    def testRejectBadFitsClean(self):
+        """Test that rejecting bad fits doesn't reject anything in a clean image
+
+        The image has a bright line (in the shape of the profiles), and the
+        profiles are measured from a flat with less noise, as in the pipeline.
+        """
+        image = self.makeNoisyImage(1000.0, 100, 50.0)
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        task.run(image, self.fiberTraces, rejectBadFits=True)
+        crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
+        self.assertEqual(np.count_nonzero(image.mask.array & crBit), 0)
 
     def testRejectOutliersBoxcar(self):
         """Test that outlier rejection is not performed for boxcar extraction"""

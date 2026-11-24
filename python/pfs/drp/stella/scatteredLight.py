@@ -72,7 +72,7 @@ class ScatteredLightModel:
     powerLaw2: float = 3.0  # Power-law index (2-D) of the second component
     soften2: float = 5.0    # Softening (pixels) of the second component
     halfSize: int = 4096    # Half-size of the kernel (pixels)
-    maskPlanes: tuple[str, ...] = ("BAD", "CR", "SAT", "INTRP")  # Mask planes to interpolate over
+    maskPlanes: tuple[str, ...] = ("BAD", "CR", "SAT", "INTRP", "NO_DATA")  # Mask planes to interpolate over
     rejWinSize: int = 5     # Baseline window for spike rejection (pixels)
     contWinSize: int = 51   # Continuum window for spike rejection (pixels)
     rejThresh: float = 5.0  # Rejection threshold for spikes (sigma)
@@ -375,7 +375,7 @@ class ScatteredLightConfig(Config):
     halfSize = Field(dtype=int, default=4096, doc="Half-size of the kernel")
     mask = ListField(
         dtype=str,
-        default=["BAD", "CR", "SAT", "INTRP"],
+        default=["BAD", "CR", "SAT", "INTRP", "NO_DATA"],
         doc="Mask planes to interpolate over when building the scattered light model",
     )
     rejWinSize = Field(
