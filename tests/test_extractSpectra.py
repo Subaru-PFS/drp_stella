@@ -456,6 +456,58 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         task.run(image, self.fiberTraces, rejectBadFits=True)
         self.assertEqual(np.count_nonzero(image.mask.array & image.mask.getPlaneBitMask("CR")), 0)
 
+    def testRejectOutliersGapSeeds(self):
+        """Test rejecting a cosmic ray lying along a row, seeded in the gaps
+
+        A cosmic ray along a row spreads its charge over several fibers, so
+        that it's absorbed into their fluxes without a significant residual
+        within the traces (as in 155914 r4 row 100, fibers 2419-2422), but it
+        stands out in the gaps between the fibers. Light in the gaps that's
+        in every row (e.g., from errors in the profiles) doesn't seed.
+        """
+        crRow = 150
+        start, stop = 30, 80  # columns
+        amplitude = 200.0
+        halfSeparation = 0.5*self.synthConfig.separation
+        for gapThreshold in (0.0, 8.0):
+            with self.subTest(gapThreshold=gapThreshold):
+                self.rng = np.random.RandomState(12345)
+                image = self.makeNoisyImage(1000.0, 100, 1.0)
+                image.image.array[crRow, start:stop] += amplitude
+                config = ExtractSpectraTask.ConfigClass()
+                config.doRejectOutliers = True
+                config.rejectGapThreshold = gapThreshold
+                spectra = ExtractSpectraTask(config=config).run(image, self.fiberTraces).spectra
+                rejected = (image.mask.array & image.mask.getPlaneBitMask("CR")) != 0
+                if gapThreshold == 0:
+                    self.assertEqual(np.count_nonzero(rejected), 0)
+                    continue
+                self.assertEqual(set(np.where(rejected.any(axis=1))[0]), {crRow})
+                columns = np.where(rejected[crRow])[0]
+                self.assertGreaterEqual(columns.min(), start - halfSeparation)
+                self.assertLess(columns.max(), stop + halfSeparation)
+                noData = spectra[0].mask.getPlaneBitMask("NO_DATA")
+                for ss in spectra:
+                    xCenter = self.detMap.getXCenter(ss.fiberId)[crRow]
+                    if start + 2 < xCenter < stop - 3:
+                        self.assertTrue(ss.mask.array[0, crRow] & noData, f"fiberId={ss.fiberId}")
+
+        # Static light in the gaps
+        self.rng = np.random.RandomState(12345)
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image.clone(), self.fiberTraces, rejectOutliers=False).spectra
+        _, profile = task.makeModelImage(image, self.fiberTraces, spectra)
+        # A band across a gap and the edges of the fibers on either side, in every row: without the test
+        # against the median of the column, it seeds and grows into the fibers' wings.
+        middle = slice(start, stop)
+        gapCenter = start + int(np.argmin(profile[crRow, middle] + (np.abs(np.arange(start, stop) - 50) > 6)))
+        image.image.array[:, gapCenter - 4:gapCenter + 5] += 0.5*amplitude
+        task.run(image, self.fiberTraces)
+        self.assertEqual(np.count_nonzero(image.mask.array & image.mask.getPlaneBitMask("CR")), 0)
+
     def testRejectOutliersRejectedFiber(self):
         """Test that there are no further rejections in a fiber rejected in a row
 

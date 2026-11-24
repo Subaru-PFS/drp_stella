@@ -147,6 +147,22 @@ class ExtractSpectraConfig(pexConfig.Config):
              "fiber's trace in that row is then usually rejected too (rejectFiberFraction) and the "
              "spectral pixel flagged NO_DATA. Not used for the preliminary extraction."),
     )
+    rejectGapThreshold = pexConfig.Field(
+        dtype=float,
+        default=8.0,
+        doc=("Threshold (positive residual/sigma) for seeding a rejected region in the gaps between the "
+             "fibers, from which it grows along the row into the traces (see rejectGrowThreshold). A cosmic "
+             "ray lying along a row spreads its charge over several fibers, so that it is absorbed into "
+             "their fluxes without a significant residual in any trace, but it stands out in the gaps. "
+             "The pixel must also exceed the median of its column over rejectGapMedianWidth rows by "
+             "this many standard deviations, so that light that's in every row (e.g., errors in the "
+             "profiles) doesn't seed. Not used for the preliminary extraction. Disabled if <= 0."),
+    )
+    rejectGapMedianWidth = pexConfig.Field(
+        dtype=int,
+        default=5,
+        doc="Width (rows) of the running median along the columns used to test seeds in the gaps",
+    )
     preliminaryRejectIterations = pexConfig.Field(
         dtype=int,
         default=1,
@@ -360,6 +376,7 @@ class ExtractSpectraTask(pipeBase.Task):
             if rejectOutliers:
                 self.checkGeometry(maskedImage, fiberTraceSet)
                 badFitThreshold = 0.0
+                gapThreshold = 0.0
                 if preliminary:
                     iterations = self.config.preliminaryRejectIterations
                     threshold = self.config.preliminaryRejectThreshold
@@ -368,6 +385,7 @@ class ExtractSpectraTask(pipeBase.Task):
                     iterations = self.config.rejectIterations
                     threshold = self.config.rejectThreshold
                     fiberFraction = self.config.rejectFiberFraction
+                    gapThreshold = self.config.rejectGapThreshold
                     if rejectBadFits:
                         badFitThreshold = self.config.rejectBadFitThreshold
                 total = 0
@@ -376,7 +394,7 @@ class ExtractSpectraTask(pipeBase.Task):
                 for iteration in range(iterations):
                     numRejected = self.rejectOutliers(
                         maskedImage, fiberTraceSet, spectra, badBitMask, threshold, fiberFraction,
-                        badFitThreshold,
+                        badFitThreshold, gapThreshold,
                     )
                     self.log.debug("Iteration %d: rejected %d pixels", iteration, numRejected)
                     if numRejected == 0:
@@ -612,6 +630,7 @@ class ExtractSpectraTask(pipeBase.Task):
         threshold: Optional[float] = None,
         fiberFraction: Optional[float] = None,
         badFitThreshold: float = 0.0,
+        gapThreshold: float = 0.0,
     ) -> int:
         """Flag pixels that are inconsistent with the model of the spectra
 
@@ -678,6 +697,10 @@ class ExtractSpectraTask(pipeBase.Task):
             Chi^2 per degree of freedom above which a fiber's fit in a row is
             bad, and its positive pixels are rejected (see ``findBadFits``).
             Disabled if <= 0.
+        gapThreshold : `float`, optional
+            Threshold for seeds in the gaps between the fibers, from which
+            rejected regions grow along the row into the traces (see
+            ``findGapSeeds``). Disabled if <= 0.
 
         Returns
         -------
@@ -727,7 +750,11 @@ class ExtractSpectraTask(pipeBase.Task):
                 outlier |= self.findBadFits(
                     maskedImage, fiberTraceSet, spectra, chi, candidate, badFitThreshold
                 )
-            if self.config.rejectGrowThreshold > 0 and np.any(outlier):
+            gap = good & ~inTrace & np.isfinite(chi)  # pixels between the traces
+            gapSeeds = np.zeros_like(outlier)
+            if gapThreshold > 0 and self.config.rejectGrowThreshold > 0:
+                gapSeeds = self.findGapSeeds(image, chi, noise2, gap, gapThreshold)
+            if self.config.rejectGrowThreshold > 0 and (np.any(outlier) or np.any(gapSeeds)):
                 # Grow to the connected pixels with a significant excess (including those already rejected,
                 # so that a region can be connected through them; but not the traces of ruined fibers, which
                 # are masked whatever their contents). Already-rejected pixels include cosmic rays masked
@@ -741,7 +768,13 @@ class ExtractSpectraTask(pipeBase.Task):
                 connect = outlier | (alreadyRejected & ~ruined)
                 alongRow = (candidate & (chi > self.config.rejectGrowThreshold)) | connect
                 acrossRows = (candidate & (chi > self.config.rejectGrowAcrossRowsThreshold)) | connect
-                outlier |= self.growOutliers(outlier, alongRow, acrossRows) & inTrace & ~alreadyRejected
+                grown = self.growOutliers(outlier, alongRow, acrossRows)
+                if np.any(gapSeeds):
+                    # Regions seeded in the gaps may also grow through the gaps (only the traces are rejected)
+                    alongRow |= (gap & (chi > self.config.rejectGrowThreshold)) | gapSeeds
+                    acrossRows |= (gap & (chi > self.config.rejectGrowAcrossRowsThreshold)) | gapSeeds
+                    grown |= self.growOutliers(gapSeeds, alongRow, acrossRows)
+                outlier |= grown & inTrace & ~alreadyRejected
         if self.config.rejectGrow > 0:
             structure = np.ones((1, 2*self.config.rejectGrow + 1), dtype=bool)
             outlier |= scipy.ndimage.binary_dilation(outlier, structure=structure) & candidate
@@ -756,6 +789,54 @@ class ExtractSpectraTask(pipeBase.Task):
         mask[outlier & unmasked] |= rejectBitMask | outlierBitMask
         mask[fiberReject & unmasked] |= rejectBitMask
         return int(np.count_nonzero((outlier | fiberReject) & unmasked))
+
+    def findGapSeeds(
+        self, image: np.ndarray, chi: np.ndarray, noise2: np.ndarray, gap: np.ndarray, threshold: float
+    ) -> np.ndarray:
+        """Find seeds for rejected regions in the gaps between the fibers
+
+        A cosmic ray lying along a row spreads its charge over several fibers
+        and the gaps between them; within the traces it's largely absorbed
+        into the fibers' fluxes, but in the gaps (where the model is small) it
+        stands out. A seed must exceed the model by ``threshold`` standard
+        deviations, and also the median of its column over
+        ``config.rejectGapMedianWidth`` rows, so that light in the gaps that
+        isn't in the model but is in every row (e.g., from errors in the
+        fiber profiles) doesn't seed.
+
+        Parameters
+        ----------
+        image : `numpy.ndarray` of `float`
+            Image array.
+        chi : `numpy.ndarray` of `float`
+            Residuals divided by the noise.
+        noise2 : `numpy.ndarray` of `float`
+            Noise variance.
+        gap : `numpy.ndarray` of `bool`
+            Usable pixels between the traces.
+        threshold : `float`
+            Threshold (standard deviations).
+
+        Returns
+        -------
+        seeds : `numpy.ndarray` of `bool`
+            Seed pixels.
+        """
+        seeds = gap & (chi > threshold)
+        if not np.any(seeds):
+            return seeds
+        width = self.config.rejectGapMedianWidth
+        if width > 1:
+            values = np.where(gap, image, np.nan)
+            half = width//2
+            padded = np.pad(values, ((half, half), (0, 0)), constant_values=np.nan)
+            windows = np.lib.stride_tricks.sliding_window_view(padded, 2*half + 1, axis=0)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)  # all-NaN slices
+                median = np.nanmedian(windows, axis=-1)
+            with np.errstate(invalid="ignore"):
+                seeds &= (image - median)/np.sqrt(noise2) > threshold  # False where median is NaN
+        return seeds
 
     def findBadFits(
         self,
