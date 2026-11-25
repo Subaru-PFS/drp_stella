@@ -100,10 +100,14 @@ def scanLampHeaders(repo="/work/datastore", collection="PFS/raw/sps", *, since=0
     """
     from lsst.daf.butler import Butler
 
+    columns = ["visit", "day_obs", "obsType", "group", "registry", "header", "dataType"]
     butler = Butler(repo, collections=[collection])
     where = "instrument='PFS'"
     if visits is not None:
-        where += f" AND visit IN ({','.join(str(int(vv)) for vv in visits)})"
+        visits = [int(vv) for vv in visits]
+        if not visits:
+            return pd.DataFrame([], columns=columns)
+        where += f" AND visit IN ({','.join(map(str, visits))})"
     if since > 0:
         where += f" AND visit.day_obs >= {int(since)}"
     records = {rec.id: rec for rec in butler.registry.queryDimensionRecords("visit", where=where)
@@ -114,10 +118,16 @@ def scanLampHeaders(repo="/work/datastore", collection="PFS/raw/sps", *, since=0
         visit = ref.dataId["visit"]
         if visit in records and visit not in refs:
             refs[visit] = ref.id
+    if log is not None:
+        log(f"Scanning {len(refs)} visits")
     if nProcesses > 1:
         context = multiprocessing.get_context("spawn")
         with context.Pool(nProcesses, initializer=_initScan, initargs=(repo, collection)) as pool:
-            results = pool.map(_scanOne, list(refs.items()), chunksize=50)
+            results = []
+            for result in pool.imap_unordered(_scanOne, list(refs.items()), chunksize=50):
+                results.append(result)
+                if log is not None and len(results) % 10000 == 0:
+                    log(f"{len(results)}/{len(refs)} visits scanned in {time.time() - start:.0f} s")
     else:
         _initScan(repo, collection)
         results = [_scanOne(item) for item in refs.items()]
@@ -127,7 +137,6 @@ def scanLampHeaders(repo="/work/datastore", collection="PFS/raw/sps", *, since=0
         rows.append(dict(visit=visit, day_obs=rec.day_obs, obsType=rec.observation_type,
                          group=(rec.group_name or "")[:30], registry=rec.lamps or "", header=header,
                          dataType=dataType))
-    columns = ["visit", "day_obs", "obsType", "group", "registry", "header", "dataType"]
     scan = pd.DataFrame(rows, columns=columns).sort_values("visit").reset_index(drop=True)
     if log is not None:
         log(f"{len(scan)} visits scanned in {time.time() - start:.0f} s")
@@ -161,7 +170,7 @@ def hasLamp(scan, lamp, exclude=("Quartz", "Quartz_eng")):
     return lit.apply(lambda lamps: lamp in lamps and not exclude.intersection(lamps))
 
 
-def lampSeries(butler, visits, gap=600.0):
+def lampSeries(butler, visits, gap=600.0, log=None):
     """Group exposures into series, separated by gaps of more than ``gap`` seconds
 
     Parameters
@@ -172,6 +181,8 @@ def lampSeries(butler, visits, gap=600.0):
         Visits.
     gap : `float`
         A gap (seconds, start to start) longer than this starts a new series.
+    log : callable, optional
+        Called with the visits dropped because the registry has no timespan for them.
 
     Returns
     -------
@@ -181,8 +192,14 @@ def lampSeries(butler, visits, gap=600.0):
     """
     visits = [int(vv) for vv in visits]
     records = {rec.id: rec for rec in butler.registry.queryDimensionRecords(
-        "visit", where=f"instrument='PFS' AND visit IN ({','.join(map(str, visits))})")}
-    data = pd.DataFrame(dict(visit=visits, start=[records[vv].timespan.begin.datetime for vv in visits]))
+        "visit", where=f"instrument='PFS' AND visit IN ({','.join(map(str, visits))})")} if visits else {}
+    missing = [vv for vv in visits if vv not in records or records[vv].timespan is None]
+    if missing and log is not None:
+        log(f"Dropped {len(missing)} visits with no timespan in the registry: {missing}")
+    visits = [vv for vv in visits if vv not in missing]
+    data = pd.DataFrame(dict(visit=pd.Series(visits, dtype=int),
+                             start=pd.Series([records[vv].timespan.begin.datetime for vv in visits],
+                                             dtype="datetime64[ns]")))
     data = data.sort_values("start").reset_index(drop=True)
     data["series"] = np.cumsum(data.start.diff().dt.total_seconds().fillna(np.inf) > gap)
     data["tSeries"] = (data.start - data.groupby("series").start.transform("min")).dt.total_seconds()
@@ -216,6 +233,7 @@ def integratedLineFluxes(wavelength, flux, mask, badMask, lines, halfWidth=0.6, 
         distance = np.abs(wavelength - wl)
         core = distance < halfWidth
         side = (distance > sideband[0]) & (distance < sideband[1])
+        side &= np.isfinite(flux) & ((mask & badMask) == 0)
         if (core.sum() < 5 or side.sum() < 5 or np.any(mask[core] & badMask)
                 or not np.all(np.isfinite(flux[core]))):
             fluxes[wl] = np.nan
@@ -254,8 +272,10 @@ def hgcdRatios(butler, visits, arm="b", spectrographs=(1, 2, 3, 4), minFibres=10
         line fluxes per second (e.g. ``I436``; per the imprecise shutter time).
     """
     visits = [int(vv) for vv in visits]
-    have = {ref.dataId["visit"] for ref in butler.registry.queryDatasets(
-        "pfsArm", where=f"instrument='PFS' AND arm='{arm}' AND visit IN ({','.join(map(str, visits))})")}
+    have = set()
+    if visits:
+        where = f"instrument='PFS' AND arm='{arm}' AND visit IN ({','.join(map(str, visits))})"
+        have = {ref.dataId["visit"] for ref in butler.registry.queryDatasets("pfsArm", where=where)}
     rows = []
     for visit in sorted(have):
         for spectrograph in spectrographs:
@@ -266,14 +286,17 @@ def hgcdRatios(butler, visits, arm="b", spectrographs=(1, 2, 3, 4), minFibres=10
             sat = pfsArm.flags["SAT"]
             fluxes = pd.DataFrame([integratedLineFluxes(pfsArm.wavelength[ii], pfsArm.flux[ii],
                                                         pfsArm.mask[ii], sat, HG_LINES + CD_LINES)
-                                   for ii in range(len(pfsArm)) if np.nanmedian(pfsArm.norm[ii]) > 0])
-            row = dict(visit=visit, spectrograph=spectrograph, expTime=float(pfsArm.identity.expTime))
+                                   for ii in range(len(pfsArm)) if np.nanmedian(pfsArm.norm[ii]) > 0],
+                                  columns=list(HG_LINES + CD_LINES), dtype=float)
+            expTime = float(pfsArm.identity.expTime)
+            row = dict(visit=visit, spectrograph=spectrograph, expTime=expTime)
             for num, den in RATIOS:
                 ratio = fluxes[num]/fluxes[den]
                 ratio = ratio[np.isfinite(ratio) & (ratio > 0)]
-                row[f"{num:.0f}/{den:.0f}"] = np.median(ratio) if len(ratio) > minFibres else np.nan
+                row[f"{num:.0f}/{den:.0f}"] = np.median(ratio) if len(ratio) >= minFibres else np.nan
             for wl in HG_LINES + CD_LINES:
-                row[f"I{wl:.0f}"] = np.nanmedian(fluxes[wl])/max(row["expTime"], 1e-3)
+                good = fluxes[wl][np.isfinite(fluxes[wl])]
+                row[f"I{wl:.0f}"] = good.median()/expTime if len(good) > 0 and expTime > 0 else np.nan
             rows.append(row)
     if log is not None:
         log(f"{len(rows)} rows ({len(have)} visits)")
@@ -293,10 +316,10 @@ def warmupGrowth(series, ratios, *, ratio="509/436", minLight=0.05, maxErr=0.01)
         Ratio to use (default: Cd 508.7/Hg 436.0).
     minLight : `float`
         Exposures whose median Hg 436 flux is below this fraction of the median over all exposures are
-        dropped (the lamp didn't light).
+        dropped (the lamp didn't light); so are series whose first exposure is dropped or missing.
     maxErr : `float`
-        Series in which any exposure's relative ratio has an error above this are marked not ``clean``
-        (the spectrographs disagree).
+        Series in which any exposure's relative ratio has an error above this (or no error) are marked
+        not ``clean`` (the spectrographs disagree).
 
     Returns
     -------
@@ -311,6 +334,7 @@ def warmupGrowth(series, ratios, *, ratio="509/436", minLight=0.05, maxErr=0.01)
     data = ratios.join(series.set_index("visit")[columns], on="visit", how="inner")
     lit = data.groupby("visit").I436.median() > minLight*data.I436.median()
     data = data[data.visit.map(lit)].copy()
+    data = data[data.series.isin(data.series[data.idx == 0])]   # the growth is relative to the first
     for name in (ratio, "405/436"):
         first = data[data.idx == 0].set_index(["series", "spectrograph"])[name]
         data[f"rel{name}"] = [value/first.get((ss, sp), np.nan) for value, ss, sp in
@@ -331,7 +355,7 @@ def warmupGrowth(series, ratios, *, ratio="509/436", minLight=0.05, maxErr=0.01)
     growth["t"] /= 60
     growth["nSeries"] = growth.groupby("series").idx.transform("size")
     growth = growth[growth.nSeries >= 2].copy()
-    noisy = growth[growth.idx > 0].groupby("series").relErr.max() > maxErr
+    noisy = growth[growth.idx > 0].groupby("series").relErr.apply(lambda err: not np.all(err <= maxErr))
     growth["clean"] = ~growth.series.map(noisy).fillna(False).astype(bool)
     return growth.reset_index(drop=True)
 
@@ -359,7 +383,7 @@ def warmupSummary(growth, *, epochs=((0, 20260701), (20260701, 99999999)),
     for start, end in epochs:
         for idx, (tMin, tMax) in exposures:
             select = growth[growth.clean & growth.day_obs.between(start, end - 1) & (growth.idx == idx)
-                            & growth.t.between(tMin, tMax)]
+                            & growth.t.between(tMin, tMax) & np.isfinite(growth.rel)]
             if len(select) > 1:
                 scatter = select.rel.std(ddof=1)
                 rows.append(dict(epochStart=start, epochEnd=end, idx=idx, t=select.t.median(),
@@ -513,6 +537,7 @@ def heLampLevels(series, rates, columns=("706.72", "587.73", "OI777/He707")):
     perSpec = perSpec.reset_index().join(series.set_index("visit")[extra], on="visit", how="inner")
     settled = perSpec.idx > 0
 
+    columns = [cc for cc in columns if cc in perSpec]   # e.g. 587.73 needs the b arm
     for cc in columns:
         level = perSpec[settled].groupby("spectrograph")[cc].median()
         perSpec[cc + "_norm"] = perSpec[cc]/perSpec.spectrograph.map(level)

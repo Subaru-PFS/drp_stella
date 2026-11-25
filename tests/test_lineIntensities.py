@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+
+import astropy.io.fits
 import numpy as np
 import pandas as pd
 
@@ -7,7 +10,8 @@ from pfs.datamodel import Identity, MaskHelper, PfsMerged
 from pfs.drp.stella.lsf import GaussianLsf
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineSource
 from pfs.drp.stella.lineLists.intensities import (fitLineIntensities, updateLineIntensities, combineFibres,
-                                                  integratedFluxes, scaleUnmeasured)
+                                                  integratedFluxes, scaleUnmeasured, mergedExpTime,
+                                                  perSecond)
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
@@ -21,6 +25,23 @@ def makeLineList(wavelengths, intensity=1.0, description="NeI", source=2):
             for wl in wavelengths:
                 fd.write(f"{wl:.5f} {intensity} {description} 0 UNKNOWN {source}\n")
         return ReferenceLineSet.fromLineList(filename)
+
+
+class FakeArmButler:
+    """Just enough of a butler for mergedExpTime: pfsArm refs whose files have a CONFIG HDU"""
+    def __init__(self, paths):
+        refs = [SimpleNamespace(path=path) for path in paths]
+        self.registry = SimpleNamespace(queryDatasets=lambda *args, **kwargs: refs)
+
+    def getURI(self, ref):
+        return SimpleNamespace(ospath=ref.path)
+
+
+def writeArmConfig(path, expTime):
+    """Write a file with just the CONFIG HDU of a pfsArm"""
+    column = astropy.io.fits.Column(name="expTime", format="D", array=[expTime])
+    hdus = [astropy.io.fits.PrimaryHDU(), astropy.io.fits.BinTableHDU.from_columns([column], name="CONFIG")]
+    astropy.io.fits.HDUList(hdus).writeto(path)
 
 
 class LineIntensitiesTestCase(lsst.utils.tests.TestCase):
@@ -142,6 +163,47 @@ class LineIntensitiesTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.isnan(byLam[630.0].intensityErr))
         self.assertFalse(byLam[630.0].source & EMPIRICAL)
         self.assertTrue(byLam[600.0].source & EMPIRICAL)
+        # the ratio's direction: measured/previous (0.5), not previous/measured, which would give 200
+        self.assertNotAlmostEqual(byLam[640.0].intensity, 100.0/scales["NeI"])
+
+        # an unmeasured line that isn't in the previous list keeps its intensity (not NaN)
+        data = pd.concat([data, data.iloc[[-1]].assign(wavelength=650.0, intensity=7.0)], ignore_index=True)
+        newLines, _ = scaleUnmeasured(ReferenceLineSet(data), previous, measured=[600.0, 610.0, 620.0])
+        byLam = {round(ll.wavelength, 3): ll for ll in newLines.rows}
+        self.assertEqual(byLam[650.0].intensity, 7.0)
+        self.assertFloatsAlmostEqual(byLam[640.0].intensity, 50.0, rtol=1e-12)
+
+        # a species with fewer than three bright measured lines isn't scaled
+        newLines, scales = scaleUnmeasured(lines, previous, measured=[600.0, 610.0])
+        self.assertEqual(scales, {})
+        self.assertEqual({round(ll.wavelength, 3): ll.intensity for ll in newLines.rows}[630.0], 1.0)
+
+    def testMergedExpTime(self):
+        """The exposure time is the mean of the pfsArms', not the sum (PIPE2D-1957)"""
+        with lsst.utils.tests.temporaryDirectory() as tempDir:
+            paths = [f"{tempDir}/pfsArm-{ii}.fits" for ii in range(3)]
+            for path, expTime in zip(paths, (30.0, 30.0, 33.0)):
+                writeArmConfig(path, expTime)
+            self.assertFloatsAlmostEqual(mergedExpTime(FakeArmButler(paths), 1), 31.0, rtol=1e-12)
+
+            writeArmConfig(f"{tempDir}/zero.fits", 0.0)
+            with self.assertRaises(RuntimeError):
+                mergedExpTime(FakeArmButler([f"{tempDir}/zero.fits"]), 1)
+        with self.assertRaises(RuntimeError):
+            mergedExpTime(FakeArmButler([]), 1)
+
+    def testPerSecond(self):
+        """Fluxes and errors are divided by the exposure time, once; the input is unchanged"""
+        result = pd.DataFrame(dict(wavelength=[600.0, 610.0], flux=[600.0, -30.0], fluxErr=[6.0, 3.0],
+                                   fitted=[True, True]))
+        rates = perSecond(result, 30.0)
+        self.assertFloatsAlmostEqual(rates.flux.to_numpy(), [20.0, -1.0], rtol=1e-12)
+        self.assertFloatsAlmostEqual(rates.fluxErr.to_numpy(), [0.2, 0.1], rtol=1e-12)
+        self.assertFloatsAlmostEqual(result.flux.to_numpy(), [600.0, -30.0], rtol=0)
+        np.testing.assert_array_equal(rates.wavelength, result.wavelength)
+        for expTime in (0.0, -1.0, np.nan):
+            with self.assertRaises(ValueError):
+                perSecond(result, expTime)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

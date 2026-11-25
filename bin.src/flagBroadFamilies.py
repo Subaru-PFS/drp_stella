@@ -13,11 +13,15 @@ def main():
     parser.add_argument("lineList", help="Line list to update (e.g. .../obs_pfs/pfs/lineLists/Kr.txt)")
     parser.add_argument("families", nargs="*",
                         help="Families to flag: names (1s2, 1s4, 6p3P1, 5p1P1, 5p3P1) or lower-level tokens "
-                             "(e.g. '5s_2[1/2]*_1'); none clears BROAD on all lines with known transitions")
+                             "(e.g. '5s_2[1/2]*_1')")
+    parser.add_argument("--clear", action="store_true",
+                        help="With no families: clear BROAD on all lines with known transitions")
     parser.add_argument("--output", default=None,
                         help="Line list to write (default: update lineList in place)")
     parser.add_argument("--dry-run", action="store_true", help="Only report the changes")
     args = parser.parse_args()
+    if not args.families and not args.clear:
+        parser.error("no families given: use --clear to clear BROAD on all lines with known transitions")
 
     path = os.path.abspath(args.lineList)
     newLines, counts = flagBroadFamilies(ReferenceLineSet.fromLineList(path), args.families)

@@ -105,8 +105,8 @@ def flagBroadFamilies(lines, families):
         Lines (not modified).
     families : iterable of `str`
         Families to flag: names (e.g. ``1s2``, applied to every species that has that family) or lower
-        level tokens (e.g. ``5s_2[1/2]*_1``).  If empty, BROAD is cleared on all lines with known
-        transitions.
+        level tokens (e.g. ``5s_2[1/2]*_1``, applied to every line with that lower level, whatever its
+        species).  If empty, BROAD is cleared on all lines with known transitions.
 
     Returns
     -------
@@ -166,9 +166,12 @@ def familyWidthExcess(fits, *, minFibres=4, brightness=10.0, minReference=3, nSi
         One row per (lamp, arm, species, family): ``nFamily``, ``nReference``, ``excessPix``, ``err``,
         ``significance``, ``excessGHz``, ``broad``, and ``lines`` (each member's excess in GHz).
     """
+    if not np.any(np.isfinite(fits.lorentz)):
+        raise ValueError("No finite Lorentzian widths: were the lines fitted with a Lorentzian?")
     fits = fits.copy()
     fits["family"] = lineFamilies(fits.description, fits.transition)
     fits["ghz"] = C_GHZ_NM*fits.dispersion/fits.wavelength**2
+    # Lines are grouped by exact wavelength, so it must be the catalogue wavelength, not a fitted one
     perLine = fits.groupby(["lamp", "arm", "wavelength"]).agg(
         species=("description", "first"), family=("family", "first"), lorentz=("lorentz", "median"),
         peak=("peak", "median"), num=("lorentz", "size"), ghz=("ghz", "median")).reset_index()
@@ -256,7 +259,7 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
     minFibres : `int`
         Minimum number of fibres for a line to be used.
     minReference : `int`
-        Minimum number of non-family lines for a lamp's offset to be reported.
+        Minimum number of non-family lines for a lamp's offset and its families' shifts to be reported.
     referenceLamp : `str`
         Lamp offsets are relative to this lamp's non-family lines.
 
@@ -276,6 +279,7 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
     data["lamp"] = data.visit.astype(int).map(lamps)
     data["residual"] = data.pixel + data.dataCentroid - data.refPixel
     data["residual"] -= data.groupby(["file", "fiberId"]).residual.transform("median")
+    # Lines are grouped by exact wavelength, so it must be the catalogue wavelength, not a fitted one
     perLine = data.groupby(["lamp", "wavelength"]).agg(
         residual=("residual", "median"), num=("residual", "size"), description=("description", "first"),
         transition=("transition", "first"), dispersion=("dispersion", "median")).reset_index()
@@ -286,7 +290,11 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
         return 1.25*_robustStd(values)/np.sqrt(len(values))
 
     nonFamily = perLine[perLine.family == ""]
-    zero = nonFamily[nonFamily.lamp == referenceLamp].residual.median()
+    reference = nonFamily[nonFamily.lamp == referenceLamp]
+    if len(reference) < minReference:
+        raise ValueError(f"Reference lamp {referenceLamp} has {len(reference)} non-family lines; "
+                         f"need {minReference} (lamps: {sorted(set(lamps.values()))})")
+    zero = reference.residual.median()
     offsets = []
     for lamp, ref in nonFamily.groupby("lamp"):
         if len(ref) >= minReference:
@@ -295,7 +303,7 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
     shifts = []
     for (lamp, family), fam in perLine[perLine.family != ""].groupby(["lamp", "family"]):
         ref = nonFamily[nonFamily.lamp == lamp]
-        if len(ref) == 0:
+        if len(ref) < minReference:
             continue
         shift = fam.residual.median() - ref.residual.median()
         famErr = errorOfMedian(fam.residual) if len(fam) > 2 else _robustStd(ref.residual)

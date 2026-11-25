@@ -8,7 +8,8 @@ import lsst.utils.tests
 
 from pfs.datamodel import TargetType
 from pfs.drp.stella.lineLists.lamps import (hasLamp, lampMismatches, lampSeries, integratedLineFluxes,
-                                            warmupGrowth, warmupSummary, HE_LINES, heLineRates, heLampLevels)
+                                            warmupGrowth, warmupSummary, HE_LINES, heLineRates, heLampLevels,
+                                            hgcdRatios, HG_LINES, CD_LINES)
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
@@ -20,6 +21,26 @@ class FakeButler:
         records = [SimpleNamespace(id=visit, timespan=SimpleNamespace(begin=SimpleNamespace(datetime=start)))
                    for visit, start in starts.items()]
         self.registry = SimpleNamespace(queryDimensionRecords=lambda *args, **kwargs: records)
+
+
+class FakeHgCdButler:
+    """Just enough of a butler for hgcdRatios: b-arm pfsArms for spectrograph 1, with no good fibres"""
+    def __init__(self, visits):
+        refs = [SimpleNamespace(dataId=dict(visit=visit)) for visit in visits]
+        self.registry = SimpleNamespace(queryDatasets=lambda *args, **kwargs: refs)
+
+    def get(self, datasetType, visit, arm=None, spectrograph=None):
+        if spectrograph != 1:
+            raise LookupError(datasetType)
+        shape = (3, 1000)
+
+        class PfsArm(SimpleNamespace):
+            def __len__(self):
+                return shape[0]
+
+        return PfsArm(wavelength=np.tile(np.linspace(380, 650, shape[1]), (shape[0], 1)),
+                      flux=np.ones(shape), mask=np.zeros(shape, dtype=np.int32), norm=np.zeros(shape),
+                      flags={"SAT": 4}, identity=SimpleNamespace(expTime=30.0))
 
 
 class FakeHeButler:
@@ -79,6 +100,24 @@ class LampExposuresTestCase(lsst.utils.tests.TestCase):
         np.testing.assert_array_equal(series.idx, [0, 1, 2, 0, 1, 0])
         np.testing.assert_array_equal(series.tSeries, [0, 120, 240, 0, 120, 0])
 
+        messages = []
+        series = lampSeries(butler, [11, 12, 99], log=messages.append)   # 99 isn't in the registry
+        np.testing.assert_array_equal(series.visit, [11, 12])
+        self.assertIn("99", messages[0])
+
+        series = lampSeries(butler, [])
+        self.assertEqual(len(series), 0)
+        self.assertIn("series", series.columns)
+
+    def testHgcdRatiosNoFibres(self):
+        """A pfsArm with no usable fibre gives NaN ratios, not an exception"""
+        ratios = hgcdRatios(FakeHgCdButler([5, 6]), [5, 6])
+        self.assertEqual(len(ratios), 2)
+        self.assertTrue(np.all(np.isnan(ratios["509/436"])))
+        self.assertTrue(np.all(np.isnan(ratios[f"I{HG_LINES[0]:.0f}"])))
+        self.assertTrue(np.all(np.isnan(ratios[f"I{CD_LINES[0]:.0f}"])))
+        self.assertEqual(len(hgcdRatios(FakeHgCdButler([]), [])), 0)
+
     def testIntegratedLineFluxes(self):
         """Sum over the core minus the sideband continuum; masked or missing lines are NaN"""
         wavelength = np.arange(430.0, 440.0, 0.01)
@@ -91,6 +130,13 @@ class LampExposuresTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(fluxes[436.0], 100*0.1*np.sqrt(2*np.pi)/0.01, rtol=1e-3)
         self.assertTrue(np.isnan(fluxes[433.0]))
         self.assertTrue(np.isnan(fluxes[450.0]))
+
+        # an unusable (NaN or masked) continuum gives NaN, not zero
+        sideband = (np.abs(wavelength - 436.0) > 1.0) & (np.abs(wavelength - 436.0) < 2.0)
+        fluxes = integratedLineFluxes(wavelength, np.where(sideband, np.nan, flux), mask, 4, (436.0,))
+        self.assertTrue(np.isnan(fluxes[436.0]))
+        fluxes = integratedLineFluxes(wavelength, flux, np.where(sideband, 4, mask), 4, (436.0,))
+        self.assertTrue(np.isnan(fluxes[436.0]))
 
     def testWarmupGrowth(self):
         """Growth relative to each series' first exposure, averaged over spectrographs, by epoch"""
@@ -116,6 +162,19 @@ class LampExposuresTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(summary.loc[(20260701, 2), "growth"], 1.4, atol=3e-3)
         self.assertFloatsAlmostEqual(summary.loc[(20260701, 1), "growth"], 1.2, atol=3e-3)
         self.assertEqual(summary.loc[(20260701, 2), "num"], 3)
+
+        # a series whose first exposure is unlit has no reference: dropped, not counted as clean NaNs
+        ratioRows = [rr if rr["visit"] != 13 else dict(rr, I436=1.0) for rr in ratioRows]
+        growth = warmupGrowth(pd.DataFrame(seriesRows), pd.DataFrame(ratioRows))
+        self.assertEqual(set(growth.series), {1, 2, 3, 4})
+        summary = warmupSummary(growth).set_index(["epochStart", "idx"])
+        self.assertEqual(summary.loc[(20260701, 2), "num"], 2)
+
+        # a series whose relative ratios have no error (one spectrograph) isn't clean
+        ratioRows = [rr for rr in ratioRows if rr["visit"] > 3 or rr["spectrograph"] == 1]
+        growth = warmupGrowth(pd.DataFrame(seriesRows), pd.DataFrame(ratioRows))
+        self.assertFalse(growth[growth.series == 1].clean.any())
+        self.assertTrue(growth[growth.series == 2].clean.all())
 
     def testHeLineRates(self):
         """Rates on the engineering fibres only, per second; saturated fibres rejected"""
@@ -159,6 +218,14 @@ class LampExposuresTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(levels.loc[1, "587.73_norm"], 0.6, rtol=1e-3)  # combined over arms
         self.assertFloatsAlmostEqual(levels.loc[[1, 2, 3], "t"].to_numpy(), [0.0, 4.0, 8.0])
         self.assertLess(levels.loc[1, "706.72_normErr"], 1e-3)
+
+        # with no b arm, 587.73 (a default column) is skipped
+        rRates = pd.DataFrame(rateRows)
+        rRates = rRates[rRates.arm == "r"].drop(columns="587.73")
+        levels = heLampLevels(pd.DataFrame(seriesRows), rRates).set_index("visit")
+        self.assertNotIn("587.73_norm", levels.columns)
+        self.assertFloatsAlmostEqual(levels.loc[[2, 3, 5], "706.72_norm"].to_numpy(), [1.0, 1.0, 1.04],
+                                     rtol=1e-3)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

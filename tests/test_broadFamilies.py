@@ -78,6 +78,9 @@ class BroadFamiliesTestCase(lsst.utils.tests.TestCase):
         smaller = familyWidthExcess(pd.DataFrame(rows), minGHz=10.0)   # the GHz threshold applies
         self.assertFalse(smaller.iloc[0].broad)
 
+        with self.assertRaises(ValueError):   # no Lorentzian was fitted
+            familyWidthExcess(pd.DataFrame(rows).assign(lorentz=np.nan))
+
     def testFamilyShifts(self):
         """Family shifts relative to the same lamp's lines, with per-fibre offsets removed"""
         rows = []
@@ -103,6 +106,9 @@ class BroadFamiliesTestCase(lsst.utils.tests.TestCase):
         self.assertEqual((shifts.lamp[0], shifts.family[0], shifts.num[0]), ("Ar", "1s2", 3))
         self.assertFloatsAlmostEqual(shifts["shift"][0], shift, atol=1e-3)
         self.assertFloatsAlmostEqual(shifts.shiftPm[0], 1e3*0.08*shifts["shift"][0], rtol=1e-12)
+
+        with self.assertRaises(ValueError):   # the reference lamp wasn't measured
+            familyShifts(pd.DataFrame(rows), {1: "Ne", 2: "Ar"}, referenceLamp="Kr")
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

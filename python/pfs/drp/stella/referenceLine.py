@@ -99,8 +99,8 @@ class ReferenceLineSource(Bitmask):
     SDSS = 0x10, 'Lines taken from SDSS (https://www.sdss.org/dr14/spectro/spectro_basics)'
     RAGNAR = 0x20, 'Lines taken from Ragnar sky line list; Christian Kragh Jespersen thesis, 2026'
     EMPIRICAL_INTENSITY = 0x40, ('Intensity measured empirically from PFS data, replacing the catalogued '
-                                 'value; PLACEHOLDER, provenance (data/visits used, date, method) not yet '
-                                 'recorded')
+                                 'value; provenance (visits, date, method) in obs_pfs '
+                                 'pfs/lineLists/README.md')
 
 
 class ReferenceLineSet(Table):

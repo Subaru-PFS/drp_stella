@@ -36,8 +36,11 @@ def main():
     result = info["result"]
     print(f"visit {args.visit}: expTime {info['expTime']:.3f} s (mean over pfsArms); "
           f"{int(result.fitted.sum())} lines fitted -> {args.output}")
+    print(f"median quartz norm {info['normBar']:.4g} (intensities scale with it)")
     for species, scale in info["scales"].items():
         print(f"{species}: unmeasured lines scaled from {args.previous} by {scale:.3g}")
+    if len(info["unmeasured"]):
+        print(f"{len(info['unmeasured'])} lines not measured kept their intensities from {args.lineList}")
     print("Largest residuals, away from the brightest lines (to find missing lines):")
     print(info["residuals"].to_string(index=False, float_format=lambda v: f"{v:.4g}"))
 

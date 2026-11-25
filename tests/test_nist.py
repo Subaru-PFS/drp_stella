@@ -1,3 +1,4 @@
+import math
 import os
 import tempfile
 import urllib.parse
@@ -6,7 +7,8 @@ import lsst.utils.tests
 
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineSource
 from pfs.drp.stella.lineLists.nist import (parseSpecies, nistLinesUrl, loadNist, addTransitions,
-                                           buildLineList, readLevels, findTransitions)
+                                           buildLineList, readLevels, findTransitions, transitionToken,
+                                           _parseFloat)
 from pfs.drp.stella.tests.utils import runTests
 
 display = None
@@ -95,6 +97,40 @@ class NistTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(merged.intensity, 500.0)
         self.assertTrue(merged.source & NIST)
         self.assertEqual(byLam[700.0].transition, "UNKNOWN")
+
+    def testTheoreticalAki(self):
+        """NIST's bracketed (theoretical) and starred values are parsed, not fatal"""
+        self.assertEqual(_parseFloat("[1.5e+07]"), 1.5e7)
+        self.assertEqual(_parseFloat("6.85e+07"), 6.85e7)
+        self.assertEqual(_parseFloat("5000*"), 5000.0)
+        self.assertTrue(math.isnan(_parseFloat("")))
+        self.assertTrue(math.isnan(_parseFloat(None)))
+        lo, hi = ("1s.2p", "3P*"), ("1s.3d", "3D")
+        writeTable(self.path("nist_He.dat"), LINES_HEADER, [
+            nistRow("587.7240", "587.7240", "500", "[1e7]", lo + ("2",), hi + ("3",)),
+        ])
+        lines = buildLineList(self.path("nist_He.dat"), "HeI")
+        self.assertEqual(len(lines), 1)
+
+    def testBuildLineListPartlyClassified(self):
+        """An unclassified component doesn't hide a merged group's classification; tokens have no spaces"""
+        lo, hi = ("1s.2p", "3P*"), ("1s.3d", "3D")
+        writeTable(self.path("nist_He.dat"), LINES_HEADER, [
+            nistRow("587.7240", "587.7240", "500", "1e7", lo + ("2",), hi + ("3",)),
+            nistRow("587.7300", "587.7300", "50", "", ("", "", ""), ("", "", "")),   # unclassified
+            nistRow("650.0000", "650.0000", "40", "1e6", ("2s2.2p", "a 3P", "0"), ("2s2.3d", "3D", "1")),
+        ])
+        lines = buildLineList(self.path("nist_He.dat"), "HeI")
+        byLam = {round(ll.wavelength, 1): ll for ll in lines.rows}
+        self.assertEqual(byLam[587.7].transition, "2p_3P*_2->3d_3D_3")
+        self.assertNotIn(" ", byLam[650.0].transition)
+        with lsst.utils.tests.getTempFilePath(".txt") as filename:   # it round-trips
+            lines.writeLineList(filename)
+            self.assertEqual(len(ReferenceLineSet.fromLineList(filename)), len(lines))
+
+    def testTransitionTokenMissingColumns(self):
+        """A dump without some term columns gives a token with empty fields, not a KeyError"""
+        self.assertEqual(transitionToken({"conf_i": "1s.2p", "conf_k": "1s.3d"}), "2p__->3d__")
 
     def testFindTransitions(self):
         """Ritz wavelengths from energy levels, with the parity and J selection rules"""

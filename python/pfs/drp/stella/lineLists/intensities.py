@@ -24,8 +24,8 @@ import scipy.sparse
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus, ReferenceLineSource
 
 __all__ = ["fitLineIntensities", "combineArms", "updateLineIntensities", "report",
-           "mergedExpTime", "combineFibres", "fitLinesFromData", "integratedFluxes", "scaleUnmeasured",
-           "largestResiduals", "measureLampIntensities"]
+           "mergedExpTime", "perSecond", "combineFibres", "fitLinesFromData", "integratedFluxes",
+           "scaleUnmeasured", "largestResiduals", "measureLampIntensities"]
 
 
 def _computeProfile(lsfs, center, length):
@@ -228,7 +228,8 @@ def fitLineIntensities(wavelength, flux, lsf, lines, variance=None, *,
     profiles = [_computeProfile(lsfs, cc, length) for cc in center]
     fitted = np.array([pp is not None for pp in profiles], dtype=bool)
 
-    # Group lines that are too close to be separated
+    # Group lines that are too close to be separated.  Single linkage: each line is compared with the
+    # previous one, so a chain of close lines can make a wide component (with catalogue flux ratios)
     group = np.full(len(select), -1, dtype=int)
     components = []   # list of indices into ``select``
     current = []
@@ -513,6 +514,9 @@ def report(combined, *, scale=1.0):
     ``scale`` is a free global multiplier (arbitrary units; keep it the same for
     every lamp). This just reports the line counts and the intensity range.
     """
+    if len(combined) == 0:
+        print("No lines fitted")
+        return
     intensity = scale*combined["flux"].to_numpy()
     nOverlap = int(np.sum(combined["nArm"].to_numpy() > 1))
     unmatched = int(np.sum(~combined["matched"].to_numpy())) if "matched" in combined else 0
@@ -546,8 +550,34 @@ def mergedExpTime(butler, visit):
                                               findFirst=True))
     if not refs:
         raise RuntimeError(f"No pfsArms found for visit {visit}")
-    return float(np.mean([astropy.io.fits.getdata(butler.getURI(ref).ospath, "CONFIG")["expTime"][0]
-                          for ref in refs]))
+    expTimes = [float(astropy.io.fits.getdata(butler.getURI(ref).ospath, "CONFIG")["expTime"][0])
+                for ref in refs]
+    expTime = float(np.mean(expTimes))
+    if not (np.isfinite(expTime) and expTime > 0):
+        raise RuntimeError(f"Bad exposure time for visit {visit}: pfsArms have {expTimes}")
+    return expTime
+
+
+def perSecond(result, expTime):
+    """Convert a fit's ``flux`` and ``fluxErr`` from counts to counts/s
+
+    Parameters
+    ----------
+    result : `pandas.DataFrame`
+        Per-line fit (e.g. from `fitLineIntensities`), in counts.
+    expTime : `float`
+        Exposure time of each pfsArm that was merged (s; see `mergedExpTime`), *not* their sum.
+
+    Returns
+    -------
+    result : `pandas.DataFrame`
+        Copy of ``result`` with ``flux`` and ``fluxErr`` in counts/s.
+    """
+    if not (np.isfinite(expTime) and expTime > 0):
+        raise ValueError(f"Bad exposure time: {expTime}")
+    result = result.copy()
+    result[["flux", "fluxErr"]] = result[["flux", "fluxErr"]]/expTime
+    return result
 
 
 def combineFibres(spec, *, fiberId=None, spectrograph=None, nClip=5, ignoreSaturatedFibers=True,
@@ -612,7 +642,8 @@ def fitLinesFromData(spec, lsfDict, lines, expTime, fid=-1, spectrograph=-1, nCl
     """Fit line intensities to the combined fibres of a pfsMerged spectrum
 
     Kept with the signature the notebooks use.  The fitted fluxes are in as-measured counts;
-    divide by ``expTime`` (returned unchanged) to get counts/s.
+    divide by ``expTime`` (returned unchanged) to get counts/s.  The LSF is the one of fibre ``fid`` if
+    given, else of ``defaultFid``, else of the middle fibre of ``spec`` that has one.
 
     Returns
     -------
@@ -622,6 +653,11 @@ def fitLinesFromData(spec, lsfDict, lines, expTime, fid=-1, spectrograph=-1, nCl
                                                spectrograph=spectrograph if spectrograph > 0 else None,
                                                nClip=nClip, ignoreSaturatedFibers=ignoreSaturatedFibers,
                                                normFrac=normFrac)
+    if fid <= 0 and defaultFid not in lsfDict:
+        withLsf = np.intersect1d(spec.fiberId, list(lsfDict))
+        if len(withLsf) == 0:
+            raise RuntimeError("None of the spectra has an LSF")
+        defaultFid = int(withLsf[len(withLsf)//2])
     lsf = lsfDict[fid if fid > 0 else defaultFid]   # the merged LSFs are all the same for now
     newLines, result, model, continuum = fitLineIntensities(wavelength, flux, lsf, lines, variance,
                                                             rescale=False)
@@ -665,7 +701,9 @@ def scaleUnmeasured(lines, previous, measured, *, minSN=30):
     """Give lines that weren't measured their previous intensity, scaled to the measured ones
 
     For each species, the scale is the median measured/previous ratio of its lines with S/N > ``minSN``.
-    Unmeasured lines get no error and lose ``EMPIRICAL_INTENSITY``.
+    Unmeasured lines get no error and lose ``EMPIRICAL_INTENSITY``.  Species with fewer than three such
+    lines can't be scaled reliably: their unmeasured lines keep their intensities in ``lines``, as do
+    unmeasured lines that aren't in ``previous``.
 
     Parameters
     ----------
@@ -687,6 +725,7 @@ def scaleUnmeasured(lines, previous, measured, *, minSN=30):
                     previous.data.intensity))
     key = list(zip(d.description, d.wavelength.round(WLROUND)))
     prevI = np.array([prev.get(k, np.nan) for k in key])
+    # Matched by wavelength alone: a list doesn't have two species at the same catalogue wavelength
     isMeasured = np.isin(d.wavelength.round(WLROUND).to_numpy(), np.round(list(measured), WLROUND))
     scales = {}
     for sp in sorted(set(d.description)):
@@ -695,7 +734,7 @@ def scaleUnmeasured(lines, previous, measured, *, minSN=30):
         if good.sum() < 3:
             continue
         scales[sp] = np.median(d.intensity.to_numpy()[good]/prevI[good])
-        un = species & ~isMeasured
+        un = species & ~isMeasured & np.isfinite(prevI)
         d.loc[un, "intensity"] = prevI[un]*scales[sp]
         d.loc[un, "intensityErr"] = np.nan
         d.loc[un, "source"] = d.source[un] & ~int(ReferenceLineSource.EMPIRICAL_INTENSITY)
@@ -749,10 +788,16 @@ def measureLampIntensities(butler, visit, lines, *, engineering=False, integrate
     Returns
     -------
     newLines : `ReferenceLineSet`
-        ``lines`` with measured intensities (``EMPIRICAL_INTENSITY`` set) and errors.
+        ``lines`` with measured intensities (``EMPIRICAL_INTENSITY`` set) and errors.  Lines that weren't
+        measured keep their intensities from ``lines`` (unless scaled from ``previous``), so check
+        ``info["unmeasured"]`` when ``lines`` mixes scales, e.g. a list fresh from NIST.
     info : `dict`
-        ``expTime``, ``result`` (per-line fit, counts/s), ``scales``, ``residuals`` and the combined
-        spectrum (``wavelength``, ``flux``, ``variance``, ``model``, ``continuum``).
+        ``expTime``, ``normBar`` (the median quartz ``norm`` the fibres were normalised to: intensities
+        from visits with different ``normBar`` aren't on the same scale), ``result`` (per-line fit,
+        counts/s), ``scales``, ``unmeasured`` (wavelengths of the lines that weren't measured and kept
+        their intensity), ``residuals`` and the combined spectrum (``wavelength``, ``flux``, ``variance``,
+        ``model``, ``continuum``).  N.b. the spectrum and model are in counts, not counts/s like
+        ``result``: divide by ``expTime`` to compare.
     """
     spec = butler.get("pfsMerged", visit=visit)
     lsfDict = butler.get("pfsMergedLsf", visit=visit)
@@ -762,6 +807,8 @@ def measureLampIntensities(butler, visit, lines, *, engineering=False, integrate
         config = butler.get("pfsConfig", visit=visit)
         eng = config.fiberId[config.targetType == TargetType.ENGINEERING]
         eng = np.intersect1d(np.intersect1d(eng, spec.fiberId), list(lsfDict))
+        if len(eng) == 0:
+            raise RuntimeError(f"Visit {visit} has no engineering fibres with spectra and LSFs")
         spec = spec.select(fiberId=eng)
         defaultFid = int(eng[len(eng)//2])
     expTime = mergedExpTime(butler, visit)
@@ -770,11 +817,15 @@ def measureLampIntensities(butler, visit, lines, *, engineering=False, integrate
     residuals = largestResiduals(wl, flux, var, model, result, lines)
     if integratedSN is not None:
         result = integratedFluxes(result, wl, flux, var, cont, minSN=integratedSN)
-    result = result.copy()
-    result[["flux", "fluxErr"]] = result[["flux", "fluxErr"]]/expTime
+    result = perSecond(result, expTime)
     newLines, _ = updateLineIntensities(lines, [result], scale=1.0)
     scales = {}
     if previous is not None:
         newLines, scales = scaleUnmeasured(newLines, previous, result.wavelength[result.fitted])
-    return newLines, dict(expTime=expTime, result=result, scales=scales, residuals=residuals,
+    measured = np.round(result.wavelength[result.fitted].to_numpy(), WLROUND)
+    data = newLines.data
+    unmeasured = data.wavelength[~np.isin(data.wavelength.round(WLROUND), measured)
+                                 & ~data.description.isin(list(scales))].to_numpy()
+    return newLines, dict(expTime=expTime, normBar=float(np.nanmedian(spec.norm)), result=result,
+                          scales=scales, unmeasured=unmeasured, residuals=residuals,
                           wavelength=wl, flux=flux, variance=var, model=model, continuum=cont)

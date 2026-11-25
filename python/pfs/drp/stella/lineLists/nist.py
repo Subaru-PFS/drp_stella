@@ -100,7 +100,7 @@ def _fetch(url, path):
         message = re.search(r"Error Message:\s*(.*?)\s{2,}", message)
         reason = message.group(1) if message else "unknown"
         raise RuntimeError(f"NIST returned an error page ({reason}): {url}")
-    with open(path, "w") as fd:
+    with open(path, "w", encoding="latin-1") as fd:   # byte-for-byte what NIST sent
         fd.write(text)
     return path
 
@@ -128,6 +128,16 @@ def _parseWavelength(value, unc):
         nDecimal = len(value.partition(".")[2])
         unc = 10**-nDecimal if nDecimal > 0 else 0.0005
     return float(value), float(unc)
+
+
+def _parseFloat(value):
+    """Return the number in a NIST field, or NaN
+
+    NIST decorates values (e.g. ``[1.2e+07]`` for a theoretical value, ``5000*`` for an intensity) or
+    leaves them empty.
+    """
+    match = re.search(r"[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?", value or "")
+    return float(match.group(0)) if match else np.nan
 
 
 def loadNist(filenames):
@@ -167,11 +177,16 @@ def loadNist(filenames):
     return bySpecies
 
 
+def _cleanToken(token):
+    """Make a transition token safe for a line list: no whitespace (a column separator) or ``#`` (comment)"""
+    return re.sub(r"[\s#]+", "_", token.strip())
+
+
 def transitionToken(row):
     """Return the transition token ``<valence>_<term>_<J>-><valence>_<term>_<J>`` for a NIST row"""
-    lo = f"{row['conf_i'].split('.')[-1]}_{row['term_i']}_{row['J_i']}"
-    hi = f"{row['conf_k'].split('.')[-1]}_{row['term_k']}_{row['J_k']}"
-    return f"{lo}->{hi}"
+    lo = f"{row.get('conf_i', '').split('.')[-1]}_{row.get('term_i', '')}_{row.get('J_i', '')}"
+    hi = f"{row.get('conf_k', '').split('.')[-1]}_{row.get('term_k', '')}_{row.get('J_k', '')}"
+    return _cleanToken(f"{lo}->{hi}")
 
 
 def addTransitions(lines, bySpecies):
@@ -238,9 +253,15 @@ def buildLineList(filename, description, *, minFrac=0.0, lamMin=370.0, lamMax=12
 
     Components closer than ``gap`` nm (unresolved by PFS) are merged into one line at the
     ``g_k*A_ki``-weighted mean Ritz wavelength, with their transitions combined
-    (e.g. ``2p_3P*_0/1/2->3d_3D_1/2/3``; ``;`` between different term pairs).  Only groups that NIST
-    gives an intensity for are kept, and of those only lines with intensity >= ``minFrac`` times the
-    strongest.  Intensities are NIST's (measure them from PFS data afterwards).
+    (e.g. ``2p_3P*_0/1/2->3d_3D_1/2/3``; ``;`` between different term pairs).  The grouping is
+    single-linkage (each component is compared with its neighbour), so a chain of close components can
+    span more than ``gap``.  A merged line is one PFS line, so it isn't marked ``BLEND``.  Only groups that
+    NIST gives an intensity for are kept, and of those only lines with intensity >= ``minFrac`` times the
+    strongest.  A group's intensity is its strongest component's: NIST's intensities are a qualitative,
+    per-source scale, not additive.  Measure intensities from PFS data afterwards.
+
+    The J values in the tokens are joined with ``/``, which is ambiguous for half-integer J (``1/2/3/2``);
+    PFS's lamps are neutral, even-electron atoms with integer J.
 
     Returns
     -------
@@ -257,7 +278,7 @@ def buildLineList(filename, description, *, minFrac=0.0, lamMin=370.0, lamMax=12
             lam = float(ritz or obs)
             if not lamMin < lam < lamMax:
                 continue
-            A = float(r["Aki(s^-1)"]) if r.get("Aki(s^-1)") else np.nan
+            A = _parseFloat(r.get("Aki(s^-1)"))   # theoretical values are in [], e.g. forbidden lines
             intensity = re.sub(r"[^0-9.]", "", r.get("intens", ""))
             rows.append(dict(lam=lam, gA=_gWeight(r.get("J_k", ""))*A,
                              intensity=float(intensity) if intensity else np.nan,
@@ -281,13 +302,14 @@ def buildLineList(filename, description, *, minFrac=0.0, lamMin=370.0, lamMax=12
         center = np.sum(lam*weight)/np.sum(weight) if np.sum(weight) > 0 else lam.mean()
         terms = OrderedDict()
         for r in sorted(g, key=lambda r: -np.nan_to_num(r["gA"])):
+            if not (r["lo"][0] and r["hi"][0]):
+                continue   # unclassified component: don't let it hide the others' classification
             jLo, jHi = terms.setdefault((r["lo"], r["hi"]), (set(), set()))
             jLo.add(r["Ji"])
             jHi.add(r["Jk"])
         token = ";".join(f"{lo[0]}_{lo[1]}_{'/'.join(sorted(ji))}->{hi[0]}_{hi[1]}_{'/'.join(sorted(jk))}"
                          for (lo, hi), (ji, jk) in terms.items())
-        if "__->__" in token or not token:
-            token = "UNKNOWN"   # NIST lists the line, but unclassified
+        token = _cleanToken(token) if token else "UNKNOWN"   # UNKNOWN: NIST lists the line, but unclassified
         out.append(dict(description=description, wavelength=round(center, 5), intensity=max(intensities),
                         status=0, transition=token, source=int(ReferenceLineSource.NIST),
                         intensityErr=np.nan))
