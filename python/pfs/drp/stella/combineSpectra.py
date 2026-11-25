@@ -5,7 +5,8 @@ import numpy as np
 from lsst.pipe.base import Struct
 from pfs.datamodel import PfsFiberArraySet, MaskHelper
 
-__all__ = ("combineSpectraSets", "calculateCombineWeights", "calculateCoaddWeights", "accumulateWeighted")
+__all__ = ("combineSpectraSets", "calculateCombineWeights", "calculateCoaddWeights", "accumulateWeighted",
+           "combineOffDiagonals")
 
 
 def accumulateWeighted(
@@ -187,8 +188,14 @@ def combineSpectraSets(
 
     The weights are those of `calculateCombineWeights`. The flux and sky are combined
     normalised (divided by the norm), and the result is multiplied by the
-    combined norm. The variance is propagated for the weights used:
-    ``sum(variance*weight**2)/sum(weight)**2``.
+    combined norm. The covariance is propagated for the weights used: the
+    covariance of pixels ``i`` and ``i + k`` is
+    ``sum_n w_n(i) w_n(i + k) C_n(i, i + k)/(W(i) W(i + k))``, where ``w_n``
+    are the weights of the pixels that input ``n`` contributes, ``C_n`` its
+    (normalised) covariance, and ``W`` the sum of the weights; for ``k = 0``
+    this is ``sum(variance*weight**2)/sum(weight)**2``. As many off-diagonals
+    are propagated as the inputs have (the inputs are independent of each
+    other, e.g. different arms).
 
     Parameters
     ----------
@@ -242,19 +249,65 @@ def combineSpectraSets(
         sky[select] = sky[select]*factor
         norm[select] = norm[select]*factor
         covar[:, 0][select] = variance[select]*factor**2
+    covar[:, 1:] = combineOffDiagonals(spectra, weights)
 
     covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
     with np.errstate(invalid="ignore"):
+        covar[:, 0] = covar[:, 0]*norm**2
+        for kk in range(1, min(covar.shape[1], covar.shape[2])):
+            covar[:, kk, :-kk] = covar[:, kk, :-kk]*norm[:, :-kk]*norm[:, kk:]
         return Struct(
             wavelength=archetype.wavelength,
             flux=flux*norm,
             sky=sky*norm,
             norm=norm,
-            covar=covar*norm[:, np.newaxis, :]**2,
+            covar=covar,
             mask=weights.mask,
             covar2=covar2,
             weights=weights,
         )
+
+
+def combineOffDiagonals(spectra: List[PfsFiberArraySet], weights: Struct) -> np.ndarray:
+    """The off-diagonal covariance of a weighted combination of spectra
+
+    The covariance of combined pixels ``i`` and ``i + k`` (k > 0) is
+    ``sum_n w_n(i) w_n(i + k) C_n(i, i + k)/(W(i) W(i + k))``, where ``w_n``
+    are the weights of the pixels that input ``n`` contributes (zero where it
+    doesn't), ``C_n`` its normalised covariance (``covar/norm**2``), and ``W``
+    the sum of the weights. Inputs are taken to be independent of each other.
+
+    Parameters
+    ----------
+    spectra : iterable of `pfs.datamodel.PfsFiberArraySet`
+        Spectra being combined, resampled to a common wavelength sampling.
+    weights : `lsst.pipe.base.Struct`
+        Weights of the combination, from `calculateCombineWeights`.
+
+    Returns
+    -------
+    covar : `numpy.ndarray` of `float`, shape ``(numFibers, numDiagonals - 1, numSamples)``
+        Normalised covariance at offsets ``1..numDiagonals - 1``: element
+        ``[:, k - 1, i]`` is the covariance of pixels ``i`` and ``i + k``.
+    """
+    archetype = spectra[0]
+    numFibers, numDiagonals, length = archetype.covar.shape
+    result = np.zeros((numFibers, max(numDiagonals - 1, 0), length), dtype=archetype.covar.dtype)
+    if numDiagonals <= 1:
+        return result
+    with np.errstate(invalid="ignore", divide="ignore"):
+        inverseSum = np.where(weights.calculate, 1.0/weights.sumWeights, 0.0)
+    for kk in range(1, min(numDiagonals, length)):
+        total = np.zeros((numFibers, length - kk))
+        for ss, ww, select in zip(spectra, weights.weights, weights.selects):
+            if ss.covar.shape[1] <= kk:
+                continue
+            with np.errstate(invalid="ignore", divide="ignore"):
+                term = ww[:, :-kk]*ww[:, kk:]*ss.covar[:, kk, :-kk]/(ss.norm[:, :-kk]*ss.norm[:, kk:])
+            use = select[:, :-kk] & select[:, kk:] & np.isfinite(term)
+            total[use] += term[use]
+        result[:, kk - 1, :-kk] = total*inverseSum[:, :-kk]*inverseSum[:, kk:]
+    return result
 
 
 def calculateCoaddWeights(

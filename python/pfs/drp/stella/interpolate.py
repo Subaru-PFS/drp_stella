@@ -12,6 +12,7 @@ from .spline import SplineD
 __all__ = [
     "calculateDispersion",
     "maskCovariance",
+    "numCovarForSampling",
     "Resampler",
     "resampleWindow",
     "interpolate",
@@ -69,6 +70,61 @@ def interpolateIndices(fromWavelength: np.ndarray, toWavelength: np.ndarray) -> 
     result = np.full_like(toWavelength, np.nan, dtype=np.float64)
     result[good] = spline(toWavelength[good].astype(np.float64))
     return result
+
+
+def numCovarForSampling(
+    fromWavelengths: list[np.ndarray],
+    toWavelength: np.ndarray,
+    order: int = 3,
+    numInputDiagonals: int = 1,
+) -> int:
+    """Number of covariance diagonals needed to hold all of the covariance of
+    a resampling, for several source samplings at once
+
+    This is a conservative (cheap) form of `Resampler.numCovarNeeded`, from
+    the largest source pixel and the smallest target pixel, for choosing one
+    number for several spectra (e.g., all the arms and spectrographs of an
+    exposure, whose combination needs a single shape).
+
+    Parameters
+    ----------
+    fromWavelengths : iterable of `np.ndarray` of `float`
+        Source wavelength arrays, each 1-D or 2-D (a row per fiber).
+    toWavelength : `np.ndarray` of `float`
+        Target wavelength array.
+    order : `int`, optional
+        Interpolation order (1 is linear; higher orders are Lanczos).
+    numInputDiagonals : `int`, optional
+        Number of non-zero diagonals of the source covariance (1 for
+        uncorrelated source pixels).
+
+    Returns
+    -------
+    numCovar : `int`
+        Number of diagonals.
+    """
+    toWavelength = np.asarray(toWavelength, dtype=np.float64)
+    if len(toWavelength) < 2:
+        return 1
+    halfSize = max(order, 1)
+    reach = 2*halfSize + max(numInputDiagonals, 1) - 1
+    toSpacing = np.diff(toWavelength)
+    numCovar = 1
+    for fromWavelength in fromWavelengths:
+        for row in np.atleast_2d(np.asarray(fromWavelength, dtype=np.float64)):
+            good = np.isfinite(row)
+            if good.sum() < 2:
+                continue
+            row = row[good]
+            lo, hi = min(row[0], row[-1]), max(row[0], row[-1])
+            overlap = (toWavelength[:-1] >= lo) & (toWavelength[1:] <= hi)
+            if not np.any(overlap):
+                continue
+            spacing = np.min(np.abs(toSpacing[overlap]))/np.max(np.abs(np.diff(row)))  # source pixels
+            if spacing <= 0:
+                continue
+            numCovar = max(numCovar, int(np.ceil(reach/spacing - 1.0e-9)))
+    return min(numCovar, len(toWavelength))
 
 
 def maskCovariance(covariance: np.ndarray, bad: np.ndarray) -> np.ndarray:

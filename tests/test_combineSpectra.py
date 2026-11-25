@@ -81,6 +81,42 @@ class CombineSpectraSetsTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(combination.flux[good], expectFlux[good], rtol=1.0e-6)
         self.assertFloatsAlmostEqual(combination.covar[:, 0][good], expectVariance[good], rtol=1.0e-6)
 
+    def testOffDiagonal(self):
+        """Claude: the off-diagonal covariance of the combination, against Monte Carlo
+
+        Each input's noise is correlated between neighbouring pixels (as after
+        resampling), with its own filter and norm; inputs are independent.
+        """
+        numSamples = 4000
+        filters = [np.array([0.6, 1.0, 0.4]), np.array([0.3, 1.0, 0.8]), np.array([0.5, 1.0, 0.5])]
+        shape = (self.numFibers, self.length)
+        for ss, filt, sigma in zip(self.spectra, filters, (1.0, 1.5, 0.8)):
+            for kk in range(3):
+                ss.covar[:, kk] = 0.0
+                ss.covar[:, kk, :self.length - kk] = sigma**2*np.sum(filt[:len(filt) - kk]*filt[kk:])
+        combination = self.combine()
+        self.assertTrue(np.any(combination.covar[:, 1] != 0))
+        good = np.all(
+            [(ss.mask & self.flags.get(*self.badMasks, *self.suspectMasks)) == 0 for ss in self.spectra],
+            axis=0,
+        )
+        samples = np.zeros((numSamples,) + shape)
+        for nn in range(numSamples):
+            for ss, filt, sigma in zip(self.spectra, filters, (1.0, 1.5, 0.8)):
+                white = self.rng.normal(0.0, sigma, (self.numFibers, self.length + 2))
+                ss.flux = (filt[0]*white[:, :-2] + filt[1]*white[:, 1:-1] + filt[2]*white[:, 2:])
+            samples[nn] = self.combine().flux
+        for kk in range(3):
+            measured = np.mean(samples[:, :, :self.length - kk]*samples[:, :, kk:], axis=0)
+            expected = combination.covar[:, kk, :self.length - kk]
+            use = good[:, :self.length - kk] & good[:, kk:]
+            scale = np.sqrt(combination.covar[:, 0, :self.length - kk]*combination.covar[:, 0, kk:])
+            # Sampling error of a covariance estimated from numSamples Gaussian samples
+            error = np.sqrt((scale**2 + expected**2)/numSamples)
+            self.assertLess(np.max(np.abs(measured - expected)[use]/error[use]), 5.0, msg=f"offset {kk}")
+            # and the error in the mean, which an off-diagonal error would bias
+            self.assertLess(abs(np.mean(measured[use] - expected[use])), 0.01*np.median(scale[use]))
+
     def testLengthMismatch(self):
         """Test that a mismatch between spectra and weights is caught"""
         with self.assertRaises(RuntimeError):

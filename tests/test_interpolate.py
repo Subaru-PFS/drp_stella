@@ -12,6 +12,7 @@ from pfs.drp.stella.interpolate import (
     interpolate,
     interpolateCovariance,
     interpolateMaskedVariance,
+    numCovarForSampling,
     Resampler,
 )
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
@@ -536,6 +537,26 @@ class ResamplerKernelTestCase(lsst.utils.tests.TestCase):
             self.assertGreater(neededCorrelated, needed)
             covar = resampler.propagateCovariance(correlated, numCovar=neededCorrelated + 3)
             np.testing.assert_allclose(covar[neededCorrelated:, :-neededCorrelated - 3], 0.0, atol=1.0e-15)
+
+
+class NumCovarForSamplingTestCase(lsst.utils.tests.TestCase):
+    """Claude: the number of covariance diagonals for several samplings at once"""
+
+    def testConservative(self):
+        """At least as many as each sampling needs, and no more than one extra"""
+        toWavelength = np.arange(600.0, 900.0, 0.08)
+        armWavelengths = [
+            600.0 + 0.0819*np.arange(3000),  # finer than the output (r-like)
+            605.0 + 0.0876*np.arange(3000),
+            610.0 + 0.067*np.arange(3000),  # coarser (b-like)
+        ]
+        for order in (1, 3):
+            exact = max(Resampler(wl, toWavelength, order=order).numCovarNeeded() for wl in armWavelengths)
+            result = numCovarForSampling(armWavelengths, toWavelength, order)
+            self.assertGreaterEqual(result, exact)
+            self.assertLessEqual(result, exact + 1)
+            # A 2-D array of fibers is the same as its rows
+            self.assertEqual(numCovarForSampling([np.array(armWavelengths)], toWavelength, order), result)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
