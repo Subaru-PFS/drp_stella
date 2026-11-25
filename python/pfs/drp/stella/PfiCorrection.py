@@ -362,3 +362,57 @@ class PfiCorrectionTask(Task):
         pfsArm.notes.pfiCorrection[:] = result.correction
 
         return result
+
+
+def removePfiCorrection(pfsArm: PfsArm) -> np.ndarray:
+    """Remove the PFI correction applied by `PfiCorrectionTask.run`
+
+    The correction (including any sky norms) that was applied is recorded in
+    ``pfsArm.notes.pfiCorrection``;  a NaN means that no correction was
+    applied to that fiber, and a correction of -1 (a factor of zero) can't
+    be undone so is left alone.  After removal, the note is set to NaN so
+    that calling this function again is harmless.
+
+    Parameters
+    ----------
+    pfsArm : `pfs.datamodel.drp.PfsArm`
+        Arm data to be uncorrected;  modified in place.
+
+    Returns
+    -------
+    removed : `numpy.ndarray` of `bool`, shape ``(numFibers,)``
+        Was a correction removed from each fiber?
+    """
+    correction = pfsArm.notes.pfiCorrection
+    removed = np.isfinite(correction) & (correction != -1.0)
+    pfsArm.norm[removed] /= (1.0 + correction[removed])[:, None]
+    correction[removed] = np.nan
+    return removed
+
+
+def removeBlackSpotCorrection(pfsArm: PfsArm) -> np.ndarray:
+    """Remove the black spot correction applied by `BlackSpotCorrectionTask`
+
+    The correction is recorded in ``pfsArm.notes.blackSpotCorrection`` (it
+    is applied as ``norm *= correction``, and is not included in
+    ``notes.pfiCorrection``);  a NaN means that no correction was applied
+    to that fiber, and a correction of zero can't be undone so is left
+    alone.  After removal, the note is set to NaN so that calling
+    this function again is harmless.
+
+    Parameters
+    ----------
+    pfsArm : `pfs.datamodel.drp.PfsArm`
+        Arm data to be uncorrected;  modified in place.
+
+    Returns
+    -------
+    removed : `numpy.ndarray` of `bool`, shape ``(numFibers,)``
+        Was a correction removed from each fiber?
+    """
+    correction = pfsArm.notes.blackSpotCorrection
+    with np.errstate(invalid="ignore"):
+        removed = np.isfinite(correction) & (correction != 0)
+    pfsArm.norm[removed] /= correction[removed][:, None]
+    correction[removed] = np.nan
+    return removed

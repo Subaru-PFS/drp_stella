@@ -24,7 +24,7 @@ from scipy.stats import binned_statistic
 from .math import NormalizedPolynomial1D, NormalizedPolynomial2D, NormalizedPolynomialND
 from .math import calculateMedian, solveLeastSquaresDesign
 from .struct import Struct
-from .utils.math import robustRms
+from .utils.math import robustRms, binnedRobustRms
 
 from typing import Callable
 
@@ -885,7 +885,10 @@ class OversampledSpline(FocalPlaneFunction):
 
         # Measure the noise in the fit
         residual = yy - spline(xx)
-        variance = binned_statistic(xx, residual, statistic=robustRms if robust else "std", bins=bins)[0] ** 2
+        if robust:
+            variance = binnedRobustRms(xx, residual, bins)**2
+        else:
+            variance = binned_statistic(xx, residual, statistic="std", bins=bins)[0]**2
         # Remove noise originating from the input data
         variance -= binned_statistic(xx, var, statistic="mean", bins=bins)[0]
         variance = np.clip(variance, 0.0, None)

@@ -6,7 +6,7 @@ from numpy.typing import ArrayLike
 from scipy.ndimage import convolve1d
 from scipy.signal import savgol_coeffs
 
-__all__ = ("robustRms", "fitStraightLine", "ChisqList", "savgol_filter")
+__all__ = ("robustRms", "binnedRobustRms", "fitStraightLine", "ChisqList", "savgol_filter")
 
 
 def robustRms(array: ArrayLike, nanSafe=False) -> float:
@@ -33,6 +33,70 @@ def robustRms(array: ArrayLike, nanSafe=False) -> float:
         return np.nan
     lq, uq = np.percentile(array, (25.0, 75.0))
     return 0.741 * (uq - lq)
+
+
+def binnedRobustRms(xx: ArrayLike, values: ArrayLike, bins: ArrayLike) -> np.ndarray:
+    """Calculate the robust RMS of the values in each bin of xx
+
+    Equivalent to ``scipy.stats.binned_statistic(xx, values, robustRms,
+    bins)[0]`` (including the treatment of the last bin edge, empty bins and
+    NaNs), but without calling a python function for each bin.  The one
+    difference:  a bin containing an infinite value gives NaN here, while
+    ``robustRms`` can give a finite value if the infinity doesn't reach the
+    quartiles.
+
+    Parameters
+    ----------
+    xx : `numpy.ndarray`
+        Positions of the values, used for binning.
+    values : `numpy.ndarray`
+        Values for which to calculate the robust RMS in each bin.
+    bins : `numpy.ndarray`
+        Monotonically increasing bin edges.
+
+    Returns
+    -------
+    rms : `numpy.ndarray`
+        Robust RMS of the values in each bin (``len(bins) - 1``);  NaN for
+        empty bins, and for bins containing non-finite values.
+    """
+    xx = np.asarray(xx)
+    values = np.asarray(values, dtype=float)
+    bins = np.asarray(bins)
+    numBins = len(bins) - 1
+
+    index = np.digitize(xx, bins) - 1
+    index[xx == bins[-1]] = numBins - 1  # as binned_statistic:  the last bin includes its right edge
+    inRange = (index >= 0) & (index < numBins)
+    index = index[inRange]
+    values = values[inRange]
+
+    order = np.lexsort((values, index))  # sort by bin, and by value within each bin
+    index = index[order]
+    values = values[order]
+
+    counts = np.bincount(index, minlength=numBins)
+    numBad = np.bincount(index, weights=~np.isfinite(values), minlength=numBins)
+    start = np.concatenate(([0], np.cumsum(counts)[:-1]))
+
+    rms = np.full(numBins, np.nan)
+    use = (counts > 0) & (numBad == 0)
+    nn = counts[use]
+    first = start[use]
+
+    def quantile(qq):
+        """The qq-quantile of each bin, interpolated exactly as np.percentile does"""
+        pos = (nn - 1)*qq
+        lo = np.floor(pos).astype(int)
+        hi = np.minimum(lo + 1, nn - 1)
+        frac = pos - lo
+        low = values[first + lo]
+        high = values[first + hi]
+        diff = high - low
+        return np.where(frac >= 0.5, high - diff*(1 - frac), low + diff*frac)   # as numpy's _lerp
+
+    rms[use] = 0.741*(quantile(0.75) - quantile(0.25))
+    return rms
 
 
 def fitStraightLine(xx: np.ndarray, yy: np.ndarray) -> SimpleNamespace:

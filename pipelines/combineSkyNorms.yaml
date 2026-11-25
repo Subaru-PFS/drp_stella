@@ -8,6 +8,11 @@ tasks:
     class: pfs.drp.stella.reduceExposure.ReduceExposureTask
     config:
       doApplySkyNorms: False
-      doApplyPfiCorrection: True  # PFI correction is applied in combineSkyNorms so skyNorms are uncorrected
+      doApplyPfiCorrection: True  # skyNorms_calib are measured relative to the PFI correction...
+  skyNorms:
+    class: pfs.drp.stella.skyNorms.MeasureSkyNormsTask
+    config:
+      doRemovePfiCorrection: False  # ... so don't remove it
+      doRemoveBlackSpotCorrection: False  # (nor the black spot correction, which was also applied)
   combineSkyNorms:
     class: pfs.drp.stella.skyNorms.CombineSkyNormsTask
