@@ -615,7 +615,9 @@ class FiberProfileSet:
         profiles = np.ma.masked_invalid([self[ff].profiles for ff in fiberId]).mean(axis=0)
         return FiberProfile(radius.pop(), oversample.pop(), self[fiberId[0]].rows, profiles)
 
-    def replaceFibers(self, replaceFibers: Iterable[int], nearest: int = 2):
+    def replaceFibers(
+        self, replaceFibers: Iterable[int], nearest: int = 2, excludeDonors: Iterable[int] = ()
+    ):
         """Replace profiles of certain fibers
 
         Some fibers have broken cobras which do not allow them to be moved
@@ -635,11 +637,18 @@ class FiberProfileSet:
             fibers not present in the set.
         nearest : `int`, optional
             Number of nearest neighbors to use when replacing the profiles.
+        excludeDonors : iterable of `int`, optional
+            Fiber identifiers whose profiles should not be used to replace
+            others (e.g., they may be contaminated), though they are not
+            themselves replaced. Ignored if excluding them would leave fewer
+            than ``nearest`` donors.
         """
         badFibers = set(replaceFibers) & set(self.fiberId)
         if not badFibers:
             return
-        goodFibers = np.array(list(set(self.fiberId) - set(replaceFibers)))
+        candidates = set(self.fiberId) - set(replaceFibers)
+        donors = candidates - set(excludeDonors)
+        goodFibers = np.array(sorted(donors if len(donors) >= nearest else candidates))
         for fiberId in badFibers:
             indices = np.argpartition(np.abs(goodFibers - fiberId), np.arange(nearest))[:nearest]
             neighbors = goodFibers[indices]
