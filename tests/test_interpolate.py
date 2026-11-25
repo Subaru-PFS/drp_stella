@@ -14,6 +14,7 @@ from pfs.drp.stella.interpolate import (
     interpolateMaskedVariance,
     numCovarForSampling,
     Resampler,
+    scaleCovariance,
 )
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
 
@@ -546,9 +547,9 @@ class NumCovarForSamplingTestCase(lsst.utils.tests.TestCase):
         """At least as many as each sampling needs, and no more than one extra"""
         toWavelength = np.arange(600.0, 900.0, 0.08)
         armWavelengths = [
-            600.0 + 0.0819*np.arange(3000),  # finer than the output (r-like)
+            600.0 + 0.0819*np.arange(3000),  # coarser than the output (r-like)
             605.0 + 0.0876*np.arange(3000),
-            610.0 + 0.067*np.arange(3000),  # coarser (b-like)
+            610.0 + 0.067*np.arange(3000),  # finer than the output (b-like)
         ]
         for order in (1, 3):
             exact = max(Resampler(wl, toWavelength, order=order).numCovarNeeded() for wl in armWavelengths)
@@ -557,6 +558,85 @@ class NumCovarForSamplingTestCase(lsst.utils.tests.TestCase):
             self.assertLessEqual(result, exact + 1)
             # A 2-D array of fibers is the same as its rows
             self.assertEqual(numCovarForSampling([np.array(armWavelengths)], toWavelength, order), result)
+
+
+class ScaleCovarianceTestCase(lsst.utils.tests.TestCase):
+    """Claude: scaling the covariance of spectra multiplied or divided by a vector"""
+
+    def setUp(self):
+        self.rng = np.random.RandomState(12345)
+        self.num = 50
+        self.numCovar = 3
+        # A positive-definite banded covariance
+        diagonals = [2.0 + self.rng.uniform(size=self.num), 0.5*self.rng.uniform(size=self.num),
+                     0.2*self.rng.uniform(size=self.num)]
+        self.covariance = np.array(diagonals)
+        self.factor = self.rng.uniform(0.5, 2.0, size=self.num)
+
+    def dense(self, covariance):
+        """The full symmetric matrix of a banded covariance"""
+        matrix = np.diag(covariance[0])
+        for kk in range(1, covariance.shape[0]):
+            band = covariance[kk, :self.num - kk]
+            matrix += np.diag(band, k=kk) + np.diag(band, k=-kk)
+        return matrix
+
+    def testMultiply(self):
+        """Multiplying by f gives the covariance diag(f) C diag(f)"""
+        result = self.covariance.copy()
+        scaleCovariance(result, self.factor)
+        expect = np.diag(self.factor) @ self.dense(self.covariance) @ np.diag(self.factor)
+        np.testing.assert_allclose(self.dense(result), expect, rtol=1.0e-14)
+
+    def testDivide(self):
+        """Dividing by f gives diag(1/f) C diag(1/f), with the variance bit for bit C/f**2"""
+        result = self.covariance.copy()
+        scaleCovariance(result, self.factor, divide=True)
+        expect = np.diag(1.0/self.factor) @ self.dense(self.covariance) @ np.diag(1.0/self.factor)
+        np.testing.assert_allclose(self.dense(result), expect, rtol=1.0e-14)
+        np.testing.assert_array_equal(result[0], self.covariance[0]/self.factor**2)
+
+    def testFiberArraySet(self):
+        """The spectra's arithmetic scales the off-diagonals by f(i) f(i + k)
+
+        Applying a flux calibration (``spectra /= calibration``) previously
+        scaled every diagonal by ``f(i)**2``.
+        """
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        covar = np.array([self.covariance, 2*self.covariance])
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1, 2]),
+            np.array([600.0 + 0.08*np.arange(self.num)]*2), np.ones((2, self.num)),
+            np.zeros((2, self.num), dtype=np.int32), np.zeros((2, self.num)),
+            np.ones((2, self.num)), covar.copy(), MaskHelper(NO_DATA=0), {},
+        )
+        factor = np.array([self.factor, self.factor[::-1]])
+        spectra /= factor
+        for ii in range(2):
+            expect = covar[ii].copy()
+            scaleCovariance(expect, factor[ii], divide=True)
+            np.testing.assert_array_equal(spectra.covar[ii], expect)
+            np.testing.assert_array_equal(spectra.variance[ii], covar[ii, 0]/factor[ii]**2)
+        spectra *= factor
+        np.testing.assert_allclose(spectra.covar, covar, rtol=1.0e-14)
+
+    def testNoDataIsNotCorrelation(self):
+        """Infinite covariances mark NO_DATA pixels; they don't make the pixels correlated"""
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        covar = np.zeros((1, 3, self.num))
+        covar[:, 0] = 1.0
+        covar[:, :, 10] = np.inf  # as written by the coadd
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1]),
+            np.array([600.0 + 0.08*np.arange(self.num)]), np.ones((1, self.num)),
+            np.zeros((1, self.num), dtype=np.int32), np.zeros((1, self.num)),
+            np.ones((1, self.num)), covar, MaskHelper(NO_DATA=0), {},
+        )
+        self.assertEqual(spectra._numCorrelatedDiagonals(), 1)
+        spectra.covar[:, 1, 20] = 0.1
+        self.assertEqual(spectra._numCorrelatedDiagonals(), 2)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

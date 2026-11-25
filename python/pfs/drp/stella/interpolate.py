@@ -13,6 +13,7 @@ __all__ = [
     "COVAR_DIAGONALS",
     "calculateDispersion",
     "maskCovariance",
+    "scaleCovariance",
     "numCovarForSampling",
     "Resampler",
     "resampleWindow",
@@ -161,6 +162,35 @@ def maskCovariance(covariance: np.ndarray, bad: np.ndarray) -> np.ndarray:
         either = bad[:num - kk] | bad[kk:]
         result[kk, :num - kk][either] = 0.0
     return result
+
+
+def scaleCovariance(covariance: np.ndarray, factor: np.ndarray, divide: bool = False) -> None:
+    """Scale a banded covariance, in place, for values multiplied by a factor
+
+    The covariance of pixels ``i`` and ``i + k`` scales as
+    ``factor[i]*factor[i + k]``, not ``factor[i]**2``.
+
+    Parameters
+    ----------
+    covariance : `np.ndarray` of `float`, shape ``(..., numDiagonals, num)``
+        Banded covariance: ``covariance[..., k, i]`` is the covariance of
+        pixels ``i`` and ``i + k``. Modified in place.
+    factor : array_like of `float`, broadcastable to ``(..., num)``
+        Factor by which the values are multiplied (or divided).
+    divide : `bool`
+        Divide the values by ``factor`` rather than multiply? Dividing by the
+        products keeps the variance bit for bit that of dividing by
+        ``factor**2``.
+    """
+    num = covariance.shape[-1]
+    factor = np.broadcast_to(factor, covariance.shape[:-2] + (num,))
+    operation = np.divide if divide else np.multiply
+    for kk in range(covariance.shape[-2]):
+        end = max(num - kk, 0)
+        row = covariance[..., kk, :]
+        operation(row[..., :end], factor[..., :end]*factor[..., kk:], out=row[..., :end])
+        # Elements beyond the end of the spectrum aren't covariances; scale them like the variance
+        operation(row[..., end:], factor[..., end:]**2, out=row[..., end:])
 
 
 class Resampler:

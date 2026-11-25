@@ -4,7 +4,7 @@ from lsst.pipe.base import Struct
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import Resampler, maskCovariance
+from ..interpolate import Resampler, maskCovariance, scaleCovariance
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -49,9 +49,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.flux *= rhs
             self.sky *= rhs
             self.norm *= rhs
-            rhsSquared = rhs**2
-            for ii in range(self.covar.shape[1]):
-                self.covar[:, ii, :] *= rhsSquared
+            scaleCovariance(self.covar, rhs)
         return self
 
     def __itruediv__(self, rhs):
@@ -63,9 +61,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.flux /= rhs
             self.sky /= rhs
             self.norm /= rhs
-            rhsSquared = rhs**2
-            for ii in range(self.covar.shape[1]):
-                self.covar[:, ii, :] /= rhsSquared
+            scaleCovariance(self.covar, rhs, divide=True)
         return self
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
@@ -144,7 +140,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         1 means that the pixels are uncorrelated.
         """
-        offDiagonal = np.nan_to_num(self.covar[:, 1:]) != 0
+        offDiagonal = np.isfinite(self.covar[:, 1:]) & (self.covar[:, 1:] != 0)  # inf marks NO_DATA
         nonZero = np.flatnonzero(np.any(offDiagonal, axis=(0, 2)))
         return 1 + (nonZero[-1] + 1 if len(nonZero) > 0 else 0)
 

@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pfs.datamodel
 from lsst.pipe.base import Struct
 
-from ..interpolate import Resampler, interpolateFlux, interpolateMask, maskCovariance
+from ..interpolate import Resampler, interpolateFlux, interpolateMask, maskCovariance, scaleCovariance
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -113,7 +113,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         with np.errstate(invalid="ignore"):
             self.flux *= rhs
             self.sky *= rhs
-            self.covar *= (rhs**2).reshape(1, -1)
+            scaleCovariance(self.covar, rhs)
         return self
 
     def __itruediv__(self, rhs: Union[float, np.ndarray]) -> "PfsFiberArray":
@@ -181,7 +181,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
 
         1 means that the pixels are uncorrelated.
         """
-        offDiagonal = np.nan_to_num(self.covar[1:]) != 0
+        offDiagonal = np.isfinite(self.covar[1:]) & (self.covar[1:] != 0)  # inf marks NO_DATA
         nonZero = np.flatnonzero(np.any(offDiagonal, axis=1))
         return 1 + (nonZero[-1] + 1 if len(nonZero) > 0 else 0)
 
