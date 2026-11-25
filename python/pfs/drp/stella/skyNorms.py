@@ -31,6 +31,11 @@ if TYPE_CHECKING:
     from lsst.pipe.base.connections import InputQuantizedConnection, OutputQuantizedConnection
 
 
+class NoSkyDataError(RuntimeError):
+    """There are no usable sky data from which to measure the sky"""
+    pass
+
+
 def fitScales(data: list[np.ndarray], model: list[np.ndarray], variance: list[np.ndarray]) -> np.ndarray:
     """Fit model scale factors to spectra
 
@@ -108,7 +113,8 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     requireSky = Field(
         dtype=bool,
         default=True,
-        doc="Require an exposure of the sky (science, no lamps, W_LGTSRC = pfi) to measure skyNorms?",
+        doc="Require an exposure of the sky (science, no lamps, W_LGTSRC = pfi) to measure skyNorms? "
+        "(Science exposures never have lamps in the visit record, so W_LGTSRC does the work)",
     )
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     selectSky = ConfigurableField(target=SelectFibersTask, doc="Select fibers for 1d sky subtraction")
@@ -133,7 +139,6 @@ class MeasureSkyNormsConfig(PipelineTaskConfig, pipelineConnections=MeasureSkyNo
     def setDefaults(self):
         super().setDefaults()
         self.readLineList.minIntensity = 100  # Don't worry about faint lines for continuum fitting
-        self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE", "HOME")
         self.selectSky.targetType = ("SKY", "SUNSS_DIFFUSE", "HOME")
         # Scale back rejection because otherwise everything gets rejected
         self.fitSkyModel.rejIterations = 1
@@ -165,7 +170,10 @@ class MeasureSkyNormsTask(PipelineTask):
     ``notes.blackSpotCorrection``, see `removeBlackSpotCorrection`).
     With ``requireSky``, exposures that aren't of the sky (not ``science``,
     lamps on, or a light source other than the PFI) are ignored, so the
-    task can be run as part of ``reduceExposure.yaml``.
+    task can be run as part of ``reduceExposure.yaml``.  N.b. obs_pfs
+    records no lamps for science (OBJECT) exposures, so it's the light source
+    (``W_LGTSRC``) that catches e.g. IIS arcs and SuNSS exposures.  A
+    spectrograph without usable sky data is skipped.
     """
     _DefaultName = "measureSkyNorms"
     ConfigClass = MeasureSkyNormsConfig
@@ -207,7 +215,7 @@ class MeasureSkyNormsTask(PipelineTask):
         if self.config.requireSky:
             # The light source isn't in the visit record.  N.b. the IIS lamp keywords (W_IIS*) aren't reliable
             lightSource = next(iter(pfsArmList.values()))[0].metadata.get("W_LGTSRC")
-            if lightSource is not None and lightSource.strip().lower() != "pfi":
+            if lightSource is not None and str(lightSource).strip().lower() != "pfi":
                 raise NoWorkFound(f"Not an exposure of the sky: {inputRefs.pfsArm[0].dataId} "
                                   f"(the light source is {lightSource}, not the PFI)")
 
@@ -218,11 +226,16 @@ class MeasureSkyNormsTask(PipelineTask):
     def run(self, pfsArmList: dict[int, list[PfsFiberArraySet]], pfsConfig: PfsConfig) -> Struct:
         """Measure sky normalizations for the exposure
 
+        A spectrograph without usable sky data (no sky fibers, or every sky
+        pixel masked) is skipped, with a warning.
+
         Parameters
         ----------
         pfsArmList : `dict` mapping `int` to `list` of `PfsFiberArraySet`
             Extracted spectra from each arm within a spectrograph module,
-            indexed by spectrograph number.
+            indexed by spectrograph number.  The corrections that are removed
+            (``doRemovePfiCorrection``, ``doRemoveBlackSpotCorrection``) are
+            removed from these in place.
         pfsConfig : `PfsConfig`
             PFS fiber configuration.
 
@@ -236,6 +249,11 @@ class MeasureSkyNormsTask(PipelineTask):
             Results for each spectrograph, indexed by spectrograph number.
         focalPlane : `FocalPlanePolynomial` or `None`
             Focal plane fit to sky normalizations (`None` unless ``doFitFocalPlane``).
+
+        Raises
+        ------
+        lsst.pipe.base.NoWorkFound
+            If no spectrograph has usable sky data.
         """
         if self.config.doRemovePfiCorrection:
             for pfsArms in pfsArmList.values():
@@ -252,7 +270,16 @@ class MeasureSkyNormsTask(PipelineTask):
                         self.log.debug("Removed black spot correction from %d fibers in %s", removed.sum(),
                                        pfsArm.identity)
 
-        results = {ss: self.runSpectrograph(pfsArmList[ss], pfsConfig) for ss in pfsArmList}
+        results = {}
+        for ss in sorted(pfsArmList):
+            try:
+                results[ss] = self.runSpectrograph(pfsArmList[ss], pfsConfig)
+            except NoSkyDataError as exc:
+                self.log.warning("Unable to measure skyNorms for spectrograph %d: %s", ss, exc)
+        if not results:
+            # e.g., an engineering design without SKY fibers, or every sky fiber masked;  this mustn't fail
+            # reduceExposure.yaml, of which this task is part
+            raise NoWorkFound("No spectrograph has usable sky data")
         allSkyNorms = ConstantPerFiber.concatenate(*(results[ss].skyNorms for ss in results))
 
         focalPlane = None
@@ -322,11 +349,21 @@ class MeasureSkyNormsTask(PipelineTask):
         -------
         sky1d : `FocalPlaneFunction`
             Sky model.
+
+        Raises
+        ------
+        NoSkyDataError
+            If there are no sky fibers, or no unmasked data in them.
         """
         skyConfig = self.selectSky.run(pfsConfig.select(fiberId=pfsArm.fiberId))
         skySpectra = pfsArm.select(pfsConfig, fiberId=skyConfig.fiberId)
         if len(skySpectra) == 0:
-            raise RuntimeError("No sky spectra to use for sky subtraction")
+            raise NoSkyDataError(f"No sky fibers in {pfsArm.identity}")
+        maskNames = [name for name in self.fitSkyModel.config.mask if name in skySpectra.flags]
+        bad = (skySpectra.mask & skySpectra.flags.get(*maskNames)) != 0 if maskNames else False
+        bad |= ~np.isfinite(skySpectra.flux) | ~np.isfinite(skySpectra.variance)
+        if np.all(bad):
+            raise NoSkyDataError(f"No unmasked sky data in {pfsArm.identity}")
         return self.fitSkyModel.run(skySpectra, skyConfig)
 
     def measureNormalizations(

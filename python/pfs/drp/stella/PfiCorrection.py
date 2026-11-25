@@ -369,8 +369,9 @@ def removePfiCorrection(pfsArm: PfsArm) -> np.ndarray:
 
     The correction (including any sky norms) that was applied is recorded in
     ``pfsArm.notes.pfiCorrection``;  a NaN means that no correction was
-    applied to that fiber.  After removal, the note is set to NaN so that
-    calling this function again is harmless.
+    applied to that fiber, and a correction of -1 (a factor of zero) can't
+    be undone so is left alone.  After removal, the note is set to NaN so
+    that calling this function again is harmless.
 
     Parameters
     ----------
@@ -383,7 +384,7 @@ def removePfiCorrection(pfsArm: PfsArm) -> np.ndarray:
         Was a correction removed from each fiber?
     """
     correction = pfsArm.notes.pfiCorrection
-    removed = np.isfinite(correction)
+    removed = np.isfinite(correction) & (correction != -1.0)
     pfsArm.norm[removed] /= (1.0 + correction[removed])[:, None]
     correction[removed] = np.nan
     return removed
@@ -395,8 +396,8 @@ def removeBlackSpotCorrection(pfsArm: PfsArm) -> np.ndarray:
     The correction is recorded in ``pfsArm.notes.blackSpotCorrection`` (it
     is applied as ``norm *= correction``, and is not included in
     ``notes.pfiCorrection``);  a NaN means that no correction was applied
-    to that fiber, and a correction that isn't positive can't be undone so
-    is left alone.  After removal, the note is set to NaN so that calling
+    to that fiber, and a correction of zero can't be undone so is left
+    alone.  After removal, the note is set to NaN so that calling
     this function again is harmless.
 
     Parameters
@@ -411,7 +412,7 @@ def removeBlackSpotCorrection(pfsArm: PfsArm) -> np.ndarray:
     """
     correction = pfsArm.notes.blackSpotCorrection
     with np.errstate(invalid="ignore"):
-        removed = np.isfinite(correction) & (correction > 0)
+        removed = np.isfinite(correction) & (correction != 0)
     pfsArm.norm[removed] /= correction[removed][:, None]
     correction[removed] = np.nan
     return removed

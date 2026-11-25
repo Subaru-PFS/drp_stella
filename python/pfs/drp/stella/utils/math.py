@@ -40,7 +40,10 @@ def binnedRobustRms(xx: ArrayLike, values: ArrayLike, bins: ArrayLike) -> np.nda
 
     Equivalent to ``scipy.stats.binned_statistic(xx, values, robustRms,
     bins)[0]`` (including the treatment of the last bin edge, empty bins and
-    non-finite values), but without calling a python function for each bin.
+    NaNs), but without calling a python function for each bin.  The one
+    difference:  a bin containing an infinite value gives NaN here, while
+    ``robustRms`` can give a finite value if the infinity doesn't reach the
+    quartiles.
 
     Parameters
     ----------

@@ -12,7 +12,7 @@ from pfs.datamodel.pfsConfig import PfsConfig, FiberStatus, TargetType
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.drp.stella.focalPlaneFunction import ConstantPerFiber
 from pfs.drp.stella.PfiCorrection import PfiCorrectionTask, removeBlackSpotCorrection, removePfiCorrection
-from pfs.drp.stella.skyNorms import MeasureSkyNormsTask
+from pfs.drp.stella.skyNorms import MeasureSkyNormsTask, NoSkyDataError
 
 
 class RemovePfiCorrectionTestCase(lsst.utils.tests.TestCase):
@@ -151,6 +151,73 @@ class RemovePfiCorrectionTestCase(lsst.utils.tests.TestCase):
             else:
                 self.assertFloatsAlmostEqual(values, ratio - 1, rtol=0, atol=1e-12)
                 self.assertIsNone(result.focalPlane)
+
+    def testNoSkyData(self):
+        """No usable sky data is NoWorkFound, not an error (the task is run in reduceExposure.yaml)"""
+        task = MeasureSkyNormsTask()
+        noSky = self.pfsConfig.copy()
+        noSky.targetType[:] = TargetType.SCIENCE
+        with self.assertRaises(NoSkyDataError):
+            task.measureSky(self.pfsArm, noSky)
+        with self.assertRaises(lsst.pipe.base.NoWorkFound):
+            task.run({1: [self.pfsArm]}, noSky)
+
+        self.pfsArm.mask[:] = self.pfsArm.flags["NO_DATA"]
+        with self.assertRaises(NoSkyDataError):
+            task.measureSky(self.pfsArm, self.pfsConfig)
+
+    def testSkipSpectrograph(self):
+        """A spectrograph without usable sky data is skipped;  the others are measured"""
+        fiberId = self.fiberId
+        ratio = 1.0 + self.rng.normal(0, 0.01, size=self.numFibers)
+
+        class Task(MeasureSkyNormsTask):
+            def runSpectrograph(self, pfsArmList, pfsConfig):
+                if pfsArmList[0].identity.spectrograph == 1:
+                    raise NoSkyDataError("no sky")
+                return lsst.pipe.base.Struct(skyNorms=ConstantPerFiber(fiberId, ratio.copy(),
+                                                                       np.full(len(fiberId), 0.01)))
+
+        other = self.pfsArm.select(self.pfsConfig, fiberId=self.fiberId)
+        other.identity = Identity(visit=12345, arm="r", spectrograph=2)
+        config = Task.ConfigClass()
+        config.doFitFocalPlane = False
+        result = Task(config=config).run({1: [self.pfsArm], 2: [other]}, self.pfsConfig)
+        self.assertEqual(list(result.perSpectrograph), [2])
+        self.assertFloatsAlmostEqual(result.skyNorms.value, ratio - 1, rtol=0, atol=1e-12)
+
+    def testRunRemovesCorrections(self):
+        """run() removes the PFI and black spot corrections before measuring (unless configured not to)"""
+        norm = self.pfsArm.norm.copy()
+        corr = np.ones(self.numFibers, dtype=np.float32)
+        corr[::3] = 0.5
+        skyNorms = ConstantPerFiber(
+            self.fiberId, self.rng.normal(0, 0.02, size=self.numFibers), np.zeros(self.numFibers)
+        )
+        seen = {}
+        fiberId = self.fiberId
+
+        class Task(MeasureSkyNormsTask):
+            def runSpectrograph(self, pfsArmList, pfsConfig):
+                seen["norm"] = pfsArmList[0].norm.copy()
+                return lsst.pipe.base.Struct(skyNorms=ConstantPerFiber(fiberId, np.ones(len(fiberId)),
+                                                                       np.full(len(fiberId), 0.01)))
+
+        for doRemove in (True, False):
+            pfsArm = self.pfsArm.select(self.pfsConfig, fiberId=self.fiberId)
+            pfsArm.norm *= corr[:, None]
+            pfsArm.notes.blackSpotCorrection[:] = corr
+            PfiCorrectionTask().run(pfsArm, self.pfsConfig, skyNorms)
+            applied = pfsArm.norm.copy()
+            config = Task.ConfigClass()
+            config.doFitFocalPlane = False
+            config.doRemovePfiCorrection = doRemove
+            config.doRemoveBlackSpotCorrection = doRemove
+            Task(config=config).run({1: [pfsArm]}, self.pfsConfig)
+            if doRemove:
+                self.assertFloatsAlmostEqual(seen["norm"], norm, rtol=1.0e-6)
+            else:
+                self.assertFloatsEqual(seen["norm"], applied)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
