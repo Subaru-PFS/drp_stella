@@ -80,7 +80,8 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& image,
     MaskT badBitMask,
     float minFracMask,
-    float minFracImage
+    float minFracImage,
+    float maxErrorFactor
 ) const {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
@@ -98,6 +99,10 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     // Variance of the flux for each trace. We use only the diagonal of the
     // least-squares problem, neglecting covariances between traces.
     ndarray::Array<double, 1, 1> variances = ndarray::allocate(num);
+
+    // Too little of the profile unmasked for a measurement? The trace stays in the least-squares fit (so its
+    // flux isn't attributed to its neighbours), but its row is reported as having no data.
+    ndarray::Array<bool, 1, 1> noInformation = ndarray::allocate(num);
 
     auto const& dataImage = *image.getImage();
     auto const& dataMask = *image.getMask();
@@ -147,6 +152,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         math::SymmetricSparseSquareMatrix matrix{num};  // least-squares matrix: model dot model
         vector.deep() = 0.0;
         variances.deep() = 0.0;
+        noInformation.deep() = false;
 
         for (std::size_t ii = 0; ii < num; ++ii) {
             if (!useTrace[ii]) {
@@ -168,6 +174,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             // variance of the un-weighted estimator when sigma varies over
             // the trace.
             double model2 = 0.0;  // model^2
+            double model2All = 0.0;  // model^2, including masked pixels: the information in the whole profile
             double model2Variance = 0.0;  // model^2*sigma^2
             double modelData = 0.0;  // model dot data
             double sumModel = 0.0;  // sum of model values
@@ -195,6 +202,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 if (isCore) {
                     maskCore |= maskValue;
                 }
+                model2All += std::pow(modelValue, 2);
                 if ((maskValue & badBitMask) || !std::isfinite(imageValue) || !std::isfinite(varianceValue) ||
                     varianceValue <= 0) {
                     maskBadResult[ii] |= maskValue;
@@ -223,6 +231,15 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 }
                 maskResult[ii] |= suspect | maskCore;
                 maskBadResult[ii] |= suspect | maskCore;
+            }
+            if (model2*std::pow(maxErrorFactor, 2) < model2All) {
+                // The unmasked pixels are in the far wings of the profile: the estimate has an error more
+                // than maxErrorFactor times that of an unmasked extraction, and means nothing
+                noInformation[ii] = true;
+                if (maskCore == 0) {
+                    maskCore = maskBadResult[ii];
+                }
+                maskBadResult[ii] |= maskCore;
             }
 
             matrix.add(ii, ii, model2);
@@ -296,9 +313,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             auto value = solution[ii];
             auto variance = variances[ii];
             MaskT maskValue = maskResult[ii];
-            if (!useTrace[ii]) {
+            if (!useTrace[ii] || noInformation[ii]) {
                 maskValue = maskBadResult[ii];
                 variance = 0.0;
+            }
+            if (noInformation[ii]) {
+                value = 0.0;
             }
             if (!std::isfinite(value)) {
                 value = 0.0;

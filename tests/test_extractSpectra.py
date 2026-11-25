@@ -229,6 +229,90 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectra[index].mask.array[0], 0)
         self.assertFloatsAlmostEqual(spectra[index].normFlux, 1.0, rtol=1.0e-3)
 
+    def maskCore(self, index, row, maxFracInformation):
+        """Mask the core of a fiber's profile on a row as CR, until less than
+        maxFracInformation of its information (sum of the squared profile)
+        is unmasked
+
+        Returns
+        -------
+        fracInformation : `float`
+            Fraction of the information left unmasked.
+        fracImage : `float`
+            Fraction of the profile left unmasked.
+        """
+        trace = self.fiberTraces[index].trace
+        x0 = trace.getX0()
+        yy = row - trace.getY0()
+        select = (trace.mask.array[yy] & trace.mask.getPlaneBitMask("FIBERTRACE")) != 0
+        profile = np.where(select, trace.image.array[yy], 0.0)
+        profile /= profile.sum()
+        cr = self.image.mask.getPlaneBitMask("CR")
+        unmasked = select.copy()
+        for jj in np.argsort(profile)[::-1]:
+            if np.sum(profile[unmasked]**2) < maxFracInformation*np.sum(profile**2):
+                break
+            unmasked[jj] = False
+            self.image.mask.array[row, x0 + jj] |= cr
+        return np.sum(profile[unmasked]**2)/np.sum(profile**2), profile[unmasked].sum()
+
+    def testMaxErrorFactor(self):
+        """Claude: a row whose unmasked pixels hold too little of the profile is NO_DATA
+
+        A cosmic ray masking the core of a fiber's profile leaves only its far
+        wings, whose estimate of the flux has a meaningless variance. If the
+        error of the estimate would be more than maxErrorFactor times that of
+        an unmasked extraction, the row has no data; otherwise (but with less
+        than minFracImage of the profile) it is SUSPECT, with a finite
+        variance. The other fibers are unaffected.
+        """
+        index = self.synthConfig.numFibers//2
+        row = self.synthConfig.height//2
+        fiberId = self.synthConfig.fiberId[index]
+        badBitMask = self.image.mask.getPlaneBitMask(["CR"])
+        noData = self.image.mask.getPlaneBitMask("NO_DATA")
+        suspect = self.image.mask.getPlaneBitMask("SUSPECT")
+        maxErrorFactor = 20.0
+        minFracInformation = 1.0/maxErrorFactor**2
+
+        fracInformation, fracImage = self.maskCore(index, row, minFracInformation)
+        self.assertLess(fracInformation, minFracInformation)
+        spectra = self.fiberTraces.extractSpectra(self.image, badBitMask, 0.2, 0.4, maxErrorFactor)
+        spectrum = spectra[index]
+        self.assertTrue(spectrum.mask.array[0, row] & noData)
+        self.assertEqual(spectrum.flux[row], 0.0)
+        self.assertEqual(spectrum.variance[row], 0.0)
+        others = np.ones(self.synthConfig.height, dtype=bool)
+        others[row] = False
+        self.assertFloatsAlmostEqual(spectrum.flux[others], self.flux, rtol=2.0e-3)
+        for ii, ss in enumerate(spectra):
+            if ii != index:
+                self.assertFloatsAlmostEqual(ss.flux, self.flux, rtol=2.0e-3, msg=f"fiber {ss.fiberId}")
+                self.assertFalse(np.any(ss.mask.array[0] & noData))
+
+        # Without the threshold, the old behaviour: a finite (but huge) variance, flagged SUSPECT
+        spectra = self.fiberTraces.extractSpectra(self.image, badBitMask, 0.2, 0.4, np.inf)
+        spectrum = spectra[index]
+        self.assertFalse(spectrum.mask.array[0, row] & noData)
+        self.assertTrue(spectrum.mask.array[0, row] & suspect)
+        self.assertGreater(spectrum.variance[row], maxErrorFactor**2*np.median(spectrum.variance))
+
+        # Within the threshold, even with only the wings left (an error of ~10x): SUSPECT, with the right flux
+        # (to within the profile's accuracy in its wings)
+        for keep, rtol in ((0.01, 1.0e-2), (0.2, 2.0e-3)):
+            self.image.mask.array[:] = 0
+            fracInformation, fracImage = self.maskCore(index, row, keep)
+            self.assertGreater(fracInformation, minFracInformation)
+            self.assertLess(fracImage, 0.4)
+            spectra = self.fiberTraces.extractSpectra(self.image, badBitMask, 0.2, 0.4, maxErrorFactor)
+            spectrum = spectra[index]
+            self.assertFalse(spectrum.mask.array[0, row] & noData, msg=f"keep={keep}")
+            self.assertTrue(spectrum.mask.array[0, row] & suspect, msg=f"keep={keep}")
+            self.assertGreater(spectrum.variance[row], 0.0)
+            self.assertLess(spectrum.variance[row], maxErrorFactor**2*np.median(spectrum.variance))
+            self.assertFloatsAlmostEqual(spectrum.flux[row], self.flux, rtol=rtol)
+            self.assertEqual(spectrum.fiberId, fiberId)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

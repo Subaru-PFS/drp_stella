@@ -27,6 +27,16 @@ class ExtractSpectraConfig(pexConfig.Config):
         default=0.4,
         doc="Minimum total fractional contribution for measurement to be considered reliable",
     )
+    maxErrorFactor = pexConfig.Field(
+        dtype=float,
+        default=20.0,
+        doc=(
+            "Largest ratio of the error (standard deviation) of the estimate from the unmasked pixels to "
+            "that of an unmasked extraction for a measurement at all; beyond this (e.g., a cosmic ray "
+            "masking the core of the profile) the row is NO_DATA, as we have no useful estimate. Below "
+            "it, a measurement from too little of the profile (minFracImage) is SUSPECT"
+        ),
+    )
     doCrosstalk = pexConfig.Field(dtype=bool, default=False, doc="Correct for optical crosstalk?")
     crosstalk = pexConfig.ListField(
         dtype=float,
@@ -151,7 +161,11 @@ class ExtractSpectraTask(pipeBase.Task):
                 spectra.add(spectrum)
         else:
             spectra = fiberTraceSet.extractSpectra(
-                maskedImage, badBitMask, self.config.minFracMask, self.config.minFracImage
+                maskedImage,
+                badBitMask,
+                self.config.minFracMask,
+                self.config.minFracImage,
+                self.config.maxErrorFactor,
             )
 
         if detectorMap is not None:

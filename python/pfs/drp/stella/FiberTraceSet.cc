@@ -39,7 +39,8 @@ void declareFiberTraceSet(py::module &mod)
         "image"_a,
         "badBitMask"_a=0,
         "minFracMask"_a=0.3,
-        "minFracImage"_a=0.4
+        "minFracImage"_a=0.4,
+        "maxErrorFactor"_a=20.0
     );
     // Pythonic APIs
     cls.def("__len__", &Class::size);

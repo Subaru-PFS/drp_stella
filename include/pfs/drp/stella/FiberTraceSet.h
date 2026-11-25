@@ -128,10 +128,22 @@ class FiberTraceSet {
      * @param image : Image containing the spectra
      * @param badBitMask : ignore pixels where (value & badBitMask) != 0
      * @param minFracMask : minimum fractional contribution of pixel for mask to be accumulated
+     * @param minFracImage : minimum fraction of the profile in unmasked pixels for the measurement to be
+     *                       considered reliable (otherwise it is flagged SUSPECT)
+     * @param maxErrorFactor : largest ratio of the error (standard deviation) of the estimate from the
+     *                         unmasked pixels to that of an unmasked extraction for there to be a
+     *                         measurement at all; otherwise (e.g., a cosmic ray masking the core of the
+     *                         profile) the row is treated as having no data (NO_DATA, with zero flux and
+     *                         variance). The ratio is sqrt(sum(m^2)/sum(m^2 unmasked)), for the profile
+     *                         m (exactly so for uniform pixel variances).
      * @return extracted spectra.
      */
     SpectrumSet extractSpectra(
-        MaskedImageT const& image, MaskT badBitMask=0, float minFracMask=0.3, float minFracImage=0.4
+        MaskedImageT const& image,
+        MaskT badBitMask=0,
+        float minFracMask=0.3,
+        float minFracImage=0.4,
+        float maxErrorFactor=20.0
     ) const;
 
   private:
