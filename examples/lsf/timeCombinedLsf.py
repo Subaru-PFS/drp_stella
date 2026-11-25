@@ -20,7 +20,7 @@ dataId = dict(visit=visit, spectrograph=spectrograph, instrument="PFS")
 arms = [aa for aa in "brmn"
         if butler.registry.queryDatasets("pfsArm", arm=aa, **dataId).any(execute=True, exact=False)]
 spectra = [butler.get("pfsArm", arm=aa, **dataId) for aa in arms]
-lsfs = [butler.get("pfsArmLsf", arm=aa, **dataId) for aa in arms]
+lsfs = [butler.get("pfsArm.lsf", arm=aa, **dataId).toLegacy() for aa in arms]
 lsfTypes = set(type(ll).__name__ for lsf in lsfs for ll in lsf.values())
 print(f"visit {visit} SM{spectrograph} arms {arms}; LSF types {lsfTypes}")
 task = MergeArmsTask(config=MergeArmsConfig())

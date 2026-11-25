@@ -1,7 +1,7 @@
 """Measure arc-line intensities from PFS arc spectra, and write them into line lists
 
 The line wavelengths are taken as known (from a `ReferenceLineSet`) and the line profiles from the LSF
-(the butler's ``pfsMergedLsf``); a single linear least-squares problem gives all the line fluxes plus a
+(the pfsMerged's ``lsf``); a single linear least-squares problem gives all the line fluxes plus a
 smooth continuum (`fitLineIntensities`).  `measureLampIntensities` does this for one lamp in one visit:
 it combines the fibres (all of them, or only the engineering fibres for IIS lamps) of the quartz-normalised
 pfsMerged spectrum, fits, optionally replaces bright lines by integrated fluxes, divides by the exposure
@@ -800,7 +800,8 @@ def measureLampIntensities(butler, visit, lines, *, engineering=False, integrate
         ``result``: divide by ``expTime`` to compare.
     """
     spec = butler.get("pfsMerged", visit=visit)
-    lsfDict = butler.get("pfsMergedLsf", visit=visit)
+    # The LSF stored in the pfsMerged, or the deprecated pickle for one written before it was
+    lsfDict = spec.lsf.toLegacy() if spec.lsf is not None else butler.get("pfsMergedLsf", visit=visit)
     defaultFid = 1000
     if engineering:
         from pfs.datamodel import TargetType

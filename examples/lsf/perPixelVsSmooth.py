@@ -23,7 +23,7 @@ dataId = dict(visit=visit, spectrograph=spectrograph, instrument="PFS")
 arms = [aa for aa in "brmn"
         if butler.registry.queryDatasets("pfsArm", arm=aa, **dataId).any(execute=True, exact=False)]
 spectra = [butler.get("pfsArm", arm=aa, **dataId) for aa in arms]
-lsfs = [butler.get("pfsArmLsf", arm=aa, **dataId) for aa in arms]
+lsfs = [butler.get("pfsArm.lsf", arm=aa, **dataId).toLegacy() for aa in arms]
 task = MergeArmsTask(config=MergeArmsConfig())
 wavelength = task.wavelength.run("m" in arms)
 task.normalizeSpectra(spectra, wavelength)

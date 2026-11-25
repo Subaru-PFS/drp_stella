@@ -25,7 +25,8 @@ from .datamodel import PfsArm, PfsFiberArray, PfsFiberArraySet, PfsMerged, PfsSi
 from .focalPlaneFunction import FluxCalib, FocalPlaneFunction
 from .gen3 import readDatasetRefs
 from .interpolate import calculateDispersion
-from .lsf import Lsf, LsfDict
+from .lsf import LsfDict
+from .spectraLsf import combinedSpectraLsf, selectSpectraLsf
 from .subtractSky1d import subtractSky1d
 from .utils.sysUtils import getPfsVersions
 from .FluxTableTask import FluxTableTask
@@ -176,11 +177,12 @@ class ApplyFluxCalConnections(PipelineTaskConnections, dimensions=("instrument",
         storageClass="PfsMerged",
         dimensions=("instrument", "visit"),
     )
-    pfsMergedLsf = InputConnection(
+    pfsMergedLsf = PrerequisiteConnection(
         name="pfsMergedLsf",
-        doc="Line-spread function of merged spectra",
+        doc="Deprecated pickled line-spread function of merged spectra, used only if the pfsMerged has none",
         storageClass="LsfDict",
         dimensions=("instrument", "visit"),
+        minimum=0,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -208,12 +210,6 @@ class ApplyFluxCalConnections(PipelineTaskConnections, dimensions=("instrument",
         storageClass="PfsCalibrated",
         dimensions=("instrument", "visit"),
     )
-    pfsCalibratedLsf = OutputConnection(
-        name="pfsCalibratedLsf",
-        doc="Line-spread function for pfsCalibrated",
-        storageClass="LsfDict",
-        dimensions=("instrument", "visit"),
-    )
 
 
 class ApplyFluxCalConfig(PipelineTaskConfig, pipelineConnections=ApplyFluxCalConnections):
@@ -238,10 +234,10 @@ class ApplyFluxCalTask(PipelineTask):
         self,
         fluxCal: FluxCalib,
         pfsMerged: PfsMerged,
-        pfsMergedLsf: LsfDict,
         pfsConfig: PfsConfig,
         pfsArmList: list[PfsArm],
         sky1dList: Iterable[FluxCalib],
+        pfsMergedLsf: LsfDict | None = None,
     ) -> Struct:
         """Measure and apply the flux calibration
 
@@ -251,23 +247,21 @@ class ApplyFluxCalTask(PipelineTask):
             Flux calibration solution.
         pfsMerged : `PfsMerged`
             Merged spectra, containing observations of ``FLUXSTD`` sources.
-        pfsMergedLsf : `LsfDict`
-            Line-spread functions for merged spectra.
-        references : `PfsFluxReference`
-            Reference spectra.
         pfsConfig : `PfsConfig`
             PFS fiber configuration.
         pfsArmList : iterable of `PfsArm`
             List of extracted spectra, for constructing the flux table.
         sky1dList : iterable of `FluxCalib`
             Corresponding list of 1d sky subtraction models.
+        pfsMergedLsf : `LsfDict`, optional
+            The deprecated pickled LSF of the merged spectra, used only if
+            ``pfsMerged`` has no ``lsf`` (it was written before it existed).
 
         Returns
         -------
         pfsCalibrated : `PfsCalibrated`
-            Calibrated spectra.
-        pfsCalibratedLsf : `LsfDict`
-            Line-spread functions for calibrated spectra.
+            Calibrated spectra, with their ``lsf``: that of the merged spectra,
+            by target (the flux calibration is smooth, so doesn't change it).
         """
         fluxCalibrate(pfsMerged, pfsConfig, fluxCal)
 
@@ -284,7 +278,7 @@ class ApplyFluxCalTask(PipelineTask):
         fiberId = pfsMerged.fiberId[np.isin(pfsMerged.fiberId, pfsConfig.fiberId[selection])]
 
         pfsCalibrated: dict[Target, PfsSingle] = {}
-        pfsCalibratedLsf: dict[Target, Lsf] = {}
+        fiberIdByTarget: dict[Target, int] = {}
         for ff in fiberId:
             extracted = pfsMerged.extractFiber(PfsSingle, pfsConfig, ff)
             extracted.fluxTable = self.fluxTable.run(
@@ -295,12 +289,16 @@ class ApplyFluxCalTask(PipelineTask):
 
             target = extracted.target
             pfsCalibrated[target] = extracted
-            pfsCalibratedLsf[target] = pfsMergedLsf[ff]
+            fiberIdByTarget[target] = int(ff)
 
-        return Struct(
-            pfsCalibrated=PfsCalibrated(pfsCalibrated.values(), getPfsVersions()),
-            pfsCalibratedLsf=LsfDict(pfsCalibratedLsf),
-        )
+        wavelength = {target: spectrum.wavelength for target, spectrum in pfsCalibrated.items()}
+        if pfsMerged.lsf is not None:
+            lsf = selectSpectraLsf(pfsMerged.lsf, fiberIdByTarget, wavelength)
+        elif pfsMergedLsf is not None:
+            lsf = combinedSpectraLsf({tt: pfsMergedLsf[ff] for tt, ff in fiberIdByTarget.items()}, wavelength)
+        else:
+            lsf = None
+        return Struct(pfsCalibrated=PfsCalibrated(pfsCalibrated.values(), getPfsVersions(), lsf=lsf))
 
     def runQuantum(
         self,
@@ -323,6 +321,8 @@ class ApplyFluxCalTask(PipelineTask):
         """
         armInputs = readDatasetRefs(butler, inputRefs, "pfsArm", "sky1d")
         inputs = butler.get(inputRefs)
+        for name in ("pfsArm", "sky1d"):
+            inputs.pop(name, None)
 
         outputs = self.run(**inputs, pfsArmList=armInputs.pfsArm, sky1dList=armInputs.sky1d)
         butler.put(outputs, outputRefs)
