@@ -820,14 +820,16 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         fibers 2447/2448). Once it's rejected, their fluxes could only be fit
         from the faint edges of their profiles, which they share with their
         neighbours; if there's light there that the profiles don't describe
-        (we add some), those fits are wild and bias the neighbours. The
-        such fibers must be excluded from the fit (and flagged NO_DATA), so
-        that their neighbours' fluxes are unbiased.
+        (we add some), those fits are wild and bias the neighbours. Such
+        fibers must be excluded from the fit (and flagged NO_DATA), so that
+        their neighbours' fluxes are unbiased.
 
-        We mask the excluded fiber-rows' light down to a lower profile value than
-        the default, so that it includes the light we add (with the default,
-        the neighbour would absorb it directly, as for any light that isn't
-        in the model).
+        The light we add is in a pixel that the excluded fiber's profile
+        dominates (light in a pixel that a neighbour dominates is the
+        neighbour's: it absorbs it, or rejects it as an outlier, as for any
+        light that isn't in the model), and we mask the excluded fiber-rows'
+        light down to a lower profile value than the default, so that it
+        includes that pixel.
 
         We also run it as in the pipeline (a preliminary pass, then the full
         rejection), with part of the cosmic ray masked elsewhere (as by the
@@ -854,7 +856,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         row = 100
         xCenter = int(np.round(self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row]))
         image.image.array[row, xCenter - 2:xCenter + 7] += 3000.0  # cosmic ray on index and index + 1
-        image.image.array[row, xCenter - 4:xCenter - 2] += 1500.0  # light not in the profile of index
+        image.image.array[row, xCenter - 3] += 1500.0  # light not in the profile of index
         excluded = {index, index + 1}
 
         config = ExtractSpectraTask.ConfigClass()
@@ -886,6 +888,49 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         # The fiber traces are unchanged
         for ft, original in zip(self.fiberTraces, traceMasks):
             np.testing.assert_array_equal(ft.trace.mask.array, original)
+
+    def testRejectOutliersContaminatedNeighbour(self):
+        """Test that excluding a fiber-row doesn't mask its neighbour's core
+
+        As in 155914 r4 row 185 (fibers 2443/2444): the profile of one fiber
+        (A) is contaminated with a plateau under the core of its neighbour
+        (B). When cosmic rays exclude A in a row, its "light" (profile above
+        rejectExcludedProfileThreshold) includes the plateau; masking it would
+        mask B's core, and if cosmic rays also mask B's other side, too
+        little of B's profile is left for the extraction (it's fit from its
+        edges, and flagged SUSPECT). A's light must be masked only where A's
+        profile dominates, and B must be measured from its core.
+        """
+        self.setUpTraces(separation=6.2, fwhm=3.5, measure=False)
+        flux = 1000.0
+        image = self.makeNoisyImage(flux, 100, 1.0)
+        index = len(self.fiberTraces)//2
+        row = 100
+        traceA = self.fiberTraces[index]
+        xA = int(np.round(self.detMap.getXCenter(traceA.fiberId)[row]))
+        box = traceA.trace.getBBox()
+        profile = traceA.trace.image.array[row - box.getMinY()]
+        plateau = xA + np.array([5, 6])  # under the core of B (at xA + 6.2)
+        profile[plateau - box.getMinX()] += 0.15*profile.max()
+
+        image.mask.addMaskPlane("CR")
+        crBit = image.mask.getPlaneBitMask("CR")
+        image.mask.array[row, xA - 2:xA + 3] |= crBit  # cosmic ray on the core of A
+        image.mask.array[row, xA + 7:xA + 10] |= crBit  # cosmic ray on the other side of B
+
+        config = ExtractSpectraTask.ConfigClass()
+        config.doRejectOutliers = True
+        task = ExtractSpectraTask(config=config)
+        spectra = task.run(image, self.fiberTraces).spectra
+        spectrumA = spectra[index]
+        spectrumB = spectra[index + 1]
+        self.assertTrue(spectrumA.mask.array[0, row] & spectrumA.mask.getPlaneBitMask("NO_DATA"))
+        flagged = spectrumB.mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])
+        self.assertFalse(spectrumB.mask.array[0, row] & flagged)
+        chi = (spectrumB.flux[row] - flux)/np.sqrt(spectrumB.variance[row])
+        self.assertLess(np.abs(chi), 5.0)
+        excludedBit = image.mask.getPlaneBitMask(config.rejectExcludedFiberRowMaskPlane)
+        self.assertFalse(np.any(image.mask.array[row, plateau] & excludedBit))
 
     def testRejectOutliersMaskedByOtherMasks(self):
         """Test that a row masked by other masks isn't blamed on our rejection
