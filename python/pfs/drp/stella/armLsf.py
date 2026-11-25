@@ -20,7 +20,9 @@ import scipy.interpolate
 import scipy.ndimage
 
 from .lsfProfile import diskProfile, diskSigma
+from pfs.datamodel import PfsFiberArray, Target
 from pfs.datamodel.pfsLsf import PfsArmLsfData, PfsLsf, PfsLsfSurface
+from pfs.datamodel.pfsTargetSpectra import PfsTargetSpectra
 
 from .smoothSurface import DetectorCoords, SmoothSurface
 
@@ -149,12 +151,15 @@ class LsfProfile:
         return np.where(inside, np.take(array, np.clip(pixels, 0, array.shape[-1] - 1), axis=-1), 0)
 
     def extractFrom(self, spectra, name="flux"):
-        """The slice of this spectrum of an attribute of a set of spectra
+        """The slice of this spectrum of an attribute of spectra
 
         Parameters
         ----------
-        spectra : `pfs.datamodel.PfsFiberArraySet`
-            Spectra, e.g. a `PfsArm`, containing ``fiberId == key``.
+        spectra : `PfsFiberArraySet`, `PfsTargetSpectra` or `PfsFiberArray` (`pfs.datamodel`)
+            Spectra containing this profile's spectrum: a set identified by
+            ``fiberId`` (e.g. a `PfsArm` or `PfsMerged`), a set identified by
+            target (e.g. a `PfsCoadd` or `PfsCalibrated`; the profile's ``key``
+            must be a `pfs.datamodel.Target`), or the spectrum itself.
         name : `str`
             Attribute, e.g. ``flux``, ``mask``, ``variance`` or ``wavelength``.
 
@@ -163,6 +168,15 @@ class LsfProfile:
         sliced : `numpy.ndarray`
             The matching part of ``getattr(spectra, name)`` for this spectrum.
         """
+        if isinstance(spectra, PfsTargetSpectra):
+            # An integer key is a fiberId, which mustn't be confused with an objId
+            if not isinstance(self.key, Target) or self.key not in spectra:
+                raise KeyError(f"Target {self.key} not present in spectra")
+            spectra = spectra[self.key]
+        if isinstance(spectra, PfsFiberArray):
+            return self.extract(np.asarray(getattr(spectra, name)))
+        if not hasattr(spectra, "fiberId"):
+            raise TypeError(f"Can't extract a spectrum from a {type(spectra).__name__}")
         index = np.flatnonzero(np.asarray(spectra.fiberId) == self.key)
         if index.size != 1:
             raise KeyError(f"fiberId {self.key} not present exactly once in spectra")

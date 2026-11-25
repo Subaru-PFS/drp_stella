@@ -9,7 +9,7 @@ import astropy.units as u
 import numpy as np
 
 import lsst.utils.tests
-from pfs.datamodel import Identity, MaskHelper
+from pfs.datamodel import Identity, MaskHelper, PfsLsf
 from pfs.drp.stella import GaussianLsf, LsfDict
 from pfs.drp.stella.armLsf import ArmLsf, FiberSpline, GaussianArmLsf
 from pfs.drp.stella.combinedLsf import CombinedLsfConfig, makeCombinedLsf
@@ -199,6 +199,62 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         datamodel = combined.toDatamodel()
         self.assertEqual(len(datamodel.arms), 2)
         self.assertEqual(len(datamodel.inputs), 2*num)
+
+    def testSameApi(self):
+        """Claude: a pfsArm, pfsMerged and pfsCoadd give their LSF and data the same way"""
+        from pfs.datamodel import Observations, Target
+        from pfs.datamodel.drp import PfsCoadd, PfsObject
+        from pfs.drp.stella.datamodel.pfsTargetSpectra import PfsObjectSpectra
+
+        armLsf = makeArmLsf()
+        arm = makeArm(armLsf)
+        arm.flux[:] = np.arange(LENGTH, dtype=np.float32)
+        arm.lsf = armLsf.forSpectra(arm)
+        # Combined spectra: the arm's spectra on their own pixels, so the profiles are the arm's
+        lsfs = {}
+        targets = []
+        spectra = []
+        flags = MaskHelper()
+        for ii, ff in enumerate(FIBERS):
+            target = Target(1, 2, "1,1", int(ff))
+            wavelength = arm.wavelength[ii]
+            lsfs[target] = makeCombinedLsf([ArmFiberLsf(armLsf, ff)], [wavelength], wavelength,
+                                           [np.ones(LENGTH)], [np.ones(LENGTH, dtype=bool)], 1,
+                                           CombinedLsfConfig())
+            observations = Observations(visit=np.array([1]), arm=["r"], spectrograph=np.array([1]),
+                                        pfsDesignId=np.array([0]), fiberId=np.array([ff]),
+                                        pfiNominal=np.zeros((1, 2)), pfiCenter=np.zeros((1, 2)))
+            spectra.append(PfsObject(target, observations, wavelength, arm.flux[ii].copy(),
+                                     np.zeros(LENGTH, dtype=np.int32), np.zeros(LENGTH, dtype=np.float32),
+                                     np.ones((3, LENGTH), dtype=np.float32), np.zeros((1, 1)), flags))
+            targets.append(target)
+        wavelengths = {tt: ss.wavelength for tt, ss in zip(targets, spectra)}
+        coadd = PfsCoadd(spectra, {}, lsf=CombinedSpectraLsf(lsfs, wavelengths))
+
+        with tempfile.TemporaryDirectory() as tempDir:
+            filename = os.path.join(tempDir, "pfsCoadd.fits")
+            coadd.writeFits(filename)
+            copy = PfsObjectSpectra.readFits(filename)
+            raw = PfsCoadd.readFits(filename)
+        self.assertIsInstance(raw.lsf, PfsLsf)  # The datamodel class has the stored form
+        self.assertIsInstance(copy.lsf, CombinedSpectraLsf)  # drp_stella's converts it, as for a pfsArm
+        self.assertIs(copy.lsf, copy.lsf)  # ... once
+
+        for ff, target in zip(FIBERS, targets):
+            armProfile = arm.lsf.computeProfile(ff, 700.0*u.nm)
+            coaddProfile = copy.lsf.computeProfile(target, 700.0*u.nm)
+            self.assertEqual(coaddProfile.start, armProfile.start)
+            self.assertFloatsAlmostEqual(coaddProfile.values, armProfile.values, atol=1e-6)
+            expect = arm.flux[FIBERS == ff][0][armProfile.slice]
+            self.assertFloatsEqual(armProfile.extractFrom(arm), expect)
+            self.assertFloatsEqual(coaddProfile.extractFrom(copy), expect)
+            self.assertFloatsEqual(coaddProfile.extractFrom(copy[target]), expect)
+            self.assertFloatsEqual(coaddProfile.extractFrom(copy, "wavelength"),
+                                   arm.wavelength[FIBERS == ff][0][armProfile.slice])
+        with self.assertRaises(KeyError):
+            arm.lsf.computeProfile(10, 700.0*u.nm).extractFrom(copy)  # Not a target of the coadd
+        with self.assertRaises(TypeError):
+            armProfile.extractFrom(arm.flux)
 
 
 class ConvertersTestCase(lsst.utils.tests.TestCase):
