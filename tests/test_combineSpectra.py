@@ -8,7 +8,7 @@ import lsst.utils.tests
 from pfs.datamodel import CalibIdentity
 from pfs.datamodel.masks import MaskHelper
 from pfs.drp.stella.datamodel.drp import PfsArm
-from pfs.drp.stella.combineSpectra import combineSpectraSets
+from pfs.drp.stella.combineSpectra import combineSpectraSets, propagateOffDiagonals
 
 
 class CombineSpectraSetsTestCase(lsst.utils.tests.TestCase):
@@ -116,6 +116,42 @@ class CombineSpectraSetsTestCase(lsst.utils.tests.TestCase):
             self.assertLess(np.max(np.abs(measured - expected)[use]/error[use]), 5.0, msg=f"offset {kk}")
             # and the error in the mean, which an off-diagonal error would bias
             self.assertLess(abs(np.mean(measured[use] - expected[use])), 0.01*np.median(scale[use]))
+
+    def testPropagateOffDiagonals(self):
+        """Claude: the coadd's off-diagonal covariance, with weights varying from pixel to pixel
+
+        CoaddSpectraTask.combine sums 1-D spectra; with weights that vary
+        between neighbouring pixels, the covariance of pixels i and i + k needs
+        the weights at both, not the weight at i squared.
+        """
+        numInputs, length, numSamples = 4, 400, 20000
+        filt = np.array([0.5, 1.0, 0.5])
+        cov = np.zeros((3, length))
+        for kk in range(3):
+            cov[kk, :length - kk] = np.sum(filt[:len(filt) - kk]*filt[kk:])
+        weights = [self.rng.uniform(0.2, 2.0, length) for _ in range(numInputs)]
+        selects = [self.rng.uniform(size=length) > 0.1 for _ in range(numInputs)]
+        weights = [np.where(sel, ww, 0.0) for ww, sel in zip(weights, selects)]
+        sumWeights = np.sum(weights, axis=0)
+        inverseSum = np.where(sumWeights > 0, 1.0/np.where(sumWeights > 0, sumWeights, 1.0), 0.0)
+        result = propagateOffDiagonals([cov]*numInputs, weights, selects, inverseSum, 3)
+        samples = np.zeros((numSamples, length))
+        for ww in weights:
+            white = self.rng.normal(size=(numSamples, length + 2))
+            noise = filt[0]*white[:, :-2] + filt[1]*white[:, 1:-1] + filt[2]*white[:, 2:]
+            samples += noise*ww
+        samples *= inverseSum
+        variance = np.sum([ww**2*cov[0] for ww in weights], axis=0)*inverseSum**2
+        for kk in (1, 2):
+            measured = np.mean(samples[:, :-kk]*samples[:, kk:], axis=0)
+            expected = result[kk - 1, :-kk]
+            use = (sumWeights[:-kk] > 0) & (sumWeights[kk:] > 0)
+            scale = np.sqrt(variance[:-kk]*variance[kk:])
+            error = np.sqrt((scale**2 + expected**2)/numSamples)
+            self.assertLess(np.max(np.abs(measured - expected)[use]/error[use]), 5.0, msg=f"offset {kk}")
+            # The approximation it replaces (the weight at i squared) is measurably wrong
+            approx = np.sum([ww[:-kk]**2*cov[kk, :-kk] for ww in weights], axis=0)*inverseSum[:-kk]**2
+            self.assertGreater(np.max(np.abs(measured - approx)[use]/error[use]), 10.0, msg=f"offset {kk}")
 
     def testLengthMismatch(self):
         """Test that a mismatch between spectra and weights is caught"""

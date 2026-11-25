@@ -31,7 +31,7 @@ from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
 from .spectraLsf import armFiberLsfs, combinedSpectraLsf
-from .combineSpectra import accumulateWeighted, calculateCoaddWeights
+from .combineSpectra import accumulateWeighted, calculateCoaddWeights, propagateOffDiagonals
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -507,8 +507,8 @@ class CoaddSpectraTask(PipelineTask):
         sumWeights = weights.sumWeights
         accumulateWeighted([ss.flux for ss in resampled], weights.weights, weights.selects, flux)
         accumulateWeighted([ss.sky for ss in resampled], weights.weights, weights.selects, sky)
-        accumulateWeighted([ss.covar for ss in resampled], [ww**2 for ww in weights.weights], weights.selects,
-                           covar)
+        accumulateWeighted([ss.covar[:1] for ss in resampled], [ww**2 for ww in weights.weights],
+                           weights.selects, covar[:1])
         for ss, select in zip(resampled, weights.selects):
             mask[select] |= ss.mask[select]
 
@@ -516,7 +516,13 @@ class CoaddSpectraTask(PipelineTask):
         ww = sumWeights[good]
         flux[good] /= ww
         sky[good] /= ww
-        covar[:, good] /= ww**2
+        covar[0, good] /= ww**2
+        # The covariance of pixels i and i + k involves the weights at both (see propagateOffDiagonals)
+        with np.errstate(divide="ignore"):
+            inverseSum = np.where(good, 1.0/sumWeights, 0.0)
+        covar[1:] = propagateOffDiagonals(
+            [ss.covar for ss in resampled], weights.weights, weights.selects, inverseSum, numCovar
+        )
         covar[:, ~good] = np.inf
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
