@@ -155,11 +155,10 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
                                                 [aa.wavelength[ii] for aa in arms], order)
                 self.compareLines(smooth, lsf, SINGLE, 1.0e-12)
                 self.compareLines(smooth, lsf, OVERLAP, 1.0e-12, normalize=True)
-                # The arm weights are 1/variance (the arm norms are unity), increased by the resampling,
-                # which reduces the variance by a factor depending on the phase (up to 2 for linear)
-                for inp, (_, _, _, _, variance) in zip(lsf.inputs, ARMS.values()):
-                    middle = 0.5*(inp.indexMap.minIndex + inp.indexMap.maxIndex)
-                    self.assertTrue(1.0 < inp.weight(np.array([middle]))[0]*variance < 2.0)
+                # The arm weights are the model weights, here 1/variance (the variance is constant and the
+                # arm norms are unity), increased by the resampling, which reduces the variance by a
+                # factor depending on the phase (up to 2 for linear). testModelWeights separates them.
+                self.assertWeights(lsf, [variance for (_, _, _, _, variance) in ARMS.values()])
                 # Actual (per-pixel weights): approximate. In this test the differences are up to 2% of the
                 # peak, ~0.02 pixels in centroid and 1% in width (linear resampling; half that for Lanczos)
                 self.compareLines(data, lsf, OVERLAP, 0.05, normalize=True)
@@ -206,6 +205,73 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
 
             # No LSF requested
             self.assertIsNone(task.combine(singles, None, self.flags, self.wavelength).lsf)
+
+    def assertWeights(self, lsf, variances):
+        """The LSF's weight for each input is 1/variance, increased by the resampling (by up to 2)"""
+        for inp, variance in zip(lsf.inputs, variances, strict=True):
+            middle = 0.5*(inp.indexMap.minIndex + inp.indexMap.maxIndex)
+            self.assertTrue(1.0 < inp.weight(np.array([middle]))[0]*variance < 2.0)
+
+    def testModelWeights(self):
+        """Claude: the LSF is combined with the model weights when the flux is
+
+        The model variances are chosen far from the measured ones (in the
+        opposite order), so that the measured weights would fail the checks.
+        """
+        modelVariance = dict(b=0.5, r=2.0, n=4.0)
+        for order in (1, 3):
+            config = MergeArmsConfig()
+            config.resampleOrder = order
+            config.doModelWeights = True
+            task = MergeArmsTask(config=config)
+
+            def modelWeights(spectra, scale=None):
+                return np.full(spectra.flux.shape, 1/modelVariance[spectra.identity.arm])
+
+            task.modelWeights.run = modelWeights
+            arms, lsfs = self.makeArms(order)
+            merged = task.mergeSpectra(arms, self.wavelength)
+            lsfDict = task.mergeLsfs(lsfs, arms, self.wavelength, merged.weights)
+            for ii, ff in enumerate(self.fiberId):
+                self.assertWeights(lsfDict[ff], modelVariance.values())
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    data = merged.pfsMerged.flux[ii]/merged.pfsMerged.norm[ii]
+                self.compareLines(data, lsfDict[ff], OVERLAP, 0.05, normalize=True)
+
+            config = CoaddSpectraConfig()
+            config.resampleOrder = order
+            task = CoaddSpectraTask(config=config)
+            fiberId = 7
+            singles = []
+            lsfList = []
+            weightsList = []
+            variances = []
+            for visit, offset, varScale in ((1, 0.0, 1.0), (2, 0.031, 2.0), (3, -0.017, 0.5)):
+                for arm, (lo, hi, length, sigma, variance) in ARMS.items():
+                    wavelength = armWavelength(arm, offset)
+                    lsf = GaussianLsf(length, sigma*(1 + 0.1*visit))
+                    flux = lineFlux(lsf, wavelength, self.wavelength, SINGLE + OVERLAP, order)
+                    covar = np.zeros((3, length))
+                    covar[0] = variance*varScale
+                    observations = Observations(
+                        visit=np.array([visit]), arm=[arm], spectrograph=np.array([1]),
+                        pfsDesignId=np.array([0]), fiberId=np.array([fiberId]),
+                        pfiNominal=np.zeros((1, 2)), pfiCenter=np.zeros((1, 2)),
+                    )
+                    singles.append(PfsSingle(Target(0, 0, "0,0", 0), observations, wavelength, flux,
+                                             np.zeros(length, dtype=np.int32), np.zeros(length), covar,
+                                             np.zeros((1, 1)), self.flags))
+                    lsfList.append({fiberId: lsf})
+                    variances.append(modelVariance[arm]/varScale)
+                    weightsList.append(np.full(length, 1/variances[-1]))
+            combination = task.combine(singles, lsfList, self.flags, self.wavelength, weightsList)
+            self.assertWeights(combination.lsf, variances)
+            self.compareLines(combination.flux, combination.lsf, SINGLE + OVERLAP, 0.05, normalize=True)
+
+            # Measured weights, for contrast: the same checks fail
+            combination = task.combine(singles, lsfList, self.flags, self.wavelength)
+            with self.assertRaises(AssertionError):
+                self.assertWeights(combination.lsf, variances)
 
     def testWarp(self):
         """Warping the LSF is resampling it (linearly)"""
