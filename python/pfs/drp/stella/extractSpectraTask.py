@@ -127,22 +127,22 @@ class ExtractSpectraConfig(pexConfig.Config):
              "would propagate the rejection across the fibers, and the masks from elsewhere are trusted "
              "(the fibers' fluxes are fit from the remaining pixels, as usual)."),
     )
-    rejectRuinedFiberMaskPlane = pexConfig.Field(
+    rejectExcludedFiberRowMaskPlane = pexConfig.Field(
         dtype=str,
-        default="RUINED_FIBER",
-        doc=("Additional mask plane for the pixels containing the light of a fiber in a row in which cosmic "
-             "rays (rejected by us or masked elsewhere) left too little of its profile to measure its flux "
-             "(see rejectRuinedProfileThreshold). They are masked (with rejectMaskPlane too) and the row "
-             "re-extracted without the fiber, as otherwise its flux is fit from the faint edges of its "
-             "profile, which it shares with its neighbours, biasing them. These pixels don't count as "
-             "masked when deciding whether a neighbour is also ruined."),
+        default="EXCLUDED_FIBER_ROW",
+        doc=("Additional mask plane for the pixels containing the light of a fiber in a single row (a "
+             "fiber-row) in which cosmic rays (rejected by us or masked elsewhere) left too little of its "
+             "profile to measure its flux (see rejectExcludedProfileThreshold). They are masked (with "
+             "rejectMaskPlane too) and the row re-extracted without the fiber, as otherwise its flux is fit "
+             "from the faint edges of its profile, which it shares with its neighbours, biasing them. These "
+             "pixels don't count as masked when deciding whether a neighbour must also be excluded."),
     )
-    rejectRuinedProfileThreshold = pexConfig.Field(
+    rejectExcludedProfileThreshold = pexConfig.Field(
         dtype=float,
         default=0.02,
-        doc=("When excluding a ruined fiber from the fit (see rejectRuinedFiberMaskPlane), mask the pixels "
-             "in which its normalised profile (which sums to unity over the row) exceeds this value, so "
-             "that little of its light is left for its neighbours to absorb. Lower values leave less of "
+        doc=("When excluding a fiber from the fit in a row (see rejectExcludedFiberRowMaskPlane), mask the "
+             "pixels in which its normalised profile (which sums to unity over the row) exceeds this value, "
+             "so that little of its light is left for its neighbours to absorb. Lower values leave less of "
              "its light but mask more of the neighbours' profiles (e.g., 0.005 makes many neighbours SUSPECT "
              "in b4, whose profiles have broad wings)."),
     )
@@ -400,9 +400,10 @@ class ExtractSpectraTask(pipeBase.Task):
                     gapThreshold = self.config.rejectGapThreshold
                     if rejectBadFits:
                         badFitThreshold = self.config.rejectBadFitThreshold
-                # Fiber-rows ruined by cosmic rays are flagged and excluded from the fit after every
-                # extraction (including this one, for those masked earlier), so that the model used for the
-                # rejection doesn't include their wild fluxes (fit from the edges of their profiles).
+                # Fiber-rows in which cosmic rays leave too little of the profile are flagged and excluded
+                # from the fit after every extraction (including this one, for those masked earlier), so
+                # that the model used for the rejection doesn't include their wild fluxes (fit from the
+                # edges of their profiles).
                 spectra, numNoData = self.flagRejectedSpectra(maskedImage, fiberTraceSet, spectra, badBitMask)
                 total = 0
                 numIterations = 0  # iterations that rejected something
@@ -469,7 +470,7 @@ class ExtractSpectraTask(pipeBase.Task):
     def flagRejectedSpectra(
         self, maskedImage: MaskedImage, fiberTraceSet: FiberTraceSet, spectra: SpectrumSet, badBitMask: int
     ) -> Tuple[SpectrumSet, int]:
-        """Flag as NO_DATA the spectral pixels that cosmic rays have ruined
+        """Flag as NO_DATA the spectral pixels whose profile cosmic rays have masked
 
         If too little of a fiber's profile remains unmasked in a row (less
         than ``config.minFracImage``), the extraction fits its flux from the
@@ -481,16 +482,16 @@ class ExtractSpectraTask(pipeBase.Task):
         them, enough of the profile would remain), we:
 
         - mask the pixels containing the fiber's light in that row
-          (``config.rejectRuinedProfileThreshold``), with
-          ``config.rejectMaskPlane`` and ``config.rejectRuinedFiberMaskPlane``;
+          (``config.rejectExcludedProfileThreshold``), with
+          ``config.rejectMaskPlane`` and ``config.rejectExcludedFiberRowMaskPlane``;
         - re-extract, excluding the fiber from the fit in that row; and
         - flag the spectral pixel as ``NO_DATA`` (as the extraction does when
           the whole of the trace is masked), with zero flux and variance,
           retaining the masks that caused it (e.g., ``CR``).
 
         Fibers that are mostly masked for other reasons (e.g., saturation) are
-        left as they are, and pixels masked only because they contain a ruined
-        fiber's light don't count towards ruining a neighbour.
+        left as they are, and pixels masked only because they contain an excluded
+        fiber's light don't count towards excluding a neighbour.
 
         Parameters
         ----------
@@ -506,8 +507,8 @@ class ExtractSpectraTask(pipeBase.Task):
         Returns
         -------
         spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra: re-extracted if any fiber was ruined, and with
-            the ruined spectral pixels flagged.
+            Extracted spectra: re-extracted if any fiber was excluded, and with
+            the excluded spectral pixels flagged.
         numFlagged : `int`
             Number of spectral pixels flagged.
         """
@@ -517,13 +518,13 @@ class ExtractSpectraTask(pipeBase.Task):
         maskedImage.mask.addMaskPlane(self.config.rejectOutlierMaskPlane)
         outlierBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectOutlierMaskPlane)
         rejectBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectMaskPlane)
-        maskedImage.mask.addMaskPlane(self.config.rejectRuinedFiberMaskPlane)
-        ruinedBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectRuinedFiberMaskPlane)
+        maskedImage.mask.addMaskPlane(self.config.rejectExcludedFiberRowMaskPlane)
+        excludedBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectExcludedFiberRowMaskPlane)
         image = maskedImage.image.array
         variance = maskedImage.variance.array
         x0, y0 = maskedImage.getXY0()
         spectraByFiberId = {spectrum.fiberId: spectrum for spectrum in spectra}
-        ruined = []  # (fiberTrace, rows of the trace, rows of the spectrum)
+        excluded = []  # (fiberTrace, rows of the trace, rows of the spectrum)
         for ft in fiberTraceSet:
             spectrum = spectraByFiberId.get(ft.fiberId)
             if spectrum is None:
@@ -540,16 +541,16 @@ class ExtractSpectraTask(pipeBase.Task):
             # Pixels the C++ extraction doesn't use, whatever their mask
             invalid = ~(np.isfinite(image[rows, columns]) & np.isfinite(variance[rows, columns])
                         & (variance[rows, columns] > 0))
-            # Pixels masked only because they contain the light of a ruined fiber (ours or a neighbour's)
-            # count as unmasked: they don't ruin a fiber by themselves (no spreading from fiber to fiber),
-            # and a fiber we've already ruined remains ruined by its outliers.
-            onlyRuined = ((traceMask & ruinedBitMask) != 0) & ((traceMask & outlierBitMask) == 0)
-            onlyRuined &= (traceMask & (badBitMask & ~rejectBitMask)) == 0
-            bad = (((traceMask & badBitMask) != 0) & ~onlyRuined) | invalid
+            # Pixels masked only because they contain the light of an excluded fiber-row (ours or a
+            # neighbour's) count as unmasked: they don't exclude a fiber-row by themselves (no spreading from
+            # fiber to fiber), and a fiber-row we've already excluded remains excluded by its outliers.
+            onlyExcluded = ((traceMask & excludedBitMask) != 0) & ((traceMask & outlierBitMask) == 0)
+            onlyExcluded &= (traceMask & (badBitMask & ~rejectBitMask)) == 0
+            bad = (((traceMask & badBitMask) != 0) & ~onlyExcluded) | invalid
             unmasked = np.sum(profile*~bad, axis=1)
             # Cosmic rays (the rejectMaskPlane: our rejections, and cosmic rays masked elsewhere) must be what
-            # ruined the row: without them, enough of the profile is left. Rows ruined by other masks (e.g.,
-            # saturation) are left as the extraction flagged them.
+            # masked too much of the row: without them, enough of the profile is left. Rows in which other
+            # masks (e.g., saturation) leave too little are left as the extraction flagged them.
             other = ((traceMask & (badBitMask & ~rejectBitMask)) != 0) | invalid
             unmaskedOther = np.sum(profile*~other, axis=1)
             byCosmicRays = unmaskedOther >= self.config.minFracImage
@@ -557,21 +558,21 @@ class ExtractSpectraTask(pipeBase.Task):
             if not np.any(select):
                 continue
             light = np.zeros_like(inTrace)
-            light[select] = profile[select] > self.config.rejectRuinedProfileThreshold
+            light[select] = profile[select] > self.config.rejectExcludedProfileThreshold
             # Only mark pixels that aren't already masked: those that are must keep counting as masked, or
-            # the fiber would no longer appear ruined in a later pass and would be fit again.
+            # the fiber would no longer appear excluded in a later pass and would be fit again.
             light &= (traceMask & badBitMask) == 0
-            traceMask[light] |= rejectBitMask | ruinedBitMask
+            traceMask[light] |= rejectBitMask | excludedBitMask
             traceRows = np.where(select)[0]
-            ruined.append((ft, traceRows, traceRows + box.getMinY() - y0))
+            excluded.append((ft, traceRows, traceRows + box.getMinY() - y0))
 
-        if not ruined:
+        if not excluded:
             return spectra, 0
 
-        # Exclude the ruined fibers from the fit in those rows: they have no FIBERTRACE pixels there
+        # Exclude the fibers from the fit in those rows: they have no FIBERTRACE pixels there
         saved = []  # (fiberTrace, rows of the trace, original mask of those rows)
         try:
-            for ft, traceRows, _ in ruined:
+            for ft, traceRows, _ in excluded:
                 traceMaskArray = ft.trace.mask.array
                 saved.append((ft, traceRows, traceMaskArray[traceRows].copy()))
                 traceMaskArray[traceRows] &= ~ft.trace.mask.getPlaneBitMask("FIBERTRACE")
@@ -582,10 +583,10 @@ class ExtractSpectraTask(pipeBase.Task):
             for ft, traceRows, original in reversed(saved):
                 ft.trace.mask.array[traceRows] = original
 
-        ruinedRows = {ft.fiberId: index for ft, _, index in ruined}
+        excludedRows = {ft.fiberId: index for ft, _, index in excluded}
         numFlagged = 0
         for spectrum in newSpectra:
-            index = ruinedRows.get(spectrum.fiberId)
+            index = excludedRows.get(spectrum.fiberId)
             if index is None:
                 continue
             old = spectraByFiberId[spectrum.fiberId]
@@ -790,16 +791,16 @@ class ExtractSpectraTask(pipeBase.Task):
                 gapSeeds = self.findGapSeeds(image, chi, noise2, gap, gapThreshold)
             if self.config.rejectGrowThreshold > 0 and (np.any(outlier) or np.any(gapSeeds)):
                 # Grow to the connected pixels with a significant excess (including those already rejected,
-                # so that a region can be connected through them; but not the traces of ruined fibers, which
-                # are masked whatever their contents). Already-rejected pixels include cosmic rays masked
+                # so that a region can be connected through them; but not the light of excluded fiber-rows,
+                # which is masked whatever its contents). Already-rejected pixels include cosmic rays masked
                 # elsewhere and the rest of rejected fibers' traces, so a region may travel through them,
                 # but only the candidates are newly rejected.
                 alreadyRejected = (mask & rejectBitMask) != 0
-                ruined = np.zeros_like(alreadyRejected)
-                if self.config.rejectRuinedFiberMaskPlane in maskedImage.mask.getMaskPlaneDict():
-                    ruinedBitMask = maskedImage.mask.getPlaneBitMask(self.config.rejectRuinedFiberMaskPlane)
-                    ruined = (mask & ruinedBitMask) != 0
-                connect = outlier | (alreadyRejected & ~ruined)
+                excluded = np.zeros_like(alreadyRejected)
+                if self.config.rejectExcludedFiberRowMaskPlane in maskedImage.mask.getMaskPlaneDict():
+                    excludedPlane = self.config.rejectExcludedFiberRowMaskPlane
+                    excluded = (mask & maskedImage.mask.getPlaneBitMask(excludedPlane)) != 0
+                connect = outlier | (alreadyRejected & ~excluded)
                 alongRow = (candidate & (chi > self.config.rejectGrowThreshold)) | connect
                 acrossRows = (candidate & (chi > self.config.rejectGrowAcrossRowsThreshold)) | connect
                 grown = self.growOutliers(outlier, alongRow, acrossRows)

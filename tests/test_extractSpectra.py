@@ -772,7 +772,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(numRejected[2:], [0]*(len(passes) - 2))  # no spreading after the first full pass
 
     def testRejectOutliersNoData(self):
-        """Test that a fiber-row ruined by cosmic rays is flagged NO_DATA
+        """Test that a fiber-row whose profile cosmic rays mask is flagged NO_DATA
 
         If cosmic rays (rejected by us, or masked elsewhere, e.g., by the
         cosmicray task) leave too little of a fiber's profile in a row, the
@@ -813,18 +813,18 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(mask[satRow] & spectrum.mask.getPlaneBitMask("SUSPECT"))
         self.assertEqual(np.count_nonzero(mask & noData), 2)  # nothing else
 
-    def testRejectOutliersRuinedNeighbours(self):
-        """Test that a ruined fiber doesn't bias its neighbours
+    def testRejectOutliersExcludedNeighbours(self):
+        """Test that an excluded fiber-row doesn't bias its neighbours
 
         A cosmic ray covers the cores of two fibers (as in 155914 r4 row 172,
         fibers 2447/2448). Once it's rejected, their fluxes could only be fit
         from the faint edges of their profiles, which they share with their
         neighbours; if there's light there that the profiles don't describe
         (we add some), those fits are wild and bias the neighbours. The
-        ruined fibers must be excluded from the fit (and flagged NO_DATA), so
+        such fibers must be excluded from the fit (and flagged NO_DATA), so
         that their neighbours' fluxes are unbiased.
 
-        We mask the ruined fibers' light down to a lower profile value than
+        We mask the excluded fiber-rows' light down to a lower profile value than
         the default, so that it includes the light we add (with the default,
         the neighbour would absorb it directly, as for any light that isn't
         in the model).
@@ -832,14 +832,14 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         We also run it as in the pipeline (a preliminary pass, then the full
         rejection), with part of the cosmic ray masked elsewhere (as by the
         cosmicray task, with the same mask plane as our rejection): the
-        ruined fibers must remain excluded from the fit in the second pass.
+        excluded fiber-rows must remain excluded from the fit in the second pass.
         """
         for external in (False, True):
             with self.subTest(external=external):
-                self.checkRuinedNeighbours(external)
+                self.checkExcludedNeighbours(external)
 
-    def checkRuinedNeighbours(self, external):
-        """Implementation for testRejectOutliersRuinedNeighbours
+    def checkExcludedNeighbours(self, external):
+        """Implementation for testRejectOutliersExcludedNeighbours
 
         Parameters
         ----------
@@ -855,11 +855,11 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         xCenter = int(np.round(self.detMap.getXCenter(self.fiberTraces[index].fiberId)[row]))
         image.image.array[row, xCenter - 2:xCenter + 7] += 3000.0  # cosmic ray on index and index + 1
         image.image.array[row, xCenter - 4:xCenter - 2] += 1500.0  # light not in the profile of index
-        ruined = {index, index + 1}
+        excluded = {index, index + 1}
 
         config = ExtractSpectraTask.ConfigClass()
         config.doRejectOutliers = True
-        config.rejectRuinedProfileThreshold = 0.005
+        config.rejectExcludedProfileThreshold = 0.005
         task = ExtractSpectraTask(config=config)
         traceMasks = [ft.trace.mask.array.copy() for ft in self.fiberTraces]
         if external:
@@ -870,12 +870,12 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         spectra = task.run(image, self.fiberTraces).spectra
         noData = spectra[index].mask.getPlaneBitMask("NO_DATA")
         flagged = spectra[index].mask.getPlaneBitMask(["NO_DATA", "SUSPECT"])
-        for ii in ruined:
+        for ii in excluded:
             self.assertTrue(spectra[ii].mask.array[0, row] & noData, f"fiber index {ii}")
             self.assertEqual(spectra[ii].flux[row], 0.0)
             self.assertGreater(spectra[ii].norm[row], 0.0)
         for ii in range(len(spectra)):
-            if ii in ruined:
+            if ii in excluded:
                 continue
             ss = spectra[ii]
             self.assertFalse(ss.mask.array[0, row] & noData, f"fiber index {ii}")
@@ -887,8 +887,8 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         for ft, original in zip(self.fiberTraces, traceMasks):
             np.testing.assert_array_equal(ft.trace.mask.array, original)
 
-    def testRejectOutliersRuinedByOtherMasks(self):
-        """Test that a row ruined by other masks isn't blamed on our rejection
+    def testRejectOutliersMaskedByOtherMasks(self):
+        """Test that a row masked by other masks isn't blamed on our rejection
 
         The core of a fiber is masked as saturated, leaving too little of its
         profile in that row, and we reject a cosmic ray in its wing. The row
