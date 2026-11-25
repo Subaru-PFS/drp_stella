@@ -12,7 +12,6 @@ from pfs.datamodel import FiberStatus, PfsConfig, TargetType
 
 from ..DetectorMapContinued import DetectorMap
 from ..fiberProfileSet import FiberProfileSet
-from ..lsf import GaussianLsf, LsfDict
 from ..photometerLines import PhotometerLinesTask
 from ..readLineList import ReadLineListTask
 
@@ -62,12 +61,6 @@ class MeasurePhotometryConnections(
         storageClass="FocalPlaneFunction",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    lsf = OutputConnection(
-        name="pfsArmLsf",
-        doc="1D line-spread function",
-        storageClass="LsfDict",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
 
     def __init__(self, *, config=None):
         super().__init__(config=config)
@@ -93,7 +86,7 @@ class MeasurePhotometryConfig(PipelineTaskConfig, pipelineConnections=MeasurePho
     gaussianLsfWidth = DictField(
         keytype=str,
         itemtype=float,
-        doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
+        doc="Unused (this task no longer writes a placeholder pfsArmLsf); kept for old configs",
         default=dict(b=0.21, r=0.27, m=0.16, n=0.24),
     )
 
@@ -140,7 +133,6 @@ class MeasurePhotometryTask(PipelineTask):
         if self.config.doMeasureLines:
             butler.put(outputs.photometry, outputRefs.photometry)
             butler.put(outputs.apCorr, outputRefs.apCorr)
-        butler.put(outputs.lsf, outputRefs.lsf)
 
     def run(
         self,
@@ -151,7 +143,7 @@ class MeasurePhotometryTask(PipelineTask):
         arm: str,
         spectrograph: int,
     ) -> Struct:
-        """Measure the LSF and line fluxes
+        """Measure the line fluxes
 
         Parameters
         ----------
@@ -178,16 +170,12 @@ class MeasurePhotometryTask(PipelineTask):
             Measured lines.
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Aperture correction.
-        lsf : `pfs.drp.stella.Lsf`
-            One-dimensional line-spread function.
         """
         lines = None
         apCorr = None
 
         self.checkFibers(pfsConfig, detectorMap, fiberProfiles, spectrograph)
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
-
-        lsf = self.defaultLsf(arm, fiberProfiles.fiberId, detectorMap)
 
         apCorr = None
         if self.config.doMeasureLines:
@@ -201,7 +189,6 @@ class MeasurePhotometryTask(PipelineTask):
             refLines=refLines,
             photometry=lines,
             apCorr=apCorr,
-            lsf=lsf,
         )
 
     def checkFibers(
@@ -246,26 +233,3 @@ class MeasurePhotometryTask(PipelineTask):
             raise RuntimeError(f"detectorMap does not include fibers: {list(sorted(missingDetMap))}")
         if need - haveProfiles:
             raise RuntimeError(f"fiberProfiles does not include fibers: {list(sorted(missingProfiles))}")
-
-    def defaultLsf(self, arm: str, fiberId: int, detectorMap: DetectorMap):
-        """Generate a default LSF for this exposure
-
-        Parameters
-        ----------
-        arm : `str`
-            Name of the spectrograph arm (one of ``b``, ``r``, ``m``, ``n``).
-        fiberId : iterable of `int`
-            Fiber identifiers.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping of fiberId,wavelength to x,y.
-
-        Returns
-        -------
-        lsf : `dict` (`int`: `pfs.drp.stella.GaussianLsf`)
-            Line-spread functions, indexed by fiber identifier.
-        """
-        length = detectorMap.bbox.getHeight()
-        sigma = self.config.gaussianLsfWidth[arm]
-        return LsfDict(
-            {ff: GaussianLsf(length, sigma / detectorMap.getDispersionAtCenter(ff)) for ff in fiberId}
-        )
