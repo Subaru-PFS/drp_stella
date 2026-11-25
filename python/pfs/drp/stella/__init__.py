@@ -17,6 +17,7 @@ from .DetectorMapContinued import *
 from .SplinedDetectorMapContinued import *
 from .spline import *
 from .lsf import *
+from .combinedLsf import *
 from .buildFiberProfiles import *
 from .fiberProfile import *
 from .fiberProfileSet import *

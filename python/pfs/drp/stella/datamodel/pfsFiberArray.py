@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pfs.datamodel
 from lsst.pipe.base import Struct
 
-from ..interpolate import interpolate, interpolateFlux, interpolateMask, interpolateMaskedVariance
+from ..interpolate import Resampler, interpolateFlux, interpolateMask
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -255,23 +255,18 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         if numCovar == 0:
             numCovar = order + 1
         prepared = self._prepareMask(self.variance, bad)
-        result = interpolate(
-            self.wavelength,
+        resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        result = resampler(
             np.where(prepared.badFlux, 0.0, self.flux),
             prepared.mask,
             np.where(prepared.badVariance, 0.0, self.variance),
-            wavelength,
             minWeight=minWeight,
             badMask=prepared.badMask,
             fillMask=prepared.fillMask,
             numCovar=numCovar,
-            fill=0.0,
-            order=order,
         )
         badSky = ~np.isfinite(self.sky)
-        sky = interpolateFlux(
-            self.wavelength, np.where(badSky, 0.0, self.sky), wavelength, fill=0.0, order=order
-        )
+        sky = resampler.resampleFlux(np.where(badSky, 0.0, self.sky))
 
         covar2 = np.array([[0]])  # Not sure what to put here
         return type(self)(
@@ -332,16 +327,13 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         if numCovar == 0:
             numCovar = order + 1
         prepared = self._prepareMask(variance, bad)
-        result = interpolateMaskedVariance(
-            self.wavelength,
+        resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        result = resampler.resampleVariance(
             prepared.mask,
             np.where(prepared.badVariance, 0.0, variance),
-            wavelength,
             minWeight=minWeight,
             badMask=prepared.badMask,
             fillMask=prepared.fillMask,
             numCovar=numCovar,
-            fill=0.0,
-            order=order,
         )
         return Struct(mask=result.mask, covariance=result.covariance)

@@ -14,6 +14,7 @@ import lsst.afw.image.testUtils
 import lsst.afw.display
 
 from pfs.drp.stella import Kernel1D, GaussianLsf, FixedEmpiricalLsf, CoaddLsf
+from pfs.drp.stella.lsf import convolveInBlocks
 
 display = None
 
@@ -155,6 +156,22 @@ class KernelTestCase(lsst.utils.tests.TestCase):
         """Test pickling"""
         copy = pickle.loads(pickle.dumps(self.kernel))
         self.assertEqual(self.kernel, copy)
+
+    def testConvolveArrays(self):
+        """Claude: convolving a 2-D array is convolving each row"""
+        rng = np.random.default_rng(12345)
+        for values, center in ((rng.uniform(size=7), 3), (rng.uniform(size=6), 1)):  # centered, not
+            kernel = Kernel1D(values, center)
+            for length in (100, 4):  # longer, shorter than the kernel
+                for dtype in (np.float64, np.float32):
+                    array = rng.normal(size=(5, length)).astype(dtype)
+                    convolved = kernel.convolve(array)
+                    self.assertEqual(convolved.shape, array.shape)
+                    for row, conv in zip(array, convolved):
+                        expect = kernel.convolve(row)
+                        self.assertEqual(len(expect), length)
+                        self.assertEqual(conv.dtype, expect.dtype)
+                        self.assertFloatsAlmostEqual(conv, expect, atol=1.0e-12, rtol=0)
 
 
 class GaussianLsfTestCase(lsst.utils.tests.TestCase):
@@ -341,6 +358,21 @@ class CoaddLsfTestCase(lsst.utils.tests.TestCase):
 
         # Single-precision input should give single-precision output, as for the general case
         self.assertEqual(self.lsf.convolve(array.astype(np.float32)).dtype, np.float32)
+
+    def testConvolveArrays(self):
+        """Claude: convolving a 2-D array in blocks is convolving each row"""
+        array = self.rng.normal(size=(3, self.length))
+        convolved = convolveInBlocks(self.lsf, array, 10)
+        self.assertEqual(convolved.shape, array.shape)
+        for row, conv in zip(array, convolved):
+            self.assertFloatsAlmostEqual(conv, self.lsf.convolve(row, 10), atol=1.0e-12, rtol=0)
+
+        # And likewise for the fast path for constant LSFs
+        self.assertTrue(all(lsf.isConstant for lsf in self.lsf.lsfList))
+        convolved = self.lsf.convolve(array, 10)
+        self.assertEqual(convolved.shape, array.shape)
+        for row, conv in zip(array, convolved):
+            self.assertFloatsAlmostEqual(conv, self.lsf.convolve(row, 10), atol=1.0e-12, rtol=0)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

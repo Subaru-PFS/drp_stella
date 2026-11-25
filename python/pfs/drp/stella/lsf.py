@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 import scipy
 from scipy.interpolate import interp1d
+from scipy.ndimage import convolve1d
 from scipy.integrate import trapezoid
 from numpy.typing import NDArray, ArrayLike
 
@@ -15,7 +16,8 @@ from lsst.afw.math import FixedKernel
 from lsst.afw.geom.ellipses import Quadrupole, BaseCore
 
 __all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf",
-           "CoaddLsf", "LsfDict")
+           "NoLsfsError", "computeBlockKernels", "convolveBlocks", "convolveInBlocks", "CoaddLsf",
+           "LsfDict")
 
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
@@ -203,26 +205,23 @@ class Kernel1D:
         and there will be boundary effects (implementation is ``numpy.convolve``
         with ``mode="same"``).
 
+        A multi-dimensional array is convolved along its last axis, as if each
+        of its 1-D arrays were convolved separately (but much faster; the
+        implementation is ``scipy.ndimage.convolve1d``, so the results may
+        differ from the 1-D case at the level of rounding).
+
         Parameters
         ----------
-        array : `numpy.ndarray`, floating-point, shape ``(M,)``
+        array : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Array to convolve.
 
         Returns
         -------
-        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Convolved array.
-
-        Raises
-        ------
-        RuntimeError
-            If the array is shorter than the kernel.
         """
-        buffer = 0
-        if len(array) < self.length:
-            buffer = (self.length - len(array) + 1)//2
-            array = np.pad(array, buffer, mode="constant")
-        if self.center != (self.length - 1)//2:
+        array = np.asarray(array)
+        if self.center != (self.length - 1)//2 or self.length % 2 == 0:
             # Pad to put center of kernel in the middle, so we don't introduce a shift
             left = self.center
             right = self.length - self.center - 1
@@ -232,9 +231,17 @@ class Kernel1D:
             kernel[middle - left:middle + right + 1] = self.values
         else:
             kernel = self.values
-        convolved = np.convolve(array, kernel, "same")
+        buffer = 0
+        if array.shape[-1] < len(kernel):
+            buffer = (len(kernel) - array.shape[-1] + 1)//2
+            array = np.pad(array, [(0, 0)]*(array.ndim - 1) + [(buffer, buffer)], mode="constant")
+        if array.ndim == 1:
+            convolved = np.convolve(array, kernel, "same")
+        else:
+            dtype = np.result_type(array, kernel)
+            convolved = convolve1d(array.astype(dtype, copy=False), kernel, axis=-1, mode="constant")
         if buffer != 0:
-            convolved = convolved[buffer:-buffer]
+            convolved = convolved[..., buffer:-buffer]
         return convolved
 
     def toArray(
@@ -408,6 +415,45 @@ class Lsf(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
+    def computeWindow(self, center: float, clip: bool = True) -> tuple[int, NDArray[FloatingPoint]]:
+        """Return the part of ``computeArray`` where the LSF is non-zero
+
+        This is the LSF at a sub-pixel position (like ``computeArray``), but
+        only over the pixels that the kernel covers, which is what's needed to
+        propagate the LSF through further operations (e.g., resampling).
+        Subclasses may override this to avoid computing the full array.
+
+        Parameters
+        ----------
+        center : `float`, pixels
+            Position at which to insert the LSF.
+        clip : `bool`, optional
+            Clip the window to the array? If `False`, a line near the end of
+            the array has its full LSF, extending beyond the array: the LSF is
+            a property of the instrument (e.g., the dichroic acts before the
+            LSF is formed), and the end of the array only means that there's
+            no data there. Beyond the array, we use the LSF of a line an
+            integer number of pixels inside it, preserving the sub-pixel phase.
+
+        Returns
+        -------
+        start : `int`
+            Index of ``values[0]`` in the full array (may be negative, and the
+            window may extend beyond the array, if ``clip`` is `False`).
+        values : `numpy.ndarray`, floating-point
+            Values of ``computeArray(center)[start:start + len(values)]``.
+        """
+        kernel = self.computeKernel(center)
+        start = int(np.floor(center)) + kernel.min
+        stop = int(np.ceil(center)) + kernel.max + 1
+        shift = 0  # Shift (pixels) that brings the window within the array
+        if not clip and stop - start <= self.length:
+            shift = -start if start < 0 else min(0, self.length - stop)
+        if shift == 0:
+            start = max(0, start)
+            stop = min(self.length, stop)
+        return start, self.computeArray(center + shift)[start + shift:stop + shift]
+
     def computePeak(self, point: Point2D | None = None) -> float:
         """Return the value of the peak pixel in the LSF image
 
@@ -579,12 +625,13 @@ class Lsf(ABC):
 
         Parameters
         ----------
-        array : `numpy.ndarray`, floating-point, shape ``(M,)``
-            Array to convolve.
+        array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+            Array to convolve; a multi-dimensional array is convolved along its
+            last axis.
 
         Returns
         -------
-        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Convolved array.
         """
         return self.computeKernel(0.5*self.length).convolve(array)
@@ -934,6 +981,118 @@ class NoLsfsError(RuntimeError):
     pass
 
 
+def computeBlockKernels(
+    lsf: Lsf, length: int, sampling: int = 100, searchEnds: bool = False
+) -> list[tuple[int, int, Kernel1D | None]]:
+    """Compute the kernels for convolving by an LSF in blocks
+
+    The array is divided into blocks of ``sampling`` pixels, and the kernel of
+    each is that at the block's center or, if ``searchEnds`` and the LSF isn't
+    defined there (e.g., the block straddles the end of the LSF's coverage), at
+    either end.
+
+    Parameters
+    ----------
+    lsf : `Lsf`
+        Line-spread function.
+    length : `int`
+        Length of the array to be convolved.
+    sampling : `int`
+        Sampling length for convolution, pixels.
+    searchEnds : `bool`, optional
+        If the LSF isn't defined at a block's center, try its ends?
+
+    Returns
+    -------
+    blocks : `list` of `tuple`
+        For each block, its start and stop (exclusive) and its kernel (`None`
+        where the LSF isn't defined, i.e., `NoLsfsError`).
+    """
+    sampling = max(int(sampling), 1)
+    blocks = []
+    for start in range(0, length, sampling):
+        stop = min(start + sampling, length)  # exclusive
+        kernel = None
+        for position in (0.5*(start + stop), start, stop - 1) if searchEnds else (0.5*(start + stop),):
+            try:
+                kernel = lsf.computeKernel(position)
+                break
+            except NoLsfsError:
+                continue
+        blocks.append((start, stop, kernel))
+    return blocks
+
+
+def convolveBlocks(
+    blocks: list[tuple[int, int, Kernel1D | None]], array: NDArray[FloatingPoint]
+) -> NDArray[FloatingPoint]:
+    """Convolve an array with kernels that vary from block to block
+
+    Parameters
+    ----------
+    blocks : `list` of `tuple`
+        For each block, its start and stop (exclusive) and its kernel (`None`
+        to set the block to zero), from `computeBlockKernels`.
+    array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+        Array to convolve; a multi-dimensional array is convolved along its
+        last axis.
+
+    Returns
+    -------
+    convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
+        Convolved array.
+    """
+    array = np.asarray(array)
+    length = array.shape[-1]
+    convolved = np.zeros_like(array)
+    for start, stop, kernel in blocks:
+        if kernel is None:
+            continue
+
+        # We're going to convolve a section of the array from start to stop,
+        # with a buffer on either side to allow for boundary effects.
+
+        # Range of pixels on the full array that we will convolve. Convolution reflects the kernel, so
+        # pixel i depends on i - kernel.max through i - kernel.min; pad by the larger of the two.
+        halfWidth = max(-kernel.min, kernel.max)
+        beginFull = max(0, start - halfWidth)
+        endFull = min(length, stop + halfWidth + 1)
+
+        # Range of pixels on the convolved subarray
+        beginSub = start - beginFull
+        endSub = beginSub + stop - start
+
+        conv = kernel.convolve(array[..., beginFull:endFull])
+        convolved[..., start:stop] = conv[..., beginSub:endSub]
+
+    return convolved
+
+
+def convolveInBlocks(lsf: Lsf, array: NDArray[FloatingPoint], sampling: int = 100) -> NDArray[FloatingPoint]:
+    """Convolve an array by an LSF that varies along it
+
+    The array is convolved in blocks of ``sampling`` pixels, each with the
+    kernel at the block's center. Blocks where the LSF isn't defined
+    (`NoLsfsError`) are set to zero.
+
+    Parameters
+    ----------
+    lsf : `Lsf`
+        Line-spread function.
+    array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+        Array to convolve; a multi-dimensional array is convolved along its
+        last axis.
+    sampling : `int`
+        Sampling length for convolution, pixels.
+
+    Returns
+    -------
+    convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
+        Convolved array.
+    """
+    return convolveBlocks(computeBlockKernels(lsf, np.shape(array)[-1], sampling), array)
+
+
 class CoaddLsf(Lsf):
     """Coadded line-spread functions
 
@@ -1039,45 +1198,21 @@ class CoaddLsf(Lsf):
 
         Parameters
         ----------
-        array : `numpy.ndarray`, floating-point, shape ``(M,)``
-            Array to convolve.
+        array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+            Array to convolve; a multi-dimensional array is convolved along its
+            last axis.
         sampling : `int`
             Sampling length for convolution, pixels.
 
         Returns
         -------
-        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Convolved array.
         """
         if all(lsf is None or lsf.isConstant for lsf in self.lsfList):
             return self._convolveConstant(array, sampling)
 
-        length = len(array)
-        convolved = np.zeros_like(array)
-        for start in range(0, length, sampling):
-            stop = min(start + sampling, length)  # exclusive
-            center = 0.5*(start + stop)
-            try:
-                kernel = self.computeKernel(center)
-            except NoLsfsError:
-                convolved[start:stop] = 0.0
-                continue
-
-            # We're going to convolve a section of the array from start to stop,
-            # with a buffer on either side to allow for boundary effects.
-
-            # Range of pixels on the full array that we will convolve
-            beginFull = max(0, start + kernel.min)
-            endFull = min(length, stop + kernel.max + 1)
-
-            # Range of pixels on the convolved subarray
-            beginSub = start - beginFull
-            endSub = beginSub + stop - start
-
-            conv = kernel.convolve(array[beginFull:endFull])
-            convolved[start:stop] = conv[beginSub:endSub]
-
-        return convolved
+        return convolveInBlocks(self, array, sampling)
 
     def _convolveConstant(self, array: NDArray[FloatingPoint], sampling: int) -> NDArray[FloatingPoint]:
         """Convolve an array by the LSF, when all components are constant
@@ -1090,23 +1225,25 @@ class CoaddLsf(Lsf):
 
         Parameters
         ----------
-        array : `numpy.ndarray`, floating-point, shape ``(M,)``
-            Array to convolve.
+        array : `numpy.ndarray`, floating-point, shape ``(..., M)``
+            Array to convolve; a multi-dimensional array is convolved along its
+            last axis.
         sampling : `int`
             Sampling length for convolution, pixels.
 
         Returns
         -------
-        convolved : `numpy.ndarray`, floating-point, shape ``(M,)``
+        convolved : `numpy.ndarray`, floating-point, shape ``(..., M)``
             Convolved array.
         """
-        length = len(array)
+        array = np.asarray(array)
+        length = array.shape[-1]
         starts = np.arange(0, length, sampling)
         stops = np.minimum(starts + sampling, length)
         centers = 0.5*(starts + stops)
         blockSizes = stops - starts
 
-        convolved = np.zeros(length, dtype=float)
+        convolved = np.zeros(array.shape, dtype=float)
         sumWeights = np.zeros(length, dtype=float)
         for lsf, minIndex, maxIndex, weight in zip(self.lsfList, self.minIndex, self.maxIndex, self.weights):
             if lsf is None:
@@ -1124,11 +1261,12 @@ class CoaddLsf(Lsf):
             halfWidth = max(kernel.center, len(kernel) - kernel.center - 1)
             start = max(0, low - halfWidth)
             stop = min(length, high + halfWidth)
-            convolved[low:high] += weight*kernel.convolve(array[start:stop])[low - start:high - start]
+            conv = kernel.convolve(array[..., start:stop])
+            convolved[..., low:high] += weight*conv[..., low - start:high - start]
             sumWeights[low:high] += weight
 
         haveLsf = sumWeights > 0
-        convolved[haveLsf] /= sumWeights[haveLsf]
+        convolved[..., haveLsf] /= sumWeights[haveLsf]
         return convolved.astype(array.dtype, copy=False)
 
     def warp(

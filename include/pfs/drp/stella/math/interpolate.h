@@ -188,7 +188,7 @@ void interpolate(
     }
 
     for (std::size_t ii = 0; ii != numOut; ++ii) {
-        T const target = indices[ii];
+        double const target = indices[ii];  // Not T: float32 would round the index to ~1e-4 pixels
         if (target < 0 || target > numIn - 1) {
             // Outside the range of the input data
             if (wantValues) {

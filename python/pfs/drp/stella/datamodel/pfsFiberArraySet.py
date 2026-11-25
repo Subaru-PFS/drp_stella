@@ -4,7 +4,7 @@ from lsst.pipe.base import Struct
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import interpolate, interpolateFlux, interpolateMaskedVariance
+from ..interpolate import Resampler
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -215,23 +215,19 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
         covar = np.zeros((numSpectra, numCovar, numSamples), dtype=self.covar.dtype)
 
-        kwargs = dict(fill=0.0, order=order)
-
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength, **kwargs)
+            resampler = Resampler(self.wavelength[jj], wavelength, order=order, fill=0.0)
+            norm[ii] = resampler.resampleFlux(self.norm[jj])
             prepared = self._prepareMask(jj, self.variance[jj], bad)
-            result = interpolate(
-                self.wavelength[jj],
+            result = resampler(
                 np.where(prepared.badFlux, 0.0, self.flux[jj]).astype(np.float32),
                 prepared.mask,
                 np.where(prepared.badVariance, 0.0, self.variance[jj]).astype(np.float32),
-                wavelength,
                 minWeight=minWeight,
                 badMask=prepared.badMask,
                 fillMask=prepared.fillMask,
                 numCovar=numCovar,
-                **kwargs,
             )
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badSky = badNorm | ~np.isfinite(self.sky[jj])
@@ -239,9 +235,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             mask[ii] = result.mask
             covar[ii] = result.covariance
 
-            sky[ii] = interpolateFlux(
-                self.wavelength[jj], np.where(badSky, 0.0, self.sky[jj]), wavelength, **kwargs
-            )
+            sky[ii] = resampler.resampleFlux(np.where(badSky, 0.0, self.sky[jj]))
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
                           flux, mask, sky, norm, covar, self.flags, self.metadata)
@@ -297,17 +291,14 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         covar = np.zeros((len(self), numCovar, len(wavelength)), dtype=self.covar.dtype)
         for ii in range(len(self)):
             prepared = self._prepareMask(ii, variance[ii], bad)
-            result = interpolateMaskedVariance(
-                self.wavelength[ii],
+            resampler = Resampler(self.wavelength[ii], wavelength, order=order, fill=0.0)
+            result = resampler.resampleVariance(
                 prepared.mask,
                 np.where(prepared.badVariance, 0.0, variance[ii]).astype(np.float32),
-                wavelength,
                 minWeight=minWeight,
                 badMask=prepared.badMask,
                 fillMask=prepared.fillMask,
                 numCovar=numCovar,
-                fill=0.0,
-                order=order,
             )
             mask[ii] = result.mask
             covar[ii] = result.covariance
