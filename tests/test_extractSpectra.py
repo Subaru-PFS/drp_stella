@@ -1,3 +1,4 @@
+import os
 from collections.abc import Mapping
 import numpy as np
 
@@ -11,6 +12,7 @@ from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
+from pfs.drp.stella.reduceExposure import ReduceExposureConfig
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -986,6 +988,41 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         task.run(image, self.fiberTraces, rejectBadFits=True)
         crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
         self.assertEqual(np.count_nonzero(image.mask.array & crBit), 0)
+
+    def testRejectAggressiveConfig(self):
+        """Test the aggressive rejection config file
+
+        It should load into ReduceExposureConfig, find a cosmic ray, and
+        reject nothing in a clean image. In a clean image with a bright line
+        it rejects pixels in the line's row (the price of the aggressive
+        settings: the measured profiles aren't perfect), but nowhere else.
+        """
+        filename = os.path.join(os.path.dirname(__file__), "..", "config", "rejectAggressive.py")
+        reduceConfig = ReduceExposureConfig()
+        reduceConfig.load(filename)
+        config = reduceConfig.extractSpectra
+        self.assertLess(config.rejectThreshold, ExtractSpectraTask.ConfigClass().rejectThreshold)
+        config.doRejectOutliers = True
+        config.validate()
+        task = ExtractSpectraTask(config=config)
+
+        image = self.makeNoisyImage(1000.0, 100, 1.0)
+        task.run(image, self.fiberTraces, rejectBadFits=True)
+        crBit = image.mask.getPlaneBitMask(config.rejectMaskPlane)
+        self.assertEqual(np.count_nonzero(image.mask.array & crBit), 0)
+
+        lineRow = 100
+        image = self.makeNoisyImage(1000.0, lineRow, 50.0)
+        task.run(image, self.fiberTraces, rejectBadFits=True)
+        rejected = (image.mask.array & crBit) != 0
+        rejected[lineRow] = False
+        self.assertEqual(np.count_nonzero(rejected), 0)
+
+        image = self.makeNoisyImage(1000.0, lineRow, 20.0)
+        col = int(np.round(self.detMap.getXCenter(self.fiberTraces[3].fiberId)[50]))
+        image.image.array[50, col] += 3000.0
+        task.run(image, self.fiberTraces, rejectBadFits=True)
+        self.assertTrue(image.mask.array[50, col] & crBit)
 
     def testRejectOutliersBoxcar(self):
         """Test that outlier rejection is not performed for boxcar extraction"""

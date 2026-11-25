@@ -1,0 +1,8 @@
+description: Full 2D-DRP science pipeline, with aggressive cosmic-ray rejection in the extraction of binned data
+imports:
+  - $DRP_STELLA_DIR/pipelines/science.yaml
+tasks:
+  reduceExposure:
+    class: pfs.drp.stella.reduceExposure.ReduceExposureTask
+    config:
+      file: $DRP_STELLA_DIR/config/rejectAggressive.py
