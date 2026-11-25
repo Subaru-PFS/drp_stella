@@ -98,7 +98,13 @@ class BroadFamiliesTestCase(lsst.utils.tests.TestCase):
                                      + 1e-3*self.rng.normal(), dispersion=0.08))
         rows[0]["flag"] = 0x1   # saturated: ignored
         rows[0]["dataCentroid"] = 100.0
-        offsets, shifts = familyShifts(pd.DataFrame(rows), {1: "Ne", 2: "Ar"})
+        for ii, wl in enumerate(np.linspace(700, 800, 10)):   # a lamp with only LOW_SN and IIS lines: ignored
+            for fiberId in range(30):
+                rows.append(dict(file="r1", visit=3, fiberId=fiberId, wavelength=wl, description="KrI",
+                                 transition=f"{OTHER}->5d_2[1/2]*_1", flag=0x2000 if ii % 2 else 0x10000,
+                                 pixel=1000.0 + ii, refPixel=1000.0 + ii, dataCentroid=0.0, dispersion=0.08))
+        offsets, shifts = familyShifts(pd.DataFrame(rows), {1: "Ne", 2: "Ar", 3: "Kr"})
+        self.assertNotIn("Kr", set(offsets.lamp))
         byLamp = offsets.set_index("lamp")
         self.assertFloatsAlmostEqual(byLamp.loc["Ne", "offset"], 0.0, atol=1e-12)
         self.assertFloatsAlmostEqual(byLamp.loc["Ar", "offset"], 0.01, atol=1e-3)

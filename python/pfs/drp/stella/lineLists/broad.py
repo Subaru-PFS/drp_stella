@@ -238,7 +238,11 @@ def readLsfLines(filenames):
     return pd.concat(tables, ignore_index=True)
 
 
-def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=20, minReference=3,
+# LsfLineFlag (PIPE2D-1940) SATURATED, SATURATED_ELSEWHERE, EXCLUDED_STATUS, REJECTED_CENTROID, LOW_SN, IIS
+FAMILY_SHIFT_BAD_FLAGS = 0x1 | 0x2 | 0x4 | 0x20 | 0x2000 | 0x10000
+
+
+def familyShifts(lsfLines, lamps, *, badFlags=FAMILY_SHIFT_BAD_FLAGS, minFibres=20, minReference=3,
                  referenceLamp="Ne"):
     """Centroid shifts of the resonance families relative to the same lamp's other lines
 
@@ -255,11 +259,12 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
         Lamp of each visit to use (e.g. ``{148314: "Ar"}``).
     badFlags : `int`
         Lines with any of these ``flag`` bits are ignored (default: SATURATED, SATURATED_ELSEWHERE,
-        EXCLUDED_STATUS and REJECTED_CENTROID).
+        EXCLUDED_STATUS, REJECTED_CENTROID, LOW_SN and IIS (engineering fibres)).
     minFibres : `int`
         Minimum number of fibres for a line to be used.
     minReference : `int`
-        Minimum number of non-family lines for a lamp's offset and its families' shifts to be reported.
+        Minimum number of non-family lines for a lamp's offset to be reported (and for the reference
+        lamp).
     referenceLamp : `str`
         Lamp offsets are relative to this lamp's non-family lines.
 
@@ -303,7 +308,7 @@ def familyShifts(lsfLines, lamps, *, badFlags=0x1 | 0x2 | 0x4 | 0x20, minFibres=
     shifts = []
     for (lamp, family), fam in perLine[perLine.family != ""].groupby(["lamp", "family"]):
         ref = nonFamily[nonFamily.lamp == lamp]
-        if len(ref) < minReference:
+        if len(ref) < 2:   # with only a few (e.g. Kr in r), the error relies on their scatter
             continue
         shift = fam.residual.median() - ref.residual.median()
         famErr = errorOfMedian(fam.residual) if len(fam) > 2 else _robustStd(ref.residual)
