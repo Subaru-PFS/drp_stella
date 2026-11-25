@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Set
 
 import numpy as np
 
@@ -120,6 +120,12 @@ class ReduceProfilesConnections(
         storageClass="FiberProfileSet",
         dimensions=("instrument", "profiles_group", "arm", "spectrograph"),
     )
+    darkFibers = OutputConnection(
+        name="profiles_darkFibers",
+        doc="Fibers illuminated in the darks but not intentionally in the brights (e.g., broken cobras)",
+        storageClass="StructuredDataDict",
+        dimensions=("instrument", "profiles_group", "arm", "spectrograph"),
+    )
 
 
 class ReduceProfilesConfig(PipelineTaskConfig, pipelineConnections=ReduceProfilesConnections):
@@ -151,6 +157,24 @@ class ReduceProfilesConfig(PipelineTaskConfig, pipelineConnections=ReduceProfile
         dtype=str,
         default=["BAD", "SAT", "CR", "NO_DATA"],
         doc="Mask planes to ignore when subtracting darks",
+    )
+    darkLitThreshold = Field(
+        dtype=float,
+        default=0.05,
+        doc=(
+            "Minimum flux of a fiber in the (mean) dark, relative to the median flux of the fibers exposed "
+            "in the bright exposures, for the fiber to be considered illuminated in the darks"
+        ),
+    )
+    darkIntendedRatio = Field(
+        dtype=float,
+        default=1.5,
+        doc=(
+            "Minimum ratio of bright to (mean) dark flux, relative to the median ratio of all fibers "
+            "illuminated in the darks, for a fiber illuminated in the darks to be considered intentionally "
+            "illuminated in the bright exposure (rather than unable to be hidden); the inverse is the "
+            "maximum ratio for such a fiber to be considered hidden in the bright exposure"
+        ),
     )
 
     def setDefaults(self):
@@ -277,19 +301,27 @@ class ReduceProfilesTask(PipelineTask):
         Returns
         -------
         outputs : `lsst.pipe.base.Struct`
-            Struct with the fiber profiles.
+            Struct with the following elements:
+
+            ``fiberProfiles``
+                Fiber profiles (`pfs.drp.stella.FiberProfileSet`).
+            ``darkFibers``
+                Fibers illuminated in the darks but not intentionally in the
+                bright exposures (`dict` with key ``fiberId``: `list` of
+                `int`).
         """
         for expId in pfsConfigList:
             pfsConfigList[expId] = pfsConfigList[expId].select(spectrograph=identity.spectrograph)
 
-        # Get the list of fiberIds that are illuminated in the darks
-        darkFibers = set()
-        for expId in darkList:
-            pfsConfig = pfsConfigList[expId]
-            darkFibers.update(getIlluminatedFibers(pfsConfig))
+        # Get the fibers that are illuminated in the darks but not intentionally in the bright exposures
+        # (e.g., broken cobras). These are used to scale the darks, and are not included in the profiles.
+        darkFibers = self.findDarkFibers(brightList, darkList, pfsConfigList, detectorMapList)
+        allDarkFibers = set().union(*darkFibers.values())
 
         for expId in brightList:
-            self.subtractDarks(brightList[expId], detectorMapList[expId], darkList.values(), darkFibers)
+            self.subtractDarks(
+                brightList[expId], detectorMapList[expId], darkList.values(), darkFibers[expId]
+            )
 
         # Get the union of all available fiberIds
         fibers = set()
@@ -307,7 +339,7 @@ class ReduceProfilesTask(PipelineTask):
             fibers.intersection_update(exposedFibers)
 
             # Remove fibers that are in the darks
-            fibers.difference_update(darkFibers)
+            fibers.difference_update(allDarkFibers)
 
         fiberId = np.array(list(sorted(fibers)))
 
@@ -335,7 +367,160 @@ class ReduceProfilesTask(PipelineTask):
         for ii, vv in enumerate(sorted(set(darkList.keys()))):
             header[f"CALIB_DARK_{ii}"] = vv
 
-        return Struct(fiberProfiles=profiles)
+        # Fibers illuminated in the darks, for MergeFiberProfilesTask
+        darkFiberData = dict(fiberId=sorted(int(ff) for ff in allDarkFibers))
+
+        return Struct(fiberProfiles=profiles, darkFibers=darkFiberData)
+
+    def measureFiberFlux(
+        self, exposure: Exposure, detectorMap: DetectorMap, fiberId: np.ndarray
+    ) -> np.ndarray:
+        """Measure the flux of fibers in an exposure
+
+        For each row, we sum the pixels within ``darkFiberWidth`` of the
+        fiber center, and take the median over rows.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure to measure.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Detector map.
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers to measure.
+
+        Returns
+        -------
+        flux : `numpy.ndarray` of `float`
+            Flux for each fiber (NaN if it can't be measured).
+        """
+        image = exposure.image.array
+        bad = (exposure.mask.array & exposure.mask.getPlaneBitMask(self.config.darkMask)) != 0
+        bad |= ~np.isfinite(image)
+        height, width = image.shape
+        offsets = np.arange(-self.config.darkFiberWidth + 1, self.config.darkFiberWidth)
+        rows = np.arange(height)
+        flux = np.full(len(fiberId), np.nan, dtype=float)
+        for ii, ff in enumerate(fiberId):
+            xCenter = detectorMap.getXCenter(int(ff))
+            useRows = np.isfinite(xCenter)
+            columns = np.zeros((height, offsets.size), dtype=int)
+            columns[useRows] = np.rint(xCenter[useRows]).astype(int)[:, np.newaxis] + offsets
+            useRows &= np.all((columns >= 0) & (columns < width), axis=1)
+            if not np.any(useRows):
+                continue
+            rr = rows[useRows][:, np.newaxis]
+            cc = columns[useRows]
+            rowFlux = np.where(np.any(bad[rr, cc], axis=1), np.nan, np.sum(image[rr, cc], axis=1))
+            if np.any(np.isfinite(rowFlux)):
+                flux[ii] = np.nanmedian(rowFlux)
+        return flux
+
+    def findDarkFibers(
+        self,
+        brightList: Dict[int, Exposure],
+        darkList: Dict[int, Exposure],
+        pfsConfigList: Dict[int, PfsConfig],
+        detectorMapList: Dict[int, DetectorMap],
+    ) -> Dict[int, Set[int]]:
+        """Find the fibers illuminated in the darks
+
+        We measure which fibers are illuminated in the darks from the data,
+        rather than trusting the pfsConfig (PIPE2D-2034). A fiber illuminated
+        in the darks may be one that can't be hidden (e.g., a broken cobra),
+        in which case its flux in the bright exposure should be the dark flux
+        multiplied by a scale factor common to all such fibers; or it may be
+        one that was only partially hidden in the darks and is intentionally
+        illuminated in the bright exposure, in which case its bright flux is
+        larger. We assume that most fibers illuminated in the darks are of the
+        former kind, and identify those of the latter kind by their large
+        bright/dark flux ratio. Fibers with a small ratio (illuminated in the
+        darks but hidden in the bright exposure) are also excluded, as they
+        would bias the dark scaling.
+
+        Parameters
+        ----------
+        brightList : `dict` [`int`, `lsst.afw.image.Exposure`]
+            Bright exposures (fibers of interest exposed), indexed by expId.
+        darkList : `dict` [`int`, `lsst.afw.image.Exposure`]
+            Dark exposures (all fibers hidden), indexed by expId.
+        pfsConfigList : `dict` [`int`, `pfs.datamodel.PfsConfig`]
+            Top-end fiber configurations, indexed by expId.
+        detectorMapList : `dict` [`int`, `pfs.drp.stella.DetectorMap`]
+            Detector maps, indexed by expId.
+
+        Returns
+        -------
+        darkFibers : `dict` [`int`, `set` of `int`]
+            For each bright exposure, the fibers that are illuminated in the
+            darks but not intentionally in the bright exposure.
+        """
+        if not darkList:
+            return {expId: set() for expId in brightList}
+
+        firstBright = min(brightList.keys())
+        fiberId = np.array(
+            sorted(set(detectorMapList[firstBright].fiberId) & set(pfsConfigList[firstBright].fiberId))
+        )
+
+        darkFlux = np.mean(
+            [
+                self.measureFiberFlux(dark, detectorMapList.get(expId, detectorMapList[firstBright]), fiberId)
+                for expId, dark in darkList.items()
+            ],
+            axis=0,
+        )
+        brightFlux = {
+            expId: self.measureFiberFlux(bright, detectorMapList[expId], fiberId)
+            for expId, bright in brightList.items()
+        }
+
+        # Reference flux: the median flux of the fibers exposed in the bright exposures
+        exposed = [
+            brightFlux[expId][np.isin(fiberId, getIlluminatedFibers(pfsConfigList[expId], actual=True))]
+            for expId in brightList
+        ]
+        reference = np.nanmedian(np.concatenate(exposed))
+        if not np.isfinite(reference) or reference <= 0:
+            self.log.warning(
+                "Unable to measure reference flux; not identifying fibers illuminated in the darks"
+            )
+            return {expId: set() for expId in brightList}
+
+        darkLit = np.isfinite(darkFlux) & (darkFlux > self.config.darkLitThreshold*reference)
+        self.log.info(
+            "%d fibers illuminated in the darks (reference flux %.1f): %s",
+            darkLit.sum(), reference, fiberId[darkLit].tolist(),
+        )
+        configLit = set()
+        for expId in darkList:
+            configLit.update(getIlluminatedFibers(pfsConfigList[expId], actual=True).tolist())
+        disagree = configLit.symmetric_difference(fiberId[darkLit].tolist())
+        if disagree:
+            self.log.warning(
+                "pfsConfig disagrees with the data about fibers illuminated in the darks: %s",
+                sorted(disagree),
+            )
+
+        darkFibers = {}
+        for expId in brightList:
+            ratio = brightFlux[expId][darkLit]/darkFlux[darkLit]
+            scale = np.nanmedian(ratio) if ratio.size > 0 else np.nan
+            intended = ratio > self.config.darkIntendedRatio*scale
+            hidden = ~(ratio >= scale/self.config.darkIntendedRatio) & ~intended  # Includes NaN
+            if np.any(intended):
+                self.log.info(
+                    "Fibers in the darks that are intentionally illuminated in exposure %d: %s",
+                    expId, fiberId[darkLit][intended].tolist(),
+                )
+            if np.any(hidden):
+                self.log.warning(
+                    "Fibers in the darks that are (partly) hidden in exposure %d; "
+                    "dark subtraction will leave a negative residual: %s",
+                    expId, fiberId[darkLit][hidden].tolist(),
+                )
+            darkFibers[expId] = set(fiberId[darkLit][~intended & ~hidden].tolist())
+        return darkFibers
 
     def subtractDarks(
         self,
@@ -361,6 +546,9 @@ class ReduceProfilesTask(PipelineTask):
         """
         if not darkList:
             self.log.warn("No darks provided; not performing dark subtraction")
+            return
+        if not fiberId:
+            self.log.warning("No fibers illuminated in the darks; not performing dark subtraction")
             return
 
         select = self.maskFibers(exposure.getBBox(), detectorMap, fiberId, self.config.darkFiberWidth)
