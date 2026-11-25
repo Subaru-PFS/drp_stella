@@ -29,7 +29,9 @@ from .lsf import LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .spectraLsf import armFiberLsfs, combinedSpectraLsf
 from .SpectrumContinued import Spectrum
-from .interpolate import calculateDispersion, interpolateFlux, interpolateMask, numCovarForSampling
+from .interpolate import (
+    COVAR_DIAGONALS, calculateDispersion, interpolateFlux, interpolateMask, numCovarForSampling
+)
 from .fitContinuum import FitContinuumTask
 from .modelWeights import ModelWeightsTask, resampleWeights
 from .subtractSky1d import subtractSky1d
@@ -244,13 +246,8 @@ class MergeArmsTask(PipelineTask):
         lsfList = [[armFiberLsfs(armSpec, armLsf) for armSpec, armLsf in zip(spec, lsf)]
                    for spec, lsf in zip(spectra, lsfList)]
 
-        # Merge in wavelength, with the same number of covariance diagonals for every spectrograph
-        numCovar = numCovarForSampling(
-            [ss.wavelength for spec in spectra for ss in spec], wavelength, self.config.resampleOrder
-        )
-        spectrographs = [
-            self.mergeSpectra(ss, wavelength, sc, numCovar=numCovar) for ss, sc in zip(spectra, scales)
-        ]
+        # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss, wavelength, sc) for ss, sc in zip(spectra, scales)]
         metadata = allSpectra[0].metadata.copy()
         metadata.update(getPfsVersions())
         # Merge across spectrographs
@@ -405,7 +402,7 @@ class MergeArmsTask(PipelineTask):
 
         return norm
 
-    def mergeSpectra(self, spectraList, wavelength: np.ndarray, scaleList=None, numCovar: int = 0):
+    def mergeSpectra(self, spectraList, wavelength: np.ndarray, scaleList=None):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -421,9 +418,6 @@ class MergeArmsTask(PipelineTask):
             Factor converting counts to the units of each of the spectra, used
             for modeling the variance (see ``ModelWeightsTask``). This is
             important near dichroics, where the throughput falls steeply.
-        numCovar : `int`, optional
-            Number of covariance diagonals to propagate; if 0, as many as the
-            resampling of these spectra needs.
 
         Returns
         -------
@@ -444,10 +438,17 @@ class MergeArmsTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
-        if numCovar == 0:
-            numCovar = numCovarForSampling([ss.wavelength for ss in spectraList], wavelength,
-                                           self.config.resampleOrder)
-        resampled = [ss.resample(wavelength, numCovar=numCovar, **resampleKwargs) for ss in spectraList]
+        # The datamodel keeps the covariance to offsets of two pixels; with linear interpolation (the default)
+        # onto a grid similar to the arms', that is all of it
+        numNeeded = numCovarForSampling(
+            [ss.wavelength for ss in spectraList], wavelength, self.config.resampleOrder
+        )
+        if numNeeded > COVAR_DIAGONALS:
+            self.log.info("Resampling correlates pixels up to %d apart; only offsets up to %d are kept",
+                          numNeeded - 1, COVAR_DIAGONALS - 1)
+        resampled = [
+            ss.resample(wavelength, numCovar=COVAR_DIAGONALS, **resampleKwargs) for ss in spectraList
+        ]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         weights = None
         if self.config.doModelWeights:

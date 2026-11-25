@@ -10,6 +10,7 @@ from .math import interpolateCovariance as interpolateCovarianceImpl
 from .spline import SplineD
 
 __all__ = [
+    "COVAR_DIAGONALS",
     "calculateDispersion",
     "maskCovariance",
     "numCovarForSampling",
@@ -21,6 +22,11 @@ __all__ = [
     "interpolateVariance",
     "interpolateMask",
 ]
+
+
+COVAR_DIAGONALS = 3
+"""Number of covariance diagonals in the datamodel's COVAR: the diagonal, and
+offsets of 1 and 2 (a 5-banded matrix)"""
 
 
 def calculateDispersion(wavelength):

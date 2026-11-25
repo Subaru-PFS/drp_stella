@@ -9,6 +9,7 @@ from pfs.datamodel.pfsTable import EmptyTable
 from .table import Table
 from .referenceLine import ReferenceLineSet, ReferenceLine, ReferenceLineStatus
 from .datamodel.pfsFiberArraySet import PfsFiberArraySet
+from .interpolate import COVAR_DIAGONALS
 
 __all__ = ("ArcLine", "ArcLineSet")
 
@@ -104,7 +105,7 @@ class ArcLineSet(Table):
         wavelength = np.vstack([wlSet]*numFibers)
         flux = np.full((numFibers, numWavelength), np.nan, dtype=float)
         mask = np.full((numFibers, numWavelength), flags["REJECTED"], dtype=np.int32)
-        covar = np.full((numFibers, 3, numWavelength), np.nan, dtype=float)
+        covar = np.full((numFibers, COVAR_DIAGONALS, numWavelength), np.nan, dtype=float)
         variance = covar[:, 0, :]
         sky = np.zeros_like(flux)
         norm = np.ones_like(flux)

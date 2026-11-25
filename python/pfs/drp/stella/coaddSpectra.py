@@ -26,7 +26,7 @@ from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
-from .interpolate import Resampler
+from .interpolate import COVAR_DIAGONALS, Resampler
 from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
@@ -481,13 +481,18 @@ class CoaddSpectraTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
-        # Enough covariance diagonals for every input: this depends on the kernel and the change of sampling
-        numCovar = max(
+        # The datamodel keeps the covariance to offsets of two pixels; with linear interpolation (the default)
+        # onto a grid similar to the arms', that is all of it
+        numCovar = COVAR_DIAGONALS
+        numNeeded = max(
             Resampler(ss.wavelength, wavelength, order=self.config.resampleOrder).numCovarNeeded(
                 ss._numCorrelatedDiagonals()
             )
             for ss in spectraList
         )
+        if numNeeded > numCovar:
+            self.log.info("Resampling correlates pixels up to %d apart; only offsets up to %d are kept",
+                          numNeeded - 1, numCovar - 1)
         for spectrum, weights in zip(spectraList, weightsList, strict=True):
             resampled.append(spectrum.resample(wavelength, numCovar=numCovar, **resampleKwargs))
             resampledWeights.append(
