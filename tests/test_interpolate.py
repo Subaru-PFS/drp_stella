@@ -12,7 +12,9 @@ from pfs.drp.stella.interpolate import (
     interpolate,
     interpolateCovariance,
     interpolateMaskedVariance,
+    numCovarForSampling,
     Resampler,
+    scaleCovariance,
 )
 from pfs.drp.stella.tests import runTests, classParameters, methodParameters, methodParametersProduct
 
@@ -355,6 +357,286 @@ class ResamplerTestCase(lsst.utils.tests.TestCase):
                 full[outStart:outStart + len(result)] = result
                 np.testing.assert_array_equal(full, expect, err_msg=f"order={order} start={start}")
                 self.assertGreater(len(result), 0)
+
+
+class ResamplerCovarianceTestCase(lsst.utils.tests.TestCase):
+    """Claude: the resampling as an operator, and the propagation of correlated noise"""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(24680)
+        numIn = 400
+        self.fromWavelength = 600.0 + 0.067*np.arange(numIn)
+        # ~0.07 nm: once resampled; then ~0.088 nm: a scale change
+        self.midWavelength = np.linspace(600.5, self.fromWavelength[-1] - 0.5, 380)
+        self.toWavelength = np.linspace(601.0, self.fromWavelength[-1] - 1.0, 300)
+
+    def testMatrix(self):
+        """The operator reproduces the C++ resampling: values and covariance"""
+        numIn = len(self.fromWavelength)
+        flux = self.rng.normal(size=numIn)
+        variance = self.rng.uniform(1.0, 2.0, size=numIn)
+        mask = (self.rng.random(numIn) < 0.05).astype(np.int32)
+        for order in (1, 3, 5):
+            numCovar = 2*order + 2
+            resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+            expect = resampler(flux, mask, variance, minWeight=0.0, badMask=1, numCovar=numCovar)
+            matrix = resampler.matrix(mask, 1)
+            np.testing.assert_allclose(matrix @ flux, expect.flux, rtol=0, atol=1.0e-12,
+                                       err_msg=f"order={order}")
+            covar = resampler.propagateCovariance(variance[np.newaxis, :], mask, 1, numCovar)
+            np.testing.assert_allclose(covar, expect.covariance, rtol=1.0e-10, atol=1.0e-12,
+                                       err_msg=f"order={order}")
+
+    def testNonPositiveKernel(self):
+        """An output pixel whose kernel sums to <= 0 has no covariance with its neighbours
+
+        With masked source pixels, a Lanczos kernel's remaining values can sum
+        to zero or less; the pixel is then masked and its covariance set to the
+        fill value. Its unnormalised kernel used to enter its neighbours'
+        off-diagonal covariances.
+        """
+        numIn = len(self.fromWavelength)
+        variance = np.ones(numIn)
+        order = 3
+        resampler = Resampler(self.fromWavelength, self.toWavelength, order=order)
+        # Mask the source pixels where an output pixel's kernel is positive: only its negative lobes remain
+        ii = len(self.toWavelength)//2
+        target = resampler.indices[ii]
+        columns = np.ceil(target).astype(int) + np.arange(-order, order)
+        values = resampler.kernel(columns - target)
+        mask = np.zeros(numIn, dtype=np.int32)
+        mask[columns[values > 0]] = 1
+        self.assertLess(values[values <= 0].sum(), 0.0)
+        self.assertEqual(np.diff(resampler.matrix(mask, 1).indptr)[ii], 0)  # no valid kernel
+        result = resampler(np.zeros(numIn), mask, variance, minWeight=0.0, badMask=1, numCovar=4)
+        np.testing.assert_array_equal(result.covariance[:, ii], 0.0)
+        for kk in range(1, 4):
+            self.assertEqual(result.covariance[kk, ii - kk], 0.0)
+        expect = resampler.propagateCovariance(variance[np.newaxis, :], mask, 1, 4)
+        np.testing.assert_allclose(result.covariance, expect, rtol=1.0e-10, atol=1.0e-12)
+
+    def testCorrelated(self):
+        """Correlated input (resampled twice, with a scale change): K C K^T, against Monte Carlo"""
+        numIn = len(self.fromWavelength)
+        numSamples = 20000
+        for order in (1, 3):
+            first = Resampler(self.fromWavelength, self.midWavelength, order=order)
+            second = Resampler(self.midWavelength, self.toWavelength, order=order)
+            numMid = len(self.midWavelength)
+            numDiag = 2*order + 2
+            # Covariance after the first resampling (unit-variance, independent input)
+            midCovar = first.propagateCovariance(np.ones((1, numIn)), numCovar=numDiag)
+            self.assertGreater(np.max(np.abs(midCovar[1])), 0.05)  # correlated
+            # Exact, against a dense calculation
+            numCovar = 2*order + 2
+            result = second.propagateCovariance(midCovar, numCovar=numCovar)
+            dense = np.zeros((numMid, numMid))
+            for kk in range(numDiag):
+                dense += np.diag(midCovar[kk, :numMid - kk], k=kk)
+                if kk > 0:
+                    dense += np.diag(midCovar[kk, :numMid - kk], k=-kk)
+            operator = second.matrix().toarray()
+            expect = operator @ dense @ operator.T
+            for kk in range(numCovar):
+                np.testing.assert_allclose(result[kk, :len(self.toWavelength) - kk], np.diagonal(expect, kk),
+                                           rtol=0, atol=1.0e-12, err_msg=f"order={order} offset={kk}")
+            # Through __call__
+            called = second(np.zeros(numMid), np.zeros(numMid, dtype=np.int32), midCovar[0],
+                            numCovar=numCovar, covariance=midCovar)
+            np.testing.assert_allclose(called.covariance, result, rtol=0, atol=1.0e-12)
+            # Without the off-diagonals, the C++ path (uncorrelated) is used, and differs
+            uncorrelated = second(np.zeros(numMid), np.zeros(numMid, dtype=np.int32), midCovar[0],
+                                  numCovar=numCovar)
+            self.assertGreater(np.max(np.abs(uncorrelated.covariance - result)), 0.05)
+            # Monte Carlo:  noise resampled twice
+            noise = self.rng.normal(size=(numSamples, numIn))
+            mid = (first.matrix() @ noise.T).T
+            out = (second.matrix() @ mid.T).T
+            interior = slice(2*order + 2, len(self.toWavelength) - 3*order - 3)
+            for kk in range(numCovar):
+                measured = np.mean(out[:, :len(self.toWavelength) - kk]*out[:, kk:], axis=0)
+                np.testing.assert_allclose(
+                    measured[interior], result[kk, :len(self.toWavelength) - kk][interior],
+                    rtol=0, atol=0.05, err_msg=f"order={order} offset={kk}",
+                )
+
+    def testGuard(self):
+        """Resampling a model variance for correlated spectra is refused"""
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        numIn = len(self.fromWavelength)
+        flags = MaskHelper(NO_DATA=0)
+        covar = np.zeros((2, 3, numIn), dtype=np.float32)
+        covar[:, 0] = 1.0
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1, 2]),
+            np.array([self.fromWavelength]*2), np.ones((2, numIn), dtype=np.float32),
+            np.zeros((2, numIn), dtype=np.int32), np.zeros((2, numIn), dtype=np.float32),
+            np.ones((2, numIn), dtype=np.float32), covar, flags, {},
+        )
+        variance = np.ones((2, numIn))
+        spectra.resampleVariance(self.toWavelength, variance)  # uncorrelated: fine
+        covar[:, 1] = 0.2  # correlated
+        with self.assertRaises(NotImplementedError):
+            spectra.resampleVariance(self.toWavelength, variance)
+        # The spectra themselves are resampled with their correlations
+        resampled = spectra.resample(self.toWavelength, order=1, numCovar=2)
+        resampler = Resampler(self.fromWavelength, self.toWavelength, order=1)
+        expect = resampler.propagateCovariance(covar[0, :2], numCovar=2)
+        np.testing.assert_allclose(resampled.covar[0], expect, rtol=1.0e-6, atol=1.0e-6)
+
+
+class ResamplerKernelTestCase(lsst.utils.tests.TestCase):
+    """Claude: the kernel specification, and the number of covariance diagonals needed"""
+
+    def testKernel(self):
+        """kernel/lanczosOrder and the legacy order give the same resampling"""
+        fromWavelength = 600.0 + 0.067*np.arange(300)
+        toWavelength = np.linspace(601.0, 618.0, 200)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="linear").order, 1)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="lanczos").order, 3)
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=5).order, 5)
+        self.assertEqual(Resampler(fromWavelength, toWavelength).order, 3)  # the legacy default
+        self.assertEqual(Resampler(fromWavelength, toWavelength, kernel="linear").kernelName, "linear")
+        self.assertEqual(Resampler(fromWavelength, toWavelength, order=4).kernelName, "lanczos")
+        flux = np.random.default_rng(1).normal(size=300)
+        np.testing.assert_array_equal(
+            Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=4).resampleFlux(flux),
+            Resampler(fromWavelength, toWavelength, order=4).resampleFlux(flux),
+        )
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="linear", order=1)
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="lanczos", lanczosOrder=1)
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, kernel="sinc")
+        with self.assertRaises(ValueError):
+            Resampler(fromWavelength, toWavelength, order=0)
+
+    def testNumCovarNeeded(self):
+        """numCovarNeeded holds all of the covariance, for various kernels and changes of sampling"""
+        numIn = 600
+        fromWavelength = 600.0 + 0.1*np.arange(numIn)
+        expected = {  # (kernel, lanczosOrder, output/input spacing): number of diagonals
+            ("linear", 3, 0.5): 4, ("linear", 3, 0.91): 3, ("linear", 3, 1.2): 2, ("linear", 3, 2.5): 1,
+            ("lanczos", 3, 0.91): 7, ("lanczos", 3, 1.2): 5, ("lanczos", 5, 0.98): 11,
+        }
+        for (kernel, lanczosOrder, ratio), numCovar in expected.items():
+            toWavelength = np.arange(fromWavelength[20], fromWavelength[-20], 0.1*ratio)
+            resampler = Resampler(fromWavelength, toWavelength, kernel=kernel, lanczosOrder=lanczosOrder)
+            needed = resampler.numCovarNeeded()
+            self.assertEqual(needed, numCovar, msg=f"{kernel} {lanczosOrder} {ratio}")
+            covar = resampler.propagateCovariance(np.ones((1, numIn)), numCovar=needed + 3)
+            np.testing.assert_array_equal(covar[needed:, :-needed - 3], 0.0)  # nothing beyond
+            self.assertGreater(np.max(np.abs(covar[needed - 1, :-needed])), 0.0)  # and the last one is used
+            # Correlated input needs more diagonals
+            correlated = np.zeros((3, numIn))
+            correlated[0] = 1.0
+            correlated[1] = 0.3
+            correlated[2] = 0.1
+            neededCorrelated = resampler.numCovarNeeded(3)
+            self.assertGreater(neededCorrelated, needed)
+            covar = resampler.propagateCovariance(correlated, numCovar=neededCorrelated + 3)
+            np.testing.assert_allclose(covar[neededCorrelated:, :-neededCorrelated - 3], 0.0, atol=1.0e-15)
+
+
+class NumCovarForSamplingTestCase(lsst.utils.tests.TestCase):
+    """Claude: the number of covariance diagonals for several samplings at once"""
+
+    def testConservative(self):
+        """At least as many as each sampling needs, and no more than one extra"""
+        toWavelength = np.arange(600.0, 900.0, 0.08)
+        armWavelengths = [
+            600.0 + 0.0819*np.arange(3000),  # coarser than the output (r-like)
+            605.0 + 0.0876*np.arange(3000),
+            610.0 + 0.067*np.arange(3000),  # finer than the output (b-like)
+        ]
+        for order in (1, 3):
+            exact = max(Resampler(wl, toWavelength, order=order).numCovarNeeded() for wl in armWavelengths)
+            result = numCovarForSampling(armWavelengths, toWavelength, order)
+            self.assertGreaterEqual(result, exact)
+            self.assertLessEqual(result, exact + 1)
+            # A 2-D array of fibers is the same as its rows
+            self.assertEqual(numCovarForSampling([np.array(armWavelengths)], toWavelength, order), result)
+
+
+class ScaleCovarianceTestCase(lsst.utils.tests.TestCase):
+    """Claude: scaling the covariance of spectra multiplied or divided by a vector"""
+
+    def setUp(self):
+        self.rng = np.random.RandomState(12345)
+        self.num = 50
+        self.numCovar = 3
+        # A positive-definite banded covariance
+        diagonals = [2.0 + self.rng.uniform(size=self.num), 0.5*self.rng.uniform(size=self.num),
+                     0.2*self.rng.uniform(size=self.num)]
+        self.covariance = np.array(diagonals)
+        self.factor = self.rng.uniform(0.5, 2.0, size=self.num)
+
+    def dense(self, covariance):
+        """The full symmetric matrix of a banded covariance"""
+        matrix = np.diag(covariance[0])
+        for kk in range(1, covariance.shape[0]):
+            band = covariance[kk, :self.num - kk]
+            matrix += np.diag(band, k=kk) + np.diag(band, k=-kk)
+        return matrix
+
+    def testMultiply(self):
+        """Multiplying by f gives the covariance diag(f) C diag(f)"""
+        result = self.covariance.copy()
+        scaleCovariance(result, self.factor)
+        expect = np.diag(self.factor) @ self.dense(self.covariance) @ np.diag(self.factor)
+        np.testing.assert_allclose(self.dense(result), expect, rtol=1.0e-14)
+
+    def testDivide(self):
+        """Dividing by f gives diag(1/f) C diag(1/f), with the variance bit for bit C/f**2"""
+        result = self.covariance.copy()
+        scaleCovariance(result, self.factor, divide=True)
+        expect = np.diag(1.0/self.factor) @ self.dense(self.covariance) @ np.diag(1.0/self.factor)
+        np.testing.assert_allclose(self.dense(result), expect, rtol=1.0e-14)
+        np.testing.assert_array_equal(result[0], self.covariance[0]/self.factor**2)
+
+    def testFiberArraySet(self):
+        """The spectra's arithmetic scales the off-diagonals by f(i) f(i + k)
+
+        Applying a flux calibration (``spectra /= calibration``) previously
+        scaled every diagonal by ``f(i)**2``.
+        """
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        covar = np.array([self.covariance, 2*self.covariance])
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1, 2]),
+            np.array([600.0 + 0.08*np.arange(self.num)]*2), np.ones((2, self.num)),
+            np.zeros((2, self.num), dtype=np.int32), np.zeros((2, self.num)),
+            np.ones((2, self.num)), covar.copy(), MaskHelper(NO_DATA=0), {},
+        )
+        factor = np.array([self.factor, self.factor[::-1]])
+        spectra /= factor
+        for ii in range(2):
+            expect = covar[ii].copy()
+            scaleCovariance(expect, factor[ii], divide=True)
+            np.testing.assert_array_equal(spectra.covar[ii], expect)
+            np.testing.assert_array_equal(spectra.variance[ii], covar[ii, 0]/factor[ii]**2)
+        spectra *= factor
+        np.testing.assert_allclose(spectra.covar, covar, rtol=1.0e-14)
+
+    def testNoDataIsNotCorrelation(self):
+        """Infinite covariances mark NO_DATA pixels; they don't make the pixels correlated"""
+        from pfs.datamodel import Identity, MaskHelper
+        from pfs.drp.stella.datamodel import PfsFiberArraySet
+        covar = np.zeros((1, 3, self.num))
+        covar[:, 0] = 1.0
+        covar[:, :, 10] = np.inf  # as written by the coadd
+        spectra = PfsFiberArraySet(
+            Identity(visit=1, arm="r", spectrograph=1), np.array([1]),
+            np.array([600.0 + 0.08*np.arange(self.num)]), np.ones((1, self.num)),
+            np.zeros((1, self.num), dtype=np.int32), np.zeros((1, self.num)),
+            np.ones((1, self.num)), covar, MaskHelper(NO_DATA=0), {},
+        )
+        self.assertEqual(spectra._numCorrelatedDiagonals(), 1)
+        spectra.covar[:, 1, 20] = 0.1
+        self.assertEqual(spectra._numCorrelatedDiagonals(), 2)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

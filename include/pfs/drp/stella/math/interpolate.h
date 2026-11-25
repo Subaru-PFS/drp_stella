@@ -257,6 +257,12 @@ void interpolate(
             }
             if (wantCovariance) {
                 resultCovariance[ndarray::view()(ii)] = fill;
+                if (wantCovarianceExtra) {
+                    // No valid (normalisable) kernel: this pixel has no covariance with its neighbours
+                    kernelCache[ii] = 0.0;
+                    startCache[ii] = -1;
+                    endCache[ii] = -1;
+                }
             }
             if (wantMask) {
                 resultMask[ii] = true;

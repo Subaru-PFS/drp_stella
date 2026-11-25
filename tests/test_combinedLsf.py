@@ -141,6 +141,7 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
             task = MergeArmsTask(config=config)
             arms, lsfs = self.makeArms(order)
             merged = task.mergeSpectra(arms, self.wavelength)
+            self.assertEqual(merged.pfsMerged.covar.shape[1], 3)  # the datamodel's COVAR, whatever the order
             lsfDict = task.mergeLsfs(lsfs, arms, self.wavelength, merged.weights)
             self.assertEqual(set(lsfDict), set(self.fiberId))
             for ii, ff in enumerate(self.fiberId):
@@ -196,6 +197,7 @@ class CombinedLsfTestCase(lsst.utils.tests.TestCase):
 
             # Several visits: exact for smooth weights; approximate for the actual (per-pixel) weights
             combination = task.combine(singles, lsfList, self.flags, self.wavelength)
+            self.assertEqual(combination.covar.shape[0], 3)  # the datamodel's COVAR, whatever the order
             lsf = combination.lsf
             self.assertEqual(len(lsf.inputs), len(singles))
             smooth = self.smoothCombination(lsf, [ss.flux for ss in singles],

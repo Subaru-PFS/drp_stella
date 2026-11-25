@@ -29,7 +29,7 @@ from pfs.drp.stella.extinctionCurve import F99ExtinctionCurve
 from pfs.drp.stella.fitBroadbandSED import FitBroadbandSEDTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.fluxModelSet import FluxModelSet
-from pfs.drp.stella.interpolate import interpolateFlux, interpolateIndices, interpolateMask
+from pfs.drp.stella.interpolate import COVAR_DIAGONALS, interpolateFlux, interpolateIndices, interpolateMask
 from pfs.drp.stella.math import interpolateFlux as interpolateFluxImpl
 from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict
 from pfs.drp.stella.utils.math import ChisqList
@@ -2136,7 +2136,7 @@ def promoteSimpleSpectrumToFiberArray(spectrum: PfsSimpleSpectrum, snr: float) -
         flux=spectrum.flux,
         mask=spectrum.mask,
         sky=np.zeros(shape=spectrum.flux.shape, dtype=float),
-        covar=np.zeros(shape=(3,) + spectrum.flux.shape, dtype=float),
+        covar=np.zeros(shape=(COVAR_DIAGONALS,) + spectrum.flux.shape, dtype=float),
         covar2=np.zeros(shape=(0, 0), dtype=float),
         flags=spectrum.flags,
         metadata=spectrum.metadata,

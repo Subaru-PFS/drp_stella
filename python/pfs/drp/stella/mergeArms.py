@@ -29,7 +29,9 @@ from .lsf import LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .spectraLsf import armFiberLsfs, combinedSpectraLsf
 from .SpectrumContinued import Spectrum
-from .interpolate import calculateDispersion, interpolateFlux, interpolateMask
+from .interpolate import (
+    COVAR_DIAGONALS, calculateDispersion, interpolateFlux, interpolateMask, numCovarForSampling
+)
 from .fitContinuum import FitContinuumTask
 from .modelWeights import ModelWeightsTask, resampleWeights
 from .subtractSky1d import subtractSky1d
@@ -84,7 +86,8 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
 class MergeArmsConfig(PipelineTaskConfig, pipelineConnections=MergeArmsConnections):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=1,
+                          doc="Interpolation order: 1 is linear; >1 uses a Lanczos kernel of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the merged line-spread function")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
@@ -435,7 +438,17 @@ class MergeArmsTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
-        resampled = [ss.resample(wavelength, **resampleKwargs) for ss in spectraList]
+        # The datamodel keeps the covariance to offsets of two pixels; with linear interpolation (the default)
+        # onto a grid similar to the arms', that is all of it
+        numNeeded = numCovarForSampling(
+            [ss.wavelength for ss in spectraList], wavelength, self.config.resampleOrder
+        )
+        if numNeeded > COVAR_DIAGONALS:
+            self.log.info("Resampling correlates pixels up to %d apart; only offsets up to %d are kept",
+                          numNeeded - 1, COVAR_DIAGONALS - 1)
+        resampled = [
+            ss.resample(wavelength, numCovar=COVAR_DIAGONALS, **resampleKwargs) for ss in spectraList
+        ]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         weights = None
         if self.config.doModelWeights:

@@ -4,7 +4,7 @@ from lsst.pipe.base import Struct
 
 from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 
-from ..interpolate import Resampler
+from ..interpolate import Resampler, maskCovariance, scaleCovariance
 
 __all__ = ("PfsFiberArraySet",)
 
@@ -49,9 +49,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.flux *= rhs
             self.sky *= rhs
             self.norm *= rhs
-            rhsSquared = rhs**2
-            for ii in range(self.covar.shape[1]):
-                self.covar[:, ii, :] *= rhsSquared
+            scaleCovariance(self.covar, rhs)
         return self
 
     def __itruediv__(self, rhs):
@@ -63,9 +61,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             self.flux /= rhs
             self.sky /= rhs
             self.norm /= rhs
-            rhsSquared = rhs**2
-            for ii in range(self.covar.shape[1]):
-                self.covar[:, ii, :] /= rhsSquared
+            scaleCovariance(self.covar, rhs, divide=True)
         return self
 
     def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True,
@@ -139,6 +135,15 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             figure.show()
         return figure, ax
 
+    def _numCorrelatedDiagonals(self) -> int:
+        """Number of diagonals of the covariance up to the last non-zero one
+
+        1 means that the pixels are uncorrelated.
+        """
+        offDiagonal = np.isfinite(self.covar[:, 1:]) & (self.covar[:, 1:] != 0)  # inf marks NO_DATA
+        nonZero = np.flatnonzero(np.any(offDiagonal, axis=(0, 2)))
+        return 1 + (nonZero[-1] + 1 if len(nonZero) > 0 else 0)
+
     def _prepareMask(self, index: int, variance: np.ndarray, bad: list[str] | None) -> Struct:
         """Prepare the mask of a single fiber for interpolation
 
@@ -211,9 +216,10 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``, which is suitable for interpolation on a similar
-            wavelength grid to the original.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed to hold all of the covariance, which depends on the kernel,
+            the change in sampling and any correlations already present (see
+            `pfs.drp.stella.interpolate.Resampler.numCovarNeeded`).
 
         Returns
         -------
@@ -222,8 +228,10 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         """
         if fiberId is None:
             fiberId = self.fiberId
+        indices = [np.argwhere(self.fiberId == ff)[0][0] for ff in fiberId]
+        resamplers = [Resampler(self.wavelength[jj], wavelength, order=order, fill=0.0) for jj in indices]
         if numCovar == 0:
-            numCovar = order + 1
+            numCovar = max(rr.numCovarNeeded(self._numCorrelatedDiagonals()) for rr in resamplers)
 
         numSpectra = len(fiberId)
         numSamples = len(wavelength)
@@ -233,9 +241,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
         covar = np.zeros((numSpectra, numCovar, numSamples), dtype=self.covar.dtype)
 
-        for ii, ff in enumerate(fiberId):
-            jj = np.argwhere(self.fiberId == ff)[0][0]
-            resampler = Resampler(self.wavelength[jj], wavelength, order=order, fill=0.0)
+        for ii, (jj, resampler) in enumerate(zip(indices, resamplers)):
             norm[ii] = resampler.resampleFlux(self.norm[jj])
             prepared = self._prepareMask(jj, self.variance[jj], bad)
             result = resampler(
@@ -246,6 +252,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
                 badMask=prepared.badMask,
                 fillMask=prepared.fillMask,
                 numCovar=numCovar,
+                covariance=maskCovariance(self.covar[jj], prepared.badVariance),
             )
             badNorm = (self.norm[jj] == 0) | ~np.isfinite(self.norm[jj])
             badSky = badNorm | ~np.isfinite(self.sky[jj])
@@ -289,8 +296,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed (as for ``resample``).
 
         Returns
         -------
@@ -300,16 +307,29 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             ``NO_DATA`` bit set.
         covariance : `numpy.ndarray` of `float`, shape ``(N, numCovar, M)``
             Resampled covariance for each fiber.
+
+        Raises
+        ------
+        NotImplementedError
+            If the spectra's pixels are correlated (non-zero off-diagonal
+            covariance): the ``variance`` would be resampled as if its pixels
+            were independent, unlike the spectra's.
         """
-        if numCovar == 0:
-            numCovar = order + 1
         if variance.shape != self.flux.shape:
             raise RuntimeError(f"Shape mismatch between variance {variance.shape} and flux {self.flux.shape}")
+        if self._numCorrelatedDiagonals() > 1:
+            raise NotImplementedError(
+                "Resampling a variance for spectra with correlated pixels (non-zero off-diagonal covariance)"
+            )
+        resamplers = [
+            Resampler(self.wavelength[ii], wavelength, order=order, fill=0.0) for ii in range(len(self))
+        ]
+        if numCovar == 0:
+            numCovar = max(rr.numCovarNeeded() for rr in resamplers)
         mask = np.empty((len(self), len(wavelength)), dtype=self.mask.dtype)
         covar = np.zeros((len(self), numCovar, len(wavelength)), dtype=self.covar.dtype)
-        for ii in range(len(self)):
+        for ii, resampler in enumerate(resamplers):
             prepared = self._prepareMask(ii, variance[ii], bad)
-            resampler = Resampler(self.wavelength[ii], wavelength, order=order, fill=0.0)
             result = resampler.resampleVariance(
                 prepared.mask,
                 np.where(prepared.badVariance, 0.0, variance[ii]).astype(np.float32),

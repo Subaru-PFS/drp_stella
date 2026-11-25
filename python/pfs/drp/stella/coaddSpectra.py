@@ -26,11 +26,12 @@ from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
+from .interpolate import COVAR_DIAGONALS, Resampler
 from .lsf import Lsf, LsfDict
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
 from .spectraLsf import armFiberLsfs, combinedSpectraLsf
-from .combineSpectra import accumulateWeighted, calculateCoaddWeights
+from .combineSpectra import accumulateWeighted, calculateCoaddWeights, propagateOffDiagonals
 from .gen3 import DatasetRefList, zipDatasetRefs
 
 __all__ = ("CoaddSpectraConfig", "CoaddSpectraTask")
@@ -133,7 +134,8 @@ class CoaddSpectraConnections(
 class CoaddSpectraConfig(PipelineTaskConfig, pipelineConnections=CoaddSpectraConnections):
     """Configuration for CoaddSpectraTask"""
     wavelength = ConfigurableField(target=WavelengthSamplingTask, doc="Wavelength sampling")
-    resampleOrder = Field(dtype=int, default=1, doc="Interpolation order; >=1 uses a Lanczos of that order")
+    resampleOrder = Field(dtype=int, default=1,
+                          doc="Interpolation order: 1 is linear; >1 uses a Lanczos kernel of that order")
     resampleMinWeight = Field(dtype=float, default=0.5, doc="Minimum weight for interpolation")
     lsf = ConfigField(dtype=CombinedLsfConfig, doc="Construction of the coadded line-spread function")
     mask = ListField(dtype=str, default=["NO_DATA", "SUSPECT", "BAD_SKY", "BAD_FLUXCAL", "BAD_FIBERNORMS"],
@@ -472,7 +474,6 @@ class CoaddSpectraTask(PipelineTask):
         # First, resample to a common wavelength sampling
         resampled = []
         resampledWeights = []
-        numCovar = self.config.resampleOrder + 1  # Expected number of covariance diagonals
         if weightsList is None:
             weightsList = [None]*len(spectraList)
         resampleKwargs = dict(
@@ -480,8 +481,20 @@ class CoaddSpectraTask(PipelineTask):
             minWeight=self.config.resampleMinWeight,
             bad=self.config.mask,
         )
+        # The datamodel keeps the covariance to offsets of two pixels; with linear interpolation (the default)
+        # onto a grid similar to the arms', that is all of it
+        numCovar = COVAR_DIAGONALS
+        numNeeded = max(
+            Resampler(ss.wavelength, wavelength, order=self.config.resampleOrder).numCovarNeeded(
+                ss._numCorrelatedDiagonals()
+            )
+            for ss in spectraList
+        )
+        if numNeeded > numCovar:
+            self.log.info("Resampling correlates pixels up to %d apart; only offsets up to %d are kept",
+                          numNeeded - 1, numCovar - 1)
         for spectrum, weights in zip(spectraList, weightsList, strict=True):
-            resampled.append(spectrum.resample(wavelength, **resampleKwargs))
+            resampled.append(spectrum.resample(wavelength, numCovar=numCovar, **resampleKwargs))
             resampledWeights.append(
                 None if weights is None else resampleWeights(spectrum, weights, wavelength, **resampleKwargs)
             )
@@ -499,8 +512,8 @@ class CoaddSpectraTask(PipelineTask):
         sumWeights = weights.sumWeights
         accumulateWeighted([ss.flux for ss in resampled], weights.weights, weights.selects, flux)
         accumulateWeighted([ss.sky for ss in resampled], weights.weights, weights.selects, sky)
-        accumulateWeighted([ss.covar for ss in resampled], [ww**2 for ww in weights.weights], weights.selects,
-                           covar)
+        accumulateWeighted([ss.covar[:1] for ss in resampled], [ww**2 for ww in weights.weights],
+                           weights.selects, covar[:1])
         for ss, select in zip(resampled, weights.selects):
             mask[select] |= ss.mask[select]
 
@@ -508,7 +521,13 @@ class CoaddSpectraTask(PipelineTask):
         ww = sumWeights[good]
         flux[good] /= ww
         sky[good] /= ww
-        covar[:, good] /= ww**2
+        covar[0, good] /= ww**2
+        # The covariance of pixels i and i + k involves the weights at both (see propagateOffDiagonals)
+        with np.errstate(divide="ignore"):
+            inverseSum = np.where(good, 1.0/sumWeights, 0.0)
+        covar[1:] = propagateOffDiagonals(
+            [ss.covar for ss in resampled], weights.weights, weights.selects, inverseSum, numCovar
+        )
         covar[:, ~good] = np.inf
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)

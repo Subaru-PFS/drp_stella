@@ -21,7 +21,7 @@ from .barycentricCorrection import applyBarycentricCorrection
 from .coaddSpectra import CoaddSpectraTask, CoaddSpectraConfig
 from .datamodel.drp import PfsArm
 from .focalPlaneFunction import FocalPlaneFunction
-from .interpolate import calculateDispersion
+from .interpolate import COVAR_DIAGONALS, calculateDispersion
 from .utils.sysUtils import getPfsVersions
 from .wavelengthSampling import WavelengthSamplingTask
 
@@ -264,10 +264,11 @@ class CoaddNoiseTask(CoaddSpectraTask):
         residuals = np.array([combo.flux - original.flux for combo in combinations])
 
         flux = np.mean(residuals, axis=0)
-        covariance = np.zeros((3, original.flux.size), dtype=original.covar.dtype)
+        length = original.flux.size
+        covariance = np.zeros((COVAR_DIAGONALS, length), dtype=original.covar.dtype)
         covariance[0] = np.var(residuals, axis=0, ddof=1)  # Variance
-        covariance[1, :-1] = np.mean(residuals[:, :-1]*residuals[:, 1:], axis=0)  # lag-1 covariance
-        covariance[2, :-2] = np.mean(residuals[:, :-2]*residuals[:, 2:], axis=0)  # lag-2 covariance
+        for lag in range(1, min(COVAR_DIAGONALS, length)):  # Covariance with the pixel lag pixels further on
+            covariance[lag, :-lag] = np.mean(residuals[:, :-lag]*residuals[:, lag:], axis=0)
 
         mask = np.bitwise_and.accumulate([combo.mask for combo in combinations])[0]
 

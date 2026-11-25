@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pfs.datamodel
 from lsst.pipe.base import Struct
 
-from ..interpolate import Resampler, interpolateFlux, interpolateMask
+from ..interpolate import Resampler, interpolateFlux, interpolateMask, maskCovariance, scaleCovariance
 
 if TYPE_CHECKING:
     from matplotlib import Figure, Axes
@@ -113,7 +113,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         with np.errstate(invalid="ignore"):
             self.flux *= rhs
             self.sky *= rhs
-            self.covar *= (rhs**2).reshape(1, -1)
+            scaleCovariance(self.covar, rhs)
         return self
 
     def __itruediv__(self, rhs: Union[float, np.ndarray]) -> "PfsFiberArray":
@@ -175,6 +175,15 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         if show:
             figure.show()
         return figure, axes
+
+    def _numCorrelatedDiagonals(self) -> int:
+        """Number of diagonals of the covariance up to the last non-zero one
+
+        1 means that the pixels are uncorrelated.
+        """
+        offDiagonal = np.isfinite(self.covar[1:]) & (self.covar[1:] != 0)  # inf marks NO_DATA
+        nonZero = np.flatnonzero(np.any(offDiagonal, axis=1))
+        return 1 + (nonZero[-1] + 1 if len(nonZero) > 0 else 0)
 
     def _prepareMask(self, variance: np.ndarray, bad: list[str] | None) -> Struct:
         """Prepare the mask for interpolation
@@ -243,19 +252,20 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``, which is suitable for interpolation on a similar
-            wavelength grid to the original.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed to hold all of the covariance, which depends on the kernel,
+            the change in sampling and any correlations already present (see
+            `pfs.drp.stella.interpolate.Resampler.numCovarNeeded`).
 
         Returns
         -------
         resampled : `PfsFiberArray`
             Resampled spectrum.
         """
-        if numCovar == 0:
-            numCovar = order + 1
-        prepared = self._prepareMask(self.variance, bad)
         resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        if numCovar == 0:
+            numCovar = resampler.numCovarNeeded(self._numCorrelatedDiagonals())
+        prepared = self._prepareMask(self.variance, bad)
         result = resampler(
             np.where(prepared.badFlux, 0.0, self.flux),
             prepared.mask,
@@ -264,6 +274,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             badMask=prepared.badMask,
             fillMask=prepared.fillMask,
             numCovar=numCovar,
+            covariance=maskCovariance(self.covar, prepared.badVariance),
         )
         badSky = ~np.isfinite(self.sky)
         sky = resampler.resampleFlux(np.where(badSky, 0.0, self.sky))
@@ -313,8 +324,8 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
         minWeight : `float`, optional
             Minimum weight for Lanczos interpolation.
         numCovar : `int`, optional
-            Number of covariance diagonals to interpolate. If 0, use
-            ``order + 1``.
+            Number of covariance diagonals to interpolate. If 0, as many as
+            needed (as for ``resample``).
 
         Returns
         -------
@@ -323,11 +334,23 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             with a non-finite ``variance``) have the ``NO_DATA`` bit set.
         covariance : `numpy.ndarray` of `float`, shape ``(numCovar, N)``
             Resampled covariance.
+
+        Raises
+        ------
+        NotImplementedError
+            If the spectrum's pixels are correlated (non-zero off-diagonal
+            covariance): the ``variance`` would be resampled as if its pixels
+            were independent, unlike the spectrum's.
         """
-        if numCovar == 0:
-            numCovar = order + 1
-        prepared = self._prepareMask(variance, bad)
+        if self._numCorrelatedDiagonals() > 1:
+            raise NotImplementedError(
+                "Resampling a variance for a spectrum with correlated pixels "
+                "(non-zero off-diagonal covariance)"
+            )
         resampler = Resampler(self.wavelength, wavelength, order=order, fill=0.0)
+        if numCovar == 0:
+            numCovar = resampler.numCovarNeeded()
+        prepared = self._prepareMask(variance, bad)
         result = resampler.resampleVariance(
             prepared.mask,
             np.where(prepared.badVariance, 0.0, variance),
