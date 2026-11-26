@@ -32,6 +32,7 @@ from .fitFocalPlane import FitFocalPlaneConfig, FitFocalPlaneTask
 from .fitFluxReference import FilterCurve, removeBadFluxes
 from .focalPlaneFunction import ConstantFocalPlaneFunction, FluxCalib
 from .lsf import LsfDict
+from .spectraLsf import legacyLsfs
 from .utils import debugging
 from .math import NormalizedPolynomialND
 
@@ -1240,11 +1241,12 @@ class FitFluxCalConnections(PipelineTaskConnections, dimensions=("instrument", "
         storageClass="PfsMerged",
         dimensions=("instrument", "visit"),
     )
-    pfsMergedLsf = InputConnection(
+    pfsMergedLsf = PrerequisiteConnection(
         name="pfsMergedLsf",
-        doc="Line-spread function of merged spectra",
+        doc="Deprecated pickled line-spread function of merged spectra, used only if the pfsMerged has none",
         storageClass="LsfDict",
         dimensions=("instrument", "visit"),
+        minimum=0,
     )
     pfsConfig = PrerequisiteConnection(
         name="pfsConfig",
@@ -1408,10 +1410,28 @@ class FitFluxCalTask(PipelineTask):
 
         self.debugInfo = lsstDebug.Info(__name__)
 
+    def runQuantum(self, butler, inputRefs, outputRefs) -> None:
+        """Entry point with butler I/O
+
+        Parameters
+        ----------
+        butler : `QuantumContext`
+            Data butler, specialised to operate in the context of a quantum.
+        inputRefs : `InputQuantizedConnection`
+            Container with attributes that are data references for the various
+            input connections.
+        outputRefs : `OutputQuantizedConnection`
+            Container with attributes that are data references for the various
+            output connections.
+        """
+        inputs = butler.get(inputRefs)
+        inputs.setdefault("pfsMergedLsf", None)  # An optional input, for old data
+        butler.put(self.run(**inputs), outputRefs)
+
     def run(
         self,
         pfsMerged: PfsMerged,
-        pfsMergedLsf: LsfDict,
+        pfsMergedLsf: LsfDict | None,
         references: PfsFluxReference,
         pfsConfig: PfsConfig,
     ) -> Struct:
@@ -1421,8 +1441,9 @@ class FitFluxCalTask(PipelineTask):
         ----------
         pfsMerged : `PfsMerged`
             Merged spectra, containing observations of ``FLUXSTD`` sources.
-        pfsMergedLsf : `LsfDict`
-            Line-spread functions for merged spectra.
+        pfsMergedLsf : `LsfDict` or `None`
+            The deprecated pickled line-spread functions of the merged spectra,
+            used only if ``pfsMerged`` has no ``lsf``.
         references : `PfsFluxReference`
             Reference spectra.
         pfsConfig : `PfsConfig`
@@ -1433,6 +1454,7 @@ class FitFluxCalTask(PipelineTask):
         fluxCal : `FluxCalib`
             Flux calibration solution.
         """
+        pfsMergedLsf = legacyLsfs(pfsMerged, pfsMergedLsf)
         removeBadFluxes(pfsConfig, self.config.broadbandFluxType, self.config.fabricatedBroadbandFluxErrSNR)
         self.flagBadReferences(references)
         fluxCal = self.calculateCalibrations(pfsConfig, pfsMerged, pfsMergedLsf, references)

@@ -52,24 +52,19 @@ class MergeArmsConnections(PipelineTaskConnections, dimensions=("instrument", "v
         storageClass="PfsConfig",
         dimensions=("instrument", "visit"),
     )
-    lsf = InputConnection(
+    lsf = PrerequisiteConnection(
         name="pfsArmLsf",
-        doc="1D line-spread function",
+        doc="Deprecated pickled line-spread function, used only for pfsArms that have none",
         storageClass="LsfDict",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
+        minimum=0,
     )
 
     pfsMerged = OutputConnection(
         name="pfsMerged",
         doc="Merged spectra from an exposure",
         storageClass="PfsMerged",
-        dimensions=("instrument", "visit"),
-    )
-    pfsMergedLsf = OutputConnection(
-        name="pfsMergedLsf",
-        doc="Line-spread function of merged spectra from an exposure",
-        storageClass="LsfDict",
         dimensions=("instrument", "visit"),
     )
     sky1d = OutputConnection(
@@ -156,18 +151,19 @@ class MergeArmsTask(PipelineTask):
             Extracted spectra from the different arms, for each spectrograph.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, fiber targets.
-        lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
-            Line-spread functions from the different arms, for each
-            spectrograph.
+        lsfList : iterable of iterable of `pfs.drp.stella.LsfDict` or `None`
+            The deprecated pickled line-spread functions from the different
+            arms, for each spectrograph, used only for spectra that have no
+            ``lsf``; `None` if there is none.
         haveMedRes : `bool`
             Do we have medium-resolution data?
 
         Returns
         -------
-        spectra : `pfs.datamodel.PfsMerged`
-            Merged spectra.
-        lsf : `pfs.drp.stella.Lsf`
-            Merged line-spread function.
+        pfsMerged : `pfs.datamodel.PfsMerged`
+            Merged spectra, with their ``lsf``.
+        pfsMergedLsf : `pfs.drp.stella.LsfDict`
+            Merged line-spread function, with the deprecated `Lsf` API.
         sky1d : `list` of `pfs.drp.stella.FocalPlaneFunction`
             Sky models for each arm.
         """
@@ -176,7 +172,7 @@ class MergeArmsTask(PipelineTask):
         allSpectra = sum(spectra, [])
         for spec, lsf in zip(spectra, lsfList):
             for armSpec, armLsf in zip(spec, lsf):
-                if set(armSpec.fiberId) != set(armLsf):
+                if armLsf is not None and set(armSpec.fiberId) != set(armLsf):
                     msg = "Set of fiberIds of LSFs != fiberIds for spectra: "
                     onlyFiberId = set(armSpec.fiberId) - set(armLsf)
                     onlyLsf = set(armLsf) - set(armSpec.fiberId)
@@ -282,15 +278,16 @@ class MergeArmsTask(PipelineTask):
         lsfList = defaultdict(list)
         sky1dRefs = defaultdict(list)
         haveMedRes = False
-        for pfsArm, lsf, sky1d in zipDatasetRefs(
+        # The deprecated pickled LSFs are optional: only old pfsArms, which have no LSF, need them
+        lsfRefs = {ref.dataId: ref for ref in getattr(inputRefs, "lsf", None) or []}
+        for pfsArm, sky1d in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsArm),
-            DatasetRefList.fromList(inputRefs.lsf),
             DatasetRefList.fromList(outputRefs.sky1d),
         ):
             dataId = pfsArm.dataId
             spectrograph = dataId["spectrograph"]
             pfsArmList[spectrograph].append(butler.get(pfsArm))
-            lsfList[spectrograph].append(butler.get(lsf))
+            lsfList[spectrograph].append(butler.get(lsfRefs[dataId]) if dataId in lsfRefs else None)
             sky1dRefs[spectrograph].append(sky1d)
             if dataId["arm"] == "m":
                 haveMedRes = True
@@ -299,7 +296,6 @@ class MergeArmsTask(PipelineTask):
         outputs = self.run(list(pfsArmList.values()), pfsConfig, list(lsfList.values()), haveMedRes)
 
         butler.put(outputs.pfsMerged, outputRefs.pfsMerged)
-        butler.put(outputs.pfsMergedLsf, outputRefs.pfsMergedLsf)
         for sky1d, ref in zip(outputs.sky1d, sum(sky1dRefs.values(), [])):
             if sky1d is not None:
                 butler.put(sky1d, ref)

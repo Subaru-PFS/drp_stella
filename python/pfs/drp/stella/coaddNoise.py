@@ -58,13 +58,6 @@ class CoaddNoiseConnections(
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
-    pfsArmLsf = InputConnection(
-        name="pfsArmLsf",
-        doc="1d line-spread function for extracted spectra",
-        storageClass="LsfDict",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-        multiple=True,
-    )
     sky1d = InputConnection(
         name="sky1d",
         doc="1d sky model",

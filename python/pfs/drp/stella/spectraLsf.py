@@ -30,7 +30,7 @@ from .combinedLsf import CombinedLsf, CombinedLsfInput, IndexMap, SmoothWeight
 from .lsf import Kernel1D, Lsf, LsfDict, convolveInBlocks
 
 __all__ = ("SpectraLsf", "BoundArmLsf", "CombinedSpectraLsf", "ArmFiberLsf", "spectraLsfFromDatamodel",
-           "armFiberLsfs", "combinedSpectraLsf")
+           "armFiberLsfs", "combinedSpectraLsf", "legacyLsfs", "selectSpectraLsf")
 
 DEFAULT_HALF_WIDTH = 12*u.pix  # Default half-width of profiles
 
@@ -529,6 +529,64 @@ def armFiberLsfs(spectra, legacy=None) -> Dict[int, Lsf]:
     if gaussian is None:
         return dict(legacy)
     return {int(ff): (ArmFiberLsf(gaussian, ff) if ll is not None else None) for ff, ll in legacy.items()}
+
+
+def legacyLsfs(spectra, legacy: Optional[LsfDict] = None) -> LsfDict:
+    """The LSF of each spectrum, with the `pfs.drp.stella.Lsf` API
+
+    Parameters
+    ----------
+    spectra : `pfs.drp.stella.datamodel.PfsFiberArraySet` or `PfsTargetSpectra`
+        Spectra, with their ``lsf`` if known.
+    legacy : `LsfDict`, optional
+        The deprecated pickled LSF (``pfsArmLsf``, ``pfsMergedLsf``), used if
+        the spectra have no ``lsf`` (they were written before it existed).
+
+    Returns
+    -------
+    lsfs : `LsfDict`
+        LSF of each spectrum, by ``fiberId`` or target.
+
+    Raises
+    ------
+    RuntimeError
+        If the spectra have no ``lsf``, and there's no ``legacy``.
+    """
+    lsf = getattr(spectra, "lsf", None)
+    if lsf is not None:
+        return lsf.toLegacy()
+    if legacy is not None:
+        return legacy
+    raise RuntimeError("The spectra have no LSF, and no pickled LSF was found for them")
+
+
+def selectSpectraLsf(lsf: SpectraLsf, keys: Dict[object, object],
+                     wavelength: Dict[object, np.ndarray]) -> Optional[SpectraLsf]:
+    """The LSF of some of a set of spectra, under new keys
+
+    For example, the LSF of a pfsCalibrated (by target) from that of the
+    pfsMerged (by ``fiberId``) from which it was made.
+
+    Parameters
+    ----------
+    lsf : `CombinedSpectraLsf`
+        The LSF of the original spectra.
+    keys : `dict`
+        The original key of each new spectrum, indexed by its new key.
+    wavelength : `dict`
+        Vacuum wavelength (nm) of each new spectrum's pixels, by its new key.
+
+    Returns
+    -------
+    selected : `CombinedSpectraLsf` or `None`
+        The LSF of the new spectra, or `None` if ``lsf`` is `None`.
+    """
+    if lsf is None:
+        return None
+    if not isinstance(lsf, CombinedSpectraLsf):
+        raise TypeError(f"Can't select spectra from a {type(lsf).__name__}")
+    return CombinedSpectraLsf({new: lsf.lsfs[old] for new, old in keys.items()},
+                              {new: wavelength[new] for new in keys})
 
 
 def combinedSpectraLsf(lsfs: Dict[object, Lsf], wavelength: Dict[object, np.ndarray]

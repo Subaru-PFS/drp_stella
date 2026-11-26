@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import pickle
 from argparse import ArgumentParser
 from functools import partial, wraps
 from typing import Any, Callable, Coroutine, Dict, Optional, Protocol, TypeVar, cast
@@ -12,6 +13,7 @@ from typing_extensions import ParamSpec
 
 from .datamodel.pfsTargetSpectra import PfsTargetSpectra
 from .lsf import LsfDict
+from .spectraLsf import legacyLsfs
 
 _LOG = logging.getLogger(__name__)
 
@@ -24,9 +26,15 @@ COPY_TEMPLATES = dict(
     ),
     fiberNorms=("fiberNorms/%(day_obs)s/pfsFiberNorms-%(obs_id)06d-%(arm)1s.fits"),
     pfsArm="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArm-%(obs_id)06d-%(arm)1s%(spectrograph)1d.fits",
-    pfsArmLsf="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArmLsf-%(obs_id)06d-%(arm)1s%(spectrograph)1d.pickle",
     pfsMerged="pfsMerged/%(day_obs)s/pfsMerged-%(obs_id)06d.fits",
-    pfsMergedLsf="pfsMerged/%(day_obs)s/pfsMergedLsf-%(obs_id)06d.pickle",
+)
+
+# Filename templates for the pickled LSFs of copied spectra. The LSF is stored in the spectra, but the
+# downstream users still read these pickles; they are written from the spectra's LSF, or copied from the
+# deprecated pickled datasets for spectra written before the LSF was stored in them.
+COPY_LSF_TEMPLATES = dict(
+    pfsArm="pfsArm/%(day_obs)s/%(obs_id)06d/pfsArmLsf-%(obs_id)06d-%(arm)1s%(spectrograph)1d.pickle",
+    pfsMerged="pfsMerged/%(day_obs)s/pfsMergedLsf-%(obs_id)06d.pickle",
 )
 
 # Filename templates for conglomerated spectra to be split
@@ -245,6 +253,68 @@ class FitsWriteable(Protocol):
 
 
 @wrap_async
+def writePickle(obj: Any, target: ResourcePath, clobber: bool):
+    """Write object as a pickle
+
+    Parameters
+    ----------
+    obj : `object`
+        Object to write.
+    target : `ResourcePath`
+        Target filename.
+    clobber : `bool`
+        Clobber file if it already exists?
+    """
+    if prepareWrite(target, clobber):
+        with open(target.ospath, "wb") as fd:
+            pickle.dump(obj, fd)
+
+
+async def exportLegacyLsf(
+    butler: Butler, spectraRef: DatasetRef, lsfDataset: str, template: str, mode: str, clobber: bool
+):
+    """Export the pickled LSF of spectra
+
+    Parameters
+    ----------
+    butler : `Butler`
+        Data butler.
+    spectraRef : `DatasetRef`
+        Reference to the spectra.
+    lsfDataset : `str`
+        Name of the deprecated pickled LSF dataset, used for spectra written
+        before the LSF was stored in them.
+    template : `str`
+        Filename template for the pickle.
+    mode : `str`
+        Mode for copying an existing pickle, typically "copy" or "link".
+    clobber : `bool`
+        Clobber file if it already exists?
+    """
+    try:
+        lsf = butler.get(spectraRef.makeComponentRef("lsf"))
+    except Exception:
+        # The datastore's formatter can't read the component (e.g., it predates the LSF in the spectra)
+        lsf = getattr(butler.get(spectraRef), "lsf", None)
+    if lsf is not None:
+        target = ResourcePath(template % getDataId(butler.registry, spectraRef.dataId))
+        await writePickle(lsf.toLegacy(), target, clobber)
+        return
+    lsfRef = None
+    if lsfDataset in getDatasetTypes(butler):
+        lsfRef = butler.find_dataset(lsfDataset, spectraRef.dataId)
+    if lsfRef is None:
+        _LOG.warning("No LSF for %s", spectraRef)
+        return
+    await transferDataset(butler, lsfRef, template, mode)
+
+
+def getDatasetTypes(butler: Butler) -> set:
+    """The names of the dataset types registered in the repository"""
+    return {datasetType.name for datasetType in butler.registry.queryDatasetTypes()}
+
+
+@wrap_async
 def writeObject(obj: FitsWriteable, target: ResourcePath, clobber: bool):
     """Write object to FITS file
 
@@ -290,13 +360,17 @@ async def splitSpectra(
         Clobber file if it already exists?
     """
     spectra: PfsTargetSpectra = butler.get(spectraRef)
-    lsf: LsfDict = butler.get(lsfDataset, spectraRef.dataId)
+    legacy = None
+    if spectra.lsf is None and lsfDataset in getDatasetTypes(butler):
+        # Spectra written before the LSF was stored in them
+        legacy = butler.get(lsfDataset, spectraRef.dataId)
+    lsf: LsfDict = legacyLsfs(spectra, legacy)
     dataId = getDataId(butler.registry, spectraRef.dataId)
     for target in spectra:
         identity = dataId.copy() if dataId else {}
         identity.update(spectra[target].getIdentity())
         await writeObject(spectra[target], ResourcePath(spectrumTemplate % identity), clobber)
-        await writeObject(lsf[target], ResourcePath(lsfTemplate % identity), clobber)
+        await writePickle(lsf[target], ResourcePath(lsfTemplate % identity), clobber)
 
 
 async def runAsync(
@@ -330,6 +404,9 @@ async def runAsync(
         ref: DatasetRef
         for ref in butler.registry.queryDatasets(dataset, where=visits, findFirst=True):
             await transferDataset(butler, ref, os.path.join(base, COPY_TEMPLATES[dataset]), mode)
+            if dataset in COPY_LSF_TEMPLATES:
+                template = os.path.join(base, COPY_LSF_TEMPLATES[dataset])
+                await exportLegacyLsf(butler, ref, dataset + "Lsf", template, mode, clobber)
     for spectraDataset in SPLIT_TEMPLATES:
         lsfDataset = spectraDataset + "Lsf"
         spectraRef: DatasetRef

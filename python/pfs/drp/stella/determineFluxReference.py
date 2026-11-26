@@ -14,6 +14,7 @@ from .fitFluxReference import removeBadFluxes, removeBadSpectra, fibers
 from .fitFluxReference import convolveLsf, adjustAbsoluteScale
 from .gaia import GaiaTask
 from .lsf import LsfDict
+from .spectraLsf import legacyLsfs
 
 
 class DetermineFluxReferenceConfig(FitFluxReferenceConfig):
@@ -34,7 +35,7 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
         self.makeSubtask("gaia")
 
     def run(
-        self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict
+        self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict | None
     ) -> PfsFluxReference:
         """Perform a quick and dirty determination of the flux reference.
 
@@ -48,8 +49,9 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
             PFS fiber configuration, containing only the fibers of interest.
         pfsMerged : `PfsFiberArraySet`
             Typically an instance of `PfsMerged`.
-        pfsMergedLsf : `LsfDict`
-            Combined line-spread functions indexed by fiberId.
+        pfsMergedLsf : `LsfDict` or `None`
+            The deprecated pickled line-spread functions of the merged spectra,
+            used only if ``pfsMerged`` has no ``lsf``.
 
         Returns
         -------
@@ -57,6 +59,7 @@ class DetermineFluxReferenceTask(FitFluxReferenceTask):
             The flux reference, containing the flux for each ``FLUXSTD`` fiber.
         """
 
+        pfsMergedLsf = legacyLsfs(pfsMerged, pfsMergedLsf)
         self.log.info("Running %s", self.__class__.__name__)
         pfsConfig = pfsConfig.select(targetType=TargetType.FLUXSTD, fiberStatus=FiberStatus.GOOD)
         fiberId = pfsConfig.fiberId.copy()

@@ -134,12 +134,6 @@ class ReduceExposureConnections(
         storageClass="PfsArm",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
     )
-    lsf = OutputConnection(
-        name="pfsArmLsf",
-        doc="1D line-spread function",
-        storageClass="LsfDict",
-        dimensions=("instrument", "visit", "arm", "spectrograph"),
-    )
     lines = OutputConnection(
         name="lines",
         doc="Emission line measurements",
@@ -365,9 +359,6 @@ class ReduceExposureTask(PipelineTask):
             Measured lines.
         apCorr : `pfs.drp.stella.FocalPlaneFunction`
             Measured aperture correction.
-        lsf : `LsfDict`
-            Line-spread function of each fibre: the deprecated ``pfsArmLsf``
-            (the pfsArm has its LSF as ``pfsArm.lsf``).
         """
 
         arm = dataId["arm"]
@@ -436,12 +427,10 @@ class ReduceExposureTask(PipelineTask):
         pfsArm = spectra.toPfsArm(identity)
 
         pfsArm = pfsArm.select(pfsConfig, targetType=~TargetType.SCIENCE_MASKED)
-        lsf = LsfDict({ff: lsf[ff] for ff in pfsArm.fiberId})
         if armLsf is not None:
             pfsArm.lsf = armLsf.forSpectra(pfsArm, self.config.armLsfWarnShift, self.config.armLsfMaxShift)
-            lsf = pfsArm.lsf.toLegacy()  # The deprecated pfsArmLsf, from the same LSF
         else:
-            placeholder = GaussianArmLsf.fromLegacy(arm, spectrograph, lsf)
+            placeholder = GaussianArmLsf.fromLegacy(arm, spectrograph, {ff: lsf[ff] for ff in pfsArm.fiberId})
             pfsArm.lsf = placeholder.forSpectra(pfsArm) if placeholder is not None else None
 
         if self.config.doApplyScreenResponse:
@@ -474,7 +463,6 @@ class ReduceExposureTask(PipelineTask):
             detectorMapUsed=measurements.detectorMap,
             lines=measurements.lines,
             apCorr=measurements.apCorr,
-            lsf=lsf,
         )
 
     def checkPfsConfig(self, pfsConfig: PfsConfig, detectorMap: DetectorMap, spectrograph: int) -> PfsConfig:

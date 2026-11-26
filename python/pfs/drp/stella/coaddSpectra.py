@@ -26,7 +26,7 @@ from .applyFluxCal import calibratePfsArm
 from .wavelengthSampling import WavelengthSamplingTask
 from .FluxTableTask import FluxTableTask
 from .utils.sysUtils import getPfsVersions
-from .lsf import Lsf, LsfDict
+from .lsf import Lsf
 from .combinedLsf import CombinedLsfConfig, makeCombinedLsf
 from .modelWeights import ModelWeightsTask, resampleWeights
 from .spectraLsf import armFiberLsfs, combinedSpectraLsf
@@ -94,12 +94,13 @@ class CoaddSpectraConnections(
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
     )
-    pfsArmLsf = InputConnection(
+    pfsArmLsf = PrerequisiteConnection(
         name="pfsArmLsf",
-        doc="1d line-spread function for extracted spectra",
+        doc="Deprecated pickled line-spread function, used only for pfsArms that have none",
         storageClass="LsfDict",
         dimensions=("instrument", "visit", "arm", "spectrograph"),
         multiple=True,
+        minimum=0,
     )
     sky1d = InputConnection(
         name="sky1d",
@@ -120,12 +121,6 @@ class CoaddSpectraConnections(
         name="pfsCoadd",
         doc="Flux-calibrated coadded object spectra",
         storageClass="PfsObjectSpectra",  # Deprecated in favor of PfsCoadd
-        dimensions=("instrument", "combination", "cat_id", "obj_group"),
-    )
-    pfsCoaddLsf = OutputConnection(
-        name="pfsCoaddLsf",
-        doc="Line-spread function for pfsCoadd",
-        storageClass="LsfDict",
         dimensions=("instrument", "combination", "cat_id", "obj_group"),
     )
 
@@ -173,7 +168,8 @@ class CoaddSpectraTask(PipelineTask):
             arm, with attributes:
             - ``identity`` (`Identity`): identity of the data.
             - ``pfsArm`` (`PfsArm`): extracted spectra from spectrograph arm.
-            - ``pfsArmLsf`` (`LsfDict`): line-spread function for ``pfsArm``.
+            - ``pfsArmLsf`` (`LsfDict` or `None`): the deprecated pickled
+              line-spread function, used only if ``pfsArm`` has no ``lsf``.
             - ``sky1d`` (`FocalPlaneFunction`): 1d sky subtraction model.
             - ``fluxCal`` (`FocalPlaneFunction`): flux calibration solution.
             - ``pfsConfig`` (`PfsConfig`): PFS fiber configuration.
@@ -181,9 +177,7 @@ class CoaddSpectraTask(PipelineTask):
         Returns
         -------
         pfsCoadd : `PfsCoadd`
-            Coadded spectra, indexed by target.
-        pfsCoaddLsf : `LsfDict`
-            Line-spread functions for coadded spectra, indexed by target.
+            Coadded spectra, indexed by target, with their ``lsf``.
         """
         targetTypes = (TargetType.SCIENCE, TargetType.FLUXSTD, TargetType.SKY)
         targetSources = defaultdict(list)
@@ -205,10 +199,7 @@ class CoaddSpectraTask(PipelineTask):
         # The LSF written with the spectra is keyed by each spectrum's target (as in the PfsCoadd)
         lsf = combinedSpectraLsf({pfsCoadd[tt].target: ll for tt, ll in pfsCoaddLsf.items()},
                                  {ss.target: ss.wavelength for ss in pfsCoadd.values()})
-        return Struct(
-            pfsCoadd=PfsCoadd(pfsCoadd.values(), getPfsVersions(), lsf=lsf),
-            pfsCoaddLsf=LsfDict(pfsCoaddLsf),
-        )
+        return Struct(pfsCoadd=PfsCoadd(pfsCoadd.values(), getPfsVersions(), lsf=lsf))
 
     def runQuantum(
         self,
@@ -242,11 +233,12 @@ class CoaddSpectraTask(PipelineTask):
             return
         self.log.info("Processing %d objects for cat_id=%d, obj_group=%d", len(objId), catId, objGroup)
 
+        # The deprecated pickled LSFs are optional: only old pfsArms, which have no LSF, need them
+        lsfRefs = {ref.dataId: ref for ref in getattr(inputRefs, "pfsArmLsf", None) or []}
         data: Dict[Identity, Struct] = {}
-        for pfsConfigRef, pfsArmRef, pfsArmLsfRef, sky1dRef, fluxCalRef in zipDatasetRefs(
+        for pfsConfigRef, pfsArmRef, sky1dRef, fluxCalRef in zipDatasetRefs(
             DatasetRefList.fromList(inputRefs.pfsConfig),
             DatasetRefList.fromList(inputRefs.pfsArm),
-            DatasetRefList.fromList(inputRefs.pfsArmLsf),
             DatasetRefList.fromList(inputRefs.sky1d),
             DatasetRefList.fromList(inputRefs.fluxCal),
         ):
@@ -258,7 +250,7 @@ class CoaddSpectraTask(PipelineTask):
             data[identity] = Struct(
                 identity=identity,
                 pfsArm=pfsArm,
-                pfsArmLsf=butler.get(pfsArmLsfRef),
+                pfsArmLsf=butler.get(lsfRefs[pfsArmRef.dataId]) if pfsArmRef.dataId in lsfRefs else None,
                 sky1d=butler.get(sky1dRef),
                 fluxCal=butler.get(fluxCalRef),
                 pfsConfig=pfsConfig.select(fiberId=pfsArm.fiberId),

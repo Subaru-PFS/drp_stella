@@ -32,6 +32,7 @@ from pfs.drp.stella.fluxModelSet import FluxModelSet
 from pfs.drp.stella.interpolate import interpolateFlux, interpolateIndices, interpolateMask
 from pfs.drp.stella.math import interpolateFlux as interpolateFluxImpl
 from pfs.drp.stella.lsf import GaussianLsf, Lsf, LsfDict
+from pfs.drp.stella.spectraLsf import legacyLsfs
 from pfs.drp.stella.utils.math import ChisqList
 from pfs.drp.stella.utils import debugging
 
@@ -73,11 +74,12 @@ class FitFluxReferenceConnections(PipelineTaskConnections, dimensions=("instrume
         storageClass="PfsMerged",
         dimensions=("instrument", "visit"),
     )
-    pfsMergedLsf = InputConnection(
+    pfsMergedLsf = PrerequisiteConnection(
         name="pfsMergedLsf",
-        doc="Line-spread function of merged spectra",
+        doc="Deprecated pickled line-spread function of merged spectra, used only if the pfsMerged has none",
         storageClass="LsfDict",
         dimensions=("instrument", "visit"),
+        minimum=0,
     )
 
     reference = OutputConnection(
@@ -356,11 +358,12 @@ class FitFluxReferenceTask(PipelineTask):
             output connections.
         """
         inputs = butler.get(inputRefs)
+        inputs.setdefault("pfsMergedLsf", None)  # An optional input, for old data
         reference = self.run(**inputs)
         butler.put(reference, outputRefs.reference)
 
     def run(
-        self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict
+        self, pfsConfig: PfsConfig, pfsMerged: PfsFiberArraySet, pfsMergedLsf: LsfDict | None
     ) -> PfsFluxReference:
         """Create flux reference from ``pfsMerged``
         and corresponding ``pfsConfig``.
@@ -372,14 +375,16 @@ class FitFluxReferenceTask(PipelineTask):
             in which information of broad band fluxes count.
         pfsMerged : `pfs.drp.stella.datamodel.PfsFiberArraySet`
             Typically an instance of `PfsMerged`.
-        pfsMergedLsf : `dict` [`int`, `pfs.drp.stella.Lsf`]
-            Combined line-spread functions indexed by fiberId.
+        pfsMergedLsf : `dict` [`int`, `pfs.drp.stella.Lsf`] or `None`
+            The deprecated pickled line-spread functions of the merged spectra,
+            used only if ``pfsMerged`` has no ``lsf``.
 
         Returns
         -------
         pfsFluxReference : `pfs.datamodel.pfsFluxReference.PfsFluxReference`
             Reference spectra for flux calibration
         """
+        pfsMergedLsf = legacyLsfs(pfsMerged, pfsMergedLsf)
         pfsConfig = pfsConfig.select(targetType=TargetType.FLUXSTD)
         originalFiberId = np.copy(pfsConfig.fiberId)
         fitFlag: dict[int, int] = {}  # mapping fiberId -> flag indicating fit status

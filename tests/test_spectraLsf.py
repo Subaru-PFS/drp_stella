@@ -256,6 +256,37 @@ class SpectraLsfTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(TypeError):
             armProfile.extractFrom(arm.flux)
 
+    def testLegacy(self):
+        """Claude: the Lsf API comes from the spectra's LSF, or the deprecated pickle for old spectra"""
+        from pfs.datamodel import Target
+        from pfs.drp.stella.spectraLsf import legacyLsfs, selectSpectraLsf
+
+        armLsf = makeArmLsf()
+        arm = makeArm(armLsf)
+        arm.lsf = armLsf.forSpectra(arm)
+        old = LsfDict({ff: GaussianLsf(LENGTH, 1.5) for ff in FIBERS})
+        lsfs = legacyLsfs(arm, old)  # The spectra's own LSF wins
+        self.assertEqual(set(lsfs), set(FIBERS))
+        self.assertFloatsEqual(lsfs[20].computeArray(1234.5), arm.lsf.toLegacy()[20].computeArray(1234.5))
+        arm.lsf = None
+        self.assertIs(legacyLsfs(arm, old), old)
+        with self.assertRaises(RuntimeError):
+            legacyLsfs(arm, None)
+
+        # The LSF of some of the spectra under new keys (as for a pfsCalibrated made from a pfsMerged)
+        wavelength = np.linspace(620.0, 960.0, 4000)
+        merged = CombinedSpectraLsf(
+            {int(ff): makeCombinedLsf([ArmFiberLsf(armLsf, ff)], [makeArm(armLsf).wavelength[ii]], wavelength,
+                                      [np.ones(4000)], [np.ones(4000, dtype=bool)], 1, CombinedLsfConfig())
+             for ii, ff in enumerate(FIBERS)},
+            {int(ff): wavelength for ff in FIBERS})
+        target = Target(1, 2, "1,1", 3)
+        selected = selectSpectraLsf(merged, {target: 20}, {target: wavelength})
+        self.assertEqual(selected.keys, [target])
+        self.assertProfilesEqual(selected.computeProfile(target, 800*u.nm),
+                                 merged.computeProfile(20, 800*u.nm))
+        self.assertIsNone(selectSpectraLsf(None, {target: 20}, {target: wavelength}))
+
 
 class ConvertersTestCase(lsst.utils.tests.TestCase):
     def testConverters(self):
