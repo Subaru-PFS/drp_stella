@@ -65,22 +65,22 @@ def applyFiberNorms(
                 raise RuntimeError(f"Hash mismatch for fiberProfiles: {gotHash} != {expectHash}")
 
     badFiberNorms = pfsArm.flags.add("BAD_FIBERNORMS")
-    fiberNorms = fiberNorms.select(fiberId=pfsArm.fiberId)
 
-    # Catch fibers without a fiberNorms entry
-    missingFiberId = set(pfsArm.fiberId) - set(fiberNorms.fiberId)
-    if missingFiberId:
-        missing = pfsArm.select(fiberId=list(missingFiberId))
-        missing.mask |= badFiberNorms
-        pfsArm = pfsArm.select(fiberId=fiberNorms.fiberId)
+    # Catch fibers without a fiberNorms entry.
+    # N.b. we must modify pfsArm in place, so we can't use pfsArm.select (which returns a copy)
+    rowOfFiberId = {fiberId: row for row, fiberId in enumerate(fiberNorms.fiberId)}
+    have = np.array([fiberId in rowOfFiberId for fiberId in pfsArm.fiberId], dtype=bool)
+    missingFiberId = set(pfsArm.fiberId[~have].tolist())
+    pfsArm.mask[~have] |= badFiberNorms
 
     # Apply the fiberNorms
-    assert np.array_equal(pfsArm.fiberId, fiberNorms.fiberId)
-    bad = (fiberNorms.values == 0.0) | ~np.isfinite(fiberNorms.values)
+    index = np.where(have)[0]
+    values = fiberNorms.values[[rowOfFiberId[fiberId] for fiberId in pfsArm.fiberId[index]]]  # a copy
+    bad = (values == 0.0) | ~np.isfinite(values)
     if np.any(bad):
-        fiberNorms.values[bad] = 1.0
-        pfsArm.mask[bad] |= badFiberNorms
-    pfsArm.norm *= fiberNorms.values
+        values[bad] = 1.0
+        pfsArm.mask[index] |= np.where(bad, badFiberNorms, 0).astype(pfsArm.mask.dtype)
+    pfsArm.norm[index] *= values
 
     return missingFiberId
 
