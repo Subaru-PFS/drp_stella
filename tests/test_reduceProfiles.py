@@ -42,6 +42,7 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         self.wingRadius = 4  # Distance at which light is considered to be in the wings (pixels)
         self.fluxRadius = 3  # Half-width of window for measuring a fiber's flux (pixels)
 
+        self.exposureTime = np.nan  # Exposure time of quartz and dark (s); NaN means unknown
         self.rng = np.random.RandomState(12345)
         self.fiberId = self.synth.fiberId
         self.detectorMap = makeSyntheticDetectorMap(self.synth)
@@ -99,7 +100,8 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         variance = lsst.afw.image.ImageF(image.getBBox())
         variance.array[:] = np.where(image.array > 0, image.array, 0) + self.synth.readnoise**2
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(image, mask, variance))
-        exposure.getInfo().setVisitInfo(lsst.afw.image.VisitInfo(darkTime=1.0))
+        visitInfo = lsst.afw.image.VisitInfo(exposureTime=self.exposureTime, darkTime=1.0)
+        exposure.getInfo().setVisitInfo(visitInfo)
         return exposure
 
     def makeConfig(self, lit: Iterable[int]) -> PfsConfig:
@@ -128,6 +130,7 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         darkFlux: Optional[Dict[int, float]] = None,
         darkConfigLit: Optional[Iterable[int]] = None,
         darkConfigOmit: Iterable[int] = (),
+        quartzConfigExtra: Iterable[int] = (),
     ):
         """Run ReduceProfilesTask on simulated quartz and dark
 
@@ -142,6 +145,9 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         darkConfigOmit : iterable of `int`, optional
             Fibers that the dark's pfsConfig claims are hidden, even though
             they are exposed.
+        quartzConfigExtra : iterable of `int`, optional
+            Fibers that the quartz's pfsConfig claims are exposed, even though
+            they are hidden.
 
         Returns
         -------
@@ -160,7 +166,10 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         dark = self.makeExposure(darkFlux)
         brightList = {1: quartz}
         darkList = {2: dark}
-        pfsConfigList = {1: self.makeConfig(quartzLit), 2: self.makeConfig(darkConfigLit)}
+        pfsConfigList = {
+            1: self.makeConfig(quartzLit | set(quartzConfigExtra)),
+            2: self.makeConfig(darkConfigLit),
+        }
         detectorMapList = {1: self.detectorMap, 2: self.detectorMap}
 
         task = ReduceProfilesTask(config=self.config)
@@ -269,6 +278,58 @@ class ReduceProfilesDarkTestCase(lsst.utils.tests.TestCase):
         profiles, darkFibers, quartz = self.runReduce(
             darkFlux={hidden: 0.5 * self.flux}, darkConfigLit=[hidden]
         )
+        self.assertEqual(set(profiles), self.lit)
+        self.assertDarkSubtracted(profiles, darkFibers, quartz)
+
+    def testUnlitInQuartz(self):
+        """A fiber hidden in the quartz, but claimed by the pfsConfig to be exposed
+
+        This is fiber 2007 on spectrograph 4 in groups 1-3 of run31: hidden,
+        but with a finite ``pfiCenter``. It shouldn't be fit, or
+        MergeFiberProfilesTask would consider its illuminated neighbors too
+        close to another fiber.
+        """
+        unlit = int(self.fiberId[13])
+        assert unlit not in self.lit and unlit not in self.brokenCobras
+        profiles, darkFibers, quartz = self.runReduce(quartzConfigExtra=[unlit])
+        self.assertNotIn(unlit, profiles)
+        self.assertEqual(set(profiles), self.lit)
+        self.assertDarkSubtracted(profiles, darkFibers, quartz)
+
+    def useFewBrokenCobras(self, num: int):
+        """Use only the first ``num`` broken cobras, and set the exposure time
+
+        With few fibers illuminated in the darks, the median bright/dark ratio
+        is not a good estimate of the ratio for a fiber that can't be hidden,
+        so we need the exposure times.
+        """
+        brokenIndex = np.array([5, 20, 26])[:num]
+        self.brokenCobras = set(self.fiberId[brokenIndex].tolist())
+        self.neighbors = set(self.fiberId[brokenIndex + 1].tolist())
+        self.exposureTime = 25.0
+
+    def testOneStuckOneHalfHidden(self):
+        """One broken cobra, and one fiber half-hidden in the dark"""
+        self.useFewBrokenCobras(1)
+        profiles, darkFibers, quartz = self.runReduce(
+            darkFlux={self.extra: 0.5 * self.flux}, darkConfigLit=[self.extra]
+        )
+        self.assertEqual(set(profiles), self.lit)
+        self.assertDarkSubtracted(profiles, darkFibers, quartz)
+
+    def testOneStuckOneLeaking(self):
+        """One broken cobra, and one fiber leaking 10% of its light in the dark"""
+        self.useFewBrokenCobras(1)
+        profiles, darkFibers, quartz = self.runReduce(darkFlux={self.extra: 0.1 * self.flux})
+        self.assertEqual(set(profiles), self.lit)
+        self.assertDarkSubtracted(profiles, darkFibers, quartz)
+
+    def testTwoStuckTwoLeaking(self):
+        """Two broken cobras, and two fibers leaking 10% of their light in the dark"""
+        self.useFewBrokenCobras(2)
+        leaking = {self.extra, int(self.fiberId[18])}
+        assert leaking <= self.lit
+        profiles, darkFibers, quartz = self.runReduce(darkFlux={ff: 0.1 * self.flux for ff in leaking})
         self.assertEqual(set(profiles), self.lit)
         self.assertDarkSubtracted(profiles, darkFibers, quartz)
 
