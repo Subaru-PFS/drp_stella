@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Set
 
 from lsst.pex.config import Field
 
@@ -67,6 +67,13 @@ class MergeFiberProfilesConnections(
         storageClass="FiberProfileSet",
         multiple=True,
     )
+    darkFibers = InputConnection(
+        name="profiles_darkFibers",
+        doc="Fibers illuminated in the darks but not intentionally in the brights, for individual groups",
+        dimensions=("instrument", "profiles_run", "profiles_group", "arm", "spectrograph"),
+        storageClass="StructuredDataDict",
+        multiple=True,
+    )
     data = PrerequisiteConnection(
         name="profiles_visits",
         doc="List of bright and dark exposures",
@@ -126,12 +133,16 @@ class MergeFiberProfilesTask(PipelineTask):
         spectrograph = outputRefs.merged.dataId["spectrograph"]
 
         profiles = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.profiles}
+        darkFiberData = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.darkFibers}
         data = {ref.dataId["profiles_group"]: butler.get(ref) for ref in inputRefs.data}
         pfsConfigs = {ref.dataId["visit"]: butler.get(ref) for ref in inputRefs.pfsConfig}
         brightConfigs = [[pfsConfigs[expId] for expId in data[group]["bright"]] for group in profiles]
         darkConfigs = [[pfsConfigs[expId] for expId in data[group]["dark"]] for group in profiles]
+        darkFibers = [set(darkFiberData[group]["fiberId"]) for group in profiles]
 
-        results = self.run(list(profiles.values()), brightConfigs, darkConfigs, spectrograph)
+        results = self.run(
+            list(profiles.values()), brightConfigs, darkConfigs, spectrograph, darkFibers=darkFibers
+        )
         butler.put(results.merged, outputRefs.merged)
 
     def run(
@@ -141,6 +152,7 @@ class MergeFiberProfilesTask(PipelineTask):
         darkConfigs: List[List[PfsConfig]],
         spectrograph: int,
         badFibers: List[int] = None,
+        darkFibers: Optional[List[Optional[Set[int]]]] = None,
     ) -> FiberProfileSet:
         """Merge fiber profiles
 
@@ -154,6 +166,13 @@ class MergeFiberProfilesTask(PipelineTask):
             Dark fiber configurations for each profile.
         spectrograph : `int`
             Spectrograph number (1..4).
+        badFibers : list of `int`, optional
+            Fibers to replace in the merged profiles.
+        darkFibers : list of (`set` of `int` or `None`), optional
+            Fibers illuminated in the darks but not intentionally in the
+            bright exposures, as measured by ``ReduceProfilesTask``, for each
+            profile. If not provided (or `None` for a profile), we use the
+            ``darkConfigs`` instead.
 
         Returns
         -------
@@ -175,8 +194,16 @@ class MergeFiberProfilesTask(PipelineTask):
         # Fibers that were intended to be exposed
         intended = [set(getIlluminatedFibers(conf, False)) for conf in brightConfigs]
 
-        # Fibers that were exposed that were not intended to be
-        bad = [set(getIlluminatedFibers(conf, True) if conf else []) for conf in darkConfigs]
+        # Fibers that were exposed that were not intended to be. We prefer the measurement made by
+        # ReduceProfilesTask, falling back to the pfsConfig.
+        if darkFibers is None:
+            darkFibers = [None]*numProfiles
+        assert len(darkFibers) == numProfiles
+        bad = []
+        for darkLit, conf in zip(darkFibers, darkConfigs):
+            if darkLit is None:
+                darkLit = set(getIlluminatedFibers(conf, True) if conf else [])
+            bad.append(set(darkLit))
 
         # Fibers that were always exposed; probably these are broken cobras, though some might just have had
         # trouble in their one dot-roach of consequence
@@ -187,35 +214,34 @@ class MergeFiberProfilesTask(PipelineTask):
         # Fibers that were bad when we expected them to be good
         badWhenWanted = [bb & ii for bb, ii in zip(bad, intended)]
 
+        deltas = [dd for dd in range(-self.config.fiberInfluence, self.config.fiberInfluence + 1) if dd != 0]
+
         tooCloseNormal = set()  # Fibers that were too close to a fiber that was intended to be exposed
-        tooCloseBad = set()  # Fibers that were measured too close to a bad fiber
         for pp in profiles:
             for ff in pp:
-                for delta in list(range(-self.config.fiberInfluence, self.config.fiberInfluence + 1)):
-                    if delta == 0:
-                        continue
-                    if ff + delta in pp:
-                        if ff + delta in alwaysBad:
-                            tooCloseBad.add(ff)
-                        else:
-                            tooCloseNormal.add(ff)
-        tooCloseNormal.difference_update(tooCloseBad)
+                if any(ff + delta in pp for delta in deltas):
+                    tooCloseNormal.add(ff)
+
+        # Fibers near a fiber exposed in the darks. Their profiles may be contaminated by that fiber's light
+        # if the dark subtraction is imperfect, so we don't use them to replace other fibers (PIPE2D-2038).
+        anyBad = set().union(*bad)
+        nearBad = set(ff + delta for ff in anyBad for delta in deltas) - anyBad
 
         self.log.info("%d fibers alwaysBad: %s", len(alwaysBad), sorted(alwaysBad))
         self.log.info("%d fibers tooCloseNormal: %s", len(tooCloseNormal), sorted(tooCloseNormal))
-        self.log.info("%d fibers tooCloseBad: %s", len(tooCloseBad), sorted(tooCloseBad))
+        self.log.info("%d fibers near bad fibers: %s", len(nearBad), sorted(nearBad))
 
         good = set()  # Fibers for which we expect we have good profile measurements
         for ii, (pp, bb) in enumerate(zip(profiles, badWhenWanted)):
             thisGood = set()
             for ff in pp:
-                if ff not in bb and ff not in tooCloseNormal and ff not in tooCloseBad:
+                if ff not in bb and ff not in tooCloseNormal:
                     thisGood.add(ff)
             self.log.info("%d good fibers in set %d: %s", len(thisGood), ii, sorted(thisGood))
             good |= thisGood
         self.log.info("%d good fibers: %s", len(good), sorted(good))
 
-        bad = alwaysBad | tooCloseNormal | tooCloseBad
+        bad = alwaysBad | tooCloseNormal
 
         # Get profiles for the fibers we don't have good profiles for
         merged = FiberProfileSet.makeEmpty(
@@ -247,7 +273,7 @@ class MergeFiberProfilesTask(PipelineTask):
         # Replace bad fibers with nearest good fibers
         bad |= set(badFibers) | missing
         self.log.info("Replacing %d bad and missing fibers: %s", len(bad), sorted(bad))
-        merged.replaceFibers(bad, self.config.replaceNearest)
+        merged.replaceFibers(bad, self.config.replaceNearest, excludeDonors=nearBad)
 
         # Propagate metadata
         badKeywords = []
