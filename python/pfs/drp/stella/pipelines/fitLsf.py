@@ -431,13 +431,18 @@ class FitLsfTask(PipelineTask):
             haloRejected = {(visit, ff.fiberId, round(ff.catWavelength, 4)): rejected[jj]
                             for jj, (visit, ff) in enumerate(haloRows) if jj in rejected}
             fixHalos = {}
+            mtp = self.mtpGroups({key[1] for key in free.fits})
             for key, ffs in free.fits.items():
                 ffs = [ff for ff in ffs if isUsed(ff)]
                 if not ffs:
                     continue
                 u, v = coords(np.array([ff.x for ff in ffs]), np.array([ff.y for ff in ffs]))
-                frac = np.clip(haloSurfaces["haloFrac"](u, v), 0.0, 1.0)
-                width = np.clip(haloSurfaces["haloWidth"](u, v), 1.0e-3, None)
+                # Claude: each line gets its own visit's (and fibre group's) halo; the bare surface is the
+                # average lamp's (fitSurfaces), and pinning every lamp's lines to it biased K
+                visit, fiberId = key
+                labels = dict(visit=visit, mtp=mtp[fiberId], connector=mtp[fiberId].split("-")[0])
+                frac = np.clip(haloSurfaces["haloFrac"].evaluate(u, v, **labels), 0.0, 1.0)
+                width = np.clip(haloSurfaces["haloWidth"].evaluate(u, v, **labels), 1.0e-3, None)
                 fixHalos[key] = {round(float(ff.catWavelength), 4): (float(fr), float(wi))
                                  for ff, fr, wi in zip(ffs, frac, width)}
 
